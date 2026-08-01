@@ -129,3 +129,28 @@ width curve, then priority reverts per pair-v17.md §7 mapping.
 NULL ⇒ one bounded follow-up allowed only if fill counts show a
 concrete starvation mechanism (e.g. band guard blocks leader quotes);
 otherwise treat as DEAD.
+
+## §5 E-044 readout (s34, 2026-08-01; m10=1026, m40=1025)
+
+Integrity: both rows 96 failures (100% priceToBeat, identical to 1008),
+pairs n=10,651. Bar 0.74.
+
+- **MAKERTILT-BETTER (narrow width only):** m10−g1 = **+1.243 ± 0.453**
+  (maker-only tilt beats the taker version at bps10); m40−g3 = −0.334 ±
+  0.213 (no effect at bps40).
+- **TILT-EV-REAL: still NO.** m10−g0 = +0.462 ± 0.281; m40−g0 = +0.201 ±
+  0.193 — no tilt cell has ever beaten NEUTRAL beyond the bar.
+- **Mechanism (engagement is width-inverted in maker form):** m10 S-split
+  moved 58/42 → 55/45 toward the winner (win-side S avg 0.558 — pays up on
+  the leader side by design), residue 1,420 mkts at **74.4% win**
+  (+17.6k residue pnl), R fills ≈ 0, D-spend $623k. m40 S-split = 57.9/42.1
+  (baseline — NOT engaged; wide dead zone rarely tilts maker quotes),
+  residue 357 mkts at 37.5%. Headline ev: m10 −13.05, m40 −13.31 (g0
+  −13.51).
+- Reading: the E-042 anatomy lever (acquisition cost) is confirmed — with
+  taker chase removed, tilted residue keeps its predictive value (74% win)
+  at near-zero extra cost, closing the g1-vs-g0 harm (−1.24 → +0.46 ns).
+  What remains vs neutral is small and below the instrument bar at one
+  FULL run. Frozen mapping ⇒ ITERATE at the ENGAGED cell (bps10): dose
+  (tiltShares), persistence — E-046 design next session; combining with
+  the P* 0.92 re-center (E-045) is the natural frame.

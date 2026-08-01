@@ -477,3 +477,43 @@ Caveats: the 150-at-min-5 threshold was chosen looking at this table
 (in-sample cut — a v17o grid must sweep it fresh); attribution is
 first-order (no re-simulation). This is the measured prior for v17o
 (state-conditioned quoting), analogous to §10's ramp prior for v17t.
+
+## §12 E-043 + E-045 readout (s34, 2026-08-01; rows landed 00:54Z)
+
+Mapping: h80=1024, h160=1030, p92=1029, p94=1028, p98=1027 (m-cells in
+pair-v17m.md §5). Integrity: all 7 rows n=96 failures, 100% priceToBeat,
+identical set to 1008; every pair n=10,651. Bar B_full = 0.74.
+
+**E-043 (width dose at τ160): DOSE-FLAT + TILT-EV-REAL retest FAIL.**
+h80−g3 = −0.173 ± 0.211; h80−g0 = +0.362 ± 0.189 (< 0.74 again — E-042's
++0.54 did not strengthen); h160−g0 = −0.149 (no anomaly). Per frozen
+mapping: width axis CLOSED at ev; signal-(b) taker-tilt value rested on
+E-044 (see pair-v17m.md §5: MAKERTILT-BETTER at bps10, still no
+TILT-EV-REAL).
+
+**E-045 (neutral P* level): P*-LIVE, strongly, monotone.**
+p92−g0 = **+5.443 ± 0.224** (largest confirmed ev delta on record);
+p94−g0 = +3.476 ± 0.216; p98−g0 = −4.159 ± 0.221. Headline ev:
+p92 −8.07 (NEW best FULL on record), p94 −10.03, g0 −13.51, p98 −17.67.
+HONEST STRUCTURE: profit per $100 is FLAT across the sweep (−5.91 /
+−5.83 / −5.93 / −6.20) while invested/played falls 292→166 — the ev gain
+is exposure reduction at unchanged per-dollar toxicity (participate less
+in bad flow), not per-dollar improvement. Winner 0.92 sits at the GRID
+EDGE with no interior optimum found.
+
+Decisions applied (frozen mappings): (1) v17t Branch B — grid re-centered
+at pairTarget 0.92, reference = 1029 by code identity; (2) v17o Branch B
+same; (3) follow-through cell E-045b pre-registered below (P* 0.90 =
+schema floor).
+
+### E-045b (pre-registered s34 BEFORE submission): P* 0.90 edge probe
+
+One cell, params-only on pair.v17 at SHA f107234 semantics (file untouched
+since): all params = 1029's recorded params with pairTarget=0.90. Universe
+--to-ms 1785196800000, 140/20, B=500. Bars vs 1029 (paired, 10,651
+common): **P*-CONT** iff p90−p92 > +0.74 (monotonicity continues — next
+sweep must extend below the schema floor via schema touch); **P*-PEAK**
+iff < −0.74 (0.92 is the interior optimum, center confirmed);
+**P*-EDGE-FLAT** otherwise (0.90≈0.92 plateau — center stays 0.92).
+Mechanism metrics: invested/played, S/C/D fill counts+$, resid-mkt count,
+noActivity (watch for engagement collapse at tight caps).
