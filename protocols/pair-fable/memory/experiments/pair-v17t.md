@@ -705,3 +705,11 @@ not m0, here. Per-start-minute EV (minuteev.ts): no positive start
 region (KILL condition on start-gating unchanged); "forbid starts
 before m" monotone WORSENS with m — late-only participation is not
 the answer, consistent with §10.
+
+**Phase×band addendum (s41):** on 1052 the §12 favorite-side inversion
+is now LATE-only — late worst bands 0.40–0.50 (−8.1¢/sh) and ≥0.50
+(−7.2¢); the early window's dollar-dominant cell is 0.30–0.40 (−4.2¢,
+−$6.2k) with the favorite band only −3.4¢. If E-051 nulls and the
+secondary candidate (quote-price-conditioned concession) is designed,
+it should be scoped to the LATE window at this center — early it would
+mis-target the measured band structure.
