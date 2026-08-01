@@ -75,3 +75,26 @@ measurably suppressed (mechanism engaged, no ev) ⇒ axis closed;
 inconclusive-engagement escalates to a 200-mkt diagnostic instead.
 Mechanism metrics: S-fill minute histogram + ev/share by minute
 (pair-v17.md §10 method), completion counts, resid-mkt count.
+
+### Prepared submit commands (s32; still DRAFT until E-045 verdict applied)
+
+Branch A — E-045 = P*-FLAT-FULL (submit exactly as drafted; center = all
+schema defaults, verified equal to the E-042 center on run 1015's recorded
+params). One literal command per config (zsh guard), submit whole grid up
+front, capture each batchUid line, verify with fleet.ts:
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param lateTighten=0.03 --to-ms 1785196800000 --label pf-v17t-k003 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param lateTighten=0.06 --to-ms 1785196800000 --label pf-v17t-k006 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param lateTighten=0.12 --to-ms 1785196800000 --label pf-v17t-k012 --detach
+```
+
+Branch B — E-045 = P*-LIVE at some P*≠0.96: add
+`--param pairTarget=<winning P*>` to each command above, and the k=0
+reference becomes the WINNING E-045 cell's run row (it IS v17 τ0 at that
+P* by code identity — no k=0 re-run needed in either branch; Branch A
+reuses g0 = 1008).
+
+Pre-submit checklist (unchanged): tree clean + pushed to origin/main;
+no v17t jobs queued elsewhere; freeze this file (Status → FROZEN, stamp
+commit) BEFORE the first submit.

@@ -1,8 +1,35 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31T23:47Z (mission-02 session 31 close)
+Updated: 2026-08-01T00:08Z (mission-02 session 32 close)
 
 ## Current work
+
+**Session 32 (23:48–00:08Z, started ~2 min after s31 forced close):
+E-043/E-044/E-045 rows STILL not landed — and the timing model is now
+CORRECTED: run rows do NOT land ~65 min after each submit; they land
+ALL TOGETHER shortly after the ENTIRE fleet queue drains.** Evidence:
+(a) E-042's three rows created within 9 s of each other (22:40:02–:11)
+at full drain, ~40 min after g3's own markets finished; (b) h80's
+10,651 markets finished ≈23:10Z yet its aggregate still absent 55 min
+later; (c) `src/backtest/queue.ts:87-95` — 3 attempts, exponential 5 s
+backoff: each retry of the 96 deterministic priceToBeat failures is
+re-queued behind the pending FIFO, so final failures (and thus the
+waiting-children aggregates) resolve only near full drain. **Expected
+landing for ALL 7 rows: ≈01:15–01:25Z** (at 00:05Z: h80/h160/p92/p94
+done with 10,651 each, p98 at 1,209/10,747, m10/m40 at 0; ~30.7k
+market jobs left at ~420–500/min).
+
+s32 additions (no new runs; no readout possible):
+
+- Timing-model correction above (capability note — stops future
+  sessions from polling per-batch).
+- **v17t submit commands PREPARED for both E-045 branches**
+  (pair-v17t.md §4 "Prepared submit commands"): Branch A (P*-FLAT) =
+  three literals as drafted; Branch B (P*-LIVE) = same + `--param
+  pairTarget=<winner>`, with the winning E-045 cell's run row as the
+  k=0 reference by code identity (no k=0 re-run in either branch).
+- Verified HEAD d539617 == origin/main, tree clean — v17t submit is
+  push-ready.
 
 **Session 31: E-043/E-044/E-045 STILL not readable (no run rows yet —
 aggregates wait on the 96 outage-failure retries; E-042 precedent says
@@ -189,26 +216,57 @@ the readout's decision mappings are applied.
 
 ## Next step (priority order)
 
-1. **Read E-043/E-044/E-045** per procedure above (s31 verified at
-   23:44Z: NO run rows yet; queue full drain ≈ 00:47Z; E-043 rows
-   expected ≈ 00:00–00:15Z by the E-042 precedent of ~65 min
-   submit→row. Verify with fleet.ts first — do NOT resubmit). Add to
-   the frozen metrics: E-044 m-cells' S-fill win/lose split vs the
-   58/42 neutral baseline (pair-v17.md §10) as the tilt-engagement
-   metric.
+1. **Read E-043/E-044/E-045** per procedure above. ALL 7 rows land
+   together ≈01:15–01:25Z 2026-08-01 (corrected model: rows appear at
+   full queue drain, not per-batch — see s32 Current work). Verify
+   with fleet.ts first — do NOT resubmit; if `active batches` > 0,
+   the rows are not there yet and the session should do prep/analysis
+   work instead of polling per-batch. Add to the frozen metrics:
+   E-044 m-cells' S-fill win/lose split vs the 58/42 neutral baseline
+   (pair-v17.md §10) as the tilt-engagement metric.
 2. Follow the frozen decision mappings (maker-tilt iteration, width
    extension, or P* follow-up).
 3. **Freeze + submit the v17t grid** (pair-v17t.md §4: k ∈ {0.03,
    0.06, 0.12} vs g0=1008, FULL, B_full 0.74) — AFTER applying
-   E-045's verdict (P*-LIVE re-centers base P* first; P*-FLAT-FULL
-   ⇒ submit at P* 0.96 as drafted). Strategy is smoked +
-   activation-verified (runs 1014/1015/1016/1017); code at commit
-   9ef75e4 + the per-share fix commit. Push to origin/main before
-   submitting.
+   E-045's verdict. Exact submit literals for BOTH verdict branches
+   are prepared in pair-v17t.md §4 (s32); strategy smoked +
+   activation-verified (runs 1014/1015/1016/1017); code committed and
+   pushed (d539617 == origin/main verified s32). Freeze the file,
+   then fire the three commands.
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 31 (final)
+## Alignment gate — session 32 (final)
+
+- **Classification:** neutral-controller + directional-controller
+  (evaluation-resume of E-043/E-044/E-045; readout blocked by queue
+  drain — the harness restarted the loop 2 min after s31, well before
+  the runs could finish).
+- **Contribution:** no controller decision changed — no new evidence
+  was readable (declared honestly). Banked for the next session:
+  corrected run-row timing model (rows land together at full queue
+  drain; evidence = E-042 9-second row cluster + h80 aggregate absent
+  55 min after its markets finished + queue.ts 5s-backoff retry
+  mechanics), and prepared v17t submit literals for both E-045
+  verdict branches (pair-v17t.md §4).
+- **Time to evidence:** fleet verify min 1, DB row poll min 3 —
+  resume of in-flight evidence; no NEW backtest was launchable (all
+  controller work is verdict-gated on the 7 in-flight runs, and the
+  only pending submit — v17t — is explicitly gated on E-045 by its
+  own design file). PASS on the resume reading; recorded plainly.
+- **Throughput:** 0 new runs (7 × 10,747 in flight, verified 3×, no
+  resubmission); 3 read-only DB polls + 1 queue-config check. No
+  serial-scan issue.
+- **Scale:** closed by E-036 on record; all in-flight runs B=500.
+- **Next:** read all 7 rows (land ≈01:15–01:25Z), apply frozen
+  decision mappings, freeze + fire the prepared v17t grid — GREEN
+  (neutral + directional controller evaluation).
+- **Verdict:** **GREEN** (blocked-stub session: aligned
+  evaluation-resume, zero drift, no premature claims).
+- Verdict history: s28 GREEN, s29 GREEN, s30 GREEN, s31 GREEN,
+  s32 GREEN. Next audit: s35.
+
+## Alignment gate — session 31 (superseded)
 
 - **Classification:** neutral-controller (built + verified pair.v17t,
   the priority-1 backlog axis; E-043/E-044/E-045 readout attempted
@@ -286,7 +344,8 @@ the readout's decision mappings are applied.
 
 ## Blockers
 
-None. 7 FULL runs in flight (drain ≈ 00:40Z 2026-08-01; do NOT
+None. 7 FULL runs in flight — ALL rows land together at full queue
+drain ≈ 01:15–01:25Z 2026-08-01 (corrected s32 model; do NOT
 resubmit — verify with fleet.ts, then results.ts --last 8).
 
 ## Needs human

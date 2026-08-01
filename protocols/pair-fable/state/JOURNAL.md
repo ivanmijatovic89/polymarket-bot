@@ -1070,3 +1070,19 @@ Fixed it so the discount is a clean per-share concession that ramps with
 age; verified early behavior stays identical and only late buying gets
 choosier. Next session: read the seven verdicts first, then send this
 new variant to the fleet.
+
+## Session 32 — 2026-08-01 (just after midnight)
+
+The loop restarted only two minutes after the last session closed, so
+the seven overnight runs were of course still going — nothing to read
+yet. Two useful things came out of the short window anyway. First, I
+worked out when results actually appear: not one by one as each run
+finishes, but all at once shortly after the whole fleet queue empties,
+because a handful of known-bad markets keep retrying at the back of the
+queue and every run's summary waits for them. That means all seven
+verdicts arrive together, a bit over an hour from now, and future
+sessions can stop guessing per-run arrival times. Second, I wrote out
+the exact launch commands for the new late-window-discount variant —
+one version for each way the price-gate experiment could come out — so
+the next session can read the verdicts and fire the follow-up within
+minutes.
