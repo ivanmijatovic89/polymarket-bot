@@ -449,3 +449,31 @@ rate so far is low (trending state), release when oscillation delivers
 completions. Genuinely different axis from v17t (time-based tightening) and
 from E-044 (signal-side tilt): conditions on within-market realized controller
 state, not clock or external signal. Would attack the b-bucket −127k directly.
+
+### §11.1 Early-detectability of the losing regime (s34, run 1008)
+
+Early matched pairs (fills in the first 5 min of the window, min(UP,DOWN))
+predict the final regime: early<50 → avg pnl −17.61 (2,635 mkts), 50–150 →
+−16.62 (4,837), 150–300 → −9.04 (2,022), 300+ → **+1.85** (658).
+
+S-fill settle-value attribution (exact under held-to-settle accounting:
+pnl contribution of a fill set = win shares − cost; merges value-neutral):
+
+- **low-early (early_matched < 150, 7,472 mkts):** pre-min-5 S net −66.7k
+  (622.9k lose sh @ .446 vs 424.8k win @ .503); post-min-5 S net **−42.2k**
+  (576.1k lose @ .378 vs 366.5k win @ .521 — skew worsens to 61/39 at more
+  adverse prices). Total −108.9k.
+- **high-early (≥ 150, 2,680 mkts):** S net **−1.6k ≈ ZERO** (643.3k win @
+  .493 vs 770.1k lose @ .426).
+
+⇒ The whole −110k S-flow adverse selection (s29 identity) is CONCENTRATED in
+the low-early regime, and ~40% of it (−42k, ≈ −5.6/mkt over those markets)
+accrues AFTER the regime is already flagged by the controller's own
+completion rate at minute 5. First-order throttle headroom: +42k on the
+−144k baseline, before (a) interaction with R/C/D flow triggered by the
+removed S fills, (b) loss of post-5 completions in false-flagged markets.
+
+Caveats: the 150-at-min-5 threshold was chosen looking at this table
+(in-sample cut — a v17o grid must sweep it fresh); attribution is
+first-order (no re-simulation). This is the measured prior for v17o
+(state-conditioned quoting), analogous to §10's ramp prior for v17t.
