@@ -85,3 +85,42 @@ Engagement absent ⇒ escalate to a 200-mkt diagnostic, not a verdict.
 Mechanism metrics (frozen): §11.1 settle-value S-net split (low/high-early ×
 pre/post-5) recomputed per cell; completion counts in high-early group must
 be ~unchanged (false-flag damage check); resid-mkt count.
+
+## 5. Implementation + activation evidence (s34)
+
+Code: `protocols/pair-fable/strategies/pair.v17o.ts` (copy of pair.v17t.ts
+with the concession term swapped; grace gate guards `elapsedMin > 0` so
+oGraceMin=0 means throttle-from-start, no 0/0). protocol:check PASS.
+
+- Smoke: run 1018 (5 mkts, k=0.06) PASS — completed, 0 failures, 12/8
+  maker/taker fills.
+- Activation pair on the SAME 20 markets (slug-verified): 1019 (k=0) vs
+  1020 (k=0.06, oRefRate 30, grace 5): pre-min-5 S fills 39 vs 47 (mechanism
+  inactive by construction; diff = latency jitter, known non-determinism);
+  post-min-5 S fills 43 → 30 (−30%), shares 1,075 → 750, S avg price
+  0.480 → 0.451 — suppression only post-grace, surviving fills at a ~3¢
+  larger concession. ACTIVATION PASS. 20-mkt ev numbers are noise — do not
+  cite them.
+- **Watch-metric promoted to frozen FULL mechanism metric:** taker fills
+  rose 46 → 77 at k=0.06 (fees 8.81 → 14.92 on 20 mkts) — suppressing maker
+  starts shifts flow into C/D FOK completions. Per E-042's anatomy lesson
+  (acquisition spend ate the residue value), each FULL cell must report
+  C/D fill counts + $ spend vs its reference; STATE-GATE-LIVE requires the
+  ev bar, not just S-toxicity reduction.
+
+### Prepared submit commands (fire only after FROZEN; same branch logic as v17t)
+
+Branch A — E-045 = P*-FLAT-FULL (defaults center; reference g0 = 1008):
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param oTighten=0.03 --to-ms 1785196800000 --label pf-v17o-k003 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param oTighten=0.06 --to-ms 1785196800000 --label pf-v17o-k006 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param oTighten=0.12 --to-ms 1785196800000 --label pf-v17o-k012 --detach
+```
+
+Branch B — E-045 = P*-LIVE: add `--param pairTarget=<winning P*>` to each;
+reference = the winning E-045 cell's run row (code identity, no k=0 re-run).
+
+Sequencing: v17t grid submits first (its readout may also inform k
+currency); v17o follows. Both may be in the fleet queue concurrently —
+they are independent cells against the same reference.
