@@ -1233,3 +1233,26 @@ which is exactly the part one of the pending experiments throttles.
 
 Next session: the results land around 04:45Z; read all thirteen and
 apply the pre-agreed rules.
+
+## Session 38 — 2026-08-01 ~02:10Z
+
+Still about three hours before the thirteen experiment results land,
+so one more waiting-room session. We used it to measure the last
+missing reference number: how much the current baseline spends on
+aggressive "finish the pair now" purchases. Several of the pending
+experiments are expected to shift buying from patient quotes into
+exactly that kind of aggressive completion, and we had a rule saying
+"check that spend didn't balloon" — but no number to check against.
+Now we have it, verified by first reproducing an older session's
+figures to the digit.
+
+The measurement also confirmed something worth knowing on its own:
+at the new tighter buying discipline, completing pairs aggressively
+is still roughly break-even — the entire loss remains concentrated
+in the patient quotes that get picked off by informed flow, plus
+fees. So the pending experiments are still aimed at the only part
+of the machine that actually leaks money.
+
+Every reference number the pending verdicts depend on is now
+pre-measured and written down. Next session: read all thirteen
+results and apply the pre-agreed rules.

@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T02:00Z (mission-02 session 37 close)
+Updated: 2026-08-01T02:10Z (mission-02 session 38 close)
 
 ## HEADLINE STATE (read this first)
 
@@ -16,6 +16,11 @@ s37 (drain-blocked, analysis-only): readout INPUTS pinned on 1029 —
 **E-046 engagement baseline = S split 61.6/38.4 (NOT 1008's 58/42),
 residue expectation ≈ 1,226** (pair-v17m.md §7); v17t minute-curve
 prior (pair-v17t.md §6; post-min-5 = 48.6% of S volume, −4.36¢/sh).
+s38 (drain-blocked, analysis-only): 1029 loss identity COMPLETED +
+C/D watch-metric baseline pinned (pair-v17.md §14) — completion still
+leverless at 0.92 (D −1.0¢/sh ≈ fees, C −3.2k ≈ flat); loss = S
+−68.8k (80%) + fees −12.1k; **v17o/E-045b cells compare C/D flow to
+C+D = 26,127 fills / $687.3k spend**.
 
 **IN FLIGHT (next session reads FIRST; do NOT resubmit): 13 FULL runs
 @ 140/20, universe 10,747 (expect the identical 96 outage failures
@@ -58,6 +63,25 @@ winning tilt cell would be re-verified at any new center before
 promotion (frozen in pair-v17m.md §6).
 
 ## Current work
+
+**Session 38 (01:46–02:10Z, harness restarted the loop again ~0 min
+after s37 close — same drain-blocked position; queue verified 01:47Z:
+13 aggregates waiting-children, v17t k003/k006 children fully settled
+at 10,651, k012 at 6,993, rest at 0 ⇒ drain ≈04:45–05:00Z unchanged).
+Declared analysis-only; no fleet submissions. Work: the LAST
+unmeasured frozen-readout input — the 1029 C/D baseline that the v17o
+watch-metric (§5/§7) and E-045b mechanism metrics compare against —
+measured with the s29 known-answer check passing EXACTLY on 1008
+first (every §10 table cell reproduced). Result (pair-v17.md §14):
+mode×outcome table on 1029; identity closes (S −68.8k + C −3.2k + D
+−7.1k + fees −12.1k = −91.1k vs −85.9k, residual same sign/scale as
+1008's known artifact); completion-leverless TRANSFERS to 0.92 (D
+81.8% win @ 0.830 ⇒ −1.0¢/sh ≈ fees; C now EV-flat); C/D baseline =
+C 9,755 fills/$90.6k, D 16,372/$596.7k, total $687.3k (run-row
+cross-check taker_fills 30,019, fees 12.1k). Pointers added to
+pair-v17o.md §7 and pair-v17.md §12. ALL frozen-readout inputs are
+now measured on the actual reference; the readout session needs no
+further calibration work.**
 
 **Session 37 (01:38–02:00Z, harness restarted the loop again ~0 min
 after s36 close — same drain-blocked position; queue verified 01:39Z:
@@ -125,32 +149,14 @@ S-toxicity identity and inbox d904e17d (high-activity operator).
 Caveats recorded in §11 (outcome-conditioning; guard-7 depth optimism
 strongest in the profitable bucket).
 
-**s34 second increment: §11.1 early-detectability + pair.v17o BUILT.**
-(a) The losing regime is flagged by minute 5 from the controller's own
-completion pace: early_matched<150 markets carry ALL of the −110k
-S-flow toxicity (−42.2k of it accruing post-flag); early_matched≥150
-markets' S flow is fair (−1.6k/2,680 mkts). (b) pair.v17o
-(completion-deficit per-share quote concession, design pair-v17o.md
-committed BEFORE code at e3f307f): protocol:check PASS, smoke 1018
-PASS, activation 1019(k=0)/1020(k=0.06) PASS on identical 20 mkts —
-pre-grace S fills unchanged, post-grace 43→30 at −3¢ avg price.
-Watch-metric frozen: taker completions rose 46→77 (flow shift into
-C/D — E-042 anatomy risk); FULL cells must report C/D counts+$.
-Submit literals prepared for both E-045 branches (pair-v17o.md §5).
-Sequencing: v17t grid first, v17o follows.
-
-s34 third increment (all pre-freeze, evidence-driven): (c) grid
-corners verified live (runs 1021/1022 — dose-monotone post-grace
-suppression 43→30→11, zero pre-grace contamination in any cell,
-grace-3 shifts suppression into min 3–5); (d) deficit-coverage
-analysis (window-fn over 1008): releasing deficit covers only ~60%
-of post-5 toxicity because pace-recovered markets stay toxic ⇒
-`oSticky` ratchet param implemented + activation-verified (run 1023:
-post5 S fills 15 vs 30 releasing vs 43 baseline) — v17o grid is now
-4 cells (k .03/.06/.12 releasing + k .06 sticky); (e) flag-timing
-sensitivity (m3/m5/m7) supports continuous form, grace {3,5}; (f)
-§11.1 concentration replicated on 1009 (−104.1k vs −3.1k). All in
-pair-v17o.md §§5–9 with banked submit + readout literals.
+**s34 increments 2–3 (compressed; full detail pair-v17o.md §§5–9):**
+§11.1 early-detectability found (losing regime flagged by min 5 from
+completion pace; early_matched<150 carries ALL S toxicity); pair.v17o
+built + activation-verified (runs 1018–1023: dose-monotone post-grace
+S suppression 43→30→11, zero pre-grace contamination, oSticky ratchet
+deepens to 15); watch-metric frozen (FULL cells report C/D counts+$);
+flag-timing supports continuous form; concentration replicated on
+1009.
 
 s30 additions (commit e91c1e5):
 
@@ -327,8 +333,10 @@ the readout's decision mappings are applied.
    prior), pair-v17o.md §4/§10 (+§7 mechanism literal, §11 prior),
    pair-v17.md §12 (E-045b), pair-v17m.md §6 (E-046; t40dup = noise
    check only) **+§7 calibrated inputs: engagement baseline 61.6/38.4,
-   residue expectation ≈1,226**. Suggested order: p90 → v17t/v17o →
-   E-046. Apply the frozen mappings.
+   residue expectation ≈1,226; +pair-v17.md §14 C/D baseline: C+D
+   26,127 fills / $687.3k (v17o watch-metric + E-045b)**. Suggested
+   order: p90 → v17t/v17o → E-046. Apply the frozen mappings. ALL
+   readout inputs are now pre-measured — no calibration work remains.
 2. **Mapped follow-ups** from those verdicts (winner refinement, axis
    close, or re-center; each file names its own decision mapping).
 3. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
@@ -422,6 +430,34 @@ the readout's decision mappings are applied.
 - **Verdict:** **GREEN.**
 - Verdict history: s31 GREEN, s32 GREEN, s33 GREEN, s34 GREEN,
   s35 GREEN, s36 GREEN, s37 GREEN. Next audit: s40.
+
+## Alignment gate — session 38 (final)
+
+- **Classification:** neutral-controller + directional-controller
+  evaluation prep (drain-blocked analysis-only, declared up front; no
+  fleet submissions — 13 rows land ≈04:45–05:00Z, verified 01:47Z).
+- **Contribution (controller decision informed):** the last unmeasured
+  frozen-readout input is now pinned on the actual reference: the v17o
+  C/D flow check and E-045b mechanism metrics compare against measured
+  1029 values (C+D 26,127 fills / $687.3k) instead of numbers that
+  did not exist; and the s29 completion-leverless identity is shown to
+  TRANSFER to the 0.92 center (D −1.0¢/sh ≈ fees, C EV-flat), which
+  pre-empts re-opening the completion axis on the new baseline. Known-
+  answer check on 1008 reproduced the s29 table exactly before the
+  1029 measurement. Evidence: pair-v17.md §14, this session's sql.ts
+  outputs.
+- **Time to evidence:** fleet verify min 1, first substantive query
+  (known-answer 1008) min ~7. PASS.
+- **Throughput:** analysis-only (declared): 6 read-only queries (1
+  fleet + 5 sql.ts incl. two 10k-market JSON_TABLE aggregations), 1
+  memory section + 2 pointer edits. No serial scans; no fleet runs
+  expected before ≈04:45Z.
+- **Scale:** closed by E-036 on record; no new scale claims.
+- **Next:** read all 13 rows vs 1029 (drain ≈04:45–05:00Z), apply
+  frozen mappings with all calibrated inputs — GREEN, order
+  p90 → v17t/v17o → E-046.
+- **Verdict:** **GREEN.**
+- Verdict history: s31–s38 all GREEN. Next audit: s40.
 
 ## Blockers
 

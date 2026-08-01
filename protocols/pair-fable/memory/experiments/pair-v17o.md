@@ -151,6 +151,9 @@ Reference values on 1008 (k=0 ≡): low_early pre5 −66.7k / post5 −42.2k;
 high_early total −1.6k. Engagement bar (§4): flagged-regime post-5 S shares
 suppressed ≥ 20% at k=0.12 vs reference. C/D flow check: taker counts + $
 per cell vs reference from results.ts / anatomy.ts (§5 watch-metric).
+**Reference 1029 C/D baseline measured s38 (pair-v17.md §14): C 9,755
+fills/$90.6k, D 16,372 fills/$596.7k, C+D $687.3k — compare cells to
+these numbers.**
 
 ## 8. Grid-corner verification (s34; runs 1021/1022 + 1019/1020, same 20 mkts)
 

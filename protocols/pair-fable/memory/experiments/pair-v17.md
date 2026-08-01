@@ -516,7 +516,9 @@ sweep must extend below the schema floor via schema touch); **P*-PEAK**
 iff < −0.74 (0.92 is the interior optimum, center confirmed);
 **P*-EDGE-FLAT** otherwise (0.90≈0.92 plateau — center stays 0.92).
 Mechanism metrics: invested/played, S/C/D fill counts+$, resid-mkt count,
-noActivity (watch for engagement collapse at tight caps).
+noActivity (watch for engagement collapse at tight caps). 1029 baseline
+for these metrics measured s38 in §14 (S 18,308 fills/$772.4k, C+D
+26,127/$687.3k).
 
 ## §13 Mission-metric report on p92 = 1029 (s36, 2026-08-01 ~01:45Z, analysis-only, PRE-READOUT)
 
@@ -581,3 +583,57 @@ bounded by the tiny 4.7% healthy population (whose post-5 S net is −1.1k ≈
 nothing to lose). The decisive metric is whether suppressed post-5 S volume
 was the toxic part — read the §7 mechanism literal (post-grace S counts) and
 C/D shift before interpreting ev deltas.
+
+## §14 Full loss identity + C/D baseline on p92 = 1029 (s38, 2026-08-01 ~01:55Z, analysis-only, PRE-READOUT)
+
+Recorded before any of the 13 in-flight rows landed (queue verified 01:47Z:
+13 aggregates waiting-children; v17t k003/k006 children fully settled at
+10,651, k012 at 6,993, rows land at full drain per the s32 timing model).
+Completes the 1029 loss identity: §13 covered S flow; this section adds the
+C/D/R/fees terms — and pins the C/D baseline that the frozen v17o
+watch-metric (pair-v17o.md §5/§7) and E-045b mechanism metrics (§12) compare
+against. Known-answer check FIRST: the same query on 1008 reproduces the s29
+§10 table EXACTLY (C lose 223,350 @ 0.403 / −89.9k; C win 179,855 @ 0.564 /
++78.5k; D lose 168,312 @ 0.818 / −137.6k; D win 724,388 @ 0.823 / +128.1k;
+S −823.3k/+712.8k). Query = §10's leg-vs-outcome JSON_TABLE with COUNT(*)
+added.
+
+**Mode × outcome on 1029 (settle-value attribution; net = settle − cost):**
+
+| mode | outcome | fills | shares | avg $ | cost k | net k |
+|---|---|---|---|---|---|---|
+| S | lose | 11,272 | 1,127,200 | 0.383 | 431.3 | −431.3 |
+| S | win | 7,036 | 703,600 | 0.485 | 341.1 | +362.5 |
+| C | lose | 4,876 | 128,704 | 0.350 | 45.0 | −45.0 |
+| C | win | 4,879 | 87,388 | 0.521 | 45.6 | +41.8 |
+| D | lose | 2,892 | 130,932 | 0.821 | 107.5 | −107.5 |
+| D | win | 13,480 | 589,564 | 0.830 | 489.2 | +100.4 |
+| R | both | 4 | 400 | ~0.05 | 0.0 | +0.1 |
+
+Identity: S −68.8k + C −3.2k + D −7.1k + R +0.1k + fees −12.1k = −91.1k vs
+measured pnl −85.9k — residual +5.2k, same sign and relative scale as the
+known 1008 residual (+9k on −143.9k; rounding + flat rows). S net −68.8k
+cross-checks §7 of pair-v17m.md (−69.4k via avg-price rounding) ✓.
+
+**Readings (baseline facts, not rule changes):**
+
+1. **Completion-leverless TRANSFERS to the 0.92 center.** D is ~fair at
+   0.92 exactly as at 0.96: share-weighted win rate 81.8% vs avg price
+   0.830 ⇒ −1.0¢/sh ≈ fees. C is now nearly EV-flat outright (−3.2k on
+   216k sh, was −11.4k on 403k). No completion-side lever appeared at the
+   new center; E-041's CEIL-NULL mechanism argument still binds.
+2. **Loss composition at 0.92:** S adverse selection −68.8k (80%), fees
+   −12.1k (14%), D −7.1k (8%), C −3.2k (4%) (sums >100% vs the +5.2k
+   residual). The tilt (E-046) and quote-shaping (v17t/v17o) programs
+   remain pointed at the only structurally biased term.
+3. **C/D watch-metric baseline (v17o cells + E-045b compare against
+   THESE):** C = 9,755 fills / 216,092 sh / $90.6k spend; D = 16,372
+   fills / 720,496 sh / $596.7k spend; C+D total = 26,127 fills /
+   $687.3k. Run-row cross-check: taker_fills 30,019, maker_fills 16,935,
+   fees $12.1k (SUM over backtest_run_markets). A v17o cell whose C/D
+   spend rises materially above $687k has shifted suppressed maker flow
+   into taker completions — E-042's anatomy failure mode; read this
+   BEFORE celebrating any S-toxicity reduction.
+4. Scale note: total bought volume at 0.92 is 3.40M sh vs 4.70M at 0.96
+   (−28%), consistent with §13's exposure-reduction story (invested
+   292→166, ev gain from participating less).
