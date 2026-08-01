@@ -668,3 +668,12 @@ Pre-submit checklist: protocol:check PASS, smoke + activation PASS
 (earlyTighten=0.06 must be ACCEPTED and trade; earlyTighten absent ⇒
 behavior-identical), tree clean + pushed to origin/main, queue empty
 verified, batchUid captured per submit, fleet.ts verification after.
+
+**Submission record (s41, 07:58–08:00Z, commitSha 7e5f9276):**
+e03 = pf-e051-e03-20260801T075801-31yzgb,
+e06 = pf-e051-e06-20260801T075837-ep5wq3,
+e09 = pf-e051-e09-20260801T075917-8asz8i,
+p86k020 = pf-e051-p86k020-20260801T075955-k0szf5.
+All 4 verified waiting-children at 08:00Z; workers on sha 7e5f927.
+Smoke: run 1053 (protocol:check PASS, earlyTighten=0.06 accepted and
+trading, 8/8 markets, 0 failures).
