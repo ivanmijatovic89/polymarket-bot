@@ -68,6 +68,8 @@ export const ConfigSchema = z
     earlyTighten: z.coerce.number().finite().min(0).max(0.12).default(0),
     /** v17t E-052: extra flat per-share concession in $ on any maker quote that would rest at/above LATE_BAND (0.40) from minute 5 on — applied to the FINAL candidate price (post cap/ask-clamp), since bid-anchored in-band quotes are the measured toxic flow (pair-v17t.md §19). Maker quotes only; pLock/doom untouched. 0 = exact prior v17t. */
     lateBandTighten: z.coerce.number().finite().min(0).max(0.16).default(0),
+    /** v17t E-053: extra flat per-share concession in $ on any maker S quote whose side is NOT currently behind on spot (advBps ≤ DISAGREE_BPS at tick evaluation, from binanceWsSpotPrice + priceToBeat) — the measured informed-flow condition (pair-v17t.md §21.2/§22). Applied to the FINAL candidate price after lateBandTighten; feeds absent ⇒ no dose. Maker quotes only; pLock/doom untouched. 0 = exact prior v17t. */
+    disagreeTighten: z.coerce.number().finite().min(0).max(0.16).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -127,6 +129,11 @@ const EARLY_MS = 5 * 60 * 1000
  * a tunable. The late boundary reuses EARLY_MS (disjoint support with the
  * E-051 early term). */
 const LATE_BAND = 0.4
+/** E-053 design constant (pair-v17t.md §22): a side is "disagreeing" when its
+ * advBps — signed spot distance from priceToBeat, positive when spot is
+ * AGAINST the side — is at/below this. −5 bps selects the measured toxic 31%
+ * of S flow (−5.9¢/sh vs −2.9¢ spot-confirmed) with 0.968 1s persistence. */
+const DISAGREE_BPS = -5
 /** Taker fee model matching the simulator (700 bps · p · (1−p)). */
 const TAKER_FEE_RATE = 0.07
 const SIDES: SideName[] = ['UP', 'DOWN']
@@ -448,6 +455,21 @@ export function createStrategy(cfg: Config): {
             price >= LATE_BAND - 1e-9
           ) {
             price = floorToGrid(price - cfg.lateBandTighten)
+          }
+          // E-053: spot-disagreement concession — a quote on a side that is
+          // NOT behind on spot (advBps ≤ DISAGREE_BPS) pays a flat extra
+          // per-share concession on the final candidate price (§22). Feeds
+          // absent ⇒ no dose (no-strike markets, warmup).
+          if (
+            cfg.disagreeTighten > 0 &&
+            spot !== undefined &&
+            Number.isFinite(spot) &&
+            strike !== undefined &&
+            Number.isFinite(strike) &&
+            strike > 0
+          ) {
+            const advBps = (side === 'DOWN' ? 1 : -1) * (((spot - strike) / strike) * 1e4)
+            if (advBps <= DISAGREE_BPS) price = floorToGrid(price - cfg.disagreeTighten)
           }
           target = price >= GRID - 1e-9 ? round2(price) : null
         }
