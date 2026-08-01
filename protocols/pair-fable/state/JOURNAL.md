@@ -1144,3 +1144,21 @@ variant was added and verified too. The loss-concentration pattern also
 replicated on a second independent full run. Everything is banked as
 copy-paste commands; the moment the pending verdicts land, both new
 variants can be fired at the full history within minutes.
+
+Final update, same session: the fleet finished earlier than predicted,
+the session was still alive, and all seven verdicts got read tonight.
+The headline is big: the price-discipline experiment came back a clear,
+clean winner — telling the strategy to only build inventory when the
+pair can be had for $0.92 instead of $0.96 cuts the average loss per
+market by about 40%, the largest confirmed improvement this lab has
+ever measured. The honest caveat: per dollar put at risk, nothing
+improved — the strategy simply sits out more of the bad flow. And the
+best setting sits at the edge of what was tested, so an even tighter
+probe is already running. The two tilt experiments resolved too:
+widening the direction signal's dead zone does nothing, and buying the
+likely winner with patient orders instead of chasing beats the chasing
+version — though still not the neutral strategy. Everything learned
+tonight is already back in the fleet: eight full-history runs — the two
+new throttle variants rebuilt around the winning price target, plus the
+tighter-target probe — should report around 3am. Next session audits
+the last five sessions, then reads them.

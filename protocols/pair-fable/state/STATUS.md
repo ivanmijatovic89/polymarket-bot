@@ -1,6 +1,46 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T00:20Z (mission-02 session 34 in progress)
+Updated: 2026-08-01T01:15Z (mission-02 session 34 close)
+
+## HEADLINE STATE (read this first)
+
+**E-043/E-044/E-045 CLOSED this session (verdicts in pair-v17.md §12 +
+pair-v17m.md §5 + LEDGER). Standing FULL neutral baseline is now
+p92 = RUN 1029 (v17 τ0, pairTarget 0.92, ev −8.07, p/100 −5.91) —
+P*-LIVE monotone, +5.44 ± 0.22 over old g0=1008.** g0 remains the
+P*0.96 reference for older comparisons only.
+
+**IN FLIGHT (next session reads FIRST; do NOT resubmit): 8 FULL runs
+@ 140/20, universe 10,747 (expect the same 96 outage failures), all
+--to-ms 1785196800000, all vs reference 1029 (bar B_full 0.74), sha
+9736032e (v17/v17t/v17m files semantically untouched; v17o new).
+Queue verified 01:10Z: 8 aggregates waiting-children, k003 at
+5,844/10,747 ⇒ drain ≈03:00–03:30Z.**
+
+| grid | cell | strategy | key params (rest = 1029 center) | batchUid |
+|---|---|---|---|---|
+| v17t | k003 | pair-fable-v17t | P*.92 lateTighten .03 | pf-v17t-k003-20260801T010109-gzot2w |
+| v17t | k006 | pair-fable-v17t | P*.92 lateTighten .06 | pf-v17t-k006-20260801T010150-p50d20 |
+| v17t | k012 | pair-fable-v17t | P*.92 lateTighten .12 | pf-v17t-k012-20260801T010232-1lz5zm |
+| v17o | k003 | pair-fable-v17o | P*.92 oTighten .03 | pf-v17o-k003-20260801T010338-c1nc9x |
+| v17o | k006 | pair-fable-v17o | P*.92 oTighten .06 | pf-v17o-k006-20260801T010433-jrc6ii |
+| v17o | k012 | pair-fable-v17o | P*.92 oTighten .12 | pf-v17o-k012-20260801T010535-yf2jjq |
+| v17o | k006s | pair-fable-v17o | P*.92 oTighten .06 oSticky 1 | pf-v17o-k006s-20260801T010638-x8uc3q |
+| E-045b | p90 | pair-fable-v17 | P*.90 (edge probe vs 1029) | pf-e045b-p90-20260801T010749-irr1bu |
+
+Center passed EXPLICITLY on every cell (orderSize=100
+imbalanceBand=160 doomUnitMax=0.99 pairTarget=0.92/0.90) — the
+v17t/v17o schema DEFAULTS are 25/40/0, NOT the center (defect caught
+s34; pair-v17t.md §5). Bars + decision mappings frozen in
+pair-v17t.md §4/§5, pair-v17o.md §4/§10, pair-v17.md §12 (E-045b).
+Readout literals: paired-delta template + integrity checks in
+e043-e045-readout.md steps 2–3 (same queries, new ids); v17o
+mechanism literal in pair-v17o.md §7.
+
+s35 NOTE: five-session audit (s30–s34) due BEFORE new research;
+readout of these 8 rows is evaluation of completed work and may
+proceed after it. E-046 (maker-tilt iteration at bps10 on the 0.92
+center) design is the next NEW research item per E-044's mapping.
 
 ## Current work
 
@@ -274,48 +314,51 @@ the readout's decision mappings are applied.
 
 ## Next step (priority order)
 
-1. **Read E-043/E-044/E-045 via the verified runbook**
-   `memory/experiments/e043-e045-readout.md` (steps 0–6, all literals
-   proven s33). Rows land together at full queue drain ≈01:05–01:15Z
-   2026-08-01. fleet.ts first — do NOT resubmit; if `active batches`
-   > 0, do prep/analysis instead of polling per-batch.
-2. Follow the frozen decision mappings (maker-tilt iteration, width
-   extension, or P* follow-up).
-3. **Freeze + submit the v17t grid** (pair-v17t.md §4: k ∈ {0.03,
-   0.06, 0.12} vs g0=1008, FULL, B_full 0.74) — AFTER applying
-   E-045's verdict. Exact submit literals for BOTH verdict branches
-   are prepared in pair-v17t.md §4 (s32); strategy smoked +
-   activation-verified (runs 1014/1015/1016/1017); code committed and
-   pushed (d539617 == origin/main verified s32). Freeze the file,
-   then fire the three commands.
+1. **s35: five-session audit s30–s34** (mission §7.2) BEFORE new
+   research.
+2. **Read the 8 in-flight rows** (drain ≈03:00–03:30Z; table in
+   HEADLINE STATE): integrity per e043-e045-readout.md step 2 (same
+   96-set rule), paired deltas vs **1029** (step-3 template), frozen
+   bars in pair-v17t.md §4, pair-v17o.md §4 (+§7 mechanism literal),
+   pair-v17.md §12 (E-045b). Apply the frozen mappings.
+3. **E-046 design + freeze + submit**: maker-tilt iteration at the
+   ENGAGED cell (bps10) on the P* 0.92 center — dose (tiltShares) and
+   persistence axes, references 1029 + 1026-equivalents at 0.92
+   (design BEFORE code/submission per M2).
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 34 (in progress; finalized at close)
+## Alignment gate — session 34 (final)
 
-- **Classification:** neutral-controller (mission-metric baseline
-  evaluation of the standing neutral FULL run + NEW neutral mechanism
-  pair.v17o designed, implemented, smoked, activation-verified;
-  E-043/E-044/E-045 readout still queue-blocked).
-- **Contribution:** controller decision changed: a genuinely new
-  neutral axis (state-conditioned quoting) moved from nothing to
-  submit-ready in-session, on a measured prior computed this session
-  (pair-v17.md §11/§11.1: ALL S-flow toxicity concentrated in
-  low-early-matched markets, −42.2k accruing post-flag; high-early S
-  flow fair). Mission §2 pair-VWAP reporting computed for the first
-  time (21.2%/7.6%/0.34% below 0.98/0.95/0.90). Evidence: commits
-  50eb247/e3f307f/7abbb7a; runs 1018/1019/1020.
+- **Classification:** neutral-controller + directional-controller
+  (closed E-043/E-044/E-045 via the runbook; built + verified the new
+  neutral mechanism pair.v17o; froze + submitted two grids + the
+  E-045b probe).
+- **Contribution (controller decisions changed):** (1) **standing
+  neutral center moved to P* 0.92** (E-045 P*-LIVE +5.44±0.22; new
+  baseline run 1029, ev −8.07); (2) width axis CLOSED (E-043
+  DOSE-FLAT); (3) maker-tilt confirmed better than taker-tilt at
+  bps10 (+1.24±0.45) with engagement evidence, iteration mapped
+  (E-046); (4) new neutral axis v17o (state-conditioned quoting)
+  designed on a same-session measured prior, implemented,
+  activation-verified (runs 1018–1023), frozen, submitted; (5)
+  mission §2 pair-VWAP reporting computed for the first time.
+  Evidence: pair-v17.md §11/§11.1/§12, pair-v17m.md §5, pair-v17o.md,
+  LEDGER E-043/E-044/E-045; runs 1024–1030 read, 8 FULL submitted.
 - **Time to evidence:** fleet verify min 0, first substantive scan
   min ~2, mission-metric SQL min ~4. PASS.
-- **Throughput:** 3 local sequential runs (5+20+20 mkts) + 9 read-only
-  DB queries; 7 × 10,747 in flight (verified once, no resubmission).
-  No serial-scan issue.
-- **Scale:** closed by E-036 on record; §11 explicitly re-flags
-  guard-7 depth optimism on the 500+ bucket.
-- **Next:** runbook steps 0–6 when drain completes (≈01:05–01:15Z),
-  frozen mappings, v17t freeze+fire, then v17o grid — GREEN.
-- **Verdict:** **GREEN** (direct neutral-controller implementation +
-  evaluation).
+- **Throughput:** 3 experiments closed (E-043/E-044/E-045: 10 frozen
+  paired comparisons + integrity + mechanism metrics), 6 local
+  sequential runs (5+20×5 mkts), ~20 read-only DB queries, 1 new
+  strategy built, 2 grids frozen, 8 × 10,747 FULL submitted
+  (whole-grid up front, queue-verified 8 aggregates). Drain waited
+  via background poller — no per-batch polling, no resubmission.
+- **Scale:** closed by E-036 on record; all cells B=500.
+- **Next:** s35 = five-session audit (s30–s34) FIRST, then read the
+  8 rows vs 1029 (drain ≈03:00–03:30Z), apply frozen mappings, then
+  E-046 design (maker-tilt dose/persistence at bps10 on 0.92 center)
+  — GREEN (neutral + directional controller).
+- **Verdict:** **GREEN.**
 - Verdict history: s30 GREEN, s31 GREEN, s32 GREEN, s33 GREEN,
   s34 GREEN. Next audit: s35 (five-session audit BEFORE new research).
 
@@ -404,9 +447,10 @@ the readout's decision mappings are applied.
 
 ## Blockers
 
-None. 7 FULL runs in flight — ALL rows land together at full queue
-drain ≈ 01:15–01:25Z 2026-08-01 (corrected s32 model; do NOT
-resubmit — verify with fleet.ts, then results.ts --last 8).
+None. 8 FULL runs in flight (table in HEADLINE STATE) — rows land
+together at full queue drain ≈03:00–03:30Z 2026-08-01 (do NOT
+resubmit — fleet.ts first, then map batchUids via the
+backtest_runs.batch_uid query).
 
 ## Needs human
 
@@ -448,8 +492,9 @@ resubmit — verify with fleet.ts, then results.ts --last 8).
   pair.v17m.ts at 18ce0a43: do NOT touch either file while queued.)
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: v1-b = 914;
-  v16 τ+160 no-ceiling = 1005 (f1); **v17 neutral g0 = 1008 (the
-  standing FULL neutral baseline); v17 best directional g3 = 1009.**
+  v16 τ+160 no-ceiling = 1005 (f1); **v17 P*0.92 neutral p92 = 1029
+  (the standing FULL neutral baseline since s34); v17 P*0.96 neutral
+  g0 = 1008 (older comparisons); v17 best directional g3 = 1009.**
   v15 bridge chain 970 ≡ 960 ≡ 956. v16 bridges: c0 = 978, d0 = 987.
 - **NOISE MODEL: FULL-pair instrument at B=500 — paired per-market
   sd 38.29 (same-config), SE_pair 0.369, ev bar B_full = 0.74.
