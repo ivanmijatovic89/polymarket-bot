@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T05:20Z (mission-02 session 39, mid-session checkpoint after 13-row readout + E-049 submit)
+Updated: 2026-08-01T06:40Z (mission-02 session 39 close — 17 FULL rows read this session; NOTHING in flight)
 
 ## HEADLINE STATE (read this first)
 
@@ -32,45 +32,45 @@ integrity clean everywhere: 96-slug identical failure set, all pairs
   pair-v17m.md §8. t40dup noise: Δ −0.007, sd 21.54 — instrument
   re-validated.
 
-**Standing references: 1029 (v17 τ0 P*0.92) remains the comparison
-reference; 1040 (v17o k012, −5.75) is the best FULL ev on record;
-1043 (v17t k012, −5.89), 1039 (v17 p90, −6.45).** Neutral program is
-priority-1-led again: tighten axes LIVE with genuinely open dose/
-composition questions.
+**E-049 read SAME SESSION (rows 06:22Z, integrity clean, pairs
+10,651; pair-v17t.md §9):**
 
-**IN FLIGHT (E-049, frozen pair-v17t.md §8 BEFORE submission at
-f406e9c; submitted s39 05:13–05:16Z; 4 × 10,747 @ 140/20, B=500;
-queue verified 05:17Z: 4 aggregates waiting-children, ~43k market
-jobs ⇒ drain ≈06:25Z; s39 may still read them, else next session
-reads FIRST — do NOT resubmit):**
+- **DOSE-CONT:** k020(1047) − k012(1043) = +0.907 ± 0.177 — dose still
+  rising at the lateTighten schema max 0.20, no interior peak (k016 =
+  1044). Schema lift GATED on an E-027 identity-guard analysis (min
+  12–14 S fills already ≈ extinct at k020: 9 of 9,786).
+- **COMPOSE-ADD:** p90k012(1046) − p90(1039) = +1.620 ± 0.196 AND
+  p90k012 − k012(1043) = +1.061 ± 0.179 — the P* level and the tighten
+  slope are independently additive. ⇒ pairTarget schema-floor touch is
+  the next neutral increment.
+- **REDUNDANT-AT-MAX:** ok020(1045) − k020 = −0.024 ± 0.177 — **v17t
+  is the sole carrier of the tighten axis; v17o iteration dropped.**
+- **NEW BEST FULL: 1046 (v17t P*0.90 k012) ev −4.83, p/100 −5.33**
+  (session start baseline was −8.07/−5.91 — 40% of the per-market loss
+  removed today, and per-dollar improves). No C/D leak anywhere
+  (≤ $588k vs the $687.3k rule); residue ≈ eliminated (69–73 mkts);
+  noActivity 3,733 = 35% of the universe unplayed — participation
+  shrink is the running cost of every gain; the mission's absolute
+  target needs the remaining flow made profitable, not just smaller.
 
-| cell | strategy | key params (rest = 1029 center) | batchUid |
-|---|---|---|---|
-| k016 | pair-fable-v17t | P*.92 lateTighten .16 | pf-e049-k016-20260801T051339-op8bk9 |
-| k020 | pair-fable-v17t | P*.92 lateTighten .20 (schema max) | pf-e049-k020-20260801T051425-9ymu0l |
-| p90k012 | pair-fable-v17t | P*.90 lateTighten .12 | pf-e049-p90k012-20260801T051512-shuzbm |
-| ok020 | pair-fable-v17o | P*.92 oTighten .20 | pf-e049-ok020-20260801T051559-hscwsy |
-
-E-049 bars (frozen, pair-v17t.md §8): DOSE-CONT/SAT/OVER (k020 vs
-1043; k016 locates any peak), COMPOSE-ADD/REDUNDANT (p90k012 vs 1039
-and vs 1043), REDUNDANT-AT-MAX/STATE-ADDS (ok020 vs k020 paired).
-Mechanism metrics: anatomy per cell, C+D $ vs $687.3k leak rule,
-noActivity (participation collapse watch — k012 already 3,030).
-Post-readout mandatory: loss identity on the best cell — pre-grace S
-toxicity (−26.6k at 1040) is the emerging next frontier (needs its own
-non-equivalence argument vs E-027 before any build).
+**Standing references: comparison reference stays 1029 (v17 τ0 P*0.92,
+ev −8.07) until a re-center decision; best FULL on record 1046
+(−4.83); chain 1047 (k020, −4.98), 1040 (v17o k012, −5.75), 1043
+(v17t k012, −5.89), 1039 (p90, −6.45).** Neutral program is
+priority-1-led: tighten axis LIVE with open dose/floor questions.
+**NOTHING in flight.**
 
 ## Current work
 
-**Session 39 (01:54Z–, long session by design):** drain-blocked at
-start (13 rows, drain 05:02Z) with only 11 sessions left in budget ⇒
-stayed alive through the drain (background watcher + blocking waits),
-executed the full 13-row readout (integrity → paired deltas →
-mechanism metrics → frozen mappings), froze + submitted E-049, and is
-now waiting on the E-049 drain (~06:25Z) to read it too. All frozen-
-readout inputs from s36–s38 were used as calibrated (engagement
-baseline 61.6/38.4, residue expectation 1,226, C/D $687.3k — every one
-bound in a verdict). Readout checklist scratch file deleted after use.
+**Session 39 (01:54–06:40Z, long session by design):** drain-blocked
+at start (13 rows, drain 05:02Z) with only 11 sessions left in budget
+⇒ stayed alive through BOTH drains (background watcher + blocking
+waits) and turned what would have been 4–5 stub sessions into one
+closed loop: 13-row readout → E-049 freeze+submit → E-049 readout.
+All frozen-readout inputs from s36–s38 were used as calibrated
+(engagement baseline 61.6/38.4, residue expectation 1,226, C/D
+$687.3k — every one bound in a verdict). Readout checklist scratch
+file deleted after use.
 
 ## Audit note
 
@@ -96,52 +96,60 @@ premature closures; plan items all satisfied through s39.)
 
 ## Next step (priority order)
 
-1. **Read E-049** (4 rows, drain ≈06:25Z; batchUids above): integrity
-   (96-set, pairs 10,651), paired deltas per the §8 bar table, anatomy
-   mechanism metrics, apply frozen mappings. If s39 is still alive it
-   does this; otherwise next session, FIRST.
-2. **Apply E-049 decisions:** operating-point selection on the tighten
-   axis; COMPOSE-ADD ⇒ pairTarget schema-floor touch grid;
-   REDUNDANT-AT-MAX ⇒ drop v17o iteration, v17t sole carrier.
-3. **Loss identity on the new best cell** (mandatory per §8): pre-grace
-   S toxicity is the next mechanism frontier — design needs a
-   non-equivalence argument vs E-027 (binary start gating) before any
-   build.
-4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-5. Cross-symbol replication: gated on P-012.
+1. **s40 FIRST: five-session audit s35–s39** (mission §7.2; gate
+   summary pre-collected in Audit note below).
+2. **E-027 identity-guard analysis** for lateTighten > 0.20 (analysis-
+   only, cheap): argue where continuous price concession ends and
+   banned binary late-gating begins; decides whether the lateTighten
+   schema lift is legitimate. Evidence basis: k020 minute hist (§9),
+   E-027 kill record, v17t §3 non-equivalence argument.
+3. **pairTarget schema-floor touch + next grid** (COMPOSE-ADD mapped):
+   pair.v17t.ts schema edit (floor 0.90 → e.g. 0.85) — pins RELEASED
+   (queue empty); new-code rule applies (protocol:check + smoke +
+   activation) even for a schema-bound change; freeze grid BEFORE
+   submission (candidate cells: P* 0.86/0.88 × k012/k020, plus
+   lateTighten 0.28 if the identity guard passes). References 1046/
+   1047 by code identity.
+4. **Loss identity on 1046** (mandatory per §8/§9): pre-grace S
+   toxicity is the next mechanism frontier — needs a non-equivalence
+   argument vs E-027 before any build.
+5. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+6. Cross-symbol replication: gated on P-012.
 
 ## Alignment gate — session 39 (final)
 
 - **Classification:** neutral-controller (13-row readout: 8 of 13 rows
   neutral axes; E-049 freeze+submit) + directional-controller close
   (E-046 verdict applied per frozen mapping).
-- **Contribution (controller decision changed):** four experiments
-  closed with frozen bars — the neutral controller gained its first
-  two LIVE mechanism axes since the P* level (both dose-monotone at
-  the grid edge, k012 = new best FULL ev −5.75, first p/100 gain at
-  FULL), the P* floor probe read P*-CONT, and the directional
-  acquisition program closed at ev (E-046 ALL-NULL with engagement
-  evidence). Mapped follow-up E-049 frozen BEFORE submission
-  (f406e9c) and submitted whole-grid. Evidence: pair-v17t.md §7/§8,
-  pair-v17o.md §12, pair-v17.md §15, pair-v17m.md §8, LEDGER
-  E-045b–E-049, runs 1031–1043.
+- **Contribution (controller decision changed):** FIVE experiments
+  closed with frozen bars in one session — the neutral controller
+  gained two LIVE mechanism axes (tighten, dose-monotone), the P*
+  floor probe read P*-CONT, the directional acquisition program
+  closed at ev (E-046 ALL-NULL with engagement evidence), and the
+  mapped follow-up E-049 was frozen (f406e9c), submitted, AND read at
+  its drain: DOSE-CONT + COMPOSE-ADD + REDUNDANT-AT-MAX. Controller
+  operating point moved −8.07 → −4.83 (run 1046, new best FULL) with
+  per-dollar improving; v17o axis retired as duplicate. Evidence:
+  pair-v17t.md §7/§8/§9, pair-v17o.md §12, pair-v17.md §15,
+  pair-v17m.md §8, LEDGER E-045b–E-049, runs 1031–1047.
 - **Time to evidence:** min 1 (fleet verify), min ~3 sibling check,
   min ~8 checklist bank; drain-blocked by 13 in-flight rows until
   05:02Z (verified continuously by watcher — genuinely blocked, used
   for readout prep), then full readout executed immediately. PASS.
-- **Throughput:** 13 FULL rows read + verdicts applied; 4 FULL cells
-  frozen + submitted (43k market jobs, queue-verified); ~25 read-only
-  DB queries + 7 anatomy runs; 1 background watcher (declared; the
-  wait WAS the drain — no fleet capacity existed for more).
+- **Throughput:** 17 FULL rows read + verdicts applied (13 landed +
+  4 submitted-and-landed within the session); 5 experiments closed;
+  ~35 read-only DB queries + 9 anatomy runs; 2 background drain
+  watchers (declared; the waits WERE the drains — no fleet capacity
+  existed for more).
 - **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** read E-049 (this session if drain permits, else next),
-  apply mappings — GREEN neutral evaluation either way.
+- **Next:** s40 audit (s35–s39), then the E-027 identity-guard
+  analysis + pairTarget floor grid (GREEN neutral).
 - **Verdict:** **GREEN.**
 - Verdict history: s31–s39 all GREEN. Next audit: s40 (s35–s39).
 
 ## Blockers
 
-None. E-049 in flight (table above), drain ≈06:25Z.
+None. NOTHING in flight — the queue is empty (verified 06:26Z drain).
 
 ## Needs human
 
@@ -180,8 +188,8 @@ None. E-049 in flight (table above), drain ≈06:25Z.
   04:58Z as the last children settled).
 - Do not push strategy-semantics changes while that strategy's jobs
   are queued/running — workers track origin/main; serialize push →
-  submit. (E-049 pins pair.v17t.ts / pair.v17o.ts semantics while
-  queued — do NOT touch either file until drain.)
+  submit. (All pins RELEASED at the 06:26Z drain — queue empty;
+  pair.v17t.ts may be edited for the floor/lift schema touches.)
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: **standing
   comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); best FULL on

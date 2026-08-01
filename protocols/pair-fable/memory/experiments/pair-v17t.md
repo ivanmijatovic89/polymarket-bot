@@ -273,3 +273,56 @@ npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --
 npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.90 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-e049-p90k012 --detach
 npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.20 --to-ms 1785196800000 --label pf-e049-ok020 --detach
 ```
+
+## 9. E-049 READOUT (s39, 2026-08-01 ~06:30Z; rows landed 06:22–06:23Z)
+
+Mapping: k016=1044, k020=1047, p90k012=1046, ok020=1045. Integrity:
+all rows 96 failures (100% priceToBeat, identical set); every pair
+n=10,651. Bars per §8.
+
+| cell | run | ev | p/100 | played | noActivity | d vs 1029 |
+|---|---|---|---|---|---|---|
+| k016 | 1044 | −5.51 | −5.48 | 7,361 | 3,290 | (+2.55 implied) |
+| k020 | 1047 | −4.98 | −5.38 | 6,923 | 3,727 | +3.086 ± 0.200 |
+| p90k012 | 1046 | **−4.83** | −5.33 | 6,917 | 3,733 | **+3.240 ± 0.202** |
+| ok020 | 1045 | −5.00 | −5.33 | 6,776 | 3,875 | (≈ k020) |
+
+**Verdicts (frozen §8 bars):**
+
+- **DOSE-CONT:** k020 − 1043(k012) = **+0.907 ± 0.177** > 0.74 — dose
+  still rising at the schema max. Curve: k016 − k012 +0.371, k020 −
+  k016 +0.535 (mildly convex, no interior peak). Per the frozen
+  mapping, a lateTighten schema lift requires the E-027 identity-guard
+  analysis FIRST (at k=0.20 the cap at minute 14 is −18.7¢/sh below
+  base — S fills in min 12–14 are already near-zero: 9/9,786; the
+  lift analysis must argue where price-concession ends and banned
+  binary gating begins).
+- **COMPOSE-ADD:** p90k012 − 1039(p90) = **+1.620 ± 0.196** > 0.74 —
+  the tighten adds fully on the 0.90 center. The P* step also still
+  adds at full dose: p90k012 − 1043 = +1.061 ± 0.179 (E-045b's +1.620
+  shrinks to +1.061 at k012 — partial overlap, both levers remain
+  independently live). ⇒ a pairTarget schema-floor touch is the next
+  neutral increment.
+- **REDUNDANT-AT-MAX:** ok020 − k020 = **−0.024 ± 0.177** — the state
+  gate duplicates the clock ramp at max dose too. **v17t is the sole
+  carrier of the tighten axis; v17o iteration is dropped** (v17o
+  remains on file; any revival needs a new reason, e.g. a center where
+  the deficit flag is NOT near-universal).
+
+Mechanism (1047/1046 anatomy): no C/D leak (k020 C+D $588.0k, p90k012
+$573.5k, rule $687.3k); doom→lock migration continues (k020 C 13,549
+fills vs D 11,135); S volume roughly halves again vs k012 (9.8k fills /
+$390k vs 12.0k/$491k); residue eliminated (73/69 mkts, pnl ≈ 0);
+min-12+ S fills ≈ extinct at k020 (9 fills). Loss identity on the best
+cell 1046: pairs −40.7k + fees −10.7k = pnl −51.4k. noActivity 3,733
+(35% of universe unplayed — participation shrink is the price of every
+gain so far; the absolute-profit mission target needs the REMAINING
+flow made profitable, not just smaller).
+
+**Decisions applied:** next increments in priority order — (1) E-027
+identity-guard analysis for lateTighten > 0.20; (2) pairTarget
+schema-floor touch (both are pair.v17t.ts schema edits — pins released
+at drain 06:26Z; protocol:check + smoke + activation per new-code
+rule); (3) mandatory loss-identity/next-frontier analysis on 1046
+(pre-grace S toxicity — needs non-equivalence vs E-027 before any
+build). s40 does the five-session audit FIRST (mission §7.2).

@@ -1288,3 +1288,25 @@ cheaper price cap or just duplicate it? Answers land within the hour;
 if this session stays alive it reads them, otherwise the next one
 starts there. Still to crack afterwards: the losses from fills in the
 first five minutes, which none of the current mechanisms touch.
+
+### Session 39 addendum (~06:40Z)
+
+The follow-up batch finished within the same session and I read it
+too. Three clean answers. First, pushing the "charge more late in the
+window" discount to its allowed maximum still helps — the benefit
+hasn't plateaued, so the next step is deciding whether going further
+is legitimate or just a disguised version of an idea we already ruled
+out (refusing to trade late at all). Second, the discount and the
+cheaper price cap stack: combining them gives the best result yet —
+average loss per market is down from $8.07 to $4.83 in a single day,
+and the loss per dollar keeps improving too. Third, the fancier
+state-aware version of the discount does exactly what the simple
+clock version does, even at maximum strength, so we're keeping the
+simple one and shelving the other.
+
+One honest caveat: every gain so far also shrinks how much we trade —
+a third of markets now go untouched. To reach actual profit we must
+make the remaining flow profitable, not just trade less of it. The
+clearest untouched loss is now the fills in the first five minutes of
+each window; that's the next thing to attack after the scheduled
+five-session review.
