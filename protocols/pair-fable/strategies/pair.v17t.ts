@@ -66,6 +66,8 @@ export const ConfigSchema = z
     lateTighten: z.coerce.number().finite().min(0).max(0.32).default(0),
     /** v17t E-051: per-share maker quote-cap concession in $ at window OPEN, decaying to 0 at minute 5 (EARLY_MS design constant) — pHat is lowered by earlyTighten·max(0, 1 − elapsed/5m). Entry-window mirror of lateTighten (disjoint support); maker cap only, pLock/doom untouched. 0 = exact prior v17t. */
     earlyTighten: z.coerce.number().finite().min(0).max(0.12).default(0),
+    /** v17t E-052: extra flat per-share concession in $ on any maker quote that would rest at/above LATE_BAND (0.40) from minute 5 on — applied to the FINAL candidate price (post cap/ask-clamp), since bid-anchored in-band quotes are the measured toxic flow (pair-v17t.md §19). Maker quotes only; pLock/doom untouched. 0 = exact prior v17t. */
+    lateBandTighten: z.coerce.number().finite().min(0).max(0.16).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -119,6 +121,12 @@ const WINDOW_MS = 15 * 60 * 1000
  * concession decays to zero at minute 5 — m0–4 carry 57% of residual S loss
  * and the lateTighten ramp prices toxicity from ~m5. Not a tunable. */
 const EARLY_MS = 5 * 60 * 1000
+/** E-052 design constant (pair-v17t.md §19, measurement-pinned): late-window
+ * quotes at/above this price level carry 63% of the late S loss on 41% of
+ * late shares (run-1052 minute×band matrix) — the band edge is measured, not
+ * a tunable. The late boundary reuses EARLY_MS (disjoint support with the
+ * E-051 early term). */
+const LATE_BAND = 0.4
 /** Taker fee model matching the simulator (700 bps · p · (1−p)). */
 const TAKER_FEE_RATE = 0.07
 const SIDES: SideName[] = ['UP', 'DOWN']
@@ -427,6 +435,20 @@ export function createStrategy(cfg: Config): {
           // 4. Maker discipline: on-grid, strictly below the ask.
           let price = floorToGrid(Math.min(target, pHat))
           if (price >= bk.ask) price = round2(bk.ask - GRID)
+          // E-052: late-window price-conditioned concession — any quote that
+          // would rest at/above LATE_BAND from minute 5 on pays a flat extra
+          // per-share concession. Applied to the final candidate price (not
+          // pHat): bid-anchored in-band quotes are the measured toxic flow
+          // (§19 application-point decision). A dose pushing the quote below
+          // 1¢ makes the side unquotable this tick via the check below.
+          if (
+            cfg.lateBandTighten > 0 &&
+            endMs !== null &&
+            nowMs - (endMs - WINDOW_MS) >= EARLY_MS &&
+            price >= LATE_BAND - 1e-9
+          ) {
+            price = floorToGrid(price - cfg.lateBandTighten)
+          }
           target = price >= GRID - 1e-9 ? round2(price) : null
         }
       }
