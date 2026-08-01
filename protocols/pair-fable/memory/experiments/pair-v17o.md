@@ -124,3 +124,17 @@ reference = the winning E-045 cell's run row (code identity, no k=0 re-run).
 Sequencing: v17t grid submits first (its readout may also inform k
 currency); v17o follows. Both may be in the fleet queue concurrently —
 they are independent cells against the same reference.
+
+## 6. Flag-timing sensitivity (s34, run 1008; grid guidance)
+
+Same 30 sh/min pace cut read at different minutes (flagged avg pnl vs
+unflagged): m3 −15.94 vs −12.35 (Δ 3.6, weak); m5 −16.97 vs −6.37 (Δ 10.6);
+m7 −17.22 vs −1.78 (Δ 15.4, unflagged ~breakeven but only ~19% of mkts
+unflagged and 8 min left to act). Discrimination grows with observation
+time while actionable window shrinks ⇒ supports the CONTINUOUS deficit
+form (throttle deepens automatically as low pace persists past grace) over
+any one-shot gate, and keeps oGraceMin grid interest at {3, 5}, not 7+.
+
+Robustness: the §11.1 concentration replicates on run 1009 (g3, tilt bps 40
+— semi-independent config): low-early S net −104.1k (2.0M sh) vs high-early
+−3.1k (1.39M sh, ≈ fair). Not a 1008 artifact.

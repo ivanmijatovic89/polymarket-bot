@@ -1119,3 +1119,16 @@ watch its own completion rate inside each market and pull back its
 quotes when completions stop arriving. Filed for after the pending
 verdicts; the readout and the already-built late-window variant stay
 first in line.
+
+Update, same session: the wait stretched on, so the idea did not stay
+filed — it became code. The new variant watches how fast the strategy is
+completing pairs inside each market; when the pace falls behind, it
+demands progressively cheaper prices before buying more. Sanity runs
+confirm it behaves exactly as designed: untouched in the opening
+minutes, then it visibly pulls back only in the markets that have gone
+quiet. Two additional checks strengthened the case: the early-warning
+signal reads even cleaner a couple of minutes later (supporting the
+gradual form over an on/off switch), and the whole loss-concentration
+pattern replicates on a second independent full-history run. The
+variant is ready to launch as soon as the pending price-target verdict
+says which price center to build the test around.
