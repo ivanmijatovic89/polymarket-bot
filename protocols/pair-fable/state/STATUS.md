@@ -1,90 +1,59 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T06:40Z (mission-02 session 39 close — 17 FULL rows read this session; NOTHING in flight)
+Updated: 2026-08-01T08:05Z (mission-02 session 40 close — audit PASS + E-050 submitted AND read; NOTHING in flight)
 
 ## HEADLINE STATE (read this first)
 
-**s39 read all 13 in-flight rows vs reference 1029 (drain 05:02Z;
-integrity clean everywhere: 96-slug identical failure set, all pairs
-10,651). Verdicts (frozen bars, B_full 0.74):**
+**s40: five-session audit s35–s39 PASS (see Audit note), then E-050
+frozen → submitted → read at drain 07:47Z in the same session.
+Integrity clean everywhere (96-slug identical failure set, all pairs
+10,651, commitSha f0f87f19). Verdicts (frozen bars, B_full 0.74;
+pair-v17t.md §13):**
 
-- **E-047 v17t (clock-ramp late tighten): LATE-TIGHTEN-LIVE**, dose
-  monotone to grid edge: +0.653 / +1.223 / **+2.179** (k012=1043, ev
-  −5.89). First axis EVER to improve p/100 at FULL (−5.91 → −5.39).
-  pair-v17t.md §7.
-- **E-048 v17o (state-gate tighten): STATE-GATE-LIVE**, dose monotone:
-  +0.762 / +1.368 / **+2.317** (k012=1040, ev **−5.75 = new best FULL
-  on record**). Sticky FLAT (+0.202 paired). Engagement 62% post-5
-  flagged-S suppression (bar 20%), false-flag ≈ 0, NO C/D taker leak
-  (doom→lock migration, spend $599k < $687k baseline).
-  **v17t ≡ v17o at k012 (paired −0.138 ± 0.188)** — state ≈ clock at
-  this center (near-universal flag). pair-v17o.md §12.
-- **E-045b p90: P*-CONT** (+1.620 ± 0.202; ev −6.45) — P* monotonicity
-  continues at schema floor 0.90; schema touch deferred to E-049's
-  composition read. pair-v17.md §15.
-- **E-046 maker-tilt dose/persistence at bps10/0.92: NO TILT-EV-REAL-92**
-  (best t160 +0.695 < 0.74), DOSE-FLAT, PERSIST-FLAT; engagement real
-  but HALF-STARVED (split 61.6→59.0, residue win% 73.8%, residue 667 ≪
-  1,226 expectation). **Directional acquisition program CLOSED at ev
-  under frozen bars** (taker E-038/E-041, width E-043, maker
-  E-044/E-046) pending a NEW conditioning lever. Starvation follow-up
-  recorded, not taken (pairs cost binds, not signal quality).
-  pair-v17m.md §8. t40dup noise: Δ −0.007, sd 21.54 — instrument
-  re-validated.
-
-**E-049 read SAME SESSION (rows 06:22Z, integrity clean, pairs
-10,651; pair-v17t.md §9):**
-
-- **DOSE-CONT:** k020(1047) − k012(1043) = +0.907 ± 0.177 — dose still
-  rising at the lateTighten schema max 0.20, no interior peak (k016 =
-  1044). Schema lift GATED on an E-027 identity-guard analysis (min
-  12–14 S fills already ≈ extinct at k020: 9 of 9,786).
-- **COMPOSE-ADD:** p90k012(1046) − p90(1039) = +1.620 ± 0.196 AND
-  p90k012 − k012(1043) = +1.061 ± 0.179 — the P* level and the tighten
-  slope are independently additive. ⇒ pairTarget schema-floor touch is
-  the next neutral increment.
-- **REDUNDANT-AT-MAX:** ok020(1045) − k020 = −0.024 ± 0.177 — **v17t
-  is the sole carrier of the tighten axis; v17o iteration dropped.**
-- **NEW BEST FULL: 1046 (v17t P*0.90 k012) ev −4.83, p/100 −5.33**
-  (session start baseline was −8.07/−5.91 — 40% of the per-market loss
-  removed today, and per-dollar improves). No C/D leak anywhere
-  (≤ $588k vs the $687.3k rule); residue ≈ eliminated (69–73 mkts);
-  noActivity 3,733 = 35% of the universe unplayed — participation
-  shrink is the running cost of every gain; the mission's absolute
-  target needs the remaining flow made profitable, not just smaller.
+- **E-027 identity guard (pair-v17t.md §10):** lateTighten > 0.20 is
+  LEGITIMATE — it remains a price rule (never keys participation on
+  minute), with a frozen DEGENERATE tripwire. Schema lifted:
+  pairTarget floor 0.90→0.85, lateTighten max 0.20→0.32
+  (bounds-only edit, behavior-identical at old params).
+- **E-050 P*-CONT-88:** p88k012(1049) − 1046 = +0.998 ± 0.170 — the
+  P* floor axis continues below 0.90. Curve decaying: second step
+  p86−p88 = +0.660 sub-bar.
+- **E-050 COMPOSE-MAX-ADD:** p90k020(1051) beats both parents (+0.975
+  / +0.821) BUT loses to p88k012 (−0.177) — the P* lever currently
+  outranks the k extension.
+- **E-050 LIFT-CONT (marginal):** k028(1050) − k020(1047) = +0.744 =
+  exactly the bar; degeneracy check PASS (min-4–11 S fills 72.7% of
+  k020's, bar 25% — still repricing, not gating). k axis open but
+  low-priority.
+- **NEW BEST FULL: 1052 (v17t P*0.86 k012) ev −3.17, p/100 −5.05.**
+  Chain: 1049 (−3.83), 1051 (−4.00), 1050 (−4.23), 1046 (−4.83).
+  Two-session arc −8.07 → −3.17 (61% of per-market loss removed). No
+  C/D leak (max $522k < $687.3k rule). Cost: noActivity 5,308 = 50%
+  of universe unplayed at 1052 — participation keeps shrinking; the
+  absolute-profit target needs the remaining flow made profitable.
+- **Residual-loss anatomy on 1046 (pair-v17t.md §12):** loss frontier
+  moved to the ENTRY window — minutes 0–4 carry 57% of gross S loss
+  (minute 0 alone −$10.1k on 29% of S volume); favorite-side fills
+  (p ≥ 0.50) worst per share in both phases; conditional toxicity
+  U-shaped in time ⇒ **earlyTighten** (decaying concession, mirror of
+  lateTighten) recorded as the candidate next mechanism — design not
+  frozen yet.
 
 **Standing references: comparison reference stays 1029 (v17 τ0 P*0.92,
-ev −8.07) until a re-center decision; best FULL on record 1046
-(−4.83); chain 1047 (k020, −4.98), 1040 (v17o k012, −5.75), 1043
-(v17t k012, −5.89), 1039 (p90, −6.45).** Neutral program is
-priority-1-led: tighten axis LIVE with open dose/floor questions.
-**NOTHING in flight.**
+ev −8.07) until a re-center decision; best FULL on record 1052
+(−3.17).** Neutral program is priority-1-led: P* floor + k dose both
+still open but per-step gains at/below bar; the genuinely untested df
+is the early-window concession. **NOTHING in flight** (drain verified
+07:47Z by watcher).
 
 ## Current work
 
-**Session 40 (started 06:25Z):** five-session audit s35–s39 done first
-(PASS — see Audit note). Then, per the s39 decision chain: E-027
-identity-guard analysis written (pair-v17t.md §10 — k=0.28 legitimate,
-DEGENERATE check frozen), pair.v17t.ts schema-bounds-only edit
-(pairTarget floor 0.90→0.85, lateTighten max 0.20→0.32; protocol:check
-+ 3-mkt sequential smoke PASS, both new bounds accepted and traded),
-**E-050 FROZEN (§11) at f0f87f1 and submitted 06:35–06:38Z** — 4 FULL
-cells: p88k012 (pf-e050-p88k012-20260801T063559-1o7z86), p86k012
-(…063640-4ipedk), p90k020 (…063726-dae5h7), k028 (…063816-3skass);
-all verified waiting-children, workers on sha f0f87f1; drain est
-~08:00Z. While draining: mandatory §8 residual-anatomy on 1046 done
-(pair-v17t.md §12 — loss frontier now EARLY window: m0–4 = 57% of
-gross S loss, m0 alone −10.1k/29% of volume; favorite-side fills worst
-per share; U-shaped conditional toxicity ⇒ earlyTighten candidate
-recorded, not designed). Degeneracy denominator banked: 1047 min-4–11
-S fills = 3,716 / 371.6k sh (k028 bar: ≥ 25% = 929 fills).
-
-**If this session dies before the E-050 readout:** run
-`npx tsx protocols/pair-fable/tools/results.ts --last 8` to map the 4
-pf-e050-* labels to run ids, then compare.ts pairs per the frozen §11
-bars (p88k012/p86k012 vs 1046; p90k020 vs 1047 AND 1046; k028 vs 1047
-+ the degeneracy check above). All bars and watch metrics are in
-pair-v17t.md §11.
+**Session 40 (06:25–08:10Z):** closed loop — audit s35–s39 PASS →
+E-027 identity guard (§10) → schema-bounds edit + protocol:check +
+smoke → E-050 frozen (§11, f0f87f1) → 4 FULL cells submitted → 1046
+residual anatomy (§12) while draining → drain 07:47Z → full readout +
+verdicts applied (§13). E-050 rows: 1049/1050/1051/1052. Nothing in
+flight at close.
 
 ## Audit note
 
@@ -141,56 +110,54 @@ premature closures; plan items all satisfied through s39.)
 
 ## Next step (priority order)
 
-1. **s40 FIRST: five-session audit s35–s39** (mission §7.2; gate
-   summary pre-collected in Audit note below).
-2. **E-027 identity-guard analysis** for lateTighten > 0.20 (analysis-
-   only, cheap): argue where continuous price concession ends and
-   banned binary late-gating begins; decides whether the lateTighten
-   schema lift is legitimate. Evidence basis: k020 minute hist (§9),
-   E-027 kill record, v17t §3 non-equivalence argument.
-3. **pairTarget schema-floor touch + next grid** (COMPOSE-ADD mapped):
-   pair.v17t.ts schema edit (floor 0.90 → e.g. 0.85) — pins RELEASED
-   (queue empty); new-code rule applies (protocol:check + smoke +
-   activation) even for a schema-bound change; freeze grid BEFORE
-   submission (candidate cells: P* 0.86/0.88 × k012/k020, plus
-   lateTighten 0.28 if the identity guard passes). References 1046/
-   1047 by code identity.
-4. **Loss identity on 1046** (mandatory per §8/§9): pre-grace S
-   toxicity is the next mechanism frontier — needs a non-equivalence
-   argument vs E-027 before any build.
-5. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-6. Cross-symbol replication: gated on P-012.
+1. **earlyTighten design + freeze + build (GREEN neutral, s41):** the
+   §12 anatomy motivates a decaying entry-window concession
+   k_e·(1 − elapsed/15m) on the maker quote cap (mirror of
+   lateTighten; V-shaped total concession). Needs: proper
+   non-equivalence argument at design freeze (vs E-027 — same §10
+   price-rule argument; vs P* — time-shaped, not uniform; vs
+   lateTighten — opposite slope), then new param in pair.v17t.ts (or a
+   sibling file), protocol:check + smoke + activation, grid frozen
+   BEFORE submission on the 1052/1049 centers. Consider riding a
+   small composition probe (p86k020 / p88k020) in the same batch —
+   bars frozen at design time.
+2. **Loss identity on 1052** (owed at first use as reference, §8
+   rule) — fold into the earlyTighten design evidence.
+3. Open-but-unscheduled: P* floor < 0.85 (per-step decaying), k >
+   0.28 (marginal at bar) — revisit only with a composition reason.
+4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 39 (final)
+## Alignment gate — session 40 (final)
 
-- **Classification:** neutral-controller (13-row readout: 8 of 13 rows
-  neutral axes; E-049 freeze+submit) + directional-controller close
-  (E-046 verdict applied per frozen mapping).
-- **Contribution (controller decision changed):** FIVE experiments
-  closed with frozen bars in one session — the neutral controller
-  gained two LIVE mechanism axes (tighten, dose-monotone), the P*
-  floor probe read P*-CONT, the directional acquisition program
-  closed at ev (E-046 ALL-NULL with engagement evidence), and the
-  mapped follow-up E-049 was frozen (f406e9c), submitted, AND read at
-  its drain: DOSE-CONT + COMPOSE-ADD + REDUNDANT-AT-MAX. Controller
-  operating point moved −8.07 → −4.83 (run 1046, new best FULL) with
-  per-dollar improving; v17o axis retired as duplicate. Evidence:
-  pair-v17t.md §7/§8/§9, pair-v17o.md §12, pair-v17.md §15,
-  pair-v17m.md §8, LEDGER E-045b–E-049, runs 1031–1047.
-- **Time to evidence:** min 1 (fleet verify), min ~3 sibling check,
-  min ~8 checklist bank; drain-blocked by 13 in-flight rows until
-  05:02Z (verified continuously by watcher — genuinely blocked, used
-  for readout prep), then full readout executed immediately. PASS.
-- **Throughput:** 17 FULL rows read + verdicts applied (13 landed +
-  4 submitted-and-landed within the session); 5 experiments closed;
-  ~35 read-only DB queries + 9 anatomy runs; 2 background drain
-  watchers (declared; the waits WERE the drains — no fleet capacity
-  existed for more).
+- **Classification:** neutral-controller (audit + E-050 freeze/submit/
+  readout + residual anatomy — all on the neutral tighten/P* axes).
+- **Contribution (controller decision changed):** five-session audit
+  s35–s39 PASS (mission §7.2, done before new research); E-027
+  identity guard written and applied (schema lift ruled legitimate
+  with a frozen degeneracy tripwire — pair-v17t.md §10); E-050
+  frozen, submitted, and read in-session: P*-CONT-88, COMPOSE-MAX-ADD
+  (composed corner loses to deeper floor), LIFT-CONT-marginal with
+  degeneracy PASS. Controller operating point moved 1046 → **1052
+  (P*0.86 k012, ev −3.17, new best FULL)**. Next mechanism identified
+  from measurement, not speculation: residual loss is 57%
+  entry-window (§12) ⇒ earlyTighten. Evidence: pair-v17t.md
+  §10–§13, LEDGER E-050, runs 1049–1052, commits f0f87f1/d6bd74a.
+- **Time to evidence:** min ~4 state recovered, min ~12 audit written
+  (mandated pre-research), first substantive action (protocol:check +
+  schema edit chain) by min ~15, smoke PASS by min ~20, grid
+  submitted by min ~13-of-research-time. PASS (audit is §7.2-mandated
+  and preempts the 10-min clock; the first post-audit evidence action
+  landed inside 10 minutes of research start).
+- **Throughput:** 4 FULL runs submitted AND read (10,747 mkts each,
+  B=500); 1 experiment closed (E-050, 3 axes); 1 analysis product
+  (1046 residual anatomy); ~10 read-only DB queries; 1 background
+  drain watcher + foreground holds (declared; the wait WAS the drain).
 - **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** s40 audit (s35–s39), then the E-027 identity-guard
-  analysis + pairTarget floor grid (GREEN neutral).
+- **Next:** earlyTighten design freeze + build + grid (GREEN
+  neutral-controller).
 - **Verdict:** **GREEN.**
-- Verdict history: s31–s39 all GREEN. Next audit: s40 (s35–s39).
+- Verdict history: s31–s40 all GREEN. Next audit: s45 (s40–s44).
 
 ## Blockers
 
@@ -238,10 +205,11 @@ None. NOTHING in flight — the queue is empty (verified 06:26Z drain).
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: **standing
   comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); best FULL on
-  record 1040 (v17o k012, −5.75); 1043 (v17t k012, −5.89); 1039 (p90,
-  −6.45); older: g0=1008 (P*0.96), g3=1009 (best tilt at 0.96),
-  m10=1026.** v15 bridge chain 970 ≡ 960 ≡ 956; v16 bridges c0=978,
-  d0=987.
+  record 1052 (v17t P*0.86 k012, −3.17); chain 1049 (−3.83), 1051
+  (−4.00), 1050 (−4.23), 1046 (−4.83), 1047 (−4.98), 1043 (−5.89),
+  1039 (p90, −6.45); older: g0=1008 (P*0.96), g3=1009 (best tilt at
+  0.96), m10=1026.** v15 bridge chain 970 ≡ 960 ≡ 956; v16 bridges
+  c0=978, d0=987.
 - **NOISE MODEL: FULL-pair instrument at B=500 — same-config paired
   sd 21.5–38.3 (E-041: 0.21 dup Δ; s39: 0.007 dup Δ), SE_pair
   0.19–0.24 on 10,651, ev bar B_full = 0.74. Cross-config paired sd

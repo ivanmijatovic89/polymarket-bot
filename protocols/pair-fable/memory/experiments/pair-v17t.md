@@ -479,7 +479,7 @@ fair): adverse selection is strongest where we bid high. Mid-window
 minutes 3–6 are the least toxic cells ⇒ the residual conditional
 toxicity curve is U-SHAPED in time.
 
-**Candidate next mechanism (recorded, NOT designed/frozen here):**
+**Candidate next mechanism (recorded, NOT designed/frozen s40):**
 `earlyTighten` — a decaying concession k_e·(1 − elapsed/15m) on the
 maker quote cap, the time-mirror of lateTighten, composing to a
 V-shaped total concession with minimum mid-window, matching the
@@ -493,3 +493,59 @@ quotes), motivated by the favorite-side inversion above; needs care —
 it interacts with the projection cap differently per side. Decide
 between them AFTER the E-050 read (if P*-CONT continues, the uniform
 level may absorb part of the early term first).
+
+## 13. E-050 READOUT (s40, 2026-08-01 ~07:50Z; drain 07:47Z)
+
+Mapping: p88k012=1049, k028=1050, p90k020=1051, p86k012=1052.
+Integrity: all rows 96 failures (the identical priceToBeat set), every
+pair n=10,651; latency 140/20 recorded in cmd; commitSha f0f87f19.
+M4 note: compare.ts flags the strategy-SHA change vs 1046/1047 — the
+diff is the §11 schema-bounds-only edit (two zod literals); behavior at
+previously-valid params is identical by code inspection, so cross-SHA
+pairs are valid.
+
+| cell | run | ev | p/100 | played | noActivity | C+D $ |
+|---|---|---|---|---|---|---|
+| p88k012 | 1049 | −3.83 | −5.04 | 6,172 | 4,479 | $492.9k |
+| p86k012 | 1052 | **−3.17** | −5.05 | 5,343 | 5,308 | $417.6k |
+| p90k020 | 1051 | −4.00 | −5.22 | 6,128 | 4,523 | $503.0k |
+| k028 | 1050 | −4.23 | −5.24 | 6,339 | 4,312 | $522.2k |
+
+**Verdicts (frozen §11 bars, B_full 0.74, paired on 10,651):**
+
+- **P*-CONT-88:** p88k012 − 1046 = **+0.998 ± 0.170** > 0.74 — the P*
+  axis continues below the old schema floor. Curve read: the second
+  step p86k012 − p88k012 = +0.660 ± 0.161 is BELOW the bar (though
+  ~4σ by its own SE) — per-step gains are decaying; the floor axis is
+  approaching saturation, not accelerating. p86k012 − 1046 total
+  +1.657 ± 0.170.
+- **COMPOSE-MAX-ADD:** p90k020 − 1047 = +0.975 ± 0.165 AND p90k020 −
+  1046 = +0.821 ± 0.167, both > 0.74 — P* step and k step each add at
+  the other's max. Cross-read: p90k020 − p88k012 = −0.177 ± 0.164 —
+  the composed corner at P*0.90 does NOT beat the deeper floor at
+  k012; the P* lever is currently worth more than the k extension.
+- **LIFT-CONT (marginal) + degeneracy PASS:** k028 − 1047 = **+0.744
+  ± 0.161** — exactly at the bar (0.7444). Degeneracy check passes
+  decisively: min-4–11 S fills 2,702 = 72.7% of k020's 3,716 (bar
+  25%); min-12+ 3 fills. The ramp is still repricing, not gating. The
+  k axis stays open but its marginal step is at the noise bar —
+  further k extensions are low-priority vs the P* floor and the §12
+  early-window mechanism.
+- No C/D leak anywhere (max $522.2k ≪ $687.3k rule). Fees 7.2–11.6k.
+
+**NEW BEST FULL: 1052 (P*0.86 k012) ev −3.17, p/100 −5.05.** Chain:
+1049 (−3.83), 1051 (−4.00), 1050 (−4.23), 1046 (−4.83). Two-session
+arc: −8.07 → −3.17 (61% of the per-market loss removed). Running
+cost: noActivity 5,308 = 50% of the universe unplayed at 1052; the
+mission's absolute target still requires making the remaining flow
+profitable, not only smaller.
+
+**Decisions applied (frozen mappings + priority):** (1) the next
+neutral increment is the §12 early-window mechanism (earlyTighten
+design + freeze — the residual loss is 57% early-window and neither
+live lever touches it; P*/k dose-grinding has decaying steps); (2) a
+small composition probe (p86/p88 × k020) MAY ride along in the same
+grid if fleet capacity allows, bars frozen at design time; (3) P*
+floor below 0.85 and k above 0.28 stay open but unscheduled (both
+at/below bar per step). Loss identity on 1052 owed at its first use
+as a reference (§8 rule).

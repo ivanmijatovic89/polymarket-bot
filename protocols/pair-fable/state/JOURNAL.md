@@ -22,6 +22,19 @@
   That suggests the next mechanism: an extra concession that starts high and
   fades as the market ages — the mirror image of the late-window one. Recorded
   as a candidate, to be designed properly after these runs read out.
+- The runs came back the same session, and all four improved on the record.
+  The cheaper pair target keeps helping below its old limit (though each
+  further step helps less), and the stronger late concession still helps but
+  only just — and it passed the fairness tripwire: mid-window trading is
+  alive and well, so it is genuinely repricing, not silently refusing to
+  trade. New best full-history result: the average loss per market is now
+  $3.17, down from $8.07 two sessions ago — 61% of the loss removed
+  (evidence: run 1052).
+- The price of every gain so far: the bot now sits out half of all markets.
+  Shrinking losses by trading less cannot reach profit on its own — the next
+  step has to make the remaining trades better, and the early-window
+  concession idea aims at exactly the part of the loss that is left. That
+  design is next session's work.
 
 ## 2026-07-30 — Session 8 (baseline-pair-strategy)
 
