@@ -760,3 +760,32 @@ vs earlyTighten (disjoint support, opposite phase). Design/bars NOT
 frozen here — freeze at its own session with cells and a degeneracy
 tripwire (the band cap must reprice, not extinguish, late ≥0.40
 participation).
+
+## 17. P*-floor gain decomposition, 1046 → 1052 (s42, while E-051
+## drained; context only — no bars changed)
+
+Slug-joined played/inactive cross-tab (trade_count > 0 = played).
+1046 (P*0.90 k012) → 1052 (P*0.86 k012), total Δpnl ≈ +$18.2k:
+
+- **Kept flow** (4,279 mkts played in both): −$32.5k → −$25.6k =
+  **+$7.0k repricing gain** (−7.60 → −5.98/mkt; trades 5.3 → 4.5).
+- **Dropped flow** (2,639 mkts inactive at 1052): was −$18.9k =
+  **+$18.9k avoided loss** — at −7.15/mkt, statistically the SAME
+  badness as the kept flow (−7.60): the floor prunes by book price
+  level, NOT by market quality.
+- **Newly played at 1052** (1,064 mkts inactive at 1046): −$8.2k new
+  loss at −7.68/mkt — the old unrepriced rate. Participation is NOT
+  nested across P* levels: the projection cap changes the quote/fill
+  path, and borderline markets churn in both directions.
+
+Sum +7.0 + 18.9 − 8.2 = +$17.7k ≈ observed +18.2k (residual =
+same-config noise, within the 21.5–38.3 paired-sd band).
+
+**Reading:** ~72% of the P* lever's gain is participation avoidance,
+only ~28% is genuine repricing, and every played segment still loses
+−6.0..−7.7/mkt. The lever cannot flip played-flow economics — it can
+only shrink the book toward zero (1052 already has 50% noActivity).
+The absolute-profit target therefore needs repricing mechanisms
+(earlyTighten E-051 in flight; §16 late band term next) rather than
+further floor cuts; consistent with the §13 note that the P* curve is
+decaying (p86−p88 = +0.660 sub-bar).
