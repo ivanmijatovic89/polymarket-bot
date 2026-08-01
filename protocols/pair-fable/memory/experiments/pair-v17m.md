@@ -296,3 +296,52 @@ worse at 0.92 (−3.79 vs −3.23¢/sh) and the split more skewed (61.6 vs
 E-046 this slightly raises the prior that a correctly-signed tilt has MORE
 skew to correct at this center, while the engagement-starvation risk
 (fewer live quotes) remains the registered kill path.
+
+## 8. E-046 readout (s39, 2026-08-01 ~05:10Z; t40=1033, t40dup=1037,
+## t80=1036, t160=1035, t160p=1034)
+
+Integrity: all rows 96 failures (100% priceToBeat, identical set);
+every pair vs 1029 n=10,651. Bar B_full=0.74. Reference inputs from §7:
+S split 61.6/38.4, residue expectation ≈1,226.
+
+**Paired deltas vs 1029:** t40 +0.284 ± 0.208, t80 +0.529 ± 0.217,
+t160 +0.695 ± 0.238, t160p +0.394 ± 0.238.
+
+- **TILT-EV-REAL-92: NO.** No cell clears +0.74 (t160 closest, 2.9σ by
+  its own SE but below the frozen bar — the same shape as E-044's m10
+  +0.462: consistently positive, never bar-clearing).
+- **DOSE-FLAT** formally (every adjacent leg ≪ 0.74: +0.245, +0.166)
+  with a monotone-up trend; dose is already at the ceiling
+  (tiltShares 160 = imbalanceBand).
+- **PERSIST-FLAT:** t160p − t160 = −0.301 ± 0.235 (paired). The ~7s
+  persistence filter does not help.
+- **Engagement is REAL but HALF-STARVED — both §6 clauses fire:**
+  S-split moved 61.6/38.4 → 59.0/41.0 at t160 (2.6 pts ≥ the 2-pt
+  clause; t80 1.9, t40 0.4 — dose-monotone), residue win% held at
+  73.8% (E-044's 74.4% anchor; residue pnl +2.0k→+4.4k→+10.5k with
+  dose), BUT the residue population is 343/403/667/629 mkts vs the
+  ≈1,226 expectation — t160 builds ~54% of the expected tilt, median
+  residue qty 100 of the 160 target. The §6 registered risk (the 0.92
+  cap starves maker-tilt acquisition) is confirmed at half-strength:
+  the win-side S avg price rises 0.485 → 0.520 (quotes pay up) yet
+  volume still can't build before the cap binds.
+- **Secondary (additivity):** t160 − 1026 = +5.676 ± 0.287 ≈ the +5.4
+  expectation — the P* re-center effect composes ~additively with
+  tilt; no cap–tilt interaction anomaly.
+- **t40dup noise check:** t40dup − t40 = −0.007 paired, per-market sd
+  21.54 — same-config FULL noise re-validated (E-041 precedent 0.21);
+  no verdict role.
+
+**Decision (frozen §6 mapping):** the maker-tilt dose and persistence
+axes at bps10 are **CLOSED at ev on this center** — with E-038/E-041
+(taker), E-043 (width), E-044/E-046 (maker dose/persistence) all
+measured, the directional acquisition program is closed under the
+frozen bars pending a NEW conditioning lever (mission §3 evidence
+rule). The starvation escape hatch (§6: one bounded follow-up with a
+concrete mechanism) is recorded but NOT taken now: (1) the residue
+that does build already wins 74% and nets +10.5k — the binding term is
+pairs cost, not signal quality; un-starving means paying more for
+acquisition, the exact E-042 failure; (2) the center itself is in
+motion again (E-045b P*-CONT, E-049 composition in flight) and §6
+holds any tilt re-verification until the center settles. Revisit only
+after E-049 fixes the neutral operating point.

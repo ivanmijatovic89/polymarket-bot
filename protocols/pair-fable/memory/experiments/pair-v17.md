@@ -637,3 +637,28 @@ cross-checks §7 of pair-v17m.md (−69.4k via avg-price rounding) ✓.
 4. Scale note: total bought volume at 0.92 is 3.40M sh vs 4.70M at 0.96
    (−28%), consistent with §13's exposure-reduction story (invested
    292→166, ev gain from participating less).
+
+## §15 E-045b readout (s39, 2026-08-01 ~05:10Z; p90 = run 1039)
+
+Integrity: 96 failures (100% priceToBeat, identical set); pair vs 1029
+n=10,651. Bar ±0.74.
+
+**Verdict: P*-CONT.** p90 − p92(1029) = **+1.620 ± 0.202** — the P*
+monotonicity continues at the schema floor 0.90. Headline: ev −6.45,
+p/100 −5.76 (vs −5.91: per-dollar mildly better this step, unlike the
+flat 0.98→0.92 sweep), played 7,967, invested/played 149.56, fees
+$9.9k.
+
+Frozen mechanism metrics vs the §14 baselines: S 14,657 fills/$600.5k
+(vs 18,308/$772.4k), C 7,049/$67.4k + D 14,392/$526.0k = $593.4k (vs
+$687.3k), resid 98 mkts (pnl ≈ +0.1k), noActivity 2,683 (vs 1,887).
+Engagement declines smoothly — no collapse at the floor.
+
+**Decision (frozen §12 mapping):** the next P* step requires a
+pairTarget schema-floor touch. NOT taken immediately: the tighten axes
+(v17t/v17o §7/§12 readouts) delivered +2.18/+2.32 on the same center —
+more than another P* step (+1.62) — and both levers plausibly overlap
+(all reduce S participation). E-049 cell p90k012 (pair-v17t.md §8)
+measures the composition directly; the schema touch happens only if
+COMPOSE-ADD lands. The E-046 hold-for-center clause (pair-v17m.md §6)
+is moot — no tilt cell cleared its bar (pair-v17m.md §8).

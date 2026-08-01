@@ -154,6 +154,7 @@ matches pair-v17.md §13's independent pace-bucket attribution (−38.7k low
 + −1.1k high) ✓.
 
 **Reading prior for k003/k006/k012 (context, not a rule change):**
+(readout in §7)
 
 - vs 1008, the late window carries MORE of the flow at this center (min
   5–11 = 48.6% of S shares vs 35.5% on 1008) and the toxicity gradient is
@@ -167,3 +168,108 @@ matches pair-v17.md §13's independent pace-bucket attribution (−38.7k low
   both tiny): the "stop quoting at the very end" component of lateTighten
   has almost nothing left to suppress at this center; the dose cells act
   mostly on minutes ~7–11.
+
+## 7. READOUT (s39, 2026-08-01 ~05:10Z; rows landed at full drain 05:02Z)
+
+Mapping: k003=1031, k006=1032, k012=1043 (batchUids in §5 submission
+record / STATUS). Integrity: all rows 96 failures, 100% priceToBeat,
+identical set to 1008; every pair vs 1029 n=10,651. Bar B_full=0.74.
+
+**Verdict: LATE-TIGHTEN-LIVE, dose-monotone to the grid edge.**
+
+| cell | d_ev vs 1029 | se | headline ev | p/100 | played | S fills/$ | C+D $ | resid mkts |
+|---|---|---|---|---|---|---|---|---|
+| k003 (1031) | +0.653 | 0.206 | −7.41 | −5.74 | 8,391 | 16,126/$676.6k | $699.3k | 110 |
+| k006 (1032) | +1.223 | 0.207 | −6.84 | −5.53 | 8,175 | 14,502/$608.6k | $707.2k | 105 |
+| k012 (1043) | **+2.179** | 0.204 | **−5.89** | **−5.39** | 7,621 | 11,951/$491.2k | $667.2k | 92 |
+
+(1029 reference: ev −8.07, p/100 −5.91, played 8,764, S 18,308/$772.4k,
+C+D $687.3k.)
+
+- k006 and k012 clear the bar; k003 does not. Monotone in dose with no
+  interior peak — k012 sits at the GRID EDGE (schema max is 0.20).
+- **Per-dollar improves too** (−5.91 → −5.39), unlike E-045's
+  exposure-only gain — the first axis on record that improves p/100 at
+  FULL.
+- Mechanism engaged as designed: post-min-5 S share falls 48.6% →
+  ~29.0% at k012 (minute hist in anatomy; early min-0 S fills RISE
+  ~2.7k → 3.6k — suppressed late flow partially re-allocates early).
+- **No C/D taker leak** (the E-042 anatomy failure mode): C+D spend
+  $667.2k ≤ baseline $687.3k at k012 — completions MIGRATE from doom
+  (D $596.7k → $478.4k) into cheap C-locks (C $90.6k → $188.7k, fills
+  9,755 → 15,329). Residue ~gone (92 mkts, pnl ≈ 0). Fees up 1.0k
+  (more taker C fills), absorbed by the ev gain.
+- Remaining loss at k012: pnl −62.7k = pairs −49.5k + fees −13.2k.
+
+**Cross-reads (s39, paired):** v17t k012 vs v17o k012 (1043 vs 1040) =
+−0.138 ± 0.188 — statistically identical at this dose, consistent with
+the near-universal deficit flag at this center (pair-v17o.md §11): the
+clock ramp and the state gate converge on the same behavior at FULL.
+
+Frozen §4 mapping applied: LIVE ⇒ iterate slope at the winner ⇒ E-049
+(§8, frozen before submission).
+
+## 8. E-049 — tighten dose extension + P*/tighten composition + max-dose
+## redundancy (FROZEN s39, 2026-08-01, BEFORE submission; params-only)
+
+No code changes this session; pair.v17t.ts / pair.v17o.ts / pair.v17.ts
+untouched since their pins (git log empty over strategies/). All cells
+params-only within schema bounds (lateTighten ≤ 0.20, oTighten ≤ 0.20,
+pairTarget ≥ 0.90 = schema floor).
+
+Motivating verdicts (this file §7, pair-v17o.md §12, pair-v17.md §15):
+both tighten axes LIVE and dose-monotone at the 0.12 grid edge;
+E-045b = P*-CONT (+1.62 at 0.90); v17t ≡ v17o at k012. Three open
+questions, one cell each + one interior point:
+
+| # | cell | strategy | params (rest = 1029 center) | label | question |
+|---|---|---|---|---|---|
+| 1 | k016 | pair-fable-v17t | P*.92 lateTighten .16 | pf-e049-k016 | interior point (locates a peak if k020 overshoots) |
+| 2 | k020 | pair-fable-v17t | P*.92 lateTighten .20 | pf-e049-k020 | dose at schema max |
+| 3 | p90k012 | pair-fable-v17t | P*.90 lateTighten .12 | pf-e049-p90k012 | do the P* level and the tighten slope compose? |
+| 4 | ok020 | pair-fable-v17o | P*.92 oTighten .20 | pf-e049-ok020 | does v17t ≡ v17o survive at max dose? |
+
+FULL universe --to-ms 1785196800000, 140/20, B=500. Integrity: the
+identical 96-slug priceToBeat set; pairwise common 10,651.
+
+**Frozen bars (B_full = 0.74, paired on common intersection).**
+
+- **DOSE-CONT** iff k020 − 1043 > +0.74 ⇒ dose still rising at schema
+  max; a lateTighten schema lift requires an E-027 identity-guard
+  analysis FIRST (k→∞ approaches binary late-participation gating —
+  the family boundary must be argued before extending).
+- **DOSE-SAT** iff |k020 − 1043| ≤ 0.74 ⇒ dose curve saturated; pick
+  operating k in [0.12, 0.20] by ev (p/100 + noActivity reported);
+  dose axis closed at this center.
+- **DOSE-OVER** iff k020 − 1043 < −0.74 ⇒ interior peak; k016 − 1043
+  and k020 − k016 locate it.
+- **COMPOSE-ADD** iff p90k012 − 1039 > +0.74 ⇒ tighten still adds on
+  the 0.90 center; with E-045b's P*-CONT this makes a pairTarget-floor
+  schema touch the next neutral increment. Read p90k012 − 1043
+  alongside (the P* step at fixed k012). **COMPOSE-REDUNDANT** iff
+  p90k012 − 1039 ≤ +0.74 AND p90k012 − 1043 ≤ +0.74 ⇒ the two levers
+  overlap; center stays 0.92 and the P* axis folds into tighten.
+- **REDUNDANT-AT-MAX** iff |ok020 − k020| ≤ 0.74 ⇒ carry v17t alone
+  forward (simpler; no state machinery); v17o stays on file for
+  grace-window variants only. **STATE-ADDS** iff ok020 − k020 > +0.74
+  ⇒ iterate v17o (oRefRate / oGraceMin) next.
+
+**Frozen mechanism metrics per cell:** anatomy (S/C/D fills+$, S
+minute hist, resid count), noActivity (watch participation collapse —
+k012 already 3,030/10,651), C+D $ vs the $687.3k leak rule, fees.
+
+**Post-readout mandatory analysis (recorded now):** recompute the loss
+identity on the best cell. At k012 the largest surviving loss term is
+PRE-grace S toxicity (−26.6k on 736k sh at 1040) — the emerging next
+frontier; neither current mechanism prices it (v17o by grace design,
+v17t's ramp is ~flat early). Not designed here; needs its own
+non-equivalence argument vs E-027 before any build.
+
+**Submit literals (whole grid up front):**
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.16 --to-ms 1785196800000 --label pf-e049-k016 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.20 --to-ms 1785196800000 --label pf-e049-k020 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.90 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-e049-p90k012 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.20 --to-ms 1785196800000 --label pf-e049-ok020 --detach
+```

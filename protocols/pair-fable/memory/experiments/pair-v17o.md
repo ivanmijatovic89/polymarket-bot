@@ -227,3 +227,48 @@ unchanged. Reading guidance: treat the k cells as near-global state-weighted
 tightening; judge mechanism engagement via the §7 literal (post-grace S
 suppression + C/D shift) before interpreting any ev null, and note that
 ENGAGEMENT-STARVED is the a-priori-likely failure mode at k012.
+
+## 12. READOUT (s39, 2026-08-01 ~05:10Z; rows landed at full drain 05:02Z)
+
+Mapping: k003=1042, k006=1041, k012=1040, k006s=1038. Integrity: all
+rows 96 failures, 100% priceToBeat, identical set to 1008; every pair
+vs 1029 n=10,651. Bar B_full=0.74.
+
+**Verdict: STATE-GATE-LIVE, dose-monotone to the grid edge; sticky FLAT.**
+
+| cell | d_ev vs 1029 | se | headline ev | p/100 | played | S fills/$ | C+D $ | resid |
+|---|---|---|---|---|---|---|---|---|
+| k003 (1042) | +0.762 | 0.203 | −7.30 | −5.70 | 8,315 | 15,993/$676.8k | $689.1k | 97 |
+| k006 (1041) | +1.368 | 0.199 | −6.70 | −5.65 | 7,909 | 14,226/$603.2k | $660.0k | 116 |
+| k012 (1040) | **+2.317** | 0.197 | **−5.75** | **−5.42** | 7,314 | 12,623/$531.4k | $599.3k | 79 |
+| k006s (1038) | +1.570 | 0.200 | −6.50 | −5.57 | 7,921 | 13,939/$584.4k | $657.6k | 97 |
+
+- k012 = **the best FULL ev on record** (−5.75; previous best 1029
+  −8.07). All four cells clear the bar (k003 marginally). Monotone in
+  dose, winner at the grid edge (schema max 0.20).
+- **Sticky (oSticky=1) adds nothing at equal dose:** k006s − k006 =
+  +0.202 ± 0.192 (paired) < 0.74 ⇒ the ratchet stays OFF the working
+  config (extra state, no measured value).
+- **Engagement bar PASSED with room:** §7 settle-value split on 1040 —
+  low_early post5 S = 336k sh vs baseline 880k (−62%, bar was ≥20%),
+  s_net −11.8k vs baseline −38.7k (~27k of toxicity removed ≈ the ev
+  gain +2.32 × 10,651 ≈ +24.7k — accounting closes). Pre-grace
+  untouched (−26.6k/736k vs baseline −32.4k/757k); high_early ≈
+  baseline (+4.4/−1.1k vs +3.4/−1.1k) ⇒ false-flag cost ≈ 0. Minute
+  hist shows the S-fill cliff exactly at min 5 (1,565 → 502 at k012),
+  zero pre-grace contamination in every cell.
+- **No C/D taker leak** (§5 watch-metric): C+D spend FALLS with dose
+  ($689.1k → $599.3k vs baseline $687.3k); dooms drop (D 16,372 →
+  12,649 fills) while cheap C-locks rise (9,755 → 12,012) — the same
+  doom→lock migration as v17t.
+- **v17t ≡ v17o at k012:** paired 1043 vs 1040 = −0.138 ± 0.188 — the
+  two mechanisms converge at FULL, as predicted by the near-universal
+  flag at this center (§11: 95.3% of markets under pace at min 5).
+  The state gate buys nothing over the clock ramp HERE; whether that
+  survives at max dose is E-049's REDUNDANT-AT-MAX question.
+
+Frozen §4 mapping applied: LIVE ⇒ iterate at winner. Follow-up grid
+E-049 (dose extension + composition + redundancy) is FROZEN in
+pair-v17t.md §8 — v17o carries one cell (ok020). If REDUNDANT-AT-MAX
+lands, v17t becomes the sole carrier of the tighten axis and further
+v17o iteration (oRefRate/oGraceMin) is dropped without a new reason.
