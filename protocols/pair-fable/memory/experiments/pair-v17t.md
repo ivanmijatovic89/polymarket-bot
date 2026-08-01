@@ -1203,3 +1203,36 @@ the conservative first cell). (4) The 0.40–0.50 band's weak/unstable
 separation is a reason to expect composition overlap with E-052's
 late ≥0.40 dose rather than clean additivity — measure net of the
 E-052 verdict as §21.3 already requires.
+
+### 21.5 E-053 pre-freeze skeleton (s46 — NOT the freeze; the
+### implementing session freezes with fresh base numbers + the E-052
+### composition. §21.4 resolves two of §21.3's open choices)
+
+Resolved by §21.4 evidence:
+- **Threshold: design constant `DISAGREE_BPS = −5`** (31% of S fills,
+  −$12.1k gross, −5.9¢/sh — richer per-share toxicity AND halves the
+  extinction surface vs T=0's 53%; quote-time persistence 0.968 at 1s
+  is ample). T=0 is NOT a cell in the first grid — it widens coverage
+  only +7¢ gross per flagged share at nearly double the flow touched;
+  revisit only if the −5 grid reads KEPT-SIGNAL with headroom.
+- **Flat dose, S quotes only** (matches E-052's shape; completions are
+  ~fair §10/§15/§20 and stay undosed; graded dose is a later
+  refinement, not the mechanism question).
+
+Sketch (to finalize at freeze): schema add `disagreeTighten` ∈
+[0, 0.16] default 0 (M5 bound, same rationale as lateBandTighten).
+In the §8.3 maker price computation at the same application point as
+lateBandTighten (final candidate quote, after ask clamp): if
+`cfg.disagreeTighten > 0` AND the side's advBps ≤ DISAGREE_BPS at
+tick evaluation (spot from binanceWsSpotPrice, ptb from
+polymarketPriceToBeat — both already declared and consumed for
+spotLeadBps; ptb absent ⇒ no dose, matches the 96 no-strike markets)
+then `price = floorToGrid(price − cfg.disagreeTighten)`.
+Doses dt04/dt08/dt12 (0.04/0.08/0.12) on the center determined by the
+E-052 verdict (REPRICE-CONT ⇒ compose on the winning cell; else on
+1052's config). Bars at freeze: paired Δev (B_full 0.74) AND kept-flow
+paired Δpnl PRIMARY (§18) with fresh channel-noise scale from the
+E-052 dup replicate; degeneracy at BOTH granularities — flagged-S fill
+count floor AND noActivity growth cap sized from the freeze-time
+flagged-fill census on the base run (fresh query, not §21.4's 1052
+numbers if the center moved).
