@@ -1010,3 +1010,61 @@ must be observably repriced or the dose must show in fill prices;
 lateBandTighten absent ⇒ behavior-identical), tree clean + pushed to
 origin/main, queue empty verified, batchUid captured per submit,
 fleet.ts verification after.
+
+### §19 addendum — submission record + accidental lb04 duplicate
+### (s43, 09:26–09:29Z, commitSha 94a077cd; designated BEFORE any results)
+
+Smoke 1058 PASS (8 mkts, 0 failures). Activation A/B (local sequential,
+30 latest, diagnostics NOT evidence): 1059 (lb12) vs 1060 (base) —
+late S avg fill 0.337 vs 0.357, dosed late fills 0.36/0.36/0.42/0.21
+(the 0.42 = pre-dose 0.54, consistent), C/D fills un-dosed as designed
+(identical C fills both runs on slug …762100).
+
+Submissions (all verified waiting-children 09:30Z, workers on 94a077c):
+lb04-PRIMARY = pf-e052-lb04-20260801T092631-4q77rc,
+lb04-DUP = pf-e052-lb04-20260801T092713-lc3gla (submit-output tail cut
+off the batchUid line; resubmitted before checking the queue — the
+first had already enqueued). **Designation, before results: 092631 is
+the primary lb04 cell for ALL frozen bars; 092713 is noise-only — its
+sole use is a same-config replicate measurement of kept-flow paired
+Δpnl noise (validates K_bar). It is NOT a second chance at any bar.**
+lb08 = pf-e052-lb08-20260801T092843-dy3e3n,
+lb12 = pf-e052-lb12-20260801T092929-r0rm39.
+
+## 20. Completion-pathway decomposition on 1052 (s43, while E-052
+## drained; context only — no bars changed. Re-ranks the §15 backlog)
+
+Method: per-market completion mix from intent_meta (S>0 markets,
+5,343 = 10,651 common − 5,308 noActivity ✓; pnl sums to §15's −33,743
+✓), plus D-fill price histogram and a D-leg outcome join on
+final_outcome.
+
+| mix | mkts | pnl | ev/mkt |
+|---|---|---|---|
+| D-only | 3,532 | −$58.8k | −16.63 |
+| C-only | 1,101 | +$20.8k | **+18.87** |
+| D+C mixed | 641 | +$3.3k | +5.07 |
+| S-only (no completion) | 69 | +$1.0k | +14.13 |
+
+1. **The controller is PROFITABLE on every pathway except doom.** The
+   C-lock pathway (oscillating markets: both legs cheap at different
+   times, pair ≤ pLock 0.85) earns +18.9/mkt on 1,101 markets. The
+   entire net loss is the 3,532 doom-completed one-way markets.
+2. **The D leg itself is FAIR: no completion-price headroom.** D pays
+   avg 0.826/sh ($342.9k, 415.0k sh) for a side that wins 82.08%
+   share-weighted → D-leg EV −$2.2k (−0.5¢/sh). Price histogram: 80%
+   of D dollars at 0.80–0.85 (mechanically pinned by DOOM_BID 0.20 —
+   by the time the lead bid hits 0.20 the favorite asks ~0.82); only
+   $32.7k above 0.90, so a doomUnitMax cut touches ~10% of spend and
+   forces holding the worst residue. An EARLIER trigger buys the
+   favorite cheaper but at its own ~fair price (E-035: favorites
+   exactly fair) — completion timing/price moves variance, not EV.
+   **The §15 backlog item "doom-backstop completion price" is
+   measured ≈ dead before design — dropped from the backlog.**
+3. The doom loss is concentrated and small per market: S spend on
+   D-only markets is $122.1k / 3,532 ≈ $35/mkt ≈ ONE orderSize fill
+   at ~0.35 — the band (160) is not the exposure driver; the loss is
+   the one overpriced start leg realized when the market never comes
+   back (E-035 longshot overpricing made concrete). Mechanisms that
+   reprice or refuse exactly that flow remain the only EV-positive
+   attack surface; completion-side mechanics are exhausted.
