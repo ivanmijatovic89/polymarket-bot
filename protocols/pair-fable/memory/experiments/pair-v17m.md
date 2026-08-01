@@ -267,3 +267,32 @@ verdict bars.
 Queue verified 01:23Z: 13 aggregates waiting-children (8 s34 + these
 5), ~126k market jobs remaining at ~620/min ⇒ full drain ≈04:45–05:00Z
 — ALL 13 rows land together then.
+
+## 7. E-046 engagement-baseline calibration on reference 1029
+## (s37, 2026-08-01 ~01:47Z, PRE-READOUT; §6 bars unchanged — this pins their inputs)
+
+Recorded before any of the 13 in-flight rows landed (queue verified 01:39Z,
+drain ≈04:45Z). Two §6 bar inputs were still quoted from the OLD 0.96
+center; measured now on 1029 with the §6-named verified query
+(known-answer check on 1008 reproduced 57.85/42.15, lose avg 0.418, first):
+
+- **Baseline S split on 1029 = 61.6 / 38.4 toward the eventual loser**
+  (1,127,200 lose sh @ 0.383 vs 703,600 win sh @ 0.485; S net −69.4k,
+  −3.79¢/sh). The "S-split moved ≥ ~2 pts toward the winner" clause in
+  ALL-NULL+ENGAGED / ENGAGEMENT-STARVED is judged against **61.6/38.4**,
+  NOT the 58/42 measured on 1008.
+- **Residue-count expectation (frozen formula, now evaluated):** played =
+  markets with ≥1 fill: 8,764 @0.92 vs 10,152 @0.96 ⇒ ratio 0.863 ⇒
+  expectation ≈ 1,420 × 0.863 ≈ **1,226 residue markets**. The §6
+  parenthetical guess ("roughly 55–60% of the 0.96 count") was WRONG as a
+  guess; the frozen formula itself is what binds and now has its number.
+  ENGAGEMENT-STARVED's "residue count ≪ expectation" reads against ~1,226.
+
+**Mechanism context (sharpens interpretation, no bar change):** the P*0.92
+re-center did NOT make the maker flow fairer — per-share S toxicity is
+worse at 0.92 (−3.79 vs −3.23¢/sh) and the split more skewed (61.6 vs
+57.85). The +5.44 ev gain came from doing LESS of the toxic activity
+(1.83M vs 3.40M S shares) at cheaper prices, not from fairer fills. For
+E-046 this slightly raises the prior that a correctly-signed tilt has MORE
+skew to correct at this center, while the engagement-starvation risk
+(fewer live quotes) remains the registered kill path.

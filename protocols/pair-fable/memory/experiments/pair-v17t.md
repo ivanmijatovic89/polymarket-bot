@@ -116,3 +116,54 @@ npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --
 npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.06 --to-ms 1785196800000 --label pf-v17t-k006 --detach
 npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-v17t-k012 --detach
 ```
+
+## 6. Reading prior — baseline S-toxicity minute curve on the k=0 reference 1029
+## (s37, 2026-08-01 ~01:47Z, PRE-READOUT; bars in §4/§5 unchanged — context only)
+
+Recorded before any of the 13 in-flight rows landed (queue verified 01:39Z:
+13 aggregates waiting-children, ~117.6k market jobs left, drain ≈04:45Z).
+Method: §10 minute curve (JSON_TABLE over intent_meta, jt.m='S', minute =
+floor((ts − market_start_ms)/60k), ev/share = shares-weighted win_rate −
+avg fill price). Known-answer check on 1008 reproduced the s29/s30 numbers
+(57.85/42.15 split, lose avg 0.418) before running on 1029.
+
+**Run 1029 (P*0.92 neutral, the v17t k=0 reference):**
+
+| minute | shares | avg p | win rate | ev/share |
+|---|---|---|---|---|
+| 0 | 272,700 | 0.432 | 0.403 | −0.0287 |
+| 1 | 170,700 | 0.434 | 0.394 | −0.0408 |
+| 2 | 152,600 | 0.429 | 0.389 | −0.0401 |
+| 3 | 150,100 | 0.429 | 0.408 | −0.0208 |
+| 4 | 168,400 | 0.442 | 0.413 | −0.0295 |
+| 5 | 151,500 | 0.428 | 0.386 | −0.0417 |
+| 6 | 134,500 | 0.420 | 0.393 | −0.0278 |
+| 7 | 123,700 | 0.409 | 0.349 | −0.0597 |
+| 8 | 119,600 | 0.414 | 0.372 | −0.0420 |
+| 9 | 134,500 | 0.423 | 0.380 | −0.0430 |
+| 10 | 117,300 | 0.410 | 0.373 | −0.0377 |
+| 11 | 108,700 | 0.399 | 0.342 | −0.0565 |
+| 12 | 17,600 | 0.264 | 0.205 | −0.0595 |
+| 13 | 8,900 | 0.208 | 0.213 | +0.0058 |
+
+Window aggregates (gross S toxicity): min 0–4 ≈ −$29.0k over 914.5k sh
+(−3.17¢/sh, 50.0% of S volume); min 5–11 ≈ −$38.8k over 889.8k sh
+(−4.36¢/sh, 48.6%); min 12–13 ≈ −$1.0k over 26.5k sh (1.4%). Sum −68.8k ≈
+the S net −69.4k measured by the split query ✓, and post-min-5 ≈ −39.8k
+matches pair-v17.md §13's independent pace-bucket attribution (−38.7k low
++ −1.1k high) ✓.
+
+**Reading prior for k003/k006/k012 (context, not a rule change):**
+
+- vs 1008, the late window carries MORE of the flow at this center (min
+  5–11 = 48.6% of S shares vs 35.5% on 1008) and the toxicity gradient is
+  gentler (late −4.36 vs early −3.17¢/sh; 1008's min-12–13 tail was
+  −6.4..−9.7¢ where 1029's is −6.0/+0.6 on tiny volume). lateTighten's
+  target window holds ~46% of the whole −85.9k baseline loss in GROSS
+  terms — but that flow also carries ~half the pairing volume, so the net
+  lever is much smaller than −39.8k; expect the ev read to be dominated by
+  how much completion value the tighten sacrifices.
+- Min-12–13 volume is already near-zero at P*0.92 (1.4% vs 0.77% —
+  both tiny): the "stop quoting at the very end" component of lateTighten
+  has almost nothing left to suppress at this center; the dose cells act
+  mostly on minutes ~7–11.

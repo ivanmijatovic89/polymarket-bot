@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T01:55Z (mission-02 session 36 close)
+Updated: 2026-08-01T02:00Z (mission-02 session 37 close)
 
 ## HEADLINE STATE (read this first)
 
@@ -12,6 +12,10 @@ declared): mission §2 metrics + loss identity REPLICATED on 1029 —
 pair-v17.md §13 (fractions <0.98 30.2% / <0.95 23.1% / <0.90 5.4%;
 post-flag S toxicity share up to ~45% of the loss; healthy-pace
 population collapsed to 4.7%) + v17o reading prior in pair-v17o.md §11.
+s37 (drain-blocked, analysis-only): readout INPUTS pinned on 1029 —
+**E-046 engagement baseline = S split 61.6/38.4 (NOT 1008's 58/42),
+residue expectation ≈ 1,226** (pair-v17m.md §7); v17t minute-curve
+prior (pair-v17t.md §6; post-min-5 = 48.6% of S volume, −4.36¢/sh).
 
 **IN FLIGHT (next session reads FIRST; do NOT resubmit): 13 FULL runs
 @ 140/20, universe 10,747 (expect the identical 96 outage failures
@@ -54,6 +58,24 @@ winning tilt cell would be re-verified at any new center before
 promotion (frozen in pair-v17m.md §6).
 
 ## Current work
+
+**Session 37 (01:38–02:00Z, harness restarted the loop again ~0 min
+after s36 close — same drain-blocked position; queue verified 01:39Z:
+13 aggregates waiting-children, ~117.6k market jobs, drain ≈04:45Z as
+modeled). Declared analysis-only; no fleet submissions. Work: pinned
+the frozen readout's remaining unmeasured INPUTS on reference 1029,
+with a 1008 known-answer check passing first on each query. (1) E-046
+engagement baseline: 1029's S split is 61.6/38.4 toward the loser
+(lose 1.127M sh @ .383, win 0.704M @ .485; −3.79¢/sh, net −69.4k) —
+MORE skewed and MORE toxic per share than 1008's 58/42/−3.23¢; the
++5.44 P* gain came from volume shrink, not fairer flow. The §6
+"moved ≥2 pts" clause reads against 61.6/38.4. (2) Residue
+expectation: played 8,764@0.92 vs 10,152@0.96 ⇒ frozen formula gives
+≈1,226 (the 55–60% guess in §6 was wrong; formula binds). (3) v17t
+prior: 1029 minute curve — post-min-5 flow is 48.6% of S volume at
+−4.36¢/sh (gross −39.8k, cross-checks §13's −38.7k−1.1k ✓); min 12–13
+already near-empty ⇒ lateTighten acts mostly on minutes 7–11. All in
+pair-v17m.md §7 + pair-v17t.md §6; bars unchanged everywhere.**
 
 **Session 36 (01:28–01:55Z, harness restarted the loop ~0 min after
 s35 close — same drain-blocked position as s32/s33): queue verified
@@ -199,25 +221,8 @@ salvage on flip preserved); tiltUnitMax dropped. protocol:check PASS;
 smoke 1012 PASS; activation 1013: τ160 taker ≤ τ0 taker on EVERY
 market (16 vs 24) — no-chase verified. τ0 ≡ v17 τ0 by code identity.
 
-**IN FLIGHT (next session reads FIRST; do NOT resubmit):** 7 FULL
-runs @ 140/20, universe 10,747 (submitted 10,747; expect 96 outage
-failures each), --to-ms 1785196800000. E-043/E-045 at SHA f107234
-(params-only on pair.v17), E-044 at 18ce0a43. Queue verified 23:04Z:
-7 aggregates waiting-children, h80 at 6794/10747.
-
-| exp | # | strategy | key params | batchUid |
-|---|---|---|---|---|
-| E-043 | h80 | v17 | τ160 bps80 | pf-e043-h80-20260731T225501-e9pec4 |
-| E-043 | h160 | v17 | τ160 bps160 | pf-e043-h160-20260731T225536-gxoe2a |
-| E-045 | p92 | v17 | τ0 P*0.92 | pf-e045-p92-20260731T225614-q260og |
-| E-045 | p94 | v17 | τ0 P*0.94 | pf-e045-p94-20260731T225654-ydl2ao |
-| E-045 | p98 | v17 | τ0 P*0.98 | pf-e045-p98-20260731T225738-4q7e3p |
-| E-044 | m10 | v17m | τ160 bps10 | pf-e044-m10-20260731T230254-9z7pbg |
-| E-044 | m40 | v17m | τ160 bps40 | pf-e044-m40-20260731T230348-t7ujlc |
-
-Center everywhere else: q100 I160 doom.99 cool5 ttl90 persist0
-lagAggr0 B500 (P* 0.96 except E-045 cells; tiltUnitMax=1 on v17,
-absent on v17m).
+(The s28 7-run in-flight table was removed at s37 — those runs landed
+as 1008–1029 and were read/closed in s30–s34; see the memory files.)
 
 ## Audit note
 
@@ -318,10 +323,12 @@ the readout's decision mappings are applied.
    HEADLINE STATE): map batchUids → run ids via backtest_runs.batch_uid,
    integrity per e043-e045-readout.md step 2 (identical-96-set rule,
    pairwise common 10,651 vs 1029), paired deltas via the step-3
-   template vs **1029**. Frozen bars: pair-v17t.md §4/§5, pair-v17o.md
-   §4/§10 (+§7 mechanism literal), pair-v17.md §12 (E-045b),
-   pair-v17m.md §6 (E-046; t40dup = noise check only). Suggested
-   order: p90 → v17t/v17o → E-046. Apply the frozen mappings.
+   template vs **1029**. Frozen bars: pair-v17t.md §4/§5 (+§6 minute
+   prior), pair-v17o.md §4/§10 (+§7 mechanism literal, §11 prior),
+   pair-v17.md §12 (E-045b), pair-v17m.md §6 (E-046; t40dup = noise
+   check only) **+§7 calibrated inputs: engagement baseline 61.6/38.4,
+   residue expectation ≈1,226**. Suggested order: p90 → v17t/v17o →
+   E-046. Apply the frozen mappings.
 2. **Mapped follow-ups** from those verdicts (winner refinement, axis
    close, or re-center; each file names its own decision mapping).
 3. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
@@ -385,6 +392,36 @@ the readout's decision mappings are applied.
 - **Verdict:** **GREEN.**
 - Verdict history: s31 GREEN, s32 GREEN, s33 GREEN, s34 GREEN,
   s35 GREEN, s36 GREEN. Next audit: s40.
+
+## Alignment gate — session 37 (final)
+
+- **Classification:** neutral-controller + directional-controller
+  evaluation prep (drain-blocked analysis-only, declared up front; no
+  fleet submissions — 13 rows land ≈04:45Z, verified 01:39Z).
+- **Contribution (controller decision changed):** two frozen-bar
+  INPUTS that were quoted from the wrong baseline are now measured on
+  the actual reference 1029: the E-046 engagement clause reads against
+  S split 61.6/38.4 (not 1008's 58/42 — a 3.7-pt shift that directly
+  moves the ENGAGED/STARVED boundary) and the residue expectation is
+  pinned at ≈1,226 (the frozen formula's value; §6's 55–60% guess was
+  wrong). Plus the v17t k-cell reading prior (minute curve on 1029).
+  Known-answer checks on 1008 passed before each measurement; two
+  independent methods cross-check (−39.8k ≈ §13's −38.7k−1.1k).
+  Evidence: pair-v17m.md §7, pair-v17t.md §6, this session's sql.ts
+  outputs.
+- **Time to evidence:** fleet verify min 1, first substantive query
+  (known-answer 1008) min ~6. PASS.
+- **Throughput:** analysis-only (declared): 7 read-only DB queries (1
+  fleet + 6 sql.ts incl. two 10k-market JSON_TABLE aggregations), 2
+  memory sections written. No serial scans; no fleet runs expected
+  before ≈04:45Z.
+- **Scale:** closed by E-036 on record; no new scale claims.
+- **Next:** read all 13 rows vs 1029 (drain ≈04:45–05:00Z), apply
+  frozen mappings with the §7/§6 calibrated inputs — GREEN, order
+  p90 → v17t/v17o → E-046.
+- **Verdict:** **GREEN.**
+- Verdict history: s31 GREEN, s32 GREEN, s33 GREEN, s34 GREEN,
+  s35 GREEN, s36 GREEN, s37 GREEN. Next audit: s40.
 
 ## Blockers
 

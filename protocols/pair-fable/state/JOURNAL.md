@@ -1210,3 +1210,26 @@ so the interpretation can't bend to fit the outcome.
 
 Next session reads all thirteen results and applies the pre-agreed
 decision rules.
+
+## Session 37 — 2026-08-01 (~01:40–02:00Z)
+
+The thirteen experiment results are still about three hours from
+landing, so this was another short waiting-room session. We used it to
+fix a subtle measurement problem before it could bite: two of the
+pre-agreed pass/fail rules for the tilt experiment were written using
+reference numbers from the OLD buying discipline, not the current one.
+
+Re-measuring on the current baseline changed both numbers materially.
+Our passive buying is now MORE lopsided toward the eventual loser than
+before (about 62/38, was 58/42) — the tighter price cap helped profits
+by simply doing less of the toxic buying, not by making it fairer. And
+the participation drop we had guessed at was far smaller than guessed.
+Both corrected numbers are now written down next to the rules they
+feed, before any results arrived.
+
+We also mapped, minute by minute, where the remaining damage sits:
+about half of it comes from buys made in the back half of the window,
+which is exactly the part one of the pending experiments throttles.
+
+Next session: the results land around 04:45Z; read all thirteen and
+apply the pre-agreed rules.
