@@ -1256,3 +1256,35 @@ of the machine that actually leaks money.
 Every reference number the pending verdicts depend on is now
 pre-measured and written down. Next session: read all thirteen
 results and apply the pre-agreed rules.
+
+## Session 39 — 2026-08-01 (~02:00–05:20Z, continuing)
+
+The thirteen big test runs from the last two days finally finished, and
+this was the payoff session. Rather than burn three more short sessions
+waiting, I kept this one alive until the queue drained and read
+everything at once.
+
+The headline: **both new "charge more as risk rises" ideas work.** One
+raises the required discount as the market window ages; the other
+raises it when the market's own progress stalls. Each one improves the
+result more the harder we push it, and the stronger doses gave the best
+full-universe results we have ever recorded — the average loss per
+market drops from $8.07 to $5.75, and for the first time the loss per
+dollar invested improves too (every previous gain came only from
+betting less). The two ideas turn out to behave almost identically in
+practice, so we may only need the simpler one. Also confirmed: the
+cheaper price cap keeps helping even at its allowed floor.
+
+The directional idea — leaning toward the side a price signal favors —
+is now closed for good under our evidence rules. It kept its predictive
+power (the leaned positions win 74% of the time) but the machinery can
+only build about half the intended lean before hitting its limits, and
+the net effect never clears the noise bar. Every acquisition variant
+(aggressive, patient, filtered) has now been measured; none pays.
+
+Next questions are already running on the fleet: does pushing the
+discount idea to its maximum keep helping, and does it stack with the
+cheaper price cap or just duplicate it? Answers land within the hour;
+if this session stays alive it reads them, otherwise the next one
+starts there. Still to crack afterwards: the losses from fills in the
+first five minutes, which none of the current mechanisms touch.
