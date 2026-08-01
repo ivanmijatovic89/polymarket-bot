@@ -713,3 +713,50 @@ is now LATE-only — late worst bands 0.40–0.50 (−8.1¢/sh) and ≥0.50
 secondary candidate (quote-price-conditioned concession) is designed,
 it should be scoped to the LATE window at this center — early it would
 mis-target the measured band structure.
+
+## 16. Late-window minute×band matrix on 1052 (s42, while E-051
+## drained; calibration context only — no bars changed)
+
+Method: §6 JSON_TABLE minute curve with a fill-price band dimension
+(bands <0.30 / 0.30–0.40 / 0.40–0.50 / ≥0.50), S fills only, run 1052.
+Cross-checks: band totals reproduce the s41 addendum (late 0.40–0.50
+−8.13¢/sh, ≥0.50 −7.24¢); phase totals reproduce §15 (early −$12.1k =
+48%, late −$13.1k of gross S ≈ −$25.2k).
+
+**Phase×band table (shares / $ / win rate / ev¢ per sh):**
+
+| phase | <0.30 | 0.30–0.40 | 0.40–0.50 | ≥0.50 |
+|---|---|---|---|---|
+| early m0–4 | 82.3k / −2.44¢ | 148.0k / −4.18¢ | 120.2k / −1.87¢ | 47.9k / −3.43¢ |
+| late m5+ | 99.7k / −3.19¢ | 58.6k / −2.80¢ | 48.4k / −8.13¢ | 60.7k / −7.24¢ |
+
+**Structural findings:**
+
+1. **Late bands ≥0.40 carry −$8.3k of −$13.1k late loss (63%) on 41%
+   of late shares** (109.1k of 267.4k). Below 0.40 the late book is
+   only ~−3¢/sh — near the gross average, mostly repriceable by k.
+2. **The 0.40–0.50 band's toxicity peaks at m5–6 (−14.4¢, −17.9¢/sh)
+   then flattens (m7–11: +3.2 to −8.3¢)** — the OPPOSITE shape of the
+   lateTighten ramp, which is smallest exactly at m5–6. ≥0.50 is
+   minute-flat (−1.3 to −12.8¢, no end concentration). The late band
+   term is NOT ramp-shaped: no dose of k can price it without
+   overcharging the fine <0.40 flow.
+3. Economics of the bad cells: ≥0.50 pays avg 0.585 for 51.2% wins;
+   0.40–0.50 pays 0.443 for 36.2% wins — contested-region fills whose
+   price still embeds the pre-move favorite.
+4. Early-window bands confirm §15: worst dollar cell is 0.30–0.40
+   (−$6.2k), per-share toxicity mild and band-flat (−1.9..−4.2¢) —
+   the early term is time-shaped (E-051's premise), the late term is
+   price-shaped.
+
+**Design implication (for the §14 decision map's fallback, and as the
+next open loss term under ANY E-051 outcome):** a quote-price-
+conditioned concession scoped to m5+, threshold ~0.40, roughly
+minute-flat — i.e. extra concession on the maker cap when the quoted
+side would rest ≥0.40 in the late window. Non-equivalence sketch:
+vs lateTighten (minute-shaped, band-blind — finding 2 shows the
+shapes are orthogonal); vs P* (uniform floor at all ages/prices);
+vs earlyTighten (disjoint support, opposite phase). Design/bars NOT
+frozen here — freeze at its own session with cells and a degeneracy
+tripwire (the band cap must reprice, not extinguish, late ≥0.40
+participation).
