@@ -138,3 +138,16 @@ any one-shot gate, and keeps oGraceMin grid interest at {3, 5}, not 7+.
 Robustness: the §11.1 concentration replicates on run 1009 (g3, tilt bps 40
 — semi-independent config): low-early S net −104.1k (2.0M sh) vs high-early
 −3.1k (1.39M sh, ≈ fair). Not a 1008 artifact.
+
+## 7. FULL-cell readout literals (verified this session on 1008/1009)
+
+Per-cell S-net split (replace <RUN>; settle-value attribution, k units):
+
+```
+npx tsx protocols/pair-fable/tools/sql.ts "SELECT CASE WHEN low.slug IS NOT NULL THEN 'low_early' ELSE 'high_early' END AS grp, CASE WHEN (jt.ts - CAST(SUBSTRING_INDEX(brm.slug,'-',-1) AS UNSIGNED)*1000)/60000 < 5 THEN 'pre5' ELSE 'post5' END AS phase, ROUND(SUM(CASE WHEN CONVERT(jt.side USING utf8mb4) COLLATE utf8mb4_unicode_ci = brm.final_outcome THEN jt.s ELSE 0 END)/1000 - SUM(jt.s*jt.p)/1000, 1) AS s_net_k, ROUND(SUM(jt.s)/1000,0) AS s_shares_k FROM backtest_run_markets brm LEFT JOIN (SELECT brm2.slug FROM backtest_run_markets brm2 JOIN JSON_TABLE(brm2.intent_meta, '\$[*]' COLUMNS (side VARCHAR(8) PATH '\$.side', s DOUBLE PATH '\$.s', ts DOUBLE PATH '\$.ts')) j2 WHERE brm2.run_id = <RUN> GROUP BY brm2.slug HAVING LEAST(COALESCE(SUM(CASE WHEN j2.side='UP' AND j2.ts < CAST(SUBSTRING_INDEX(brm2.slug,'-',-1) AS UNSIGNED)*1000 + 300000 THEN j2.s END),0), COALESCE(SUM(CASE WHEN j2.side='DOWN' AND j2.ts < CAST(SUBSTRING_INDEX(brm2.slug,'-',-1) AS UNSIGNED)*1000 + 300000 THEN j2.s END),0)) < 150) low ON low.slug = brm.slug JOIN JSON_TABLE(brm.intent_meta, '\$[*]' COLUMNS (side VARCHAR(8) PATH '\$.side', m VARCHAR(2) PATH '\$.m', s DOUBLE PATH '\$.s', p DOUBLE PATH '\$.p', ts DOUBLE PATH '\$.ts')) jt WHERE brm.run_id = <RUN> AND jt.m = 'S' GROUP BY grp, phase"
+```
+
+Reference values on 1008 (k=0 ≡): low_early pre5 −66.7k / post5 −42.2k;
+high_early total −1.6k. Engagement bar (§4): flagged-regime post-5 S shares
+suppressed ≥ 20% at k=0.12 vs reference. C/D flow check: taker counts + $
+per cell vs reference from results.ts / anatomy.ts (§5 watch-metric).
