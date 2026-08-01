@@ -1,141 +1,131 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T09:35Z (mission-02 session 42 close — E-051 read and closed; nothing in flight)
+Updated: 2026-08-01T09:50Z (mission-02 session 43 close — E-052 submitted, 4 batches in flight)
 
-## IN FLIGHT
+## IN FLIGHT (read first — s44 owes this readout)
 
-Nothing. Queue drained 09:09Z (verified agg waiting-children=0); all
-E-051 rows landed and were read in s42.
+**E-052 (lateBandTighten) FULL grid, submitted s43 09:26–09:29Z at
+commitSha 94a077cd, all 4 verified waiting-children 09:30Z; drain ≈1h
+from submit (s42 model). Rows land at FULL queue drain.**
 
-## HEADLINE STATE (read this first)
+- lb04 PRIMARY = `pf-e052-lb04-20260801T092631-4q77rc`
+- lb04 DUP (noise-only, designated pre-results — kept-flow noise
+  replicate ONLY, not a second chance at bars) =
+  `pf-e052-lb04-20260801T092713-lc3gla`
+- lb08 = `pf-e052-lb08-20260801T092843-dy3e3n`
+- lb12 = `pf-e052-lb12-20260801T092929-r0rm39`
 
-**s42: E-051 earlyTighten READ and CLOSED (pair-v17t.md §18, frozen
-bars §14). Integrity clean (common 10,651 everywhere; engine-SHA delta
-f0f87f19→7e5f9276 cleared by commit inspection — protocol-only, M4).**
+Resume: `npx tsx protocols/pair-fable/tools/fleet.ts` (count aggregate
+waiting-children → 0), then map batchUids → run ids via results.ts /
+sql.ts, read under the FROZEN §19 bars (pair-v17t.md §19): paired Δev
+vs 1052 on the 10,651 common set (bar 0.74) AND kept-flow paired Δpnl
+(§17 method) K_bar +$4.0k PRIMARY; degeneracy at BOTH granularities
+(late ≥0.40 S fills ≥ 273 = 25% of 1,091 at highest dose; noActivity
+growth ≤ +360 vs 5,308). Verdicts REPRICE-CONT / AVOID-CLOSE / AMBIG
+(dup-confirm rule) / NULL / KEPT-SIGNAL / OVER / DEGENERATE — §19.
 
-- **EARLY-NULL fired** (e03 +0.280, e06 +0.690, both ≤ bar 0.74);
-  curve monotone RISING to e09 +0.799 > bar at the grid edge;
-  DEGENERATE tripwire PASS (45.5% ≥ 25%).
-- **Channel decomposition (the decisive read):** e06/e09 ev gains are
-  100% participation avoidance — kept-flow (played-in-both) paired Δ
-  is −$0.3k / −$2.5k NEGATIVE; e09 p/100 WORSE than reference. Axis
-  CLOSED at this shape; the above-bar e09 is an avoidance gain, not
-  repricing.
-- **K-AT-FLOOR-REDUNDANT** (p86k020 +0.643 ≤ 0.74) — k stays 0.12 at
-  P* 0.86 (confirms E-050 cross-read).
-- **STRATEGIC FINDING (binding input to future freezes, §18):** all
-  measured v17t levers decompose ≥72% (P*, §17) to ~100%
-  (earlyTighten) avoidance; avoidance is bounded above by ev = 0.
-  The +2 target needs kept-flow Δ > 0 — every future freeze must
-  carry the channel decomposition (kept-flow paired Δpnl) as a
-  PRIMARY bar next to ev; an ev gain with kept-flow ≤ 0 closes its
-  axis.
-- **Records:** best FULL ev now 1056 (e09, −2.37); chain 1057
-  (−2.48), 1055 (−2.53), 1054 (−2.89), 1052 (−3.17), 1049 (−3.83).
-  **MECHANISM-TEST CENTER stays 1052 (P*0.86 k012, earlyTighten 0)**
-  — do not compose new mechanisms on the closed avoidance dose.
-  Standing comparison reference remains 1029 (ev −8.07).
-- s42 while-draining analyses: §16 late-window minute×band matrix on
-  1052 (late ≥0.40 bands = 63% of late S loss on 41% of late shares;
-  0.40–0.50 toxicity peaks m5–6, OPPOSITE the lateTighten ramp shape
-  — not k-priceable) and §17 P*-floor gain decomposition 1046→1052
-  (72% avoidance / 28% repricing; floor prunes by price level, not
-  market quality; participation not nested across P* levels).
+## HEADLINE STATE
+
+**s43: E-052 frozen (9be384f BEFORE implementation), built (94a077c),
+smoked (1058 PASS + activation A/B 1059/1060 — dosed late S fills
+shift down, C/D un-dosed), submitted. Mechanism: flat extra concession
+on any maker quote resting ≥0.40 from m5+ (LATE_BAND 0.40 and the m5
+boundary are measurement-pinned design constants from §16). First
+experiment carrying the §18 kept-flow channel bar as PRIMARY.**
+
+**s43 while-draining analysis (§20, re-ranks the backlog):**
+completion-pathway decomposition on 1052 — C-lock-only markets are
+PROFITABLE (+18.87/mkt × 1,101), mixed +5.07, S-only +14.13; the
+ENTIRE net loss is the 3,532 doom-only markets (−16.63/mkt). The D
+leg itself is FAIR (0.826/sh avg for 82.08% share-weighted win rate,
+−$2.2k on $342.9k = −0.5¢/sh; 80% of D dollars pinned at 0.80–0.85 by
+DOOM_BID 0.20). **The §15 backlog item "doom-backstop completion
+price" is dead before design — no headroom; completion-side mechanics
+exhausted. The only EV-positive attack surface left is the doomed
+start leg itself (one ~100-sh fill at ~0.35 per doom market).**
+
+- **Records:** best FULL ev 1056 (−2.37, avoidance dose — not the
+  mechanism center); MECHANISM-TEST CENTER 1052 (P*0.86 k012, −3.17);
+  standing comparison reference 1029 (−8.07).
+- Channel-bar law (§18): ev gains with kept-flow ≤ 0 close their axis;
+  avoidance is bounded above by ev = 0.
 
 ## Current work
 
-**Session 42 (~08:05–09:35Z):** E-051 readout + verdicts + close
-(above). While the fleet drained: §16 late-window band×minute
-calibration and §17 P* gain decomposition — both committed before the
-readout. Foreground drain holds 08:11–09:09Z (declared; the wait WAS
-the drain — no fleet capacity for new submissions while 43k E-051
-jobs queued).
-
-**Session 41 (07:45–08:25Z):** E-051 design freeze (§14, shape
-correction: concession confined to m0–5), param added to pair.v17t.ts,
-smoke 1053 PASS, 4 FULL cells submitted (sha 7e5f9276); §15 loss
-identity on 1052 (residue solved −$125; completions doom-dominant C
-$75k vs D $343k; m0–4 = 48% of gross S loss).
+**Session 43 (~09:05–09:50Z):** E-052 design freeze → param
+`lateBandTighten` in pair.v17t.ts → protocol:check + smoke 1058 +
+activation A/B (1059 dosed / 1060 base, 30 latest, local sequential)
+→ push 94a077c → 4 FULL submissions (incl. accidental lb04 dup,
+designated noise-only pre-results in §19 addendum) → §20
+completion-pathway decomposition while draining.
 
 ## Audit note
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
-M4 exercised in s42: cross-SHA comparison accepted only after commit
-inspection showed protocol-only changes.
 
-### Five-session audit s35–s39 (done in s40) — PASS
+### Five-session audit s35–s39 (done in s40) — PASS. Next audit: s45 (s40–s44).
 
-(Summary: 5 GREEN / 0 YELLOW / 0 RED; details in git history and s40
-STATUS. Next audit: s45, covering s40–s44.)
-
-- **Next-five plan (s40–s44) progress:** (1) s40 E-050 freeze/submit/
-  read GREEN ✓; (2) s41 E-051 freeze/build/submit GREEN ✓ (plan said
-  E-050 readout — it landed in s40 itself; s41 advanced to the next
-  mechanism); (3) s42 E-051 readout + loss-identity work GREEN ✓;
-  (4) s43 next-mechanism build + smoke + submit (late-band
-  concession); (5) s44 readout. ≥3 GREEN already satisfied ✓.
+- Next-five plan progress: (1) s40 GREEN ✓; (2) s41 GREEN ✓; (3) s42
+  GREEN ✓; (4) s43 late-band build+smoke+submit GREEN ✓ (this
+  session); (5) s44 readout. ≥3 GREEN satisfied ✓.
 
 ## Next step (priority order)
 
-1. **s43 (GREEN neutral-controller): late-window price-conditioned
-   concession — design freeze + build + smoke + submit.** Calibration
-   is banked in §16: scope m5+, threshold ~0.40, minute-flat; dose
-   ladder analog 0.03/0.06/0.09 but expect the E-051 lesson (response
-   may need ~3× the toxicity-calibrated dose — consider 0.04/0.08/
-   0.12 or similar; freeze at design time). MANDATORY new bar (§18):
-   kept-flow paired Δpnl > 0 as PRIMARY success metric next to the ev
-   bar 0.74; degeneracy tripwire at BOTH granularities (late ≥0.40
-   fill count ≥ 25% of 1052's base AND a noActivity growth cap —
-   freeze exact numbers at design). Center 1052. Non-equivalence
-   sketch already in §16 (vs lateTighten shape-orthogonality, vs P*,
-   vs earlyTighten disjoint support).
-2. If the late-band mechanism also lands avoidance-only: the §18
-   strategic finding says the maker-cap lever family is exhausted as
-   a repricing channel at this center — next genuinely different
-   mechanisms from the §15 identity: the doom-backstop completion
-   price (D $343k dominates completions; unitMax 0.99 pays near-full
-   for the second leg) and the C/D completion mix. Treat as backlog,
-   not a commitment.
-3. Open-but-unscheduled: P* floor < 0.85, k > 0.28 — both decaying
-   sub-bar, avoidance-dominant channels; revisit only with a
-   composition reason.
+1. **s44 (GREEN neutral-controller): E-052 readout** under the frozen
+   §19 bars (see IN FLIGHT). Integrity first (common set 10,651,
+   identical 96-slug failure set, latency 140/20, engine SHA — s43
+   commits are protocol-only: 9be384f/94a077c/4a9e90e touch only
+   protocols/pair-fable/**). Then verdict + channel decomposition +
+   LEDGER E-052 row.
+2. **If E-052 closes avoidance-only/NULL:** §19 decision map says the
+   maker-price concession family is exhausted as a repricing channel
+   at this center. §20 killed the doom-completion-price item. The
+   remaining §15 item (C/D mix) needs a §20-informed re-derivation —
+   the honest state: C-pathway is the profit engine, doom markets are
+   the loss, completion prices are all ~fair, and per mission binding
+   priority the neutral→directional ladder applies (priority 2 leads
+   once neutral axes are genuinely closed; directional was CLOSED at
+   ev in E-046 "pending a new conditioning lever" — a fresh freeze
+   would need a genuinely new lever, e.g. conditioning the tilt or
+   the S-quote on doom-hazard state, designed from the §20 fact that
+   the loss is ONE overpriced start leg per one-way market).
+3. Open-but-unscheduled: P* floor < 0.85, k > 0.28 (decaying sub-bar
+   avoidance channels — composition reason required to reopen).
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 42 (final)
+## Alignment gate — session 43 (final)
 
-- **Classification:** neutral-controller (E-051 readout + verdicts +
-  close under frozen bars; §16/§17 calibration analyses on the
-  reference cell — all controller math).
-- **Contribution (controller decision changed):** the entry-window
-  concession axis is CLOSED (EARLY-NULL + channel decomposition:
-  gains 100% avoidance, kept-flow Δ negative — pair-v17t.md §18,
-  runs 1054–1057 vs 1052, LEDGER E-051); k confirmed redundant at
-  the deep floor (K-AT-FLOOR-REDUNDANT). New binding freeze rule
-  derived from measurement: kept-flow channel Δ > 0 becomes a
-  primary bar (avoidance is bounded by ev 0 and cannot reach the +2
-  target). Next mechanism selected and calibrated from data (§16
-  late-band term). Evidence: §16/§17/§18, LEDGER E-051, commits
-  330b3da/9045629 + this close.
-- **Time to evidence:** min ~4 state recovered; min ~7 first
-  substantive action (results.ts + fleet check → drain still ~1h
-  out); min ~12 first analysis query landed (§16 matrix). PASS.
-- **Throughput:** 4 FULL runs read and verdict-bound (10,651 common
-  pairs each); 1 experiment closed (E-051, 2 axes); 2 analysis
-  products (§16, §17) + 2 channel decompositions (§18); ~10 read-only
-  DB queries; foreground drain holds declared (queue held 43k jobs of
-  our own grid — no capacity for parallel submissions; analysis-only
-  work during the wait per mission §6.2).
+- **Classification:** neutral-controller (E-052 design freeze +
+  implementation + smoke + FULL submission; §20 analysis on the
+  reference cell is controller math for the next mechanism).
+- **Contribution (controller decision changed):** the late-band
+  concession axis moved from calibration sketch to a frozen, running
+  experiment (design 9be384f, code 94a077c, smoke 1058, activation
+  1059/1060, 4 FULL batches queued); the doom-completion-price
+  backlog item was measured dead before design (§20: D-leg fair at
+  −0.5¢/sh — saves a full FULL grid); completion-side mechanics
+  closed, attack surface narrowed to the doomed start leg. Evidence:
+  pair-v17t.md §19+addendum+§20, commits 9be384f/94a077c/4a9e90e.
+- **Time to evidence:** min ~7 first substantive action (freeze-number
+  DB queries on 1052 with known-answer checks); min ~15 smoke running.
+  PASS.
+- **Throughput:** 1 experiment frozen+built+submitted (3 cells + 1
+  designated dup = 42,988 market jobs); 2 local activation runs; 1
+  smoke; ~8 read-only DB queries; §20 analysis product. No serial
+  scans. Queue verified before (empty) and after (4 waiting-children).
 - **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** s43 — late-band concession design freeze + build + smoke
-  + submit (GREEN neutral-controller), per Next step 1.
+- **Next:** s44 — E-052 readout under frozen §19 bars (GREEN
+  neutral-controller), per Next step 1.
 - **Verdict:** **GREEN.**
-- Verdict history: s31–s42 all GREEN. Next audit: s45 (s40–s44).
+- Verdict history: s31–s43 all GREEN. Next audit: s45 (s40–s44).
 
 ## Blockers
 
-None. Nothing in flight; queue empty at close. pair.v17t.ts may be
-edited (no jobs queued).
+None. E-052 in flight is NOT a blocker (contract: record ids, return
+continue). Do NOT edit pair.v17t.ts semantics while these jobs are
+queued (workers track origin/main — serialize push→submit; jobs run at
+94a077c).
 
 ## Needs human
 
@@ -154,27 +144,32 @@ edited (no jobs queued).
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine
-  commits (through s42: only protocol/harness commits moved HEAD;
-  f0f87f19→7e5f9276 verified protocol-only in s42).
+  commits (through s43: only protocol/harness commits moved HEAD;
+  f0f87f19→7e5f9276 verified protocol-only in s42; s43 commits
+  9be384f/94a077c/4a9e90e protocol-only).
 - **Sibling labs:** `protocols/pair-opus` — reads allowed both ways
-  (inbox c68ea4ce); s42 check: still no results (memory/ =
+  (inbox c68ea4ce); s43 check: still no results (memory/ =
   PRIOR-WORK.md + capabilities only).
 - Queue submissions require a CLEAN tree pushed to origin/main (push
   via `git push origin HEAD:main`); commit state snapshots before
   submitting. If push is rejected (sibling labs push too), rebase
   then push — check what the rebase pulled.
+- **Submit-output guard (new, s43):** capture the batchUid line from
+  EVERY submit — pipe through `grep "batchUid="`, NOT `tail`. A
+  resubmit after a cut-off output DOUBLE-ENQUEUES (no cancel path in
+  tooling); if it happens, designate the dup's role in writing BEFORE
+  results land (E-046/E-052 precedent).
 - **zsh does NOT word-split unquoted variables** — submit grids as
   one LITERAL command per config (inbox c841c329). `echo ===` breaks
   zsh. Always keep stderr. run-backtest.ts: `--latest` is a BOOL;
-  market count goes in `--limit N`. Capture the batchUid line from
-  EVERY submit.
+  market count goes in `--limit N`. Capture the batchUid per submit.
 - Verify with fleet.ts after every detached batch; count aggregate
   jobs (waiting-children), not market-job totals. Rows land at FULL
-  queue drain (s32 model; re-confirmed s42: 4 rows created 09:08:44–
-  09:08:54Z as the last aggregates settled).
+  queue drain (s32 model; re-confirmed s42).
 - Do not push strategy-semantics changes while that strategy's jobs
   are queued/running — workers track origin/main; serialize push →
-  submit. (Queue EMPTY at s42 close — pair.v17t.ts is editable.)
+  submit. (E-052 jobs QUEUED at s43 close — pair.v17t.ts is FROZEN
+  until drain.)
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: **standing
   comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); MECHANISM-TEST
@@ -188,12 +183,14 @@ edited (no jobs queued).
   sd 21.5–38.3 (E-041: 0.21 dup Δ; s39: 0.007 dup Δ), SE_pair
   0.19–0.24 on 10,651, ev bar B_full = 0.74. Cross-config paired sd
   larger (22–66). Pinned-800/B500 single-run ev SE ≈ 1.2 — structure
-  screens only. p/100 bar 0.54 for screens.**
-- **CHANNEL BAR (new, §18):** every future mechanism freeze on this
-  family must include kept-flow paired Δpnl (played-in-both markets)
-  as a PRIMARY success bar; ev gains with kept-flow ≤ 0 close their
-  axis. Degeneracy tripwires must police market-level participation
-  (noActivity), not only within-market fill counts.
+  screens only. p/100 bar 0.54 for screens. Kept-flow channel noise ≈
+  $2.2k total-pnl dup Δ ⇒ K_bar +$4.0k (§19).**
+- **CHANNEL BAR (§18):** every future mechanism freeze on this family
+  must include kept-flow paired Δpnl (played-in-both markets) as a
+  PRIMARY success bar; ev gains with kept-flow ≤ 0 close their axis.
+  Degeneracy tripwires must police market-level participation
+  (noActivity), not only within-market fill counts. (E-052 §19 is the
+  first freeze carrying both — the template for future freezes.)
 - JOURNAL entries are messages to the human (contract v2): plain
   sentences, tried/happened/means/next, drop run ids/codes unless
   genuinely the point.
@@ -208,7 +205,10 @@ edited (no jobs queued).
   (E-036). Maker-tilt fills are worst-queue conservative.
 - Sibling-memory recheck at session start (`ls protocols/*/memory`).
 - Smoke cannot catch latency-race bugs AND cannot demonstrate RARE
-  fill modes (escalate to a 200-mkt Stage B instead).
+  fill modes (escalate to a 200-mkt Stage B instead). s43 addition:
+  smoke alone cannot demonstrate mechanism ACTIVATION either — pair a
+  small local A/B (dose vs 0) when the mechanism's fills are ≤~10% of
+  flow (E-052 used 30-mkt sequential pair 1059/1060).
 - Schema refines AND engine constraints (OrderManager validation)
   can invalidate a frozen grid corner — check every cell when
   freezing (GTD expiry < now+60s rejected; ttlSec ≥ 61).
@@ -226,4 +226,4 @@ edited (no jobs queued).
 
 ## Inbox processed through
 
-2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s42 start).
+2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s43 start).

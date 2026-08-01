@@ -1390,3 +1390,27 @@ I also mapped where the remaining losses live: mostly late in the
 window, on quotes priced above 40 cents, worst right at minute five —
 a shape none of our current levers can reach. That price-targeted
 late-window discount is the next experiment.
+
+## Session 43 — 2026-08-01 (~09:05–09:50Z)
+
+Built and launched the next idea from last session's map of where the
+money leaks: charge ourselves an extra discount on any late-window
+purchase above 40 cents — that's the slice of buying that carries most
+of the late losses, and it isn't shaped like anything our existing
+knobs can reach. Three dose levels are running on the full history now
+(plus one accidental duplicate of the lowest dose, which we'll use as
+a free noise check). This is the first test that must pass the new
+honesty bar: it only counts as a win if the markets we keep playing
+actually lose less, not if we just play fewer markets.
+
+While the fleet worked, a second look at the current best setup turned
+up something clarifying: the strategy already makes money on markets
+that swing back and forth (about +$19 per market) — the entire loss
+comes from one-way markets, where we buy the crashing side once and
+then pay nearly full price to pair it off. And that pairing-off
+purchase turns out to be fairly priced — the market charges exactly
+what that side is worth. So there is nothing to save at the
+completion end, and one planned idea died before we built it. The only
+fixable thing left is the original purchase in markets that never come
+back. Next session reads the late-window results and decides where
+that leaves us.
