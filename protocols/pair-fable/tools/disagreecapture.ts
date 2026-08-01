@@ -142,6 +142,12 @@ let skippedNoPtb = 0
 let startsNoTs = 0
 const fills: FillRec[] = []
 
+// extinction-pool input: per played market, the fill-time advBps of every S
+// fill — a market whose EVERY S fill is flagged is the structurally-at-risk
+// pool for a disagreeTighten noActivity tripwire (E-052 flipPool analog).
+const perMarketFlags = new Map<string, number[]>()
+for (const m of played) perMarketFlags.set(m.slug, [])
+
 const byDate = new Map<string, MarketRow[]>()
 for (const m of played) {
   const d = new Date(m.marketStartMs).toISOString().slice(0, 10)
@@ -181,6 +187,7 @@ for (const [, group] of [...byDate.entries()].sort()) {
         continue
       }
       fills.push({ p: e.p, s: e.s, advAtFill, advAtLead, win: e.side === m.finalOutcome, startMs: m.marketStartMs })
+      perMarketFlags.get(m.slug)?.push(advAtFill)
     }
   }
 }
@@ -244,12 +251,18 @@ for (const [label, pred] of BANDS) {
   }
 }
 
+const flagPool = THRESHOLDS.map((T) => ({
+  threshold: T,
+  allFillsFlaggedMkts: [...perMarketFlags.values()].filter((a) => a.length > 0 && a.every((v) => v <= T)).length,
+}))
+
 const summary = {
   runId,
   playedWithS: played.length,
   skippedNoPtb,
   fillsAnalyzed: fills.length,
   fillsSkippedNoTsOrSpot: startsNoTs,
+  flagPool,
   fillFlagBaseline: THRESHOLDS.map((T) => ({ threshold: T, ...evOf(fills.filter((r) => r.advAtFill <= T)) })),
   laggedRows,
   headline: { leadMs: HEADLINE_LEAD, threshold: 0, halfRows },
@@ -263,6 +276,9 @@ if (asJson) {
   )
   for (const T of summary.fillFlagBaseline) {
     console.log(`  fill-time flag T=${T.threshold}: n=${T.n} sh=${T.sh} ev/sh=${T.evPerShare} gross=$${T.grossUsd}`)
+  }
+  for (const P of flagPool) {
+    console.log(`  pool T=${P.threshold}: all-S-fills-flagged markets=${P.allFillsFlaggedMkts}`)
   }
   console.log('\nlead x threshold (flag evaluated at t-LEAD):')
   for (const r of laggedRows) {

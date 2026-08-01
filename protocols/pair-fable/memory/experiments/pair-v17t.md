@@ -1303,3 +1303,157 @@ E-052 dup replicate; degeneracy at BOTH granularities — flagged-S fill
 count floor AND noActivity growth cap sized from the freeze-time
 flagged-fill census on the base run (fresh query, not §21.4's 1052
 numbers if the center moved).
+
+## 22. E-053 — disagreeTighten: spot-disagreement-conditioned maker
+## concession (FROZEN s46, 2026-08-01, BEFORE implementation/submission)
+
+### Hypothesis and causal mechanism
+
+§21.2 on reference 1052: S fills taken while the filled side is NOT
+behind on spot (advBps ≤ 0) run −5.5¢/sh vs −1.9¢/sh for
+spot-confirmed fills — 8/8 band×half split-half cells agree, and the
+separation survives inside flow E-052's shape cannot see (late <0.40
+AND early, both halves). Mechanism: when the book prices a side cheap
+while spot says that side is ahead/tied, the collapse through our
+resting level leads the spot move — informed flow. Charging a flat
+extra concession on exactly those quotes reprices the family's
+blanket adverse-selection cost where it is observable, leaving
+spot-confirmed (honest) cheap flow untouched. §21.4: the flag is a
+persistent state (0.968 persistence at 1s lead, T=−5; 98% of toxic
+dollars identified 1s ahead) ⇒ a per-tick quote-time gate captures
+nearly all of it; no large capture discount needed. E-052's NULL
+does not kill this: its kept-flow was positive and dose-monotone
+(+292/+1,752/+2,337) — the price×time band was a weak PROXY for this
+feature (§21.2 H1: the band's toxicity is entirely the flagged flow).
+
+Design constants (measurement-pinned, M5 — not tunables):
+`DISAGREE_BPS = −5` (§21.4 selection: 31% of S fills at richer
+−5.9¢/sh toxicity, halving the extinction surface vs T=0's 53%;
+persistence 0.968 at 1s). Flag per side at tick evaluation:
+`advBps = (side==DOWN ? +1 : −1) · (spot − strike)/strike · 1e4`;
+dose when `advBps ≤ DISAGREE_BPS`. Feeds absent ⇒ no dose (matches
+the 96 no-strike markets and existing tilt handling).
+
+**Application point:** the FINAL candidate maker quote price (after
+bid-anchor/cap min and ask clamp) — same reasoning as E-052's §19
+application-point decision; maker S-quotes only (the maker path IS
+the S flow by construction); pLock and doom backstop stay untouched
+(completions ~fair, §10/§15/§20). Dose calibration: flagged excess
+toxicity ≈ 5.9 − 2.9 ≈ 3¢/sh ⇒ doses 0.04 / 0.08 / 0.12 (≈1×/2×/3×
+measured excess; E-051 lesson — the ev response may need ~3× the
+calibrated dose).
+
+### Exact code delta (pair.v17t.ts)
+
+- Schema add: `disagreeTighten` ∈ [0, 0.16] default 0 (M5 bound, same
+  headroom rationale as lateBandTighten).
+- Design constant `DISAGREE_BPS = −5`.
+- Per-side advBps computed from the already-present `spot` / `strike`
+  tick values (feeds the strategy already declares and uses for the
+  leader); in the §8.3 maker price computation, AFTER the
+  lateBandTighten block: if `cfg.disagreeTighten > 0` AND advBps for
+  this side is defined AND ≤ DISAGREE_BPS, then
+  `price = floorToGrid(price − cfg.disagreeTighten)`. A dose pushing
+  the quote below 1¢ ⇒ side unquotable this tick (existing handling).
+- disagreeTighten = 0 ⇒ bit-identical behavior to current v17t.
+
+### Non-equivalence (required at freeze)
+
+1. **vs E-052 lateBandTighten (NULL):** conditions on EXTERNAL
+   spot-vs-strike state, not book price/time; §21.2 shows the feature
+   splits toxic from fair flow WITHIN cells the band treats uniformly,
+   and separates in flow the band never touches (early, late <0.40).
+2. **vs lateTighten/earlyTighten (k, E-051):** those are time-shaped
+   and state-blind; this is time-flat and state-conditioned.
+3. **vs v17 tilt (spotLeadBps/tiltShares):** tilt moves the inventory
+   TARGET using this feed; disagreeTighten moves the QUOTE PRICE on
+   the disagreeing side only. tiltShares=0 at the center — tilt is
+   inactive in every cell.
+4. **vs E-012 contested-start:** E-012 asked whether |spot−ptb| at
+   start time predicts market-level DOOM (NULL, replicated §21.1 —
+   dooms stay unpredictable); this prices per-FILL adverse selection
+   measured directly on fill EV, a different estimand the doom NULLs
+   do not constrain.
+
+### Cells (center = 1052 exactly: pairTarget 0.86, orderSize 100,
+### imbalanceBand 160, doomUnitMax 0.99, lateTighten 0.12,
+### earlyTighten 0, lateBandTighten 0 — E-052 NOT adopted (NULL);
+### FULL --to-ms 1785196800000, 140/20, B=500; integrity: identical
+### 96-slug failure set, pairs on 10,651 common)
+
+| # | cell | params (rest = center) | label | question |
+|---|---|---|---|---|
+| 1 | dt04 | disagreeTighten 0.04 | pf-e053-dt04 | dose 1 ≈ measured excess flagged toxicity (~3¢) |
+| 2 | dt08 | disagreeTighten 0.08 | pf-e053-dt08 | dose 2 = 2× |
+| 3 | dt12 | disagreeTighten 0.12 | pf-e053-dt12 | dose 3 = 3× (E-051 lesson) |
+
+### Frozen bars (paired vs 1052 on the 10,651 common set; B_full
+### 0.74; §18 channel bar PRIMARY)
+
+Freeze-time base numbers, ALL queried/measured this session on 1052:
+S fills 6,658; flagged at fill-time T=−5: **2,064** (31%, −$12,136
+gross, −5.88¢/sh vs REST −2.9¢); extinction pool (played markets
+whose EVERY S fill is flagged at −5): **1,398**; noActivity **5,308**
+(e052metrics re-run this session); same-config channel noise: E-052
+dup pair kept-flow Δ $23 / total-pnl Δ $201 (tightest on record;
+K_bar stays the conservative +$4.0k for comparability).
+
+- **Channel bar (PRIMARY, §18):** kept-flow paired Δpnl on
+  played-in-both markets (§17 SQL, re-validated this session on the
+  §18 known answer), K_bar = **+$4.0k**.
+- **REPRICE-CONT** iff ∃ frozen dose with Δev > +0.74 AND kept-flow
+  Δ ≥ +$4.0k.
+- **AVOID-CLOSE** iff some dose has Δev > +0.74 but kept-flow Δ ≤ 0
+  at EVERY above-bar dose.
+- **AMBIG** iff the best above-bar dose has kept-flow Δ ∈ (0, +$4.0k)
+  ⇒ one pre-registered confirm: duplicate that cell once;
+  REPRICE-CONT iff BOTH replicates show kept-flow Δ ≥ +$2.0k vs 1052,
+  else closed.
+- **NULL** iff every dose |Δev| ≤ 0.74 AND every kept-flow Δ < +$4.0k.
+- **KEPT-SIGNAL** iff kept-flow Δ ≥ +$4.0k at a dose with headline
+  Δev ≤ +0.74 ⇒ repricing real but offset; decompose before any
+  further dose.
+- **OVER** iff Δev(dt04) < −0.74 (curve read alongside; monotonicity
+  not assumed).
+- **DEGENERATE (overrides ev; BOTH granularities):** at the highest
+  dose read, (a) flagged-S fill count (fill-time T=−5, measured by
+  the §21.4 disagreecapture join on the cell run) ≥ 25% of 2,064
+  (≥ **516**) AND (b) noActivity growth vs 5,308 ≤ +**699** (50% of
+  the 1,398 pool). Either failing ⇒ extinction, not repricing; axis
+  closes at the largest non-degenerate dose regardless of ev.
+- Watch metrics (frozen): flagged/unflagged S fill counts + avg
+  flagged fill price vs 1052, S total, noActivity, C+D $ vs $417.6k,
+  fees vs $7,239, p/100, §17 3-channel decomposition per cell.
+
+### Decision map
+
+REPRICE-CONT ⇒ the first genuine repricing lever on the family:
+dose/composition increment at the operating point; the center may
+move. NULL / AVOID-CLOSE / OVER ⇒ the maker quote-price concession
+family is closed at this center for BOTH internal (price/time — P*
+§17, earlyTighten §18, lateBandTighten §19) and external
+(spot-disagreement) conditioning, with the best-measured conditioning
+feature tried last ⇒ per mission §3 the neutral controller's
+quote-price axes are exhausted and **priority 2 (directional
+controller) becomes the leading program**, reopening E-046's closure
+on this same feature (tilt conditioning, a different mechanism class
+— target vs price). KEPT-SIGNAL ⇒ decompose the offsetting channel
+before any further dose. DEGENERATE ⇒ cap the axis at the largest
+non-degenerate dose and read that dose's bars.
+
+### Submit literals (whole grid up front, one per config, zsh guard)
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param disagreeTighten=0.04 --to-ms 1785196800000 --label pf-e053-dt04 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param disagreeTighten=0.08 --to-ms 1785196800000 --label pf-e053-dt08 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param disagreeTighten=0.12 --to-ms 1785196800000 --label pf-e053-dt12 --detach
+```
+
+Pre-submit checklist: protocol:check PASS; smoke --sequential PASS;
+activation A/B (local sequential, 30 latest, dose 0.12 vs 0):
+disagreeTighten must be ACCEPTED and dosed S quotes observably
+cheaper or unquotable (flag covers ~31% of S fills — activation must
+be visible); disagreeTighten absent ⇒ behavior-identical; tree clean
++ pushed to origin/main; queue EMPTY verified (it is — E-052 drained
+this session); batchUid captured per submit via grep, NOT tail;
+fleet.ts verification after.
