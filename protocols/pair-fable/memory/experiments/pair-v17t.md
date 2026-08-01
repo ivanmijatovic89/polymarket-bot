@@ -867,3 +867,146 @@ by the frozen instrument; chain 1056 (−2.37), 1057 (−2.48), 1055
 of a closed avoidance dose would entangle channels; 1056 ≡ 1052 +
 e09 is reproducible at will if an avoidance operating point is ever
 wanted. Standing comparison reference remains 1029.
+
+## 19. E-052 — lateBandTighten: late-window price-conditioned maker
+## concession (FROZEN s43, 2026-08-01, BEFORE implementation/submission)
+
+### Hypothesis and causal mechanism
+
+§16 on reference 1052: late (m5+) S fills at prices ≥ 0.40 carry −$8.3k
+of the −$13.1k late gross S loss (63%) on 41% of late shares, while the
+late <0.40 book is ~−3¢/sh (near the gross average). The band's
+toxicity is NOT ramp-shaped (§16 finding 2: 0.40–0.50 peaks m5–6 where
+the lateTighten frac is smallest; ≥0.50 is minute-flat) — no k dose can
+price it without overcharging the fine flow. Mechanism: charge a flat
+extra per-share concession on any maker quote that would rest at/above
+0.40 from minute 5 on — reprice the contested-region flow whose price
+still embeds the pre-move favorite (§16 finding 3: 0.40–0.50 pays
+0.443 for 36.2% wins), leaving cheap late flow and the entire entry
+window untouched.
+
+Design constants (measurement-pinned, M5 — not tunables):
+`LATE_BAND = 0.40` (band edge from the §16 matrix); the late boundary
+reuses `EARLY_MS` = 5 min (§16's m5+ scope; disjoint support with the
+E-051 early term by construction).
+
+**Application-point decision (deviation from k's cap-only application,
+with reason):** the concession applies to the FINAL candidate quote
+price (after the bid-anchor/cap min AND the ask clamp), not to pHat
+alone. The toxic object is a fill ≥ 0.40 late regardless of which
+constraint produced the price; bid-anchored quotes (target = bid inside
+the band) are exactly the S accumulate flow §16 measured, and a
+cap-only dose would leave them unrepriced whenever pHat > bid.
+
+### Exact code delta (pair.v17t.ts, one param + one constant + one block)
+
+- Schema add: `lateBandTighten` ∈ [0, 0.16] default 0 (max = one step
+  of headroom above the largest frozen dose 0.12, M5 bound).
+- Design constant `LATE_BAND = 0.40`.
+- In the §8.3 maker price computation, AFTER the ask clamp and BEFORE
+  the ≥ GRID validity check:
+  `if (cfg.lateBandTighten > 0 && endMs !== null && nowMs − (endMs −
+  WINDOW_MS) ≥ EARLY_MS && price ≥ LATE_BAND − 1e-9) price =
+  floorToGrid(price − cfg.lateBandTighten)`. A dose pushing the quote
+  below 1¢ ⇒ side unquotable this tick (existing null handling).
+- Maker quotes only; pLock and the doom backstop stay on base
+  pairTarget (completions ~fair — §10/§15).
+- lateBandTighten = 0 ⇒ bit-identical behavior to current v17t.
+
+### Non-equivalence (required at freeze)
+
+1. **vs lateTighten (k):** k is minute-ramp-shaped and price-blind;
+   §16 finding 2 shows the band term's minute shape is OPPOSITE the
+   ramp. k012 is inside the center — the band dose is measured net of
+   it and prices what the ramp structurally cannot.
+2. **vs P* (uniform floor):** P* acts through the projection at all
+   ages and price levels; the band term is phase-scoped (m5+) and
+   price-conditioned (≥0.40 only), leaving early and cheap-late quotes
+   untouched by construction.
+3. **vs earlyTighten (E-051):** disjoint support (m0–5 vs m5+);
+   E-051 was time-shaped and price-blind, this is price-shaped and
+   time-flat.
+4. **vs v1-family absolute entry ceilings (E-018 axes):** those FORBADE
+   buys above X at all times on a family with no VWAP projection cap;
+   this REPRICES (never forbids by price alone), only late-window, on
+   a projection-capped family; the class kill was withdrawn by ruling
+   8758567d regardless.
+
+### Cells (center = 1052: pairTarget 0.86, orderSize 100,
+### imbalanceBand 160, doomUnitMax 0.99, lateTighten 0.12,
+### earlyTighten 0; FULL --to-ms 1785196800000, 140/20, B=500;
+### integrity: identical 96-slug failure set, pairs on 10,651 common)
+
+| # | cell | params (rest = center) | label | question |
+|---|---|---|---|---|
+| 1 | lb04 | lateBandTighten 0.04 | pf-e052-lb04 | dose 1 ≈ measured excess band toxicity (−8.1/−7.2¢ vs ~−3¢ fine late flow ⇒ 4–5¢) |
+| 2 | lb08 | lateBandTighten 0.08 | pf-e052-lb08 | dose 2 = 2× |
+| 3 | lb12 | lateBandTighten 0.12 | pf-e052-lb12 | dose 3 = 3× (E-051 lesson: ev response peaked at ~3× the calibrated dose) |
+
+### Frozen bars (paired vs 1052 on the 10,651 common set; B_full 0.74;
+### §18 channel bar PRIMARY)
+
+Freeze-time base numbers, queried this session on 1052 (known-answer
+checks: S total 6,658 = §15 ✓; band shares 109.1k = §16 ✓):
+late ≥0.40 S fill count **1,091**; noActivity **5,308**; flip-risk
+pool (played markets whose EVERY S fill is late ≥0.40) **719**.
+
+- **Channel bar (PRIMARY, §18):** kept-flow paired Δpnl on
+  played-in-both markets (§17 method), K_bar = **+$4.0k** ≈ 2× the
+  same-config channel noise scale (dup total-pnl Δ ≈ $2.2k at dup Δev
+  0.21; §17 channel-sum residual ~$0.5k).
+- **REPRICE-CONT** iff ∃ frozen dose with Δev > +0.74 AND kept-flow
+  Δ ≥ +$4.0k ⇒ first genuine repricing lever on the family; next
+  increment optimizes/composes it.
+- **AVOID-CLOSE** iff some dose has Δev > +0.74 but kept-flow Δ ≤ 0 at
+  EVERY above-bar dose ⇒ axis closed (§18 rule) regardless of headline
+  ev.
+- **AMBIG** iff the best above-bar dose has kept-flow Δ ∈ (0, +$4.0k)
+  ⇒ one pre-registered confirm: duplicate that cell once; REPRICE-CONT
+  iff BOTH replicates show kept-flow Δ ≥ +$2.0k vs 1052, else closed.
+- **NULL** iff every dose |Δev| ≤ 0.74 AND every kept-flow Δ < +$4.0k
+  ⇒ axis closed at this shape.
+- **KEPT-SIGNAL** iff kept-flow Δ ≥ +$4.0k at a dose with headline
+  Δev ≤ +0.74 ⇒ repricing real but offset by participation churn;
+  axis stays open, next step decomposes the offsetting channel before
+  any further dose.
+- **OVER** iff Δev(lb04) < −0.74 ⇒ harmful; curve read alongside
+  (monotonicity not assumed).
+- **DEGENERATE (overrides ev; BOTH granularities per the E-051
+  lesson):** at the highest dose read, (a) late ≥0.40 S fill count
+  ≥ 25% of 1,091 (≥ 273) AND (b) noActivity growth vs 5,308 ≤ +360
+  (50% of the structurally-at-risk 719 pool — the term cannot touch
+  early quotes, so growth beyond noise can only come from that pool).
+  Either failing ⇒ the term extinguishes rather than reprices; axis
+  closes at the largest non-degenerate dose regardless of ev.
+- Watch metrics (frozen): in-band late S fill count + avg in-band fill
+  price vs 1052, noActivity, C+D $ vs $417.6k, fees, p/100, and the
+  §17 3-channel decomposition (kept/dropped/new) per cell.
+
+### Decision map
+
+REPRICE-CONT ⇒ dose/composition increment at the operating point; the
+center may move for the first time on a repricing gain. AVOID-CLOSE /
+NULL / OVER ⇒ the maker-price concession family is exhausted as a
+repricing channel at this center (P* ≥72% avoidance §17, earlyTighten
+~100% §18, and the §16-calibrated best remaining shape failed) ⇒ next
+mechanisms leave the quote-price lever family: §15 identity backlog —
+doom-backstop completion price (D $342.9k at unitMax 0.99 dominates
+completions) and the C/D mix, each under its own freeze with the §18
+channel bar. KEPT-SIGNAL ⇒ decompose before any further dose.
+DEGENERATE ⇒ record per §10 precedent and cap the axis.
+
+### Submit literals (whole grid up front, one per config, zsh guard)
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param lateBandTighten=0.04 --to-ms 1785196800000 --label pf-e052-lb04 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param lateBandTighten=0.08 --to-ms 1785196800000 --label pf-e052-lb08 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param lateBandTighten=0.12 --to-ms 1785196800000 --label pf-e052-lb12 --detach
+```
+
+Pre-submit checklist: protocol:check PASS, smoke + activation PASS
+(lateBandTighten=0.08 must be ACCEPTED and trade; a late in-band quote
+must be observably repriced or the dose must show in fill prices;
+lateBandTighten absent ⇒ behavior-identical), tree clean + pushed to
+origin/main, queue empty verified, batchUid captured per submit,
+fleet.ts verification after.
