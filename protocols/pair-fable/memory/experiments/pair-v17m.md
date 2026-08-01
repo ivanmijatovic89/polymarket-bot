@@ -154,3 +154,92 @@ pairs n=10,651. Bar 0.74.
   FULL run. Frozen mapping ⇒ ITERATE at the ENGAGED cell (bps10): dose
   (tiltShares), persistence — E-046 design next session; combining with
   the P* 0.92 re-center (E-045) is the natural frame.
+
+## 6. E-046 — maker-tilt dose + persistence at bps10 on the 0.92 center
+## (FROZEN s35, 2026-08-01, BEFORE submission; params-only, no code change)
+
+pair.v17m.ts verified UNTOUCHED since 18ce0a43 (git log empty this
+session) — strategy-SHA identity holds vs runs 1025/1026, and the τ0 ≡
+v17-τ0 code identity makes **1029** (v17 τ0 P*0.92, the standing FULL
+neutral baseline) the k=0 reference; no re-run.
+
+Hypothesis: at the ENGAGED width (bps10, the only cell where the maker
+tilt measurably moved the S-split and residue win% held at 74.4%), the
+tilt dose and a persistence filter are the two untested levers left on
+acquisition. E-044's +0.46 ns vs neutral was measured at τ160/P*0.96;
+the P*0.92 re-center roughly halves participation, so both the harm
+term (false-flip pairs cost) and the gain term (residue) rescale —
+dose–response at the new center is the decisive read.
+
+Registered risk (honest kill path): the 0.92 cap may STARVE maker-tilt
+acquisition (fewer quotes live ⇒ tilt never builds). Engagement metrics
+below distinguish starvation from a true ev null.
+
+**Grid (4 cells, FULL universe --to-ms 1785196800000, 140/20, B=500).**
+Center params EXPLICIT in every literal (schema defaults ≠ center):
+ttlSec=90 lagAggr=0 orderSize=100 pairTarget=0.92 doomUnitMax=0.99
+spotLeadBps=10 capPerMarket=500 cooldownTicks=5 imbalanceBand=160.
+
+| # | tiltShares | leadPersistTicks | label | question |
+|---|---|---|---|---|
+| t40 | 40 | 0 | pf-e046-t40 | low dose: does a small tilt keep residue win% with less false-flip cost? |
+| t80 | 80 | 0 | pf-e046-t80 | mid dose |
+| t160 | 160 | 0 | pf-e046-t160 | E-044 m10 re-centered at P*0.92 (direct anchor) |
+| t160p | 160 | 1000 | pf-e046-t160p | persistence filter ≈7 s of sustained lead on active markets (~138 ticks/s; longer wall-time on quiet books) |
+
+Stage: straight to FULL — params-only within schema bounds
+(tiltShares ≤ imbalanceBand=160 OK; leadPersistTicks 1000 ≤ 20000 OK)
+on a strategy already proven at FULL (1025/1026, feeds fulfilled).
+
+**Frozen metrics per cell:** ev (governs), p/100, invested/played,
+S-split engagement (verified JSON_TABLE query, §S of STATUS guards),
+residue mkt count + win% + residue pnl, D-fill count/$, S/R/C fill
+counts, fees, noActivity. Integrity: failures must be the identical
+96-slug priceToBeat set; pairwise common vs 1029 = 10,651.
+
+**Frozen bars (B_full = 0.74; all paired per-market on the common
+intersection vs 1029 unless named otherwise).**
+
+- **TILT-EV-REAL-92** iff any cell − 1029 > +0.74 ⇒ the program's
+  first ev-positive tilt at FULL. Decision: hold until E-045b settles
+  the center, re-verify the winning cell at the final center if it
+  moves, then iterate (laggard-side quoting asymmetry, size-of-tilt
+  vs orderSize split).
+- **TILT-HARMS-92** iff any cell − 1029 < −0.74 ⇒ report dose pattern;
+  if harm grows with dose, acquisition cost returns at the tight cap.
+- **DOSE-MONO / DOSE-PEAK / DOSE-FLAT** across t40/t80/t160 deltas
+  vs 1029 (pattern read, each leg judged against 0.74).
+- **PERSIST-HELPS / HURTS / FLAT**: t160p − t160 vs ±0.74 (paired).
+- **ALL-NULL + ENGAGED** (all four within ±0.74 of 1029, S-split
+  moved ≥ ~2 pts toward the winner and residue-mkt count is material
+  — expectation ≈ 1,420 × (played@0.92 / played@0.96), i.e. roughly
+  55–60% of the 0.96 count per E-045's participation drop) ⇒ the
+  maker-tilt dose/persistence axes at bps10 are CLOSED at ev on this
+  center. With E-038/E-041/E-043 (taker/width) and E-044/E-046
+  (maker) all measured, the directional acquisition program is closed
+  under the frozen bars pending a NEW signal-quality lever (different
+  conditioning), which requires new evidence per mission §3.
+- **ENGAGEMENT-STARVED** (residue count ≪ expectation or S-split
+  unmoved in ALL cells) ⇒ the 0.92 cap starves tilt acquisition;
+  record the mechanism (quote counts on leader side); one bounded
+  follow-up allowed only with a concrete starvation mechanism shown
+  (per §5's NULL rule).
+
+**Secondary (context, not a verdict bar):** t160 vs 1026 paired —
+measures the P* re-center effect ON the tilted config; expectation
+≈ +5.4 if tilt and P* compose additively (E-045's p92−g0). A large
+shortfall flags an interaction between the cap and tilt acquisition.
+
+**Submit literals (whole grid up front):**
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17m --param ttlSec=90 --param lagAggr=0 --param orderSize=100 --param pairTarget=0.92 --param tiltShares=40 --param doomUnitMax=0.99 --param spotLeadBps=10 --param capPerMarket=500 --param cooldownTicks=5 --param imbalanceBand=160 --param leadPersistTicks=0 --to-ms 1785196800000 --label pf-e046-t40 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17m --param ttlSec=90 --param lagAggr=0 --param orderSize=100 --param pairTarget=0.92 --param tiltShares=80 --param doomUnitMax=0.99 --param spotLeadBps=10 --param capPerMarket=500 --param cooldownTicks=5 --param imbalanceBand=160 --param leadPersistTicks=0 --to-ms 1785196800000 --label pf-e046-t80 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17m --param ttlSec=90 --param lagAggr=0 --param orderSize=100 --param pairTarget=0.92 --param tiltShares=160 --param doomUnitMax=0.99 --param spotLeadBps=10 --param capPerMarket=500 --param cooldownTicks=5 --param imbalanceBand=160 --param leadPersistTicks=0 --to-ms 1785196800000 --label pf-e046-t160 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17m --param ttlSec=90 --param lagAggr=0 --param orderSize=100 --param pairTarget=0.92 --param tiltShares=160 --param doomUnitMax=0.99 --param spotLeadBps=10 --param capPerMarket=500 --param cooldownTicks=5 --param imbalanceBand=160 --param leadPersistTicks=1000 --to-ms 1785196800000 --label pf-e046-t160p --detach
+```
+
+Known cost of submitting behind the s34 grid: the 8 in-flight
+aggregates land only at FULL queue drain, so these 4 runs push ALL 12
+rows to ≈04:30–05:00Z. Accepted — total evidence throughput is higher
+(inbox c841c329) and no session blocks on drain.

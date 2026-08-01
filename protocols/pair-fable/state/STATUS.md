@@ -270,6 +270,53 @@ absent on v17m).
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 
+### Five-session audit s30–s34 (done in s35, 2026-08-01T01:25Z) — PASS
+
+- **Gates:** s30 GREEN (E-042-follow-up neutral analysis: S-toxicity
+  price-uniform + verified S-split instrument; s26–s30 audit), s31
+  GREEN (neutral: pair.v17t built, dosing defect found+fixed via
+  activation check, runs 1014–1017), s32 GREEN (blocked-stub:
+  run-row timing model corrected with evidence, v17t submit literals
+  banked), s33 GREEN (blocked-stub: full readout runbook built, both
+  SQL literals verified against known answers), s34 GREEN
+  (E-043/E-044/E-045 closed via runbook, v17o built+verified
+  1018–1023, two grids frozen, 8 FULL submitted). **5 GREEN / 0
+  YELLOW / 0 RED**; every gate present with evidence pointers.
+- **Time to evidence:** 2 / 1 / 1 / 1 / 0 min — all PASS (the two
+  blocked-stub sessions resumed in-flight evidence at min 1, per
+  gate records).
+- **Throughput:** 3 experiments closed (E-043 DOSE-FLAT, E-044
+  MAKERTILT-BETTER@bps10, E-045 P*-LIVE +5.44), 1 probe + 2 grids
+  frozen and submitted (E-045b, v17t×3, v17o×4 = 8×10,747 whole-grid
+  up front, queue-verified), 2 strategies built (v17t, v17o), 10
+  local sequential runs, 7 FULL rows read, ~25 read-only DB scans.
+  No unexplained serial scans; two sessions were genuinely
+  drain-blocked (harness restarted the loop 0–2 min after close) and
+  banked verified readout infrastructure instead — honest and
+  productive use.
+- **Binding requirements:** $2,000 + 500–1,000 matched-share check
+  remains CLOSED by E-036 (no new scale claims since). Directional
+  controller actively led (E-042→E-044→E-046 mapped). M1–M5: files
+  untouched since 4809a8e (verified this session, git log empty).
+  Mission §2 pair-VWAP fraction reporting produced for the first
+  time (pair-v17.md §11) — a standing mission deliverable now on
+  record. Neutral baseline moved on evidence (P* 0.92, run 1029).
+- **Premature-closure check:** E-043 width close followed its frozen
+  mapping (both named bars failed at FULL). E-045's winner sits at
+  the grid edge and was NOT declared final — the E-045b p90 edge
+  probe was pre-registered and submitted instead. No silently
+  closed requirements found.
+- **Next-five plan (s35–s39):** (1) s35: E-046 freeze + submit
+  (maker-tilt dose/persistence at bps10 on the 0.92 center — GREEN
+  directional); (2) read the 8 in-flight rows + E-046 rows, apply
+  frozen mappings (GREEN evaluation, neutral+directional); (3)
+  mapped follow-up from v17t/v17o verdicts (winner refinement or
+  axis close — GREEN neutral); (4) mapped follow-up from
+  E-046/E-045b (re-center or iterate — GREEN); (5) at most one
+  YELLOW diagnostic only if a verdict demands mechanism digging.
+  s40 = next audit. ≥3 direct GREEN controller increments
+  guaranteed.
+
 ### Five-session audit s26–s30 (done in s30, 2026-07-31T23:30Z) — PASS
 
 - **Gates:** s26 GREEN (directional: E-040 close, E-039 re-verdict,
