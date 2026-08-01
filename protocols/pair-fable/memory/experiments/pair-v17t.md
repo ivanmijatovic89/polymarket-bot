@@ -789,3 +789,81 @@ The absolute-profit target therefore needs repricing mechanisms
 (earlyTighten E-051 in flight; §16 late band term next) rather than
 further floor cuts; consistent with the §13 note that the P* curve is
 decaying (p86−p88 = +0.660 sub-bar).
+
+## 18. E-051 READOUT (s42, 2026-08-01; drain 09:09Z, rows 1054–1057)
+
+Mapping: e03=1054, e06=1057, e09=1056, p86k020=1055 (batchUids in
+§14). Integrity: common set 10,651 on all five runs, per-run extra 0,
+latency 140/20 everywhere, B=500. Engine-SHA warning (f0f87f19 vs
+7e5f9276) CLEARED by commit inspection: every commit between the two
+SHAs touches only protocols/pair-fable/** (the earlyTighten param add
++ protocol state); engine identical, strategy behavior-identical at
+earlyTighten=0 (frozen claim + smoke 1053). M4 satisfied.
+
+**Paired deltas vs 1052 on the common set (bar B_full 0.74):**
+
+| cell | run | ev/mkt | Δev vs 1052 | p/100 | noActivity | m0–4 S fills (deg. base 3,984) |
+|---|---|---|---|---|---|---|
+| 1052 ref | 1052 | −3.168 | — | −5.055 | 5,308 | 3,984 |
+| e03 | 1054 | −2.888 | +0.280 | −5.122 | 5,794 | 3,037 (76.2%) |
+| e06 | 1057 | −2.478 | +0.690 | −5.004 | 6,301 | 2,188 (54.9%) |
+| e09 | 1056 | −2.370 | +0.799 | −5.245 | 6,649 | 1,814 (45.5%) |
+| p86k020 | 1055 | −2.526 | +0.643 | −4.867 | 6,084 | 3,464 |
+
+**Verdicts per §14 frozen bars:**
+
+- **EARLY-NULL fires by the letter:** e03 +0.280 ≤ 0.74 AND e06
+  +0.690 ≤ 0.74. EARLY-CONT (keyed on e03) does not fire.
+- **Pre-registered curve read:** monotone RISING (e06−e03 +0.410,
+  e09−e06 +0.109), with e09 − 1052 = +0.799 > bar at the grid edge.
+  The §14 dose prior (dose 1 ≈ measured mean toxicity) was wrong —
+  the ev response needs ≈3× the calibrated concession.
+- **DEGENERATE tripwire PASS** at the highest dose: e09 m0–4 S fills
+  45.5% of base ≥ 25% bar.
+- **K-AT-FLOOR-REDUNDANT:** p86k020 − 1052 = +0.643 ≤ 0.74 — the k
+  extension does not add at the deeper floor (confirms E-050's
+  p90k020 cross-read). k stays 0.12.
+
+**Gain-channel decomposition (post-readout analysis, §17 method — not
+a frozen bar, labeled as such):** slug-joined played/inactive
+cross-tab vs 1052:
+
+- e06 (+$7.3k): dropped 2,311 mkts +$15.7k, new 1,318 mkts −$8.1k,
+  **kept 3,032 mkts −$0.3k** — repricing channel ≈ 0.
+- e09 (+$8.5k): dropped 2,552 mkts +$17.5k, new 1,211 mkts −$6.6k,
+  **kept 2,791 mkts −$2.5k** — repricing channel NEGATIVE.
+
+Every dollar of E-051's ev gain routes through participation
+avoidance; the fills that survive the concession are not cheaper in
+net-ev terms, and p/100 at e09 is WORSE than the reference (−5.245
+vs −5.055). The within-market degeneracy tripwire passed while the
+market-level channel went 100% avoidance — the tripwire policed the
+wrong granularity (lesson recorded for future freezes).
+
+**Resolution (no post-hoc bar changes):** EARLY axis CLOSED at this
+shape per EARLY-NULL. The above-bar e09 does not reopen it: its gain
+is an avoidance gain, a channel the (cheaper, already-measured) P*
+lever provides, and avoidance cannot cross ev 0. Recorded as: the
+entry-window loss is not maker-cap-priceable at this center — §14
+decision map ⇒ next mechanism is the §16 quote-price-conditioned
+LATE concession, with its own freeze.
+
+**Strategic finding (binding input to future freezes):** every
+ev-improving lever measured on v17t now decomposes as ≥72% (P*,
+§17) or ~100% (earlyTighten, this section) participation avoidance,
+and no lever has shown a materially positive repricing channel.
+Avoidance levers are bounded above by ev = 0 (they can only remove
+markets); the §4.1 profit target (+2) requires kept-flow Δ > 0.
+Therefore every future mechanism experiment on this family must
+freeze the channel decomposition (kept-flow paired Δpnl on
+played-in-both markets) as a PRIMARY success bar next to ev, and an
+ev gain whose kept-flow channel is ≤ 0 closes its axis regardless of
+headline Δev.
+
+**Record-keeping:** best FULL ev on record is now 1056 (e09, −2.37)
+by the frozen instrument; chain 1056 (−2.37), 1057 (−2.48), 1055
+(−2.53), 1054 (−2.89), 1052 (−3.17). The MECHANISM-TEST CENTER stays
+1052 (P*0.86 k012, earlyTighten 0): composing new mechanisms on top
+of a closed avoidance dose would entangle channels; 1056 ≡ 1052 +
+e09 is reproducible at will if an avoidance operating point is ever
+wanted. Standing comparison reference remains 1029.

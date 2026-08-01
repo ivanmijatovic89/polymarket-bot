@@ -1,235 +1,141 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T08:20Z (mission-02 session 41 close — E-051 IN FLIGHT, readout owed to s42)
+Updated: 2026-08-01T09:35Z (mission-02 session 42 close — E-051 read and closed; nothing in flight)
 
-## IN FLIGHT (s41, submitted 07:58–08:00Z, commitSha 7e5f9276)
+## IN FLIGHT
 
-E-051 earlyTighten grid, 4 FULL cells (design frozen pair-v17t.md §14
-BEFORE submission; smoke 1053 PASS):
-
-- e03 = pf-e051-e03-20260801T075801-31yzgb
-- e06 = pf-e051-e06-20260801T075837-ep5wq3
-- e09 = pf-e051-e09-20260801T075917-8asz8i
-- p86k020 = pf-e051-p86k020-20260801T075955-k0szf5
-
-Verified 4 aggregate waiting-children at 08:00Z; workers on sha
-7e5f927; drain expected ~09:05Z. **Resume:** rows land at full drain —
-recover run ids via `backtest_runs.batch_uid` (results.ts --batch-uid
-<uid>), then apply the §14 frozen bars (B_full 0.74, paired vs 1052 on
-the 10,651 common set; degeneracy check: m0–4 S fills at highest read
-dose ≥ 25% of 1052's m0–4 level = 348,400 shares → use the §15 minute
-histogram; 1052 m0–4 S fills = 1853+603+564+502+462 = 3,984 of 6,658).
-Loss identity on 1052 DONE (§15).
+Nothing. Queue drained 09:09Z (verified agg waiting-children=0); all
+E-051 rows landed and were read in s42.
 
 ## HEADLINE STATE (read this first)
 
-**s40: five-session audit s35–s39 PASS (see Audit note), then E-050
-frozen → submitted → read at drain 07:47Z in the same session.
-Integrity clean everywhere (96-slug identical failure set, all pairs
-10,651, commitSha f0f87f19). Verdicts (frozen bars, B_full 0.74;
-pair-v17t.md §13):**
+**s42: E-051 earlyTighten READ and CLOSED (pair-v17t.md §18, frozen
+bars §14). Integrity clean (common 10,651 everywhere; engine-SHA delta
+f0f87f19→7e5f9276 cleared by commit inspection — protocol-only, M4).**
 
-- **E-027 identity guard (pair-v17t.md §10):** lateTighten > 0.20 is
-  LEGITIMATE — it remains a price rule (never keys participation on
-  minute), with a frozen DEGENERATE tripwire. Schema lifted:
-  pairTarget floor 0.90→0.85, lateTighten max 0.20→0.32
-  (bounds-only edit, behavior-identical at old params).
-- **E-050 P*-CONT-88:** p88k012(1049) − 1046 = +0.998 ± 0.170 — the
-  P* floor axis continues below 0.90. Curve decaying: second step
-  p86−p88 = +0.660 sub-bar.
-- **E-050 COMPOSE-MAX-ADD:** p90k020(1051) beats both parents (+0.975
-  / +0.821) BUT loses to p88k012 (−0.177) — the P* lever currently
-  outranks the k extension.
-- **E-050 LIFT-CONT (marginal):** k028(1050) − k020(1047) = +0.744 =
-  exactly the bar; degeneracy check PASS (min-4–11 S fills 72.7% of
-  k020's, bar 25% — still repricing, not gating). k axis open but
-  low-priority.
-- **NEW BEST FULL: 1052 (v17t P*0.86 k012) ev −3.17, p/100 −5.05.**
-  Chain: 1049 (−3.83), 1051 (−4.00), 1050 (−4.23), 1046 (−4.83).
-  Two-session arc −8.07 → −3.17 (61% of per-market loss removed). No
-  C/D leak (max $522k < $687.3k rule). Cost: noActivity 5,308 = 50%
-  of universe unplayed at 1052 — participation keeps shrinking; the
-  absolute-profit target needs the remaining flow made profitable.
-- **Residual-loss anatomy on 1046 (pair-v17t.md §12):** loss frontier
-  moved to the ENTRY window — minutes 0–4 carry 57% of gross S loss
-  (minute 0 alone −$10.1k on 29% of S volume); favorite-side fills
-  (p ≥ 0.50) worst per share in both phases; conditional toxicity
-  U-shaped in time ⇒ **earlyTighten** (decaying concession, mirror of
-  lateTighten) recorded as the candidate next mechanism — design not
-  frozen yet.
-
-**Standing references: comparison reference stays 1029 (v17 τ0 P*0.92,
-ev −8.07) until a re-center decision; best FULL on record 1052
-(−3.17).** Neutral program is priority-1-led: P* floor + k dose both
-still open but per-step gains at/below bar; the genuinely untested df
-is the early-window concession — NOW UNDER TEST (E-051 in flight,
-see IN FLIGHT block).
+- **EARLY-NULL fired** (e03 +0.280, e06 +0.690, both ≤ bar 0.74);
+  curve monotone RISING to e09 +0.799 > bar at the grid edge;
+  DEGENERATE tripwire PASS (45.5% ≥ 25%).
+- **Channel decomposition (the decisive read):** e06/e09 ev gains are
+  100% participation avoidance — kept-flow (played-in-both) paired Δ
+  is −$0.3k / −$2.5k NEGATIVE; e09 p/100 WORSE than reference. Axis
+  CLOSED at this shape; the above-bar e09 is an avoidance gain, not
+  repricing.
+- **K-AT-FLOOR-REDUNDANT** (p86k020 +0.643 ≤ 0.74) — k stays 0.12 at
+  P* 0.86 (confirms E-050 cross-read).
+- **STRATEGIC FINDING (binding input to future freezes, §18):** all
+  measured v17t levers decompose ≥72% (P*, §17) to ~100%
+  (earlyTighten) avoidance; avoidance is bounded above by ev = 0.
+  The +2 target needs kept-flow Δ > 0 — every future freeze must
+  carry the channel decomposition (kept-flow paired Δpnl) as a
+  PRIMARY bar next to ev; an ev gain with kept-flow ≤ 0 closes its
+  axis.
+- **Records:** best FULL ev now 1056 (e09, −2.37); chain 1057
+  (−2.48), 1055 (−2.53), 1054 (−2.89), 1052 (−3.17), 1049 (−3.83).
+  **MECHANISM-TEST CENTER stays 1052 (P*0.86 k012, earlyTighten 0)**
+  — do not compose new mechanisms on the closed avoidance dose.
+  Standing comparison reference remains 1029 (ev −8.07).
+- s42 while-draining analyses: §16 late-window minute×band matrix on
+  1052 (late ≥0.40 bands = 63% of late S loss on 41% of late shares;
+  0.40–0.50 toxicity peaks m5–6, OPPOSITE the lateTighten ramp shape
+  — not k-priceable) and §17 P*-floor gain decomposition 1046→1052
+  (72% avoidance / 28% repricing; floor prunes by price level, not
+  market quality; participation not nested across P* levels).
 
 ## Current work
 
-**Session 41 (07:45–08:25Z):** E-051 earlyTighten — design frozen
-(§14, with a shape correction: concession confined to m0–5, not a
-full-window mirror), param added to pair.v17t.ts (EARLY_MS=5min
-design constant), smoke 1053 PASS, 4 FULL cells submitted 07:58–
-08:00Z (sha 7e5f9276), readout owed to s42. While draining: owed
-loss identity + S-toxicity curve + phase×band cut on reference 1052
-(§15) — residue solved, doom-dominant completions, m0–4 = 48% of
-gross S loss. Session closed at the harness boundary with the grid
-in flight per the standing guard.
+**Session 42 (~08:05–09:35Z):** E-051 readout + verdicts + close
+(above). While the fleet drained: §16 late-window band×minute
+calibration and §17 P* gain decomposition — both committed before the
+readout. Foreground drain holds 08:11–09:09Z (declared; the wait WAS
+the drain — no fleet capacity for new submissions while 43k E-051
+jobs queued).
 
-**Session 40 (06:25–08:10Z):** closed loop — audit s35–s39 PASS →
-E-027 identity guard (§10) → schema-bounds edit + protocol:check +
-smoke → E-050 frozen (§11, f0f87f1) → 4 FULL cells submitted → 1046
-residual anatomy (§12) while draining → drain 07:47Z → full readout +
-verdicts applied (§13). E-050 rows: 1049/1050/1051/1052. Nothing in
-flight at close.
+**Session 41 (07:45–08:25Z):** E-051 design freeze (§14, shape
+correction: concession confined to m0–5), param added to pair.v17t.ts,
+smoke 1053 PASS, 4 FULL cells submitted (sha 7e5f9276); §15 loss
+identity on 1052 (residue solved −$125; completions doom-dominant C
+$75k vs D $343k; m0–4 = 48% of gross S loss).
 
 ## Audit note
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
+M4 exercised in s42: cross-SHA comparison accepted only after commit
+inspection showed protocol-only changes.
 
-### Five-session audit s35–s39 (done in s40, BEFORE new research) — PASS
+### Five-session audit s35–s39 (done in s40) — PASS
 
-- **Gates:** 5 GREEN / 0 YELLOW / 0 RED; all five gates present in
-  STATUS history with evidence pointers (commits 1c5f02e, 1d7518a,
-  6670bd7, dace65a, fec522b). Classifications: s35
-  neutral+directional (E-046 freeze/submit + s30–s34 audit), s36–s38
-  neutral-controller analysis (drain-blocked, declared analysis-only
-  per mission §6.2 — no fleet capacity existed; each produced
-  calibrated inputs later BOUND in s39 verdicts, so they were
-  controller work, not recap), s39 neutral readout + directional
-  close.
-- **Time to evidence:** 5/5 PASS per recorded gates (min 1–8 first
-  actions).
-- **Throughput:** 17 FULL rows read and verdict-bound in the span
-  (runs 1031–1047; 13 carried from s34/s35 submissions, 4 E-049 rows
-  submitted AND read in s39); 5 experiments closed with frozen bars
-  (E-045b, E-046, E-047, E-048, E-049); universe 10,747 / pairs
-  10,651 everywhere; all B=500.
-- **Open primary requirements:** scale check remains CLOSED on record
-  (E-036 — $2,000 tested, 500–1,000 matched reached, depth-optimism
-  caveat P-009/P-010 carried); directional controller ACTIVELY tested
-  (E-046) and closed at ev under frozen bars with an explicit reopen
-  condition (new conditioning lever) — lever-scoped, not a silent
-  class kill, consistent with evaluator.md §Kill standards; neutral
-  priority-1 lead is legitimate (tighten dose/floor axes measured
-  LIVE and still open at grid/schema edges).
-- **Premature closures:** none found. The one class-adjacent phrase
-  ("directional acquisition program CLOSED at ev") names its frozen
-  bars, its evidence set (E-038/E-041/E-043/E-044/E-046), and its
-  reopen condition.
-- **Controller progress in span:** FULL neutral ev −8.07 → −4.83
-  (1029 → 1046), p/100 −5.91 → −5.33 — the first per-dollar gains on
-  record.
-- **Next-five plan (s40–s44):** (1) s40 identity-guard analysis +
-  pairTarget/lateTighten schema touch + E-050 grid freeze/submit
-  (GREEN neutral); (2) s41 E-050 readout + verdicts (GREEN); (3) s42
-  loss identity on the new best cell + pre-grace S-toxicity mechanism
-  design with non-equivalence argument (GREEN analysis); (4) s43
-  next-mechanism build + smoke + submit (GREEN); (5) s44 readout;
-  directional revisit only if a new conditioning lever emerged.
-  ≥3 GREEN ✓; ≤1 supporting diagnostic ✓.
+(Summary: 5 GREEN / 0 YELLOW / 0 RED; details in git history and s40
+STATUS. Next audit: s45, covering s40–s44.)
 
-### Five-session audit s30–s34 (done in s35) — PASS
-
-(Full text in git history at dace65a; summary: 5 GREEN / 0 YELLOW / 0
-RED, all time-to-evidence PASS, 3 experiments closed + 2 grids frozen
-+ 2 strategies built, scale check closed by E-036 on record, no
-premature closures; plan items all satisfied through s39.)
+- **Next-five plan (s40–s44) progress:** (1) s40 E-050 freeze/submit/
+  read GREEN ✓; (2) s41 E-051 freeze/build/submit GREEN ✓ (plan said
+  E-050 readout — it landed in s40 itself; s41 advanced to the next
+  mechanism); (3) s42 E-051 readout + loss-identity work GREEN ✓;
+  (4) s43 next-mechanism build + smoke + submit (late-band
+  concession); (5) s44 readout. ≥3 GREEN already satisfied ✓.
 
 ## Next step (priority order)
 
-1. **E-051 readout + verdicts (GREEN neutral, s42):** rows land at
-   full drain (~08:56Z); recover run ids via batch_uid (results.ts),
-   compare vs 1052 on the 10,651 common set, apply the §14 frozen
-   bars (EARLY-CONT/NULL/OVER, DEGENERATE tripwire, K-AT-FLOOR-*),
-   record LEDGER E-051, then next mechanism per the §14 decision map.
-2. (DONE s41) earlyTighten design + freeze + build: the
-   §12 anatomy motivates a decaying entry-window concession
-   k_e·(1 − elapsed/15m) on the maker quote cap (mirror of
-   lateTighten; V-shaped total concession). Needs: proper
-   non-equivalence argument at design freeze (vs E-027 — same §10
-   price-rule argument; vs P* — time-shaped, not uniform; vs
-   lateTighten — opposite slope), then new param in pair.v17t.ts (or a
-   sibling file), protocol:check + smoke + activation, grid frozen
-   BEFORE submission on the 1052/1049 centers. Consider riding a
-   small composition probe (p86k020 / p88k020) in the same batch —
-   bars frozen at design time.
-3. (DONE s41, §15) Loss identity on 1052.
-4. Open-but-unscheduled: P* floor < 0.85 (per-step decaying), k >
-   0.28 (marginal at bar) — revisit only with a composition reason.
-5. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-6. Cross-symbol replication: gated on P-012.
+1. **s43 (GREEN neutral-controller): late-window price-conditioned
+   concession — design freeze + build + smoke + submit.** Calibration
+   is banked in §16: scope m5+, threshold ~0.40, minute-flat; dose
+   ladder analog 0.03/0.06/0.09 but expect the E-051 lesson (response
+   may need ~3× the toxicity-calibrated dose — consider 0.04/0.08/
+   0.12 or similar; freeze at design time). MANDATORY new bar (§18):
+   kept-flow paired Δpnl > 0 as PRIMARY success metric next to the ev
+   bar 0.74; degeneracy tripwire at BOTH granularities (late ≥0.40
+   fill count ≥ 25% of 1052's base AND a noActivity growth cap —
+   freeze exact numbers at design). Center 1052. Non-equivalence
+   sketch already in §16 (vs lateTighten shape-orthogonality, vs P*,
+   vs earlyTighten disjoint support).
+2. If the late-band mechanism also lands avoidance-only: the §18
+   strategic finding says the maker-cap lever family is exhausted as
+   a repricing channel at this center — next genuinely different
+   mechanisms from the §15 identity: the doom-backstop completion
+   price (D $343k dominates completions; unitMax 0.99 pays near-full
+   for the second leg) and the C/D completion mix. Treat as backlog,
+   not a commitment.
+3. Open-but-unscheduled: P* floor < 0.85, k > 0.28 — both decaying
+   sub-bar, avoidance-dominant channels; revisit only with a
+   composition reason.
+4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 41 (final)
+## Alignment gate — session 42 (final)
 
-- **Classification:** neutral-controller (E-051 earlyTighten design/
-  freeze/build/submit + reference-1052 loss identity — all on the
-  neutral entry-window axis identified by the s40 anatomy).
-- **Contribution (controller decision changed):** the genuinely
-  untested entry-window degree of freedom is now under measurement —
-  E-051 frozen (pair-v17t.md §14) with a shape correction over the
-  §12 sketch (concession confined to m0–5; the full-window mirror
-  would have overcharged the least-toxic mid-window), non-equivalence
-  arguments vs E-027/P*/lateTighten, a 25% degeneracy tripwire, and 4
-  FULL cells submitted (batchUids above, sha 7e5f9276). Owed loss
-  identity on 1052 delivered (§15): residue solved (−$125 net),
-  completions doom-dominant at the deep floor (C $75k vs D $343k),
-  m0–4 = 48% of gross S loss — target validated at the new best cell.
-  Phase×band addendum: favorite-side inversion is late-only at this
-  center (scopes the fallback mechanism). Evidence: §14/§15, smoke
-  run 1053, commits 7e5f927..HEAD.
-- **Time to evidence:** min ~4 state recovered, min ~8 design freeze
-  begun, code edit + smoke launched min ~14, SMOKE PASS ~min 17,
-  grid submitted min ~21. PASS (implementation-first path per mission
-  §6.1 — design was kept minimal and implemented immediately).
-- **Throughput:** 4 FULL runs submitted (10,747 mkts each, B=500,
-  ~43k market jobs, 31 workers); 1 smoke; 3 read-only DB analyses
-  (identity, minute curve, phase×band); 1 background drain watcher.
-  Rows land ~08:56Z — readout owed to s42 (§14 bars frozen).
+- **Classification:** neutral-controller (E-051 readout + verdicts +
+  close under frozen bars; §16/§17 calibration analyses on the
+  reference cell — all controller math).
+- **Contribution (controller decision changed):** the entry-window
+  concession axis is CLOSED (EARLY-NULL + channel decomposition:
+  gains 100% avoidance, kept-flow Δ negative — pair-v17t.md §18,
+  runs 1054–1057 vs 1052, LEDGER E-051); k confirmed redundant at
+  the deep floor (K-AT-FLOOR-REDUNDANT). New binding freeze rule
+  derived from measurement: kept-flow channel Δ > 0 becomes a
+  primary bar (avoidance is bounded by ev 0 and cannot reach the +2
+  target). Next mechanism selected and calibrated from data (§16
+  late-band term). Evidence: §16/§17/§18, LEDGER E-051, commits
+  330b3da/9045629 + this close.
+- **Time to evidence:** min ~4 state recovered; min ~7 first
+  substantive action (results.ts + fleet check → drain still ~1h
+  out); min ~12 first analysis query landed (§16 matrix). PASS.
+- **Throughput:** 4 FULL runs read and verdict-bound (10,651 common
+  pairs each); 1 experiment closed (E-051, 2 axes); 2 analysis
+  products (§16, §17) + 2 channel decompositions (§18); ~10 read-only
+  DB queries; foreground drain holds declared (queue held 43k jobs of
+  our own grid — no capacity for parallel submissions; analysis-only
+  work during the wait per mission §6.2).
 - **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** s42 — E-051 readout + verdicts under the §14 frozen bars
-  (GREEN neutral-controller); recover run ids by batch_uid, apply
-  degeneracy check (1052 m0–4 S-fill base = 3,984 of 6,658).
+- **Next:** s43 — late-band concession design freeze + build + smoke
+  + submit (GREEN neutral-controller), per Next step 1.
 - **Verdict:** **GREEN.**
-- Verdict history: s31–s41 all GREEN. Next audit: s45 (s40–s44).
-
-## Alignment gate — session 40 (final)
-
-- **Classification:** neutral-controller (audit + E-050 freeze/submit/
-  readout + residual anatomy — all on the neutral tighten/P* axes).
-- **Contribution (controller decision changed):** five-session audit
-  s35–s39 PASS (mission §7.2, done before new research); E-027
-  identity guard written and applied (schema lift ruled legitimate
-  with a frozen degeneracy tripwire — pair-v17t.md §10); E-050
-  frozen, submitted, and read in-session: P*-CONT-88, COMPOSE-MAX-ADD
-  (composed corner loses to deeper floor), LIFT-CONT-marginal with
-  degeneracy PASS. Controller operating point moved 1046 → **1052
-  (P*0.86 k012, ev −3.17, new best FULL)**. Next mechanism identified
-  from measurement, not speculation: residual loss is 57%
-  entry-window (§12) ⇒ earlyTighten. Evidence: pair-v17t.md
-  §10–§13, LEDGER E-050, runs 1049–1052, commits f0f87f1/d6bd74a.
-- **Time to evidence:** min ~4 state recovered, min ~12 audit written
-  (mandated pre-research), first substantive action (protocol:check +
-  schema edit chain) by min ~15, smoke PASS by min ~20, grid
-  submitted by min ~13-of-research-time. PASS (audit is §7.2-mandated
-  and preempts the 10-min clock; the first post-audit evidence action
-  landed inside 10 minutes of research start).
-- **Throughput:** 4 FULL runs submitted AND read (10,747 mkts each,
-  B=500); 1 experiment closed (E-050, 3 axes); 1 analysis product
-  (1046 residual anatomy); ~10 read-only DB queries; 1 background
-  drain watcher + foreground holds (declared; the wait WAS the drain).
-- **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** earlyTighten design freeze + build + grid (GREEN
-  neutral-controller).
-- **Verdict:** **GREEN.**
-- Verdict history: s31–s40 all GREEN. Next audit: s45 (s40–s44).
+- Verdict history: s31–s42 all GREEN. Next audit: s45 (s40–s44).
 
 ## Blockers
 
-None. E-051 in flight (4 batchUids in the IN FLIGHT block above);
-per the standing guard the session returns `continue` and s42 reads
-the finished rows. Do NOT push v17t semantics changes until drain.
+None. Nothing in flight; queue empty at close. pair.v17t.ts may be
+edited (no jobs queued).
 
 ## Needs human
 
@@ -248,41 +154,46 @@ the finished rows. Do NOT push v17t semantics changes until drain.
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine
-  commits (through s39: only protocol/harness commits moved HEAD).
+  commits (through s42: only protocol/harness commits moved HEAD;
+  f0f87f19→7e5f9276 verified protocol-only in s42).
 - **Sibling labs:** `protocols/pair-opus` — reads allowed both ways
-  (inbox c68ea4ce); s39 check: still no results (memory/ =
+  (inbox c68ea4ce); s42 check: still no results (memory/ =
   PRIOR-WORK.md + capabilities only).
 - Queue submissions require a CLEAN tree pushed to origin/main (push
   via `git push origin HEAD:main`); commit state snapshots before
   submitting. If push is rejected (sibling labs push too), rebase
   then push — check what the rebase pulled.
 - **zsh does NOT word-split unquoted variables** — submit grids as
-  one LITERAL command per config (inbox c841c329; bit again in s39 on
-  a `set -- $var` loop — write literals). `echo ===` breaks zsh.
-  Always keep stderr. run-backtest.ts: `--latest` is a BOOL; market
-  count goes in `--limit N`. Capture the batchUid line from EVERY
-  submit.
+  one LITERAL command per config (inbox c841c329). `echo ===` breaks
+  zsh. Always keep stderr. run-backtest.ts: `--latest` is a BOOL;
+  market count goes in `--limit N`. Capture the batchUid line from
+  EVERY submit.
 - Verify with fleet.ts after every detached batch; count aggregate
   jobs (waiting-children), not market-job totals. Rows land at FULL
-  queue drain (s32 model, re-confirmed s39: 13 rows created 04:57–
-  04:58Z as the last children settled).
+  queue drain (s32 model; re-confirmed s42: 4 rows created 09:08:44–
+  09:08:54Z as the last aggregates settled).
 - Do not push strategy-semantics changes while that strategy's jobs
   are queued/running — workers track origin/main; serialize push →
-  submit. (All pins RELEASED at the 06:26Z drain — queue empty;
-  pair.v17t.ts may be edited for the floor/lift schema touches.)
+  submit. (Queue EMPTY at s42 close — pair.v17t.ts is editable.)
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: **standing
-  comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); best FULL on
-  record 1052 (v17t P*0.86 k012, −3.17); chain 1049 (−3.83), 1051
-  (−4.00), 1050 (−4.23), 1046 (−4.83), 1047 (−4.98), 1043 (−5.89),
-  1039 (p90, −6.45); older: g0=1008 (P*0.96), g3=1009 (best tilt at
-  0.96), m10=1026.** v15 bridge chain 970 ≡ 960 ≡ 956; v16 bridges
-  c0=978, d0=987.
+  comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); MECHANISM-TEST
+  CENTER 1052 (v17t P*0.86 k012, −3.17); best FULL ev on record 1056
+  (1052+e09 avoidance dose, −2.37); chain 1057 (−2.48), 1055 (−2.53),
+  1054 (−2.89), 1049 (−3.83), 1051 (−4.00), 1050 (−4.23), 1046
+  (−4.83), 1047 (−4.98), 1043 (−5.89); older: g0=1008, g3=1009,
+  m10=1026.** v15 bridge chain 970 ≡ 960 ≡ 956; v16 bridges c0=978,
+  d0=987.
 - **NOISE MODEL: FULL-pair instrument at B=500 — same-config paired
   sd 21.5–38.3 (E-041: 0.21 dup Δ; s39: 0.007 dup Δ), SE_pair
   0.19–0.24 on 10,651, ev bar B_full = 0.74. Cross-config paired sd
   larger (22–66). Pinned-800/B500 single-run ev SE ≈ 1.2 — structure
   screens only. p/100 bar 0.54 for screens.**
+- **CHANNEL BAR (new, §18):** every future mechanism freeze on this
+  family must include kept-flow paired Δpnl (played-in-both markets)
+  as a PRIMARY success bar; ev gains with kept-flow ≤ 0 close their
+  axis. Degeneracy tripwires must police market-level participation
+  (noActivity), not only within-market fill counts.
 - JOURNAL entries are messages to the human (contract v2): plain
   sentences, tried/happened/means/next, drop run ids/codes unless
   genuinely the point.
@@ -315,4 +226,4 @@ the finished rows. Do NOT push v17t semantics changes until drain.
 
 ## Inbox processed through
 
-2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s39 start).
+2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s42 start).

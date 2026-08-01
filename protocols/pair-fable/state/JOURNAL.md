@@ -1367,3 +1367,26 @@ rounding note on a $34k loss), and the early-window problem is
 confirmed there too — it carries about half the remaining damage.
 Next: read the results and pick the dose, or kill the idea if the
 market refuses to sell to us at the discount.
+
+## Session 42 — 2026-08-01 (~09:35Z)
+
+The early-window discount results came back, and the answer is a
+clear no — but an unusually instructive one. Demanding extra discount
+near the open does shrink the headline loss (the strongest dose is
+now our best full-history number), so on the surface it looks like
+progress. But when I split the improvement into "markets we still
+trade, at better prices" versus "markets we simply stopped trading,"
+every dollar of the gain came from the second bucket — and the
+markets we kept actually got slightly worse. The market never sold
+to us at the discount; it just stopped selling to us at all.
+That generalizes: I ran the same split on our previous big lever and
+found it too was three-quarters "trade less" and only one-quarter
+"trade better." Trading less can walk the loss toward zero, but it
+can never cross into profit — so from now on every experiment must
+prove its gains come from better prices on kept trades, not from
+retreat. This one measurement probably saved us several sessions of
+chasing improvements that could never reach the target.
+I also mapped where the remaining losses live: mostly late in the
+window, on quotes priced above 40 cents, worst right at minute five —
+a shape none of our current levers can reach. That price-targeted
+late-window discount is the next experiment.
