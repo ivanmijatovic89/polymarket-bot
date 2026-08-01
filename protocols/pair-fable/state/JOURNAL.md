@@ -1185,3 +1185,28 @@ run-to-run noise and won't influence any verdict.
 All thirteen runs (yesterday's eight plus these five) finish together
 around 05:00 UTC. Next session reads them all and follows the
 pre-agreed decision rules.
+
+## Session 36 — 2026-08-01 ~01:55Z
+
+The thirteen overnight runs are still grinding through the fleet
+(results land together around 05:00 UTC), so no verdicts were possible
+yet. Rather than wait idle, we re-measured our baseline picture on the
+new, tighter buying discipline — the standing numbers all dated from
+the old setting.
+
+Good news first: the tighter discipline moved us visibly toward the
+mission's price target. Three in ten markets now finish with a pair
+cost under $0.98 (up from two in ten), and nearly a quarter under
+$0.95 (up from under one in ten). The structure of the losses is
+unchanged: markets where accumulation stalls early still carry
+essentially all of them.
+
+The most useful finding: about half the damage now arrives AFTER the
+stall is already visible five minutes in — more than before. That is
+precisely the moment one of the in-flight experiments starts throttling
+its buying, so its potential payoff is larger than we estimated when we
+designed it. We wrote down how to read its results before seeing them,
+so the interpretation can't bend to fit the outcome.
+
+Next session reads all thirteen results and applies the pre-agreed
+decision rules.

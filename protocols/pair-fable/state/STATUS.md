@@ -1,13 +1,17 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T01:30Z (mission-02 session 35 close)
+Updated: 2026-08-01T01:55Z (mission-02 session 36 close)
 
 ## HEADLINE STATE (read this first)
 
 **Standing FULL neutral baseline: p92 = RUN 1029 (v17 τ0, pairTarget
 0.92, ev −8.07, p/100 −5.91).** g0=1008 remains the P*0.96 reference
 for older comparisons only. s35: five-session audit s30–s34 PASS;
-E-046 frozen (8c287bc) + submitted.
+E-046 frozen (8c287bc) + submitted. s36 (drain-blocked, analysis-only,
+declared): mission §2 metrics + loss identity REPLICATED on 1029 —
+pair-v17.md §13 (fractions <0.98 30.2% / <0.95 23.1% / <0.90 5.4%;
+post-flag S toxicity share up to ~45% of the loss; healthy-pace
+population collapsed to 4.7%) + v17o reading prior in pair-v17o.md §11.
 
 **IN FLIGHT (next session reads FIRST; do NOT resubmit): 13 FULL runs
 @ 140/20, universe 10,747 (expect the identical 96 outage failures
@@ -50,6 +54,25 @@ winning tilt cell would be re-verified at any new center before
 promotion (frozen in pair-v17m.md §6).
 
 ## Current work
+
+**Session 36 (01:28–01:55Z, harness restarted the loop ~0 min after
+s35 close — same drain-blocked position as s32/s33): queue verified
+twice (13 aggregates waiting-children; workers all UP at 9736032;
+v17t-k003 children fully settled at 10,651+96 yet NO run row —
+re-confirms the s32 rows-at-full-drain timing model). Declared
+analysis-only; no new fleet submissions (adding load would delay the
+drain). Work: replicated the §11/§11.1 mission-metric + loss-identity
+analysis on the NEW standing baseline 1029 (it existed only on the old
+0.96 center). Result in pair-v17.md §13: fractions improve sharply at
+0.92 (<0.98 30.2%, <0.95 23.1%, <0.90 5.4%), monotone matched-bucket
+structure replicates (loss all in 100–250; 250+ ev-positive both
+centers), early-flag separation replicates BUT the healthy ≥150
+population collapses to 4.7% (was 26.4%), and post-flag S toxicity is
+−38.7k ≈ 45% of the −85.9k baseline loss (was ~40% share). v17o
+reading prior recorded pre-readout in pair-v17o.md §11 (bars
+unchanged): expect near-global engagement, tiny false-flag downside,
+ENGAGEMENT-STARVED a-priori-likely at k012. Internal consistency
+check: bucket totals ≈ ev × universe ✓.**
 
 **Session 35 (01:12–01:30Z): five-session audit s30–s34 done FIRST
 (PASS — see Audit note) since the 8 s34 rows were still ~2h from
@@ -334,39 +357,34 @@ the readout's decision mappings are applied.
 - Verdict history: s31 GREEN, s32 GREEN, s33 GREEN, s34 GREEN,
   s35 GREEN (audit s30–s34 PASS this session). Next audit: s40.
 
-## Alignment gate — session 34 (superseded)
+## Alignment gate — session 36 (final)
 
-- **Classification:** neutral-controller + directional-controller
-  (closed E-043/E-044/E-045 via the runbook; built + verified the new
-  neutral mechanism pair.v17o; froze + submitted two grids + the
-  E-045b probe).
-- **Contribution (controller decisions changed):** (1) **standing
-  neutral center moved to P* 0.92** (E-045 P*-LIVE +5.44±0.22; new
-  baseline run 1029, ev −8.07); (2) width axis CLOSED (E-043
-  DOSE-FLAT); (3) maker-tilt confirmed better than taker-tilt at
-  bps10 (+1.24±0.45) with engagement evidence, iteration mapped
-  (E-046); (4) new neutral axis v17o (state-conditioned quoting)
-  designed on a same-session measured prior, implemented,
-  activation-verified (runs 1018–1023), frozen, submitted; (5)
-  mission §2 pair-VWAP reporting computed for the first time.
-  Evidence: pair-v17.md §11/§11.1/§12, pair-v17m.md §5, pair-v17o.md,
-  LEDGER E-043/E-044/E-045; runs 1024–1030 read, 8 FULL submitted.
-- **Time to evidence:** fleet verify min 0, first substantive scan
-  min ~2, mission-metric SQL min ~4. PASS.
-- **Throughput:** 3 experiments closed (E-043/E-044/E-045: 10 frozen
-  paired comparisons + integrity + mechanism metrics), 6 local
-  sequential runs (5+20×5 mkts), ~20 read-only DB queries, 1 new
-  strategy built, 2 grids frozen, 8 × 10,747 FULL submitted
-  (whole-grid up front, queue-verified 8 aggregates). Drain waited
-  via background poller — no per-batch polling, no resubmission.
-- **Scale:** closed by E-036 on record; all cells B=500.
-- **Next:** s35 = five-session audit (s30–s34) FIRST, then read the
-  8 rows vs 1029 (drain ≈03:00–03:30Z), apply frozen mappings, then
-  E-046 design (maker-tilt dose/persistence at bps10 on 0.92 center)
-  — GREEN (neutral + directional controller).
+- **Classification:** neutral-controller (drain-blocked analysis-only
+  session, declared up front; no fleet submissions by design — adding
+  queue load would have delayed the 13-row drain).
+- **Contribution (controller decision informed):** the mission §2
+  metric report and the loss identity now exist on the STANDING
+  baseline 1029, not just the old center: fractions <0.98/<0.95/<0.90
+  = 30.2/23.1/5.4% at P*0.92; loss still 100% in the 100–250 matched
+  bucket; post-min-5 S toxicity −38.7k ≈ 45% of the baseline loss;
+  healthy-pace population 4.7%. Direct consequence recorded BEFORE
+  readout: v17o cells must be read as near-global tightening with
+  structurally tiny false-flag cost (pair-v17o.md §11) — this changes
+  how the frozen ENGAGEMENT metrics will be interpreted. Evidence:
+  pair-v17.md §13, pair-v17o.md §11, this session's sql.ts outputs.
+- **Time to evidence:** fleet verify min ~3, first substantive 1029
+  query min ~10. PASS.
+- **Throughput:** analysis-only (declared): 6 read-only DB scans (2
+  fleet + 4 JSON_TABLE aggregations over 10k-market run 1029), 2
+  memory sections written. No serial scans; no fleet runs expected —
+  13 in flight, none readable before ≈04:45Z (verified twice).
+- **Scale:** closed by E-036 on record; no new scale claims.
+- **Next:** read all 13 rows vs 1029 (drain ≈04:45–05:00Z), apply
+  frozen mappings — GREEN (neutral + directional evaluation), order
+  p90 → v17t/v17o → E-046.
 - **Verdict:** **GREEN.**
-- Verdict history: s30 GREEN, s31 GREEN, s32 GREEN, s33 GREEN,
-  s34 GREEN. Next audit: s35 (five-session audit BEFORE new research).
+- Verdict history: s31 GREEN, s32 GREEN, s33 GREEN, s34 GREEN,
+  s35 GREEN, s36 GREEN. Next audit: s40.
 
 ## Blockers
 

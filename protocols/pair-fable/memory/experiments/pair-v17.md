@@ -517,3 +517,67 @@ iff < −0.74 (0.92 is the interior optimum, center confirmed);
 **P*-EDGE-FLAT** otherwise (0.90≈0.92 plateau — center stays 0.92).
 Mechanism metrics: invested/played, S/C/D fill counts+$, resid-mkt count,
 noActivity (watch for engagement collapse at tight caps).
+
+## §13 Mission-metric report on p92 = 1029 (s36, 2026-08-01 ~01:45Z, analysis-only, PRE-READOUT)
+
+Recorded BEFORE any of the 13 in-flight rows landed (queue verified twice this
+session: aggregates all waiting-children; run-row-at-full-drain model from s32
+confirmed again — k003's children fully settled at 10,651+96 yet no row).
+Replicates §11/§11.1 (which were computed on the OLD center g0=1008, P*0.96)
+on the NEW standing baseline 1029 (P*0.92). Same query method: intent_meta
+JSON_TABLE, per-market UP VWAP + DOWN VWAP over all buys, matched =
+min(ΣUP, ΣDOWN), early_matched = same but fills with ts < start+300s.
+Internal consistency: bucket pnl totals sum to −85.9k ≈ ev −8.07 × 10,651 ✓.
+
+**Mission §2 fractions at P*0.92 (run 1029; 8,759 both-sided markets):**
+
+- avg matched 155.9 sh (was 225.4); avg final |imbalance| 4.1 sh (was 12.1).
+- per-market pair VWAP: mean 1.0876 (was 1.1015); matched-share-weighted
+  1.0571 (was 1.0545).
+- fractions below target: **<0.98 = 30.2% (was 21.2%), <0.95 = 23.1% (was
+  7.6%), <0.90 = 5.43% (was 0.34%)**. The tighter price gate moves the
+  fraction metrics dramatically; the big <0.95 jump is mechanical (buys are
+  capped at 0.92 per pair, so completed pairs mostly land under 0.95).
+
+**Matched-bucket structure (monotone shape REPLICATES):**
+
+| matched bucket | mkts | avg pair VWAP | avg pnl | total pnl |
+|---|---|---|---|---|
+| <100 | 140 | 1.1834 | −18.35 | −2.6k |
+| 100–250 | 7,590 | 1.1001 | −11.70 | **−88.8k** |
+| 250–500 | 1,003 | 0.9838 | **+4.47** | +4.5k |
+| 500+ | 26 | 0.9285 | **+37.66** | +1.0k |
+
+Whole loss again sits in the 100–250 bucket; 250+ is ev-positive at BOTH
+centers. But the population reaching 250+ shrank 3.5× (1,029 vs 3,610 mkts)
+— P*0.92 buys better prices at the cost of accumulation volume. Same §11
+caveats bind (outcome-conditioning; guard-7 depth optimism strongest in the
+profitable buckets).
+
+**§11.1 replication — early-detectability + S attribution at 0.92:**
+
+- Early-bucket pnl monotone replicates: e<50 → −10.96 (4,671 mkts), 50–150 →
+  −9.60 (3,625), 150–300 → −0.46 (428), 300+ → +7.83 (40).
+- **The ≥150-at-min-5 population collapses: 468 mkts = 4.7% (was 2,680 =
+  26.4% on 1008).** The flag still separates cleanly, but at this center the
+  deficit signal is near-universal.
+- S-fill settle-value attribution (same exact method as §11.1):
+  - low_early (<150, ~8.3k mkts): pre5 S net −32.4k (461.4k lose sh @ .407 vs
+    295.7k win @ .474); post5 S net **−38.7k** (557.0k lose @ .360 vs 323.4k
+    win @ .500). Total −71.1k.
+  - high_early (≥150, 468 mkts): pre5 +3.4k, post5 −1.1k ⇒ total **+2.3k ≈
+    fair** (replicates the 1008 finding that healthy-pace markets' S flow is
+    not toxic).
+- **Post-flag share of the S toxicity rose to ~54% (−38.7k of −71.1k S net;
+  ~45% of the whole −85.9k baseline loss), vs ~40% on 1008.** First-order
+  v17o headroom is proportionally LARGER at the new center.
+
+Interpretive prior for the in-flight v17o cells (bars in §10 of pair-v17o.md
+stand unchanged — this is context, not a rule change): with 95% of markets
+under the 150 pace at min 5, v17o's concession acts nearly globally, so its
+cells should read as "state-weighted global tighten" rather than selective
+throttle; the false-flag cost side (suppressing S in healthy markets) is
+bounded by the tiny 4.7% healthy population (whose post-5 S net is −1.1k ≈
+nothing to lose). The decisive metric is whether suppressed post-5 S volume
+was the toxic part — read the §7 mechanism literal (post-grace S counts) and
+C/D shift before interpreting ev deltas.

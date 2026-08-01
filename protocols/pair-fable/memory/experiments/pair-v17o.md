@@ -210,3 +210,17 @@ Note: oRefRate 30 was calibrated on the P* 0.96 baseline's fill pace; at
 P* 0.92 the neutral pace is lower (invested 292→166 on E-045). The deficit
 will therefore flag more often at 0.92 — read engagement (S suppression
 share) before interpreting a null, and expect the k-dose to bite harder.
+
+## 11. Pre-readout quantification of the §10 pace note (s36, analysis-only,
+## recorded BEFORE any grid row landed)
+
+pair-v17.md §13 measured the §10 note's concern on the actual reference run
+1029: at P*0.92 only 468/9,996 markets (4.7%) reach 150 early-matched by
+min 5 (was 26.4% on 1008) — the deficit signal is near-universal at this
+center. Post-flag S toxicity is −38.7k (~45% of the −85.9k baseline loss,
+vs ~40% share on 1008), and healthy-population post-5 S net is −1.1k ≈ 0,
+so the false-flag downside is structurally tiny here. Bars in §4/§10 stand
+unchanged. Reading guidance: treat the k cells as near-global state-weighted
+tightening; judge mechanism engagement via the §7 literal (post-grace S
+suppression + C/D shift) before interpreting any ev null, and note that
+ENGAGEMENT-STARVED is the a-priori-likely failure mode at k012.
