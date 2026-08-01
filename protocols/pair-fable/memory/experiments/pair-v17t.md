@@ -445,3 +445,51 @@ Pre-submit checklist: protocol:check PASS, smoke + activation PASS,
 tree clean + pushed to origin/main, no v17t jobs queued elsewhere
 (queue verified empty at s39 close), batchUid captured per submit,
 fleet.ts verification after.
+
+**Submission record (s40, 06:35–06:38Z, commitSha f0f87f19):**
+p88k012 = pf-e050-p88k012-20260801T063559-1o7z86,
+p86k012 = pf-e050-p86k012-20260801T063640-4ipedk,
+p90k020 = pf-e050-p90k020-20260801T063726-dae5h7,
+k028 = pf-e050-k028-20260801T063816-3skass. All 4 verified
+waiting-children on the fleet at 06:39Z; workers on sha f0f87f1.
+
+## 12. Residual S-toxicity anatomy on best cell 1046 (s40, analysis
+## while E-050 drained; mandatory per §8)
+
+Method: §6 minute curve + a phase×price-band cut (JSON_TABLE over
+intent_meta, S fills only, BINARY side=outcome compare). Gross S
+toxicity on 1046 ≈ −$31.8k (vs pnl identity pairs −40.7k + fees
+−10.7k; R/C/D flows carry the difference between the two
+decompositions).
+
+**Minute curve (share-weighted ev/sh):** m0 −3.5¢ on 286.3k sh (29% of
+all S volume, −$10.1k — the single largest cell); m1–m4 −2.7..−3.9¢
+(m3 +1.2¢, noise-scale); m5–m11 −1.5..−5.9¢ NET of the k012 concession
+(−$14.1k, −4.0¢/sh avg); m12–13 tiny and positive (fills that paid the
+full ramp are no longer toxic). Early window (m0–4) now carries ~57%
+of the residual gross S loss (−$18.1k of −$31.8k) — the frontier
+moved to the FRONT of the window, as §8 predicted.
+
+**Phase × band cut:** toxicity is NOT longshot-concentrated. The
+favorite-side band (fill p ≥ 0.50) is the WORST per share in both
+phases (early −4.0¢, late −6.2¢); the 0.30–0.40 band is mildest early
+(−1.65¢). Conditioned on being FILLED, our maker flow inverts the
+E-035 unconditional market fact (longshots overpriced, favorites
+fair): adverse selection is strongest where we bid high. Mid-window
+minutes 3–6 are the least toxic cells ⇒ the residual conditional
+toxicity curve is U-SHAPED in time.
+
+**Candidate next mechanism (recorded, NOT designed/frozen here):**
+`earlyTighten` — a decaying concession k_e·(1 − elapsed/15m) on the
+maker quote cap, the time-mirror of lateTighten, composing to a
+V-shaped total concession with minimum mid-window, matching the
+measured curve. Non-equivalence sketch (to be argued properly at
+design freeze): vs E-027 — price rule, never keys participation on
+minute (same §10 argument); vs P* — time-shaped, not uniform; vs
+lateTighten — opposite slope, targets the now-dominant entry-window
+term that the ramp leaves unpriced by design. Secondary candidate:
+quote-price-conditioned concession (extra concession on high-priced
+quotes), motivated by the favorite-side inversion above; needs care —
+it interacts with the projection cap differently per side. Decide
+between them AFTER the E-050 read (if P*-CONT continues, the uniform
+level may absorb part of the early term first).
