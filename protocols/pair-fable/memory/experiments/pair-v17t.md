@@ -326,3 +326,122 @@ at drain 06:26Z; protocol:check + smoke + activation per new-code
 rule); (3) mandatory loss-identity/next-frontier analysis on 1046
 (pre-grace S toxicity — needs non-equivalence vs E-027 before any
 build). s40 does the five-session audit FIRST (mission §7.2).
+
+## 10. E-027 identity-guard analysis for lateTighten > 0.20 (s40, 2026-08-01)
+
+Required by the frozen §8 DOSE-CONT mapping before any schema lift.
+Question: at what dose does the continuous price concession become
+behaviorally equivalent to the killed binary participation gate, and is
+a k=0.28 test legitimate?
+
+**What E-027 killed (pair-v13.md):** start-minute participation gating
+on the v1 family — "restrict STARTS to minute region M" — because
+per-start-minute EV had no positive region to select. Its object is a
+selection rule keyed on minute alone, prices untouched, scope
+v1/pinned-800/gates {0.95, 0.98}.
+
+**What lateTighten is:** a price rule. The maker quote cap is lowered
+by k·(m/15) $/sh; a fill at ANY minute remains allowed when the
+counterparty crosses to a price carrying that concession, and every
+fill that does occur is better-priced by construction. Participation is
+never keyed on minute.
+
+**Non-equivalence at the doses tested so far (behavioral, not
+intent-based):**
+
+1. Different object: E-027 gates first-S starts; lateTighten reprices
+   every maker quote (S and repair) continuously.
+2. Different gain signature: if the k gains were pure late-participation
+   subtraction, p/100 would stay ~flat (E-045's exposure-only pattern).
+   Instead p/100 improves monotonically (−5.91 → −5.38 at k020) and the
+   anatomy shows REPRICING structure: doom→lock migration (k020 C
+   13,549 fills vs D 11,135; 1029 was C 9,755 / D dominant), C+D spend
+   falling, residue eliminated. That structure cannot be produced by a
+   start-minute filter.
+3. Different evidence base: E-027's kill is family-scoped (v1) and its
+   universe/center differ; the tighten axis has its own FULL-universe
+   dose-monotone evidence (E-047/E-049) — precisely the "new evidence"
+   that mission §3 says reopens nothing by default but here supports a
+   genuinely different mechanism.
+
+**Where the equivalence boundary actually lies:** at k=0.20 the
+concession is −6.7¢ (m5) / −10.7¢ (m8) / −14.7¢ (m11) / −18.7¢ (m14)
+vs measured conditional toxicity ≈ −4.4¢/sh (min 5–11) — the cap is
+already past mean toxicity everywhere from ~minute 5, and min-12+ S
+fills are extinct (9/9,786 at k020). Raising k further can only act on
+minutes ~4–11. If a lift's entire effect is driving min-4–11 fills to
+≈ zero, the ramp has degenerated into a binary late-window no-quote —
+at that point it IS behaviorally a minute-keyed participation cut and
+further lifts are illegitimate without a new mechanism argument.
+
+**Ruling: k=0.28 test is LEGITIMATE, with a frozen degeneracy check.**
+Schema lift bounded to max 0.32 (one step of headroom, M5 discipline —
+no unbounded knob). Integrity metric frozen in §11: at k028, S fills
+in minutes 4–11 must remain ≥ 25% of the k020 level, else verdict
+**DEGENERATE** — the k axis closes at ≤ 0.28 by ev regardless of the
+ev delta, and any further late-window work must be a new mechanism
+with its own non-equivalence argument.
+
+## 11. E-050 — P* floor dose, P*×k composition at max dose, k lift
+## (FROZEN s40, 2026-08-01, BEFORE submission)
+
+Code delta: schema-bounds-only edit to pair.v17t.ts — pairTarget
+`.min(0.9)` → `.min(0.85)`, lateTighten `.max(0.2)` → `.max(0.32)`.
+No logic touched; for every previously-valid param vector the strategy
+is behaviorally identical (M4 note: cross-SHA comparisons vs 1043/1046/
+1047 remain valid by that code-identity argument; git diff is the
+evidence). New-code rule applies anyway: protocol:check + local
+`--sequential` smoke + schema-activation check (pairTarget=0.88 and
+lateTighten=0.28 must now be ACCEPTED and trade; both were schema
+rejections before).
+
+Open questions from §9, one cell each (center = 1029 center: orderSize
+100, imbalanceBand 160, doomUnitMax 0.99; FULL universe --to-ms
+1785196800000, 140/20, B=500; integrity: the identical 96-slug
+priceToBeat failure set, pairs on 10,651 common):
+
+| # | cell | params (rest = center) | label | question |
+|---|---|---|---|---|
+| 1 | p88k012 | P*.88 k.12 | pf-e050-p88k012 | P* dose below the old floor, at the 1046 operating k |
+| 2 | p86k012 | P*.86 k.12 | pf-e050-p86k012 | second dose point (locates saturation/peak) |
+| 3 | p90k020 | P*.90 k.20 | pf-e050-p90k020 | do the P* floor step and max tighten compose? |
+| 4 | k028 | P*.92 k.28 | pf-e050-k028 | dose beyond the old schema max (guarded by §10) |
+
+**Frozen bars (B_full = 0.74, paired on common intersection):**
+
+- **P*-CONT-88** iff p88k012 − 1046 > +0.74 (curve read with p86k012 −
+  p88k012 alongside). **P*-SAT** iff |p88k012 − 1046| ≤ 0.74 AND
+  |p86k012 − 1046| ≤ 0.74 ⇒ P* axis closed at k012, operating floor
+  0.90. **P*-OVER** iff p88k012 − 1046 < −0.74 ⇒ interior peak at
+  0.90 (p86 confirms direction).
+- **COMPOSE-MAX-ADD** iff p90k020 − 1047 > +0.74 (P* step still adds
+  at max k); read p90k020 − 1046 alongside (the k step at P* 0.90).
+  Both > bar ⇒ best-cell candidate is the composed corner.
+  **COMPOSE-MAX-REDUNDANT** iff p90k020 − 1047 ≤ +0.74 AND p90k020 −
+  1046 ≤ +0.74 ⇒ the levers overlap at max dose; operating point picked
+  among existing cells by ev.
+- **LIFT-CONT** iff k028 − 1047 > +0.74 AND the §10 degeneracy check
+  passes (min-4–11 S fills at k028 ≥ 25% of k020's) ⇒ one further step
+  may be frozen later. **LIFT-SAT** iff |k028 − 1047| ≤ 0.74 ⇒ k axis
+  closed at this center, operating k ∈ [0.12, 0.20] by ev. **LIFT-OVER**
+  iff k028 − 1047 < −0.74 ⇒ interior peak in [0.12, 0.28].
+  **DEGENERATE** (overrides ev on the lift axis): min-4–11 S fills at
+  k028 < 25% of k020 level ⇒ k axis closed at ≤ 0.28 regardless of ev;
+  record per §10.
+- Watch metrics per cell (frozen): anatomy (S/C/D fills+$, S minute
+  hist), noActivity (participation collapse — 1046 already 3,733/
+  10,651), C+D $ vs the $687.3k leak rule, fees, resid-mkt count.
+
+**Submit literals (whole grid up front, one per config, zsh guard):**
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.88 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-e050-p88k012 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-e050-p86k012 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.90 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.20 --to-ms 1785196800000 --label pf-e050-p90k020 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.28 --to-ms 1785196800000 --label pf-e050-k028 --detach
+```
+
+Pre-submit checklist: protocol:check PASS, smoke + activation PASS,
+tree clean + pushed to origin/main, no v17t jobs queued elsewhere
+(queue verified empty at s39 close), batchUid captured per submit,
+fleet.ts verification after.

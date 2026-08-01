@@ -37,7 +37,7 @@ export const ConfigSchema = z
     /** Per-market capital cap in $ (binding evaluator convention — sweep knob). */
     capPerMarket: z.coerce.number().finite().positive().max(2000).default(500),
     /** Target settled pair VWAP; every maker price is ceiling-capped to project ≤ this. */
-    pairTarget: z.coerce.number().finite().min(0.9).max(0.99).default(0.96),
+    pairTarget: z.coerce.number().finite().min(0.85).max(0.99).default(0.96),
     /** Shares of tolerated unmatched inventory beyond the target (the band; hard trending halt). */
     imbalanceBand: z.coerce.number().finite().min(1).max(800).default(40),
     /** Shares per resting bid (M5-bounded: sim fills entire size on cross; max 400 ≈ the E-028b measured ToB depth ceiling 300–450 — beyond it whole-size fills stop being a defensible approximation). */
@@ -63,7 +63,7 @@ export const ConfigSchema = z
     /** v16.1 (E-039): the same side must lead for this many consecutive ticks before T ≠ 0; flips/no-leader reset the streak. 0 = off. */
     leadPersistTicks: z.coerce.number().int().min(0).max(20000).default(0),
     /** v17t: per-share maker quote-cap concession in $ at full window age — pHat is lowered by lateTighten·(elapsed/15m). Applies ONLY to the maker quote cap; pLock/doom stay on base pairTarget. 0 = exact v17. */
-    lateTighten: z.coerce.number().finite().min(0).max(0.2).default(0),
+    lateTighten: z.coerce.number().finite().min(0).max(0.32).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',

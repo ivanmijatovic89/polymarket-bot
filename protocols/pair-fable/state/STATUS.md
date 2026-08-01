@@ -76,16 +76,47 @@ file deleted after use.
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 
-**Next audit: s40 (covers s35–s39), due BEFORE new research in s40.**
-Gate summary for it: s35 GREEN (E-046 freeze+submit + audit), s36
-GREEN (mission-metric replication on 1029, drain-blocked declared),
-s37 GREEN (frozen-readout input calibration, drain-blocked declared),
-s38 GREEN (loss identity + C/D baseline, drain-blocked declared), s39
-GREEN (13-row readout closing E-045b/E-046/E-047/E-048 + E-049
-freeze+submit). Five-session plan item check (s35 plan): (1) E-046
-frozen+submitted ✓ (s35), (2) 13 rows read with frozen mappings ✓
-(s39), (3) v17t/v17o follow-up ✓ (E-049), (4) E-045b/E-046 follow-up ✓
-(folded into E-049 + directional close), (5) ≤1 YELLOW ✓ (zero).
+### Five-session audit s35–s39 (done in s40, BEFORE new research) — PASS
+
+- **Gates:** 5 GREEN / 0 YELLOW / 0 RED; all five gates present in
+  STATUS history with evidence pointers (commits 1c5f02e, 1d7518a,
+  6670bd7, dace65a, fec522b). Classifications: s35
+  neutral+directional (E-046 freeze/submit + s30–s34 audit), s36–s38
+  neutral-controller analysis (drain-blocked, declared analysis-only
+  per mission §6.2 — no fleet capacity existed; each produced
+  calibrated inputs later BOUND in s39 verdicts, so they were
+  controller work, not recap), s39 neutral readout + directional
+  close.
+- **Time to evidence:** 5/5 PASS per recorded gates (min 1–8 first
+  actions).
+- **Throughput:** 17 FULL rows read and verdict-bound in the span
+  (runs 1031–1047; 13 carried from s34/s35 submissions, 4 E-049 rows
+  submitted AND read in s39); 5 experiments closed with frozen bars
+  (E-045b, E-046, E-047, E-048, E-049); universe 10,747 / pairs
+  10,651 everywhere; all B=500.
+- **Open primary requirements:** scale check remains CLOSED on record
+  (E-036 — $2,000 tested, 500–1,000 matched reached, depth-optimism
+  caveat P-009/P-010 carried); directional controller ACTIVELY tested
+  (E-046) and closed at ev under frozen bars with an explicit reopen
+  condition (new conditioning lever) — lever-scoped, not a silent
+  class kill, consistent with evaluator.md §Kill standards; neutral
+  priority-1 lead is legitimate (tighten dose/floor axes measured
+  LIVE and still open at grid/schema edges).
+- **Premature closures:** none found. The one class-adjacent phrase
+  ("directional acquisition program CLOSED at ev") names its frozen
+  bars, its evidence set (E-038/E-041/E-043/E-044/E-046), and its
+  reopen condition.
+- **Controller progress in span:** FULL neutral ev −8.07 → −4.83
+  (1029 → 1046), p/100 −5.91 → −5.33 — the first per-dollar gains on
+  record.
+- **Next-five plan (s40–s44):** (1) s40 identity-guard analysis +
+  pairTarget/lateTighten schema touch + E-050 grid freeze/submit
+  (GREEN neutral); (2) s41 E-050 readout + verdicts (GREEN); (3) s42
+  loss identity on the new best cell + pre-grace S-toxicity mechanism
+  design with non-equivalence argument (GREEN analysis); (4) s43
+  next-mechanism build + smoke + submit (GREEN); (5) s44 readout;
+  directional revisit only if a new conditioning lever emerged.
+  ≥3 GREEN ✓; ≤1 supporting diagnostic ✓.
 
 ### Five-session audit s30–s34 (done in s35) — PASS
 
