@@ -98,3 +98,21 @@ reuses g0 = 1008).
 Pre-submit checklist (unchanged): tree clean + pushed to origin/main;
 no v17t jobs queued elsewhere; freeze this file (Status → FROZEN, stamp
 commit) BEFORE the first submit.
+
+## 5. FROZEN (s34, 2026-08-01) — Branch B applied: E-045 = P*-LIVE, winner 0.92
+
+Status: **FROZEN.** E-045 verdict (pair-v17.md §12): P*-LIVE monotone,
+winner pairTarget 0.92 (run 1029 = the k=0 reference by code identity).
+
+**Correction to §4:** the "center = all schema defaults" claim was WRONG —
+v17t schema defaults are orderSize 25 / imbalanceBand 40 / doomUnitMax 0
+(runs 1015–1017 recorded the center because s31 passed it explicitly).
+Every cell below passes the center explicitly; params must equal 1029's
+recorded params except lateTighten. Final grid (k ∈ {0.03, 0.06, 0.12},
+--to-ms 1785196800000, 140/20, B=500; bars per §4 vs reference 1029):
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.03 --to-ms 1785196800000 --label pf-v17t-k003 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.06 --to-ms 1785196800000 --label pf-v17t-k006 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --to-ms 1785196800000 --label pf-v17t-k012 --detach
+```

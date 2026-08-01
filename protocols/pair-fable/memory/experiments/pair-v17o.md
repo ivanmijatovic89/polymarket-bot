@@ -190,3 +190,23 @@ npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --
 Note v17t overlap: on-pace late toxicity (−21.5k) is clock-shaped, not
 state-shaped — v17t's territory. If both axes read LIVE at FULL they are
 complementary, not redundant (different covered flow).
+
+## 10. FROZEN (s34, 2026-08-01) — Branch B applied: E-045 = P*-LIVE, winner 0.92
+
+Status: **FROZEN.** Reference = run 1029 (v17 τ0 at P* 0.92; k=0 ≡ by code
+identity). Same schema-default caveat as pair-v17t.md §5: center passed
+explicitly (v17o defaults are 25/40/0 — activation runs 1018–1023 ran at
+that small center; activation SHAPE conclusions unaffected, ev never cited).
+Final grid (4 cells; bars per §4 vs 1029; --to-ms 1785196800000, 140/20):
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.03 --to-ms 1785196800000 --label pf-v17o-k003 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.06 --to-ms 1785196800000 --label pf-v17o-k006 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.12 --to-ms 1785196800000 --label pf-v17o-k012 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param pairTarget=0.92 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param oTighten=0.06 --param oSticky=1 --to-ms 1785196800000 --label pf-v17o-k006s --detach
+```
+
+Note: oRefRate 30 was calibrated on the P* 0.96 baseline's fill pace; at
+P* 0.92 the neutral pace is lower (invested 292→166 on E-045). The deficit
+will therefore flag more often at 0.92 — read engagement (S suppression
+share) before interpreting a null, and expect the k-dose to bite harder.
