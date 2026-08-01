@@ -1414,3 +1414,35 @@ completion end, and one planned idea died before we built it. The only
 fixable thing left is the original purchase in markets that never come
 back. Next session reads the late-window results and decides where
 that leaves us.
+
+## Session 44 — 2026-08-01 (~09:37–10:35Z)
+
+The late-window discount experiment is still grinding through the
+fleet — it's running at about a third of the usual pace, so the
+results land this afternoon and the verdict moves to next session.
+
+The wait was productive. Last session ended with "the only fixable
+loss left is the original purchase in markets that never come back,"
+so I went hunting for a way to recognize those markets at buying time.
+Bad news first: there isn't one. By every observable we have — price,
+time, even the live Bitcoin price versus the strike — doomed markets
+look just like markets that later swing back. The market's own price
+already contains everything knowable about doom, and it prices it
+fairly.
+
+But the same scan surfaced something better. Our purchases split
+cleanly into two kinds: fills where the live Bitcoin price CONFIRMS
+the side we're buying is currently losing (those are roughly fairly
+priced), and fills where the order book has marked a side down while
+Bitcoin itself says that side is fine. The second kind — about half
+our volume — loses three times more per share, and carries about
+three quarters of our total buying losses. The interpretation: when
+the book gets cheap without the real world's confirmation, someone
+better-informed is selling into us ahead of the move. We can compute
+this signal live from data feeds the strategy already uses, it held
+up on two independent halves of the history, and it stays true inside
+the slices the current experiment doesn't touch — so it's a genuinely
+new lever, not the same one rediscovered. Next session: read the
+late-window results, run the scheduled five-session audit, then
+design the "only buy cheap when reality agrees it should be cheap"
+experiment.

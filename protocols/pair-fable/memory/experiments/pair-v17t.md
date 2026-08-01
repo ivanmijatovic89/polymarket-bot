@@ -1068,3 +1068,99 @@ final_outcome.
    back (E-035 longshot overpricing made concrete). Mechanisms that
    reprice or refuse exactly that flow remain the only EV-positive
    attack surface; completion-side mechanics are exhausted.
+
+## 21. Doom-hazard vs spot-disagreement anatomy on 1052 (s44, while
+## E-052 drained; context only — no bars changed. New lever found)
+
+Tool: `tools/doomhazard.ts` (new, adapted from contested.ts for v17t
+pathway semantics; per-S-fill spot join on local aggTrades day files,
+112 day groups, serial DuckDB scan ~3 min — not fleet-shardable, ran
+foreground). Known-answer checks: §20 pathway table reproduced EXACTLY
+(D-only 3,532/−58,751; C-only 1,101/+20,780; mixed 641/+3,253; S-only
+69/+975); S fills 6,658 ✓ (§19 freeze base); late gross S loss
+−$13,149 ✓ (§16). Fills join: 6,658/6,658 with spot+ptb (0 skipped).
+
+### 21.1 Doom pathway is NOT (minute, price)-separable — and not
+### feature-separable either
+
+Gross S-fill EV matrix (share-weighted, win = side == final_outcome),
+phase × band: the ONLY structurally toxic cells are late ≥0.40 (−8.1¢
+and −7.2¢/sh — E-052's exact target, confirming §16). Every other
+cell sits at −1.9 to −4.2¢/sh, ~uniform. Doom-market S dollars
+concentrate 15:1 vs C-markets in p<0.30 ($28.5k vs $1.9k), but the
+cheap band's own EV is only −2.4/−3.3¢/sh — cheap fills lose their
+whole (small) stake in doom markets and win often enough elsewhere
+that the cell is near-fair. The fill price IS the market's doom
+estimate, priced ~fairly. And within every price band, doom-market
+fill fraction is FLAT across spot-feature quartiles (74–78% in
+p<0.30; 54–61% in 0.30–0.40). **Verdict: no quote-time rule — price,
+minute, or spot feature — can isolate the doom pathway. The "refuse
+the doomed start leg" framing is dead: dooms are only identifiable
+ex post.** (Fill-time features overstate quote-time observability, so
+this NULL kills a fortiori — same bias note as contested.ts.)
+
+### 21.2 The NEW lever: spot-vs-book disagreement (advBps)
+
+Definition per S fill: advBps = signed spot distance from priceToBeat
+in bps, positive when spot is currently AGAINST the filled side.
+FLAG = advBps ≤ 0: the book filled our bid on a side that is NOT
+behind on spot — the book collapsed against the side before/without
+spot confirmation (informed flow running through our resting level).
+
+Full-run quartiles: near-monotone toxicity gradient in all 4 bands
+(worst Q1: p≥0.50 −10.1¢, p<0.30 −7.6¢; best Q4: −1.3/−0.5¢).
+Split-half (median market_start_ms, disjoint markets), binary FLAG at
+threshold 0 — **8/8 band×half cells show FLAG worse than REST**:
+
+| band | H1 FLAG/REST ¢/sh | H2 FLAG/REST ¢/sh |
+|---|---|---|
+| p<0.30 | −6.2 / −1.0 | −5.8 / −1.3 |
+| 0.30–0.40 | −5.6 / −4.3 | −4.2 / −0.1 |
+| 0.40–0.50 | −3.0 / −1.0 | −6.8 / −3.4 |
+| p≥0.50 | −5.0 / −1.8 | −8.5 / −1.1 |
+
+Totals at threshold 0: FLAG 3,535 fills (53%) carrying −$19.4k of the
+−$25.2k gross S loss (−5.5¢/sh); REST 3,123 fills at −$5.9k (−1.9¢/sh).
+
+Orthogonality to E-052 (the crucial check — survives in flow the late
+band dose does NOT touch, both halves):
+- LATE p<0.40: FLAG −7.2/−5.4¢ vs REST −1.3/−0.3¢ (H1/H2) — the flow
+  §16 called "fine on average" (−3¢) splits into a toxic flagged half
+  and a near-fair rest.
+- EARLY p<0.40: FLAG −5.0/−4.7¢ vs REST −3.5/−1.3¢.
+- EARLY ≥0.40: H1 no separation (−1.7/−1.7), H2 strong (−6.8/+3.3) —
+  mixed, weakest region.
+- LATE ≥0.40 (E-052's band): H1 the band's toxicity is ENTIRELY the
+  flagged flow (FLAG −7.0¢ vs REST +1.0¢); H2 both toxic (−8.8/−9.8).
+  Most of what E-052's price-blind dose charges is this flow.
+
+Mechanism reading: buying the cheap side is ~fine when spot confirms
+the side is losing (the price is honest); it is toxic when the book
+prices a side cheap while spot says it is ahead/tied — the collapse
+through our level leads the spot move. This is the family's blanket
+adverse-selection cost made conditional and observable.
+
+### 21.3 E-053 candidate design sketch (NOT a freeze — freeze in the
+### implementing session, with fresh base numbers, after E-052 verdict)
+
+`disagreeTighten`: extra maker concession (or unquotable) on any S
+quote whose side is not currently behind on spot (advBps ≤ 0 at tick
+evaluation, from the binanceWsSpotPrice feed + priceToBeat the
+strategy ALREADY declares and uses for spotLeadBps — zero new feed
+plumbing). Open design choices for the freeze: threshold (0 vs −5),
+flat vs magnitude-graded dose, S-only vs all maker quotes.
+Constraints for the freeze:
+- compose with the E-052 verdict (if lateBandTighten survives, the
+  late ≥0.40 flagged flow is double-dosed — measure net of it);
+- §18 channel bar PRIMARY (kept-flow paired Δpnl) + BOTH-granularity
+  degeneracy tripwires — the flag covers 53% of S fills, so
+  participation-extinction risk is the dominant failure mode; dose,
+  don't forbid, and consider the −5 threshold (31% of fills, −$12.1k
+  gross) as the conservative first cell;
+- quote-time vs fill-time bias: the measured separation is at FILL
+  time; a quote conditioned per tick with 140ms latency captures only
+  part of it (fast collapses hit the stale quote) — expect partial
+  capture, size the bars accordingly;
+- the E-046 directional closure ("pending a new conditioning lever")
+  may also reopen on this feature later — but quote-side dosing comes
+  first (neutral controller, priority 1).
