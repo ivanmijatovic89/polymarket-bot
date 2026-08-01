@@ -1031,6 +1031,73 @@ sole use is a same-config replicate measurement of kept-flow paired
 lb08 = pf-e052-lb08-20260801T092843-dy3e3n,
 lb12 = pf-e052-lb12-20260801T092929-r0rm39.
 
+### §19 READOUT (s46, 2026-08-01; drain ~10:38Z, rows 1061–1064)
+
+Mapping: lb04-PRIMARY=1061, lb08=1064, lb12=1062, lb04-DUP
+(noise-only per the pre-results designation)=1063. Integrity: all
+four runs 10,651 markets + the identical 96 no-strike failure set,
+latency 140/20 from cmd, B=500, params exact per cell. M4: compare.ts
+engine-SHA warning (f0f87f19 vs 94a077cd) CLEARED by commit
+inspection this session — every commit in the range is
+protocols/pair-fable/** only (param adds behavior-identical at 0;
+smokes 1053/1058).
+
+**Frozen-bar table (paired vs 1052 on the 10,651 common set):**
+
+| cell | run | ev | Δev (bar 0.74) | kept-flow Δpnl (K_bar +$4.0k) | dropped | new | inBandLateS (floor 273) | noActivity (cap +360) | inBandAvgPx | p/100 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1052 ref | 1052 | −3.168 | — | — | — | — | 1,091 | 5,308 | 0.522 | −5.055 |
+| lb04 | 1061 | −3.053 | +0.115 | +$292 | +$12.6k (1,803) | −$11.6k (1,677) | 656 | +126 | 0.500 | −5.053 |
+| lb08 | 1064 | −2.772 | +0.396 | +$1,752 | +$13.5k (1,916) | −$11.1k (1,664) | 373 | +252 | 0.494 | −4.719 |
+| lb12 | 1062 | −2.866 | +0.303 | +$2,337 | +$11.6k (1,920) | −$10.7k (1,583) | **205** | +337 | 0.475 | −4.983 |
+| dup lb04 | 1063 | −3.072 | (+0.097) | (+$315) | — | — | 669 | +56 | 0.503 | −4.993 |
+
+Noise replicate: dup-vs-primary Δev 0.019, kept-flow Δ $23, total-pnl
+Δ $201 — the tightest same-config pair on record; the kept-flow reads
+above are safely outside channel noise.
+
+**Verdicts per the frozen §19 bars (no post-hoc changes):**
+
+- **NULL fires:** every dose |Δev| ≤ 0.74 (max lb08 +0.396) AND every
+  kept-flow Δ < +$4.0k (max lb12 +$2,337). REPRICE-CONT / AVOID-CLOSE
+  / AMBIG / KEPT-SIGNAL / OVER do not fire.
+- **DEGENERATE fires at lb12:** inBandLateS 205 < 273 floor — an 81%
+  extinction of the targeted flow (noActivity +337 ≤ +360 passes, so
+  it is within-market extinction, not market exit). Axis capped at
+  lb08, the largest non-degenerate dose; moot given NULL.
+- Watch: C+D $417.6k → 412.8/406.6/401.0k; fees $7,239 →
+  7,039/6,840/6,667; curve non-monotone at lb12 (extinction bends it).
+
+**AXIS CLOSED at this shape.** The §16-calibrated best remaining
+price×time concession cannot clear either bar: the in-band flow
+mostly refuses to fill at a 4–12¢ concession (1,091 → 656/373/205)
+instead of filling cheaper, and the small surviving repriced flow
+pays only +$0.3–2.3k. The dropped/new channels are a near-wash
+(borderline-churn, not quality selection — §17 pattern again).
+
+**Context for the next freeze (recorded, not a bar):** this is the
+FIRST lever on the family whose kept-flow channel is positive and
+dose-monotone (+292 → +1,752 → +2,337; E-051's was ≈0/negative, P*'s
++28% share). Sub-bar, but directionally consistent with §21.2: the
+late ≥0.40 band's toxicity is carried by the spot-disagreement flow
+within it (H1: FLAG −7.0¢ vs REST +1.0¢), so a price×time band is a
+weak proxy for the true toxic feature. E-053 (disagreeTighten,
+§21.3/§21.5) conditions on that feature directly — a genuinely
+different conditioning variable (external spot-vs-strike state, not
+book price/time; splits flow WITHIN cells E-052 treats uniformly),
+so this NULL does not kill it (evaluator.md §Kill standards: identity
+argument required, none exists). NOTE on the §19 decision map: its
+"leave the quote-price lever family" clause was written at freeze
+time (s43) BEFORE §21 existed, and its named §15 backlog successor
+(doom completion price) was measured dead in §20. The pre-registered
+s45–s49 plan (five-session audit) names E-053 as the next increment;
+proceeding there.
+
+**Records:** best FULL ev on record remains 1056 (−2.37). Chain adds
+1064 (−2.77), 1062 (−2.87), 1061 (−3.05), 1063 (−3.07).
+MECHANISM-TEST CENTER stays 1052 (lateBandTighten NOT adopted — no
+dose cleared a bar). E-053 composes on 1052's config per §21.5.
+
 ## 20. Completion-pathway decomposition on 1052 (s43, while E-052
 ## drained; context only — no bars changed. Re-ranks the §15 backlog)
 
