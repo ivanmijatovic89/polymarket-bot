@@ -151,3 +151,13 @@ Reference values on 1008 (k=0 ≡): low_early pre5 −66.7k / post5 −42.2k;
 high_early total −1.6k. Engagement bar (§4): flagged-regime post-5 S shares
 suppressed ≥ 20% at k=0.12 vs reference. C/D flow check: taker counts + $
 per cell vs reference from results.ts / anatomy.ts (§5 watch-metric).
+
+## 8. Grid-corner verification (s34; runs 1021/1022 + 1019/1020, same 20 mkts)
+
+S-fill minute split per cell (pre3 / min3–5 / post5):
+k=0 → 30/9/43; k=.06 g5 → 31/16/30; k=.12 g5 → 30/12/11; k=.06 g3 → 30/3/24.
+Pre-grace identical in EVERY cell (no contamination); post-5 monotone in dose
+(43→30→11 — max dose strong but not a shutdown, 19/20 played); grace 3 moves
+suppression into min 3–5 (9→3) exactly as specified. All drafted grid corners
+verified live; schema bounds hold. Corner runs are activation evidence only —
+20-mkt ev is noise.
