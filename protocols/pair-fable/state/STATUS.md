@@ -17,9 +17,21 @@ carries −127k of the −144k total loss. Loss is now localized by
 regime (trending/low-oscillation markets), consistent with the 58/42
 S-toxicity identity and inbox d904e17d (high-activity operator).
 Caveats recorded in §11 (outcome-conditioning; guard-7 depth optimism
-strongest in the profitable bucket). New backlog candidate v17o
-(state-conditioned quoting on realized completion rate) recorded —
-NOT scheduled; v17t and the 7-row readout stay first.
+strongest in the profitable bucket).
+
+**s34 second increment: §11.1 early-detectability + pair.v17o BUILT.**
+(a) The losing regime is flagged by minute 5 from the controller's own
+completion pace: early_matched<150 markets carry ALL of the −110k
+S-flow toxicity (−42.2k of it accruing post-flag); early_matched≥150
+markets' S flow is fair (−1.6k/2,680 mkts). (b) pair.v17o
+(completion-deficit per-share quote concession, design pair-v17o.md
+committed BEFORE code at e3f307f): protocol:check PASS, smoke 1018
+PASS, activation 1019(k=0)/1020(k=0.06) PASS on identical 20 mkts —
+pre-grace S fills unchanged, post-grace 43→30 at −3¢ avg price.
+Watch-metric frozen: taker completions rose 46→77 (flow shift into
+C/D — E-042 anatomy risk); FULL cells must report C/D counts+$.
+Submit literals prepared for both E-045 branches (pair-v17o.md §5).
+Sequencing: v17t grid first, v17o follows.
 
 **Session 33 (00:08–00:20Z, harness restarted the loop 0 min after
 s32 close): rows STILL ~55–65 min out at session start (queue at
@@ -269,24 +281,28 @@ the readout's decision mappings are applied.
 ## Alignment gate — session 34 (in progress; finalized at close)
 
 - **Classification:** neutral-controller (mission-metric baseline
-  evaluation of the standing neutral FULL run + readout-resume of
-  E-043/E-044/E-045, still queue-blocked).
-- **Contribution:** no verdict readable yet (declared). Banked:
-  mission §2 pair-VWAP reporting existed nowhere — now computed on
-  g0=1008 (pair-v17.md §11): 21.2%/7.6%/0.34% below 0.98/0.95/0.90,
-  and the loss localized by regime (100–250 matched bucket = −127k of
-  −144k; 500+ bucket ev-positive +17.41/mkt at pair VWAP 0.958).
-  Backlog candidate v17o derived from it.
+  evaluation of the standing neutral FULL run + NEW neutral mechanism
+  pair.v17o designed, implemented, smoked, activation-verified;
+  E-043/E-044/E-045 readout still queue-blocked).
+- **Contribution:** controller decision changed: a genuinely new
+  neutral axis (state-conditioned quoting) moved from nothing to
+  submit-ready in-session, on a measured prior computed this session
+  (pair-v17.md §11/§11.1: ALL S-flow toxicity concentrated in
+  low-early-matched markets, −42.2k accruing post-flag; high-early S
+  flow fair). Mission §2 pair-VWAP reporting computed for the first
+  time (21.2%/7.6%/0.34% below 0.98/0.95/0.90). Evidence: commits
+  50eb247/e3f307f/7abbb7a; runs 1018/1019/1020.
 - **Time to evidence:** fleet verify min 0, first substantive scan
-  (intent_meta inspection) min ~2, mission-metric SQL min ~4. PASS.
-- **Throughput:** 0 new runs (7 × 10,747 in flight, verified once, no
-  resubmission — all submits verdict-gated); 5 read-only DB queries.
+  min ~2, mission-metric SQL min ~4. PASS.
+- **Throughput:** 3 local sequential runs (5+20+20 mkts) + 9 read-only
+  DB queries; 7 × 10,747 in flight (verified once, no resubmission).
   No serial-scan issue.
 - **Scale:** closed by E-036 on record; §11 explicitly re-flags
   guard-7 depth optimism on the 500+ bucket.
 - **Next:** runbook steps 0–6 when drain completes (≈01:05–01:15Z),
-  frozen mappings, v17t freeze+fire — GREEN.
-- **Verdict:** **GREEN.**
+  frozen mappings, v17t freeze+fire, then v17o grid — GREEN.
+- **Verdict:** **GREEN** (direct neutral-controller implementation +
+  evaluation).
 - Verdict history: s30 GREEN, s31 GREEN, s32 GREEN, s33 GREEN,
   s34 GREEN. Next audit: s35 (five-session audit BEFORE new research).
 
