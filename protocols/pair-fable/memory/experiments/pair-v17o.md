@@ -161,3 +161,32 @@ Pre-grace identical in EVERY cell (no contamination); post-5 monotone in dose
 suppression into min 3–5 (9→3) exactly as specified. All drafted grid corners
 verified live; schema bounds hold. Corner runs are activation evidence only —
 20-mkt ev is noise.
+
+## 9. Deficit-coverage analysis + oSticky cell (s34; run 1008 + runs 1023)
+
+Instantaneous-deficit coverage of post-min-5 S toxicity on 1008 (window-fn
+running matched at each fill; whole universe): deficit-active fills net
+−31.8k / 717k sh (−4.4¢/sh), on-pace fills net −21.5k / 517k sh (−4.2¢/sh).
+Two lessons, measured BEFORE the grid freeze:
+
+1. The RELEASING deficit covers only ~60% of post-5 toxicity — markets that
+   recover pace still carry toxic late flow (the market-level sticky flag of
+   §11.1 covers −42.2k). Per-share toxicity discriminates weakly between
+   states; the mechanism's edge is volumetric, not per-fill-selective.
+2. ⇒ new param `oSticky` (0/1, default 0): ratchets the concession at its
+   peak deficit for the rest of the market. Implemented (State.oDefPeak;
+   protocol:check PASS). Activation run 1023 (k=0.06 sticky, same 20 mkts):
+   pre5 35 (baseline range), post5 15 vs releasing-k0.06's 30 and k=0's 43 —
+   deeper suppression at equal dose, no pre-grace contamination.
+
+Grid §4 amended BEFORE freeze: 4 cells — k ∈ {0.03, 0.06, 0.12} releasing
++ k=0.06 STICKY (oSticky=1). Submit literal for the sticky cell:
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17o --param oTighten=0.06 --param oSticky=1 --to-ms 1785196800000 --label pf-v17o-k006s --detach
+```
+
+(Branch B adds `--param pairTarget=<winner>` as with the other cells.)
+Note v17t overlap: on-pace late toxicity (−21.5k) is clock-shaped, not
+state-shaped — v17t's territory. If both axes read LIVE at FULL they are
+complementary, not redundant (different covered flow).

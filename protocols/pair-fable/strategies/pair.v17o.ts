@@ -73,6 +73,8 @@ export const ConfigSchema = z
     oRefRate: z.coerce.number().finite().min(1).max(200).default(30),
     /** v17o: no throttle before this many elapsed minutes — the completion-pace state is not informative earlier. */
     oGraceMin: z.coerce.number().finite().min(0).max(14).default(5),
+    /** v17o: 1 = ratchet the deficit (concession never relaxes below its peak for the rest of the market — measured s34: pace-recovered markets' late S flow stays toxic); 0 = releasing deficit. */
+    oSticky: z.coerce.number().int().min(0).max(1).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -111,6 +113,8 @@ type State = {
   /** v17: current feed-implied leader and its consecutive-tick streak. */
   leadSide: SideName | null
   leadStreak: number
+  /** v17o: peak completion deficit seen so far (ratchet when oSticky=1). */
+  oDefPeak: number
 }
 
 const GRID = 0.01
@@ -176,6 +180,7 @@ export function createStrategy(cfg: Config): {
         windowEndMs: windowEndFromSlug(ctx?.market?.slug),
         leadSide: null,
         leadStreak: 0,
+        oDefPeak: 0,
       }
     }
     state.tickCount += 1
@@ -422,8 +427,10 @@ export function createStrategy(cfg: Config): {
           elapsedMin >= cfg.oGraceMin && elapsedMin > 0
             ? Math.min(1, Math.max(0, 1 - matched / (cfg.oRefRate * elapsedMin)))
             : 0
+        if (oDef > state.oDefPeak) state.oDefPeak = oDef
+        const oDefUsed = cfg.oSticky > 0 ? state.oDefPeak : oDef
         const pHat =
-          ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q - cfg.oTighten * oDef
+          ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q - cfg.oTighten * oDefUsed
         if (!Number.isFinite(pHat)) target = null
         else {
           // 4. Maker discipline: on-grid, strictly below the ask.
