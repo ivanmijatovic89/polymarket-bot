@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T08:15Z (mission-02 session 41 checkpoint — E-051 IN FLIGHT)
+Updated: 2026-08-01T08:20Z (mission-02 session 41 close — E-051 IN FLIGHT, readout owed to s42)
 
 ## IN FLIGHT (s41, submitted 07:58–08:00Z, commitSha 7e5f9276)
 
@@ -62,10 +62,20 @@ pair-v17t.md §13):**
 ev −8.07) until a re-center decision; best FULL on record 1052
 (−3.17).** Neutral program is priority-1-led: P* floor + k dose both
 still open but per-step gains at/below bar; the genuinely untested df
-is the early-window concession. **NOTHING in flight** (drain verified
-07:47Z by watcher).
+is the early-window concession — NOW UNDER TEST (E-051 in flight,
+see IN FLIGHT block).
 
 ## Current work
+
+**Session 41 (07:45–08:25Z):** E-051 earlyTighten — design frozen
+(§14, with a shape correction: concession confined to m0–5, not a
+full-window mirror), param added to pair.v17t.ts (EARLY_MS=5min
+design constant), smoke 1053 PASS, 4 FULL cells submitted 07:58–
+08:00Z (sha 7e5f9276), readout owed to s42. While draining: owed
+loss identity + S-toxicity curve + phase×band cut on reference 1052
+(§15) — residue solved, doom-dominant completions, m0–4 = 48% of
+gross S loss. Session closed at the harness boundary with the grid
+in flight per the standing guard.
 
 **Session 40 (06:25–08:10Z):** closed loop — audit s35–s39 PASS →
 E-027 identity guard (§10) → schema-bounds edit + protocol:check +
@@ -129,7 +139,12 @@ premature closures; plan items all satisfied through s39.)
 
 ## Next step (priority order)
 
-1. **earlyTighten design + freeze + build (GREEN neutral, s41):** the
+1. **E-051 readout + verdicts (GREEN neutral, s42):** rows land at
+   full drain (~08:56Z); recover run ids via batch_uid (results.ts),
+   compare vs 1052 on the 10,651 common set, apply the §14 frozen
+   bars (EARLY-CONT/NULL/OVER, DEGENERATE tripwire, K-AT-FLOOR-*),
+   record LEDGER E-051, then next mechanism per the §14 decision map.
+2. (DONE s41) earlyTighten design + freeze + build: the
    §12 anatomy motivates a decaying entry-window concession
    k_e·(1 − elapsed/15m) on the maker quote cap (mirror of
    lateTighten; V-shaped total concession). Needs: proper
@@ -140,12 +155,44 @@ premature closures; plan items all satisfied through s39.)
    BEFORE submission on the 1052/1049 centers. Consider riding a
    small composition probe (p86k020 / p88k020) in the same batch —
    bars frozen at design time.
-2. **Loss identity on 1052** (owed at first use as reference, §8
-   rule) — fold into the earlyTighten design evidence.
-3. Open-but-unscheduled: P* floor < 0.85 (per-step decaying), k >
+3. (DONE s41, §15) Loss identity on 1052.
+4. Open-but-unscheduled: P* floor < 0.85 (per-step decaying), k >
    0.28 (marginal at bar) — revisit only with a composition reason.
-4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-5. Cross-symbol replication: gated on P-012.
+5. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+6. Cross-symbol replication: gated on P-012.
+
+## Alignment gate — session 41 (final)
+
+- **Classification:** neutral-controller (E-051 earlyTighten design/
+  freeze/build/submit + reference-1052 loss identity — all on the
+  neutral entry-window axis identified by the s40 anatomy).
+- **Contribution (controller decision changed):** the genuinely
+  untested entry-window degree of freedom is now under measurement —
+  E-051 frozen (pair-v17t.md §14) with a shape correction over the
+  §12 sketch (concession confined to m0–5; the full-window mirror
+  would have overcharged the least-toxic mid-window), non-equivalence
+  arguments vs E-027/P*/lateTighten, a 25% degeneracy tripwire, and 4
+  FULL cells submitted (batchUids above, sha 7e5f9276). Owed loss
+  identity on 1052 delivered (§15): residue solved (−$125 net),
+  completions doom-dominant at the deep floor (C $75k vs D $343k),
+  m0–4 = 48% of gross S loss — target validated at the new best cell.
+  Phase×band addendum: favorite-side inversion is late-only at this
+  center (scopes the fallback mechanism). Evidence: §14/§15, smoke
+  run 1053, commits 7e5f927..HEAD.
+- **Time to evidence:** min ~4 state recovered, min ~8 design freeze
+  begun, code edit + smoke launched min ~14, SMOKE PASS ~min 17,
+  grid submitted min ~21. PASS (implementation-first path per mission
+  §6.1 — design was kept minimal and implemented immediately).
+- **Throughput:** 4 FULL runs submitted (10,747 mkts each, B=500,
+  ~43k market jobs, 31 workers); 1 smoke; 3 read-only DB analyses
+  (identity, minute curve, phase×band); 1 background drain watcher.
+  Rows land ~08:56Z — readout owed to s42 (§14 bars frozen).
+- **Scale:** closed by E-036 on record; all cells B=500.
+- **Next:** s42 — E-051 readout + verdicts under the §14 frozen bars
+  (GREEN neutral-controller); recover run ids by batch_uid, apply
+  degeneracy check (1052 m0–4 S-fill base = 3,984 of 6,658).
+- **Verdict:** **GREEN.**
+- Verdict history: s31–s41 all GREEN. Next audit: s45 (s40–s44).
 
 ## Alignment gate — session 40 (final)
 
@@ -180,7 +227,9 @@ premature closures; plan items all satisfied through s39.)
 
 ## Blockers
 
-None. NOTHING in flight — the queue is empty (verified 06:26Z drain).
+None. E-051 in flight (4 batchUids in the IN FLIGHT block above);
+per the standing guard the session returns `continue` and s42 reads
+the finished rows. Do NOT push v17t semantics changes until drain.
 
 ## Needs human
 
