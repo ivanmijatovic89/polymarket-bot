@@ -33,6 +33,19 @@ C/D — E-042 anatomy risk); FULL cells must report C/D counts+$.
 Submit literals prepared for both E-045 branches (pair-v17o.md §5).
 Sequencing: v17t grid first, v17o follows.
 
+s34 third increment (all pre-freeze, evidence-driven): (c) grid
+corners verified live (runs 1021/1022 — dose-monotone post-grace
+suppression 43→30→11, zero pre-grace contamination in any cell,
+grace-3 shifts suppression into min 3–5); (d) deficit-coverage
+analysis (window-fn over 1008): releasing deficit covers only ~60%
+of post-5 toxicity because pace-recovered markets stay toxic ⇒
+`oSticky` ratchet param implemented + activation-verified (run 1023:
+post5 S fills 15 vs 30 releasing vs 43 baseline) — v17o grid is now
+4 cells (k .03/.06/.12 releasing + k .06 sticky); (e) flag-timing
+sensitivity (m3/m5/m7) supports continuous form, grace {3,5}; (f)
+§11.1 concentration replicated on 1009 (−104.1k vs −3.1k). All in
+pair-v17o.md §§5–9 with banked submit + readout literals.
+
 **Session 33 (00:08–00:20Z, harness restarted the loop 0 min after
 s32 close): rows STILL ~55–65 min out at session start (queue at
 00:08Z: 4 batches at 10,651/10,747 waiting only on the 96 outage

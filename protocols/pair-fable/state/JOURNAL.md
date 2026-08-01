@@ -1132,3 +1132,15 @@ gradual form over an on/off switch), and the whole loss-concentration
 pattern replicates on a second independent full-history run. The
 variant is ready to launch as soon as the pending price-target verdict
 says which price center to build the test around.
+
+Second update, same session: while still waiting for the fleet, the new
+variant got a full pre-flight. Every planned setting was exercised on
+real markets and behaved exactly as drawn: untouched early minutes
+everywhere, progressively stronger pull-back at higher doses, and an
+earlier trigger when configured. One deeper measurement changed the
+design before it was frozen: markets that fall behind and later catch
+up still bleed in the late minutes, so a "once warned, stay careful"
+variant was added and verified too. The loss-concentration pattern also
+replicated on a second independent full run. Everything is banked as
+copy-paste commands; the moment the pending verdicts land, both new
+variants can be fired at the full history within minutes.
