@@ -62,15 +62,29 @@ priority-1-led: tighten axis LIVE with open dose/floor questions.
 
 ## Current work
 
-**Session 39 (01:54–06:40Z, long session by design):** drain-blocked
-at start (13 rows, drain 05:02Z) with only 11 sessions left in budget
-⇒ stayed alive through BOTH drains (background watcher + blocking
-waits) and turned what would have been 4–5 stub sessions into one
-closed loop: 13-row readout → E-049 freeze+submit → E-049 readout.
-All frozen-readout inputs from s36–s38 were used as calibrated
-(engagement baseline 61.6/38.4, residue expectation 1,226, C/D
-$687.3k — every one bound in a verdict). Readout checklist scratch
-file deleted after use.
+**Session 40 (started 06:25Z):** five-session audit s35–s39 done first
+(PASS — see Audit note). Then, per the s39 decision chain: E-027
+identity-guard analysis written (pair-v17t.md §10 — k=0.28 legitimate,
+DEGENERATE check frozen), pair.v17t.ts schema-bounds-only edit
+(pairTarget floor 0.90→0.85, lateTighten max 0.20→0.32; protocol:check
++ 3-mkt sequential smoke PASS, both new bounds accepted and traded),
+**E-050 FROZEN (§11) at f0f87f1 and submitted 06:35–06:38Z** — 4 FULL
+cells: p88k012 (pf-e050-p88k012-20260801T063559-1o7z86), p86k012
+(…063640-4ipedk), p90k020 (…063726-dae5h7), k028 (…063816-3skass);
+all verified waiting-children, workers on sha f0f87f1; drain est
+~08:00Z. While draining: mandatory §8 residual-anatomy on 1046 done
+(pair-v17t.md §12 — loss frontier now EARLY window: m0–4 = 57% of
+gross S loss, m0 alone −10.1k/29% of volume; favorite-side fills worst
+per share; U-shaped conditional toxicity ⇒ earlyTighten candidate
+recorded, not designed). Degeneracy denominator banked: 1047 min-4–11
+S fills = 3,716 / 371.6k sh (k028 bar: ≥ 25% = 929 fills).
+
+**If this session dies before the E-050 readout:** run
+`npx tsx protocols/pair-fable/tools/results.ts --last 8` to map the 4
+pf-e050-* labels to run ids, then compare.ts pairs per the frozen §11
+bars (p88k012/p86k012 vs 1046; p90k020 vs 1047 AND 1046; k028 vs 1047
++ the degeneracy check above). All bars and watch metrics are in
+pair-v17t.md §11.
 
 ## Audit note
 

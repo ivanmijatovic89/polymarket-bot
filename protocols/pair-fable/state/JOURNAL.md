@@ -1,5 +1,28 @@
 # JOURNAL — pair-fable
 
+## 2026-08-01 — Session 40 (audit, then pushing both winning levers further)
+
+- Ran the required five-session self-audit first: all five recent sessions did
+  real controller work with evidence, nothing was closed prematurely, and the
+  loss per market fell by 40% across the span. Audit passed.
+- Yesterday's two winning ideas — demand a bigger price concession late in the
+  window, and aim for a cheaper overall pair target — both hit their allowed
+  limits while still improving. Before raising the limits I wrote the required
+  fairness argument: the late-window concession is still a price rule (worse
+  prices are always allowed to fill), not a disguised version of the
+  "just stop trading late" idea we killed long ago. It passes, with a concrete
+  tripwire: if the next dose kills mid-window trading entirely, the axis closes.
+- Raised both limits in the strategy schema, verified nothing else changed,
+  and submitted four full-history runs: two probing an even cheaper pair
+  target, one combining the cheaper target with the maximum late concession,
+  and one probing a stronger late concession than ever allowed before.
+- While those ran I mapped where the remaining loss now lives: it has moved to
+  the FIRST minutes of each market — the very first fills are systematically
+  on the wrong side of the move, and quotes on the favorite side hurt most.
+  That suggests the next mechanism: an extra concession that starts high and
+  fades as the market ages — the mirror image of the late-window one. Recorded
+  as a candidate, to be designed properly after these runs read out.
+
 ## 2026-07-30 — Session 8 (baseline-pair-strategy)
 
 - First real strategy of the protocol: `pair-fable-v0`
