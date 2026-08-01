@@ -69,12 +69,48 @@ deferred to s45 (drain ≈13:30Z).
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 
-### Five-session audit s35–s39 (done in s40) — PASS. **Next audit: s45
-### (s40–s44) — DUE BEFORE new research in s45.**
+### Five-session audit s40–s44 (done in s45, before new research) — PASS
+### with one bookkeeping correction. Next audit: s50 (s45–s49).
 
-- Next-five plan progress: (1) s40 GREEN ✓; (2) s41 GREEN ✓; (3) s42
-  GREEN ✓; (4) s43 GREEN ✓; (5) s44 YELLOW (readout blocked by slow
-  drain; controller-math analysis instead). ≥3 GREEN satisfied ✓.
+- **Counts:** 4 GREEN (s40 E-050 freeze+submit+readout → center 1052;
+  s41 E-051 freeze+implement+submit; s42 E-051 readout EARLY-NULL +
+  §18 channel-bar law; s43 E-052 freeze+implement+submit), 1 YELLOW
+  (s44 §21 anatomy — single diagnostic, next-GREEN rule honored by
+  this session's E-052 readout). 0 RED, no consecutive YELLOWs.
+- **Time to evidence:** all five gates recorded PASS (≤10 min first
+  action; verified against commit timestamps).
+- **Throughput:** 3 frozen experiment grids (E-050/E-051/E-052), 12
+  FULL-universe batches ≈ 129k market-jobs, whole-grid-up-front per
+  c841c329; drain wait consistently spent on controller-math analyses
+  (§12, §15–§17, §20, §21). One serial local scan (doomhazard.ts,
+  ~3 min, DuckDB memory-bound — constraint recorded pre-launch).
+- **Open primary requirements:** $2,000/matched-share checks remain
+  closed by E-036 (P-009/P-010 caveat stands). Neutral controller: ev
+  −8.07 → −3.17 mechanism center (best FULL −2.37) across the window,
+  AND the §18 law now correctly discounts avoidance-driven gains.
+  Directional controller (priority 2): correctly pending — §21's
+  spot-disagreement lever is the "genuinely new conditioning feature"
+  the E-046 closure required; quote-side dosing (E-053) first, then a
+  separate directional freeze. No premature closures found: §20's
+  backlog kill is direct measurement (D-leg fair), §21's doom kill is
+  a-fortiori-valid (fill-time ⊇ quote-time power), E-018 stays
+  withdrawn per ruling.
+- **Correction (bookkeeping):** s44's "~149 jobs/min, 3.6× slower,
+  drain 13:30Z" model was a CLOCK MISREAD — s44 used local time
+  (UTC+2) as UTC, so ~15 real minutes looked like ~75. Real observed
+  pace s45: ~640 jobs/min (16.7k jobs in 26 min), consistent with the
+  s42 1h-drain model. Standing-guard note corrected below. Lesson:
+  stamp session times from `date -u`, never from the shell prompt or
+  assumed offsets.
+- **Next-five plan (s45–s49):** (1) s45 E-052 readout under frozen §19
+  bars — GREEN; (2) E-053 disagreeTighten freeze+implement+submit per
+  §21.3 composed with the E-052 verdict — GREEN; (3) E-053 readout —
+  GREEN; (4) composition/dose increment at the winning operating point
+  OR the directional reopen on the disagreement feature (priority 2)
+  — GREEN; (5) at most one supporting diagnostic if a readout demands
+  decomposition. ≥3 direct GREEN controller increments by construction.
+
+### Five-session audit s35–s39 (done in s40) — PASS.
 
 ## Next step (priority order)
 
@@ -174,9 +210,10 @@ queued (workers track origin/main — serialize push→submit; jobs run at
   market count goes in `--limit N`. Capture the batchUid per submit.
 - Verify with fleet.ts after every detached batch; count aggregate
   jobs (waiting-children), not market-job totals. Rows land at FULL
-  queue drain (s32 model) — **but the s42 "≈1h from submit" pace is
-  NOT reliable: s44 observed ~149 jobs/min (~3.6× slower) with a
-  healthy fleet; project drain from observed pace, not the model.**
+  queue drain (s32 model, ≈1h/4-batch grid at ~450–650 jobs/min —
+  re-validated s45). s44's "149 jobs/min, 3.6× slower" claim was a
+  CLOCK MISREAD (local UTC+2 stamped as Z), not a real slowdown.
+  **Stamp all session times from `date -u`, never the shell prompt.**
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
   2026-08-06 (evaluator.md §Universes). FULL references: **standing
   comparison reference 1029 (v17 τ0 P*0.92, ev −8.07); MECHANISM-TEST
