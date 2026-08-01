@@ -1100,3 +1100,22 @@ there is no risk of a typo quietly producing a wrong verdict. When the
 results land, the next session should go from "they're in" to
 "here are the verdicts, here is the follow-up in the fleet" in a few
 minutes. Nothing new to conclude about the strategy itself yet.
+
+## Session 34 — 2026-08-01 (early morning)
+
+Still roughly an hour before the seven overnight runs report, so this
+session used the wait to compute something the mission has always asked
+for but no session had actually measured: how often the neutral
+strategy hits its pair-price target. The answer explains a lot. On the
+full-history baseline run, only about one market in five finishes with
+a pair cost under the $0.98 target — but the markets where the strategy
+trades the most are also the ones where it buys cheapest, and the
+busiest slice (about 4% of markets) is actually profitable. Nearly the
+entire loss comes from the mid-activity majority: choppy-less markets
+where completions never arrive and the strategy quietly accumulates on
+the losing side. So the loss is not spread everywhere — it lives in one
+regime. That suggests a new idea for the backlog: let the controller
+watch its own completion rate inside each market and pull back its
+quotes when completions stop arriving. Filed for after the pending
+verdicts; the readout and the already-built late-window variant stay
+first in line.

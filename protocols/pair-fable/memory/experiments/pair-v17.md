@@ -408,3 +408,44 @@ signal (spot-vs-strike lead = exactly E-044's mechanism). If E-044's
 m-cells fail to move the S split, there is no band-level fallback
 for the asymmetry axis. (Bands ≤0.1 look ~1.5¢ milder but carry 5%
 of volume and sit at fee scale; 0.9x is a 9,300-share tail.)
+
+## §11 Mission-metric baseline report on g0 = 1008 (s34, 2026-08-01, analysis-only)
+
+Mission §2 requires reporting final pair VWAP fractions below 0.98/0.95/0.90.
+Computed from intent_meta fills (all buys; per-market UP VWAP + DOWN VWAP),
+run 1008, 10,148 markets with both-sides fills (of 10,152 with any fill):
+
+- avg matched 225.4 sh; avg final |imbalance| 12.1 sh (imbalance controller works).
+- per-market pair VWAP: mean 1.1015 (equal-weight); aggregate share-weighted
+  1.0512; matched-share-weighted mean 1.0545.
+- fractions of markets below target: <0.98 = 21.2%, <0.95 = 7.6%, <0.90 = 0.34%.
+
+**Structure — matched volume, pair cost, and pnl are monotone together:**
+
+| matched bucket | mkts | avg pair VWAP | avg pnl | total pnl |
+|---|---|---|---|---|
+| <100 | 164 | 1.2151 | −18.25 | −3.0k |
+| 100–250 | 6,374 | 1.1519 | −19.96 | −127.2k |
+| 250–500 | 3,163 | 1.0144 | −6.80 | −21.5k |
+| 500+ | 447 | 0.9580 | **+17.41** | **+7.8k** |
+
+The 500+ bucket meets the $0.98 target AND is ev-positive. The whole loss sits
+in the 100–250 bucket (−127k of −144k): trending / low-oscillation markets where
+completions don't arrive and S fills skew to the loser (the known 58/42
+S-toxicity identity, now localized by market regime).
+
+Caveats (binding on any use of this table):
+- Bucketing by matched shares conditions on an OUTCOME — this is a diagnostic
+  correlation localizing the loss, NOT proof that high-matched markets are
+  identifiable ex ante or that ev there is causal.
+- Guard-7 / E-036: fill optimism grows with size; the d-bucket's +17.41 is the
+  most depth-optimistic cell here.
+- Consistent with inbox d904e17d (best live operator ≈700 trades/window): our
+  highest-activity regime is our only profitable one.
+
+Backlog candidate derived (NOT scheduled; v17t queue first): **v17o —
+state-conditioned quoting**: throttle/tighten S quotes when realized completion
+rate so far is low (trending state), release when oscillation delivers
+completions. Genuinely different axis from v17t (time-based tightening) and
+from E-044 (signal-side tilt): conditions on within-market realized controller
+state, not clock or external signal. Would attack the b-bucket −127k directly.

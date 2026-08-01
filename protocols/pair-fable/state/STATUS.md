@@ -1,8 +1,25 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T00:20Z (mission-02 session 33 close)
+Updated: 2026-08-01T00:20Z (mission-02 session 34 in progress)
 
 ## Current work
+
+**Session 34 (started 00:13Z, immediately after s33): queue verified
+at 00:13Z — p98 at 7,502/10,747, m10/m40 at 0, ~24.7k jobs left ⇒
+drain still ≈01:05–01:15Z; readout not possible yet. Wait used for a
+mission-mandated baseline report (pair-v17.md §11): mission §2 pair
+VWAP fractions computed on g0=1008 for the first time.** Headline:
+neutral controller pairs at mean 1.10 per market (only 21.2% of
+markets < 0.98, 7.6% < 0.95); matched volume, pair cost, and pnl are
+monotone together — the 500+ matched bucket pairs at 0.958 and is
+**ev-positive (+17.41/mkt, 447 mkts)** while the 100–250 bucket
+carries −127k of the −144k total loss. Loss is now localized by
+regime (trending/low-oscillation markets), consistent with the 58/42
+S-toxicity identity and inbox d904e17d (high-activity operator).
+Caveats recorded in §11 (outcome-conditioning; guard-7 depth optimism
+strongest in the profitable bucket). New backlog candidate v17o
+(state-conditioned quoting on realized completion rate) recorded —
+NOT scheduled; v17t and the 7-row readout stay first.
 
 **Session 33 (00:08–00:20Z, harness restarted the loop 0 min after
 s32 close): rows STILL ~55–65 min out at session start (queue at
@@ -249,7 +266,31 @@ the readout's decision mappings are applied.
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 33 (final)
+## Alignment gate — session 34 (in progress; finalized at close)
+
+- **Classification:** neutral-controller (mission-metric baseline
+  evaluation of the standing neutral FULL run + readout-resume of
+  E-043/E-044/E-045, still queue-blocked).
+- **Contribution:** no verdict readable yet (declared). Banked:
+  mission §2 pair-VWAP reporting existed nowhere — now computed on
+  g0=1008 (pair-v17.md §11): 21.2%/7.6%/0.34% below 0.98/0.95/0.90,
+  and the loss localized by regime (100–250 matched bucket = −127k of
+  −144k; 500+ bucket ev-positive +17.41/mkt at pair VWAP 0.958).
+  Backlog candidate v17o derived from it.
+- **Time to evidence:** fleet verify min 0, first substantive scan
+  (intent_meta inspection) min ~2, mission-metric SQL min ~4. PASS.
+- **Throughput:** 0 new runs (7 × 10,747 in flight, verified once, no
+  resubmission — all submits verdict-gated); 5 read-only DB queries.
+  No serial-scan issue.
+- **Scale:** closed by E-036 on record; §11 explicitly re-flags
+  guard-7 depth optimism on the 500+ bucket.
+- **Next:** runbook steps 0–6 when drain completes (≈01:05–01:15Z),
+  frozen mappings, v17t freeze+fire — GREEN.
+- **Verdict:** **GREEN.**
+- Verdict history: s30 GREEN, s31 GREEN, s32 GREEN, s33 GREEN,
+  s34 GREEN. Next audit: s35 (five-session audit BEFORE new research).
+
+## Alignment gate — session 33 (superseded)
 
 - **Classification:** neutral-controller + directional-controller
   (evaluation-resume of E-043/E-044/E-045; readout still blocked —
