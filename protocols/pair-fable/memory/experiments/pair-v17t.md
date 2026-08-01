@@ -1164,3 +1164,42 @@ Constraints for the freeze:
 - the E-046 directional closure ("pending a new conditioning lever")
   may also reopen on this feature later — but quote-side dosing comes
   first (neutral controller, priority 1).
+
+### 21.4 Quote-time capture of the flag (s46, while E-052 drained;
+### freeze input for E-053 — no bars changed)
+
+Tool: `tools/disagreecapture.ts` (new, adapted from doomhazard.ts;
+same serial DuckDB constraint, ~3 min, constraint recorded pre-launch;
+fleet was fully loaded with E-052). Per S fill on 1052: advBps
+evaluated at fill time AND at t−{0.5,1,2,5}s. Known-answer checks:
+fills 6,658 ✓; fill-time T=0 3,535 fills/−$19,362 ✓ (§21.2); T=−5
+2,064 fills (31%)/−$12,136 ✓ (§21.3).
+
+**The flag is a persistent state, not a transient — quote-time
+capture is near-full:**
+
+| lead | T | persist P(flag@lag\|flag@fill) | precision | FLAG ev/sh (lagged) | REST ev/sh |
+|---|---|---|---|---|---|
+| 500ms | 0 | 0.988 | 0.978 | −5.46¢ | −1.86¢ |
+| 1s | 0 | 0.976 | 0.958 | −5.30¢ | −2.00¢ |
+| 2s | 0 | 0.967 | 0.942 | −5.22¢ | −2.07¢ |
+| 5s | 0 | 0.951 | 0.923 | −5.14¢ | −2.15¢ |
+| 1s | −5 | 0.968 | 0.932 | −5.71¢ | −2.88¢ |
+| 5s | −5 | 0.930 | 0.882 | −6.35¢ | −2.54¢ |
+
+Band×half at lead 1s, T=0: 7/8 cells FLAG worse than REST (the §21.2
+pattern intact under lag); the one flat cell is 0.40–0.50 H1
+(−2.2/−2.3) — already §21.2's weakest region. Lagged-flag gross at 1s:
+−$19.1k of the fill-time −$19.4k (98% of the toxic dollars remain
+identified 1s ahead).
+
+Freeze consequences for E-053: (1) NO heavy partial-capture discount
+needed — a per-tick quote-time gate with 140ms latency sees ≥97% of
+the flagged flow; bars may assume near-full capture with a ~5%
+haircut. (2) Precision 0.96 at 1s ⇒ false-dosing of confirmed flow is
+small. (3) The dominant failure mode is unchanged: participation
+extinction (53% of S fills flagged at T=0; the −5 threshold's 31% is
+the conservative first cell). (4) The 0.40–0.50 band's weak/unstable
+separation is a reason to expect composition overlap with E-052's
+late ≥0.40 dose rather than clean additivity — measure net of the
+E-052 verdict as §21.3 already requires.
