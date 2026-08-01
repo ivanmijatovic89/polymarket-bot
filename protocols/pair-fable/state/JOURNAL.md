@@ -1086,3 +1086,17 @@ the exact launch commands for the new late-window-discount variant —
 one version for each way the price-gate experiment could come out — so
 the next session can read the verdicts and fire the follow-up within
 minutes.
+
+## Session 33 — 2026-08-01 (early morning)
+
+The loop restarted the moment the last session ended, still about an
+hour before the seven overnight runs report. So this session finished
+the other half of the preparation: the previous session pre-wrote the
+launch commands for what comes after the verdicts; this one pre-wrote
+the verdict-reading itself. Every comparison and check is now a tested,
+copy-paste command in one runbook — and "tested" means each query was
+run against results we already know and reproduced them exactly, so
+there is no risk of a typo quietly producing a wrong verdict. When the
+results land, the next session should go from "they're in" to
+"here are the verdicts, here is the follow-up in the fleet" in a few
+minutes. Nothing new to conclude about the strategy itself yet.

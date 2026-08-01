@@ -1,8 +1,24 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T00:08Z (mission-02 session 32 close)
+Updated: 2026-08-01T00:20Z (mission-02 session 33 close)
 
 ## Current work
+
+**Session 33 (00:08–00:20Z, harness restarted the loop 0 min after
+s32 close): rows STILL ~55–65 min out at session start (queue at
+00:08Z: 4 batches at 10,651/10,747 waiting only on the 96 outage
+retries, p98 at 4,122, m10/m40 at 0 ⇒ drain ≈01:05–01:15Z, matching
+the s32 model). Wait used to build + VERIFY the complete readout
+runbook: `memory/experiments/e043-e045-readout.md`** — steps 0–6 with
+exact copy-paste literals for row mapping, integrity (96-failure +
+identical-set + 10,651-common checks), all 10 frozen comparison
+pairs, E-044 mechanism metrics, decision mappings, and the v17t
+follow-through. Both SQL literals PROVEN against known answers this
+session: S-split engagement on 1008 reproduced 57.85/42.15 (lose
+1,969,100 sh @ 0.418 / win 1,434,600 @ 0.503) and the paired-delta
+template on 1009-vs-1008 reproduced +0.535 (se 0.212, n 10,651) vs
+the recorded E-042 readout (+0.54 / 0.21). Next session: run the
+runbook top to bottom — zero query-writing latency remains.
 
 **Session 32 (23:48–00:08Z, started ~2 min after s31 forced close):
 E-043/E-044/E-045 rows STILL not landed — and the timing model is now
@@ -216,14 +232,11 @@ the readout's decision mappings are applied.
 
 ## Next step (priority order)
 
-1. **Read E-043/E-044/E-045** per procedure above. ALL 7 rows land
-   together ≈01:15–01:25Z 2026-08-01 (corrected model: rows appear at
-   full queue drain, not per-batch — see s32 Current work). Verify
-   with fleet.ts first — do NOT resubmit; if `active batches` > 0,
-   the rows are not there yet and the session should do prep/analysis
-   work instead of polling per-batch. Add to the frozen metrics:
-   E-044 m-cells' S-fill win/lose split vs the 58/42 neutral baseline
-   (pair-v17.md §10) as the tilt-engagement metric.
+1. **Read E-043/E-044/E-045 via the verified runbook**
+   `memory/experiments/e043-e045-readout.md` (steps 0–6, all literals
+   proven s33). Rows land together at full queue drain ≈01:05–01:15Z
+   2026-08-01. fleet.ts first — do NOT resubmit; if `active batches`
+   > 0, do prep/analysis instead of polling per-batch.
 2. Follow the frozen decision mappings (maker-tilt iteration, width
    extension, or P* follow-up).
 3. **Freeze + submit the v17t grid** (pair-v17t.md §4: k ∈ {0.03,
@@ -236,7 +249,35 @@ the readout's decision mappings are applied.
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 32 (final)
+## Alignment gate — session 33 (final)
+
+- **Classification:** neutral-controller + directional-controller
+  (evaluation-resume of E-043/E-044/E-045; readout still blocked —
+  the harness restarted the loop 0 min after s32, ~60 min before
+  queue drain).
+- **Contribution:** no controller decision changed — no verdict
+  readable (declared honestly). Banked: the complete readout runbook
+  (e043-e045-readout.md) with BOTH core SQL literals verified against
+  known answers (S-split 57.85/42.15 @ 0.418 reproduced on 1008;
+  paired-delta +0.535/se 0.212/n 10,651 reproduced on 1009-vs-1008
+  matching the recorded E-042 +0.54/0.21). Next session reads
+  verdicts with zero query-writing latency.
+- **Time to evidence:** fleet verify min 1, first substantive data
+  scan (S-split verification on 1008) min ~6. PASS.
+- **Throughput:** 0 new runs (7 × 10,747 in flight, verified once,
+  no resubmission — all controller work verdict-gated, v17t submit
+  design-gated on E-045); 4 read-only DB queries. No serial-scan
+  issue.
+- **Scale:** closed by E-036 on record; all in-flight runs B=500.
+- **Next:** execute the runbook steps 0–6 (rows land ≈01:05–01:15Z),
+  apply frozen mappings, freeze + fire the v17t grid — GREEN
+  (neutral + directional controller evaluation).
+- **Verdict:** **GREEN** (blocked-stub session: aligned
+  evaluation-resume prep, zero drift, no premature claims).
+- Verdict history: s29 GREEN, s30 GREEN, s31 GREEN, s32 GREEN,
+  s33 GREEN. Next audit: s35.
+
+## Alignment gate — session 32 (superseded)
 
 - **Classification:** neutral-controller + directional-controller
   (evaluation-resume of E-043/E-044/E-045; readout blocked by queue
@@ -290,57 +331,6 @@ the readout's decision mappings are applied.
 - **Verdict:** **GREEN.**
 - Verdict history: s27 GREEN, s28 GREEN, s29 GREEN, s30 GREEN,
   s31 GREEN. Next audit: s35.
-
-## Alignment gate — session 30 (superseded)
-
-- **Classification:** neutral-controller (mandated five-session
-  audit + band-toxicity mechanism analysis on the FULL neutral
-  baseline 1008; readout prep for the 7 in-flight runs; declared:
-  no new fleet submissions, runs still draining at forced close).
-- **Contribution:** (1) audit s26–s30 PASS recorded (binding §7.2
-  requirement); (2) quote-side asymmetry lever constrained with
-  evidence — adverse selection is price-uniform, so the lever is
-  signal-conditioned-only (commit e91c1e5, sharpens the E-044
-  readout's decision mapping); (3) E-044 engagement metric query
-  verified against the s29 baseline (58/42 reproduced exactly).
-- **Time to evidence:** ~1 min (fleet.ts verify), first substantive
-  scan (S-split verification on 1008) by ~min 8. PASS.
-- **Throughput:** audit (5 gates recovered from git history) + 4
-  read-only SQL scans on run 1008; no new runs (7 × 10,747 in
-  flight, progress verified 3×). Session cut short by harness
-  forced-close while waiting on the queue (~70 min drain remaining).
-- **Scale:** closed by E-036 on record; all in-flight runs B=500.
-- **Next:** s31 reads E-043/E-044/E-045 vs frozen bars (runs done by
-  then) — GREEN (directional + neutral controller evaluation).
-- **Verdict:** **GREEN.**
-- Verdict history: s26 GREEN, s27 GREEN, s28 GREEN, s29 GREEN,
-  s30 GREEN (audit session). Next audit: s35.
-
-## Alignment gate — session 29 (superseded)
-
-- **Classification:** neutral-controller (mechanism identity analysis
-  on the FULL neutral baseline run 1008; analysis-only session, 7
-  FULL runs in flight from s28 — declared: no new fleet submissions).
-- **Contribution:** controller decision frame changed with evidence
-  (commits a473dc4, 26362a0, 6c55e3a): completion-price policy
-  shown mechanically leverless (D EV-neutral vs hold; explains E-041
-  CEIL-NULL, closes that axis's WHY); neutral loss localized to
-  S-flow adverse selection 58/42 / −3.2¢ per share (the tilt
-  program's exact target term, now with a baseline engagement metric
-  for the E-044 readout); time-varying-quote axis given a measured
-  prior (toxicity ×2–3 late-window).
-- **Time to evidence:** ~5 min (fleet queue verification + minuteev
-  scan on run 1008 launched 23:10–23:14Z). PASS.
-- **Throughput:** analysis-only (declared): 4 read-only scans over
-  the 10,651-market run 1008 (minuteev, anatomy, 2 × JSON_TABLE
-  identity queries); no new runs (7 × 10,747 already in flight,
-  progress verified twice, 763 markets/min). No serial-scan issue.
-- **Scale:** closed by E-036 on record; all in-flight runs B=500.
-- **Next:** read E-043/E-044/E-045 vs frozen bars + s30 audit —
-  GREEN (directional + neutral controller evaluation).
-- **Verdict:** **GREEN.**
-- Verdict history: s25 GREEN, s26 GREEN, s27 GREEN, s28 GREEN,
-  s29 GREEN. Next audit: s30 (before new research).
 
 ## Blockers
 
