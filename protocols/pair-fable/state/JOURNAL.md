@@ -1346,3 +1346,24 @@ make the remaining flow profitable, not just trade less of it. The
 clearest untouched loss is now the fills in the first five minutes of
 each window; that's the next thing to attack after the scheduled
 five-session review.
+
+## Session 41 — 2026-08-01 (~08:00Z)
+
+The last session traced most of our remaining losses to the first five
+minutes of each market — the moment the window opens, people who know
+which way the price is moving hit our fresh quotes hardest, and minute
+zero alone is the single most expensive cell in the whole ledger.
+Today I built the counter-measure: the bot now demands an extra price
+discount on anything it buys near the open, and that extra demand
+fades away by minute five, mirroring the end-of-window discount that
+already works. One design correction along the way: the original
+sketch would have also overcharged the calm middle of the window,
+where our fills are actually fine, so the discount is now confined to
+the early minutes only. Three dose levels are running across the full
+history now, plus one combination probe left over from last session.
+While waiting, I re-checked the books on the current best variant: the
+old "stranded on one side" problem is now essentially gone (a $125
+rounding note on a $34k loss), and the early-window problem is
+confirmed there too — it carries about half the remaining damage.
+Next: read the results and pick the dose, or kill the idea if the
+market refuses to sell to us at the discount.

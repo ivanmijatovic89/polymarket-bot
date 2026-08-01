@@ -1,6 +1,25 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T08:05Z (mission-02 session 40 close — audit PASS + E-050 submitted AND read; NOTHING in flight)
+Updated: 2026-08-01T08:15Z (mission-02 session 41 checkpoint — E-051 IN FLIGHT)
+
+## IN FLIGHT (s41, submitted 07:58–08:00Z, commitSha 7e5f9276)
+
+E-051 earlyTighten grid, 4 FULL cells (design frozen pair-v17t.md §14
+BEFORE submission; smoke 1053 PASS):
+
+- e03 = pf-e051-e03-20260801T075801-31yzgb
+- e06 = pf-e051-e06-20260801T075837-ep5wq3
+- e09 = pf-e051-e09-20260801T075917-8asz8i
+- p86k020 = pf-e051-p86k020-20260801T075955-k0szf5
+
+Verified 4 aggregate waiting-children at 08:00Z; workers on sha
+7e5f927; drain expected ~09:05Z. **Resume:** rows land at full drain —
+recover run ids via `backtest_runs.batch_uid` (results.ts --batch-uid
+<uid>), then apply the §14 frozen bars (B_full 0.74, paired vs 1052 on
+the 10,651 common set; degeneracy check: m0–4 S fills at highest read
+dose ≥ 25% of 1052's m0–4 level = 348,400 shares → use the §15 minute
+histogram; 1052 m0–4 S fills = 1853+603+564+502+462 = 3,984 of 6,658).
+Loss identity on 1052 DONE (§15).
 
 ## HEADLINE STATE (read this first)
 
