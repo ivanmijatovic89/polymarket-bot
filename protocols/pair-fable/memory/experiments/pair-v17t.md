@@ -677,3 +677,31 @@ p86k020 = pf-e051-p86k020-20260801T075955-k0szf5.
 All 4 verified waiting-children at 08:00Z; workers on sha 7e5f927.
 Smoke: run 1053 (protocol:check PASS, earlyTighten=0.06 accepted and
 trading, 8/8 markets, 0 failures).
+
+## 15. Loss identity + S-toxicity curve on reference 1052 (s41, owed
+## per §8 at first use as reference; while E-051 drained)
+
+**Identity (anatomy.ts, recon maxErr $0.01, 0 bad rows):** pnl
+−33,743 = pairs −26,380 + residue −125 + fees −7,239. Residue is
+SOLVED at this operating point: 54 markets, net −$125 (17 won +138 /
+37 lost −263), median residue qty 0.56 sh. The entire loss is pair
+margin + fees. Fills: S 6,658 ($246.2k) / C 6,340 ($74.7k) / D 9,128
+($342.9k); doom hazard ≤0.02 every start minute except m13 (0.50 on
+n=2).
+
+**Completion regime shift (new vs 1046/k020 §10 note):** completions
+are DOOM-dominant at the deep floor — C $74.7k vs D $342.9k. pLock =
+P*−0.01 = 0.85 rarely triggers; most pairing arrives via the doom
+backstop at unitMax 0.99. The "lock" pathway is nearly vestigial at
+P*0.86 — any future pLock-side mechanism must account for this.
+
+**S-toxicity minute curve (§6 method, share-weighted):** m0 185.3k sh
+(27.8%) −3.1¢/sh −$5.7k; m1 60.3k −6.5¢ −$3.9k; m2 −2.4¢; m3 −0.7¢;
+m4 −1.6¢; m5–11 between −2.8¢ and −9.1¢ (m6 worst) NET of k012;
+m12+ extinct (1.2k sh). Gross S ≈ −$25.2k. **Early window m0–4 =
+−$12.1k = 48% of gross S loss** (m0+m1 alone 38%) — the E-051 target
+is intact at the new best cell; per-share early toxicity peaks at m1,
+not m0, here. Per-start-minute EV (minuteev.ts): no positive start
+region (KILL condition on start-gating unchanged); "forbid starts
+before m" monotone WORSENS with m — late-only participation is not
+the answer, consistent with §10.
