@@ -1457,3 +1457,25 @@ be visible); disagreeTighten absent ⇒ behavior-identical; tree clean
 + pushed to origin/main; queue EMPTY verified (it is — E-052 drained
 this session); batchUid captured per submit via grep, NOT tail;
 fleet.ts verification after.
+
+### §22 addendum — submission record (s46, 10:51–10:55Z,
+### commitSha d77347c5)
+
+Checklist executed: protocol:check PASS; smoke 1065 PASS (8 mkts, 0
+failures, param accepted); activation A/B (local sequential, 30
+latest, diagnostics NOT evidence): 1066 (dt12) vs 1067 (base) — S
+fills 22 → 16 (27% removed ≈ the 31% flag coverage), avg S px
+0.358 → 0.373 (composition: flagged fills removed/repriced),
+market-level quotability flips both directions as a quote dose
+should. Tree clean at d77347c5, pushed; queue verified EMPTY
+pre-submit (E-052 drained 10:38Z).
+
+Submissions (all three verified in queue 10:55Z, workers on
+d77347c5):
+dt04 = pf-e053-dt04-20260801T105135-h66yqs
+dt08 = pf-e053-dt08-20260801T105229-qfamj6
+dt12 = pf-e053-dt12-20260801T105331-3ozjf7
+32,241 market-jobs; projected drain ~11:50Z at the re-validated
+~600/min pace. Readout owed to s47 under the frozen §22 bars; the
+degeneracy granularity (a) requires `disagreecapture.ts --run <cell>`
+per cell (~3 min serial each, fill-time T=−5 census).

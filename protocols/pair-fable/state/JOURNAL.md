@@ -1485,3 +1485,26 @@ loses almost nothing to reaction lag, and its design is now sketched
 and parked: charge extra on any quote whose side the live Bitcoin
 price says should not be cheap. Verdict on the late-window discount
 follows below once the fleet drains.
+
+## Session 46 — 2026-08-01 (part 2)
+
+The verdict on the late-window discount is in: no. Charging extra on
+expensive late-window quotes mostly scares the flow away instead of
+buying it cheaper — at the strongest dose, four fifths of the
+targeted fills simply vanish, and the ones that remain don't improve
+the bottom line enough to matter. That idea is closed. One silver
+lining worth keeping: it is the first change we've tried where the
+markets we kept playing actually got slightly better (every previous
+"improvement" was just playing fewer markets), and the effect grew
+with the dose. That quietly supports yesterday's better idea.
+
+So the next experiment went out the same hour, on that better idea:
+charge extra only on quotes where the live Bitcoin price disagrees
+with the market's cheap label — the condition that actually marks
+the losing fills, rather than the time-and-price band that loosely
+overlaps them. Designed, coded, sanity-checked, and submitted to the
+fleet across the full four months of history at three dose levels.
+Results land in about an hour; next session reads them. If this one
+also fails, we will have exhausted the "quote a better price" family
+entirely, and the plan says to move on to the directional version of
+the controller.
