@@ -3,19 +3,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Clock, Cpu, CheckCircle2, AlertCircle, Layers, ListChecks } from 'lucide-react'
 import { StatCard } from './StatCard'
-import type { QueueCounts } from '@/lib/queries/queues'
-
-async function fetchQueues(): Promise<QueueCounts> {
-  const r = await fetch('/api/queues', { cache: 'no-store' })
-  if (!r.ok) throw new Error('failed to fetch /api/queues')
-  return r.json()
-}
+import {
+  fetchQueues,
+  LIVE_DASHBOARD_REFETCH_MS,
+  queuesQueryKey,
+} from '@/lib/client/liveDashboardQueries'
 
 export function QueueCountsView() {
   const { data } = useQuery({
-    queryKey: ['queues'],
+    queryKey: queuesQueryKey,
     queryFn: fetchQueues,
-    refetchInterval: 3000,
+    refetchInterval: LIVE_DASHBOARD_REFETCH_MS,
   })
   const m = data?.markets ?? {}
   const a = data?.aggregate ?? {}

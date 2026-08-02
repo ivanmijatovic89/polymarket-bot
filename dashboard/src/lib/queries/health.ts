@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm'
 import { getDb } from '../db'
 import { getRedis } from '../redis'
-import { AGGREGATE_QUEUE, MARKET_QUEUE, getAggregateQueue, getMarketQueue } from '../queue'
-import { listWorkers } from './workers'
+import { AGGREGATE_QUEUE, MARKET_QUEUE } from '../queue'
+import { getCachedQueueCounts, getCachedWorkers } from '../server/liveDashboardCache'
 
 export type HealthCheck = {
   name: string
@@ -64,15 +64,9 @@ async function checkMysql(): Promise<HealthCheck> {
 
 async function checkQueues(): Promise<HealthCheck> {
   try {
-    const { value, ms } = await timed(async () => {
-      const [m, a] = await Promise.all([
-        getMarketQueue().getJobCounts('waiting', 'active', 'failed'),
-        getAggregateQueue().getJobCounts('waiting', 'active', 'failed'),
-      ])
-      return { m, a }
-    })
-    const mFailed = Number(value.m.failed ?? 0)
-    const aFailed = Number(value.a.failed ?? 0)
+    const { value, ms } = await timed(async () => (await getCachedQueueCounts()).value)
+    const mFailed = Number(value.markets.failed ?? 0)
+    const aFailed = Number(value.aggregate.failed ?? 0)
     const status: HealthCheck['status'] = mFailed > 0 || aFailed > 0 ? 'degraded' : 'ok'
     return {
       name: 'BullMQ queues',
@@ -95,7 +89,8 @@ async function checkQueues(): Promise<HealthCheck> {
 
 async function checkWorkers(): Promise<HealthCheck> {
   try {
-    const { value: machines, ms } = await timed(() => listWorkers())
+    const { value, ms } = await timed(async () => (await getCachedWorkers()).value)
+    const machines = value.machines
     const procs = machines.flatMap((m) => m.processes)
     const alive = procs.filter((p) => p.alive).length
     const total = procs.length

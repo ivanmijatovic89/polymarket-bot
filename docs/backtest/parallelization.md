@@ -200,7 +200,7 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 
 | Path                            | What                                                                |
 | ------------------------------- | ------------------------------------------------------------------- |
-| `/`                             | Overview: queue counts, workers list, active batches, history.      |
+| `/`                             | Fleet: queue counts, workers list, active batches, history.         |
 | `/batches/<batchUid>`           | Batch group view: all runs sharing the label + live progress of in-flight submissions. Per-run detail lives at `/backtests/<id>`. |
 | `/api/health`                   | Health JSON.                                                        |
 | `/api/workers`                  | Live worker stats (processed counts, heartbeat, current job).       |
@@ -208,6 +208,11 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 | `/api/batches/active`           | Aggregate parent jobs that haven't finalized yet.                   |
 | `/api/batches/history?limit=N`  | Recent finalized batches from MySQL.                                |
 | `/api/batches/:uid`             | Finalized batch metadata plus stats from the `all` segment.         |
+
+The workers, queues, and active-batches endpoints share a two-second
+process-local cache with dashboard-internal consumers. Concurrent requests
+reuse one in-flight read, so Fleet, Health, SwiftBar, and future overview
+widgets do not multiply Redis/MySQL work.
 
 For raw queue/job inspection, run Bull Board as a separate process:
 

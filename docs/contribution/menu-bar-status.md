@@ -74,7 +74,7 @@ ever disagree, that component is the source of truth.
   Bull Board.
 - **workers** — machine count and alive processes, then one row per machine
   using the friendly names from `dashboard/src/data/machines.json` (the same
-  file the Workers page reads).
+  file the Fleet table reads).
 - **actions** — open the dashboard, open Bull Board, refresh now.
 
 ## What it reads
@@ -85,6 +85,10 @@ Three existing dashboard endpoints, nothing new on the backend:
 - `GET /api/batches/active` → batch progress
 - `GET /api/queues` → BullMQ job counts (non-fatal: the badge still renders if
   this one fails)
+
+These live endpoints share a two-second process-local cache with the dashboard
+and Health page. SwiftBar can refresh every five seconds without duplicating
+the underlying Redis/MySQL reads made by another consumer at the same time.
 
 Throughput and the eta are derived from the plugin's _own_ previous sample
 (EWMA-smoothed), cached in `$TMPDIR/swiftbar-polybot-eta.json`. Nothing is

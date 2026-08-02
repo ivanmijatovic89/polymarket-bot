@@ -76,6 +76,13 @@ dashboard/
 3. Add a route handler in `src/app/api/<route>/route.ts` that calls a
    function in `src/lib/queries/`.
 
+The live Fleet endpoints (`/api/workers`, `/api/queues`, and
+`/api/batches/active`) use a two-second process-local cache. This keeps the
+three-second UI polling responsive while coalescing reads from the Fleet page,
+navigation badge, Health page, SwiftBar, and future overview widgets. Identical
+React Query keys also let in-dashboard consumers share their browser-side
+result.
+
 ## Schema drift
 
 `src/lib/schema.ts` mirrors `polymarket-bot/src/db/schema.ts` for the

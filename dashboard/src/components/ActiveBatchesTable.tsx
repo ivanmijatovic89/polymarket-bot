@@ -8,19 +8,17 @@ import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { ProgressBar } from './ProgressBar'
 import { deriveBatchPhase } from '@/lib/batchPhase'
-import type { ActiveBatchSummary } from '@/lib/queries/batches'
-
-async function fetchActive(): Promise<{ batches: ActiveBatchSummary[] }> {
-  const r = await fetch('/api/batches/active', { cache: 'no-store' })
-  if (!r.ok) throw new Error('failed to fetch /api/batches/active')
-  return r.json()
-}
+import {
+  activeBatchesQueryKey,
+  fetchActiveBatches,
+  LIVE_DASHBOARD_REFETCH_MS,
+} from '@/lib/client/liveDashboardQueries'
 
 export function ActiveBatchesTable() {
   const { data } = useQuery({
-    queryKey: ['batches', 'active'],
-    queryFn: fetchActive,
-    refetchInterval: 3000,
+    queryKey: activeBatchesQueryKey,
+    queryFn: fetchActiveBatches,
+    refetchInterval: LIVE_DASHBOARD_REFETCH_MS,
   })
   const batches = data?.batches ?? []
   if (batches.length === 0) {
