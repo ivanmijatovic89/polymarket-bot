@@ -25,7 +25,6 @@ npm run mission -- create \
   --name "Pair Game Opus 5" \
   --provider claude --model opus --effort high \
   --access full-access \
-  --auth-home ~/.claude-balsa \
   --workspace ../polymarket-bot-pair-game-opus \
   --mission protocols/pair-game-opus/missions/01-level-game.md \
   --status-file protocols/pair-game-opus/state/STATUS.md \
