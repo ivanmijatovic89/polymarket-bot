@@ -16,15 +16,31 @@ type AccountUsage = {
   windows: RateLimitWindow[]
   plan?: string
   error?: string
+  staleError?: string
 }
 
 type UsageViewMode = 'detailed' | 'dense'
 type DisplayAccount = { acc: AccountUsage; stale?: string }
+type UsageResponse = {
+  accounts: AccountUsage[]
+  source: 'fresh' | 'cache'
+  ageMs: number
+  cacheTtlMs: number | null
+}
 
-async function fetchUsage(): Promise<AccountUsage[]> {
+async function fetchUsage(): Promise<UsageResponse> {
   const r = await fetch('/api/llm-usage', { cache: 'no-store' })
   if (!r.ok) throw new Error('failed to fetch /api/llm-usage')
-  return r.json()
+  const source = r.headers.get('X-LLM-Usage-Source') === 'cache' ? 'cache' : 'fresh'
+  const parsedAgeMs = Number(r.headers.get('X-LLM-Usage-Age-Ms'))
+  const parsedCacheTtlMs = Number(r.headers.get('X-LLM-Usage-Cache-TTL-Ms'))
+  return {
+    accounts: await r.json(),
+    source,
+    ageMs: Number.isFinite(parsedAgeMs) && parsedAgeMs >= 0 ? parsedAgeMs : 0,
+    cacheTtlMs:
+      Number.isFinite(parsedCacheTtlMs) && parsedCacheTtlMs > 0 ? parsedCacheTtlMs : null,
+  }
 }
 
 function barColor(pct: number): string {
@@ -244,6 +260,8 @@ const INTERVAL_PRESETS = [
   { value: 120, label: '2 min' },
   { value: 300, label: '5 min' },
   { value: 600, label: '10 min' },
+  { value: 1800, label: '30 min' },
+  { value: 3600, label: '60 min' },
   { value: 0, label: 'off' },
 ]
 
@@ -285,14 +303,31 @@ export function LlmUsageView() {
   // Remember the last good result per account so a transient failure
   // (e.g. HTTP 429 from the provider) doesn't blank out a card.
   const lastGood = useRef<Map<string, AccountUsage>>(new Map())
-  const accounts = (data ?? []).map((acc) => {
+  const accounts = (data?.accounts ?? []).map((acc) => {
     if (!acc.error) {
-      lastGood.current.set(acc.account, acc)
-      return { acc, stale: undefined }
+      const { staleError, ...good } = acc
+      lastGood.current.set(acc.account, good)
+      return { acc: good, stale: staleError }
     }
     const cached = lastGood.current.get(acc.account)
     return cached ? { acc: cached, stale: acc.error } : { acc, stale: undefined }
   })
+  const hasStaleAccounts = accounts.some(({ stale }) => Boolean(stale))
+  const hasProviderErrors = accounts.some(({ acc }) => Boolean(acc.error))
+
+  const sourceLabel = hasStaleAccounts
+    ? data?.source === 'cache'
+      ? `cached · ${Math.max(0, Math.round(data.ageMs / 1000))}s old · refresh failed`
+      : 'stale · refresh failed'
+    : hasProviderErrors
+      ? data?.source === 'cache'
+        ? `cached · ${Math.max(0, Math.round(data.ageMs / 1000))}s old · provider error`
+        : 'fresh · provider error'
+      : data?.source === 'fresh'
+        ? 'fresh'
+        : data
+          ? `cached · ${Math.max(0, Math.round(data.ageMs / 1000))}s old`
+          : null
 
   return (
     <div className="space-y-4">
@@ -312,6 +347,25 @@ export function LlmUsageView() {
         {dataUpdatedAt > 0 && (
           <span>
             updated {new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hourCycle: 'h23' })}
+          </span>
+        )}
+        {data && (
+          <span
+            className={cn(
+              'rounded-full border px-1.5 py-0.5 font-medium',
+              !hasStaleAccounts && !hasProviderErrors && data.source === 'fresh'
+                ? 'border-success/30 text-success'
+                : hasStaleAccounts || hasProviderErrors
+                  ? 'border-warning/30 text-warning'
+                  : 'text-muted-foreground',
+            )}
+          >
+            {sourceLabel}
+          </span>
+        )}
+        {data?.cacheTtlMs && (
+          <span className="text-muted-foreground" title="Server cache duration">
+            cache: {Math.round(data.cacheTtlMs / 1000)}s
           </span>
         )}
         {dataUpdatedAt > 0 && intervalSec > 0 && (

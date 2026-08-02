@@ -1,5 +1,11 @@
+export type TtlCacheRead<T> = {
+  value: T
+  source: 'fresh' | 'cache'
+  ageMs: number
+}
+
 export type TtlCache<T> = {
-  get(load: () => Promise<T>): Promise<T>
+  get(load: () => Promise<T>): Promise<TtlCacheRead<T>>
   clear(): void
 }
 
@@ -18,8 +24,14 @@ export function createTtlCache<T>(ttlMs: number, now: () => number = Date.now): 
 
   return {
     async get(load) {
-      if (cached && now() - cached.storedAt < ttlMs) return cached.value
-      if (inFlight) return inFlight
+      if (cached && now() - cached.storedAt < ttlMs) {
+        return {
+          value: cached.value,
+          source: 'cache',
+          ageMs: Math.max(0, now() - cached.storedAt),
+        }
+      }
+      if (inFlight) return { value: await inFlight, source: 'fresh', ageMs: 0 }
 
       const pending = load().then((value) => {
         cached = { value, storedAt: now() }
@@ -28,7 +40,7 @@ export function createTtlCache<T>(ttlMs: number, now: () => number = Date.now): 
       inFlight = pending
 
       try {
-        return await pending
+        return { value: await pending, source: 'fresh', ageMs: 0 }
       } finally {
         if (inFlight === pending) inFlight = null
       }

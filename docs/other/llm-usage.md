@@ -132,7 +132,11 @@ Then add `"My label": "codex:~/.codex-<name>"` to `accounts.json`.
   30 seconds. Requests from the dashboard, SwiftBar, and future overview widgets
   share that cache, and simultaneous misses share one provider request. HTTP
   responses remain `no-store`, so browsers and proxies do not retain this
-  credentials-derived data.
+  credentials-derived data. The dashboard labels each response as `fresh` or
+  `cached`, including the cached value's age, and always shows the configured
+  `cache: 30s` duration. When a provider refresh fails, the server keeps the
+  last successful value for that account and marks it as stale instead of
+  replacing it with an empty error result.
 
 ### Source files
 

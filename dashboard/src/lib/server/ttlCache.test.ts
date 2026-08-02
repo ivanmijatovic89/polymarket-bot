@@ -8,13 +8,13 @@ test('returns a cached value until the TTL expires', async () => {
   const cache = createTtlCache(30_000, () => time)
   const load = async () => ++calls
 
-  assert.equal(await cache.get(load), 1)
+  assert.deepEqual(await cache.get(load), { value: 1, source: 'fresh', ageMs: 0 })
   time += 29_999
-  assert.equal(await cache.get(load), 1)
+  assert.deepEqual(await cache.get(load), { value: 1, source: 'cache', ageMs: 29_999 })
   assert.equal(calls, 1)
 
   time += 1
-  assert.equal(await cache.get(load), 2)
+  assert.deepEqual(await cache.get(load), { value: 2, source: 'fresh', ageMs: 0 })
   assert.equal(calls, 2)
 })
 
@@ -34,7 +34,10 @@ test('deduplicates concurrent cache misses', async () => {
 
   assert.equal(calls, 1)
   resolveLoad?.(42)
-  assert.deepEqual(await Promise.all([first, second]), [42, 42])
+  assert.deepEqual(await Promise.all([first, second]), [
+    { value: 42, source: 'fresh', ageMs: 0 },
+    { value: 42, source: 'fresh', ageMs: 0 },
+  ])
 })
 
 test('does not cache a failed load', async () => {
@@ -47,7 +50,7 @@ test('does not cache a failed load', async () => {
   }
 
   await assert.rejects(cache.get(load), /temporary failure/)
-  assert.equal(await cache.get(load), 'recovered')
+  assert.deepEqual(await cache.get(load), { value: 'recovered', source: 'fresh', ageMs: 0 })
   assert.equal(calls, 2)
 })
 
@@ -56,7 +59,7 @@ test('clear invalidates the current value', async () => {
   const cache = createTtlCache(30_000)
   const load = async () => ++calls
 
-  assert.equal(await cache.get(load), 1)
+  assert.deepEqual(await cache.get(load), { value: 1, source: 'fresh', ageMs: 0 })
   cache.clear()
-  assert.equal(await cache.get(load), 2)
+  assert.deepEqual(await cache.get(load), { value: 2, source: 'fresh', ageMs: 0 })
 })
