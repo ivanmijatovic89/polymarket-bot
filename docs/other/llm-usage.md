@@ -14,7 +14,9 @@ npm run llm-usage   # from the repo root
 ```
 
 The same data is available as a dashboard page: **More → LLM Usage**
-(auto-refreshes every 60 s while open).
+(auto-refreshes every 60 s while open). Use the view buttons beside the refresh
+controls to switch between the original cards and a compact dense view. The
+selection is remembered in the browser.
 
 ```
 ── Minjon ────────────────────────────
@@ -126,6 +128,15 @@ Then add `"My label": "codex:~/.codex-<name>"` to `accounts.json`.
 - **Per-account limits.** Windows are counted per *account*, not per app.
   For example, Claude Desktop usage drains the same windows as Claude Code
   for that account.
+- **Dashboard cache.** The dashboard keeps results in a process-local cache for
+  30 seconds. Requests from the dashboard, SwiftBar, and future overview widgets
+  share that cache, and simultaneous misses share one provider request. HTTP
+  responses remain `no-store`, so browsers and proxies do not retain this
+  credentials-derived data. The dashboard labels each response as `fresh` or
+  `cached`, including the cached value's age, and always shows the configured
+  `cache: 30s` duration. When a provider refresh fails, the server keeps the
+  last successful value for that account and marks it as stale instead of
+  replacing it with an empty error result.
 
 ### Source files
 
@@ -137,6 +148,7 @@ Then add `"My label": "codex:~/.codex-<name>"` to `accounts.json`.
 | `src/llm-usage/types.ts` | Shared `AccountUsage` / `RateLimitWindow` shapes. |
 | `src/llm-usage/cli.ts` | Terminal formatting only. |
 | `dashboard/src/app/api/llm-usage/route.ts` | Dashboard API route — calls `getUsage()` server-side; tokens never reach the browser. |
+| `dashboard/src/lib/server/ttlCache.ts` | Reusable process-local TTL cache with concurrent-request deduplication. |
 | `dashboard/src/app/llm-usage/page.tsx` + `dashboard/src/components/LlmUsageView.tsx` | The dashboard page (More → LLM Usage). |
 
 ## Troubleshooting
