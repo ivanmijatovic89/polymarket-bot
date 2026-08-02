@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, LayoutGrid, List, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type RateLimitWindow = {
@@ -17,6 +17,9 @@ type AccountUsage = {
   plan?: string
   error?: string
 }
+
+type UsageViewMode = 'detailed' | 'dense'
+type DisplayAccount = { acc: AccountUsage; stale?: string }
 
 async function fetchUsage(): Promise<AccountUsage[]> {
   const r = await fetch('/api/llm-usage', { cache: 'no-store' })
@@ -109,7 +112,133 @@ function AccountCard({ acc, stale }: { acc: AccountUsage; stale?: string }) {
   )
 }
 
+const WINDOW_COLUMN_ORDER = ['5h window', 'weekly (all models)', 'weekly (Fable/Opus)']
+
+function DenseWindowValue({ w }: { w: RateLimitWindow }) {
+  const pct = w.percentUsed === null ? null : Math.min(100, Math.max(0, w.percentUsed))
+  return (
+    <div>
+      <div className="flex items-center gap-2.5">
+        <div className="h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-muted">
+          {pct !== null && pct > 0 && (
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${pct}%`, background: barColor(pct) }}
+            />
+          )}
+        </div>
+        <span className="w-10 shrink-0 text-right text-base font-semibold tabular-nums">
+          {pct === null ? '?' : `${Math.round(pct)}%`}
+        </span>
+      </div>
+      <div className="mt-1 text-right text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{fmtLeft(w.resetsAt)}</span>
+        {' · '}
+        {fmtAt(w.resetsAt)}
+      </div>
+    </div>
+  )
+}
+
+function denseWindowLabels(accounts: DisplayAccount[]): string[] {
+  const labels = new Set(accounts.flatMap(({ acc }) => acc.windows.map((w) => w.label)))
+  return [...labels].sort((a, b) => {
+    const aIndex = WINDOW_COLUMN_ORDER.indexOf(a)
+    const bIndex = WINDOW_COLUMN_ORDER.indexOf(b)
+    const aOrder = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex
+    const bOrder = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex
+    return aOrder - bOrder || a.localeCompare(b)
+  })
+}
+
+function DenseUsageTable({ accounts }: { accounts: DisplayAccount[] }) {
+  const windowLabels = denseWindowLabels(accounts)
+  return (
+    <div className="overflow-x-auto rounded-lg border bg-card">
+      <table className="w-full min-w-[56rem] table-fixed">
+        <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th scope="col" className="w-52 px-3 py-2 font-medium">
+              Account
+            </th>
+            {windowLabels.map((label) => (
+              <th key={label} scope="col" className="px-3 py-2 font-medium">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {accounts.map(({ acc, stale }) => (
+            <tr key={acc.account}>
+              <th scope="row" className="px-3 py-2.5 text-left align-middle">
+                <div className="truncate text-sm font-semibold tracking-tight">
+                  {acc.account}
+                  {acc.plan && (
+                    <span className="ml-1.5 font-normal text-muted-foreground">({acc.plan})</span>
+                  )}
+                </div>
+                {stale && (
+                  <div className="mt-1 flex items-start gap-1.5 text-xs font-normal text-muted-foreground">
+                    <AlertCircle
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                      style={{ color: 'var(--warning)' }}
+                    />
+                    refresh failed ({stale}) — showing last data
+                  </div>
+                )}
+              </th>
+              {acc.error ? (
+                <td
+                  colSpan={Math.max(1, windowLabels.length)}
+                  className="px-3 py-2.5 align-middle"
+                >
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <AlertCircle
+                      className="mt-0.5 h-4 w-4 shrink-0"
+                      style={{ color: 'var(--warning)' }}
+                    />
+                    {acc.error}
+                  </div>
+                </td>
+              ) : (
+                windowLabels.map((label) => {
+                  const window = acc.windows.find((w) => w.label === label)
+                  return (
+                    <td key={label} className="px-3 py-2.5 align-middle">
+                      {window ? (
+                        <DenseWindowValue w={window} />
+                      ) : (
+                        <div className="text-center text-sm text-muted-foreground/50">—</div>
+                      )}
+                    </td>
+                  )
+                })
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function UsageAccounts({ accounts, mode }: { accounts: DisplayAccount[]; mode: UsageViewMode }) {
+  if (mode === 'dense') {
+    return <DenseUsageTable accounts={accounts} />
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      {accounts.map(({ acc, stale }) => (
+        <AccountCard key={acc.account} acc={acc} stale={stale} />
+      ))}
+    </div>
+  )
+}
+
 const INTERVAL_KEY = 'llm-usage-refresh-seconds'
+const VIEW_KEY = 'llm-usage-view-mode'
 const INTERVAL_PRESETS = [
   { value: 60, label: '1 min' },
   { value: 120, label: '2 min' },
@@ -121,6 +250,7 @@ const INTERVAL_PRESETS = [
 export function LlmUsageView() {
   const [intervalSec, setIntervalSec] = useState(60)
   const [customMode, setCustomMode] = useState(false)
+  const [viewMode, setViewMode] = useState<UsageViewMode>('detailed')
   const showCustom = customMode || !INTERVAL_PRESETS.some((p) => p.value === intervalSec)
 
   // Load the persisted interval after mount (localStorage is client-only,
@@ -131,12 +261,19 @@ export function LlmUsageView() {
       const sec = Number(stored)
       if (Number.isFinite(sec) && sec >= 0) setIntervalSec(sec)
     }
+    const storedView = window.localStorage.getItem(VIEW_KEY)
+    if (storedView === 'detailed' || storedView === 'dense') setViewMode(storedView)
   }, [])
 
   function changeInterval(sec: number) {
     const clamped = sec > 0 ? Math.max(30, sec) : 0
     setIntervalSec(clamped)
     window.localStorage.setItem(INTERVAL_KEY, String(clamped))
+  }
+
+  function changeView(mode: UsageViewMode) {
+    setViewMode(mode)
+    window.localStorage.setItem(VIEW_KEY, mode)
   }
 
   const { data, error, isFetching, dataUpdatedAt, refetch } = useQuery({
@@ -159,7 +296,7 @@ export function LlmUsageView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <button
           type="button"
           onClick={() => refetch()}
@@ -185,7 +322,43 @@ export function LlmUsageView() {
             })}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1.5">
+        <div
+          role="group"
+          aria-label="Usage view"
+          className="ml-auto inline-flex items-center rounded-md border bg-background p-0.5"
+        >
+          <button
+            type="button"
+            title="Detailed view"
+            aria-label="Detailed view"
+            aria-pressed={viewMode === 'detailed'}
+            onClick={() => changeView('detailed')}
+            className={cn(
+              'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
+              viewMode === 'detailed'
+                ? 'bg-accent text-foreground'
+                : 'hover:bg-accent hover:text-foreground',
+            )}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            title="Dense view"
+            aria-label="Dense view"
+            aria-pressed={viewMode === 'dense'}
+            onClick={() => changeView('dense')}
+            className={cn(
+              'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
+              viewMode === 'dense'
+                ? 'bg-accent text-foreground'
+                : 'hover:bg-accent hover:text-foreground',
+            )}
+          >
+            <List className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <span className="flex items-center gap-1.5">
           auto-refresh
           <select
             // Some mobile browsers inject `__gcruniqueid` into select controls
@@ -233,11 +406,7 @@ export function LlmUsageView() {
           {String(error)}
         </div>
       )}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {accounts.map(({ acc, stale }) => (
-          <AccountCard key={acc.account} acc={acc} stale={stale} />
-        ))}
-      </div>
+      <UsageAccounts accounts={accounts} mode={viewMode} />
     </div>
   )
 }
