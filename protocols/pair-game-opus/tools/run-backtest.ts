@@ -70,7 +70,7 @@ const BACKTEST_ENTRY = path.join(ROOT, 'src', 'cli', 'backtest.ts')
 const FLOOR_MS = 1775088000000 // 2026-04-02T00:00:00Z protocol universe floor
 const DEFAULT_LATENCY_DELAY_MS = 140
 const DEFAULT_LATENCY_JITTER_MS = 20
-const DEFAULT_MODEL = 'claude-opus-5'
+const DEFAULT_MODEL = 'opus'
 const PROTOCOL = 'pair-game-opus'
 // Injected when the caller passes no --limit: defeats the engine's silent
 // LIMIT 1000 default so "no limit" really is the whole eligible universe.

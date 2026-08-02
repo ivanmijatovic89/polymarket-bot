@@ -23,7 +23,7 @@ Create and start the overnight loop:
 ```bash
 npm run mission -- create \
   --name "Pair Game Opus 5" \
-  --provider claude --model claude-opus-5 --effort high \
+  --provider claude --model opus --effort high \
   --access full-access \
   --auth-home ~/.claude-balsa \
   --workspace ../polymarket-bot-pair-game-opus \
@@ -40,4 +40,3 @@ npm run mission -- create \
 ```
 
 Open Mission Control at `http://127.0.0.1:3051/mission-control`.
-
