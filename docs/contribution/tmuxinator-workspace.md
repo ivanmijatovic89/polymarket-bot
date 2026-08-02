@@ -21,14 +21,17 @@ From the repository root:
 tmuxinator start .tmuxinator.yml
 ```
 
+Before opening the tmux session, the workspace starts the Tailscale and SwiftBar
+macOS apps in the background if they are not already running.
+
 The `SERVICES` window starts:
 
 | Pane | Command |
 | --- | --- |
-| `DASHBOARD` | `DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80 npm run dashboard` |
+| `DASHBOARD` | `DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80,192.168.0.12 npm run dashboard` |
 | `DOCUMENTATION` | `cd docs && npm run dev` |
-| `BACKTEST WORKER` | `./scripts/run-worker.sh --queues markets --market-concurrency 5` |
-| `BACKTEST WORKER AGGREGATOR` | `./scripts/run-worker.sh --queues aggregate` |
+| `BACKTEST WORKER` | `./scripts/run-worker.sh --queues markets` |
+| `GLOBAL RUNTIME` | `npm run global-runtime` |
 
 ## Stop the Workspace
 
