@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Menu,
   Bot,
+  Server,
   Trophy,
   X,
 } from 'lucide-react'
@@ -29,17 +30,17 @@ type NavItem = {
 }
 
 const ITEMS: NavItem[] = [
-  { href: '/', label: 'Fleet', icon: LayoutDashboard, exact: true },
+  { href: '/mission-control', label: 'Mission Control', icon: Bot, exact: false },
+  { href: '/fleet', label: 'Fleet', icon: Server, exact: true },
   { href: '/backtests', label: 'Backtests', icon: History, exact: false, group: 'backtests' },
   { href: '/backtests/datasets', label: 'Datasets', icon: Database, exact: true },
-  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },
-  { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
-  { href: '/mission-control', label: 'Mission Control', icon: Bot, exact: false },
+  { href: '/llm-usage', label: 'LLM Usage', icon: Gauge, exact: true },
 ]
 
 const MORE_ITEMS: NavItem[] = [
   { href: '/workers-calculator', label: 'Workers Calculator', icon: Calculator, exact: true },
-  { href: '/llm-usage', label: 'LLM Usage', icon: Gauge, exact: true },
+  { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
+  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },
 ]
 
 function isActive(pathname: string, href: string, exact: boolean, group?: 'backtests'): boolean {
@@ -152,6 +153,12 @@ export function MainNav({ bullBoardPort }: { bullBoardPort: number }) {
                   </Link>
                 )
               })}
+              <div className="mt-1 border-t pt-1">
+                <BullBoardLink
+                  port={bullBoardPort}
+                  className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                />
+              </div>
             </div>
           )}
         </div>

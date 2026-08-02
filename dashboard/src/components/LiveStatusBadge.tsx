@@ -61,7 +61,7 @@ export function LiveStatusBadge({ className }: { className?: string }) {
 
   return (
     <Link
-      href="/"
+      href="/fleet"
       title={
         tone === 'idle'
           ? `${machineCount} machine(s), ${aliveCount} alive worker(s) · no active batches`

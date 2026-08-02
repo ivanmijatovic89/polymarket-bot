@@ -64,7 +64,15 @@ const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
 const selectClass = 'rounded-md border bg-background px-2.5 py-2 text-sm text-foreground'
 
-export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
+export function MissionControlView({
+  examplesRoot,
+  limit,
+  embedded = false,
+}: {
+  examplesRoot: string
+  limit?: number
+  embedded?: boolean
+}) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
@@ -89,6 +97,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   })
 
   const runs = useMemo(() => data?.runs ?? [], [data])
+  const visibleRuns = limit === undefined ? runs : runs.slice(0, limit)
   const fleet = useMemo(
     () => ({
       active: runs.filter((run) => ACTIVE_STATUSES.includes(run.status)).length,
@@ -194,32 +203,34 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Mission Control</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Durable Claude Code and Codex mission loops. Each session starts fresh from workspace
-            files.
-          </p>
+      {!embedded && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Mission Control</h1>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Durable Claude Code and Codex mission loops. Each session starts fresh from workspace
+              files.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreating((value) => !value)}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            >
+              {creating ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {creating ? 'Close' : 'New loop'}
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-          >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreating((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-          >
-            {creating ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {creating ? 'Close' : 'New loop'}
-          </button>
-        </div>
-      </div>
+      )}
 
       {(error || queryError) && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -227,8 +238,9 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
         </div>
       )}
 
-      <Card>
-        <CardContent className="py-4">
+      {!embedded && (
+        <Card>
+          <CardContent className="py-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles className="h-4 w-4" /> Shared loop example
           </h2>
@@ -315,10 +327,11 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
               Runs at <span className="font-mono">low</span> effort with isolated state files.
             </p>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {creating && (
+      {!embedded && creating && (
         <Card>
           <CardContent className="py-5">
             <form onSubmit={createRun} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -438,7 +451,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {runs.map((run) => (
+              {visibleRuns.map((run) => (
                 <TableRow key={run.id} className="align-top">
                   <TableCell className="max-w-[22rem]">
                     <Link
@@ -656,4 +669,3 @@ function tokenBreakdown(run: RuntimeRunSummary): string {
     `reasoning ${formatNumber(run.totals.reasoningOutputTokens)}`,
   ].join('\n')
 }
-

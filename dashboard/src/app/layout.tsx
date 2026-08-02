@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Activity } from 'lucide-react'
 import './globals.css'
 import { Providers } from './providers'
-import { BullBoardLink } from '@/components/BullBoardLink'
 import { LiveStatusBadge } from '@/components/LiveStatusBadge'
 import { MainNav } from '@/components/MainNav'
 
@@ -33,18 +32,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                     <Activity className="h-4 w-4" strokeWidth={2.5} />
                   </div>
-                  <span className="font-semibold tracking-tight">Backtest</span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    / dashboard
-                  </span>
+                  <span className="font-semibold tracking-tight">Polymarket Twin Engine</span>
                 </Link>
                 <MainNav bullBoardPort={bullBoardPort} />
                 <div className="ml-auto hidden items-center gap-2 text-sm xl:flex">
                   <LiveStatusBadge />
-                  <BullBoardLink
-                    port={bullBoardPort}
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  />
                 </div>
               </div>
             </header>

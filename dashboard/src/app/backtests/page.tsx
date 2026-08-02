@@ -10,7 +10,7 @@ export default function BacktestsPage() {
     <div className="space-y-6">
       <div>
         <Link
-          href="/"
+          href="/fleet"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />

@@ -200,7 +200,8 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 
 | Path                            | What                                                                |
 | ------------------------------- | ------------------------------------------------------------------- |
-| `/`                             | Fleet: queue counts, workers list, active batches, history.         |
+| `/`                             | Overview: recent missions, Fleet activity, and dense LLM usage.     |
+| `/fleet`                        | Full Fleet: queues, workers, active batches, and history.           |
 | `/batches/<batchUid>`           | Batch group view: all runs sharing the label + live progress of in-flight submissions. Per-run detail lives at `/backtests/<id>`. |
 | `/api/health`                   | Health JSON.                                                        |
 | `/api/workers`                  | Live worker stats (processed counts, heartbeat, current job).       |

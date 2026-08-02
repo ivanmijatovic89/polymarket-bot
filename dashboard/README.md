@@ -47,7 +47,8 @@ dashboard/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx                 # nav + providers
-│   │   ├── page.tsx                   # Fleet
+│   │   ├── page.tsx                   # Overview
+│   │   ├── fleet/page.tsx             # Full Fleet
 │   │   ├── batches/[batchUid]/page.tsx
 │   │   └── api/
 │   │       ├── health/route.ts
