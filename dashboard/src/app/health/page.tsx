@@ -9,11 +9,11 @@ export default function HealthPage() {
     <div className="space-y-6">
       <div>
         <Link
-          href="/"
+          href="/fleet"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />
-          Overview
+          Fleet
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Health</h1>
         <p className="mt-1 text-xs text-muted-foreground">

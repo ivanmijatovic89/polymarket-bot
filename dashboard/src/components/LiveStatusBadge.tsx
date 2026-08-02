@@ -4,23 +4,13 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Cpu, Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { MachineGroup } from '@/lib/queries/workers'
-import type { ActiveBatchSummary } from '@/lib/queries/batches'
-
-async function fetchWorkers(): Promise<{
-  machines: MachineGroup[]
-  totals: { alive: number }
-}> {
-  const r = await fetch('/api/workers', { cache: 'no-store' })
-  if (!r.ok) throw new Error('failed to fetch /api/workers')
-  return r.json()
-}
-
-async function fetchActiveBatches(): Promise<{ batches: ActiveBatchSummary[] }> {
-  const r = await fetch('/api/batches/active', { cache: 'no-store' })
-  if (!r.ok) throw new Error('failed to fetch /api/batches/active')
-  return r.json()
-}
+import {
+  activeBatchesQueryKey,
+  fetchActiveBatches,
+  fetchWorkers,
+  LIVE_DASHBOARD_REFETCH_MS,
+  workersQueryKey,
+} from '@/lib/client/liveDashboardQueries'
 
 type Tone = 'active' | 'idle' | 'warning'
 
@@ -34,18 +24,18 @@ type Tone = 'active' | 'idle' | 'warning'
  * work only — finishing a whole batch drops its share out of both numerator and
  * denominator, and an empty active set renders as `idle`. Colour of the dot
  * carries the state: green (workers processing), amber (work outstanding but no
- * live workers to pick it up), muted (idle). Links to the Overview page.
+ * live workers to pick it up), muted (idle). Links to the Fleet page.
  */
 export function LiveStatusBadge({ className }: { className?: string }) {
   const { data: workers } = useQuery({
-    queryKey: ['workers', 'nav-badge'],
+    queryKey: workersQueryKey,
     queryFn: fetchWorkers,
-    refetchInterval: 5000,
+    refetchInterval: LIVE_DASHBOARD_REFETCH_MS,
   })
   const { data: batchData } = useQuery({
-    queryKey: ['active-batches', 'nav-badge'],
+    queryKey: activeBatchesQueryKey,
     queryFn: fetchActiveBatches,
-    refetchInterval: 5000,
+    refetchInterval: LIVE_DASHBOARD_REFETCH_MS,
   })
 
   const machineCount = workers?.machines.length ?? 0
@@ -71,7 +61,7 @@ export function LiveStatusBadge({ className }: { className?: string }) {
 
   return (
     <Link
-      href="/"
+      href="/fleet"
       title={
         tone === 'idle'
           ? `${machineCount} machine(s), ${aliveCount} alive worker(s) · no active batches`

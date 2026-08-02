@@ -1,20 +1,20 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Cpu } from 'lucide-react'
+import { ChevronRight, Cpu } from 'lucide-react'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Skeleton } from './ui/skeleton'
 import { MachineName } from './MachineName'
+import { cn } from '@/lib/utils'
+import {
+  fetchWorkers,
+  LIVE_DASHBOARD_REFETCH_MS,
+  workersQueryKey,
+} from '@/lib/client/liveDashboardQueries'
 import type { MachineGroup, WorkerProcess, WorkerRole } from '@/lib/queries/workers'
-
-async function fetchWorkers(): Promise<{ machines: MachineGroup[] }> {
-  const r = await fetch('/api/workers', { cache: 'no-store' })
-  if (!r.ok) throw new Error('failed to fetch /api/workers')
-  return r.json()
-}
 
 function RoleBadge({ role }: { role: WorkerRole }) {
   switch (role.kind) {
@@ -31,16 +31,33 @@ function RoleBadge({ role }: { role: WorkerRole }) {
   }
 }
 
-function ProcessRow({ p }: { p: WorkerProcess }) {
-  const shaLabel = p.commitSha ? p.commitSha.slice(0, 8) : 'unknown'
-  const branchLabel = p.branchName ?? 'unknown'
+function formatHeartbeat(ageMs: number | null): string {
+  return ageMs !== null ? `${Math.round(ageMs / 1000)}s ago` : '—'
+}
+
+function sharedLabel(values: Array<string | null>, fallback = 'unknown'): string {
+  const known = [...new Set(values.filter((value): value is string => Boolean(value)))]
+  if (known.length === 0) return fallback
+  return known.length === 1 ? known[0] : 'mixed'
+}
+
+function machineHeartbeatAge(machine: MachineGroup): number | null {
+  const ages = machine.processes
+    .map((process) => process.heartbeatAgeMs)
+    .filter((age): age is number => age !== null)
+  return ages.length > 0 ? Math.max(...ages) : null
+}
+
+function ProcessRow({ process }: { process: WorkerProcess }) {
+  const shaLabel = process.commitSha ? process.commitSha.slice(0, 8) : 'unknown'
+  const branchLabel = process.branchName ?? 'unknown'
   return (
-    <TableRow>
-      <TableCell className="pl-8">
-        <RoleBadge role={p.role} />
+    <TableRow className="bg-muted/10 hover:bg-muted/20">
+      <TableCell className="pl-10">
+        <RoleBadge role={process.role} />
       </TableCell>
       <TableCell>
-        {p.alive ? (
+        {process.alive ? (
           <Badge variant="success">
             <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
             alive
@@ -50,13 +67,10 @@ function ProcessRow({ p }: { p: WorkerProcess }) {
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {p.processedTotal.toLocaleString()}
+        {process.processedTotal.toLocaleString()}
       </TableCell>
       <TableCell className="text-right tabular-nums text-muted-foreground">
-        {p.eventsTotal.toLocaleString()}
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">
-        {p.lastMarket ?? '—'}
+        {process.eventsTotal.toLocaleString()}
       </TableCell>
       <TableCell className="text-right">
         <Badge variant="outline" className="max-w-36 font-mono">
@@ -64,32 +78,53 @@ function ProcessRow({ p }: { p: WorkerProcess }) {
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        <Badge variant={p.mainCommitMatch ? 'success' : 'warning'} className="font-mono">
+        <Badge
+          variant={process.mainCommitMatch ? 'success' : 'warning'}
+          className="font-mono"
+        >
           {shaLabel}
         </Badge>
       </TableCell>
       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-        {p.heartbeatAgeMs !== null ? `${Math.round(p.heartbeatAgeMs / 1000)}s ago` : '—'}
+        {formatHeartbeat(process.heartbeatAgeMs)}
       </TableCell>
+      <TableCell />
     </TableRow>
   )
 }
 
-function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
+function MachineRow({
+  machine,
+  expanded,
+  onToggle,
+}: {
+  machine: MachineGroup
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const processCount = machine.processes.length
+  const branchLabel = sharedLabel(machine.processes.map((process) => process.branchName))
+  const commitLabel = sharedLabel(
+    machine.processes.map((process) => process.commitSha?.slice(0, 8) ?? null),
+  )
+  const commitsMatch = machine.processes.every((process) => process.mainCommitMatch)
+  const allAlive = processCount > 0 && machine.totals.aliveCount === processCount
+  const someAlive = machine.totals.aliveCount > 0
+
   return (
-    <TableRow className="bg-muted/40 hover:bg-muted/40">
-      <TableCell colSpan={2} className="text-xs font-semibold">
-        <span className="inline-flex items-baseline">
+    <TableRow className="bg-muted/35 hover:bg-muted/50">
+      <TableCell className="font-semibold">
+        <span className="inline-flex items-center gap-2">
           <MachineName machineId={machine.machineId} />
           {machine.supervisorQueues?.includes('aggregate') ? (
-            <span className="ml-2">
-              <Badge variant="warning">aggregator</Badge>
-            </span>
+            <Badge variant="warning">aggregator</Badge>
           ) : null}
-          <span className="ml-3 font-sans text-xs font-normal text-muted-foreground">
-            {machine.totals.aliveCount} alive
-          </span>
         </span>
+      </TableCell>
+      <TableCell>
+        <Badge variant={allAlive ? 'success' : someAlive ? 'warning' : 'muted'}>
+          {machine.totals.aliveCount} / {processCount} alive
+        </Badge>
       </TableCell>
       <TableCell className="text-right tabular-nums font-semibold">
         {machine.totals.processedTotal.toLocaleString()}
@@ -97,17 +132,53 @@ function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
       <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
         {machine.totals.eventsTotal.toLocaleString()}
       </TableCell>
-      <TableCell colSpan={4} />
+      <TableCell className="text-right">
+        <Badge variant="outline" className="max-w-36 font-mono">
+          <span className="truncate">{branchLabel}</span>
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <Badge variant={commitsMatch ? 'success' : 'warning'} className="font-mono">
+          {commitLabel}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+        {formatHeartbeat(machineHeartbeatAge(machine))}
+      </TableCell>
+      <TableCell className="w-10 text-right">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Hide' : 'Show'} worker details for ${machine.machineId}`}
+          title={`${expanded ? 'Hide' : 'Show'} per-worker details`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onClick={onToggle}
+        >
+          <ChevronRight
+            className={cn('h-4 w-4 transition-transform', expanded && 'rotate-90')}
+          />
+        </button>
+      </TableCell>
     </TableRow>
   )
 }
 
 export function WorkersTable() {
+  const [expandedMachines, setExpandedMachines] = useState<Set<string>>(() => new Set())
   const { data, isLoading } = useQuery({
-    queryKey: ['workers'],
+    queryKey: workersQueryKey,
     queryFn: fetchWorkers,
-    refetchInterval: 3000,
+    refetchInterval: LIVE_DASHBOARD_REFETCH_MS,
   })
+
+  function toggleMachine(machineId: string) {
+    setExpandedMachines((current) => {
+      const next = new Set(current)
+      if (next.has(machineId)) next.delete(machineId)
+      else next.add(machineId)
+      return next
+    })
+  }
 
   if (isLoading) {
     return (
@@ -132,30 +203,61 @@ export function WorkersTable() {
       </Card>
     )
   }
+
+  const allExpanded = machines.every((machine) => expandedMachines.has(machine.machineId))
+
+  function toggleAllMachines() {
+    setExpandedMachines(
+      allExpanded ? new Set() : new Set(machines.map((machine) => machine.machineId)),
+    )
+  }
+
   return (
     <Card className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Machine</TableHead>
+            <TableHead>Workers</TableHead>
             <TableHead className="text-right">Processed</TableHead>
             <TableHead className="text-right">Events</TableHead>
-            <TableHead>Last market</TableHead>
             <TableHead className="text-right">Branch</TableHead>
             <TableHead className="text-right">Commit</TableHead>
             <TableHead className="text-right">Heartbeat</TableHead>
+            <TableHead className="w-10 text-right">
+              <button
+                type="button"
+                aria-expanded={allExpanded}
+                aria-label={allExpanded ? 'Collapse all worker details' : 'Expand all worker details'}
+                title={allExpanded ? 'Collapse all worker details' : 'Expand all worker details'}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={toggleAllMachines}
+              >
+                <ChevronRight
+                  className={cn('h-4 w-4 transition-transform', allExpanded && 'rotate-90')}
+                />
+              </button>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {machines.map((m) => (
-            <Fragment key={m.machineId}>
-              <MachineHeaderRow machine={m} />
-              {m.processes.map((p) => (
-                <ProcessRow key={p.processKey} p={p} />
-              ))}
-            </Fragment>
-          ))}
+          {machines.map((machine) => {
+            const expanded = expandedMachines.has(machine.machineId)
+            return (
+              <Fragment key={machine.machineId}>
+                <MachineRow
+                  machine={machine}
+                  expanded={expanded}
+                  onToggle={() => toggleMachine(machine.machineId)}
+                />
+                {expanded
+                  ? machine.processes.map((process) => (
+                      <ProcessRow key={process.processKey} process={process} />
+                    ))
+                  : null}
+              </Fragment>
+            )
+          })}
         </TableBody>
       </Table>
     </Card>

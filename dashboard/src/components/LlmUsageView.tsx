@@ -265,10 +265,11 @@ const INTERVAL_PRESETS = [
   { value: 0, label: 'off' },
 ]
 
-export function LlmUsageView() {
+export function LlmUsageView({ fixedViewMode }: { fixedViewMode?: UsageViewMode } = {}) {
   const [intervalSec, setIntervalSec] = useState(60)
   const [customMode, setCustomMode] = useState(false)
   const [viewMode, setViewMode] = useState<UsageViewMode>('detailed')
+  const resolvedViewMode = fixedViewMode ?? viewMode
   const showCustom = customMode || !INTERVAL_PRESETS.some((p) => p.value === intervalSec)
 
   // Load the persisted interval after mount (localStorage is client-only,
@@ -376,42 +377,44 @@ export function LlmUsageView() {
             })}
           </span>
         )}
-        <div
-          role="group"
-          aria-label="Usage view"
-          className="ml-auto inline-flex items-center rounded-md border bg-background p-0.5"
-        >
-          <button
-            type="button"
-            title="Detailed view"
-            aria-label="Detailed view"
-            aria-pressed={viewMode === 'detailed'}
-            onClick={() => changeView('detailed')}
-            className={cn(
-              'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
-              viewMode === 'detailed'
-                ? 'bg-accent text-foreground'
-                : 'hover:bg-accent hover:text-foreground',
-            )}
+        {fixedViewMode === undefined && (
+          <div
+            role="group"
+            aria-label="Usage view"
+            className="ml-auto inline-flex items-center rounded-md border bg-background p-0.5"
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            title="Dense view"
-            aria-label="Dense view"
-            aria-pressed={viewMode === 'dense'}
-            onClick={() => changeView('dense')}
-            className={cn(
-              'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
-              viewMode === 'dense'
-                ? 'bg-accent text-foreground'
-                : 'hover:bg-accent hover:text-foreground',
-            )}
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-        </div>
+            <button
+              type="button"
+              title="Detailed view"
+              aria-label="Detailed view"
+              aria-pressed={viewMode === 'detailed'}
+              onClick={() => changeView('detailed')}
+              className={cn(
+                'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
+                viewMode === 'detailed'
+                  ? 'bg-accent text-foreground'
+                  : 'hover:bg-accent hover:text-foreground',
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Dense view"
+              aria-label="Dense view"
+              aria-pressed={viewMode === 'dense'}
+              onClick={() => changeView('dense')}
+              className={cn(
+                'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
+                viewMode === 'dense'
+                  ? 'bg-accent text-foreground'
+                  : 'hover:bg-accent hover:text-foreground',
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
         <span className="flex items-center gap-1.5">
           auto-refresh
           <select
@@ -460,7 +463,7 @@ export function LlmUsageView() {
           {String(error)}
         </div>
       )}
-      <UsageAccounts accounts={accounts} mode={viewMode} />
+      <UsageAccounts accounts={accounts} mode={resolvedViewMode} />
     </div>
   )
 }
