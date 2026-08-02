@@ -11,6 +11,7 @@ main** — nothing accumulates on private branches.
 |----------|-----------|--------|-------|
 | pair-fable | `protocols/pair-fable/` | active | Global Runtime-managed (see below); launch guide in its README. |
 | pair-opus | `protocols/pair-opus/` | pre-launch | Second independent lab on the same strategy, clean start; Global Runtime-managed. |
+| pair-game-opus | `protocols/pair-game-opus/` | pre-launch | Opus 5 level game; one evaluator-gated pair-building level at a time. |
 
 Legacy protocols predate this structure and are NOT migrated:
 `strategy-research-protocol/` (main), `gabagool-knowledge-and-lab/` (pointer on
