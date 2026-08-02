@@ -29,7 +29,7 @@ type NavItem = {
 }
 
 const ITEMS: NavItem[] = [
-  { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
+  { href: '/', label: 'Fleet', icon: LayoutDashboard, exact: true },
   { href: '/backtests', label: 'Backtests', icon: History, exact: false, group: 'backtests' },
   { href: '/backtests/datasets', label: 'Datasets', icon: Database, exact: true },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },

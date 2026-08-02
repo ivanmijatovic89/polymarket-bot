@@ -34,7 +34,7 @@ type Tone = 'active' | 'idle' | 'warning'
  * work only — finishing a whole batch drops its share out of both numerator and
  * denominator, and an empty active set renders as `idle`. Colour of the dot
  * carries the state: green (workers processing), amber (work outstanding but no
- * live workers to pick it up), muted (idle). Links to the Overview page.
+ * live workers to pick it up), muted (idle). Links to the Fleet page.
  */
 export function LiveStatusBadge({ className }: { className?: string }) {
   const { data: workers } = useQuery({

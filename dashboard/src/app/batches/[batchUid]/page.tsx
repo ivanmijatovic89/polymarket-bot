@@ -18,7 +18,7 @@ export default async function BatchDetailPage({
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />
-          Overview
+          Fleet
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">
           Batch <code className="font-mono text-base text-muted-foreground">{batchUid}</code>

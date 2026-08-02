@@ -8,7 +8,7 @@ import { WorkersTable } from '@/components/WorkersTable'
 
 export const dynamic = 'force-dynamic'
 
-export default function OverviewPage() {
+export default function FleetPage() {
   return (
     <div className="space-y-10">
       <section>
