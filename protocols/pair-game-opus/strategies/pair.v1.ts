@@ -85,7 +85,10 @@
  * flicker (`ptbFairTauMs`), it must exceed a deadband (`ptbFairEdge`), and it
  * may not touch the opening lean (`ptbFairAfterMs`) — a book that opens at
  * 0.41/0.60 knows something BTC, which starts every window exactly on its own
- * strike, cannot yet know.
+ * strike, cannot yet know. The deadband is not one number but two: a smaller
+ * disagreement is enough to redirect the chase when the leg it names is already
+ * far behind (`ptbFairMinLag`, `ptbFairLagEdge`), because redirecting towards a
+ * lagging leg and rebalancing are then the same action.
  *
  * Nothing here branches on slug, timestamp or outcome: the only inputs are the
  * live books, the window clock, the public price feeds and our own inventory.
@@ -961,7 +964,11 @@ export const ConfigSchema = z.strictObject({
   ptbFair: z.coerce.number().int().min(0).max(1).default(1),
   /** Dollar scale of BTC's move over a FULL window: the 1σ of the model. */
   ptbSigma: z.coerce.number().finite().positive().default(110),
-  /** Probability gap between book and model below which neither is preferred. */
+  /**
+   * Probability gap between book and model below which neither is preferred,
+   * when the two legs are close together. A leg that is already far behind is
+   * read against `ptbFairLagEdge` instead.
+   */
   ptbFairEdge: z.coerce.number().finite().min(0).max(1).default(0.07),
   /**
    * Time constant of the EMA applied to that gap. 0 ⇒ act on the instantaneous
@@ -1059,9 +1066,71 @@ export const ConfigSchema = z.strictObject({
    * are not abandoned late, they are misassigned inside the first two minutes
    * and the half-built shape is only where they come to rest. The knob remains
    * because the closing time it expresses is real and cheap, but nothing on the
-   * ladder currently needs it.
+   * ladder currently needs it. The bill it was built to pay was eventually
+   * removed a different way — see `ptbFairMinLag`.
    */
   ptbFairUntil: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * How far BEHIND the other leg the leg named by the disagreement must be, as
+   * a fraction of `qty`, for `ptbFairLagEdge` to replace `ptbFairEdge`.
+   *
+   * This is what tells the narrow reading's repair apart from its casualties,
+   * and it was read off their timelines rather than guessed. At the instant the
+   * override first fires — 45 s, where `ptbFairAfterMs` opens it — all four
+   * markets look alike on every reading the gate already has: the gap is a few
+   * hundredths, the book sits between 0.33 and 0.75, the model between 0.39 and
+   * 0.73, and in three of the four the model's own lean points the other way.
+   * They differ on one thing only. The market the override repairs is holding
+   * 594 of one leg and 136 of the other, and the leg the disagreement names is
+   * the one 458 shares behind. All three casualties are holding 500 and 375,
+   * and the leg named is behind by exactly 125.
+   *
+   * That difference is the whole argument for the override, not an incidental
+   * fact about these four windows. Redirecting the chase is cheap when the
+   * player is already lopsided: following the disagreement and closing the
+   * imbalance are then the same action, and if the reading is wrong the player
+   * has still bought the leg it was short of. When the two legs are close
+   * together the override has no such cover — it spends the remaining ceiling
+   * putting the player lopsided the OTHER way, which is exactly the shape all
+   * three casualties come to rest in: 1000/556, 1000/500 and 500/1000.
+   *
+   * 0.2 ships. Over the first sixty markets, 0.15 and 0.2 both give the same
+   * four failures in three independent runs each — level 45's blocker repaired,
+   * no casualty anywhere — while 0.3 lets one balanced market through to
+   * 1000/950. The floor is where it is because a lag of a fifth of the target
+   * is well above the 125 shares the casualties carry and well below the 458
+   * the repair carries.
+   */
+  ptbFairMinLag: z.coerce.number().finite().min(0).max(1).default(0.2),
+  /**
+   * The disagreement threshold that applies once the named leg is at least
+   * `ptbFairMinLag` behind. 0 ⇒ `ptbFairEdge` always applies everywhere.
+   *
+   * 0.03 ships, against the 0.07 that governs balanced windows. This is what
+   * carries level 45. Applied everywhere, 0.03 repairs the blocker and breaks
+   * three markets that were passing, for a net 7 failures against 5; applied
+   * only to a lagging leg it repairs the blocker and breaks nothing, 4 failures
+   * against 5, reproduced in three independent runs.
+   *
+   * Two things were measured before this shape was arrived at, and both are
+   * worth keeping because they are the reason it is a second THRESHOLD rather
+   * than a second condition.
+   *
+   * Making the lag a hard requirement — no override at all below it — is worse
+   * than no lag test whatsoever: 8, 10 and 10 failures over the first sixty
+   * markets at 0.15, 0.2 and 0.35, against 7 for the narrow reading alone and 5
+   * for the shipped wide one. The override is not a rescue mechanism that fires
+   * only in trouble; it is load-bearing in ordinary balanced windows, and
+   * silencing it there costs more markets than the casualties it saves.
+   *
+   * Testing the lag every tick also switches the override off halfway through
+   * its own repair, because acting on it closes the very lag that licensed it.
+   * Level 45's blocker lands on 1000/606 that way — better than the 1000/344 it
+   * fails at, and still a failure. Hence the latch: the lag decides whether the
+   * narrow reading may OPEN an override, and the override then lives or dies on
+   * the disagreement alone.
+   */
+  ptbFairLagEdge: z.coerce.number().finite().min(0).max(1).default(0.03),
   /**
    * 1 ⇒ the priority leg is taken away from a leg whose completion the ceiling
    * can no longer pay for, and given to the other one.
@@ -1342,6 +1411,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let emaGapAtMs = 0
   /** Legs the outside price has backed at some point — see `earlyFair`. */
   const earlyFree: Record<Side, boolean> = { UP: false, DOWN: false }
+  /** Side the disagreement is currently overriding towards — see `ptbFairMinLag`. */
+  let fairLatch: Side | null = null
 
   /**
    * BTC's signed distance from the price to beat, in dollars, on whichever
@@ -1503,14 +1574,25 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const modelBacks =
       cfg.ptbFairModelMin <= 0 ||
       (Math.abs(modelLean) >= cfg.ptbFairModelMin && (modelLean > 0) === (fairWant === 'UP'))
-    const fairSide: Side | null =
-      Math.abs(fairGap) < cfg.ptbFairEdge ||
-      Math.abs(pBook - 0.5) > cfg.ptbFairBookMax ||
-      elapsed < cfg.ptbFairAfterMs ||
-      (cfg.ptbFairUntil < 1 && elapsed >= cfg.ptbFairUntil * WINDOW_MS) ||
-      !modelBacks
-        ? null
-        : fairWant
+    // How far behind the other leg the disagreement's own leg already is — see
+    // `ptbFairMinLag`.
+    const fairLag = held[fairWant === 'UP' ? 'DOWN' : 'UP'] - held[fairWant]
+    // The lag decides which threshold the disagreement is read against, and it
+    // decides it once: an override already running keeps the threshold it
+    // opened on, because acting on the lag is what closes it.
+    const fairEdge =
+      cfg.ptbFairLagEdge > 0 &&
+      (fairLag >= cfg.ptbFairMinLag * cfg.qty || fairLatch === fairWant)
+        ? cfg.ptbFairLagEdge
+        : cfg.ptbFairEdge
+    const fairOpen =
+      Math.abs(fairGap) >= fairEdge &&
+      Math.abs(pBook - 0.5) <= cfg.ptbFairBookMax &&
+      elapsed >= cfg.ptbFairAfterMs &&
+      (cfg.ptbFairUntil >= 1 || elapsed < cfg.ptbFairUntil * WINDOW_MS) &&
+      modelBacks
+    fairLatch = fairOpen ? fairWant : null
+    const fairSide: Side | null = fairLatch
 
     const logNow = cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs
     if (logNow) lastLogMs = nowMs
@@ -1523,7 +1605,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `tgt=${tgt.UP?.toFixed(2) ?? '-'}/${tgt.DOWN?.toFixed(2) ?? '-'} ` +
           `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'} ` +
           `diff=${diff === null ? '-' : diff.toFixed(0)} need=${needDiff.toFixed(0)} out=${outsideSide ?? '-'} ` +
-          `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} fair=${fairSide ?? '-'}`,
+          `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
+          `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'}`,
       )
     }
 
