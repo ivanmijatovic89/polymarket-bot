@@ -272,20 +272,36 @@ export const ConfigSchema = z.strictObject({
    * 0.50, and reserving that much leaves the favourite unable to buy anything at
    * all in the one moment it is affordable (`reserveLowAfterMs`).
    *
-   * Measured and NOT shipped, and the reason is the one that sinks every price
-   * cap in this strategy. Alone over the first forty markets it is genuinely
-   * useful — 0.7 fixes two of the three failures and costs one, where 0.5 fixes
-   * one and 1.0 costs seven — and alongside the early size cap it fixes the last
-   * market outstanding. But what it does to the market it is aimed at is not
-   * what it looks like: capping the price the favourite may pay only turns a
-   * taker fill into a resting maker bid a few cents lower, and when the window
-   * reverses the favourite falls straight through that bid. The same thousand
-   * shares of the same losing outcome are bought anyway, slightly cheaper. The
-   * one market it costs (the twenty-sixth) is refused outright and ends at a
-   * seventh of its target, which is the same failure `chasePad` documents.
-   * Ships off; `earlyShare` does the job by bounding size instead.
+   * SHIPS AT 0.6, after two sessions of rejecting it, and the reversal is worth
+   * understanding because it is about WHICH leg the cap catches rather than
+   * about the number.
+   *
+   * The standing objection to every price cap in this strategy is that capping
+   * what a leg may pay does not stop the leg being bought: the taker fill
+   * becomes a resting maker bid a few cents lower, and a leg that then FALLS
+   * runs straight through it, so the same thousand shares of the same losing
+   * outcome are acquired anyway. That objection is exactly right for the market
+   * that blocked level 37, where the over-bought leg collapses afterwards — and
+   * that market is now handled by `earlyShare`, which bounds size instead.
+   *
+   * The market that blocks level 40 is the mirror image. There the priority leg
+   * is chased UPWARD, from 0.50 to 0.68 over twenty seconds, and completed —
+   * against a reserve of `underdogMax` that assumes the other leg will be
+   * available at 0.10, when it has never traded below 0.43 and never will trade
+   * below 0.16. A bid left behind at 0.53 does not get run through, because the
+   * leg is going the other way; it simply does not fill. Against a rising leg a
+   * price cap is a size cap, and this is the case the reserve floor is for.
+   *
+   * Measured over the first forty markets with `finishShare` in force: 0.55,
+   * 0.6 and 0.65 pass all forty, repeatedly. 0.5 is too small to hold the
+   * fortieth market back (468/1000) and 0.7 is large enough to starve the
+   * twenty-sixth, which is refused outright and ends at a sixth of its target —
+   * the failure `chasePad` documents. 0.6 is the middle of that band. Treat the
+   * edges as real: this is a reserve against a leg that has to be bought, so
+   * too much of it does not make the player cautious, it makes it unable to buy
+   * the outcome that wins.
    */
-  reserveLow: z.coerce.number().finite().min(0).max(1).default(0),
+  reserveLow: z.coerce.number().finite().min(0).max(1).default(0.6),
   /** Milliseconds into the window before `reserveLow` engages. */
   reserveLowAfterMs: z.coerce.number().finite().min(0).default(20_000),
   /**
