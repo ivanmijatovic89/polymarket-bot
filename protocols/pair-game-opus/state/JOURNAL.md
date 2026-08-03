@@ -1176,3 +1176,84 @@ minutes — and what the turn-taking version does wrong is spend those minutes
 topping up whichever side is behind at whatever it costs, rather than waiting for
 the cheap one. That is an endgame rule, it is aimed at a number I measured rather
 than a hunch, and it is where the next session starts.
+
+---
+
+## 2026-08-03 — Session 18: the two windows finally open, and one door closes behind me
+
+The note I inherited said the way in was an endgame rule about buying only the
+cheap side in the closing minutes. I did not test it, and I want to be clear
+about why: before touching anything I pulled the second-by-second record of both
+markets that block this level, and it disagrees with the story that plan was
+built on. So I followed the record instead.
+
+Here is what those two windows actually do. Fifty seconds in, the player has
+already committed six hundred and fifty shares to one side at an average of
+fifty-nine cents, and holds under three hundred of the other. Then the market
+turns, and the side it neglected — the one that goes on to win — is offered
+between forty-four and fifty-six cents for the next full minute. The player has
+four hundred and thirty-nine dollars of its budget untouched. Buying that side
+out right there, and topping the abandoned one up later when it is nearly free,
+comes to about ninety-five cents a pair against a ceiling of ninety-eight. It is
+sitting there in plain sight and the player buys none of it.
+
+Three sessions have now found one reason or another for that, and each fix moved
+the count a little and then stopped. The record explains why: there are two
+rules, not one, and they cut the same side off within fifty shares of each other.
+The first is the money — the player sets aside a reserve for the side it is
+walking away from, sized off the cheapest that side has traded at, and the
+reserve holds its bid four cents under the asking price. The second is a rule
+about evidence: a side may only be held in proportion to how far apart the two
+prices have moved, and in a near-even market that allows three hundred and forty
+shares out of a thousand. Release the money and you get four hundred. Release the
+evidence rule and you get five hundred. Release both and the window finishes,
+complete, at ninety-six cents a pair — and it does it every time I run it, which
+is not something this project has been able to say about a repair before.
+
+The idea behind the second release is the one I would keep if I could keep only
+one sentence from today. Rationing a side by how much the market has revealed is
+right when buying it is a decision — you are choosing which outcome to own, and
+early on you know nothing. It is wrong for the second side, because that is not a
+second decision. The money is already spent; the second side is the only thing
+that makes the first side's shares worth anything. A window that ends with a
+thousand shares of one outcome and three hundred of the other is worth less than
+one that never traded at all.
+
+So both blocking windows now pass. The trouble is what came with them. Turning
+that rationing off costs four markets elsewhere in the first sixty, and I got
+three of them back with a test that reads well: chase the other side only when
+the market has moved against the side you committed to — when your own holding is
+trading below what you paid for it, the market is telling you your bet was wrong,
+and that is exactly when you need the other side. It is a good rule. It is not a
+reliable one. The fourth market and the two I repaired are separated by three or
+four cents of a jumpy number, and when I ran the same six markets three times,
+one run passed all six and the other two each dropped one. That is the honest
+result and I am recording it as such rather than as a near miss.
+
+Where that leaves the level: sixty markets, fifty-eight passing — the same count
+as before, a different fifty-eight. The player still fails one market I need, and
+it is no longer the one I started with.
+
+I spent a while trying to find any instantaneous reading that tells the repaired
+market apart from the one it breaks, and I could not, which is worth writing down
+so nobody spends another session on it. Put them side by side and they are mirror
+images: same share counts, same committed average to within a cent, same prices,
+same budget, and the model built from the Bitcoin price contradicts the chase in
+both. In one the side the player committed to expires worthless and in the other
+it wins. Nothing visible at the time separates them.
+
+That points somewhere quite different for next session, and it comes with a
+measurement rather than a hunch. The two cases differ in speed. In the market
+this repairs, the chase takes seven hundred shares over half a minute, in four
+separate stretches. In the market it breaks, it takes seven hundred and fifty in
+five seconds, one burst, and the burst is what leaves the other side two hundred
+shares short with seventy dollars in hand. So the next thing to try is not
+another price test but a speed limit: while the player is completing a side, cap
+how fast it may buy. A side that is genuinely running away stays away and gives
+you thirty seconds; a side that is briefly cheap gives you an instant, and
+emptying the budget into that instant is the mistake.
+
+Everything is committed. All four new switches ship turned off with their
+measurements written beside them in the code, so the player is the one that
+passed level forty-six, and I re-ran that level at the final commit to prove it:
+forty-six of forty-six.
