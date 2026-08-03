@@ -90,12 +90,13 @@ for a global pace or cap change.**
 | `fairHold` 0.72/0.08 + `fairHoldZ` 1.0; 0.60/0.06 + 1.0 | 7 / 8 — same |
 | the parity hold released by the oracle (bands 1.2–3.0, hold 0–0.5) | 7 at BEST, on perfect execution — see above |
 
-Six families have now been tried on this window and every one costs between
+Seven families have now been tried on this window and every one costs between
 seven and forty-three of the sixty-seven markets that already pass: share caps,
-price caps, total-spend paces, reassigning the chase, a money velocity cap, and
-now a cap keyed on the model-book disagreement.
+price caps, total-spend paces, reassigning the chase, a money velocity cap, a cap
+keyed on the model-book disagreement (with and without a release), and a parity
+hold released by the oracle.
 
-## The model-book disagreement is a GOOD direction signal — this session's find
+## The model-book disagreement is a GOOD direction signal — and it cannot be capped
 
 `fairHold` (new, in the code at an inert default of 1) caps the leg that is ahead
 at a share of its target whenever the player's own model runs ahead of the book
@@ -201,7 +202,7 @@ confirms.
 The two colliding windows really are separated by a 1.6-band gate. Fourteen
 other windows are separated the wrong way by the same gate.
 
-## The volatility-normalised oracle — this session's find
+## The volatility-normalised oracle — an accurate, late witness
 
 Every reading of the outside price in this player measures BTC's distance from
 the price to beat against a FIXED number of dollars: `needDiff = ptbEdge ·
