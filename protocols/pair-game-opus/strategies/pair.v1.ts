@@ -909,6 +909,115 @@ export const ConfigSchema = z.strictObject({
    */
   finishSolv: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * How far the chased leg would have to FALL, in cents a share, for the pair to
+   * still fit inside the ceiling — the discount the plan is quietly counting on.
+   * At or above this, the chase changes hands. 0 disables the rule.
+   *
+   * Finish the chased leg at today's ask, fund the other at the cheapest it has
+   * ever shown, and ask what price the chased leg would have had to be for the
+   * two together to fit inside `qty × pairCeil`. Subtract that from its actual
+   * ask. In the opening minute, with nothing spent and both legs a thousand
+   * short, the answer is two or three cents — the ordinary small overrun of two
+   * asks that sum to about one. In a window that has decided it is negative,
+   * because the leg left behind is quoted at a few cents and funding it costs
+   * almost nothing. In the level 68 window at ninety seconds it is twenty-two
+   * cents: the player holds seven hundred of a leg bought at 0.61, needs six
+   * hundred and fifty of a leg that has never in the window been quoted below
+   * 0.39, and the plan only closes if the leg it is chasing becomes twenty-two
+   * cents cheaper than the screen.
+   *
+   * This is `solvSwap`'s arithmetic read as a PRICE rather than as a comparison,
+   * and that is the whole difference. `solvSwap` asked which of two assignments
+   * overran the ceiling less; both overrun in every market, so what decided it
+   * was a couple of cents of trailing-low noise and it degenerated into
+   * `priority=cheap`. The required discount is a single number in cents a share,
+   * it is near zero everywhere the plan is sound, and it grows only where the
+   * player is deep in one leg and the other has never been abandoned.
+   *
+   * MEASURED AND REJECTED, so it ships at 0, and the prediction above is simply
+   * false. Against a baseline of one failure over the first sixty-eight markets:
+   * 21 failures at 0.10, 19 at 0.14, 19 at 0.18, 21 at 0.18 with `solvGap` 0.15.
+   * The required discount is not small in ordinary windows, because it divides by
+   * the chased leg's REMAINING shares: a leg with fifty left to buy makes the
+   * denominator tiny and the discount enormous, so the rule fires hardest on a
+   * leg that is one clip from done. The same swap driven by the cruder "finish
+   * both at today's asks overruns the budget" test is worse still — 24, 13, 21
+   * and 23 failures across four settings, and 24, 27, 24 and 20 when gated on the
+   * priority leg already holding half, six tenths, seven tenths or eight tenths
+   * of its target, with the demoted leg parked at exactly the gate in market
+   * after market.
+   *
+   * Four shapes of this idea have now been measured and all four cost between
+   * nineteen and twenty-seven of the sixty-seven markets that already pass.
+   * Reassigning the chase is the fifth family to fail on this window after three
+   * share caps and the price caps. Do not try a fifth shape of it.
+   */
+  solvDrop: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Minimum `askFirst − askOther` before `solvDrop` may fire — a second opinion
+   * from the book rather than from the player's own budget.
+   */
+  solvGap: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Share of its target the priority leg must already hold before `solvDrop` may
+   * hand the chase away. 0 disables the gate.
+   *
+   * The rule is about a decision already made and paid for, not about which leg
+   * to buy. Before the player is deep in one leg, "can the pair still be
+   * completed" and "which leg is cheaper" are the same question, and answering it
+   * with the cheaper leg is the rule already known to lose.
+   */
+  solvSwapShare: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * 1 ⇒ a leg demoted by `solvDrop` keeps the allowance the ceiling still holds
+   * for it instead of dropping to `underdogMax`.
+   *
+   * Every rule that reassigns the chase on this player has failed the same way,
+   * and the failure is not in the reassignment. `underdogMax` holds the leg that
+   * is NOT the priority to a loser's price, which is right for a leg the market
+   * has abandoned and wrong for one the player was chasing a tick ago: the
+   * handover becomes a freeze, and the frozen leg stops exactly where the rule
+   * caught it. Letting the demoted leg answer to the ceiling arithmetic alone
+   * means the swap redirects the next purchase without forbidding the previous
+   * one.
+   *
+   * MEASURED AND INERT. With `solvDrop` at 0.10, 0.14 and 0.18 the failure count
+   * over the first sixty-eight markets moves from 21, 19 and 19 to 22, 19 and 20
+   * — noise. So the freeze is not the mechanism of harm: by the time the swap
+   * fires the money is already committed, and giving the demoted leg back its
+   * allowance buys nothing because there is nothing left to spend.
+   */
+  solvFree: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Fraction of the pair budget one leg may commit within any rolling
+   * `burstMs`. 1 disables the cap.
+   *
+   * Every other pace on this player refuses a leg on a condition that can stay
+   * true for the rest of the window: a share count, a price, a total spend. Each
+   * of them has produced the same failure — a leg stopped where the rule caught
+   * it and never resumed, because by the time the condition cleared the leg was
+   * unaffordable. A velocity cap cannot do that. It never says no, only not this
+   * second, and everything it withholds is released by the clock alone a few
+   * seconds later whatever the book does.
+   *
+   * The level 68 window is a burst in the literal sense: six hundred and fifty
+   * shares of one leg, at 0.57 rising to 0.64, inside sixteen seconds. An
+   * ordinary window builds the same position over minutes and never comes near
+   * the limit.
+   *
+   * MEASURED AND REJECTED, so it ships at 1. Against a baseline of one failure
+   * over the first sixty-eight markets: 13 failures at 0.15, 9 at 0.18, 12 at
+   * 0.20, and at 0.20 over a twenty-second window it stops repairing the specimen
+   * at all. It is the least destructive rule in this whole search — the failures
+   * are scattered rather than parked on a threshold, which is the velocity cap
+   * doing what it promised — and it is still nine times the baseline. Delaying a
+   * purchase in a market that moves this fast is the same as refusing it: the
+   * seconds the cap withholds are the seconds the price was available in.
+   */
+  burstShare: z.coerce.number().finite().min(0).max(1).default(1),
+  /** Length of the rolling window `burstShare` is measured over. */
+  burstMs: z.coerce.number().finite().positive().default(30_000),
+  /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
    * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
@@ -2251,6 +2360,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   const boughtRecently = (side: Side, h: number): number => h - (rateQ[side][0]?.h ?? h)
 
   /**
+   * The same deque over MONEY rather than shares, so the burst cap can ask how
+   * much of the pair budget a leg has committed in the last `burstMs`.
+   */
+  const burstQ: Record<Side, { t: number; b: number }[]> = { UP: [], DOWN: [] }
+  const pushBurst = (side: Side, t: number, b: number): void => {
+    const q = burstQ[side]
+    q.push({ t, b })
+    const cutoff = t - cfg.burstMs
+    while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
+  }
+  const spentRecently = (side: Side, b: number): number => b - (burstQ[side][0]?.b ?? b)
+
+  /**
    * The same deque over the book's own spread, so the pace can ask how wide the
    * spread has been for a while rather than how wide it is right now. Head is
    * the trailing minimum. See `edgeHoldMs`.
@@ -2414,6 +2536,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     if (cfg.commitRate > 0) {
       pushRate('UP', nowMs, held.UP)
       pushRate('DOWN', nowMs, held.DOWN)
+    }
+    if (cfg.burstShare < 1) {
+      pushBurst('UP', nowMs, basis.UP)
+      pushBurst('DOWN', nowMs, basis.DOWN)
     }
 
     // The outside read: BTC's distance from the price to beat, and the side it
@@ -2738,6 +2864,36 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const o: Side = first === 'UP' ? 'DOWN' : 'UP'
         if (held[first] >= holdShare * cfg.qty && held[o] < holdShare * cfg.qty) first = o
       }
+      // The chase has run out of MONEY, not out of evidence: one more share of
+      // this leg would leave the other one unbuyable at what it is asking right
+      // now. Refusing alone deadlocks the window — the leg that is not the
+      // priority answers to `underdogMax`, a loser's price a contested leg is
+      // never quoted at — so the chase changes hands instead. See `solvDrop`.
+      let solvDemoted: Side | null = null
+      if (cfg.solvDrop > 0) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        const askF = first === 'UP' ? askUp : askDown
+        const askO = o === 'UP' ? askUp : askDown
+        const needF = first === 'UP' ? needUp : needDown
+        const needO = o === 'UP' ? needUp : needDown
+        const lowO = trailingLow(o)
+        const fundO = cfg.solvFrac * Math.min(askO, Number.isFinite(lowO) ? lowO : askO)
+        // What the chased leg would have to cost, per share, for the pair to
+        // still fit inside the ceiling once the other leg is funded at the
+        // cheapest it has ever shown. The gap between that and its actual ask is
+        // the discount the plan is quietly counting on. See `solvDrop`.
+        const affordF = needF > 0 ? (budgetLeft - needO * fundO) / needF : Infinity
+        if (
+          needF > 0 &&
+          needO > 0 &&
+          held[first] >= cfg.solvSwapShare * cfg.qty &&
+          askF - askO >= cfg.solvGap &&
+          askF - affordF >= cfg.solvDrop
+        ) {
+          solvDemoted = first
+          first = o
+        }
+      }
       if (cfg.priorityLatch === 1) {
         if (conv > 0 || latched === null) latched = first
         first = latched
@@ -2875,7 +3031,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The loser-price cap hands its allowance back as the priority leg fills:
       // by then the bet has been made and the reserve exists to be spent.
       const lift = cfg.underdogLift <= 0 ? 0 : (held[first] / cfg.qty) ** cfg.underdogLift
-      const loserCap = cfg.underdogMax + lift * Math.max(0, budgetOfSecond - cfg.underdogMax)
+      // A leg the solvency rule has just demoted is not a loser the market has
+      // abandoned — it is the leg the player was chasing one tick ago, and
+      // holding it to `underdogMax` is what turns the handover into a freeze.
+      // See `solvFree`.
+      const loserCap =
+        cfg.solvFree === 1 && solvDemoted === second
+          ? budgetOfSecond
+          : cfg.underdogMax + lift * Math.max(0, budgetOfSecond - cfg.underdogMax)
       const capOfSecond = Math.min(budgetOfSecond, loserCap) * underdogRamp
       cap[first] = capOfFirst
       cap[second] = capOfSecond
@@ -3078,6 +3241,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
                 spent,
             ) /
               Math.max(ask, cfg.minPrice))
+      // Burst cap: money, per leg, per rolling `burstMs`. Not a share cap and not
+      // a budget cap — a VELOCITY cap, and the only one of the three that never
+      // refuses a leg permanently. See `burstShare`.
+      const burstRoom =
+        cfg.burstShare >= 1
+          ? Infinity
+          : Math.max(
+              0,
+              cfg.burstShare * cfg.qty * cfg.pairCeil - spentRecently(side, basis[side]),
+            ) / Math.max(ask, cfg.minPrice)
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),
@@ -3090,6 +3263,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
         Math.max(0, rateRoom),
+        burstRoom,
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 

@@ -1463,3 +1463,93 @@ slightly more than the pair budget, so a naive version refuses everything.
 
 Nothing is broken, nothing is half-finished, and the player on disk is the one
 that passed sixty-seven three times.
+
+## Session 22 — five ways to lose the same argument
+
+No new level this session. What I have instead is a much sharper picture of why
+the market that blocks me is hard, and five measured dead ends that the next
+attempt does not have to pay for again.
+
+A reminder of the window. It opens as a coin flip. Ninety seconds in it leans one
+way for about twenty seconds, and inside that lean the player buys its entire
+thousand-share position on that side, at prices climbing from fifty-six to
+sixty-four cents. Eight tenths of everything it has, gone in sixteen seconds. The
+window then spends ten minutes back at even money and finally settles the other
+way. The player is left holding a complete side it cannot match and a third of
+the side it needed, with twenty-eight cents a share to buy shares that never go
+below thirty-five.
+
+Last session I established that capping how much of a side may be owned destroys
+two dozen other markets. The note I left myself was to try the other question
+instead: not "how much may I own" but "does this purchase leave the other side
+still buyable". I built that this session, four different ways, and all four are
+worse than doing nothing.
+
+The first version simply refused the purchase. It stopped the runaway side at
+nine hundred instead of a thousand and saved about sixty dollars, which was not
+enough to buy anything, because the side the player was short of was capped at ten
+cents by a separate rule and would not have bought at thirty-five anyway. So
+refusing on its own is inert: the money is saved and then not spent.
+
+The second version handed the initiative over instead of refusing — stop chasing
+this side, start buying the other one. That fixed the market beautifully, at 0.962
+a pair with a small profit, and cost twenty-four of the sixty-seven markets behind
+it. The reason is arithmetic I should have seen sooner: the two sides of one of
+these markets always sum to about a dollar, so "I cannot afford to finish both at
+today's prices" is true in essentially every market from the first minute. It is
+not a signal, it is the weather.
+
+The third version tried to make it a signal by measuring it as a price. Finish the
+side you are chasing at today's price, fund the other at the cheapest it has ever
+been quoted, and ask what the chased side would have had to cost for the two
+together to fit the budget. The difference is the discount your plan is quietly
+counting on. In this market it is twenty-two cents — the plan only closes if the
+side being chased becomes twenty-two cents cheaper than the screen. In the opening
+minute of a normal market it is two or three. I thought that was a clean
+separation. It is not, and the flaw is embarrassing in hindsight: the number is
+divided by how many shares of the chased side are still to buy, so a side with
+fifty left to go produces an enormous discount for arithmetic reasons alone. The
+rule fires hardest on a side that is one clip from finished, which is the worst
+possible moment to interrupt it. Nineteen failures.
+
+The fourth version guessed that the harm came from a freeze rather than from the
+handover — when the initiative changes hands, the demoted side drops to a
+ten-cent limit and simply stops. Lifting that limit for a side that had just been
+demoted changed the results by nothing at all. So the freeze is a symptom. By the
+time any of these rules fire, the money is already spent, and giving a side its
+allowance back buys nothing because there is nothing left.
+
+The fifth was different in kind and I still think it was the best idea of the
+session: a speed limit. Not a limit on how much you may own or what you may pay,
+but on how much of the budget one side may absorb in any thirty seconds. It never
+refuses anything permanently — whatever it withholds, the clock hands back a few
+seconds later. This market is a burst in the literal sense and an ordinary market
+never comes near the limit. It repaired the market and cost nine others, which is
+by a wide margin the least destructive thing I have tried, and still nine times
+too expensive. What it taught me is that in a market moving this fast, delaying a
+purchase by twenty seconds is the same as refusing it, because the twenty seconds
+you waited were the twenty seconds the price existed for.
+
+So that is five families now — three kinds of cap on how much you may own, caps on
+what you may pay, caps on total spending, reassigning which side you chase, and a
+speed limit — and every one of them costs between nine and forty-three of the
+markets that already work. They fail for one reason, and it is worth stating
+plainly because it is the shape of the whole problem: the behaviour that loses this
+market is the same behaviour that wins the other sixty-seven. Buying a side hard
+while it is running is correct, and this is the market where it is not, and nothing
+visible at the time distinguishes them.
+
+I have stopped looking for a brake. The thing I noticed while reading the
+timelines, and what I have left as the next thread, is at the other end of the
+trade entirely. In the first second of this market the player pays fifty-nine and
+a half cents for two hundred shares of one side while the other side is on the
+same screen at forty-four. That single clip is a third of what makes the pair
+unaffordable eleven minutes later, and it happens before any information exists —
+the market is a coin flip at that moment and the player is simply buying the
+dearer of two equally uninformative sides, because the rule that picks a side
+reads "dearer" as "leading". Refusing that clip costs nothing, because nothing has
+been bought yet. It is the only moment in this window where a refusal is free.
+
+Everything on disk is the player that passed sixty-seven, re-verified this session
+at sixty-seven out of sixty-seven. The five failed ideas are in the code with
+their measurements written next to them and switched off.
