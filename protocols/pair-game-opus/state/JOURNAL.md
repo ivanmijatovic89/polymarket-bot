@@ -209,3 +209,80 @@ narrower: hold the second leg back only while the two prices are still close
 together, and let it go once they have genuinely separated. That is where the
 next session should start, and it starts from five levels standing rather than
 four.
+
+---
+
+## 2026-08-03 — Session 4: level six falls, and most of the difficulty was not the trading
+
+The market blocking last session opens almost evenly priced — one side at 53
+cents, the other at 49 — and then moves one way for the rest of the quarter
+hour, ending with the cheap side at a tenth of a cent and the other at
+ninety-nine. The player lost it the same way every time: in the opening seconds
+it bought a thousand shares of the side that was about to become worthless, at
+around fifty cents each, and having spent its allowance it could never afford
+the side that mattered.
+
+The fix that worked is embarrassingly blunt, and I only saw it after measuring
+all six markets' prices minute by minute instead of reasoning about them. Every
+single window in this universe ends with one side under twelve cents. So the
+side the player is *not* chasing will always be cheap later, and it has no
+business paying a coin-flip price for it before the market has revealed
+anything. The second leg now simply may not bid above twenty-five cents. That
+one rule turns the level from unwinnable to winnable, and it is not delicate:
+anywhere between eight and fifty cents works equally well, and I picked the
+middle. Above about sixty it stops working, for the obvious reason — the losing
+side of that market opens at fifty-three, so a cap above that lets it fill
+immediately.
+
+Alongside it I removed a speed limit on how fast the player may reach across the
+spread. I had already loosened this last session; this session I took it off
+entirely. The reasoning is that the budget rule already caps what can be spent,
+so rationing the same purchases by the clock as well only guarantees that the
+one leg with a deadline misses it.
+
+The third change is the one worth telling you about, because it was not a
+trading idea at all. Runs with identical settings kept producing wildly
+different results — sometimes a clean win, sometimes a leg that stopped buying
+a few seconds in and never resumed. Chasing that down, I found that when the
+player cancels an order to move its price, the cancellation and the original
+order both travel to the exchange with a small random delay, and the cancel can
+overtake the order it refers to. It then arrives before there is anything to
+cancel, and the simulator quietly discards it without telling anyone. The player
+sits waiting for an acknowledgement that will never come, holding the single
+order slot the rules allow it per side, and that side simply stops trading for
+the rest of the market. In the persisted results this looks exactly like a
+strategy that gave up. The cure is one line of discipline: never cancel an order
+until the exchange has confirmed it exists. This was the largest single source
+of noise in everything I had measured, which means some of my earlier
+comparisons — and probably some from previous sessions — were partly measuring
+this rather than the trading.
+
+With all three in place, level six passes fifty runs out of fifty, and levels
+one through five come along unchanged. Every market ends with exactly a thousand
+shares of each side, pairs costing between ninety-four and ninety-seven cents,
+all profitable. I should say plainly that ninety-four to ninety-seven against a
+ninety-eight ceiling is thin, and it does not need to be: in these six markets
+the two cheapest moments add up to somewhere between eighteen and sixty cents.
+The player leaves that on the table because once it finishes one leg it buys the
+other immediately instead of waiting for the close. Widening that gap is the
+best insurance I can think of for the levels ahead, and I have not done it.
+
+I spent what was left scouting level seven, and it fails every time, on the new
+market, in a way I can name exactly. That market opens with one side at
+fifty-eight and the other at forty-four, and the cheaper one goes on to win. The
+player has a rule that says when the book opens leaning hard, back the
+favourite immediately — a rule I added two sessions ago because one market could
+only be won that way. Here the lean is just wide enough to trigger it, so the
+player backs the fifty-eight-cent side, which promptly collapses. Worse, being
+the favoured leg exempts it from the new twenty-five-cent cap, so it gets bought
+freely and the money is gone before the trend reveals itself half a minute
+later.
+
+So the rule is right in one market and wrong in three, and the width of the
+opening lean does not tell them apart — the market where it works opens at a
+nineteen-cent gap, and two where it fails open at nineteen and fourteen. What
+does look like it tells them apart is direction: where the rule works, the
+favourite starts climbing from the first seconds; where it fails, the favourite
+starts falling immediately. Making the player wait a few seconds for that, or
+requiring the favourite to actually be rising before backing it, is where the
+next session starts — from six levels standing rather than five.

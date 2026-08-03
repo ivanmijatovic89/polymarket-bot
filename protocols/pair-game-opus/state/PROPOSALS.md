@@ -79,3 +79,40 @@ realized PnL stays at 0 all window.
 **Scale note for whoever decides:** a 3,000-share pair costs roughly $2,900 of
 working capital per market, so the same change also raises the notional a live
 bot could commit in one window. That is a risk decision, not just a constant.
+
+---
+
+## P-002 — A cancel that overtakes its own order is dropped silently, with no terminal event
+
+**Status:** worked around inside the player on 2026-08-03; no shared change is
+required. Recorded because the hazard is generic and any strategy that tracks
+its own open orders can hit it.
+
+**What happens.** `BacktestExecution.cancelOrderNow`
+(`src/trading/execution/BacktestExecution.ts:567`) looks the order up in
+`openByClientId` and, when it is not there, returns `{ events: [] }` — an
+explicit no-op. Place and cancel are both queued through `computeExecuteAtMs`,
+which adds the configured latency plus **independent** symmetric jitter. RULES
+pin that at 140 ms ± 20 ms, so a cancel issued on the tick after its own place
+can be scheduled up to 40 ms *earlier* than the place it refers to. It then
+arrives at an empty book, is dropped, and the place lands afterwards.
+
+**Why it matters.** The strategy has emitted a cancel and will never receive
+`order_done` or `order_rejected` for it. If it tracks "one live order per
+outcome" — which RULES require — that slot is occupied forever and the leg stops
+trading for the rest of the window. Observed directly: the DOWN leg of
+`btc-updown-15m-1775092500` sat on a stale 0.47 bid while its own target climbed
+to 0.76, and finished the market at 400 of 1,000 shares. Across 20-run samples
+this was the single largest source of run-to-run variance, and it was invisible
+in the persisted rows — the market simply looks like a strategy that stopped.
+
+**Player-side workaround (shipped).** Track `order_open` and send a cancel only
+for an acknowledged order; re-send a cancel that produces no terminal event
+within 2 s. Waiting for the acknowledgement costs one tick and makes the
+overtake impossible, because an order that is open has provably already landed.
+
+**What would remove the hazard for everyone** — a shared-`src/` change, which
+this protocol may not make: have `cancelOrderNow` emit a terminal event for an
+unknown `clientOrderId` (an `order_rejected` with reason `unknown_order` would
+do), so a cancel always resolves. Alternatively, execute a queued cancel no
+earlier than the place for the same `clientOrderId`.
