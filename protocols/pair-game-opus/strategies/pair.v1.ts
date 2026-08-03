@@ -1034,6 +1034,35 @@ export const ConfigSchema = z.strictObject({
    */
   ptbFairAfterMs: z.coerce.number().finite().min(0).default(45_000),
   /**
+   * Fraction of the window after which the disagreement stops overriding
+   * anything. 1 ⇒ it never stops, which is what ships.
+   *
+   * `ptbFairAfterMs` opens this gate because the book's opening lean should not
+   * be faded; this closes it for the opposite reason. The override redirects the
+   * chase, and redirecting the chase is only affordable while there is still a
+   * chase to redirect. Late in a window the player is no longer choosing between
+   * two legs, it is finishing one, and a gate that changes its mind then leaves
+   * the half-built leg unmatchable — the failures it produces are share counts
+   * of exactly a half, 1000/500 and 500/1000, not pair costs.
+   *
+   * The reason to want it is measurable. Narrowing `ptbFairEdge` from the
+   * shipped 0.07 to 0.03 repairs level 45's blocker outright and does so
+   * repeatably — it is the only reading measured so far that names that market's
+   * reversal from inside the window. It costs two markets already on the ladder,
+   * and both of them lose their leg late. If the narrow reading can be given the
+   * early window and denied the late one, the repair comes without the bill.
+   *
+   * MEASURED AND INERT AGAINST THAT BILL, so it ships at 1. Closing the gate at
+   * 0.15, 0.25, 0.4 and 0.6 of the window all leave the two casualties failing
+   * at exactly the same share counts, 1000/500 and 500/1000, as the narrow
+   * reading with no closing time at all. The premise was wrong: those two legs
+   * are not abandoned late, they are misassigned inside the first two minutes
+   * and the half-built shape is only where they come to rest. The knob remains
+   * because the closing time it expresses is real and cheap, but nothing on the
+   * ladder currently needs it.
+   */
+  ptbFairUntil: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
    * 1 ⇒ the priority leg is taken away from a leg whose completion the ceiling
    * can no longer pay for, and given to the other one.
    *
@@ -1131,6 +1160,78 @@ export const ConfigSchema = z.strictObject({
    * to be abandoned and the other has not.
    */
   solvAfterMs: z.coerce.number().finite().min(0).default(60_000),
+  /**
+   * Fraction of the window over which a leg's holding allowance ramps from
+   * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
+   *
+   * Every other pace in this file is keyed to evidence — how far the asks have
+   * separated, how confident the book is, what the outside price says. This one
+   * is keyed to nothing but the clock, and that is the point. The market it
+   * exists for leans hard for a minute, and every evidence-shaped rule agrees
+   * with the lean, because at that moment the evidence genuinely does say the
+   * leg is running away. Then the window turns and never comes back.
+   *
+   * The anatomy of the specimen: at seventy-five seconds the player owned all
+   * 1,000 of the leg the book was favouring, at an average of 0.62, having spent
+   * eight tenths of its ceiling in the first minute and a quarter of a
+   * fifteen-minute window. Twenty seconds later that leg began a slide it never
+   * recovered from, ending at 0.002. The other leg was quoted at 0.39 while the
+   * last four hundred shares of the first were being taken at 0.64. There was no
+   * reading available at seventy-five seconds that named the reversal — but
+   * there was also no reason to have finished anything yet. Fourteen minutes of
+   * trading remained and the player had no budget left to trade them with.
+   *
+   * So the rule says only this: this early in the window, you may not own this
+   * much of one leg yet. It is a SIZE limit and it posts nothing, which is what
+   * separates it from every price cap this file has rejected — `chasePad` and
+   * the reserve floor both leave a bid resting below the market, and a leg that
+   * reverses falls straight through it, so the player pays the capped price
+   * anyway and the cap buys nothing but a worse entry.
+   *
+   * The cost is real and is the mirror image: in a window that trends and does
+   * NOT come back, the winner is cheapest in its first seconds, and a clock that
+   * refuses to own it then makes it be bought later and dearer. `holdRamp` is
+   * the length of that penalty and `holdRamp0` its depth.
+   *
+   * MEASURED AND REJECTED, and the mirror image turns out to be much the larger
+   * half. Over the first sixty markets, against five failures with the ramp off:
+   * 14 failures at (span 0.15, floor 0.5), 20 at (0.3, 0.5), 18 at (0.3, 0.65),
+   * 24 at (0.5, 0.5) — monotone in how much restraint is applied, and ruinous
+   * well before the restraint is deep enough to matter. The failures are share
+   * counts, not pair costs: market after market ends with a leg stranded at 600
+   * to 750 of 1,000, which is the signature of a leg that was refused while it
+   * was cheap and unaffordable by the time the clock let go of it.
+   *
+   * It does not even repair the specimen. At its deepest useful setting market
+   * 45 improves from 1000/344 to 1000/531 and still fails; at the shallower ones
+   * it is unchanged share for share. The reason is the pair ceiling rather than
+   * the pace: by the time the ramp lets go, the leg it restrained has still been
+   * bought at an average around 0.55, and the other leg has by then reversed
+   * past 0.52, so no allowance the ceiling can compute will buy it. Slowing the
+   * accumulation does not help when the damage is the PRICE of what was
+   * accumulated; the clock simply cannot tell the leg that is running away from
+   * the leg that is about to turn round.
+   */
+  holdRamp: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Share of the target either leg may hold at the open, before the ramp has
+   * opened at all. 1 disables the ramp as surely as `holdRamp` 0.
+   */
+  holdRamp0: z.coerce.number().finite().min(0).max(1).default(0.5),
+  /**
+   * 1 ⇒ when the priority leg has run into its ramp allowance and the other leg
+   * has not, the other leg becomes the priority.
+   *
+   * Without this the ramp deadlocks the market instead of steering it. A leg
+   * that is not the priority is held to `underdogMax`, a loser's price it will
+   * not be quoted at while it is still contested — so freezing the priority leg
+   * and leaving the assignment alone stops BOTH legs, and the player waits out
+   * the ramp having bought nothing with the time. Handing the chase over is what
+   * turns the refusal into a purchase: the newly promoted leg gets a real
+   * allowance and spends the paused minutes buying the side the player is short
+   * of, at whatever the book is asking for it.
+   */
+  holdSwap: z.coerce.number().int().min(0).max(1).default(1),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   debug: z.coerce.number().int().min(0).max(1).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
@@ -1406,6 +1507,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       Math.abs(fairGap) < cfg.ptbFairEdge ||
       Math.abs(pBook - 0.5) > cfg.ptbFairBookMax ||
       elapsed < cfg.ptbFairAfterMs ||
+      (cfg.ptbFairUntil < 1 && elapsed >= cfg.ptbFairUntil * WINDOW_MS) ||
       !modelBacks
         ? null
         : fairWant
@@ -1507,6 +1609,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // to pay, whether we wait for the book or reach out and take it.
     const cap: Partial<Record<Side, number>> = {}
     const target: Partial<Record<Side, number>> = {}
+    // Share of the target either leg is allowed to hold this early in the
+    // window — see `holdRamp`. 1 whenever the ramp is off or has fully opened.
+    const holdShare =
+      cfg.holdRamp <= 0
+        ? 1
+        : Math.min(1, cfg.holdRamp0 + (1 - cfg.holdRamp0) * (elapsed / (cfg.holdRamp * WINDOW_MS)))
+
     // The priority leg, once both legs are contested — the underdog pace below
     // keys off it. Null when only one leg is left, where pacing has no meaning.
     let leadSide: Side | null = null
@@ -1578,6 +1687,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         ) {
           first = o
         }
+      }
+      // A leg that has run into its ramp allowance cannot be bought, so leading
+      // with it leads with nothing: hand the chase to the leg that still has
+      // room. See `holdSwap`.
+      if (cfg.holdSwap === 1 && holdShare < 1) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        if (held[first] >= holdShare * cfg.qty && held[o] < holdShare * cfg.qty) first = o
       }
       if (cfg.priorityLatch === 1) {
         if (conv > 0 || latched === null) latched = first
@@ -1744,6 +1860,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.edgeFull <= 0 || leadSide === null || finishing || (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
+      // Clock pace: this early in the window, neither leg may own more than
+      // `holdShare` of its target. Only while both legs are still contested —
+      // a leg left alone by a finished partner has no decision left to protect
+      // and its shares simply have to be bought.
+      const rampRoom =
+        cfg.holdRamp <= 0 || leadSide === null ? Infinity : cfg.qty * holdShare - held[side]
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),
@@ -1751,6 +1873,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, openRoom),
         Math.max(0, earlyRoom),
         Math.max(0, edgeRoom),
+        Math.max(0, rampRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
