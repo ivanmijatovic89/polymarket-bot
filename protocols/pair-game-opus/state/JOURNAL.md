@@ -602,3 +602,82 @@ quarter of the winner is never affordable again. The fix I want to try is the
 obvious one and does not refuse anything: a side that is three quarters built
 should be finished, because shares that never get matched are a total loss and
 that is worth more than the pace being violated.
+
+## Session 10 — seven levels, and the argument I had been using against myself
+
+Last session left me a plan for level thirty-eight and it worked on the first
+try. The player had been correctly picking the winning side of that market and
+building three quarters of it cheaply, and then a pacing rule froze it there. The
+rule limits how large a position may be relative to how much the two prices have
+separated — sensible while a position is being built, and quietly wrong once most
+of it exists, because that separation SHRINKS when the market gets indecisive
+again. A position built under a wide gap is retroactively over its limit when the
+gap narrows, and simply stops growing. So the rule had stopped being a limit on
+new commitment and become a freeze on an existing one, which is a completely
+different thing: not growing a position costs you an opportunity, but not
+finishing one costs you everything already spent on it, since a share with no
+partner can never be paired. Now anything past three quarters built gets
+finished. That market went from three quarters to a full position, and level
+thirty-eight was done in about twenty minutes.
+
+Thirty-nine came free. Forty did not, and getting it meant reversing a decision I
+had made twice before and written up at length both times.
+
+The idea is that when the player commits to one side, it must set money aside for
+the other — and the question is how much. It had been assuming the second side
+would end up nearly worthless, which is true in a market that keeps running and
+false in one that turns around. The obvious alternative is to set aside enough to
+buy the second side at the cheapest price that side has actually been quoted at,
+which is a fact rather than a hope. I measured that twice in earlier sessions and
+rejected it twice, with a good reason: putting a ceiling on what a side may pay
+doesn't stop you buying it, it just leaves your order sitting a few cents lower,
+and if that side then collapses your order fills on the way down anyway. Same
+shares of the same loser, marginally cheaper.
+
+What I had missed is that the argument only holds when the side goes on to fall.
+The market blocking level forty does the opposite: the player chases one side
+from fifty cents up to sixty-eight and finishes it there, against a reserve that
+assumed the other side would be available at ten cents when it had never been
+quoted below forty-three. An order left behind at fifty-three doesn't get run
+over by a price going the other way — it just never fills. Against a rising
+price, a limit on what you'll pay IS a limit on how much you'll buy. And the
+market my old objection was really about is now handled by a different mechanism
+anyway, so the reserve no longer has to cover it. It ships, and levels forty
+through forty-four all fell to it in one go. Seven levels this session.
+
+Then I spent the rest of the session losing to level forty-five, and I think the
+losing was worth more than another level would have been.
+
+Five markets block the way ahead and they are all the same animal: the market
+leans one way for a minute, the player completes that side, and the market then
+reverses permanently, leaving it holding a full position in the loser and about a
+third of the winner. The specimen is stark. The winning side was never quoted
+above sixty-three cents and the losing side ended up essentially free, so a
+forty-cent pair was sitting there for anyone who bought the winner early and
+picked up the loser at the close. The player bought precisely backwards.
+
+I tried three things and all three failed, which is the useful part. Setting
+aside more money for the second side is monotonically worse and doesn't even fix
+the market in question — and it fails by exactly the mechanism my old objection
+described, which was satisfying to watch happen for real. Requiring Bitcoin's own
+price to confirm the market's lean before the player may build a large position
+is much worse than doing nothing, at every strength I tried. And the size limit
+that won level thirty-seven cannot reach these markets at all: it only engages
+once the player has been made to buy BOTH sides, and here the second side is
+barely a third built, so lengthening it, loosening it or adding a new condition
+to it changes literally not one share of the outcome. I added that new condition
+anyway, measured it, found it costs a market I already had, and left it switched
+off with the numbers written down.
+
+So I know three families of answer that don't work here, and I have a fairly
+precise statement of what does need to happen: the player completes a position at
+around sixty-three cents while the other side has never once been quoted below
+thirty-seven, which is a pair the evidence already says is impossible. The
+untried move is to refuse the purchase outright rather than to bid lower for it —
+place no order at all instead of a cheaper one. That distinction is exactly what
+every price limit in this player has got wrong, and it is where I would start
+next.
+
+Standing at forty-four levels, with all forty-four re-verified from scratch on
+the final code, every market ending with a full thousand shares of each side and
+the worst pair costing ninety-seven cents against a ceiling of ninety-eight.
