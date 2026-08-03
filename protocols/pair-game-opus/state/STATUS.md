@@ -11,12 +11,12 @@
 Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
 run 3743+N). Levels 46–51 at `3d8055f9`. Levels 52–59 at `e16f30fe`. Levels
 60–66 at `18640212`. Level 67 at `80d695a0`, runs 4231/4232/4233; again at
-`c2791855` as run 4353; at `00a423e7` as run 4380; and again at this session's
-HEAD as run **4409** (`play-level --level 67`, 67/67).
+`c2791855` as run 4353; at `00a423e7` as run 4380; at `fd08c719` as run 4409;
+and again at this session's HEAD as run **4429** (`play-level --level 67`, 67/67).
 
-The first 68 at shipped defaults: run 4361 and, at this session's HEAD, the
-`L68_base` probe — exactly one failure, `btc-updown-15m-1775148300`, 1000/343.75.
-Every parameter added this session is inert at its default.
+The first 68 at shipped defaults, at this session's HEAD: exactly one failure,
+`btc-updown-15m-1775148300`, 1000/343.75. Every parameter added this session
+(`fairHoldZ`, `volTauMs`, `volSampleMs`, `debug=2`) is inert at its default.
 
 ## Level 68 — the open problem
 
@@ -86,6 +86,9 @@ for a global pace or cap change.**
 | `reserveFull` 0.7 / 1.0 | specimen 1000/594 — still fails |
 | `pairCeil` 0.975 / 0.978 (+ matching `finishCeil`) | 1 — safe and inert |
 | **`fairHold`** 0.72/0.06, 0.72/0.08, 0.65/0.06, 0.60/0.06 | **9 / 7 / 8 / 8 (repairs robustly)** |
+| `fairHold` 0.72 + `fairHoldZ` 1.0 / 0.8, gap 0.06 | 9 / 7 — the release changes almost nothing |
+| `fairHold` 0.72/0.08 + `fairHoldZ` 1.0; 0.60/0.06 + 1.0 | 7 / 8 — same |
+| the parity hold released by the oracle (bands 1.2–3.0, hold 0–0.5) | 7 at BEST, on perfect execution — see above |
 
 Six families have now been tried on this window and every one costs between
 seven and forty-three of the sixty-seven markets that already pass: share caps,
@@ -117,6 +120,41 @@ Casualties at (0.72, 0.06), all of which pass at defaults: `…1775092500`,
 `…1775093400`, `…1775095200`, `…1775104200`, `…1775107800`, `…1775120400`,
 `…1775131200`, `…1775132100`, `…1775140200`. Disjoint from `reserveLow`'s nine.
 
+### Why a release cannot save it — measured, and it kills the family
+
+The obvious repair, and the one this session built (`fairHoldZ`), is to make the
+cap a DELAY: hold the leg, then let it go when a reliable witness agrees with the
+model. The witness exists and it arrives in time. Measured in the player's own
+reading, the volatility-normalised oracle names the winner at one sigma at
+t+135s, 181, 292, 465, 536, 540, 576, 588 and 709 in the nine casualties — every
+one of them, and in the level 68 window it never reaches 0.8 for the leg the cap
+stops, so the repair is not at risk.
+
+It changes almost nothing: 9 → 9 failures at (0.72, 0.06, z=1.0), 7 → 7 at
+(0.72, 0.08), 9 → 7 at z=0.8. Every remaining failure is still the capped leg
+sitting on EXACTLY 720 shares.
+
+The reason is that the cap does not save the money, it REDIRECTS it. Stopping one
+leg hands the chase to the other, which is then bought out completely, so by the
+time the witness speaks the budget is gone: `…1775092500` is at 1000/720 having
+spent $789 of $970, and the 280 shares it still owes cost $263 at the release
+price; `…1775132100` is at $864 spent with $199 still to pay. The release fires
+and buys nothing.
+
+So a released cap needs the money held back as well as the shares — and holding
+the money back is the parity hold, which is separately dead. `fairHold` is
+finished: do not spend another session on it.
+
+## Going underwater is normal too
+
+`tools/underwaterScan.ts` measures, per market, the worst moment before t+600s at
+which the player owes more on the leg it is behind on, at that leg's current ask,
+than it has budget left. The level 68 window peaks at 2.20× (656 shares at 0.62
+with $185 left, t+237s) and is TWELFTH of 68 — eleven windows that pass go
+further underwater than it does, up to 5.69×. Committing past your own money is
+the normal operation of this player, not the anomaly, which is the same answer
+`solvDrop`, `reserveLow` and `finishSolv` gave one experiment at a time.
+
 ## The other measured foothold — `reserveLow=0.8`
 
 Passes the specimen outright, 1000/1000 at 0.9668. Knife-edge in the parameter
@@ -131,30 +169,84 @@ prices the leading leg's cap at 0.64–0.71 while its ask runs 0.68 → 0.99, so
 leg is refused four cents behind the market for the entire window and ends at
 zero. The money the reserve saved was being saved for a leg that ended at 0.13.
 
-## The live thread — a parity hold released by the oracle
+## The parity hold released by the oracle — MEASURED DEAD
 
-This is the only shape whose arithmetic works in BOTH colliding windows, and it
-has not been built. Hold both legs at about a third of target and buy nothing
-more until the oracle names a side by a HIGH multiple of its band; then buy the
-named leg out at once and finish the other in the closing minutes.
+The shape the last session left as the next action (hold both legs, buy nothing
+until the oracle names a side by a high band, then buy the named leg out and
+finish the other late) was measured over all 68 markets before being built, and
+it does not survive its own arithmetic. It was right about the two colliding
+windows and wrong about the rest.
 
-- Level 68 window: the oracle's reading for UP peaks at 1.47 bands (t+96) — it
-  never reaches 1.6 — and reaches 1.70 for DOWN at t+722 with DOWN asking 0.82.
-  Cost: 344 pairs at 1.035 plus 656 at (0.828 + 0.106) ⇒ **$969**, inside.
-- `…1775110500`: the oracle reaches 1.83 bands for UP at t+61 with UP asking
-  0.85, the loser then falling to 0.03. Cost: 344 at 1.035 plus 656 at
-  (0.859 + 0.032) ⇒ **$941**, comfortably inside.
+`tools/parityScan.ts`, over the whole-window observation channel, scores exactly
+that plan: 344 pairs at 1.035 plus the rest at the named leg's ask when the band
+is first crossed plus the OTHER leg's cheapest ask any time afterwards — perfect
+execution, no depth limit, no latency, and the loser bought at its best price of
+the window. Even so:
 
-So a gate near 1.6 bands separates them, which nothing else has. What is unknown
-and must be measured before anything is tuned: how many of the 67 ever produce a
-1.6-band reading at all, how late, and at what ask. A window that never confirms
-would sit at 344/344 and fail, so the shape needs a fallback for that case —
-probably the current behaviour, released on a clock late in the window.
+| Band | Never confirms | Names the LOSER | Over the $980 ceiling |
+|---|---|---|---|
+| 1.2 | 0/68 | 20 | 10 |
+| 1.4 | 0/68 | 15 | 12 |
+| 1.6 | 0/68 | 14 | 12 |
+| 2.0 | 0/68 | 11 | 13 |
+| 3.0 | 0/68 | 2 | 35 |
 
-Note this is NOT the `holdRamp`/`spendPace` family (16 and 18 failures). Those
-ration by the clock, which delays the chase in exactly the trending windows that
-need it early. This rations until an oracle threshold and then releases
-everything at once.
+Raising the band buys accuracy and pays for it in lateness: at 3.0 the reading is
+almost never wrong, and by the time it speaks the winner asks 0.93–0.96. Holding
+less early helps a little and changes nothing: at hold 0 the floor is 7 markets
+over budget at band 1.4. Seven unaffordable windows against the shipped player's
+one. The fallback for a window that never confirms is moot — every window
+confirms.
+
+The two colliding windows really are separated by a 1.6-band gate. Fourteen
+other windows are separated the wrong way by the same gate.
+
+## The volatility-normalised oracle — this session's find
+
+Every reading of the outside price in this player measures BTC's distance from
+the price to beat against a FIXED number of dollars: `needDiff = ptbEdge ·
+sqrt(timeLeft)` with `ptbEdge ≈ 60`, and `pModel` likewise divides by a constant
+`ptbSigma`. The same sixty dollars therefore counts the same in a calm quarter
+hour and a violent one.
+
+Divide instead by BTC's OWN measured volatility — the mean square of its
+one-second moves over a trailing few minutes — and the reading becomes a true
+z-score, `|diff| / sqrt(volVar · secondsLeft)`. Measured over all 68 markets
+(`tools/volScan.ts`), at the first instant each reading crosses a band:
+
+| Reading | Band | Names the LOSER | Median crossing |
+|---|---|---|---|
+| fixed | 1.2 | 20/68 | t+153s |
+| **adaptive** | 1.2 | **3/68** | t+574s |
+| fixed | 1.6 | 14/68 | t+262s |
+| **adaptive** | 1.6 | **1/68** | t+680s |
+| fixed | 2.0 | 11/68 | t+423s |
+| **adaptive** | 2.0 | **0/68** | t+783s |
+
+So it is a much better witness and a much later one, and the two facts are the
+same fact. It is useless as a gate on the chase — a player that waited for one
+sigma would buy every winner at 0.71–0.94, which is the parity plan that just
+died. It is exactly right as a RELEASE.
+
+It also does not separate the two colliding windows at the decisive moment: the
+level 68 window reads 0.52–0.56 sigma while the player is buying UP at t+81–91,
+and `…1775110500` reads 0.57 sigma at t+61 while the player is buying UP at 0.85.
+Nothing measured so far separates those two instants except the model-book
+disagreement.
+
+The reading is in the code as `outsideZ` (estimator time constant `volTauMs`,
+default 180 s) and appears in both debug channels as `z=`. Nothing reads it
+except `fairHoldZ`.
+
+## Not an outlier: buying dear while unconfirmed
+
+Before building anything on "do not pay this much for a leg the outside price has
+not confirmed", `tools/buyScan.ts` counted, per market, the shares bought at an
+ask of 0.55 or more while the oracle had not confirmed that leg to 1.6 bands. The
+level 68 window is FOURTH on that list with 1063 such shares, and 26 of the 68
+markets are at 1000 or more. Buying dear and unconfirmed is not an anomaly — it
+is the normal operation of the player. A price cap conditioned on the oracle
+would fire in nearly every window.
 
 ## What passed level 67 — `oracleReserve`
 
@@ -208,6 +300,23 @@ like a result.**
 - `tools/probe2.sh <tag> "<slugs>" [--param k=v ...]` — one parameter set over an
   explicit slug list; writes `/tmp/pg/<tag>.{json,err,rows}`. Use this rather
   than `probe.sh`, which swallows stderr.
+- **`--param debug=2` is the observation channel**: one line per market per
+  `debugEveryMs` for the WHOLE window, emitted above every early return, so it
+  keeps reporting after both legs are complete. `debug=1` stops the moment the
+  player is done, which silently truncates any measurement of what happened
+  later — half the markets never even print their summary line. Every `debug=2`
+  line carries its own slug, so parallel chunks can be parsed without tracking
+  market boundaries. One pass over the first 68 takes about four minutes in four
+  parallel chunks and is worth far more than a probe: three of this session's
+  four results came from it without running the player at all.
+- `tools/parityScan.ts`, `tools/buyScan.ts`, `tools/volScan.ts` — offline
+  analyses of that channel (the parity plan, what the player pays and when, and
+  the volatility-normalised reading). `volScan.ts --dump <slug>` prints both
+  oracle readings second by second; `--release <z>` prints when each window's
+  WINNER is first named at that many sigma, and at what ask.
+- **`/tmp` is case-insensitive here.** Probe tags `Z1` and `z1` are the same
+  files, so a run can silently read a previous session's rows. Delete the target
+  `.rows` before waiting on it.
 - Failure count from a probe's rows:
   `awk '$1 ~ /^btc-updown/ {split($9,a,"/"); if (a[1]+0<1000 || a[2]+0<1000 || $3+0<=0 || $4/1000>0.98) print $1, a[1]"/"a[2]}' /tmp/pg/<tag>.rows`
 - `tools/lib/seedRandom.mjs` — see above.
@@ -220,8 +329,9 @@ like a result.**
   parallel on 10 cores. `--param debug=1 --param debugEveryMs=1000` slows it
   about tenfold.
 - Debug timelines go to **stderr**. Tick lines carry `held=`, `spent=`, `tgt=`,
-  `lead=`, `edg=`, `out=`, `diff=`/`need=` (the oracle band), `pModel=`/`pBook=`,
-  `want=`/`gap=` (the model-book disagreement) and `chs=`.
+  `lead=`, `edg=`, `out=`, `diff=`/`need=` (the oracle band), `z=` (the same
+  distance in measured sigma, `!` once `fairHoldZ` has released a cap),
+  `pModel=`/`pBook=`, `want=`/`gap=` (the model-book disagreement) and `chs=`.
 - The first N slugs:
   `npx tsx protocols/pair-game-opus/tools/universe.ts --first N --slugs-only`
   (cache them to a file; the sweeps above use `/tmp/pg/slugs68.txt`).
@@ -231,25 +341,39 @@ like a result.**
   fix is in the code (`fairCapSide` / `fairHandover` are cleared above the
   branch); check any new per-tick latch the same way.
 
-## Next action
+## What is left, and where to look
 
-Build the parity hold released by the oracle, described above. Order of work:
+Seven families have now been tried on this window and every one costs between
+seven and forty-three of the sixty-seven markets that already pass. What the four
+measurements of this session add up to is that **the level 68 window is not an
+outlier in anything the player can see about ITSELF**: not in what it pays
+(fourth of 68 in shares bought dear and unconfirmed, with 26 windows at the
+maximum), not in how far it commits past its own money (twelfth of 68, and eleven
+passing windows go further), and not in what the outside price says at the moment
+it commits (0.52–0.56 sigma, indistinguishable from `…1775110500`'s 0.57 at the
+moment that window's chase is essential). Every rule that scores the player's own
+state fires everywhere or nowhere. That is why six families have died the same
+death.
 
-1. **Measure first, before building the rule.** Over the first 68 markets,
-   record for each window the earliest time the oracle reading (`outsideFrac`)
-   crosses 1.4 / 1.6 / 1.8 bands, which side it names, whether that side wins,
-   and the named side's ask at that instant. That table decides whether the shape
-   is viable at all and where the threshold goes; it is one debug run plus an
-   awk pass over `pModel`/`diff`/`need`/`out` in the tick log.
-2. Only then add the two knobs: a share at which both legs pause, and the band
-   that releases them. Give the release a late-clock fallback so a window that
-   never confirms does not sit at a third of target.
+The one reading that does separate the two windows is the model-book
+disagreement, and this session established that it cannot be used as a cap
+because a cap redirects money rather than saving it.
 
-Do not reopen: the opening-lean thread (`convDwellMs`, `openCheapMs`), any share
-or price cap on the chased leg, any solvency test of the form "can both legs be
-afforded at today's asks" (the two asks always sum to more than the ceiling, so
-it is true in every window at every instant), and any rule that treats the
-model-book disagreement as a warning.
+So the next session should look at the ONE thing not yet measured: what the book
+does AROUND the commitment rather than what the player does. Concretely, over the
+observation channel: in each window, how quickly does the leaning leg's ask come
+BACK after the lean — the shape of the excursion in the book itself, not in BTC.
+The level 68 window's UP ask goes 0.46 → 0.64 → 0.45 in a hundred seconds and
+then sits at a coin flip for ten minutes; `…1775110500`'s goes 0.49 → 0.85 and
+never returns. If the book's own reversion behaviour separates them, it is a
+signal available at the instant, and no measurement of it exists yet. `volScan.ts`
+and `underwaterScan.ts` show the pattern to follow: measure over the recording
+first, and only build if the separation is there.
+
+Do not reopen: the parity hold on any band or hold level; `fairHold` with or
+without a release; the opening-lean thread (`convDwellMs`, `openCheapMs`); any
+share or price cap on the chased leg; any solvency or underwater test; and any
+rule that treats the model-book disagreement as a warning.
 
 ## Needs human
 

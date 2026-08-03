@@ -1510,6 +1510,37 @@ export const ConfigSchema = z.strictObject({
   /** Model-minus-book disagreement, in probability, that engages `fairHold`. */
   fairHoldGap: z.coerce.number().finite().min(0).default(0.06),
   /**
+   * Standard deviations of BTC's OWN measured volatility at which the outside
+   * price releases a leg `fairHold` has stopped, for the rest of the window.
+   * 0 ⇒ the cap is never released this way.
+   *
+   * This is what the casualties above ask for. The disagreement between model
+   * and book is a good directional read — right in eight of the nine windows
+   * where it is strong — so a cap built on it must be a DELAY, not a refusal,
+   * and the delay has to end when something more reliable agrees with it.
+   *
+   * `outsideZ` is that something. The player's existing oracle reading measures
+   * BTC's distance from the price to beat against a FIXED sixty dollars scaled
+   * by the time left, which means the same distance counts the same in a calm
+   * quarter-hour and a violent one. Measured over the first 68 markets, that
+   * fixed reading names the side that eventually wins at its first crossing of
+   * 1.6 bands in only 54 of 68 windows. The same distance divided by the
+   * standard deviation of BTC's own recent one-second moves names the winner in
+   * 65 of 68 at one sigma, and 66 of 68 at 1.4 sigma.
+   *
+   * The catch, also measured, is that it is LATE: the median first crossing of
+   * one sigma is at t+574s against t+153s for the fixed reading, and at the
+   * crossing the named leg already asks 0.71–0.94. So it is useless as a gate on
+   * the chase — a player that waited for it would buy every winner at
+   * eighty-five cents — and it is exactly right as a release, which is the only
+   * thing it is used for here.
+   */
+  fairHoldZ: z.coerce.number().finite().min(0).default(0),
+  /** Time constant of the BTC volatility estimate behind `fairHoldZ`, in ms. */
+  volTauMs: z.coerce.number().finite().positive().default(180_000),
+  /** Sampling interval of that estimate, in ms — see the note where it is taken. */
+  volSampleMs: z.coerce.number().finite().positive().default(1000),
+  /**
    * How far above its OWN trailing low the chased leg must trade before the
    * `commitShare` pace exemption applies. 0 ⇒ always.
    *
@@ -2428,7 +2459,8 @@ export const ConfigSchema = z.strictObject({
    */
   finishCeilShare: z.coerce.number().finite().min(0).max(1).default(0.85),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
-  debug: z.coerce.number().int().min(0).max(1).default(0),
+  /** 0 off, 1 the decision timeline, 2 the whole-window observation channel. */
+  debug: z.coerce.number().int().min(0).max(2).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
   debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
@@ -2607,6 +2639,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   /** The short BTC average the spike gate measures deviation from. */
   let spikeEma: number | null = null
   let spikeEmaAtMs = 0
+  /**
+   * Running variance of BTC's own one-second moves — see `volTauMs`. Held as
+   * dollars² per second, so `sqrt(volVar * secondsLeft)` is the spread of where
+   * BTC can still finish.
+   */
+  let volVar: number | null = null
+  let volAtMs = 0
+  let volPrevDiff: number | null = null
+  /** The volatility-normalised oracle has named this leg — see `fairHoldZ`. */
+  let fairFreed = false
   /** While `nowMs` is under this, the spike gate stays engaged (`spikeHoldMs`). */
   let spikeUntilMs = 0
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
@@ -2791,8 +2833,43 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       elapsed >= cfg.spikeAfterMs &&
       (spikeDev >= cfg.spikeEdge || nowMs < spikeUntilMs)
     const diff = cfg.ptbTauMs > 0 ? emaDiff : rawDiff
+    // BTC's own volatility, measured rather than assumed: the mean square of its
+    // one-second moves, smoothed over `volTauMs`. Every other reading of the
+    // outside price in this player scales a FIXED number of dollars by the time
+    // left; this one scales the dollars BTC is actually moving. See `fairHoldZ`.
+    //
+    // Two details are load-bearing and were both wrong on the first attempt, in
+    // the same direction — they made the reading far too small to ever fire.
+    // The series has to be the SMOOTHED distance, the one the numerator uses,
+    // and it has to be sampled about once a second. Sampled every tick (~145 a
+    // second here) a smoothed series moves by an amount proportional to the step
+    // rather than its square root, so the variance RATE collapses toward zero
+    // the more often it is measured.
+    if (diff !== null && nowMs - volAtMs >= cfg.volSampleMs) {
+      const dtMs = Math.max(1, nowMs - volAtMs)
+      if (volPrevDiff !== null && volAtMs > 0) {
+        const perSec = ((diff - volPrevDiff) * (diff - volPrevDiff)) / (dtMs / 1000)
+        if (volVar === null) volVar = perSec
+        else {
+          const kv = 1 - Math.exp(-dtMs / cfg.volTauMs)
+          volVar += kv * (perSec - volVar)
+        }
+      }
+      volPrevDiff = diff
+      volAtMs = nowMs
+    }
     const leftFrac = Math.min(1, Math.max(0, 1 - elapsed / WINDOW_MS))
     const needDiff = cfg.ptbEdge * Math.sqrt(leftFrac)
+    /**
+     * The same distance read in standard deviations of where BTC can still
+     * finish: `|diff| / sqrt(volVar · secondsLeft)`. Zero while the variance is
+     * still unmeasured, which reads as "no confirmation".
+     */
+    const secondsLeft = Math.max(1, (WINDOW_MS - elapsed) / 1000)
+    const outsideZ =
+      diff === null || volVar === null || volVar <= 0
+        ? 0
+        : Math.abs(diff) / Math.sqrt(volVar * secondsLeft)
     const outsideSide: Side | null =
       diff === null || Math.abs(diff) < needDiff ? null : diff > 0 ? 'UP' : 'DOWN'
     /** How settled the outcome is on the outside price: 1 ⇒ decided, 0 ⇒ a coin flip. */
@@ -2853,6 +2930,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
     const logNow = cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs
     if (logNow) lastLogMs = nowMs
+    // `debug=2` is the observation channel: one line per `debugEveryMs` for the
+    // WHOLE window, emitted here, above every early return, so it keeps running
+    // after both legs are complete. The ordinary `debug=1` timeline stops the
+    // moment the player is done, which silently truncates any measurement of
+    // what the outside price did later in the window.
+    if (cfg.debug === 2 && nowMs - lastLogMs >= cfg.debugEveryMs) {
+      lastLogMs = nowMs
+      console.log(
+        `[pair.v1] obs slug=${ctx?.market?.slug ?? '?'} t+${Math.round(elapsed / 1000)}s ` +
+          `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
+          `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
+          `diff=${diff === null ? '-' : diff.toFixed(1)} need=${needDiff.toFixed(2)} z=${outsideZ.toFixed(2)} ` +
+          `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)}`,
+      )
+    }
     const logTick = (lead: Side | null, conv: number, tgt: Partial<Record<Side, number>>): void => {
       if (!logNow) return
       console.log(
@@ -2862,6 +2954,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `tgt=${tgt.UP?.toFixed(2) ?? '-'}/${tgt.DOWN?.toFixed(2) ?? '-'} ` +
           `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'} ` +
           `diff=${diff === null ? '-' : diff.toFixed(0)} need=${needDiff.toFixed(0)} out=${outsideSide ?? '-'} ` +
+          `z=${outsideZ.toFixed(2)}${fairFreed ? '!' : ''} ` +
           `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
           `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'} ` +
           `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''} ` +
@@ -3002,6 +3095,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // would refuse the only leg still being bought.
     fairCapSide = null
     fairHandover = null
+    // The release of `fairHold`, latched and evaluated here for the same reason
+    // the two lines above are: the branch below is skipped once a leg completes,
+    // and the witness can arrive on any tick.
+    if (
+      cfg.fairHoldZ > 0 &&
+      fairHeld !== null &&
+      !fairFreed &&
+      diff !== null &&
+      outsideZ >= cfg.fairHoldZ &&
+      (diff > 0 ? 'UP' : 'DOWN') === fairHeld
+    ) {
+      fairFreed = true
+    }
     if (needUp > 0 && needDown > 0) {
       // Which leg gets the aggressive bid. `lag` chases whichever side holds
       // fewer shares — the balancing instinct. `momentum` chases the side whose
@@ -3132,7 +3238,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // `fairHold` of its target, and once it is there hand the chase to the
       // OTHER leg: the cap alone is inert, because the money it saves is money
       // `underdogMax` then forbids the other leg from spending. See `fairHold`.
-      if (cfg.fairHold < 1 && fairHeld === null) {
+      if (cfg.fairHold < 1 && fairHeld === null && !fairFreed) {
         const o: Side = first === 'UP' ? 'DOWN' : 'UP'
         if (fairWant === first && Math.abs(fairGap) >= cfg.fairHoldGap && held[first] > held[o]) {
           fairCapSide = first
@@ -3146,7 +3252,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // is the winning shape: stop one leg, buy the other one OUT, then finish
       // the first in the closing minute at whatever it is worth by then. So the
       // cap lifts the moment the other leg is complete, and not before.
-      if (fairHeld !== null) {
+      if (fairHeld !== null && !fairFreed) {
         const o: Side = fairHeld === 'UP' ? 'DOWN' : 'UP'
         if (held[o] < cfg.qty) {
           fairCapSide = fairHeld

@@ -1697,3 +1697,98 @@ table first, build the rule second.
 
 The player on disk is unchanged in behaviour: sixty-seven of sixty-seven,
 re-verified this session, and the sixty-eighth still fails the same way.
+
+## 2026-08-03 — Session 25: the plan I was told to build, measured before building it
+
+I came in with a clear instruction from the last session: build the thing where
+the player holds both sides at about a third of what it needs, waits for Bitcoin
+to run clear of its target by a large multiple of the day's swing, then buys the
+named side out and finishes the other one late. On paper it was the first idea
+whose numbers worked in both of the two markets that keep colliding. The last
+session also said, sensibly, to measure it before building it.
+
+Measuring it turned out to need something I did not have: a record of what each
+market was doing for its whole fifteen minutes. The player's debug output stops
+the moment it has finished buying, so half the markets simply go quiet halfway
+through and I would have been reading a truncated picture. So I added a second
+channel that reports once a second from the first tick to the last regardless of
+what the player is doing, and ran it over all sixty-eight markets. That recording
+is now the most useful thing in the workspace — three of this session's four
+results came out of it without running the player at all.
+
+The verdict on the plan is that it does not work, and it does not work for a
+reason that is worth writing down. The signal it waits for is right about which
+side wins in only about four windows out of five, and the more I raise the bar to
+make it right more often, the later it speaks and the more the winning side
+already costs by then. At the setting the last session proposed, fourteen of the
+sixty-eight windows get pointed at the losing side, and twelve of them can no
+longer be completed inside the budget — and that is with me giving the plan
+perfect execution, no delay, and the losing side bought at the single cheapest
+price it ever reaches. Against a player that currently misses one market out of
+sixty-eight. Lowering the early holding to nothing at all still leaves seven
+unaffordable. The plan was right about the two windows it was designed on and
+wrong about the rest of the book.
+
+The good news came from asking why that signal is so mediocre. It measures how
+far Bitcoin has run from its target in DOLLARS — a fixed sixty of them, scaled by
+the time left — so the same sixty dollars means the same thing on a quiet
+afternoon and in a storm. Divide by how much Bitcoin has actually been moving in
+the last few minutes instead, and the same reading goes from naming the winning
+side in fifty-four of sixty-eight windows to sixty-five, and at a slightly higher
+setting, sixty-six. That is a genuinely better instrument than anything the
+player has had.
+
+It is also much slower. It typically speaks nine or ten minutes into a fifteen
+minute window, by which time the side it names already costs eighty-five cents.
+So it cannot be used to decide what to buy — a player that waited for it would
+buy every winner at the top, which is precisely the plan that just died. What it
+can do is let something go. Last session ended with a cap that stops a leg when
+the player's own estimate runs ahead of the market, which fixes the blocking
+market and strands nine others — and in eight of those nine the leg it stopped
+was the one that went on to win. That cap needs to be a delay rather than a
+refusal, and this is the first thing I have that is reliable enough to end the
+delay. Building that release, and testing it over all sixty-eight, is what the
+rest of this session went into.
+
+The release works exactly as designed and it rescues nothing, and understanding
+why was the most useful hour of the session. I checked first that the witness
+actually arrives: in all nine of the stranded markets it names the winning side
+between two and twelve minutes in, and in the blocking market it never names the
+side the cap stops, so there was no risk of undoing the repair. Then I ran it
+over all sixty-eight and the failures did not move — nine before, nine after; the
+stranded legs are still sitting on exactly the number of shares the cap allows.
+
+The money is the reason. Stopping one side does not put anything aside; it hands
+the buying to the other side, which then gets bought out completely. By the time
+the release fires, one of those markets has spent seven hundred and eighty-nine
+dollars of its nine hundred and seventy and still owes two hundred and sixty-three
+for the shares it is missing. The permission arrives and there is nothing to
+spend. For a stopped leg to be freed later, the money would have to be held back
+as well as the shares — and holding the money back IS the plan that died at the
+start of the session. So that whole family is closed, from both ends, which is
+worth more than another inconclusive tuning run.
+
+I also finally checked the assumption underneath four sessions of failed rules:
+that the blocking market is doing something excessive. It is not. Ranked against
+the other sixty-seven it is fourth in how much it pays for shares the outside
+price has not confirmed — and twenty-six markets are at the ceiling of that
+measure — and twelfth in how far it commits past its own remaining money, with
+eleven markets that pass going further. Buying dear, and buying past your budget
+on the bet that the other side gets cheap, is simply how this player works
+everywhere. That is why every rule that scores the player's own behaviour fires
+in forty markets or in none.
+
+Which points where to look next, and I have left that written down. Nothing about
+the player's own state distinguishes the market that blocks the level. What might
+is the behaviour of the market around it: in the blocking window the favourite's
+price runs from forty-six cents to sixty-four and back to forty-five inside a
+hundred seconds, then sits at a coin flip for ten minutes; in the window that
+most needs the aggressive buying, the favourite goes to eighty-five cents and
+never comes back. Nobody has measured how the two look while it is happening. The
+recording to do it with now exists, and the session that tries should measure
+before it builds — which, on this evidence, is worth about four experiments to
+one.
+
+The player on disk is unchanged: everything added this session is switched off by
+default, sixty-seven of sixty-seven still pass, and the sixty-eighth still fails
+the same way.
