@@ -1881,3 +1881,75 @@ trust the ratio until there is enough size in the book for the ratio to mean
 anything. Replacing the clock with an actual size requirement is the same idea
 said honestly, and it would let the rule arm earlier in markets whose books fill
 up quickly. That is a measurement to make first, on data that already exists.
+
+## Session 27 — the suspect was innocent, and four levels fell
+
+I came in with a confident theory handed over from last session, and the first
+useful thing I did was disprove it.
+
+The market blocking level eighty opens even, one side runs to sixty-four cents
+inside fifty seconds, the player buys that entire side, and the market drifts
+back and settles the other way. Last session found that the new "the offer has
+been emptied out" rule *does* see this — its reading crosses the threshold at
+forty-five seconds — and concluded that the forty-five-second stand-down I had
+added to protect three other markets was what let this one through. It read like
+a clean tragic irony: the protection that saved three markets is what loses this
+one.
+
+It was wrong. I turned the stand-down off entirely and re-ran all eighty markets,
+and the blocking market failed in exactly the same way. So I went back to the
+player's own second-by-second record and looked at what the rule was actually
+doing. The reading peaks at 0.71 against a threshold of 0.70 — it grazes it — and
+it falls back under the threshold in precisely the seconds when the side being
+bought crosses the level where the rule is supposed to lock in. The rule
+recomputes itself every tick but only *latches* once the leg it is capping has
+actually reached the cap; if the reading blinks off in that window, the leg walks
+straight past and the rule never engages again. A tiny structural gap, invisible
+in the failing market's summary, and it had nothing to do with the clock.
+
+That reframes the fix as a threshold question, so I measured the threshold rather
+than guessing. Over all eighty markets, 0.70 loses the blocking market, 0.62 and
+0.64 each cost a different market that has to be chased hard, and 0.65, 0.66 and
+0.68 are all clean. So there is a real band, not a knife edge, and 0.66 sits in
+the middle of it. At that setting the blocking market plays out the way it
+should: the rule stops the expensive side at eight hundred shares, hands the
+buying to the other side, which is cheap for exactly the same reason, and the
+market finishes complete and profitable instead of two-thirds empty.
+
+Then I went back to the idea the handover note had actually asked for, which was
+worth doing on its own merits. The forty-five-second clock was always a proxy —
+the honest statement is "don't read the ratio until there is enough size in the
+book for a ratio to mean anything". I added that reading to the player, measured
+it, and the separation is clear: at the instant the rule arms, the markets the
+clock was protecting are carrying twelve hundred to seventeen hundred shares near
+the top of the book, while the market blocking level eighty is carrying
+thirty-one hundred. Requiring twenty-five hundred replaces the clock exactly, and
+it turns out to be better than the clock on both things I could measure — it
+tolerates a wider range of thresholds, and probed out to a hundred and ten
+markets it leaves fewer failures ahead. I want to be honest about the size of
+that second claim: it is five failures against six, and when I repeated the run
+the difference moved, so it is inside the noise of the simulator's own random
+latency. The part that repeats is the market at level eighty-one, which the size
+requirement holds and the bare clock-off configuration does not.
+
+With that in, level eighty passed, and so did eighty-one, eighty-two and
+eighty-three. I re-ran eighty a second time to be sure it was not a fluke of the
+randomised timing; it passed again.
+
+The market that blocks eighty-four is a different animal, and I think a more
+interesting one. It opens at a coin flip and then walks steadily to near-certainty
+on one side over fifteen minutes — no spike, no reversal, nothing tricky. The
+player is simply on the wrong side and cannot get back. Within the first *fifteen
+seconds*, before the book has said anything at all, it has already committed
+nearly five hundred shares to one side against two hundred on the other. It then
+sits still for two minutes while the price runs away from it, completes the losing
+side cheaply, and finds it has four hundred dollars left against a bill of five
+hundred and fifty for the shares it still needs. Every step after the first
+fifteen seconds is forced. So the thread to pull next is the opening: what buys
+that much, that fast, on a book that is dead even, and whether it should be
+allowed to. That is a part of the player I have not touched in this game.
+
+Worth noting the general lesson, because it cost the last session: a single
+failing market does not name its own cause. The way to test a stated cause is to
+switch the suspected rule off and see whether the market changes. That takes one
+sweep and about two minutes.
