@@ -211,6 +211,23 @@ export const ConfigSchema = z.strictObject({
    * this opening window the patient, dip-buying behaviour governs.
    */
   convUntil: z.coerce.number().finite().min(0).max(1).default(0.06),
+  /**
+   * How much of the OTHER leg's current ask, rather than `underdogMax`, the
+   * priority leg must leave behind for it. 0 reserves at `underdogMax`; 1
+   * reserves the other leg's full shown price.
+   *
+   * Reserving at `underdogMax` is a bet that the leg not being chased will end
+   * up nearly worthless. That bet is right in a trending window and it is how a
+   * priority leg is allowed to spend most of the ceiling. It is wrong in a
+   * window whose two asks keep crossing: the player completes the leg it was
+   * chasing, discovers the other leg is the one that ran, and has nothing left
+   * to buy it with.
+   *
+   * Measured on level 19 and it does NOT rescue that market: 0.2, 0.4, 0.6 and
+   * 1.0 all still lose it, and from 0.4 upward they lose earlier markets too
+   * (the reserve starves a leg that genuinely had to be chased). Ships disabled.
+   */
+  reserveAsk: z.coerce.number().finite().min(0).max(1).default(0),
   /** `leadReserve` used at full conviction: the underdog will be cheap, so reserve little. */
   convReserve: z.coerce.number().finite().min(0).max(1).default(0.25),
   /** `soloShare` used at full conviction. */
@@ -689,10 +706,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // priority leg near 0.49 in a near-even opening — one cent under the ask
       // plus the taker fee, which is exactly how a leg that had to be taken in
       // the first seconds never got taken at all.
-      const reserve = Math.max(
-        cfg.minPrice,
-        mix(cfg.leadReserve, cfg.convReserve) * Math.min(askSecond, cfg.underdogMax),
-      )
+      const reservePrice =
+        cfg.reserveAsk * askSecond + (1 - cfg.reserveAsk) * Math.min(askSecond, cfg.underdogMax)
+      const reserve = Math.max(cfg.minPrice, mix(cfg.leadReserve, cfg.convReserve) * reservePrice)
       const capOfFirst = Math.min(
         cfg.maxPrice,
         capFirst,
