@@ -619,12 +619,22 @@ export const ConfigSchema = z.strictObject({
    * it identifies itself by the player's own inventory rather than by any
    * reading of the quote.
    *
-   * A quarter of the target is what ships. It is a real threshold rather than a
-   * fitted one: below it (0.05, 0.15) the cap starts catching trending windows
-   * whose second leg picked up a token fill, above it (0.35) the windows it
-   * exists for slip under the bar.
+   * Where this threshold sits decides which windows the cap can see at all.
+   * Below 0.35 (measured at 0, 0.05, 0.15, 0.25, 0.3) it starts catching
+   * trending windows whose second leg picked up a token fill; at 0.4 the windows
+   * it exists for slip under the bar and the market that blocked level 37 is
+   * lost again.
+   *
+   * 0.35 is also where the mechanism stops being FRAGILE, which matters more
+   * than where it scores best on one pass. At 0.25 and 0.3 the fourth market of
+   * the universe becomes bistable — the same data finishes 1000/1000 or
+   * 632/1000 depending on nothing but order latency, because the cap leaves both
+   * legs half-built and the second one can then only be finished during the
+   * seconds the outside-price override happens to be pointing at it. A level
+   * that passes three runs in four is not passed. At 0.35 that market is
+   * 1000/1000 in every run, because the cap never engages there at all.
    */
-  earlyBoth: z.coerce.number().finite().min(0).max(1).default(0.25),
+  earlyBoth: z.coerce.number().finite().min(0).max(1).default(0.35),
   /**
    * 1 ⇒ `earlyShare` restrains a leg only while the outside price DISAGREES
    * with buying it.
@@ -649,6 +659,17 @@ export const ConfigSchema = z.strictObject({
    *
    * It is worth two markets on its own: with the cap otherwise unchanged, the
    * first forty go from thirty-seven passing to thirty-nine.
+   *
+   * The permission LATCHES, and that is not a detail. Whether the gap sits above
+   * or below `ptbFairEdge` at a given instant is exactly the kind of reading
+   * that a few milliseconds of order latency can flip, and a cap that switches
+   * on and off across that boundary makes the whole market bistable: measured on
+   * the fourth market of the universe, an unlatched release finishes 1000/1000
+   * in about three runs out of four and 632/1000 in the rest, from the same
+   * data. Latched, that market is 1000/1000 every time. A window where the
+   * outside price has at some point backed this leg is not a window where the
+   * player is committing on the book's word alone, and that fact does not stop
+   * being true when the gap wobbles back under the threshold.
    */
   earlyFair: z.coerce.number().int().min(0).max(1).default(1),
   /**
@@ -1025,6 +1046,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
   let emaGap: number | null = null
   let emaGapAtMs = 0
+  /** Legs the outside price has backed at some point — see `earlyFair`. */
+  const earlyFree: Record<Side, boolean> = { UP: false, DOWN: false }
 
   /**
    * BTC's signed distance from the price to beat, in dollars, on whichever
@@ -1167,6 +1190,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
     const fairGap = (cfg.ptbFairTauMs > 0 ? emaGap : rawGap) ?? 0
     const fairWant: Side = fairGap > 0 ? 'UP' : 'DOWN'
+    if (pModel !== null && Math.abs(fairGap) >= cfg.ptbFairEdge) earlyFree[fairWant] = true
     // The model's own view, and whether it points the same way as the gap.
     const modelLean = (pModel ?? 0.5) - 0.5
     const modelBacks =
@@ -1455,7 +1479,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.earlyShare >= 1 ||
         elapsed >= cfg.earlyMs ||
         held[side === 'UP' ? 'DOWN' : 'UP'] < cfg.earlyBoth * cfg.qty ||
-        (cfg.earlyFair === 1 && !fairAgainst)
+        (cfg.earlyFair === 1 && (!fairAgainst || earlyFree[side]))
           ? Infinity
           : cfg.earlyShare * cfg.qty - held[side]
       // Edge pace: a leg may only hold as much of its target as the book has
