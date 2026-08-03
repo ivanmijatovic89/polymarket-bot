@@ -903,3 +903,79 @@ side, three hundred of the other, well over half the money gone, and only a coup
 of hundred pairs actually formed to show for it. That imbalance is survivable if
 the trend holds and fatal if it doesn't, and it is the one reading still on the
 table.
+
+## Session 15 — level 46 falls to a rule about speed rather than price
+
+Level 46 is passed. The whole ladder from level one to forty-six was re-run at
+the new player and every market in it finishes with a full thousand shares on
+both sides, at a worst pair cost of 0.970 against a ceiling of 0.98.
+
+I started where the last session left off, with two ways to make the "following
+cap" pay for itself. That cap was the near-miss: it repaired the two markets
+where the player buys into a price that spikes and reverts, and its whole cost
+was the delay it imposed on legs that were climbing legitimately. The first idea
+was to let a refused leg keep resting a passive bid instead of being pushed out
+of the book; the second was to release the cap once the leg was nearly finished.
+Both were built and measured over sixty markets. The first is actively worse — it
+loses the very market it was meant to save, because a bid one tick under a
+spiking price fills inside the spike just as happily as a crossing order does.
+The second is exactly neutral: identical results to the cap alone, which still
+costs the two markets that were the whole problem. So that line is closed, and
+the shelf it sat on can be cleared.
+
+What actually worked came from looking at the two situations side by side and
+asking what separates them, rather than trying to tune a cap until it happened to
+straddle both. The market that must be chased and the market that must not look
+identical in the order book: a lurch to a new level, with the outside price
+agreeing. They do not look identical in the underlying. The one that must be
+chased sees BTC move twenty-five dollars in five seconds and then keep going. The
+one that must not sees ninety-one dollars in five seconds and two thirds of it
+handed back in the next five. Speed is the difference, and speed is something a
+price cap structurally cannot read, because a book that has re-priced has
+re-priced regardless of how fast it got there.
+
+So the new rule reads the underlying's own velocity and nothing else. It names no
+leg and caps no price. It asks one question — is BTC in a violent excursion right
+now? — and while the answer is yes the player buys nothing, on either side, and
+pulls whatever it has resting so that a bid cannot be run through by the very
+move being refused. I measured the deviation on the three markets that mattered
+before building anything: eighty-six dollars in the one that had to be stopped,
+twenty-six and twenty-seven in the two that every previous restraint destroyed.
+That is a wide gap, and it is why this works where six sessions of price caps did
+not.
+
+The first version failed, and for an honest reason worth recording. The outside
+price is a Binance tape shifted by a Chainlink basis, and tick to tick it jitters
+by tens of dollars, so the deviation crosses any threshold in bursts rather than
+staying above it. The gate flickered, and the player did its buying in the gaps —
+it completed the leg inside the excursion exactly as before, one second at a
+time. The fix is to treat a spike as an event rather than an instant: once the
+underlying has printed that far from its own average, sit out the ten seconds
+that follow, which are precisely the seconds when the book is mispriced and the
+reversion has not arrived yet.
+
+That is the first restraint this player has ever had that repairs markets without
+costing any. Over the first sixty markets it takes the failures from four to two.
+The two it removes are the pair of spike markets that no price cap had moved by a
+single share in six sessions. Nothing else changes: the market that every
+restraint starves and the market the previous best attempt broke are both
+untouched, because neither of them ever sees the underlying travel more than
+twenty-seven dollars from its own average. I mapped both edges of both settings
+before shipping — the threshold works between thirty and forty dollars and fails
+at forty-five; the hold works between eight and twelve seconds and fails at five
+and at fifteen — and shipped the middle of each. Because these runs are not
+reproducible I repeated the chosen setting four times over sixty markets, and it
+came back clean every time.
+
+Two markets remain, and I read them again under the new player so the diagnosis
+is current rather than inherited. They are slow, quiet windows — the largest move
+either of them makes is twelve dollars, so the new gate will never engage there
+and never should. Their shape is a single handover: the player spends the first
+minute chasing one side, then changes its mind and chases the other, and pays
+more for the second than it paid for the first. By the time the handover is done
+it holds six hundred-odd of one side and three hundred of the other, has spent
+over half its money, and the arithmetic is already lost — finishing the second
+side would need it at twenty-eight cents when it is quoted at forty and never
+goes below thirty again. Nothing in the player currently notices that a handover
+has happened at all, which is where I would look next.
+

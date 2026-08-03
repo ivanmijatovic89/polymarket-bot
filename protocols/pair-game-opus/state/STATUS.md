@@ -1,122 +1,117 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **45** (first 45 eligible markets)
-- Current level: **46** (first 46 eligible markets)
+- Highest passed level: **46** (first 46 eligible markets)
+- Current level: **47** (first 47 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-## Evidence — levels 1–45 at commit `260f81ad`
+## Evidence — levels 1–46 at commit `4f21eb1e`
 
 | Level | Run | Level | Run | Level | Run | Level | Run | Level | Run |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 3664 | 10 | 3673 | 19 | 3682 | 28 | 3691 | 37 | 3700 |
-| 2 | 3665 | 11 | 3674 | 20 | 3683 | 29 | 3692 | 38 | 3701 |
-| 3 | 3666 | 12 | 3675 | 21 | 3684 | 30 | 3693 | 39 | 3702 |
-| 4 | 3667 | 13 | 3676 | 22 | 3685 | 31 | 3694 | 40 | 3703 |
-| 5 | 3668 | 14 | 3677 | 23 | 3686 | 32 | 3695 | 41 | 3704 |
-| 6 | 3669 | 15 | 3678 | 24 | 3687 | 33 | 3696 | 42 | 3705 |
-| 7 | 3670 | 16 | 3679 | 25 | 3688 | 34 | 3697 | 43 | 3706 |
-| 8 | 3671 | 17 | 3680 | 26 | 3689 | 35 | 3698 | 44 | 3707 |
-| 9 | 3672 | 18 | 3681 | 27 | 3690 | 36 | 3699 | 45 | 3708 |
+| 1 | 3744 | 11 | 3754 | 21 | 3764 | 31 | 3774 | 41 | 3784 |
+| 2 | 3745 | 12 | 3755 | 22 | 3765 | 32 | 3775 | 42 | 3785 |
+| 3 | 3746 | 13 | 3756 | 23 | 3766 | 33 | 3776 | 43 | 3786 |
+| 4 | 3747 | 14 | 3757 | 24 | 3767 | 34 | 3777 | 44 | 3787 |
+| 5 | 3748 | 15 | 3758 | 25 | 3768 | 35 | 3778 | 45 | 3788 |
+| 6 | 3749 | 16 | 3759 | 26 | 3769 | 36 | 3779 | 46 | 3789 |
+| 7 | 3750 | 17 | 3760 | 27 | 3770 | 37 | 3780 | | |
+| 8 | 3751 | 18 | 3761 | 28 | 3771 | 38 | 3781 | | |
+| 9 | 3752 | 19 | 3762 | 29 | 3772 | 39 | 3782 | | |
+| 10 | 3753 | 20 | 3763 | 30 | 3773 | 40 | 3783 | | |
 
 Every market ends exactly 1000/1000; worst pair cost on the ladder is 0.970
-against a ceiling of 0.98. Defaults were also re-verified over the first sixty
-markets at the previous commit (run 3631): markets 1–45 all clean, and the two
-parameters added since both default to inert.
+against a ceiling of 0.98. Level 46 (run 3789) reports 46/46 with no integrity
+findings.
+
+## What carried level 46: the spike gate
+
+`spikeEdge` 35 / `spikeHoldMs` 10 s, both shipped on. While BTC sits more than
+35 dollars from its own five-second average — and for ten seconds afterwards —
+the player buys nothing and rests nothing on either side.
+
+It is the first restraint in this file that repairs markets without costing any:
+over the first sixty markets, failures go from four to two. It reads the SPEED of
+the underlying, which the order book cannot express, and that is why every price
+cap before it failed. The two markets it fixes lurch 86 dollars in five seconds
+and give it back; the two markets that every earlier restraint destroyed never
+travel more than 27.
+
+Both bands are measured and both edges are real: threshold 30/35/40 clean and
+repeatable, 45 loses one spike market outright, 50 loses both; hold 8/10/12 s
+clean, 5 s lifts too early, 15 s starts refusing a window that must buy its
+favourite in the first minute.
 
 ## Runs are NOT reproducible — read results accordingly
 
 Latency jitter is random per order, so the same configuration on the same market
 can finish differently. **Before promoting anything, repeat the probe two or
-three times.** `probe.sh` makes that cheap. A level that passes three runs in
-four is not passed.
+three times.** The shipped setting was confirmed four times over sixty markets
+plus a fifth at the neighbouring threshold.
 
 ## Tools
 
-- `tools/probe.sh "<slugs>" [--param k=v ...]` — one parameter set over an
-  explicit slug list, printing only the per-market rows. Sixty markets in ~4 min;
-  four can run in parallel on this machine.
+- `tools/probe2.sh <tag> "<slugs>" [--param k=v ...]` — one parameter set over an
+  explicit slug list; writes `/tmp/pg/<tag>.{json,err,rows}` and prints the run
+  id. **Use this rather than `probe.sh`**, which swallows stderr and so makes a
+  run that died environmentally look exactly like one that produced no report.
+- **zsh does not word-split unquoted variables.** Never collect `--param` flags
+  in a shell variable and expand it — the whole string arrives as one argument
+  and the launcher rejects it. Write the flags out.
 - `tools/ladder.sh <from> <to> [parallel] [outdir]` — `play-level` over a range,
-  one PASS/FAIL line with run id and worst pair cost per level. The whole ladder
-  1–45 takes about twenty-five minutes at parallelism 6.
-- Debug timelines go to **stderr**, so `probe.sh` swallows them. Use
-  `run-backtest.ts ... --param debug=1 --param debugEveryMs=5000 --sequential
-  --json >/dev/null 2>file` instead. Every level since 44 has been diagnosed this
-  way; it is much faster than the SQL tools.
+  one PASS/FAIL line with run id and worst pair cost per level. 1–46 takes about
+  twenty-five minutes at parallelism 6.
+- Score any 60-market probe with
+  `tools/level.ts --level 60 --run <id>` — the real RULES grader, rather than
+  reading share counts by eye.
+- Debug timelines go to **stderr**: `run-backtest.ts ... --param debug=1 --param
+  debugEveryMs=1000 --sequential --json >/dev/null 2>file`. The tick line now
+  carries `spk=` (BTC's deviation from its own short average), which is how the
+  spike gate was sized.
 - The first sixty slugs:
   `npx tsx protocols/pair-game-opus/tools/universe.ts --first 60 --slugs-only`
 
-## Level 46 — the blocker, now diagnosed as TWO failures
+## Level 47 — the blocker, diagnosed
 
-Remaining failures over the first sixty markets are 46, 47, 52 and 55
-(`btc-updown-15m-1775128500`, `-1775129400`, `-1775133900`, `-1775136600`).
+Remaining failures over the first sixty markets are exactly two: 47 and 52
+(`btc-updown-15m-1775129400`, `-1775133900`). Both are unreachable by everything
+tried so far and both have the same anatomy, freshly re-read at the shipped
+defaults:
 
-All four share one anatomy: the player spends between a half and three fifths of
-the ceiling acquiring six hundred-odd shares of ONE leg at an average near 0.59,
-the window then reverses, and the leg still owed six or seven hundred shares is
-quoted at 0.62 to 0.85 against a remaining budget that affords about 0.60.
-
-But the fills that do the damage come in two different shapes, and that is the
-session's main finding:
-
-- **46 and 55 buy inside a JUMP.** Market 55's book goes 0.50 → 0.64 in five
-  seconds and the player takes 400 shares at 0.59–0.64; market 46's DOWN ask goes
-  0.45 → 0.70 in ten seconds and the player finishes DOWN with 625 shares at
-  0.63–0.67. Both jumps revert within a minute. These are reachable: a cap that
-  can tell a spike from a trend repairs both.
-- **47 and 52 buy a genuine TREND that later reverses.** Their legs climb about
-  eight cents over sixty seconds, which every reading available at the time
-  agrees with, and the reversal arrives minutes later. Nothing tried so far
-  separates these from the trends the player must chase.
-
-## Measured and rejected this session
-
-- **`reserveLow` escalation** (reserve the other leg at more of its observed
-  low): 6 failures at 0.7, 10 at 0.8, 9 at 0.9, against 4 at the shipped 0.6.
-  Fixes 46 and 52 only at 0.9, where it costs six other markets.
-- **`budgetPace`** (cap the priority leg at a multiple of what the remaining
-  budget affords per outstanding share): 19 / 19 / 18 / 17 failures at 1.15 /
-  1.25 / 1.35 / 1.45. Repairs none of the four. The separating ratio does not
-  exist — passing markets routinely buy their favourite at two or three times the
-  remaining average, late, when it has to be finished.
-- **`jumpPad`** (cap the priority leg at its own ask EMA plus a pad — a reference
-  that FOLLOWS a move instead of being pinned behind it): 11 / 9 / 6 / 6 failures
-  at pad 0.03 / 0.05 / 0.08 / 0.12, and at pad 0.08, 6 / 5 / 5 / 10 at time
-  constants 8 s / 15 s / 20 s / 45 s. **The first restraint ever to repair 46 and
-  55.** Not shipped: it never reaches 47 or 52, and the delay it imposes costs
-  markets 2 and 26 — 2 ends up finishing its leg at 0.72 instead of 0.61.
-- **`earlyBoth` 0.25/0.30 and `earlyMs` 90 s**: completely inert, four failures
-  and the same four, because `earlyFair` releases the size cap in all four
-  markets (the outside model agrees with the book there, so the cap never binds).
-- **`earlyFair=0`** (unconditional size cap): 7 / 7 / 8 / 8 failures across the
-  variants. Fixes 46 and costs 18, 33, 42, 57. Confirms the shipped doc.
+- They are SLOW windows. Peak BTC deviation is 12 dollars in market 47 and 12 in
+  52, so the spike gate never engages and never will.
+- The priority role changes hands ONCE, mid-window, and both legs end up bought
+  around 0.5 by taking turns. Market 47 buys 281 DOWN at ~0.53 in its first
+  fifty seconds, then flips and takes UP from 200 to 656 at 0.57–0.61. Market 52
+  does the same with 344 DOWN at ~0.53 and then UP to 656 at 0.52–0.61.
+- At the handover the pair is already lost on arithmetic: with 656 UP at 0.62 the
+  remaining 719 DOWN would have to average 0.28, and DOWN is quoted at 0.40–0.44
+  at that moment and never trades below 0.30 again.
+- Both then reverse, and both end 1000 of the leg that lost against 281–344 of
+  the leg that won.
 
 ## Next action
 
-Stop attacking the four as one family; they are two, and 46/55 are the ones with
-a reachable signature.
-
-1. **Make `jumpPad` pay for itself.** It repairs 46 and 55 and its whole cost is
-   the delay it imposes on legs that are climbing legitimately. Two ways to
-   remove that cost are untried: (a) apply it to CROSSING only, leaving the
-   resting bid where it is, so a leg the cap refuses still fills passively on
-   every downtick instead of being pushed out of the book entirely; (b) release
-   it once the leg is past `finishShare`, which is where market 2's expensive
-   completion happened. Either would be measured the same way — sixty markets,
-   pad 0.08, time constant 15–20 s, repeated twice because these runs are not
-   reproducible.
-2. **47 and 52 need a different question.** Every mechanism tried reads the price
-   path, and their price path is indistinguishable from a chase that must be
-   made. What has NOT been read is the player's own exposure: in both, the moment
-   before the reversal the player holds ~656 of one leg and ~300 of the other,
-   with 55–58% of the ceiling spent — a state that is fine if the trend holds and
-   fatal otherwise. A rule keyed to that state (how much of the ceiling has been
-   committed relative to how many PAIRS have actually been formed) is the one
-   reading not yet measured.
+1. **Re-measure `reserveLow` escalation on top of the spike gate.** The escalation
+   (0.7 / 0.8 / 0.9) was rejected last session at 6 / 10 / 9 failures against 4 —
+   but that measurement predates the spike gate, and two of the four markets it
+   was fighting are now gone. `reserveLow` at 1.0 is exactly the arithmetic the
+   handover violates: it refuses to chase the new favourite past what the other
+   leg's own observed low still needs. Cheap to run: four probes, sixty markets.
+2. **If that fails, attack the HANDOVER itself rather than the price.** The
+   distinguishing fact in both markets is not a price level but an event: the
+   player spends a third of the window chasing one leg, then promotes the other
+   and chases it too, at a HIGHER price than the first. Nothing in the player
+   notices that this has happened. A rule that reads the handover — refuse to
+   promote a leg whose current ask is above what the demoted leg has already been
+   bought at, or require the promotion to pay for itself against the realized
+   average — is untried and is keyed to the player's own history rather than to
+   the quote.
+3. Do NOT re-try price caps pinned to a leg's own low, budget averages, or the
+   `earlyShare` family with better gates. All are measured dead in `pair.v1.ts`,
+   and the two remaining markets are the ones they were built for.
 
 ## Needs human
 
 Nothing.
-</content>
-</invoke>
