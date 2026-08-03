@@ -20,10 +20,13 @@
  * and the invariant we maintain is
  *   needUp·bidUp + needDown·bidDown ≤ budgetLeft,
  * so filling the entire remaining need at the shown bids can never breach the
- * ceiling. That bound only holds if BOTH legs finish, though, so every bid is
- * additionally gated on `avgCap` — the highest price that keeps the realized
- * avgUp + avgDown inside the ceiling right now. A window that ends short is
- * then still inside the ceiling instead of holding a handful of 1.11 pairs.
+ * ceiling. Because both legs finish at exactly `qty`, the pair cost IS the total
+ * spend divided by `qty`, so this single budget line is the whole ceiling
+ * guarantee. An additional guard on the realized averages (`avgGuard`) sounds
+ * safer and is not: it reads a leg that holds a fifth of its target at 0.59 as a
+ * 0.59 leg, when the rest of that leg is capped at `underdogMax` and its final
+ * average will be half of that — so it locks the OTHER leg out at exactly the
+ * moment the player needs to recover from a bad opening read. It ships off.
  *
  * Which leg to chase is the whole game. A resting bid only fills while its own
  * side is getting CHEAPER, so a builder that treats both legs alike spends a
@@ -36,7 +39,7 @@
  * is what stops the early minutes, when both asks sit either side of 0.50, from
  * quietly eating the budget on whichever leg ticks down first.
  *
- * Three things decide whether that plan survives contact with a real window.
+ * Four things decide whether that plan survives contact with a real window.
  * The priority leg has to be COMPLETED while it is still affordable — its
  * window is a minute or two, and often under one, so crossing is not rationed
  * by the clock at all (`takeFloor`); the ceiling guard is the only thing that
@@ -47,7 +50,12 @@
  * never allowed to pay a coin-flip price (`underdogMax`): every window in this
  * universe ends with one side under 0.12, so the leg that is not being chased
  * will be cheap later, and letting it fill at 0.4–0.5 in the opening minute is
- * how the ceiling gets spent on the outcome that expires worthless.
+ * how the ceiling gets spent on the outcome that expires worthless. Finally, the
+ * opening read may not be sized like a confirmed one (`openMs`, `openShare`):
+ * with crossing unthrottled a leg completes in under three seconds, which means
+ * the whole market can be decided by a tick-zero guess, and a wrong guess sets
+ * an average that no later cheapness can undo. Capping the first seconds to a
+ * fifth of the target is what makes being wrong survivable.
  *
  * Order placement rules:
  *   - rest one tick behind the ask by default, so most fills are free maker
@@ -272,6 +280,48 @@ export const ConfigSchema = z.strictObject({
    * losing leg opens at 0.53, so a cap above it lets the leg fill at the open.
    */
   underdogMax: z.coerce.number().finite().min(0.02).max(1).default(0.25),
+  /**
+   * Milliseconds at the start of the window during which NO leg may hold more
+   * than `openShare` × `qty` shares.
+   *
+   * Crossing is unthrottled and a clip is 200 shares, so the player can and does
+   * commit an entire leg inside three seconds — on a read the window has not
+   * confirmed yet. When that read is wrong the market is already lost: the
+   * mistaken leg's realized average is set at a coin-flip price and no later
+   * cheapness can undo it.
+   *
+   * The opening seconds are exactly when the book carries the least information
+   * — the trend EMA has no history and the price level alone does not say which
+   * leg will run. This cap does not decide anything; it only says that the
+   * decision taken with no evidence may not be sized like a decision taken with
+   * evidence. What it buys is the right to be wrong: a leg stopped at a fifth of
+   * its target can still be completed cheaply once the trend reveals itself,
+   * because most of its average is still unspent.
+   *
+   * 0 disables it.
+   */
+  openMs: z.coerce.number().finite().min(0).default(5_000),
+  /** Fraction of `qty` any one leg may hold before `openMs`. 1 disables the cap. */
+  openShare: z.coerce.number().finite().min(0).max(1).default(0.2),
+  /**
+   * 1 ⇒ keep the realized-average ceiling guard.
+   *
+   * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
+   * using the other leg's average AS REALIZED SO FAR. That is far more
+   * pessimistic than the rule it is protecting: a leg holding 200 shares at 0.59
+   * out of a target of 1,000 is treated as a 0.59 leg, when its remaining 800
+   * shares are capped at `underdogMax` and its final average will be nearer
+   * 0.30. The guard therefore locks the OTHER leg out at exactly the moment the
+   * player has realized it bought the wrong side first and needs to recover.
+   *
+   * It is also redundant. Every bid is already capped by the remaining budget
+   * (`qty × pairCeil − spent`), and when both legs finish at exactly `qty` the
+   * pair cost IS the total spend divided by `qty` — so the budget alone
+   * guarantees the ceiling. The only case the average guard adds anything is a
+   * market that ends short of `qty`, and such a market has already failed on
+   * share count.
+   */
+  avgGuard: z.coerce.number().int().min(0).max(1).default(0),
   /**
    * Minimum crossing allowance, as a fraction of `qty`, available from the very
    * first tick.
@@ -509,6 +559,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // checked before each order, the run is inside the ceiling at every instant
     // rather than only if it finishes.
     const avgCap = (side: Side, size: number): number => {
+      if (cfg.avgGuard === 0) return Infinity
       const other: Side = side === 'UP' ? 'DOWN' : 'UP'
       const room = cfg.pairCeil - avgOf(other)
       return (room * (held[side] + size) - basis[side]) / size
@@ -676,8 +727,18 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.fillPace <= 0 || leadSide === null || side === leadSide
           ? Infinity
           : cfg.qty * Math.max(conv, Math.min(1, elapsed / (cfg.fillPace * WINDOW_MS))) - held[side]
+      // Opening cap: before `openMs` no leg may exceed `openShare` of its
+      // target, however confident the tick-zero read looks.
+      const openRoom =
+        cfg.openShare >= 1 || elapsed >= cfg.openMs
+          ? Infinity
+          : cfg.openShare * cfg.qty - held[side]
       // Sub-share room is dust: posting it would churn the book for nothing.
-      const roomRaw = Math.min(Math.max(0, cfg.maxImbalance - lead), Math.max(0, paceRoom))
+      const roomRaw = Math.min(
+        Math.max(0, cfg.maxImbalance - lead),
+        Math.max(0, paceRoom),
+        Math.max(0, openRoom),
+      )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
       if (need <= 0 || want === undefined || room <= 0) {
