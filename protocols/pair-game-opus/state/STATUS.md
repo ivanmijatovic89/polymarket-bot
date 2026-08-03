@@ -1,7 +1,7 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **83** (first 83 eligible markets)
-- Current level: **84** (first 84 eligible markets)
+- Highest passed level: **86** (first 86 eligible markets)
+- Current level: **87** (first 87 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
@@ -11,91 +11,83 @@
 Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
 run 3743+N). Levels 46–51 at `3d8055f9`. Levels 52–59 at `e16f30fe`. Levels
 60–66 at `18640212`. Level 67 at `80d695a0`. Levels 68–79 at `71e47612`.
+Levels 80–83 at `acf79c2e`.
 
-Levels **80–83 at `acf79c2e`**, all defaults, one `play-level` run each:
-80 → run 4571, 81 → 4572, 82 → 4573, 83 → 4574. Level 80 was also re-run
-independently (run 4576) and passes 80/80 again, so it is not a jitter artefact.
+Levels **84–86 at `abe42a69`**, all defaults, one `play-level` run each:
+84 → run 4659, 85 → 4661, 86 → 4660. (Level 84 also passed at the intermediate
+commit `04c1236c`, run 4635, before the ramp below replaced the gate; the
+recorded runs above are all at the shipped configuration.)
 
-## What passed level 80 — a size floor and a wider gate on the depth cap
+## What passed levels 84–86 — the pace needs a size floor too
 
-The blocking window opens at a coin flip, DOWN leans to 0.64 by t+50, the player
-takes its entire DOWN leg inside that lean, and the window mean-reverts and
-settles UP.
+Level 84's window opens at a coin flip, runs eight cents to UP in seven seconds
+and then walks DOWN to settlement. The player took **469 UP inside those seven
+seconds** and was finished. The mechanism is exact: `edgeFull` licenses a JOINT
+allowance of `qty × edge/edgeFull` shares, the edge was 0.15, the allowance was
+470, and the player put all 470 on the leg that reverted. Everything after —
+freezing at 469/200 for two minutes, completing UP at 0.32 on a bounce — is the
+allowance being spent and the arithmetic then refusing every recovery.
 
-The suspicion recorded last session was that `depthAfterMs=45000` disarmed the
-depth cap until t+45 and let the buyout through. **That was wrong, and measuring
-it was the whole session.** With the clock removed entirely the window still
-fails: at `depthGate=0.70` its smoothed depth reading only grazes 0.71 and falls
-back under the gate in the same seconds its leg crosses `depthHold`, so the cap
-sets a per-tick room but `depthHeld` never latches, and the leg walks through 800
-on an unarmed tick. **The gate was the problem, not the clock.**
+The move happened on a book carrying about **1,000 shares** near the top; the
+same window carries 3,000–5,000 for the rest of its life. So the pace now has
+the floor the depth cap got at level 80: **`edgeMinDep`, default 1,500**.
 
-Two changes, each measured over the first 80 markets:
+`edgeDepRamp=1` (default) makes it a RAMP, not a gate, and that distinction is
+the whole of levels 85–86. As a bare gate it passes the first 84 and breaks the
+very next window, which opens already leaning, trends for twenty-five seconds
+on 600–1,500 shares and only turns after the pair is finished — refusing it
+outright completes the leg twenty seconds later at 0.79 instead of 0.74, with
+nothing left for the other side. In proportion, a thin book buys a
+proportionally smaller position instead of none: level 84's window is held to a
+third of its allowance, level 85's still gets to buy.
 
-- **`depthGate` 0.70 → 0.66.** The clean band is 0.65–0.68; 0.62 and 0.70 each
-  cost a market. At 0.66 the cap stops DOWN at 800 at t+49s, hands the chase to
-  UP, UP completes by t+54 at 0.36–0.39, and the window ends 1000/1000 at 0.970.
-- **`depthAfterMs` 45000 → 0, replaced by `depthMinDep` 2500** — the total size
-  resting within three levels of the leading leg, smoothed on `depthTauMs`, below
-  which its bid/ask share is not read at all. That is what the clock was a proxy
-  for. At the instant they arm, the windows the clock protected carry 1,250–1,750
-  shares near the top of the book; the level 80 window carries 3,100.
+Band: as a ramp every floor from **1,200 to 2,000** carries the first 86
+markets. Failures further out move around inside that band by the size of the
+latency jitter (4, 5 or 6 over the first 110 depending on the value; 1,200 and
+1,800 give 4, the shipped 1,500 gives 5). As a gate the band is 1,200–1,800
+over the first 84 only. `depthMinDep`'s own 2,500 costs five markets either
+way — the pace is read on every tick of every window, where the cap arms once.
 
-The floor is preferred to the clock on two measurements, not on taste: it holds a
-wider gate band (with the clock, 0.64 already fails), and probed market by market
-over the first 110 it leaves five failures beyond level 80 where the clock leaves
-six. **Caveat: that 5-vs-6 is inside the jitter.** A repeat of the same
-configuration at pure defaults gave six, differing only on `…1775179800`. The
-part that repeated is `…1775160000` — level 81 — which the floor holds and the
-bare clock-off configuration does not.
+## Level 87 — the open problem
 
-Level scale is unchanged: the first 80 are clean at `depthMinDep` 2000, 2500 and
-3200 alike, and at `depthGate` 0.65, 0.66 and 0.68.
+The added market is `btc-updown-15m-1775165400`. It ends **1000 UP / 343.75
+DOWN**, spent $773.4, and it is the same class of loss as level 84 with none of
+the same tells.
 
-## Level 84 — the open problem
+The window opens at a coin flip (0.510/0.500) on a THICK book (5,500 shares)
+and grinds UP for three minutes: 0.52 at t+16, 0.56 at t+30, 0.58 at t+41, 0.61
+at t+134, 0.64 at t+201. The player accumulates UP the whole way and **completes
+it at t+193–201, buying the last 281 shares at 0.62–0.64 for $183.** The market
+then comes all the way back and settles DOWN. By t+609 DOWN is 0.71 and the
+player needs 656 more of it with $206.6 left. There is no recovery.
 
-The added market is `btc-updown-15m-1775162700`. It ends **1000 UP / 200 DOWN**
-with $434 unspent, and it is a different failure from the last two levels.
+What makes it hard:
 
-The window opens at a coin flip (0.500/0.510) and the book then walks DOWN all
-the way to 0.99, settling DOWN. The player is on the wrong side and cannot buy
-its way back:
+- The book is thick throughout (2,400–4,000), so `edgeMinDep` sees nothing
+  wrong. The depth share never approaches `depthGate` either.
+- The model agrees with the book the whole way up (`pModel` 0.56–0.62), and
+  `z` never exceeds 0.34 before the reversal, so the oracle is silent.
+- The trend is slow and monotone over 200 seconds — the opposite of the
+  seven-second spike level 84 turned on.
 
-- By **t+15s** it already holds **469 UP against 200 DOWN**, bought on a book
-  that is dead even and if anything favours DOWN. That 269-share head start is
-  the whole mistake; everything after it is forced.
-- It then sits at 469/200 for over two minutes while DOWN runs from 0.51 to 0.69.
-- At **t+135–150s** it completes UP to 1000 for another $178 at 0.25–0.33 —
-  cheap, and the right move for a leg it intends to keep — leaving $434.
-- 800 DOWN shares then cost $552 at the prevailing 0.69, so the pair can never be
-  finished, and DOWN only gets dearer from there.
+The one thing that is arguably wrong on its own terms is the FINISH: at t+193
+the player holds 719 UP and pays 0.62–0.64 for the last 281, which is both the
+dearest UP has been all window and the top of the move. Check what exempts that
+purchase from the pace (`finishShare`/`finishSolv` are the candidates, and
+`finishCeil`'s larger budget is what pays for it) before looking anywhere else.
 
-So the thread to pull is the **opening imbalance**, not the depth cap. The depth
-cap behaves correctly here: at t+0 the reading is 0.77 on UP but the book carries
-only 1,176 shares near the top, and `depthMinDep` refuses to read it — which is
-exactly what the floor is for.
+Also worth checking: the 344 DOWN it does hold cost about 0.49 a share, bought
+in the opening minute at coin-flip prices, and that average is what `avgCap`
+later reads when it refuses to buy DOWN at all.
 
-Two things to try, in order:
-
-1. Find what buys 469 UP in fifteen seconds on an even book, and whether it is
-   allowed to open that far ahead of the other leg before any evidence. The
-   opening machinery is `openMs`, `openShare`, `earlyBoth`, `earlyShare` and
-   `earlyMs`; the ordinary paces (`reserveLow`, `leadReserve`) are lifted early.
-   Read the player's own timeline at `--param debug=1 --param debugEveryMs=1000`
-   over the first 30 seconds before changing anything.
-2. Note the budget arithmetic below before proposing a cap. Withholding money
-   from the opening does not make the player careful in general — it makes some
-   other market end short. Whatever is done here has to be conditioned on the
-   book being genuinely undecided, and measured over all 84.
-
-## The already-known blockers past level 84
+## The already-known blockers past level 87
 
 Probed individually at shipped defaults over the first 110 markets, the failures
 are, with their level numbers:
 
-`…1775162700` (84) 1000/200, `…1775165400` (87) 1000/343.75, `…1775172600` (95)
-1000/718.75, `…1775179800` (103) 1000/406.25, `…1775184300` (108) 200/1000,
-`…1775185200` (109) 343.75/1000.
+`…1775165400` (87) 1000/343.75, `…1775172600` (95) 1000/718.75, `…1775179800`
+(103) 1000/406.25, `…1775184300` (108) 200/1000, `…1775185200` (109)
+343.75/1000.
 
 Each market is an independent episode, so a level passes exactly when every
 market in it passes on its own. Probing the new markets in one batch with
@@ -118,7 +110,8 @@ the $980 the rule allows. Two consequences:
    every window (median 0.962), so **any rule that withholds money from a leg
    does not make it careful — it makes some market end short.** `depthHold`
    survives only because it does not withhold: it redirects the money to the
-   other leg, which is cheap at exactly the moment the cap fires.
+   other leg, which is cheap at exactly the moment the cap fires. `edgeMinDep`
+   survives for the same reason it is a ramp and not a gate.
 
 `pairCeil` can be raised to 0.975 (with `finishCeil` 0.978) or 0.978 (0.98) with
 no failures. Half a cent to a cent of budget is available on demand, and on its
@@ -147,6 +140,10 @@ On the level 68 window (baseline was 1 failure over the first 68):
 | `fairHold` (the model-book disagreement as a cap) | 7–9, on four settings |
 | `fairHold` + a release on the volatility-normalised oracle | 7–9 — unchanged |
 | the parity hold released by the oracle, any band | 7 at BEST, on perfect execution |
+
+Over the first 84, with the `edgeMinDep` gate (baseline 1 failure):
+`edgeMinDep` 2,500 → 5 failures, 2,000 → 2, 1,900 → 1 (a different market),
+1,000 → 1 (level 84 still failing).
 
 Earlier: `commitRate`, `commitRise`, `underdogMax`/`underdogLift`, `swapEdge`,
 `reserveMom`, `reserveLowUntilMs`, `priorityLatch`, `momDeadband`,
@@ -179,6 +176,8 @@ strong settle the way it points).
   windows ever reach a 0.70 share on the offline reading at all, and the ones
   that reach it in the opening half-minute are carrying a third of the size the
   ones later in the window carry. `tools/depScan.ts` prints both.
+- **Absolute near depth belongs on the PACE as well as the cap**, and there it
+  has to be proportional rather than a threshold — see levels 84–86 above.
 
 ## What passed the earlier levels
 
@@ -191,6 +190,9 @@ strong settle the way it points).
 - **68** — `depthHold=0.8` on `depthGate`, the share of near depth sitting on the
   bid, with `depthFreshMs=30000` so it only arms on a lean under thirty seconds
   old.
+- **80** — `depthGate` 0.66 and `depthMinDep=2500` in place of the clock the cap
+  used to wait on.
+- **84–86** — `edgeMinDep=1500` with `edgeDepRamp=1`.
 
 ## Tools
 
@@ -221,9 +223,9 @@ strong settle the way it points).
   It requires the run's market set to be EXACTLY the level's universe, so every
   level needs its own run.
 - `tools/play-level.ts --level N` — run and score one level in one command.
-  About three minutes for a level in the eighties; five run fine in parallel.
-  Its tail is the market table, so grep for `^LEVEL` or score the run afterwards
-  with `level.ts`.
+  Roughly ten minutes for a level in the eighties (it replays sequentially in one
+  process); three run fine in parallel. Its tail is the market table, so grep for
+  `^LEVEL` or score the run afterwards with `level.ts`.
 - `tools/lib/seedRandom.mjs` — the ONLY non-determinism in a run is
   `Math.random()` in `BacktestExecution` (the ±20 ms latency jitter), so a
   single-market probe is one sample:
@@ -241,9 +243,13 @@ strong settle the way it points).
   innocent, and the counterfactual took one sweep to run. Before spending a
   session on a stated cause, turn the suspected rule OFF and confirm the market
   actually changes.
+- **A fix measured on one level breaks the next one.** The `edgeMinDep` gate
+  passed 84 and broke 85 — the very next market. Sweep the first N+5 before
+  believing a level, not the first N.
 - **`/tmp` is case-insensitive here.** Probe tags `Z1` and `z1` are the same
   files, so a run can silently read a previous session's rows. Delete the target
-  `.rows` before waiting on it.
+  `.rows` before waiting on it. `rm -f /tmp/pg/tag.*` fails under zsh when
+  nothing matches — list the three files instead.
 - **zsh does not word-split unquoted variables.** Never collect `--param` flags
   in a shell variable, and never use `set -- $pair` to split a "a b" string.
   Pass the flags literally to `probe2.sh` / `sweep80.sh` — a sweep that silently

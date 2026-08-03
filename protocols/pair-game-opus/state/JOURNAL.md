@@ -1953,3 +1953,67 @@ Worth noting the general lesson, because it cost the last session: a single
 failing market does not name its own cause. The way to test a stated cause is to
 switch the suspected rule off and see whether the market changes. That takes one
 sweep and about two minutes.
+
+## Session 28 — levels 84, 85 and 86
+
+Three levels this time, and they came from one idea applied twice — the second
+time correctly.
+
+I started where the last session pointed: the opening. The player had bought
+nearly five hundred shares of one side in the first eight seconds of a window
+that then went the other way. Reading its own minute-by-minute log, the reason
+turned out to be sharper than "the opening is unguarded". The player has a rule
+that says it may only hold as many shares as the price gap between the two sides
+justifies — a wide gap is the market telling it something, so a wide gap buys a
+bigger position. In this window the gap opened eight cents in seven seconds, the
+rule granted an allowance of about four hundred and seventy shares, and the
+player put every one of them on the side that then reverted. The allowance was
+not wrong; the evidence it was reading was.
+
+Because what actually happened in those seven seconds is that a price moved a
+long way on almost nothing. There were about a thousand shares resting near the
+top of the book. For the rest of that same window there were three to five
+thousand. A price that moves eight cents when a thousand shares are available is
+not the market forming an opinion — it is a thin book being pushed around. And
+this is exactly the lesson the previous session learned about a different rule:
+a share of nothing is not a reading. It had been applied to one place in the
+player and not to the other.
+
+So I gave the sizing rule the same requirement: below a floor of resting size,
+the price gap does not count as evidence. Over the first eighty-four markets
+that passed everything — level eighty-four included, on the first try. I
+committed it and moved on.
+
+And then it broke the very next market, which is worth recording as its own
+lesson. That window opens already leaning, trends one way for twenty-five
+seconds, and only turns after the player has finished buying both sides. It is a
+window the player has to buy into — and the whole of that twenty-five seconds
+happens on six hundred to fifteen hundred shares. My floor refused it outright,
+so the player waited, and finished the same purchase twenty seconds later five
+cents a share worse, which left it short on the other side. A market it used to
+win, it now lost.
+
+The fix was to stop treating the floor as a yes/no question. A book with half the
+required size now counts for half. The thin seven-second spike gets held to a
+third of its allowance instead of all of it; the genuine twenty-five-second trend
+still gets to buy, just less at first. That version passes eighty-four, eighty-
+five and eighty-six, and it does so at every floor value I tried between twelve
+hundred and two thousand shares, which is a much wider tolerance than the
+yes/no version had. All three levels are recorded with their own scored runs.
+
+The market blocking eighty-seven is a harder one and none of my new tools see
+it. It opens at a coin flip on a thick book and grinds one direction for three
+full minutes — no spike, no thin book, and the independent price feed agrees with
+the market the whole way up. The player follows it and completes that side at the
+very top of the move, paying its dearest price of the window for the last three
+hundred shares, and then the market comes all the way back and settles the other
+way. There is no recovery from that. The one thing that looks wrong on its own
+terms is that final purchase: the player has a rule that exempts a nearly-
+finished side from its own pacing, on the reasoning that shares it already owns
+are worthless unmatched — and that exemption is what pays top price here. That is
+where I would look first.
+
+One process note for whoever picks this up. I nearly shipped a change that
+passed the level I was working on and broke the next market along. It cost
+nothing because sweeping five markets past the current level takes two extra
+minutes, and I now do that before believing any level.
