@@ -286,3 +286,95 @@ favourite starts climbing from the first seconds; where it fails, the favourite
 starts falling immediately. Making the player wait a few seconds for that, or
 requiring the favourite to actually be rising before backing it, is where the
 next session starts — from six levels standing rather than five.
+
+---
+
+## Session 5 — from six levels to eighteen
+
+I came into this session stuck on level seven, with a diagnosis already written
+down: the player had a rule saying "when the book opens leaning hard, back the
+favourite immediately", and in that market the favourite promptly collapsed. The
+plan on the page was to make the player wait a few seconds and check that the
+favourite was actually rising before backing it.
+
+That plan turned out to be aiming at the wrong thing, and understanding why is
+the most useful thing I learned today.
+
+I spent the first stretch just reading the seven markets tick by tick — the
+opening prices, how fast they moved, and where each side was cheapest. Two facts
+fell out. The first is that it does not matter at all which side wins. A matched
+pair of one UP share and one DOWN share pays exactly one dollar whatever
+happens, so the only question is whether each side can be bought cheaply at some
+moment. The second is that the two prices always add up to a shade over a
+dollar, at every instant. Put those together and the whole game collapses to a
+single sentence: your profit is exactly how far the price of the side you bought
+first rises between the moment you buy it and the moment you buy the other one.
+So you want to buy the side that is about to go up, and collect the other after
+it has fallen. Everything else is detail.
+
+Which brought the real problem into focus. In the losing market the player did
+not merely guess wrong at the opening — it bought eight hundred of its thousand
+shares within three seconds, at sixty cents, on a guess. And it had a second
+rule, a safety guard, which then read those eight hundred shares as proof that
+the whole leg was a sixty-cent leg, and refused to let the other side buy
+anything at all. The guard was meant to protect the price ceiling. It was
+actually preventing the only recovery available.
+
+So I made two changes. The first is a speed limit on the opening: for the first
+five seconds, neither side may hold more than a fifth of its target. The player
+is still free to guess; it just may not size the guess like a conclusion. The
+second is removing that safety guard entirely, on the grounds that it protects
+nothing — the running budget already guarantees the ceiling, because both sides
+finish at exactly the same number of shares, so the pair cost is simply the
+money spent divided by the target. Either change on its own still loses the
+level. Together the level passes twenty-five times out of twenty-five.
+
+Levels eight through eleven then fell without any further work, which told me
+the changes were not a patch on one market.
+
+Level twelve stopped it, and did so in a way I found genuinely instructive. Its
+new market opens at almost exactly the same prices as the level-seven market —
+one side at fifty-seven cents, the other at forty-five — and resolves the
+opposite way. Level seven punished buying the dearer side; level twelve punishes
+buying the cheaper one. Two identical opening books, opposite correct answers.
+There is no cleverer reading of the opening book that gets both right.
+
+The answer therefore could not be a better guess, only a smaller one. The
+five-second cap was already a crude version of that idea, so I made it
+continuous: a side may hold only as much of its target as the gap between the
+two prices has already revealed. While the book is a coin flip, a fifth. Once
+the market has clearly picked a direction, all of it. That single rule carried
+level twelve and held every earlier level, and it has a comfortable margin — it
+works anywhere from a quarter to two-fifths of the way along its scale, and I
+shipped the middle.
+
+Levels thirteen passed. Fourteen introduced a new failure shape I had not seen:
+a market whose two prices cross each other five times in seven minutes. The
+player kept switching which side it was chasing, and by taking turns it managed
+to buy both sides at around fifty cents, which is the one combination that can
+never work. I tried the obvious defences — committing to one side for the whole
+window, requiring a bigger swing before switching — and both made things worse,
+because committing early is exactly the coin-flip I had just spent the session
+removing. What did work was tightening the rule that says how much the side
+being ignored may pay: from twenty-five cents down to ten. The less the
+temporarily-ignored side can spend before the market changes its mind, the less
+a whipsaw costs. That held everything and carried fourteen through eighteen.
+
+Level nineteen is where I ran out. It is the same whipsaw shape, worse: six
+minutes of directionless oscillation between forty-six and sixty-five cents,
+during which the player chases one side the whole way, finishes it at sixty
+cents having spent almost its entire budget, and only then does the other side
+run away. It needed the missing shares at four cents; they never traded below
+thirty-six. I tried six different existing dials on it and a new one I built for
+the purpose; none of them worked, and several broke earlier markets. All of that
+is written down so the next session does not repeat it.
+
+The idea I have not built yet, and would start with: the player has no memory of
+where a price has been. Every rule it owns looks only at this instant. In that
+market it repeatedly paid sixty cents for something it had watched trade at
+forty-six a minute earlier. A rule that refuses to chase a side too far above
+its own recent low would decline exactly those purchases, and would cost nothing
+in a steadily trending market, where the recent low simply is the current price.
+
+Eighteen levels standing, all on one unchanged configuration, every market
+finishing with exactly a thousand shares of each side.
