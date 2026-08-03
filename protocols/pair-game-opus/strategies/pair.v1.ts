@@ -713,6 +713,33 @@ export const ConfigSchema = z.strictObject({
    */
   edgeFull: z.coerce.number().finite().min(0).max(1).default(0.32),
   /**
+   * Fraction of `qty` past which a leg is FINISHED rather than paced. 1 ⇒ the
+   * pace applies all the way to the target.
+   *
+   * `edgeFull` is a rule about commitment: do not own more of a leg than the
+   * book has justified. That is the right question while the position is being
+   * built and the wrong one once most of it exists, because the pace is
+   * two-sided in effect but not in intent. The allowance is `edge / edgeFull`
+   * of the target, and `edge` FALLS whenever the two asks converge — so a leg
+   * that was built to eight tenths under a wide edge is retroactively over its
+   * allowance when the book narrows, and the pace stops being a limit on new
+   * commitment and becomes a freeze on an existing one.
+   *
+   * The two are not the same decision. Refusing to grow a position costs the
+   * player nothing but the opportunity; refusing to FINISH one costs the whole
+   * of what has already been spent, because an unmatched share pays either 1 or
+   * 0 while its missing partner guarantees the pair is never formed. At eight
+   * tenths built the marginal shares are worth far more than the pace they
+   * violate: the alternative to buying them is not a cheaper leg later, it is a
+   * leg of 800 shares that can never be paired with anything.
+   *
+   * This releases only, and only upward — it can never make the player buy a
+   * leg it had not already chosen and mostly built. Everything that decides
+   * WHICH leg to build, and the ceiling that decides what may be paid for it,
+   * is untouched: an unaffordable finish is still refused by the budget line.
+   */
+  finishShare: z.coerce.number().finite().min(0).max(1).default(0.75),
+  /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
    * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
@@ -1519,8 +1546,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // everything it is going to: a shared budget of `qty` can never carry two
       // legs of `qty` each, and the pace would deadlock both of them short.
       const edgeHeld = cfg.pairEdge === 1 ? held.UP + held.DOWN : held[side]
+      // A leg past `finishShare` of its target is finished, not paced: the
+      // shares it still needs are worth more than the evidence rule they break,
+      // because their absence makes every share already bought unmatchable.
+      const finishing = cfg.finishShare < 1 && held[side] >= cfg.finishShare * cfg.qty
       const edgeRoom =
-        cfg.edgeFull <= 0 || leadSide === null || (cfg.pairEdge === 1 && edgeFrac >= 1)
+        cfg.edgeFull <= 0 || leadSide === null || finishing || (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
       // Sub-share room is dust: posting it would churn the book for nothing.
