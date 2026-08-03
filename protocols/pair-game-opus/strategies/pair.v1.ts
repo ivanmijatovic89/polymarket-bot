@@ -932,6 +932,71 @@ export const ConfigSchema = z.strictObject({
    * was genuinely superseded.
    */
   priorityLatch: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Book edge, per unit of the priority leg already bought, that the OTHER leg
+   * must show before the priority role may change hands. 0 disables it.
+   *
+   * `priorityLatch` is the same idea taken to its limit — pick once, never
+   * re-decide — and measuring it exposes why the limit is wrong: it repairs the
+   * windows that are lost by re-deciding and destroys the ones that are saved by
+   * it, 56 of 60 against 58. The role has to be able to change; what it must not
+   * be is free.
+   *
+   * The price of the change is the shares already sunk into the leg being
+   * abandoned. With nothing bought, changing the mind costs nothing and should
+   * happen on the first hint. With most of a leg bought, the pair's whole budget
+   * is already committed to one side of the market, and a change means paying a
+   * coin-flip price for the second leg as well — the one shape that can never
+   * come in under the ceiling. So the threshold is `swapEdge × held(current)/qty`
+   * against `askNew − askCurrent`, the book's own statement of how much better
+   * the other leg looks.
+   *
+   * This is deliberately NOT another restraint: it never stops the player buying,
+   * it only decides which leg it is buying. A market that trends from the first
+   * tick never triggers it at all, because its priority leg never changes.
+   *
+   * It does exactly what it was built to do and still does not pay. Over the
+   * first sixty markets it repairs BOTH blocking windows outright — 1000/1000 at
+   * pair costs 0.920 and 0.941, the healthiest either has ever printed — and
+   * breaks three others that the shipped player passes (`-1775127600`,
+   * `-1775131200`, `-1775132100`), for 57 of 60 against a baseline 58. 0.5 and
+   * 0.7 are worse (53 and 51); below 0.4 the two blocking windows are not
+   * repaired at all, so there is no gentler setting that keeps the win.
+   *
+   * The casualties explain themselves and are worth remembering. The flicker
+   * this parameter suppresses was doing a second job nobody designed: a leg is
+   * only bought on the ticks where it holds priority, so a priority that changes
+   * hands every tick is an accumulation brake. Remove the flicker and the player
+   * buys its chosen leg out in seventy-five seconds instead of minutes — and
+   * when that leg is the loser, there is no money left for the winner at any
+   * price. All three casualties end 1000/200 or 1000/0.
+   *
+   * Combining it with a bigger reserve for the leg left behind (`reserveLow`
+   * 0.7 / 0.8 / 0.9, the obvious complement) does not recover them: 56 / 54 / 55.
+   */
+  swapEdge: z.coerce.number().finite().min(0).max(2).default(0),
+  /**
+   * 1 ⇒ `reserveLow` stops holding money back for the non-priority leg while
+   * that leg's ask is under its own average, i.e. while it is still falling.
+   *
+   * The reserve floor is the player's answer to "how cheap can the second leg
+   * honestly be expected to get", and it answers with that leg's own trailing
+   * low. On a leg that has stopped falling this is good evidence. On a leg that
+   * is still on its way down it is the one number guaranteed to be wrong: the
+   * low is whatever it printed a second ago, and the leg is about to print
+   * lower. The money set aside against it is money the player can never spend —
+   * it is reserved for a price that will not come back, while the leg it is
+   * being withheld from is the one running away.
+   *
+   * The reasoning is right and the distinction is empty: measured on both
+   * blocking windows it reproduces `reserveLow=0` to the cent, at every level of
+   * `reserveLow` and with or without `swapEdge`. At the moments where the reserve
+   * binds, the leg left behind is ALWAYS below its own average — that is what
+   * being left behind means. So this is not a narrower version of turning the
+   * floor off; it is the same thing spelled differently, and turning the floor
+   * off does not finish either window (1000/406 and 1000/531).
+   */
+  reserveMom: z.coerce.number().int().min(0).max(1).default(0),
   /** 1 ⇒ also rest a bid on the non-priority leg with the leftover budget. */
   postSecondLeg: z.coerce.number().int().min(0).max(1).default(1),
   /** Time constant of the ask EMA that defines `priority=momentum`. */
@@ -1763,6 +1828,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let priorityLeg: Side | null = null
   // Committed priority leg for the whole window — see `priorityLatch`.
   let latched: Side | null = null
+  // The leg that currently holds the priority role — see `swapEdge`.
+  let committed: Side | null = null
 
   /**
    * Sliding-window minimum of each leg's ask, as a monotonically increasing
@@ -2207,6 +2274,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const fundO = cfg.solvFrac * Math.min(askO, Number.isFinite(lowO) ? lowO : askO)
         return spent + needS * askS + needO * fundO
       }
+      // Changing the priority leg costs whatever has already been sunk into the
+      // current one, so the book has to say more the further in the player is.
+      // Placed above the solvency swap on purpose: arithmetic still overrides it,
+      // so a blocked change cannot strand the player in a pair it cannot finish.
+      if (cfg.swapEdge > 0 && committed !== null && first !== committed) {
+        const askNew = first === 'UP' ? askUp : askDown
+        const askOld = committed === 'UP' ? askUp : askDown
+        if (askNew - askOld < (cfg.swapEdge * held[committed]) / cfg.qty) first = committed
+      }
       if (cfg.solvSwap === 1 && elapsed >= cfg.solvAfterMs) {
         const o: Side = first === 'UP' ? 'DOWN' : 'UP'
         const projFirstSide = projTotal(first)
@@ -2228,6 +2304,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         if (conv > 0 || latched === null) latched = first
         first = latched
       }
+      committed = first
       leadSide = first
       const second: Side = first === 'UP' ? 'DOWN' : 'UP'
       const askFirst = first === 'UP' ? askUp : askDown
@@ -2252,8 +2329,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // reserve because it expects the second leg to be cheap, and this is the
       // evidence that says how cheap it has actually managed to be.
       const lowSecond = trailingLow(second)
+      // A leg making new lows will keep making them: its trailing low is stale
+      // within seconds, and reserving against it sets aside money for a price
+      // that leg will never trade at again. See `reserveMom`.
+      const emaSecond = ema[second]
+      const secondFalling =
+        cfg.reserveMom === 1 && emaSecond !== null && askSecond < emaSecond
       const reserveFloor =
-        cfg.reserveLow <= 0 || elapsed < cfg.reserveLowAfterMs || !Number.isFinite(lowSecond)
+        cfg.reserveLow <= 0 ||
+        elapsed < cfg.reserveLowAfterMs ||
+        !Number.isFinite(lowSecond) ||
+        secondFalling
           ? 0
           : cfg.reserveLow * Math.min(askSecond, lowSecond)
       const reserve = Math.max(
