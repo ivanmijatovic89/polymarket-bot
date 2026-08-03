@@ -1,9 +1,7 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **104** (first 104 eligible markets) — but see the
-  fragility warning below: 103 and 104 rest on a market that passes about one
-  latency draw in four.
-- Current level: **105** (first 105 eligible markets)
+- Highest passed level: **107** (first 107 eligible markets)
+- Current level: **108** (first 108 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
@@ -22,6 +20,11 @@ Levels **87–94 at `bd730970`**, all defaults, one `play-level` run each:
 Levels **95–104 at `5c27b8dc`**, all defaults, one `play-level` run each:
 95 → 4730, 96 → 4731, 97 → 4732, 98 → 4733, 99 → 4734, 100 → 4735, 101 → 4736,
 102 → 4738, 103 → 4737, 104 → 4739.
+
+Levels **105–107 at `f52fa712`**, all defaults, one `play-level` run each:
+105 → 4883, 106 → 4884, 107 → 4885. Levels 103 and 104 were recorded on lucky
+latency draws at `5c27b8dc`; `f52fa712` is what makes them (and 105–107) real —
+`…1775179800` now passes 4 draws out of 4.
 
 ## What passed 87–94 — the last leg standing may read the finish budget
 
@@ -63,41 +66,63 @@ Band over the first 110: 8 s is too short (95 still fails, and an earlier market
 breaks too), 10/12/15 s all carry the same three failures with none below level
 103, 20 s breaks market 52 whose chase is genuine and starts inside that window.
 
-## Level 105 — the open problem, and why 103/104 are fragile
+## What passed 105–107 — the depth cap latches on the rate
 
-`btc-updown-15m-1775179800` (index 103) passes about **one latency draw in
-four**. Four unseeded single-market probes: 1 pass (1000/1000, +73) and 3
-failures (1000/406.25). Levels 103 and 104 each caught a passing draw; level 105
-caught a failing one. The same fix serves all three levels and the honest floor
-without it is level 102.
+`depthLatchRate=1` + `depthRateMs=3000`, and `depthRelease=0.6` +
+`depthReleaseMs=5000` (all new, all default on). **Nothing about when the cap
+ARMS changed** — only the latch that makes it permanent and hands the chase over.
 
-The cause is identified exactly, and it is the trap already written down below
-("a per-tick cap that only latches at a share threshold can be stepped over"):
+The cap was never the coin flip. It is recomputed every tick and it does bind:
+in both draws of `…1775179800` the leg is stopped dead under 800. The LATCH
+waited to observe the leg at or above `depthHold`×`qty`, so at 747 held with 53
+shares of room, one draw's fill lands 53 and latches, and the other's lands 32,
+stops on 779, loses the reading two seconds later, and eight seconds after that
+runs 779 → 1000 while DOWN sits on 406. That is the whole ±20 ms coin flip.
 
-Two draws are IDENTICAL through t+150s (held 719/406, depth share 0.68, above
-`depthGate` 0.66). Between t+150 and t+155 the book spikes UP to 0.67 and:
+The latch now also engages when the leg is buying faster over `depthRateMs` than
+the room the cap has left it — 153 shares in the three seconds before the cap
+bit, against 31 shares in the previous half-minute on the market the naive
+repair destroys.
 
-- passing draw: `depthCapSide` arms (`dcap=UP` in the debug line), UP stops at
-  800 = `depthHold`×`qty`, the money goes to DOWN, which finishes at 1000 while
-  DOWN is quoted 0.32–0.44. The market then collapses, DOWN wins, and UP is
-  swept at 0.10.
-- failing draw: `dcap` stays `-` for the whole window. UP runs 719 → 758 → 1000
-  inside the spike and DOWN never moves off 406.
+The naive repairs, each measured over the first 110:
 
-So the cap does the entire job when it arms, and whether it arms is decided by
-±20 ms of latency jitter. The arming condition is the bug: it needs the leg to
-be OBSERVED at or above `depthHold`×`qty` while the reading is above the gate,
-and a burst that carries the leg from 758 to 1000 in one stretch never presents
-that observation. Arm on the READING (gate + freshness + that leg ahead) rather
-than on the holdings, or clamp the order size so a leg cannot step over
-`depthHold`×`qty` in a single order while the reading is above the gate.
+| Repair | Result |
+|---|---|
+| latch when the cap would clamp the next CLIP | 103 fixed 4/4, **`…1775172600` (95) broken 4/4** — latches DOWN at 719, buys UP out at 0.40, ends 1000/719 with DOWN winning |
+| drop the freshness clock from the RELEASE entirely | 103 fixed, markets 28 and 31 stranded on 800/1000 — the cap survives into windows where the leg it stopped is the WINNER |
+| `reserveFull` 0.6 / 0.75 / 0.9 (reserve the second leg's honest cost) | 17 / 17 / 20 failures |
 
-## The remaining known blockers
+`depthReleaseMs=0` (rate latch alone, no grace) costs market 102. The two
+together are what hold.
 
-Probed at shipped defaults over the first 110 markets, the failures are now:
+**The trap that cost an hour:** `pushRate`/`pushDepthRate` sit behind
+`if (cfg.commitRate > 0)` and `commitRate` is 0, so the new deque was empty and
+the rate rule silently did nothing. The sweeps looked like the idea failing.
+`pushDepthRate` now has its own guard. Check the guard on any deque you read.
 
-`…1775179800` (103, the coin flip above), `…1775184300` (108) 200/1000,
-`…1775185200` (109) 343.75/1000.
+## The remaining known blockers — the player backs the wrong horse
+
+Probed at shipped defaults over the first 110 markets, the failures are:
+
+`…1775184300` (108) 200/1000, outcome UP; `…1775185200` (109) 343.75/1000,
+outcome UP. Deterministic — 108 fails 4 draws out of 4.
+
+They are consecutive and identical in shape, and they are NOT timing accidents:
+
+- 108: the book wobbles either side of even for three minutes (askUp 0.48–0.58).
+  The player takes 200 UP and 344 DOWN in the first ten seconds, then buys
+  **nothing at all from t+20s to t+140s** — correctly, the pair is quoted at
+  ~1.00 throughout. From t+141s it commits to DOWN and finishes it at t+191s for
+  551.9 total. UP is then 0.63 and rising with 420 left for 800 shares (0.525 a
+  share), so UP never moves again and the window ends 200/1000 on an UP market.
+- The cheapest UP after the opening was 0.48 (t+30–t+80), affordable then.
+
+So the decision that loses these two is the commitment itself, made against a
+book that was leaning UP (pBook 0.51–0.62 from t+91s on) while `pModel` sat
+below it. Every fix so far has been about caps and latches on a chase that was
+already pointed the right way; this one is about which leg to chase. Expect it to
+need a different kind of change, and remember the budget arithmetic below: there
+is no safe play, so "chase neither" is not an answer.
 
 Each market is an independent episode, so a level passes exactly when every
 market in it passes on its own. `tools/sweep80.sh` finds the next blocker over
@@ -138,6 +163,9 @@ Over the first 110, at the levels-84–86 configuration (baseline 5 failures):
 | `pairCeil` 0.978 + `finishCeil` 0.98 | 5, but market 39 breaks |
 | `jumpPad` 0.05/0.08/0.12 with `jumpCross=1`, τ 8–15 s | market 95 unmoved |
 | `commitDwellMs` 8 s / 20 s | 4 / 4 (different markets each) |
+| `reserveFull` 0.6 / 0.75 / 0.9 | 17 / 17 / 20 |
+| the depth latch on "the next clip would be clamped" | 3, and market 95 breaks |
+| the depth release with no freshness clock at all | 4, markets 28 and 31 break |
 
 On the level 68 window (baseline was 1 failure over the first 68):
 
@@ -218,6 +246,8 @@ STATUS pointed at the finish exemptions here and was wrong.
 - **84–86** — `edgeMinDep=1500` with `edgeDepRamp=1`.
 - **87–94** — `closeFinish=1`.
 - **95–104** — `commitDwellMs=12000`.
+- **105–107** — `depthLatchRate=1`/`depthRateMs=3000` plus `depthRelease=0.6`/
+  `depthReleaseMs=5000`.
 
 ## Tools
 
@@ -294,10 +324,18 @@ STATUS pointed at the finish exemptions here and was wrong.
   same way. `chaseWrongSinceMs` is updated inside the per-side loop but only for
   `side === chaseLeg`, which is the only side that reads it.
 - **A per-tick cap that only latches at a share threshold can be stepped over.**
-  `depthCapSide` is recomputed every tick but the latch only engages once the
-  leg is already at `depthHold`; if the reading dips under the gate in exactly
-  those seconds, the leg buys straight past the cap and it never engages again.
-  This hid the real cause of level 80 and it is what makes level 103 a coin flip.
+  This hid the real cause of level 80 and it is what made market 103 a coin
+  flip; `depthLatchRate` fixed it. Check any new latch the same way, and note
+  that the fix is NOT "latch earlier" — it is "latch on the thing the threshold
+  was standing in for".
+- **A deque you read may not be being written.** `pushRate` sits behind
+  `if (cfg.commitRate > 0)` and `commitRate` is 0. A new rule reading it got
+  zeros and did nothing, through two full sweeps that looked like an honest
+  negative result. Confirm the state you depend on is actually maintained at
+  shipped defaults before believing a measurement.
+- **The debug line's `dcap=` prints `depthHeld`, the LATCH — not
+  `depthCapSide`.** `darm=` prints the arm. A window can be capped for its whole
+  length with `dcap=-`.
 - **The live reading is not the offline reading.** The depth imbalance measured
   as a boxcar mean over 1 Hz observation samples peaked at 0.83 in the level 68
   window; the same quantity as an EWMA over the dense tick stream peaks at 0.76.

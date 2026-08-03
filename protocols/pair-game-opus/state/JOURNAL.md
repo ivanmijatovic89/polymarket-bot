@@ -2098,3 +2098,63 @@ those words. It should arm on the reading, not on the holdings.
 
 That is the next session's first job, and fixing it repairs three levels at once
 rather than one.
+
+## Session 30 — the coin flip is gone, levels 105 to 107
+
+Last session ended with a warning: two of the levels it claimed had been caught
+on a lucky roll of the simulator's network delay, and the honest floor was one
+hundred and two. This session's job was to make that market pass every time, and
+it does now — four runs out of four, where before it was one in four.
+
+The diagnosis handed over was nearly right and the prescription was wrong, which
+cost me most of the session to find out.
+
+The player has a safety cap that stops it buying more of the side the whole
+market is piling onto, and hands the money to the other side instead. The cap
+itself was working fine. What was broken was the switch that makes the cap
+permanent and triggers the handover: it waited to actually SEE the side sitting
+at eight hundred shares. In one run a fill lands exactly on eight hundred and
+everything works; in another the same fill lands on seven hundred and seventy
+nine, the reading fades a couple of seconds later, and eight seconds after that
+the side runs to a thousand while the other one sits at four hundred. Two
+hundred milliseconds of difference in when an order arrives decided between a
+seventy-five dollar profit and a four hundred and twenty seven dollar loss.
+
+The obvious repair — flip the switch as soon as the cap would clamp the next
+order — works perfectly on that market and destroys another one twenty markets
+earlier, where it stops the side that eventually wins and spends everything on
+the loser. I also tried simply keeping the cap alive longer once it has armed,
+which fixes the target market but strands two much earlier ones with eight
+hundred shares of a side they can never finish. And I tried an old unused knob
+that reserves the honest cost of the second side before letting the first one
+buy: seventeen failures out of a hundred and ten, which is the same lesson this
+workspace keeps relearning — money withheld from a side does not make the player
+careful, it makes some market end short.
+
+What actually separates the two markets is speed. In the one that needed the
+cap, the side took a hundred and fifty shares in the three seconds before it was
+stopped. In the one the cap ruined, the side took thirty-one shares in the
+previous half minute. So the switch now flips when the side is buying faster
+than the room the cap has left it — not when it happens to be observed at a
+particular number. Both markets are now solid, and so is a third that was
+sitting on the same edge.
+
+There was one hour of that lost to a plain oversight: the counter I was reading
+the buying rate off was only being maintained when a different, disabled feature
+was switched on, so my rule was reading zero and doing nothing. Worth
+remembering — the sweeps looked like the idea was failing when the code simply
+was not running.
+
+Levels one hundred and five, one hundred and six and one hundred and seven all
+pass, and the honest floor is now the recorded one rather than two levels below
+it.
+
+Next is level one hundred and eight, and the two markets that block it are
+consecutive and identical in shape. In both, the market wobbles either side of a
+coin flip for three minutes, the player buys out the side that is drifting down,
+and then the market turns and runs the other way for the rest of the window. It
+ends holding a thousand shares of the loser and two or three hundred of the
+winner, which by then costs more than the money left. Unlike everything I have
+fixed so far these are not accidents of timing — they are the player backing the
+wrong horse, twice in a row, and no amount of care about caps and latches will
+help. That is a harder problem and it is where the next session starts.
