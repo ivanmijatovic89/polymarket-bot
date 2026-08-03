@@ -934,6 +934,23 @@ export const ConfigSchema = z.strictObject({
    */
   edgeFull: z.coerce.number().finite().min(0).max(1).default(0.32),
   /**
+   * Total size resting within three levels of a leg, smoothed on `depthTauMs`,
+   * below which the ask gap is not read as evidence at all. 0 disables it.
+   *
+   * The same lesson `depthMinDep` records, applied to the pace instead of the
+   * cap: a share of nothing is not a reading, and an eight-cent move on a book
+   * carrying a thousand shares is not information either. The allowance still
+   * has its `openShare` floor underneath, so this never freezes the player — it
+   * holds the JOINT allowance at the opening size until the book has enough in
+   * it for its own price to mean something.
+   *
+   * The clean band over the first 84 markets is 1,200–1,800: 1,000 leaves the
+   * level 84 window failing and 1,900 costs `…1775119500`. 2,500 — the value
+   * `depthMinDep` uses — costs five. The pace is read on every tick of every
+   * window, where the cap arms once, so it needs the lower floor.
+   */
+  edgeMinDep: z.coerce.number().finite().min(0).default(1_500),
+  /**
    * Milliseconds the book's spread must have been WIDE before it licenses
    * inventory. 0 ⇒ the pace reads the spread at this instant.
    *
@@ -3740,7 +3757,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The outside reading is required alongside the book's when `ptbPace` is
       // on: the position may be no larger than the WEAKER of the two pieces of
       // evidence supports.
-      const bookFrac = sustainedEdge / cfg.edgeFull
+      // An ask gap on a book with nothing in it is not evidence either. Same
+      // floor as `depthMinDep`, applied to the pace instead of the cap.
+      const edgeThick =
+        cfg.edgeMinDep <= 0 || (depthAbs[side] ?? 0) >= cfg.edgeMinDep
+      const bookFrac = edgeThick ? sustainedEdge / cfg.edgeFull : 0
       const evidence =
         cfg.ptbMode === 1 && cfg.ptbPace === 1 ? Math.min(bookFrac, outsideFrac) : bookFrac
       const edgeFrac = Math.min(1, Math.max(cfg.openShare, evidence))
