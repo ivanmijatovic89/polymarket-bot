@@ -811,6 +811,39 @@ export const ConfigSchema = z.strictObject({
    */
   avgGuard: z.coerce.number().int().min(0).max(1).default(0),
   /**
+   * Fraction of `qty` at or above which the realized-average cap applies even
+   * with `avgGuard` off — i.e. to orders that FINISH a leg. 0 ⇒ never.
+   *
+   * The objection above is entirely about a leg that has barely started: its
+   * realized average is not its final average, so capping the other leg against
+   * it is wrong. That objection evaporates when the order in front of the
+   * player would take a leg to its target, because then the realized average IS
+   * the final average and the arithmetic is exact rather than pessimistic.
+   *
+   * This is level 46's blocker read from its own timeline. The player opens
+   * 469 UP at 0.584 and 375 DOWN at 0.449, BTC then falls 91 dollars in ten
+   * seconds, and the player finishes DOWN outright — 625 shares between 0.63
+   * and 0.67 — because the only cap in force is the aggregate budget, which at
+   * that moment permits 0.83 a share. The pair was already lost when those
+   * fills printed: 469 UP at 0.584 leaves DOWN room for 0.386, so no completion
+   * of DOWN above that could ever have come in under the ceiling, whatever BTC
+   * did next. BTC then reversed ten seconds later anyway, leaving UP an
+   * allowance of 0.19 against an ask that never came back below 0.55.
+   *
+   * MEASURED AND DEAD, so it ships off at 0. Over the first sixty markets:
+   * 23 failures at 1.0, 34 at 0.9, 41 at 0.75, 41 at 0.5, against 4 without it,
+   * monotone in how much of a leg the cap governs — and level 46 still fails at
+   * every setting. The reasoning above is sound about the arithmetic and wrong
+   * about the remedy. Refusing the last shares of a leg does not undo the
+   * expensive shares already bought; it only converts a market that would have
+   * ended 1000/469 into one that ends 469/833, and it does so everywhere,
+   * because in an ordinary window the other leg's realized average is high for
+   * most of the window and the cap then refuses perfectly good completions. The
+   * ceiling cannot be defended at the end of a leg. Whatever fixes this family
+   * has to act while the expensive fills are being taken, not after.
+   */
+  avgGuardFrom: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * Minimum crossing allowance, as a fraction of `qty`, available from the very
    * first tick.
    *
@@ -1652,7 +1685,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // checked before each order, the run is inside the ceiling at every instant
     // rather than only if it finishes.
     const avgCap = (side: Side, size: number): number => {
-      if (cfg.avgGuard === 0) return Infinity
+      const finishing =
+        cfg.avgGuardFrom > 0 && held[side] + size >= cfg.avgGuardFrom * cfg.qty
+      if (cfg.avgGuard === 0 && !finishing) return Infinity
       const other: Side = side === 'UP' ? 'DOWN' : 'UP'
       const room = cfg.pairCeil - avgOf(other)
       return (room * (held[side] + size) - basis[side]) / size
