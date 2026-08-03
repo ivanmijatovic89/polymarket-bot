@@ -17,13 +17,21 @@
  *
  * Budget accounting is the control loop. At any tick:
  *   budgetLeft = qty·pairCeil − spentSoFar (fee-inclusive cost basis)
- * and the still-needed legs share that budget. So a cheap first leg
- * automatically raises the bid we may show on the second leg — the strategy
- * self-corrects toward completing the pair instead of hunting a fixed price.
+ * and the two still-needed legs share that budget in proportion to what the
+ * book currently charges for each:
+ *   α = budgetLeft / (needUp·askUp + needDown·askDown)
+ *   bidUp = α·askUp,  bidDown = α·askDown
+ * By construction needUp·bidUp + needDown·bidDown ≤ budgetLeft, so filling the
+ * whole remaining need at these bids can never breach the ceiling. Recomputing
+ * it every tick makes the loop self-correcting: a cheap fill on one leg raises
+ * α and therefore the bid we may show on the other, which is exactly when we
+ * want to be more aggressive.
  *
  * Order placement rules:
  *   - never cross (post at most bestAsk − 1 tick) ⇒ every fill is a maker fill;
- *   - one live order per side, repriced only when the target moves ≥ 1 tick;
+ *   - one live order per side (a game limit), sized at most `clip` shares
+ *     (another game limit), so the target is reached by repeated fills;
+ *   - reprice only when the target moves ≥ 1 tick;
  *   - stop entirely once both legs hold `qty`.
  *
  * Nothing here branches on slug, timestamp or outcome: the only inputs are the
@@ -50,6 +58,11 @@ export const ConfigSchema = z.strictObject({
   qty: z.coerce.number().finite().positive().default(10),
   /** Fee-inclusive ceiling for the cost of one UP+DOWN pair. */
   pairCeil: z.coerce.number().finite().positive().max(2).default(0.97),
+  /**
+   * Maximum shares per BUY order. RULES cap this at 200 and allow only one live
+   * BUY per outcome, so `qty` is reached by repeated clips, not one big order.
+   */
+  clip: z.coerce.number().int().positive().max(200).default(200),
   /**
    * Fraction of the window (0..1) after which no new orders are posted. Late
    * fills are the ones most likely to end up unpaired.
@@ -192,15 +205,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
     const target: Partial<Record<Side, number>> = {}
     if (needUp > 0 && needDown > 0) {
-      // Both legs open: spend the pair budget proportionally to where the
-      // market currently prices each side, so neither bid is unreachable.
-      const perPair = budgetLeft / Math.max(needUp, needDown)
-      const total = askUp + askDown
-      const wUp = total > 0 ? askUp / total : 0.5
-      const pUp = floorTick(perPair * wUp)
-      const pDown = floorTick(perPair - pUp)
-      target.UP = pUp
-      target.DOWN = pDown
+      // Both legs open: scale the two asks by the single factor that makes the
+      // remaining need exactly affordable out of the remaining budget. Both
+      // bids stay in proportion to what the book charges, so neither leg is
+      // priced out of reach, and needUp·bidUp + needDown·bidDown ≤ budgetLeft.
+      const cost = needUp * askUp + needDown * askDown
+      const alpha = cost > 0 ? budgetLeft / cost : 0
+      target.UP = floorTick(alpha * askUp)
+      target.DOWN = floorTick(alpha * askDown)
     } else if (needUp > 0) {
       target.UP = floorTick(budgetLeft / needUp)
     } else {
@@ -234,26 +246,33 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         continue
       }
 
+      // One live BUY per outcome, at most `clip` shares: the target is reached
+      // by repeated fills rather than by a single large order.
+      const size = Math.min(need, cfg.clip)
+
       if (!o) {
         const clientOrderId = `pg-${side}-${++seq}`
-        live[side] = { clientOrderId, price, size: need, cancelRequested: false }
+        live[side] = { clientOrderId, price, size, cancelRequested: false }
         intents.push({
           kind: 'place_limit',
           clientOrderId,
           assetId,
           side: 'BUY',
           price,
-          size: need,
+          size,
           orderType: 'GTC',
-          meta: { side, p: price, s: need, ts: nowMs, m: 'S' },
+          meta: { side, p: price, s: size, ts: nowMs, m: 'S' },
           reason: 'pair-leg',
         })
         continue
       }
 
       if (o.cancelRequested) continue
-      // Reprice only on a real move (>= 1 tick) or a size change.
-      if (Math.abs(o.price - price) >= TICK - 1e-9 || Math.abs(o.size - need) > 1e-9) {
+      // Reprice on a real move (>= 1 tick), or when the resting order is now
+      // larger than what is still needed (a partial fill on the other path).
+      // Never re-post merely because a fill made room for a bigger clip: `size`
+      // is already the cap, and churning would lose queue position for nothing.
+      if (Math.abs(o.price - price) >= TICK - 1e-9 || o.size > need + 1e-9) {
         o.cancelRequested = true
         intents.push({ kind: 'cancel_order', clientOrderId: o.clientOrderId, reason: 'reprice' })
       }
