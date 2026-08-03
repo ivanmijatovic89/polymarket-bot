@@ -833,3 +833,73 @@ order.
 Everything is committed, pushed and verified. Three more markets in the first
 sixty still fail; I'll read their timelines before building anything, in case one
 mechanism takes all four.
+
+---
+
+## Session 14 — the four markets turn out to be two problems
+
+I did what I said I would: read the timelines of all four failing markets side by
+side before building anything. They look identical in the results table and they
+are not the same failure, and finding that out is the whole value of the session.
+
+The shared anatomy is real. In every one of the four, the player spends between a
+half and three fifths of its budget buying about six hundred shares of a single
+side at an average near fifty-nine cents. Then the window turns, and the side it
+still owes six or seven hundred shares of is quoted well above anything the money
+left can pay. It never catches up. That is one story and it fits all four.
+
+But the fills that do the damage arrive in two quite different ways. In two of the
+markets the price *jumps* — half a dollar to sixty-four cents in five seconds in
+one, forty-five to seventy in ten seconds in the other — and the player buys
+straight into the jump, which then unwinds within the minute. In the other two the
+price *climbs*, about eight cents over a full minute, with every signal the player
+has agreeing the whole way, and the reversal only arrives minutes later. A jump and
+a climb need opposite treatment, and lumping them together is why nothing has
+worked.
+
+I tested the idea I'd left myself last time — refuse an order when finishing the
+side you're chasing would leave the other side unaffordable at what it costs right
+now — in the cheapest form available, by simply reserving more money for the other
+side. It fails the way this family always fails: the money set aside starves a
+side that genuinely had to be bought, and six other markets break. Then I tried a
+cleaner version of the same instinct, capping what the chased side may pay at a
+multiple of what the remaining budget affords per share still owed. That was a
+rout: seventeen to nineteen failures against four, and it didn't fix a single one
+of the four it was built for. The reasoning behind it was sound and the world
+disagreed — ordinary winning markets routinely pay two or three times that average
+late in the window, precisely when the last side has to be finished.
+
+The one that worked, partly, came from taking the jump-versus-climb distinction
+seriously. Every price cap this player has ever tried is pinned to something the
+price can't get back to — its own cheapest level, the other side's cheapest level,
+a budget average that only shrinks. A pinned cap can't tell a jump from a climb,
+so it refuses both, and refusing a climb is how you end up holding two hundred
+shares of the side that won. So I gave it a cap that *follows*: the side's own
+moving average of its price, plus a pad. A climb drags the average along and the
+cap climbs behind it; a five-second jump outruns it and the cap bites exactly
+there.
+
+It works on the two jump markets. That's the first time anything has moved them at
+all — six sessions of price caps and they hadn't shifted by a single share. It
+does nothing for the two climb markets, at any setting, because a climb is what it
+is designed to forgive. And it costs two other markets, for a reason I hadn't
+anticipated: holding a side back through a climb means finishing it later and
+dearer, and one market that used to complete its second side at sixty-one cents
+now completes it at seventy-two and strands the other side at four tenths.
+
+So nothing shipped, and the player is byte-for-byte the same as it was. I've
+re-verified the whole ladder from level one to forty-five at the new commit and it
+is clean, worst pair cost 0.970 against a ceiling of 0.98.
+
+Two things for next time, and they're separate now, which is progress. The
+following cap is close enough to worth saving: its entire cost is the delay it
+imposes, and there are two untried ways to remove the delay without losing the
+refusal — let the refused side keep resting a passive bid instead of pushing it out
+of the book, or release the cap once the side is nearly finished, which is exactly
+where the market it broke went wrong. The two climb markets need a different
+question entirely. Everything I've tried reads the price; their price says nothing
+useful. What no rule yet reads is the player's own position — six hundred of one
+side, three hundred of the other, well over half the money gone, and only a couple
+of hundred pairs actually formed to show for it. That imbalance is survivable if
+the trend holds and fatal if it doesn't, and it is the one reading still on the
+table.
