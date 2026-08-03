@@ -1158,3 +1158,21 @@ made up its mind — not by any price it has already traded at. The first probe 
 cheap and decisive: force the reserve to nothing from ninety seconds in and see
 whether market forty-seven finishes. If it does, the work is finding the honest
 rule that says when.
+
+### Session 17, postscript: the best number of the day came at the very end
+
+Having established that the bid rather than the money is what strands the winning
+side, I ran the obvious combination — release the reserve AND refuse to finish the
+losing side — and it is much the closest either blocking window has come. The
+winning side goes from under three hundred shares to between six and eight
+hundred, in both markets, repeatably.
+
+It still does not finish, and the reason is clean enough to aim at. Forcing the
+two sides to take turns means buying both of them at around fifty cents, and a
+pair assembled that way costs more than a dollar however many shares it has. So
+the player now fails on price where it used to fail on count. Both windows do
+offer a cheap side — one of them is available for under a nickel for the last four
+minutes — and what the turn-taking version does wrong is spend those minutes
+topping up whichever side is behind at whatever it costs, rather than waiting for
+the cheap one. That is an endgame rule, it is aimed at a number I measured rather
+than a hunch, and it is where the next session starts.

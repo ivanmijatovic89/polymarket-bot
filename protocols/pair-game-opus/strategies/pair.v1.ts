@@ -145,6 +145,15 @@ export const ConfigSchema = z.strictObject({
    * Combined with `swapEdge` it is worse than either alone — the imbalance cap
    * then prevents EITHER leg from finishing (600/300 on both blockers at 300,
    * and it re-breaks at 450 and 600 what `swapEdge` alone repairs).
+   *
+   * Paired with the reserve switched off — the two constraints the tick record
+   * says are binding, released together — it is by far the closest either
+   * blocking window has come: the winning leg climbs from 281 / 344 shares to
+   * 656 / 778 at a cap of 300, and to 800 / 750 at a cap of 150. Neither
+   * finishes, and the reason is the one the ceiling has always had: forcing the
+   * legs to take turns buys both of them near half a dollar, and market 47 at
+   * 950/800 has a pair cost of 1.10. Share count and pair cost trade against
+   * each other here, and this pair of knobs sits on the wrong end of that trade.
    */
   maxImbalance: z.coerce.number().int().positive().default(1_000_000),
   /**
@@ -1011,6 +1020,16 @@ export const ConfigSchema = z.strictObject({
    * off does not finish either window (1000/406 and 1000/531).
    */
   reserveMom: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Milliseconds after which `reserveLow`'s floor stops applying. Defaults to
+   * the whole window, i.e. no limit.
+   *
+   * The isolating probe for the claim that the bid, not the money, is what
+   * strands the winning leg: leave the opening minutes exactly as they are and
+   * release only the late reserve, which is the one measured to be pinned to a
+   * price the abandoned leg will never trade at again.
+   */
+  reserveLowUntilMs: z.coerce.number().finite().min(0).default(900_000),
   /** 1 ⇒ also rest a bid on the non-priority leg with the leftover budget. */
   postSecondLeg: z.coerce.number().int().min(0).max(1).default(1),
   /** Time constant of the ask EMA that defines `priority=momentum`. */
@@ -2352,6 +2371,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const reserveFloor =
         cfg.reserveLow <= 0 ||
         elapsed < cfg.reserveLowAfterMs ||
+        elapsed >= cfg.reserveLowUntilMs ||
         !Number.isFinite(lowSecond) ||
         secondFalling
           ? 0

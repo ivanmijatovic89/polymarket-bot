@@ -89,6 +89,10 @@ Anatomy, now read tick-by-tick twice:
 - **`maxImbalance`** (300 / 450 / 600) — saves exactly the budget it was
   predicted to save and moves the winning leg not one share, because of the bid
   cap above. Combined with `swapEdge` it prevents either leg finishing.
+- **`reserveLowUntilMs`** (new this session; 60 / 90 / 120 / 150 s) — release
+  only the LATE reserve and leave the opening minutes alone. Lifts the winning
+  leg from 281 / 344 to 375–406 / 531 in both windows. Necessary, not sufficient:
+  the player still finishes the losing leg and runs out.
 - **`priorityLatch`** — 56 of 60 alone; with conviction re-latching turned down
   it repairs both blockers and loses eight to twelve markets.
 - `momDeadband` (0.01 / 0.02 / 0.05), `priority=dear`, `reserveLow` escalation
@@ -109,25 +113,32 @@ ticks where it holds priority. Suppress the flicker and the player buys its
 chosen leg out in seventy-five seconds instead of minutes. Any future rule that
 makes the priority sticky must replace that brake explicitly.
 
-## Next action
+## Next action — start from the best measurement, not from a new idea
 
-The one constraint now shown by direct measurement to be binding, and never
-moved: the priority leg's bid cap `(budgetLeft − needOther × reserve) /
-needFirst` at the moment the window reverses. `reserveLow` sets `reserve` from
-the abandoned leg's trailing low, which is stale by construction, and `reserveMom`
-proved that "only while it is falling" is not a narrower rule but the same rule.
+The closest either blocking window has ever come is `maxImbalance` 300 with
+`reserveLow` 0 — the two constraints the tick record identifies, released
+together. The winning leg goes from 281 / 344 shares to **656 / 778**, and at
+`maxImbalance` 150 to 800 / 750. That is the frontier; everything else this
+session sits behind it.
 
-What has NOT been tried is reserving against the abandoned leg's **projected
-settlement price rather than any price it has traded at**. Once the book prices a
-leg under about 0.35 with ten minutes gone, that leg's shares will cost pennies;
-reserving 0.27 a share for them, as the player does today, withholds a hundred
-dollars that is the difference between finishing the winning leg and not. A
-reserve that decays toward `minPrice` as the abandoned leg's ask falls — rather
-than tracking its trailing low — is the untried move, and it is aimed straight at
-the measured constraint rather than at the read that produced it.
+Neither finishes, and the reason is precise and worth attacking directly: making
+the legs take turns buys BOTH of them near half a dollar, so market 47 at
+950 / 800 shares carries a pair cost of 1.10. Share count and pair cost trade
+against each other under these two knobs.
 
-Cheap first probe: on market 47, does the winning leg complete when `reserve` is
-forced to `minPrice` from t+90 s onward? If yes, find the rule that says when.
+So the question for next session is narrow and answerable: **can the player keep
+the share counts this setting produces while buying one of the two legs cheaply?**
+Both windows do offer it — market 47's losing leg is available under 0.05 for the
+last four minutes and its winner touched 0.400 at t+48 s. What the turn-taking
+version does is spend the late minutes topping up whichever leg is behind at
+whatever it costs, instead of parking on the cheap leg and waiting. A cap that
+says "in the closing minutes, buy the leg that is under 0.10 and nothing else"
+would keep the balance the imbalance cap creates and refuse the expensive fills
+that ruin the pair cost. That is a rule about the endgame, it is aimed at a
+measured 1.10, and it has not been tried.
+
+Run it against markets 47 and 52 first (they take about a minute), and only then
+against the first sixty.
 
 ## Needs human
 
