@@ -36,13 +36,18 @@
  * is what stops the early minutes, when both asks sit either side of 0.50, from
  * quietly eating the budget on whichever leg ticks down first.
  *
- * Two things decide whether that plan survives contact with a real window. The
- * priority leg has to be COMPLETED while it is still affordable — its window is
- * a minute or two, so crossing is paced to finish inside it rather than inside
- * the market (`takePace`). And when the book opens already leaning hard, the
- * trend reading is too slow to be useful: the favourite is never cheaper than
- * in its first seconds and the pair is only affordable if it is bought there,
- * so the size of the opening lean overrides the trend outright (`convEdge`).
+ * Three things decide whether that plan survives contact with a real window.
+ * The priority leg has to be COMPLETED while it is still affordable — its
+ * window is a minute or two, and often under one, so crossing is not rationed
+ * by the clock at all (`takeFloor`); the ceiling guard is the only thing that
+ * bounds it. When the book opens already leaning hard, the trend reading is too
+ * slow to be useful: the favourite is never cheaper than in its first seconds
+ * and the pair is only affordable if it is bought there, so the size of the
+ * opening lean overrides the trend outright (`convEdge`). And the second leg is
+ * never allowed to pay a coin-flip price (`underdogMax`): every window in this
+ * universe ends with one side under 0.12, so the leg that is not being chased
+ * will be cheap later, and letting it fill at 0.4–0.5 in the opening minute is
+ * how the ceiling gets spent on the outcome that expires worthless.
  *
  * Order placement rules:
  *   - rest one tick behind the ask by default, so most fills are free maker
@@ -74,6 +79,8 @@ const TICK = 0.01
 /** Polymarket crypto taker fee: fee = size × rate × p × (1−p) (src/trading/fees.ts). */
 const TAKER_FEE_RATE = 0.07
 const WINDOW_MS = 15 * 60 * 1000
+/** How long to wait for a cancel to come back before re-sending it. */
+const CANCEL_RETRY_MS = 2_000
 
 export const ConfigSchema = z.strictObject({
   /** Target matched shares per market (the level's quantity). */
@@ -239,6 +246,49 @@ export const ConfigSchema = z.strictObject({
    */
   underdogRamp: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * Absolute price ceiling for the NON-priority leg. 1 disables it.
+   *
+   * The book always prices the two asks to sum above 1.00, so a pair under the
+   * ceiling can only ever be assembled from one leg bought while it is dear and
+   * the other bought while it is cheap — and since a leg only ever gets cheaper
+   * by losing, the cheap leg is the losing one and it is cheapest at the close.
+   * Every market in this universe ends with one side under 0.12 and the other
+   * over 0.78, so the ceiling is never the real constraint: buying the loser at
+   * a few cents leaves 0.85+ of allowance for the winner, which is more than it
+   * ever costs while it is still identifiable.
+   *
+   * What actually loses a window is the second leg quietly filling at 0.4–0.5 in
+   * the first minute. It fills fast, because a resting bid fills precisely while
+   * its side is collapsing, and it fills at the expensive end of that collapse.
+   * The ceiling guard is then spent and the leg that ran away is unaffordable
+   * for the rest of the window. This cap says the second leg may only ever be
+   * bought at a price that is plausibly near a loser's floor; if it turns out to
+   * be the winner instead, the momentum reading promotes it and the cap lifts.
+   *
+   * Measured on level 6: the whole level is lost without this cap (0 of 20
+   * runs) and won with it anywhere from 0.08 to 0.50 (20 of 20 at 0.08, 0.12,
+   * 0.15, 0.20, 0.30, 0.45, 0.50). It ships at the middle of that plateau. 0.60
+   * fails outright, and the reason is exactly the mechanism above: market 6's
+   * losing leg opens at 0.53, so a cap above it lets the leg fill at the open.
+   */
+  underdogMax: z.coerce.number().finite().min(0.02).max(1).default(0.25),
+  /**
+   * Minimum crossing allowance, as a fraction of `qty`, available from the very
+   * first tick.
+   *
+   * `takePace` ramps the crossing budget from zero, so at t+0 the priority leg
+   * may cross nothing at all — and in a window that opens near even, t+0 is the
+   * only moment its side is cheap. Combined with `underdogMax` (which stops the
+   * other leg from spending in the meantime) this is what lets the player commit
+   * to a leg in the opening seconds instead of watching it run away.
+   *
+   * At 1 the elapsed-time throttle is gone entirely and `takePace` no longer
+   * does anything; that is what ships, because level 6 measures 20 of 20 at 1
+   * and 0.5 against 15 of 20 at 0. The ceiling guard, not the clock, is what
+   * bounds how much the player may take.
+   */
+  takeFloor: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
    * 1 ⇒ the priority leg is chosen once and then held for the window.
    *
    * The plan this strategy plays is "buy leg A while it is still cheap, collect
@@ -287,6 +337,19 @@ type LiveOrder = {
   price: number
   size: number
   cancelRequested: boolean
+  /**
+   * Set when `order_open` arrives. A cancel may only be sent for an order that
+   * is provably resting, because both messages travel with the same simulated
+   * latency and independent jitter: a cancel issued on the tick after the place
+   * can arrive FIRST, find nothing to cancel, and be dropped as a silent no-op
+   * with no terminal event. The strategy would then wait forever for an
+   * `order_done` that is never coming, holding its one permitted live order per
+   * outcome hostage — the leg simply stops trading for the rest of the window.
+   * Waiting for the acknowledgement costs one tick and makes that impossible.
+   */
+  acked: boolean
+  /** When the cancel was requested — used to re-send one that went missing. */
+  cancelAtMs: number
 }
 
 function floorTick(p: number): number {
@@ -320,6 +383,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let lastLogMs = 0
 
   let summaryLogged = false
+
+  /**
+   * Cancel a resting order, but only once the exchange has acknowledged it, and
+   * re-send a cancel that produced no terminal event. Both guards exist because
+   * a cancel is silently dropped when it reaches the book before the order it
+   * refers to; the leg would then hold its single permitted live order forever.
+   */
+  const cancelIntent = (side: Side, nowMs: number, reason: string): Intent | null => {
+    const o = live[side]
+    if (!o || !o.acked) return null
+    if (o.cancelRequested && nowMs - o.cancelAtMs < CANCEL_RETRY_MS) return null
+    o.cancelRequested = true
+    o.cancelAtMs = nowMs
+    return { kind: 'cancel_order', clientOrderId: o.clientOrderId, reason }
+  }
 
   const onMarketTick = (
     tick: MarketTick,
@@ -376,11 +454,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const spent = basis.UP + basis.DOWN
     const avgOf = (s: Side): number => (held[s] > 0 ? basis[s] / held[s] : 0)
 
-    if (cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs) {
-      lastLogMs = nowMs
+    const logNow = cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs
+    if (logNow) lastLogMs = nowMs
+    const logTick = (lead: Side | null, conv: number, tgt: Partial<Record<Side, number>>): void => {
+      if (!logNow) return
       console.log(
         `[pair.v1] t+${Math.round(elapsed / 1000)}s askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
-          `sum=${(askUp + askDown).toFixed(3)} held=${held.UP}/${held.DOWN} spent=${spent.toFixed(3)} ` +
+          `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
+          `lead=${lead ?? '-'} conv=${conv.toFixed(2)} ` +
+          `tgt=${tgt.UP?.toFixed(2) ?? '-'}/${tgt.DOWN?.toFixed(2) ?? '-'} ` +
           `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'}`,
       )
     }
@@ -404,12 +486,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
     if ((needUp <= 0 && needDown <= 0) || stopPosting) {
       for (const side of ['UP', 'DOWN'] as Side[]) {
-        const o = live[side]
         const stillNeeded = side === 'UP' ? needUp : needDown
-        if (o && !o.cancelRequested && (stillNeeded <= 0 || stopPosting)) {
-          o.cancelRequested = true
-          intents.push({ kind: 'cancel_order', clientOrderId: o.clientOrderId, reason: 'done' })
-        }
+        if (stillNeeded > 0 && !stopPosting) continue
+        const c = cancelIntent(side, nowMs, 'done')
+        if (c) intents.push(c)
       }
       return intents
     }
@@ -523,7 +603,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // Bid the priority leg as high as the book, the ceiling guard and the
       // remaining budget allow, holding back `leadReserve` × the other leg's
       // current ask so its own need stays fundable.
-      const reserve = Math.max(cfg.minPrice, mix(cfg.leadReserve, cfg.convReserve) * askSecond)
+      // Only what the underdog is ACTUALLY allowed to pay needs reserving. With
+      // `underdogMax` in force, reserving 0.9 × its ask instead caps the
+      // priority leg near 0.49 in a near-even opening — one cent under the ask
+      // plus the taker fee, which is exactly how a leg that had to be taken in
+      // the first seconds never got taken at all.
+      const reserve = Math.max(
+        cfg.minPrice,
+        mix(cfg.leadReserve, cfg.convReserve) * Math.min(askSecond, cfg.underdogMax),
+      )
       const capOfFirst = Math.min(
         cfg.maxPrice,
         capFirst,
@@ -546,6 +634,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const capOfSecond =
         Math.min(
           cfg.maxPrice,
+          cfg.underdogMax,
           cfg.pairCeil - projFirst,
           avgCap(second, sizeSecond),
           (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
@@ -564,6 +653,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       cap.DOWN = Math.min(budgetLeft / needDown, avgCap('DOWN', Math.min(needDown, cfg.clip)))
       target.DOWN = floorTick(cap.DOWN)
     }
+    logTick(leadSide, conv, target)
 
     for (const side of ['UP', 'DOWN'] as Side[]) {
       const need = side === 'UP' ? needUp : needDown
@@ -591,10 +681,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
       if (need <= 0 || want === undefined || room <= 0) {
-        if (o && !o.cancelRequested) {
-          o.cancelRequested = true
-          intents.push({ kind: 'cancel_order', clientOrderId: o.clientOrderId, reason: 'filled' })
-        }
+        const c = cancelIntent(side, nowMs, 'filled')
+        if (c) intents.push(c)
         continue
       }
 
@@ -613,6 +701,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.qty *
         Math.max(
           conv,
+          cfg.takeFloor,
           Math.min(1, elapsed / (mix(cfg.takePace, cfg.convTakePace) * WINDOW_MS)),
         )
       const takeFee = TAKER_FEE_RATE * ask * (1 - ask)
@@ -626,10 +715,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         ? round2(ask)
         : round2(floorTick(Math.min(want, ask - TICK, cfg.maxPrice)))
       if (price < cfg.minPrice) {
-        if (o && !o.cancelRequested) {
-          o.cancelRequested = true
-          intents.push({ kind: 'cancel_order', clientOrderId: o.clientOrderId, reason: 'too-low' })
-        }
+        const c = cancelIntent(side, nowMs, 'too-low')
+        if (c) intents.push(c)
         continue
       }
 
@@ -639,7 +726,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
       if (!o) {
         const clientOrderId = `pg-${side}-${++seq}`
-        live[side] = { clientOrderId, price, size, cancelRequested: false }
+        live[side] = { clientOrderId, price, size, cancelRequested: false, acked: false, cancelAtMs: 0 }
         intents.push({
           kind: 'place_limit',
           clientOrderId,
@@ -654,14 +741,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         continue
       }
 
-      if (o.cancelRequested) continue
       // Reprice on a real move (>= 1 tick), or when the resting order is now
       // larger than what is still needed (a partial fill on the other path).
       // Never re-post merely because a fill made room for a bigger clip: `size`
       // is already the cap, and churning would lose queue position for nothing.
-      if (Math.abs(o.price - price) >= TICK - 1e-9 || o.size > size + 1e-9) {
-        o.cancelRequested = true
-        intents.push({ kind: 'cancel_order', clientOrderId: o.clientOrderId, reason: 'reprice' })
+      if (o.cancelRequested || Math.abs(o.price - price) >= TICK - 1e-9 || o.size > size + 1e-9) {
+        const c = cancelIntent(side, nowMs, o.cancelRequested ? 'cancel-retry' : 'reprice')
+        if (c) intents.push(c)
       }
     }
 
@@ -675,7 +761,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         if (live[side]?.clientOrderId === cid) delete live[side]
       }
     }
-    if (ev.kind === 'order_done') clear(ev.clientOrderId)
+    if (ev.kind === 'order_open') {
+      for (const side of ['UP', 'DOWN'] as Side[]) {
+        const o = live[side]
+        if (o && o.clientOrderId === ev.clientOrderId) o.acked = true
+      }
+    } else if (ev.kind === 'order_done') clear(ev.clientOrderId)
     else if (ev.kind === 'order_rejected') clear(ev.clientOrderId)
     else if (ev.kind === 'fill') {
       if (cfg.debug === 1) {
