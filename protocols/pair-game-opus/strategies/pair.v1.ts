@@ -224,6 +224,21 @@ export const ConfigSchema = z.strictObject({
    */
   underdogDiscount: z.coerce.number().finite().min(0).max(0.6).default(0),
   /**
+   * Fraction of the window over which the underdog's price allowance ramps from
+   * nothing to full. 0 disables the ramp.
+   *
+   * At the open both asks sit either side of 0.50 and the underdog's allowance
+   * — the ceiling minus what the favourite costs today — is itself about 0.50.
+   * So the underdog is permitted to buy at 0.48, which silently commits the
+   * player to a pair whose other leg must never rise, in the one moment when
+   * the book has told it nothing at all. That single early fill is what ends a
+   * one-way window holding 1,000 shares of the outcome that expires worthless.
+   * The favourite is unaffected: it still buys from the first tick. This only
+   * says that the SECOND leg has no business spending the ceiling before the
+   * window has revealed which leg is which.
+   */
+  underdogRamp: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * 1 ⇒ the priority leg is chosen once and then held for the window.
    *
    * The plan this strategy plays is "buy leg A while it is still cheap, collect
@@ -526,12 +541,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // a cent of allowance, and every cent it falls back hands one over.
       const projPrice = Math.min(capOfFirst, mix(askFirst + cfg.leadPad, capOfFirst))
       const projFirst = (basis[first] + needFirst * Math.max(0, projPrice)) / cfg.qty
-      const capOfSecond = Math.min(
-        cfg.maxPrice,
-        cfg.pairCeil - projFirst,
-        avgCap(second, sizeSecond),
-        (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
-      )
+      const underdogRamp =
+        cfg.underdogRamp <= 0 ? 1 : Math.min(1, elapsed / (cfg.underdogRamp * WINDOW_MS))
+      const capOfSecond =
+        Math.min(
+          cfg.maxPrice,
+          cfg.pairCeil - projFirst,
+          avgCap(second, sizeSecond),
+          (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
+        ) * underdogRamp
       cap[first] = capOfFirst
       cap[second] = capOfSecond
       target[first] = bidFirst

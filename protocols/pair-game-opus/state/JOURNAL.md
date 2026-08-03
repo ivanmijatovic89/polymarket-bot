@@ -184,7 +184,28 @@ so the next session does not spend an afternoon rediscovering them. What
 survived is two changes: read the opening conviction, and stop rationing the one
 purchase that has a deadline.
 
-Level six adds a sixth market. I have not looked at it yet, deliberately — the
-right first move is to run the gate and let it tell me whether it is already
-solved, and if not, to measure its price series the way I measured this one
-before touching any logic.
+With time left over I scouted level six rather than stopping. Its new market is
+the same animal as the one I just beat: the side that ends up winning is at its
+cheapest in the opening seconds and climbs all window, while the other collapses
+to almost nothing. It is very winnable — the two cheapest moments add up to
+about 49 cents against a 98-cent budget — but again only if the player commits
+in the first half-minute.
+
+The reason it currently loses is worth writing down, because it is the same
+mechanism in a new disguise. At the open both sides sit either side of fifty
+cents, and the allowance the player grants its second leg is, at that moment,
+also about fifty cents. So it happily buys the second leg at 48 — which quietly
+commits it to a pair whose other half must never get more expensive, decided at
+the one instant when the market has told it nothing whatsoever. Here the trigger
+I added last does not save it, because this window opens almost evenly priced
+and only reveals itself half a minute in, by which point the money is gone.
+
+I tried the obvious remedy — forbid the second leg from spending anything until
+the window has declared itself — and it does help the new market, but it breaks
+the third one, where the leg that must be bought in the first minute happens to
+be the second leg. So a blanket early ban is too crude, and I have left it in
+the file switched off with that result recorded. What is actually wanted is
+narrower: hold the second leg back only while the two prices are still close
+together, and let it go once they have genuinely separated. That is where the
+next session should start, and it starts from five levels standing rather than
+four.

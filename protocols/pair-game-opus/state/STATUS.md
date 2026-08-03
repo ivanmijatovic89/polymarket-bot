@@ -70,17 +70,41 @@ configuration passed 8 of 16 (~50%) and was rejected for that reason.
   results earlier in the session did not survive a proper sample. Configurations
   are now only accepted on an 8-run sample.
 
+## Level 6 — already scouted, not yet solved
+
+Run 1327 fails it. The sixth market, `btc-updown-15m-1775092500`, is market 5's
+shape again: its DOWN ask is cheapest at t+0 (0.490) and rises for the rest of
+the window, while UP collapses to 0.002. Its pair floor is 0.492, so it is very
+winnable — but only by buying DOWN inside roughly the first 30–40 s. The
+patient line is arithmetically dead, same as market 5: DOWN sits at 0.93–0.94
+around t+210–330 while UP is 0.07–0.08 there, and UP is only below 0.03 after
+t+450 when DOWN is already ≥0.97.
+
+The conviction override does not rescue it because the opening gap is only 0.04
+(0.53/0.49), well under `convEdge`. By t+30 the gap is 0.25 and conviction
+would fire — but by then the player has already spent the ceiling, because the
+underdog's allowance at the open is itself ~0.48, so UP fills at 0.48 and drags
+1,000 shares of the worthless outcome in at an average of 0.44.
+
+**The mechanism to beat is the underdog spending near 0.50 before the window has
+revealed anything.** One attempt is already implemented and measured:
+`underdogRamp` (ramp the underdog's price allowance up from zero over the first
+part of the window; ships disabled at 0). It does help market 6 — DOWN starts
+getting bought — but at 0.05/0.10/0.20 it fails market 3, whose *rising* leg
+must be bought inside its first 60 s and is sometimes the underdog. So a blanket
+early ban on the second leg is too blunt; what is needed is something that
+suppresses second-leg buying only while the two prices are still close together
+(the genuine "both legs near 0.5" trap), and lets it through once they have
+separated. That is the next thing to try.
+
+Do not lower `convEdge` to catch market 6: a 0.04 opening gap fires in almost
+every window, and conviction is what makes markets 4 and 5 work.
+
 ## Next action
 
-Work level 6. Run the level-6 gate on defaults first — it costs one command and
-tells you whether the sixth market is already solved. If it fails, diagnose it
-the way market 5 was diagnosed rather than by sweeping: dump the two ask series
-(`--param debug=1 --param debugEveryMs=1000`), find the window in which each leg
-is affordable, and check whether the player can physically complete a leg inside
-that window before changing any price logic.
-
-Keep re-running levels 1–5 as regression gates after every change, and sample
-any candidate at least 8 times before promoting it to defaults.
+Work level 6 along the line above. Keep re-running levels 1–5 as regression
+gates after every change, and sample any candidate at least 8 times before
+promoting it to defaults — two-run comparisons are noise at this variance.
 
 ## Needs human
 
