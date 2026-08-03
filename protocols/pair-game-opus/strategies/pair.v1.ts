@@ -104,6 +104,16 @@ export const ConfigSchema = z.strictObject({
    * values buy more patiently and lean harder on free maker fills.
    */
   takePace: z.coerce.number().finite().min(0.05).max(1).default(0.25),
+  /**
+   * Milliseconds at the start of the window during which nothing is posted. The
+   * trend signal is meaningless on the first ticks, so the tie-break decides,
+   * and committing budget on a coin flip is what loses a fast one-way window:
+   * the first shares land on the leg that is about to be worthless and their
+   * cost blocks the other leg for the rest of the market. Measured as a cure
+   * worse than the disease so far — 15s of silence costs more on the windows
+   * that already work than it saves on the fast ones — so it ships disabled.
+   */
+  warmupMs: z.coerce.number().finite().min(0).default(0),
   /** Which leg gets the aggressive bid each tick. */
   priority: z.enum(['lag', 'momentum', 'cheap', 'dear']).default('momentum'),
   /** 1 ⇒ also rest a bid on the non-priority leg with the leftover budget. */
@@ -239,6 +249,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const needDown = Math.max(0, cfg.qty - held.DOWN)
 
     const intents: Intent[] = []
+    if (elapsed < cfg.warmupMs) return intents
 
     // Done, or past the posting cutoff: pull any resting order and stop.
     const stopPosting = elapsed >= cfg.stopPostingAt * WINDOW_MS
