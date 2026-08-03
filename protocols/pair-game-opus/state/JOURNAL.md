@@ -1629,3 +1629,71 @@ separates those nine from this one at that moment. Everything I built this
 session is in the code, switched off, with its measurements written beside it,
 and the player on disk is still the one that passes sixty-seven — re-verified
 this session, sixty-seven out of sixty-seven.
+
+---
+
+## 2026-08-03 — Session 24: the signal I built a rule against turns out to be right
+
+I went into this session with one lead from last time: eighty per cent honest
+reserving wins the blocking market and loses nine others, and the job was to find
+what separates them. So I read two timelines side by side — the blocking market,
+and the market that most needs the player's aggressive instinct, one where the
+favourite climbs from fifty-two cents to ninety-nine and never comes back.
+
+They are nearly identical at the moment that matters. Both have the book leaning
+hard, both have Bitcoin well clear of the price it has to beat, both have the
+player spending most of its money in about twenty seconds. Everything the last
+five sessions gated on reads the same in the two windows. One reading does not:
+the player keeps its own estimate of who will win alongside the market's, and in
+the market that really is trending the two agree, while in the blocking market
+the player's estimate sits five to eleven cents above the market's for the whole
+approach and keeps drifting further ahead. The story wrote itself — Bitcoin has
+made a move the market does not believe, and over fifteen minutes the market is
+the better judge.
+
+So I built that: stop the leg that is ahead once the estimate runs too far ahead
+of the market on it, hand the buying to the other leg while it is stopped, and
+release once that other leg is finished. It took three attempts to make it work
+mechanically, and the middle attempt found a real bug — a cap I set each tick was
+left standing after one leg completed, so it went on refusing the only leg still
+being bought, which looked exactly like the rule doing nothing. Fixed, it repairs
+the blocking market properly: a thousand of each side, ninety-six and a half to
+ninety-seven cents a pair, and it does that at every threshold from a half to
+seventy-two per cent rather than at one lucky point. That is the first thing all
+year to survive a whole band instead of a knife edge.
+
+Then I ran it over all sixty-eight and it costs seven to nine markets, and the
+reason is the interesting part. Every casualty is the stopped leg frozen exactly
+on its cap — and in every single one of them, that leg is the one that goes on to
+win. Eight windows settle on the side my estimate was running ahead of the market
+on. The disagreement is not a warning at all; it is a good directional read,
+right eight times out of nine, and the blocking market is its only miss. I had
+built a rule to distrust the best signal in the player. It is now in the code
+switched off, with that written next to it.
+
+The other thing I did was work out the arithmetic properly, and it is worth more
+than the rule. Counting the fee honestly, a pair bought while the market is still
+a coin flip costs about a dollar three, and a pair completed after the market has
+decided — winner at ninety-five cents, loser at three — costs about ninety-eight
+and a half. Both are above the ninety-eight the rules allow. That means there is
+no safe way to play this game: no amount of hedging early and no amount of
+waiting produces an affordable pair on its own. The player has to bet on a
+direction before the market has decided, and be right. Everything it earns, it
+earns in the gap between catching the winner at eighty-five cents and catching it
+at ninety-five.
+
+That reframing produced one shape whose numbers work in both of the colliding
+windows, and it is the first time that has happened. Hold both sides at about a
+third of target, buy nothing more until Bitcoin has run clear of its target by a
+high multiple of the day's own volatility, then buy the named side out at once and
+finish the other in the closing minutes. In the blocking market the reading never
+reaches that height for the wrong side, and reaches it for the right side twelve
+minutes in, at eighty-two cents — the pair comes to ninety-seven. In the trending
+market it reaches it a minute in at eighty-five cents, and the pair comes to
+ninety-four. On paper both fit. Whether they fit in practice depends on how many
+of the other sixty-six ever produce a reading that strong and how late, which is
+one measurement run and is where the next session should start — measure the
+table first, build the rule second.
+
+The player on disk is unchanged in behaviour: sixty-seven of sixty-seven,
+re-verified this session, and the sixty-eighth still fails the same way.

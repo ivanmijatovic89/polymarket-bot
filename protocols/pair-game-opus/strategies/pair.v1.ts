@@ -1461,6 +1461,55 @@ export const ConfigSchema = z.strictObject({
   /** Multiple of the oracle band that lifts `oracleHold`. */
   oracleHoldFrac: z.coerce.number().finite().min(0).default(1.5),
   /**
+   * Share of its target the leg that is ALREADY AHEAD may hold while the model
+   * is running ahead of the book on it by `fairHoldGap`. 1 disables the cap.
+   *
+   * This is a fourth share cap, and the doc for `oracleHold` says not to try
+   * one. Two things are different, and both come from reading the level 68
+   * window side by side with the window that most needs the aggressive chase
+   * (`…1775110500`, whose favourite runs from 0.52 to 0.99 and never comes back).
+   *
+   * The first is the signal. In both windows the book leans hard, the ask gap
+   * reaches 0.23–0.55, and the oracle confirms the leaning leg by more than a
+   * band — the two states are indistinguishable on everything the earlier caps
+   * looked at. They differ on ONE reading: the disagreement between the model
+   * and the book. Where the favourite really is running away the book is at or
+   * above the model (gap 0.000 at t+30, −0.021 at t+45, −0.029 at t+61). In the
+   * level 68 window the model is 5 to 11 cents ABOVE the book for the whole
+   * approach, rising monotonically while the player buys (0.058 at t+70, 0.064
+   * at t+75, 0.084 at t+89). The reading says: BTC has made an excursion the
+   * book does not believe, and over a fifteen-minute horizon the book is the
+   * better judge of it. Both windows bear that out — the one the book priced
+   * settled the way the book said, and the one the book refused to price
+   * mean-reverted and settled the other way.
+   *
+   * The second is that it CANNOT deadlock. `oracleHold` had to be latched to one
+   * leg or it capped both in turn at 600/600, and the latch is what stopped the
+   * capped leg ever resuming. This cap applies only to the leg that is ahead of
+   * its partner, so the trailing leg is never refused: 720/720 is not a state it
+   * can produce, and a leg it stops can always be caught up to and passed.
+   *
+   * MEASURED AND REJECTED — and it inverted the premise. It DOES repair the level
+   * 68 window, robustly rather than on a knife edge: 1000/1000 at 0.965–0.968 a
+   * pair at 0.50, 0.60, 0.65 and 0.72, which is the first setting of anything to
+   * survive a whole band rather than one lucky point. Over the first 68 markets
+   * it costs 9 failures at (0.72, 0.06), 7 at (0.72, 0.08), 8 at (0.65, 0.06) and
+   * 8 at (0.60, 0.06) — a set disjoint from `reserveLow`'s nine.
+   *
+   * The casualties say something worth more than the rule. Every single one of
+   * them is the capped leg stranded exactly on the cap, and in every single one
+   * of them THAT LEG IS THE WINNER: eight windows settle on the leg the model was
+   * running ahead of the book on. So the disagreement is not a warning that the
+   * model is over-reading a BTC blip — it is a good directional signal, right in
+   * eight of the nine windows where it is strong, and the level 68 window is its
+   * only miss. A rule built to distrust it is wrong eight times to be right once.
+   * Do not build another one; if this reading is used again it should be used the
+   * way it actually points.
+   */
+  fairHold: z.coerce.number().finite().min(0).max(1).default(1),
+  /** Model-minus-book disagreement, in probability, that engages `fairHold`. */
+  fairHoldGap: z.coerce.number().finite().min(0).default(0.06),
+  /**
    * How far above its OWN trailing low the chased leg must trade before the
    * `commitShare` pace exemption applies. 0 ⇒ always.
    *
@@ -2469,6 +2518,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // The leg `oracleHold` has caught. Latched: the cap follows that leg for the
   // rest of the window and never touches the other one. See `oracleHold`.
   let holdLatch: Side | null = null
+  // The leg `fairHold` is capping on THIS tick, if any. Recomputed every tick
+  // from the model-book disagreement, never latched, and only ever the leg that
+  // is ahead of its partner. See `fairHold`.
+  let fairCapSide: Side | null = null
+  // The leg `fairHold` has handed the chase TO, on this tick. Exempt from the
+  // book's own pace: the whole premise of the cap is that the ask gap is not
+  // evidence, so it may not ration the leg the cap is buying instead.
+  let fairHandover: Side | null = null
+  // The leg `fairHold` has actually stopped. Latched for the rest of the window,
+  // and released only once its partner is complete. See `fairHold`.
+  let fairHeld: Side | null = null
   // When the current unbroken stretch of "the book leans by at least
   // `convEdge`" began. Null while the book is inside the deadband.
   let leanSinceMs: number | null = null
@@ -2937,6 +2997,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // The priority leg, once both legs are contested — the underdog pace below
     // keys off it. Null when only one leg is left, where pacing has no meaning.
     let leadSide: Side | null = null
+    // Cleared here rather than inside the branch below: the branch is skipped
+    // once a leg is complete, and a cap left standing from the previous tick
+    // would refuse the only leg still being bought.
+    fairCapSide = null
+    fairHandover = null
     if (needUp > 0 && needDown > 0) {
       // Which leg gets the aggressive bid. `lag` chases whichever side holds
       // fewer shares — the balancing instinct. `momentum` chases the side whose
@@ -3059,6 +3124,33 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           askF - affordF >= cfg.solvDrop
         ) {
           solvDemoted = first
+          first = o
+        }
+      }
+      // The leg that is ahead is being bought on an ask gap the model is running
+      // well ahead of — a BTC excursion the book does not believe. Stop it at
+      // `fairHold` of its target, and once it is there hand the chase to the
+      // OTHER leg: the cap alone is inert, because the money it saves is money
+      // `underdogMax` then forbids the other leg from spending. See `fairHold`.
+      if (cfg.fairHold < 1 && fairHeld === null) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        if (fairWant === first && Math.abs(fairGap) >= cfg.fairHoldGap && held[first] > held[o]) {
+          fairCapSide = first
+          if (held[first] >= cfg.fairHold * cfg.qty) fairHeld = first
+        }
+      }
+      // Once the cap has actually stopped a leg the plan is settled for the rest
+      // of the window, so it is LATCHED — the disagreement that justified it
+      // fades as the book comes back to the model, and letting the cap fade with
+      // it would resume the very purchase it refused. What the latch commits to
+      // is the winning shape: stop one leg, buy the other one OUT, then finish
+      // the first in the closing minute at whatever it is worth by then. So the
+      // cap lifts the moment the other leg is complete, and not before.
+      if (fairHeld !== null) {
+        const o: Side = fairHeld === 'UP' ? 'DOWN' : 'UP'
+        if (held[o] < cfg.qty) {
+          fairCapSide = fairHeld
+          fairHandover = o
           first = o
         }
       }
@@ -3372,11 +3464,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         (outsideSide === side && outsideFrac >= cfg.oracleHoldFrac)
       const oracleRoom = oracleBacks ? Infinity : cfg.oracleHold * cfg.qty - held[side]
       if (!oracleBacks && held[side] >= cfg.oracleHold * cfg.qty) holdLatch = side
+      // The book has not confirmed what the model believes. `edgeFull` reads the
+      // ask gap as evidence, and a gap the model is running well ahead of is a
+      // BTC excursion the book does not believe — the book being the better
+      // judge over fifteen minutes. Applied only to the leg already AHEAD of its
+      // partner, so the trailing leg is never refused and the cap cannot park
+      // both legs on the same line. See `fairHold`.
+      const fairRoom =
+        fairCapSide !== side ? Infinity : cfg.fairHold * cfg.qty - held[side]
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||
         finishing ||
         completing ||
+        side === fairHandover ||
         (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
@@ -3435,6 +3536,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, earlyRoom),
         Math.max(0, edgeRoom),
         Math.max(0, oracleRoom),
+        Math.max(0, fairRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
