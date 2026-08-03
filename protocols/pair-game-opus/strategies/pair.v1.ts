@@ -876,6 +876,39 @@ export const ConfigSchema = z.strictObject({
    */
   finishShare: z.coerce.number().finite().min(0).max(1).default(0.75),
   /**
+   * Fraction of the OTHER leg's current ask that must still be fundable, for
+   * every share that leg still needs, before the `finishShare` exemption lets
+   * this leg run to its target. 0 disables the test.
+   *
+   * `finishShare` argues that a leg near its target must be finished whatever
+   * the evidence paces say, because unmatched shares are worth nothing. That is
+   * true right up to the point where finishing is what makes the OTHER leg
+   * unbuyable — and then it is exactly backwards, because the shares it rushes
+   * to buy are the ones that become unmatchable.
+   *
+   * The level 68 window is that case in its purest form: the priority leg
+   * crosses the exemption's line at 0.62 with the other leg two-thirds unbought
+   * and quoted at 0.37, runs to 1,000 in fifteen seconds, and leaves 0.28 a
+   * share to buy a leg the market never offers below 0.37 again. The window
+   * settles on that leg and the player holds 344 of it.
+   *
+   * The test is deliberately priced at the other leg's ASK rather than at the
+   * cheapest it has shown: the whole family of trailing-low guesses is what put
+   * the player here, and a leg the exemption is about to strand is not one to
+   * extend fresh credit to.
+   *
+   * MEASURED AND INERT, so it ships at 0. The diagnosis is simply wrong about
+   * WHICH release does the damage. In the level 68 window the leg crosses the
+   * finishing line and its target in the same cascade, so by the time the
+   * exemption is consulted the shares are already bought: turning `finishShare`
+   * off outright changes that window by nothing at all, share for share. What
+   * actually hands over the last three hundred shares is `edgeFull` — the ask
+   * gap touches 0.32 for a few seconds at the top of the spike and the whole
+   * target is released on the book's word. See `oracleHold` for what happened
+   * when that release was gated instead.
+   */
+  finishSolv: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
    * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
@@ -1115,6 +1148,63 @@ export const ConfigSchema = z.strictObject({
    * latency draws across it.
    */
   oracleReserve: z.coerce.number().finite().min(0).default(1.5),
+  /**
+   * Share of its target the PRIORITY leg may hold on the book's evidence alone,
+   * i.e. while the price to beat has not confirmed that leg by `oracleHoldFrac`
+   * bands. 1 disables the cap.
+   *
+   * `edgeFull` reads the gap between the two asks as evidence and hands over
+   * allowance in proportion to it. The reading is right on average and wrong at
+   * exactly the worst moment: the gap is at its widest at the TOP of a spike, so
+   * the rule grants the whole target precisely when the leg is dearest. In the
+   * level 68 window the two asks touch 0.66 and 0.34 for a few seconds at t+88,
+   * the allowance goes to the full thousand, and the player takes its last three
+   * hundred shares at 0.64 in one cascade. The window then sits at a coin flip
+   * for ten more minutes and settles on the other leg, which it can no longer
+   * afford at any price the book ever shows.
+   *
+   * Raising `edgeFull` instead is the same idea applied to every window, and it
+   * is ruinous: 12 failures over the first 68 markets at 0.45 and 15 at 0.50,
+   * against one. The point is not that the book's evidence is too generous in
+   * general — it is that the last quarter of a leg is a commitment no single
+   * widening of the spread should be allowed to make on its own.
+   *
+   * Deliberately restricted to the leg holding priority. The other leg is paced
+   * by what it is allowed to PAY, and a share cap there would strand it short of
+   * a thousand in every window where the oracle names its opponent.
+   *
+   * It is also LATCHED to the first leg it catches, and that is what makes it
+   * work rather than deadlock. Applied to whichever leg happens to hold
+   * priority, it caps each of them in turn as priority changes hands, and a
+   * window whose oracle never confirms either side ends at the cap on BOTH legs
+   * — 600/600, with four hundred of each still to buy and no allowance to buy
+   * them with. Lapsing it on a clock instead is no better: the restrained leg
+   * simply completes at the same price twenty seconds later and the window
+   * fails share for share, at every lapse from three to five minutes.
+   *
+   * Latched, it says the thing that is actually meant: ONE leg has been bought
+   * as far as an unconfirmed book reading may take it, and what the rest of the
+   * ceiling is for is the other leg. That IS the winning shape in the level 68
+   * window — stop the leading leg near seven hundred, buy the other one out in
+   * the middle of the window while it is still near 0.50, and finish the first
+   * in the closing minute at four cents. The specimen finishes 1000/1000 at
+   * 0.966 a pair at every setting tried, 0.6 through 0.8.
+   *
+   * MEASURED AND REJECTED, and not narrowly. Over the first 68 markets, against
+   * one failure with the cap off: 24 failures at 0.6, 31 at 0.7, 29 at 0.8. The
+   * shape of every one of them is the cap itself — 700/1000, 600/1000, 1000/700
+   * — a leg stopped exactly on the line and never resumed, because the latch
+   * that stops it deadlocking the pair is also what stops it ever letting go.
+   * The book edge is a poor reason to buy the last quarter of a leg and still a
+   * far better one than nothing, which is what this leaves in its place.
+   *
+   * This is the third time a share cap has been tried on this window's shape
+   * (`maxImbalance`, `holdRamp`, now this) and the third identical answer: the
+   * failures are share counts, never pair costs. Do not try a fourth.
+   */
+  oracleHold: z.coerce.number().finite().min(0).max(1).default(1),
+  /** Multiple of the oracle band that lifts `oracleHold`. */
+  oracleHoldFrac: z.coerce.number().finite().min(0).default(1.5),
   /**
    * How far above its OWN trailing low the chased leg must trade before the
    * `commitShare` pace exemption applies. 0 ⇒ always.
@@ -2121,6 +2211,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let prevLeadAtMs = 0
   // Whether the exemption has been armed — one way, see `commitLag`.
   let commitArmed = false
+  // The leg `oracleHold` has caught. Latched: the cap follows that leg for the
+  // rest of the window and never touches the other one. See `oracleHold`.
+  let holdLatch: Side | null = null
 
   /**
    * Sliding-window minimum of each leg's ask, as a monotonically increasing
@@ -2920,7 +3013,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // A leg past `finishShare` of its target is finished, not paced: the
       // shares it still needs are worth more than the evidence rule they break,
       // because their absence makes every share already bought unmatchable.
-      const finishing = cfg.finishShare < 1 && held[side] >= cfg.finishShare * cfg.qty
+      // Finishing this leg at today's ask has to leave the other leg fundable
+      // at `finishSolv` of its own current ask, or the exemption is buying
+      // shares it is simultaneously making unmatchable. See `finishSolv`.
+      const sideAsk = side === 'UP' ? askUp : askDown
+      const finishSolvent =
+        cfg.finishSolv <= 0 ||
+        Math.max(0, cfg.qty - held[side]) * sideAsk +
+          cfg.finishSolv * Math.max(0, cfg.qty - held[other]) * otherAsk <=
+          budgetLeft
+      const finishing =
+        cfg.finishShare < 1 && held[side] >= cfg.finishShare * cfg.qty && finishSolvent
+      // The book's word alone does not buy the last quarter of the priority
+      // leg: the ask gap is widest at the top of a spike. See `oracleHold`.
+      const oracleBacks =
+        cfg.oracleHold >= 1 ||
+        side !== leadSide ||
+        (holdLatch !== null && holdLatch !== side) ||
+        (outsideSide === side && outsideFrac >= cfg.oracleHoldFrac)
+      const oracleRoom = oracleBacks ? Infinity : cfg.oracleHold * cfg.qty - held[side]
+      if (!oracleBacks && held[side] >= cfg.oracleHold * cfg.qty) holdLatch = side
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||
@@ -2973,6 +3085,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, openRoom),
         Math.max(0, earlyRoom),
         Math.max(0, edgeRoom),
+        Math.max(0, oracleRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
