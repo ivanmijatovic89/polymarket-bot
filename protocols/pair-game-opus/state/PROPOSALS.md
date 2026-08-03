@@ -7,8 +7,9 @@ permit edits outside the protocol.
 
 ## P-001 — The shared risk gate caps any outcome position at 2,000 shares, so every quantity-3,000 level is unreachable
 
-**Status:** open, blocking Level 5 (and levels 10, 15, … 300 — every level on the
-3,000 rung of the quantity ladder: 60 of the 300 levels).
+**Status:** resolved by human ruling on 2026-08-03. The 3,000-share rung was
+removed, 1,000 is now the maximum, and no shared risk-limit change is needed.
+The analysis below is retained as historical evidence.
 
 **What blocks:** `src/trading/riskLimits.ts` hardcodes
 

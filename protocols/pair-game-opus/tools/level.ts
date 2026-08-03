@@ -41,6 +41,7 @@ import { openDb, fetchRunsByIds, fetchMarkets, fetchUnits, type MarketRow } from
 import {
   levelSpec,
   levelSlugs,
+  MAX_BUY_ORDER_SIZE,
   PAIR_CEILING,
   PROTOCOL,
   REQUIRED_LATENCY_DELAY_MS,
@@ -93,6 +94,14 @@ export function scoreMarket(row: MarketRow, qty: number): MarketVerdict {
   }
 
   if (!(row.pnl > 0)) reasons.push(`pnl ${row.pnl} <= 0`)
+
+  for (const meta of row.intentMeta) {
+    const size = Number(meta.s)
+    if (Number.isFinite(size) && size > MAX_BUY_ORDER_SIZE) {
+      reasons.push(`order size ${size} > ${MAX_BUY_ORDER_SIZE}`)
+      break
+    }
+  }
 
   return {
     slug: row.slug,
@@ -257,7 +266,7 @@ if (isMain) {
         fail(`unknown flag '${a}' (valid: --level --run --plan --json)`)
     }
   }
-  if (level === undefined) fail('--level <1..300> is required')
+  if (level === undefined) fail('--level <positive integer> is required')
 
   if (plan) {
     const spec = levelSpec(level)

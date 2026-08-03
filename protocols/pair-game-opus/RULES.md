@@ -37,13 +37,21 @@ It may never sell outcome shares. Backtests value pairs at settlement and do
 not emit merge intents because the simulator cannot account for mid-market
 merges correctly.
 
+The player chooses every order size, subject only to two game limits:
+
+- no BUY order may exceed 200 shares;
+- at most one live BUY order per outcome may exist at a time.
+
+There is no required clip size, sizing formula, alternation rule or imbalance
+controller. Discovering how to build the inventory is the player's job.
+
 ## A passing market
 
-For a target of `Q` shares, one market passes only when all are true:
+One market passes only when all are true:
 
-1. Final UP shares are at least `Q`.
-2. Final DOWN shares are at least `Q`.
-3. At least `Q` shares are therefore matched.
+1. Final UP shares are at least 1,000.
+2. Final DOWN shares are at least 1,000.
+3. At least 1,000 shares are therefore matched.
 4. The fee-inclusive average acquisition cost of one matched UP/DOWN pair is
    at most `0.98`.
 5. Total settlement PnL for the market is positive after all fees and after
@@ -62,6 +70,7 @@ either individual share.
 - Strategy logic may not branch on an exact slug, market timestamp, dataset
   row number or known historical outcome.
 - Only completed persisted backtest results count as evidence.
+- Any persisted order metadata showing a BUY size above 200 fails the level.
 - The agent may freely change strategy structure and parameters while trying
   to pass the current level.
 - The agent may not alter `README.md`, `RULES.md`, `LEVELS.md` or `missions/`.
@@ -76,4 +85,3 @@ either individual share.
 - Live and backtest must use the same strategy logic and tick semantics.
 - Commit messages start with `pair-game-opus:` and changes are pushed to
   `origin/main` before fleet submission.
-

@@ -1,7 +1,7 @@
 # Pair Game Opus
 
 An autonomous Opus 5 level game for building one BTC 15-minute UP/DOWN
-strategy. The agent may change the player, but it cannot change the levels or
+strategy. The agent may change the player, but it cannot change the game or
 the evaluator rules.
 
 ## One-time setup

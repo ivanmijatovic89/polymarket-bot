@@ -200,6 +200,7 @@ export type MarketRow = {
   avgEntryPriceUp: number | null
   avgEntryPriceDown: number | null
   machineId: string | null
+  intentMeta: Array<Record<string, unknown>>
 }
 
 export async function fetchMarkets(conn: mysql.Connection, runId: number): Promise<MarketRow[]> {
@@ -207,7 +208,7 @@ export async function fetchMarkets(conn: mysql.Connection, runId: number): Promi
     `SELECT slug, market_start_ms, final_outcome, skip_reason, pnl, cost, fees_paid,
             trade_count, trade_as_maker, trade_as_taker,
             up_shares, down_shares, mergable_shares,
-            avg_entry_price_up, avg_entry_price_down, machine_id
+            avg_entry_price_up, avg_entry_price_down, machine_id, intent_meta
        FROM backtest_run_markets WHERE run_id = ? ORDER BY market_start_ms`,
     [runId],
   )) as [Array<Record<string, unknown>>, unknown]
@@ -228,6 +229,11 @@ export async function fetchMarkets(conn: mysql.Connection, runId: number): Promi
     avgEntryPriceUp: toNum(r.avg_entry_price_up),
     avgEntryPriceDown: toNum(r.avg_entry_price_down),
     machineId: r.machine_id ? String(r.machine_id) : null,
+    intentMeta: (typeof r.intent_meta === 'string'
+      ? JSON.parse(r.intent_meta)
+      : Array.isArray(r.intent_meta)
+        ? r.intent_meta
+        : []) as Array<Record<string, unknown>>,
   }))
 }
 

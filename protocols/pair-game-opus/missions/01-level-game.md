@@ -2,8 +2,8 @@
 
 You control one player in the game defined by `RULES.md` and `LEVELS.md`.
 
-Your sole objective is to advance from Level 1 toward Level 300 by building
-and improving one deterministic BTC 15-minute UP/DOWN strategy.
+Your sole objective is to advance through as many levels as possible by
+building and improving one deterministic BTC 15-minute UP/DOWN strategy.
 
 ## Start
 
@@ -47,4 +47,3 @@ zoo of abandoned strategies.
 When useful work remains, return `continue`. Return `wait` only for a genuine
 human decision or an engine blocker that prevents further legal moves. There
 is no early `complete`: reaching the session budget is not winning the game.
-

@@ -83,7 +83,7 @@ for (let i = 0; i < argv.length; i++) {
       fail(`unknown flag '${a}'`)
   }
 }
-if (level === undefined) fail('--level <1..300> is required')
+if (level === undefined) fail('--level <positive integer> is required')
 
 const spec = levelSpec(level)
 const slugs = await levelSlugs(spec.markets)
