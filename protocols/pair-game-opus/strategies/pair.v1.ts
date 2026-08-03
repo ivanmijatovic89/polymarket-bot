@@ -1033,6 +1033,104 @@ export const ConfigSchema = z.strictObject({
    * at 20 s one of them still fails, at 45 s every market on the level passes.
    */
   ptbFairAfterMs: z.coerce.number().finite().min(0).default(45_000),
+  /**
+   * 1 ⇒ the priority leg is taken away from a leg whose completion the ceiling
+   * can no longer pay for, and given to the other one.
+   *
+   * Every gate above this one asks whether a leg deserves to be bought. This
+   * asks whether it can still be AFFORDED, which is a different question and
+   * one the player can answer without an opinion: finish the leg it is chasing
+   * at today's ask, fund the other leg at the cheapest price that leg has
+   * actually shown, add the two to what has already been spent, and compare
+   * with `qty × pairCeil`. If the sum overruns, the plan the book is
+   * recommending has already failed; if the opposite assignment overruns less,
+   * the player is chasing the wrong leg.
+   *
+   * The family it exists for is the window that leans, runs for a minute and
+   * then reverses for good. The player finishes the leg the book was favouring
+   * at around 0.63, and the leg it still needs a thousand of has never in the
+   * whole window been quoted below 0.37 — a pair of 1.00 against a ceiling of
+   * 0.97, decided while there were still thirteen minutes left to trade. The
+   * arithmetic was available at the time: at the moment the leg was being
+   * completed, "finish this leg and fund the other at its own cheapest ask"
+   * already came to 1.01, and the same sum for the opposite assignment came to
+   * 0.98.
+   *
+   * A leg's own cheapest ask so far is doing the real work here, and it is
+   * worth saying why it is the right number. In a window that genuinely trends,
+   * the leg not being chased keeps setting new lows, so the funding estimate
+   * falls on its own and the chase stays affordable — the rule never fires. A
+   * leg that has NEVER been cheap is a leg the market has never abandoned, and
+   * funding a thousand shares of it is the bill the player is about to be
+   * handed. So the same reading that makes the sum overrun is also the evidence
+   * that the other leg is the one worth owning.
+   *
+   * It has to PROMOTE rather than merely refuse. Refusing alone deadlocks the
+   * market: the chased leg stops buying and the other leg is still held to
+   * `underdogMax`, so neither side trades for the rest of the window and the
+   * player ends with less than it started the refusal with. Handing the chase
+   * over is what turns the refusal into the recovery — the newly promoted leg
+   * gets a real allowance, and the demoted one, which is by now the leg the
+   * market is abandoning, is completed late at a few cents under the same
+   * `underdogMax` that was blocking it.
+   *
+   * It is self-correcting rather than latched, and deliberately so. Once the
+   * demoted leg has fallen far enough its own completion becomes solvent again
+   * and it is chased again — which is exactly right, because a cheap leg is a
+   * cheap leg whatever the player thought of it two minutes ago.
+   *
+   * MEASURED AND REJECTED. Over the first sixty markets, against five failures
+   * with the rule off: 11 failures at `solvEdge` 0 (twice), 11 at 0.02, 10 at
+   * 0.03, 12 at 0.04, 7 at 0.05; and exactly the baseline five — share for
+   * share, i.e. the rule never fires at all — at 0.10, or at 0.05 from two
+   * minutes onward. It is strictly worse than the baseline everywhere it is
+   * active and identical to it everywhere it is not; there is no setting in
+   * between. It does repair market 45, the specimen it was built for, but takes
+   * seven other markets to do it.
+   *
+   * The reason is in the arithmetic, not the tuning. Two asks on the same market
+   * sum to about one all window, so "finish this leg and fund the other at its
+   * own cheapest ask" overruns a ceiling of 0.97 in nearly every market from the
+   * first minute — the overrun is not a signal, it is the normal state. What is
+   * left to decide the swap is the DIFFERENCE between the two assignments, which
+   * reduces to how far each leg sits above its own trailing low, and that is a
+   * couple of cents wide. So a deadband big enough to ignore quote noise is big
+   * enough to ignore the whole signal, and anything smaller hands the chase to
+   * whichever leg is nearest its own low — which is `priority=cheap`, the rule
+   * the player already knows loses, reached by a longer road.
+   */
+  solvSwap: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Fraction of the other leg's own cheapest observed ask used as its funding
+   * price in that sum. 1 ⇒ plan to pay exactly what it has already shown.
+   *
+   * Below 1 the player assumes the leg it is not chasing will get cheaper than
+   * it has yet been, which is true in a trending window and is the assumption
+   * that loses a reversing one. Above 1 has no meaning: a price never seen is
+   * not evidence.
+   */
+  solvFrac: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * How much cheaper, per pair, the opposite assignment must project before the
+   * chase is handed over. 0 ⇒ any improvement is enough.
+   *
+   * Both assignments overrun in the markets this rule is for, so the comparison
+   * is between two failures and the margin between them is small — a few cents
+   * of pair cost. A deadband here buys stability against a swap that flickers
+   * on quote noise, at the price of leaving the smaller mistakes unfixed.
+   */
+  solvEdge: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /**
+   * Milliseconds into the window before the swap may fire.
+   *
+   * At the open both legs sit either side of 0.50 and neither has ever been
+   * cheap, so the sum overruns for BOTH assignments and the comparison between
+   * them is decided by a cent of spread — which is to say by nothing. That is
+   * the `priority=cheap` rule the player already knows loses, arrived at
+   * sideways. The arithmetic only becomes informative once one leg has had time
+   * to be abandoned and the other has not.
+   */
+  solvAfterMs: z.coerce.number().finite().min(0).default(60_000),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   debug: z.coerce.number().int().min(0).max(1).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
@@ -1454,6 +1552,33 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // not a matter of opinion.
       if (cfg.ptbMode === 1 && cfg.ptbPriority === 1 && outsideSide !== null) first = outsideSide
       if (cfg.ptbMode === 1 && cfg.ptbFair === 1 && fairSide !== null) first = fairSide
+      // Arithmetic overrides every opinion above. Chasing a leg is only worth
+      // doing if the pair it belongs to can still be completed, and that is a
+      // sum the player can evaluate from prices it has actually seen: finish
+      // the chased leg at TODAY's ask, fund the leg left behind at the
+      // cheapest price that leg has ever shown, and compare the total with the
+      // ceiling. When the assignment the book prefers overruns and the
+      // opposite one overruns less, the chase itself is the mistake.
+      const projTotal = (s: Side): number => {
+        const o: Side = s === 'UP' ? 'DOWN' : 'UP'
+        const askS = s === 'UP' ? askUp : askDown
+        const askO = o === 'UP' ? askUp : askDown
+        const needS = s === 'UP' ? needUp : needDown
+        const needO = o === 'UP' ? needUp : needDown
+        const lowO = trailingLow(o)
+        const fundO = cfg.solvFrac * Math.min(askO, Number.isFinite(lowO) ? lowO : askO)
+        return spent + needS * askS + needO * fundO
+      }
+      if (cfg.solvSwap === 1 && elapsed >= cfg.solvAfterMs) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        const projFirstSide = projTotal(first)
+        if (
+          projFirstSide > cfg.qty * cfg.pairCeil &&
+          projTotal(o) < projFirstSide - cfg.solvEdge * cfg.qty
+        ) {
+          first = o
+        }
+      }
       if (cfg.priorityLatch === 1) {
         if (conv > 0 || latched === null) latched = first
         first = latched
