@@ -1064,7 +1064,7 @@ export const ConfigSchema = z.strictObject({
    * switches itself off at parity, which in this window is 656 shares, and the
    * market fails in the same shape one rung higher up.
    */
-  commitShare: z.coerce.number().finite().min(0).max(1).default(0),
+  commitShare: z.coerce.number().finite().min(0).max(1).default(0.6),
   /**
    * 1 ⇒ `reserveLow`'s floor stops applying while the player is bidding for the
    * leg `commitShare` latched, i.e. while the leg being reserved against is the
@@ -1085,7 +1085,7 @@ export const ConfigSchema = z.strictObject({
    * reserved against, so the reserve is protecting a purchase it has already
    * made rather than one it still has to make.
    */
-  commitReserve: z.coerce.number().int().min(0).max(1).default(0),
+  commitReserve: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * How far above its OWN trailing low the chased leg must trade before the
    * `commitShare` pace exemption applies. 0 ⇒ always.
@@ -1126,14 +1126,89 @@ export const ConfigSchema = z.strictObject({
    * commitment, so the shares still owing on it will not be cheap and the money
    * has to stay where it is.
    *
-   * It half works, and the half that fails is worth more than the half that
-   * works. At 0.045 all six markets in the argument pass on one run — both
-   * blockers and all four casualties — and on two repeats of the same run one
-   * casualty and then one blocker fail again. The two situations are separated
-   * by three or four cents of a noisy number, which is to say they are not
-   * separated. Ships at 0, with `commitShare`.
+   * On its own it half works: at 0.045 all six markets in the argument pass on
+   * one run and on two repeats of that run one casualty and then one blocker
+   * fail again. Three or four cents of a noisy number is not a separation. What
+   * it IS good at is the case the other two gates cannot see — a window where
+   * the committed leg is only briefly marked down and its own thirty-second
+   * average never follows, which is why the test is against the WORSE of the two
+   * readings. With `commitLeadMs` and `commitLag` carrying the timing, this pad
+   * is what keeps the level 47 casualty at market 38 from arming, and the three
+   * of them together pass the level on three runs out of three. Ships at 0.045.
    */
-  commitLoss: z.coerce.number().finite().min(0).max(1).default(0),
+  commitLoss: z.coerce.number().finite().min(0).max(1).default(0.045),
+  /**
+   * Shares per second the chased leg may acquire while the `commitShare`
+   * exemption is active, measured over the last `commitRateMs`. 0 ⇒ unlimited.
+   *
+   * Every attempt to tell the two blockers apart from the casualty by PRICE
+   * failed, and they are not actually separable that way: put them side by side
+   * and the share counts, the committed averages, the asks, the budget left and
+   * the model built from BTC all carry the same sign. What differs is SPEED. In
+   * the window the exemption repairs, the chase takes 719 shares over thirty
+   * seconds in four separate stretches; in the window it breaks, 750 shares in
+   * five seconds, one burst, ending with the committed leg 219 shares short and
+   * 74 dollars in hand.
+   *
+   * MEASURED DEAD, so it ships at 0. A rate cap slows the chase without
+   * stopping it: the money still goes out, one clip a second instead of four at
+   * once, and in both casualties the cheap stretch lasts long enough for the cap
+   * to be irrelevant. What it does reliably is strand the windows where the
+   * chase genuinely has to be fast — over the first sixty markets the count goes
+   * 58 without it, 57 at 100 shares a second, 54 at 60 and 40, and 51 at 20,
+   * monotone in the throttle. The reading behind it was also half wrong: the
+   * one-second bursts looked like bursts only because the chase finished and the
+   * leg stopped being contested. What actually separates the windows is how long
+   * the book had been calling that leg the one to buy BEFORE the chase started —
+   * see `commitLeadMs`.
+   */
+  commitRate: z.coerce.number().finite().min(0).default(0),
+  /** Rolling window the `commitRate` cap is measured over. */
+  commitRateMs: z.coerce.number().finite().positive().default(1_000),
+  /**
+   * How long IN TOTAL the chased leg must have held the momentum lead, since
+   * the moment the other leg was latched, before the `commitShare` exemption
+   * applies. 0 ⇒ immediately.
+   *
+   * This is the discriminator the price tests could not find. Every reading of
+   * the prices themselves carries the same sign in the windows this repairs and
+   * the windows it breaks, because the exemption is a bet on the committed leg
+   * collapsing and nothing visible at the time says whether it will. What does
+   * differ is how long the book had been calling the deficient leg the one to
+   * buy before the player acted on it. In the two windows the exemption exists
+   * to repair, that leg has led for twelve to fifteen seconds, in stretches, by
+   * the time the chase is half done. In the casualties it has led for one or two
+   * seconds and the whole remaining ceiling goes out in the next instant — 656
+   * shares in a second, 571 in a second, and a window that ends with one leg
+   * finished, the other two hundred short and seventy dollars in hand.
+   *
+   * A regime change is something the market keeps saying. Cumulative rather
+   * than consecutive, because the repaired windows alternate — the chased leg
+   * leads for three seconds, gives the lead back, takes it again for ten — and a
+   * counter that resets on every flip never arms in a window genuinely turning.
+   * Measured at 8 s (both casualties still fire), 12 s (the level 47 set passes)
+   * and 16 s (one repair is delayed into a worse price and fails).
+   */
+  commitLeadMs: z.coerce.number().finite().min(0).default(12_000),
+  /**
+   * How far behind the other leg, as a share of target, the chased leg must
+   * still be at the MOMENT the exemption arms. 0 ⇒ no requirement.
+   *
+   * The chased leg is latched once and never recomputed, which is what stops
+   * the exemption switching itself off at parity and stranding the leg one rung
+   * higher up. The cost of that latch shows in one window: the player reaches
+   * 719 and 781 shares — 62 apart, the imbalance essentially gone — and the
+   * exemption, still pointed at the leg that was behind a minute earlier, spends
+   * 137 dollars finishing it at 0.47 and leaves the other leg 219 short. Left
+   * alone it finishes both later at 0.29 and comes in at 0.968.
+   *
+   * So the latch stays, and the ARMING is what gets the test: the exemption is
+   * for a genuine imbalance, and 6 percent of target is not one. Checked once,
+   * at the instant the dwell completes, and latched from there — checking it
+   * every tick would switch the exemption off mid-chase, which is the failure
+   * the latch exists to prevent.
+   */
+  commitLag: z.coerce.number().finite().min(0).max(1).default(0.15),
   /** 1 ⇒ also rest a bid on the non-priority leg with the leftover budget. */
   postSecondLeg: z.coerce.number().int().min(0).max(1).default(1),
   /** Time constant of the ask EMA that defines `priority=momentum`. */
@@ -1970,6 +2045,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // The leg that was behind when the player first became committed to the other
   // one, latched for the rest of the window — see `commitShare`.
   let chaseLeg: Side | null = null
+  // Total time that leg has held the momentum lead since the latch, and the
+  // previous tick's reading it is accumulated from — see `commitLeadMs`.
+  let chaseLeadMs = 0
+  let prevLeadSide: Side | null = null
+  let prevLeadAtMs = 0
+  // Whether the exemption has been armed — one way, see `commitLag`.
+  let commitArmed = false
 
   /**
    * Sliding-window minimum of each leg's ask, as a monotonically increasing
@@ -1990,6 +2072,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
   }
   const trailingLow = (side: Side): number => lowQ[side][0]?.v ?? Infinity
+
+  /**
+   * Rolling record of each leg's holding, kept so the rate cap can ask how many
+   * shares a leg has acquired in the last `commitRateMs`. The head is the newest
+   * sample at or before the start of that window, so the answer is one
+   * subtraction; everything older is dropped as it falls out.
+   */
+  const rateQ: Record<Side, { t: number; h: number }[]> = { UP: [], DOWN: [] }
+  const pushRate = (side: Side, t: number, h: number): void => {
+    const q = rateQ[side]
+    q.push({ t, h })
+    const cutoff = t - cfg.commitRateMs
+    while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
+  }
+  const boughtRecently = (side: Side, h: number): number => h - (rateQ[side][0]?.h ?? h)
 
   /**
    * The same deque over the book's own spread, so the pace can ask how wide the
@@ -2152,6 +2249,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
     const spent = basis.UP + basis.DOWN
     const avgOf = (s: Side): number => (held[s] > 0 ? basis[s] / held[s] : 0)
+    if (cfg.commitRate > 0) {
+      pushRate('UP', nowMs, held.UP)
+      pushRate('DOWN', nowMs, held.DOWN)
+    }
 
     // The outside read: BTC's distance from the price to beat, and the side it
     // names once that distance is large relative to the time still available
@@ -2258,7 +2359,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
           `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'} ` +
           `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''} ` +
-          `edg=${edge.toFixed(2)}/${sustainedEdge.toFixed(2)}`,
+          `edg=${edge.toFixed(2)}/${sustainedEdge.toFixed(2)} ` +
+          `chs=${chaseLeg ?? '-'}/${(chaseLeadMs / 1000).toFixed(1)}s`,
       )
     }
 
@@ -2273,6 +2375,22 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     if (cfg.commitShare > 0 && chaseLeg === null) {
       if (held.UP >= cfg.commitShare * cfg.qty && held.DOWN < held.UP) chaseLeg = 'DOWN'
       else if (held.DOWN >= cfg.commitShare * cfg.qty && held.UP < held.DOWN) chaseLeg = 'UP'
+    }
+
+    // Time the chased leg has actually spent as the leg the book says is
+    // running away, totalled since the latch. Measured off the PREVIOUS tick's
+    // reading, which is the only one already known when this tick has to decide.
+    // See `commitLeadMs`.
+    if (chaseLeg !== null && prevLeadAtMs > 0 && prevLeadSide === chaseLeg) {
+      chaseLeadMs += Math.max(0, nowMs - prevLeadAtMs)
+    }
+    prevLeadAtMs = nowMs
+    // Arming is a one-way door: the dwell has to be served and the imbalance has
+    // to still be worth the exemption, both at the same instant. See
+    // `commitLeadMs` and `commitLag`.
+    if (!commitArmed && chaseLeg !== null && chaseLeadMs >= cfg.commitLeadMs) {
+      const chaseLag = held[chaseLeg === 'UP' ? 'DOWN' : 'UP'] - held[chaseLeg]
+      if (chaseLag >= cfg.commitLag * cfg.qty) commitArmed = true
     }
 
     const intents: Intent[] = []
@@ -2488,7 +2606,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // Once the player is committed to a leg, the money held back for it is
       // held back for shares it has mostly already bought, and it is withheld
       // from the only leg that can still complete the pair. See `commitReserve`.
-      const secondCommitted = cfg.commitReserve === 1 && first === chaseLeg
+      const secondCommitted = cfg.commitReserve === 1 && first === chaseLeg && commitArmed
       const reserveFloor =
         cfg.reserveLow <= 0 ||
         elapsed < cfg.reserveLowAfterMs ||
@@ -2586,6 +2704,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       target.DOWN = floorTick(cap.DOWN)
     }
     logTick(leadSide, conv, target)
+    prevLeadSide = leadSide
 
     for (const side of ['UP', 'DOWN'] as Side[]) {
       const need = side === 'UP' ? needUp : needDown
@@ -2630,7 +2749,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const otherAsk = other === 'UP' ? askUp : askDown
       const otherRef = Math.max(otherAsk, ema[other] ?? otherAsk)
       const chaseWrong = cfg.commitLoss <= 0 || otherAvg <= 0 || otherRef <= otherAvg - cfg.commitLoss
-      const completing = cfg.commitShare > 0 && side === chaseLeg && chaseRising && chaseWrong
+      const completing =
+        cfg.commitShare > 0 && side === chaseLeg && chaseRising && chaseWrong && commitArmed
       // Shares this leg may still acquire: the imbalance throttle, and the
       // accumulation pace that stops a one-way window from being bought
       // entirely at the expensive end of its own trend.
@@ -2708,6 +2828,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // which is the point — a bid left in the book is run through by the very
       // move being refused.
       const spikeRoom = spiking ? 0 : Infinity
+      // Rate cap on the chase: with the paces lifted, the only thing left
+      // holding the chased leg back is how fast the ceiling may be spent on it.
+      // See `commitRate`.
+      const rateRoom =
+        cfg.commitRate <= 0 || !completing
+          ? Infinity
+          : (cfg.commitRate * cfg.commitRateMs) / 1000 - boughtRecently(side, held[side])
       // Spend pace: shares this leg could buy at today's ask without taking the
       // running total past what the clock has released. See `spendPace`.
       const spendRoom =
@@ -2735,6 +2862,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
+        Math.max(0, rateRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
