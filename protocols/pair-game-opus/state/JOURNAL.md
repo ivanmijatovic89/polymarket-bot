@@ -1553,3 +1553,79 @@ been bought yet. It is the only moment in this window where a refusal is free.
 Everything on disk is the player that passed sixty-seven, re-verified this session
 at sixty-seven out of sixty-seven. The five failed ideas are in the code with
 their measurements written next to them and switched off.
+
+## Session 23 — closing the opening, and one market that finally passed
+
+No new level, but the session ended somewhere better than it started: for the
+first time the market that has blocked me for three sessions passed on its own,
+under a setting I can describe in one sentence, and I now know exactly which
+nine other markets that setting costs me.
+
+I began with the plan the last session left behind. The thought was that this
+market's first purchase is a mistake made for free — in the opening second the
+player pays fifty-nine and a half cents for two hundred shares of one side while
+the other side is quoted at forty-four on the same screen, and refusing that
+cannot strand anything because nothing has been bought yet. I built the refusal
+two ways.
+
+The first way asked the opening lean to survive before acting on it: wait a
+second or two and see whether the book still leans the same way. It does change
+the first tick — the player leads with the cheap side — and then the market ends
+in exactly the same place, to the cent, at every delay I tried. The reason is
+worth remembering. The rule that decides which side to buy keeps a running
+average of each side's price, and that average is seeded on the very first tick,
+so on the second tick a one-cent uptick on either side reads as "that side is
+running away". Blocking the opening lean just hands the same decision to the
+other rule one tick later, and it buys the same two hundred shares at the same
+price.
+
+So the second way replaced the direction rule outright: for the first few
+seconds, lead with whichever side is cheaper, full stop. That does what it says.
+The clip moves to the cheap side and the market's total cost falls by twelve
+dollars. It still ends in the identical place, because twelve dollars is nothing
+against the hundred and eighty-five it is short. And it is not free after all —
+across the sixty-eight markets it costs eight that currently pass, all of them
+in the familiar way, with one side left at half its target. Leading with the
+cheap side means opening on whichever side is about to collapse. That thread is
+now closed at both ends and the next attempt should not reopen it.
+
+The better half of the session came from reading the timeline instead of the
+plan. Late in the window the player finishes the side it has been chasing at
+sixty-two cents, and it is allowed to do that because of a reserve: before
+spending, it sets aside money for the other side, and it sets aside only sixty
+per cent of the cheapest price that side has ever actually traded at. The other
+forty per cent is a bet that the side will be cheaper than it has ever been by
+the time the player gets to it. In this market the bet is wrong by about a
+hundred dollars, and a hundred dollars is exactly what pays for the purchase
+that loses it.
+
+Reserving honestly instead — eighty per cent rather than sixty — wins the
+market outright. A thousand shares of each side, a pair cost just under
+ninety-seven cents, and a small profit. That is the first time anything has done
+that without also handing the initiative to the other side. It costs nine other
+markets, which is not a fix, but it is a foothold with a name and a mechanism
+rather than another dead family.
+
+Two things I checked while I was there. The first is that the parameter is
+knife-edge: seventy per cent does not win this market, eighty does, ninety and a
+hundred both lose it again in different ways. So I am not going to tune around
+the number; I want to understand why eighty lands where it does. The second is
+the most useful measurement of the session, and it reframes everything the last
+three sessions concluded. Across all sixty-seven markets that pass, the realized
+cost of a pair sits between ninety-five and ninety-seven cents against a budget
+of ninety-seven. The player spends its entire allowance in nearly every market
+it wins. There is no slack anywhere on this ladder. That is why every restraint
+I have tried costs between nine and forty-three markets: withholding money does
+not make this player careful, it makes some market end short. I also confirmed
+there is about a cent of unused headroom against the rule's own limit and that
+taking it is safe — and that taking it changes nothing, because the extra
+budget just goes straight back into the purchase the restraint was meant to
+refuse.
+
+What is next is narrow and concrete for once. The nine casualties are a named
+list, they all pass comfortably today, and I know the exact moment in the
+blocking market when the honest reserve matters. The job is to find what
+separates those nine from this one at that moment. Everything I built this
+session is in the code, switched off, with its measurements written beside it,
+and the player on disk is still the one that passes sixty-seven — re-verified
+this session, sixty-seven out of sixty-seven.

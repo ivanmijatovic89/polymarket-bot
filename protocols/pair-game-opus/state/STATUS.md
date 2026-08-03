@@ -10,10 +10,11 @@
 
 Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
 run 3743+N). Levels 46–51 at `3d8055f9`. Levels 52–59 at `e16f30fe`. Levels
-60–66 at `18640212`. Level 67 at `80d695a0`, runs 4231/4232/4233, and again at
-this session's HEAD as run **4353** (`play-level --level 67`, 67/67).
+60–66 at `18640212`. Level 67 at `80d695a0`, runs 4231/4232/4233; again at
+`c2791855` as run 4353; and again at this session's HEAD as run **4380**
+(`play-level --level 67`, 67/67).
 
-Run **4354** is the first 68 at shipped defaults: exactly one failure,
+Run **4361** is the first 68 at shipped defaults: exactly one failure,
 `btc-updown-15m-1775148300`, 1000/343.75. Every parameter added this session is
 inert at its default.
 
@@ -58,6 +59,12 @@ for a global pace or cap change.**
 | `finishSolv` any | inert — does not bind |
 | solvency as a room cap (`solvCap`) | does not repair the specimen; removed |
 | `chasePad` 0.04–0.15, `budgetPace` 1.2–2.5 | do not repair the specimen |
+| `convDwellMs` 1000–5000 (opening lean must persist) | inert — identical 1000/344 |
+| `openCheapMs` 3000–30000 (lead with the cheap leg at the open) | 15 s ⇒ 9; never repairs |
+| `reserveLow` 0.7 / 0.8 / 0.9 / 1.0 | 3 / **9 (repairs)** / 9 / 11 |
+| `reserveLow=0.8` + `oracleReserve` 1.0 / 1.2 / 1.3 | 9 / 10 / 10 — and stops repairing |
+| `reserveFull` 0.7 / 1.0 (honest reserve while affordable) | specimen 1000/594 — still fails |
+| `pairCeil` 0.975 / 0.978 (+ matching `finishCeil`) | 1 — safe and inert; with `reserveLow=0.8`, 7 / 6 and stops repairing |
 
 Five families have now been tried on this window and every one costs between
 nine and forty-three of the sixty-seven markets that already pass:
@@ -70,6 +77,48 @@ nine and forty-three of the sixty-seven markets that already pass:
    with the demoted leg parked at the gate;
 5. a money velocity cap (`burstShare`) — the mildest at nine failures, and
    still nine times the baseline.
+
+## The ladder has no slack — the fact that explains every failed family
+
+Realized pair cost over the 67 markets that pass at defaults: min 0.832,
+**p25 0.955, median 0.962, p75 0.966, max 0.969**. Sixty-six of sixty-seven
+finish within about a cent of the 0.97 budget. The player is budget-bound
+everywhere, so any rule that withholds money from a leg does not make it
+careful — it makes some market end short. That is why five families of restraint
+all cost between nine and forty-three markets, and it is the first thing to
+check any new idea against.
+
+`pairCeil` can be raised to 0.975 (with `finishCeil` 0.978) or 0.978 (0.98) with
+no failures and a worst realized cost of 0.9758 / 0.9784 — safely inside the
+0.98 rule. So half a cent to a cent of budget is available on demand. It buys
+nothing on its own, and given to `reserveLow=0.8` it is spent re-enabling the
+very purchase the reserve was raised to refuse.
+
+## The most useful result so far on level 68
+
+`reserveLow=0.8` **passes the specimen outright** — 1000/1000 at 0.9668 with
+PnL +33. It is the only setting of anything that has done so without a swap
+rule. It costs nine other markets, all of which pass at 0.956–0.968 at defaults
+(they are tight, not comfortable), and all of which fail with the same signature:
+a leg refused and left at a fifth to a half of its target.
+
+The nine casualties, baseline → `reserveLow=0.8`:
+
+| slug | base cost | at 0.8 |
+|---|---|---|
+| `…1775089800` | 0.9636 | 344/1000 |
+| `…1775094300` | 0.9633 | 582/1000 |
+| `…1775109600` | 0.9673 | 1000/469 |
+| `…1775110500` | 0.9565 | 0/1000 |
+| `…1775124900` | 0.9598 | 613/1000 |
+| `…1775129400` | 0.9659 | 1000/281 |
+| `…1775133900` | 0.9671 | 1000/544 |
+| `…1775138400` | 0.9677 | 531/1000 |
+| `…1775147400` | 0.9606 | 219/1000 |
+
+Note the behaviour is knife-edge in the parameter: 0.7 does not repair the
+specimen, 0.8 does, 0.9 gives 1000/200 and 1.0 gives 1000/594. Treat the single
+pass at 0.8 as a foothold to explain, not as a result to tune around.
 
 ## What was learned this session
 
@@ -160,21 +209,34 @@ resting bid or grow a position, only finish one.
 
 ## Next action
 
-Level 68. Five families of "buy less of the leading leg" are now measured dead,
-and the reason is always the same: the rule that stops this window also stops
-sixty-seven windows where the same behaviour is correct. Stop looking for a
-brake.
+**The opening thread is closed.** Both halves of it were built and measured this
+session. Gating the opening lean (`convDwellMs`) changes the t+0 choice and then
+momentum picks the dearer leg back one tick later and buys the identical clip at
+the identical price — the ask EMA is seeded at t+0, so a one-cent uptick on tick
+two reads as a leg running away. Replacing the direction rule outright
+(`openCheapMs`) does move the clip to the cheap leg and saves twelve dollars,
+ends on the identical 1000/344, and costs eight other markets. Do not reopen it.
 
-What has NOT been tried is the other end of the trade — the OPENING. The player
-buys 200 DOWN at 0.5955 in the first second of this window, with UP quoted at
-0.44 on the same screen, and that clip is a third of what makes the pair
-unaffordable later. `momentum` picks DOWN at t+0 because DOWN is the dearer leg
-and dearer means leading. A rule about which leg to open with, or about not
-opening at all while the two asks sum well above the ceiling and neither has
-moved, would act before any money is committed — which is the one place on this
-window where refusing costs nothing, because nothing has been bought yet. Note
-`openShare`/`openMs` already exist and cap the OPENING SIZE; what is untried is a
-condition on the opening PRICE relative to the other leg's.
+The live thread is `reserveLow=0.8`: it is the only thing that has passed the
+specimen without a swap rule, and its nine casualties are a small, named set.
+The next session should take those nine one at a time and find what separates
+them from the specimen at the moment the raised floor bites. The specimen's
+moment is precise and measurable: at t+80 s the player holds 719/344 with $369
+left; the other leg has never traded below 0.38 and 656 of them cost $249, which
+FITS in the money in hand — and the discounted floor prices them at $150 instead,
+freeing exactly the $99 that buys the last 281 shares of the leading leg at 0.62.
+`reserveFull` tests that "does the honest number still fit" gate directly and is
+already in the code; on its own it moves the specimen to 1000/594 and stops
+there, because the leg that is not the priority is still pinned at `underdogMax`
+and cannot spend what the gate saved. So the gate probably needs to be paired
+with a real price for the leg being reserved FOR — which is the deadlock this
+player keeps hitting, and the one thing worth attacking directly.
+
+Two cheap diagnostics that have not been run: (1) a debug timeline of any two of
+the nine casualties under `reserveLow=0.8`, to see whether the refused leg is
+refused at a price it later trades at or simply never bid at all; (2) whether the
+raised floor bites early or late in the casualties versus at t+80 in the
+specimen. Either could produce the gate.
 
 ## Needs human
 

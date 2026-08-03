@@ -118,7 +118,28 @@ const CANCEL_RETRY_MS = 2_000
 export const ConfigSchema = z.strictObject({
   /** Target matched shares per market (the level's quantity). */
   qty: z.coerce.number().finite().positive().default(10),
-  /** Fee-inclusive ceiling for the cost of one UP+DOWN pair. */
+  /**
+   * Fee-inclusive ceiling for the cost of one UP+DOWN pair. RULES fail a market
+   * above 0.98, so 0.97 leaves a cent of headroom against the fee estimate.
+   *
+   * That headroom is real and it is nearly all unused: over the first sixty-eight
+   * markets the realized pair cost is 0.955 at the lower quartile, 0.962 at the
+   * median and 0.969 at the worst — the player spends essentially its whole
+   * allowance in every market it passes. Which is the single most useful thing to
+   * know about this ladder: there is no slack anywhere, so any rule that
+   * withholds money from a leg does not make the player careful, it makes some
+   * market end short. It is why five separate families of restraint all cost
+   * between nine and forty-three markets.
+   *
+   * Raising it is SAFE and INERT. At 0.975 (with `finishCeil` at 0.978) the first
+   * sixty-eight still show exactly the baseline single failure and the worst
+   * realized cost is 0.9758, comfortably inside the rule. At 0.978/0.98 the worst
+   * is 0.9784. So half a cent to a cent of extra budget is available on demand —
+   * it simply does not buy anything by itself, and handed to a reserve
+   * escalation it is spent re-enabling the purchase the escalation was meant to
+   * refuse (`reserveLow` 0.8 goes from nine failures to seven, and stops
+   * repairing the level 68 window).
+   */
   pairCeil: z.coerce.number().finite().positive().max(2).default(0.97),
   /**
    * Maximum shares per BUY order. RULES cap this at 200 and allow only one live
@@ -257,6 +278,44 @@ export const ConfigSchema = z.strictObject({
    */
   convUntil: z.coerce.number().finite().min(0).max(1).default(0.06),
   /**
+   * How long the book must have been leaning by at least `convEdge`, without a
+   * break, before conviction may act on it. 0 ⇒ act on the first tick that
+   * shows the lean.
+   *
+   * Conviction reads the opening book and buys the dearer leg, on the argument
+   * that a window which opens trending never offers the favourite cheaper. The
+   * argument is sound and it is why the mechanism exists — but at t+0 there is
+   * no history at all, so "the book is leaning" and "the book happens to be
+   * quoted apart on its first tick" are the same observation, and the player
+   * commits a full opening clip to the dearer side on it.
+   *
+   * The level 68 window is that mistake in isolation. It opens 0.44 / 0.58, an
+   * edge of 0.14 against a `convEdge` of 0.12, and the player pays 0.5955 for
+   * two hundred shares of the dearer leg in the first second. One second later
+   * the edge is 0.11 and the lean is gone; it never returns, the window sits at
+   * even money for ten minutes and settles the other way. Nothing about that
+   * opening tick was information.
+   *
+   * Requiring the lean to SURVIVE is the cheapest possible test of it, and it
+   * is the only restraint on this player that costs nothing when it is wrong:
+   * it acts before any money has been committed, and the most it can lose is
+   * `convDwellMs` of the favourite's cheapest stretch. Every other family tried
+   * on this window — share caps, price caps, spend paces, reassigning the
+   * chase, a money-velocity cap — refuses a purchase the player has already
+   * half-paid for.
+   *
+   * MEASURED INERT on the window it was built for, and the reason is worth more
+   * than the knob. At 1, 2, 3 and 5 seconds the level 68 window ends on exactly
+   * the same 1000/344, to the cent. Gating conviction DOES change the opening
+   * tick — the player leads with the cheap leg at t+0 — and then momentum picks
+   * the dearer leg back one tick later and buys the identical two hundred shares
+   * at the identical price, because the ask EMA is seeded at t+0 and a one-cent
+   * uptick on the second tick of a window reads as a leg running away. Refusing
+   * the opening lean is not enough; the direction rule has to be replaced, which
+   * is what `openCheapMs` does.
+   */
+  convDwellMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * How much of the OTHER leg's current ask, rather than `underdogMax`, the
    * priority leg must leave behind for it. 0 reserves at `underdogMax`; 1
    * reserves the other leg's full shown price.
@@ -326,10 +385,57 @@ export const ConfigSchema = z.strictObject({
    * edges as real: this is a reserve against a leg that has to be bought, so
    * too much of it does not make the player cautious, it makes it unable to buy
    * the outcome that wins.
+   *
+   * RE-MEASURED over the first sixty-eight, with `finishCeil`, `commitReserve`
+   * and `oracleReserve` all in force, because the reserve is what lets the level
+   * 68 window finish its leading leg at 0.62 against a leg that has never traded
+   * below 0.38: the floor there is 0.228 a share when the honest number is 0.38,
+   * and the missing 0.15 × 656 shares is exactly the money the pair needed.
+   * Raising it does repair that window — and the band the level 40 measurement
+   * found is still the band. Failures against a baseline of 1: 0.7 → 3, 0.8 → 9,
+   * 0.9 → 9, 1.0 → 11. Only 0.8 repairs the specimen, and it breaks nine other
+   * markets to do it; 0.7 breaks three and does not repair it. The casualties are
+   * always the same shape — a leg that genuinely had to be chased is refused and
+   * ends at a fifth or a third of its target, several at 200/1000 or 0/1000.
    */
   reserveLow: z.coerce.number().finite().min(0).max(1).default(0.6),
   /** Milliseconds into the window before `reserveLow` engages. */
   reserveLowAfterMs: z.coerce.number().finite().min(0).default(20_000),
+  /**
+   * Share of the remaining budget the other leg's HONEST cost may take up before
+   * the reserve is allowed to discount it. 0 disables the rule.
+   *
+   * `reserveLow` reserves 0.6 of the other leg's own cheapest observed ask, and
+   * the 0.4 it shaves off is a bet: the leg will be cheaper than it has ever
+   * been by the time it is bought. A flat sweep says that bet cannot simply be
+   * made smaller — 0.7, 0.8, 0.9 and 1.0 cost three, nine, nine and eleven of
+   * the sixty-seven markets that pass, because the same discount is what lets a
+   * leg that genuinely has to be chased be bought at all.
+   *
+   * But there is a moment when the discount buys nothing: while the honest
+   * number still FITS. If finishing the other leg at the cheapest price it has
+   * actually shown costs less than the money in hand, shaving the reserve does
+   * not enable a purchase the player could not otherwise make — it just licenses
+   * the leg being chased to spend money that is not spare. Discounting is worth
+   * something only once the plan genuinely depends on the other leg getting
+   * cheaper than it has ever been.
+   *
+   * That is the whole of the level 68 window. At eighty seconds the player holds
+   * 719 of one leg and 344 of the other, with $369 left; the other leg has never
+   * traded below 0.38 and 656 of them cost $249, which fits. The discounted
+   * reserve prices them at $150 instead, and the $99 difference is exactly what
+   * pays for the last 281 shares of the leading leg at 0.62 — the purchase that
+   * loses the market.
+   *
+   * MEASURED AND NOT SHIPPED: at 0.7 and at 1.0 it moves the level 68 window
+   * from 1000/344 to 1000/594 and still loses it, which is the same place a flat
+   * `reserveLow` of 1.0 lands. The honest reserve does stop the leading leg
+   * being finished at 0.62; what it does not do is get the other leg bought,
+   * because the leg that is not the priority is still held to `underdogMax`. The
+   * gate is sound and the deadlock behind it is the one this player keeps
+   * hitting.
+   */
+  reserveFull: z.coerce.number().finite().min(0).default(0),
   /**
    * How far above its OWN running low ask the priority leg may pay. 1 disables it.
    *
@@ -595,6 +701,46 @@ export const ConfigSchema = z.strictObject({
   openMs: z.coerce.number().finite().min(0).default(5_000),
   /** Fraction of `qty` any one leg may hold before `openMs`. 1 disables the cap. */
   openShare: z.coerce.number().finite().min(0).max(1).default(0.2),
+  /**
+   * Milliseconds at the start of the window during which the CHEAPER leg holds
+   * priority, whatever the book's opening lean says. 0 disables it.
+   *
+   * `openMs`/`openShare` caps the size of the opening guess; this is about its
+   * direction. Every priority rule in this file reads "dearer" as "leading" in
+   * one form or another — conviction takes the favourite outright, and momentum
+   * takes whichever leg ticked up first, which on the second tick of a window is
+   * a one-cent coin flip. So the player's first two hundred shares are reliably
+   * spent on the more expensive side of a book that has told it nothing.
+   *
+   * The level 68 window opens 0.44 / 0.58 and the player pays 0.5955 for two
+   * hundred shares of the dearer leg inside the first second. Refusing that is
+   * the one restraint on this player that is free: no money has been committed
+   * yet, so nothing is stranded, and the shares are bought either way — just on
+   * the side that costs fourteen cents less.
+   *
+   * Gated by `openCheapMin` so it cannot fire in a window that opens genuinely
+   * trending, where the favourite has to be taken immediately and the cheap leg
+   * is the one heading for zero.
+   *
+   * MEASURED DEAD, and it closes the "the opening is the free move" thread for
+   * good. It does exactly what it says: the opening clip moves to the cheap leg
+   * and the level 68 window's total cost falls from $785 to $773. It ends on the
+   * identical 1000/344 at 3, 6, 15 and 30 seconds — twelve dollars is nothing
+   * against a $185 shortfall. And it is not free after all: over the first
+   * sixty-eight, fifteen seconds costs EIGHT markets that pass at zero, all with
+   * the familiar signature of a leg left at half its target. Leading with the
+   * cheap leg means opening on the side that is about to collapse, and the two
+   * hundred shares saved at the open are worth less than the head start lost on
+   * the side that has to be chased.
+   */
+  openCheapMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * How dear the cheaper leg must still be for `openCheapMs` to apply — i.e. how
+   * close to a coin flip the opening book has to be. A window that opens 0.25 /
+   * 0.76 has already decided, and leading with its cheap leg would be buying the
+   * loser at the only price it will never be worth.
+   */
+  openCheapMin: z.coerce.number().finite().min(0).max(1).default(0.4),
   /**
    * Milliseconds at the start of the window during which no leg may hold more
    * than `earlyShare` × `qty` shares. The same idea as `openMs`/`openShare`, one
@@ -2323,6 +2469,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // The leg `oracleHold` has caught. Latched: the cap follows that leg for the
   // rest of the window and never touches the other one. See `oracleHold`.
   let holdLatch: Side | null = null
+  // When the current unbroken stretch of "the book leans by at least
+  // `convEdge`" began. Null while the book is inside the deadband.
+  let leanSinceMs: number | null = null
 
   /**
    * Sliding-window minimum of each leg's ask, as a monotonically increasing
@@ -2509,6 +2658,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // would leave a hole in the trailing minimum.
     const edge = Math.abs(askUp - askDown)
     pushEdge(nowMs, edge)
+    // How long this lean has survived. Tracked here, above the early returns,
+    // for the same reason the trailing minimum is: a tick the player sits out
+    // still happened, and a break in the lean has to count. See `convDwellMs`.
+    if (edge >= cfg.convEdge) {
+      if (leanSinceMs === null) leanSinceMs = nowMs
+    } else {
+      leanSinceMs = null
+    }
+    const leanHeldMs = leanSinceMs === null ? 0 : nowMs - leanSinceMs
     const sustainedEdge =
       cfg.edgeHoldMs > 0 && nowMs - windowStartMs >= cfg.edgeHoldAfterMs
         ? (edgeQ[0]?.v ?? edge)
@@ -2749,7 +2907,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // the underdog shrinks (it will be cheap), and the crossing throttle opens
     // (its window is measured in seconds).
     const conv =
-      cfg.convEdge >= 1 || elapsed > cfg.convUntil * WINDOW_MS
+      cfg.convEdge >= 1 || elapsed > cfg.convUntil * WINDOW_MS || leanHeldMs < cfg.convDwellMs
         ? 0
         : cfg.convFull > cfg.convEdge
           ? Math.min(1, Math.max(0, (edge - cfg.convEdge) / (cfg.convFull - cfg.convEdge)))
@@ -2815,6 +2973,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       }
       // A book leaning this hard overrides the trend reading: chase the favourite.
       if (conv > 0) first = askUp >= askDown ? 'UP' : 'DOWN'
+      // In the opening seconds of a book that is still close to even, neither
+      // the lean nor the trend reading is information, and both of them name the
+      // dearer leg. Lead with the cheaper one instead. See `openCheapMs`.
+      if (
+        cfg.openCheapMs > 0 &&
+        elapsed < cfg.openCheapMs &&
+        Math.min(askUp, askDown) >= cfg.openCheapMin
+      ) {
+        first = askUp <= askDown ? 'UP' : 'DOWN'
+      }
       // The outside price overrides both. The momentum reading and the
       // conviction reading are two views of the same order book; when BTC is
       // decisively clear of the price to beat, which leg will end up dear is
@@ -2940,6 +3108,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.oracleReserve > 0 &&
         outsideSide === first &&
         outsideFrac >= cfg.oracleReserve
+      // The other leg's honest cost: finishing it at the cheapest price it has
+      // actually shown. While that still fits in the money left, the reserve has
+      // nothing to gain by discounting it. See `reserveFull`.
+      const honestSecond = Math.min(askSecond, lowSecond)
+      const honestFits =
+        cfg.reserveFull > 0 &&
+        Number.isFinite(honestSecond) &&
+        needSecond * honestSecond <= cfg.reserveFull * budgetLeft
       const reserveFloor =
         cfg.reserveLow <= 0 ||
         elapsed < cfg.reserveLowAfterMs ||
@@ -2949,7 +3125,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         secondCommitted ||
         secondDoomed
           ? 0
-          : cfg.reserveLow * Math.min(askSecond, lowSecond)
+          : (honestFits ? 1 : cfg.reserveLow) * honestSecond
       const reserve = Math.max(
         cfg.minPrice,
         mix(cfg.leadReserve, cfg.convReserve) * reservePrice,
