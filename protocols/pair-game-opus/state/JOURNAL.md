@@ -979,3 +979,97 @@ side would need it at twenty-eight cents when it is quoted at forty and never
 goes below thirty again. Nothing in the player currently notices that a handover
 has happened at all, which is where I would look next.
 
+
+## Session 16 — three ways to hold the player back, all of them worse
+
+Nothing passed this session. Level 47 still has the same two markets in front of
+it, and I want to be straightforward about that before anything else. What I do
+have is a much better picture of why they are hard, and three plausible fixes
+that are now measured rather than merely suspected — one of which was the plan
+the last session left behind, and one of which turned out to rest on a fact that
+simply is not true.
+
+I started by re-running the idea the previous session had queued up: a reserve
+rule that refuses to chase one side past what the other side's own cheapest
+price still needs. It had been rejected before, but that measurement predated
+the speed gate that carried level 46, and two of the four markets it was
+fighting no longer exist. It is worse than ever — at three escalating strengths
+it turns two failures into three, seven and seven. That line is closed for good.
+
+Then I read both blocking markets tick by tick, which paid for itself. The most
+useful thing I learned is that neither of them is unwinnable, and not even
+narrowly. In the first, the cheapest the winning side ever traded was forty
+cents, and the cheapest the losing side ever traded was a fifth of a cent. Buy
+each side in its own trough and the pair costs forty cents against a ceiling of
+ninety-eight. The catch is that the two troughs are fourteen minutes apart, and
+at any single instant the two sides together cost about a dollar and one cent.
+So there is no moment in the window where the player can simply buy the pair; it
+has to buy each half separately and be right about the order.
+
+It is not right about the order. It spends more than half its money in the first
+minute on the side quoted between fifty-three and sixty-one cents, while the
+book is still a coin flip, and that side is the one that ends up worthless. What
+gives it permission to do that turned out to be one specific rule: the player is
+allowed to own a fraction of a side proportional to how far apart the two prices
+currently are. That gap is read at a single instant, and once shares are bought
+they stay bought. So one flicker of a wide gap inside an otherwise undecided
+minute licenses six hundred shares permanently.
+
+That is the same shape as the problem the speed gate solved last session — a
+signal read at an instant when it should be read over a stretch of time — so I
+built the same remedy: judge the gap by how wide it has been for the last twenty
+or thirty seconds rather than how wide it is right now. It works. Both blocking
+markets finish complete, at a pair cost around ninety-six cents, repeatedly. It
+also destroys between nine and fifteen other markets, and I tried four different
+ways of narrowing when it applies. Every casualty looks the same: one side
+stranded somewhere between two and seven hundred shares, at a pair cost well
+over a dollar. The reason is not subtle. A market whose favourite genuinely runs
+away has to have it bought in the first minute, and a rule that waits to be sure
+delays exactly that purchase. Roughly four markets lost for every one saved, and
+narrowing the trigger does not improve the trade — by the time the trigger is
+late enough to spare the trending markets, it is too late to save the coin-flip
+ones.
+
+One of the four narrowings deserves its own note, because it was the previous
+session's headline plan and it is built on sand. The idea was to key a rule to
+the moment the player changes its mind about which side to chase — a handover,
+which the fifteen-second debug log makes look like a single dramatic event
+mid-window. It is not. The role flickers on essentially every tick, so a counter
+over it saturates within seconds of the first purchase, and gating anything on
+"at least one handover has happened" reproduced the ungated result market for
+market. I have written that into the notes as plainly as I can, because it is
+exactly the kind of thing a future session would otherwise rediscover from the
+same misleading log.
+
+The third attempt came from asking what the scarce resource actually is. Shares
+are not: refusing five hundred shares at a nickel costs a window its cheap half
+and saves nothing, while one clip at sixty cents does the real damage. Money is,
+and money is what the ceiling is denominated in. So I rationed the budget by the
+clock instead of rationing shares. The reasoning survives contact with the data
+better than anything else I tried — the first blocking market is repaired
+outright, the second climbs from three hundred and forty shares to eight
+hundred and twenty-five, and what the player does buy it buys at the cheapest
+pair costs it has ever managed, well under ninety cents. And it fails
+twenty-two markets out of sixty. Every failure is a share count, never a price.
+That is the lesson in one line: this player wins by finishing legs, a budget it
+may not spend is a leg it may not finish, and a share with no partner is worth
+nothing however cheaply it was bought.
+
+So three families of restraint, and all three fail for the same reason. At the
+moment the player commits, the commitment that will turn out to be wrong and the
+one that will turn out to be right are indistinguishable — in the book, on the
+clock, and in the budget. Every rule that stops one stops the other.
+
+That points somewhere different for next time, and I have left the note pinned
+to a piece of arithmetic rather than an intuition. Stop trying to prevent the
+bad read and change what happens after it. When these markets reverse, the side
+that wins is quoted between forty-four and fifty-six cents for two full minutes
+afterwards, the player has enough money to buy it — its own budget line would
+allow forty-nine cents — and it does not, because a separate rule holds the
+non-favoured side to a loser's price of ten cents and it rests there instead of
+paying up. That ten-cent ceiling is the only constraint in the whole chain that
+has never once been moved in sixteen sessions. It is where I would go next.
+
+Everything is committed, the two new knobs ship switched off with their negative
+results written into the code beside them, and I re-ran level 46 at the new
+commit to confirm the player still behaves identically: forty-six of forty-six.
