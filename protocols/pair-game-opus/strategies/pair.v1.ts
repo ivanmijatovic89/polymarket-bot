@@ -673,6 +673,25 @@ export const ConfigSchema = z.strictObject({
    */
   earlyFair: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * Disagreement the outside price must show before it lifts `earlyShare` off a
+   * leg. 0 ⇒ use `ptbFairEdge`, the same threshold the override itself uses.
+   *
+   * Above 0 it also inverts the question. At 0 the cap lifts unless the outside
+   * price positively DISAGREES, so a leg the model has nothing to say about may
+   * be finished. Above 0 the cap lifts only when the model positively BACKS the
+   * leg by that much, so silence means restraint.
+   *
+   * MEASURED AND NOT SHIPPED. The inversion is exactly a wash and the two
+   * markets it trades are the two halves of the same problem. At 0.10 it wins
+   * the thirty-eighth market — whose book completes the losing leg on a
+   * seven-hundredths disagreement the model gets wrong — and loses the
+   * eighteenth, which trends all the way and whose model simply agrees with the
+   * book rather than leading it, so silence there is not doubt. Requiring the
+   * model to speak first cannot tell "the model has no view" from "the model
+   * disagrees", and those need opposite treatment.
+   */
+  earlyFairEdge: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * Edge at which a leg may be completed. 0 disables the pace.
    *
    * `openMs`/`openShare` is a two-state version of one idea: do not size a
@@ -1190,7 +1209,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
     const fairGap = (cfg.ptbFairTauMs > 0 ? emaGap : rawGap) ?? 0
     const fairWant: Side = fairGap > 0 ? 'UP' : 'DOWN'
-    if (pModel !== null && Math.abs(fairGap) >= cfg.ptbFairEdge) earlyFree[fairWant] = true
+    const earlyEdge = cfg.earlyFairEdge > 0 ? cfg.earlyFairEdge : cfg.ptbFairEdge
+    if (pModel !== null && Math.abs(fairGap) >= earlyEdge) earlyFree[fairWant] = true
     // The model's own view, and whether it points the same way as the gap.
     const modelLean = (pModel ?? 0.5) - 0.5
     const modelBacks =
@@ -1474,7 +1494,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // (the price to beat has not arrived yet) counts as "yes": the whole point
       // of the cap is that the book alone is not enough.
       const fairAgainst =
-        pModel === null || (Math.abs(fairGap) >= cfg.ptbFairEdge && fairWant !== side)
+        pModel === null
+          ? true
+          : cfg.earlyFairEdge > 0
+            ? !(fairWant === side && Math.abs(fairGap) >= cfg.earlyFairEdge)
+            : Math.abs(fairGap) >= cfg.ptbFairEdge && fairWant !== side
       const earlyRoom =
         cfg.earlyShare >= 1 ||
         elapsed >= cfg.earlyMs ||
