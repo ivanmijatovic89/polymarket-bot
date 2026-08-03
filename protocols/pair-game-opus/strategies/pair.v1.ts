@@ -1478,6 +1478,25 @@ export const ConfigSchema = z.strictObject({
    */
   spikeAfterMs: z.coerce.number().finite().min(0).default(0),
   /**
+   * Milliseconds the spike gate stays engaged after the last reading above
+   * `spikeEdge`. 0 ⇒ the gate is instantaneous.
+   *
+   * Instantaneous, it does not work, and the reason is the feed rather than the
+   * idea. The outside price is a Binance tape shifted by the latest Chainlink
+   * basis, and tick to tick it jitters by tens of dollars, so the deviation
+   * crosses any threshold in bursts: in the market this gate is for it reads 86,
+   * then 26, then 14, then 72, then 44, 45, 31 on consecutive seconds. The gate
+   * flickers, and the player does its buying in the gaps — the leg is completed
+   * inside the excursion exactly as before, one second at a time.
+   *
+   * A spike is an event, not an instant. Once the underlying has printed that
+   * far from its own average, the seconds that follow are the ones where the
+   * book is mispriced and the reversion has not happened yet, and those are
+   * precisely the seconds the player must sit out. The hold turns a threshold
+   * crossing into a refractory period.
+   */
+  spikeHoldMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -1659,6 +1678,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   /** The short BTC average the spike gate measures deviation from. */
   let spikeEma: number | null = null
   let spikeEmaAtMs = 0
+  /** While `nowMs` is under this, the spike gate stays engaged (`spikeHoldMs`). */
+  let spikeUntilMs = 0
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
   let emaGap: number | null = null
   let emaGapAtMs = 0
@@ -1808,7 +1829,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       }
       spikeEmaAtMs = nowMs
     }
-    const spiking = cfg.spikeEdge > 0 && elapsed >= cfg.spikeAfterMs && spikeDev >= cfg.spikeEdge
+    if (cfg.spikeEdge > 0 && spikeDev >= cfg.spikeEdge) spikeUntilMs = nowMs + cfg.spikeHoldMs
+    const spiking =
+      cfg.spikeEdge > 0 &&
+      elapsed >= cfg.spikeAfterMs &&
+      (spikeDev >= cfg.spikeEdge || nowMs < spikeUntilMs)
     const diff = cfg.ptbTauMs > 0 ? emaDiff : rawDiff
     const leftFrac = Math.min(1, Math.max(0, 1 - elapsed / WINDOW_MS))
     const needDiff = cfg.ptbEdge * Math.sqrt(leftFrac)
