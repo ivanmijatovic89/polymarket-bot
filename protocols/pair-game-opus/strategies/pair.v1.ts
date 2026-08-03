@@ -1463,8 +1463,22 @@ export const ConfigSchema = z.strictObject({
    * which is the whole difference: after refusing the spike in the market that
    * blocks this level, the player still holds 469 and 375 of the two legs with
    * half the ceiling unspent, and the reversal it then trades into is affordable.
+   *
+   * SHIPS AT 35, with `spikeHoldMs` 10 s, and it is the first restraint in this
+   * file that repairs anything WITHOUT costing anything. Over the first sixty
+   * markets it takes the failures from four to two, and the two it removes are
+   * the pair of spike markets no price cap has ever moved. Nothing else changes:
+   * the market that every restraint starves, and the one the previous best
+   * attempt broke, are untouched, because neither of them ever sees the
+   * underlying travel more than 27 dollars from its own average.
+   *
+   * The surviving band on this axis is 30 to 40 dollars — 30, 35 and 40 all take
+   * the first sixty to fifty-eight, repeatedly, while 45 loses one of the two
+   * spike markets outright (1000/0) and 50 loses both. Treat the upper edge as
+   * real: too large a threshold does not make the player braver, it simply stops
+   * seeing the event.
    */
-  spikeEdge: z.coerce.number().finite().min(0).default(0),
+  spikeEdge: z.coerce.number().finite().min(0).default(35),
   /**
    * Time constant of the BTC average `spikeEdge` measures deviation from. Short
    * by design: the question is whether the price is moving NOW, not where it has
@@ -1494,8 +1508,17 @@ export const ConfigSchema = z.strictObject({
    * book is mispriced and the reversion has not happened yet, and those are
    * precisely the seconds the player must sit out. The hold turns a threshold
    * crossing into a refractory period.
+   *
+   * The plateau is 8 to 12 seconds and both edges of it are real, measured over
+   * the first sixty markets at the shipped threshold. At 5 s the gate lifts
+   * before the excursion has finished and the market it exists for is lost
+   * exactly as before. At 15 s it starts costing a market that has nothing to do
+   * with spikes — a window that trends early and needs its favourite bought
+   * inside the first minute, which is time the hold spends refusing. 10 s is the
+   * middle, and it is roughly two time constants of the average it measures
+   * against, which is about how long these excursions take to unwind.
    */
-  spikeHoldMs: z.coerce.number().finite().min(0).default(0),
+  spikeHoldMs: z.coerce.number().finite().min(0).default(10_000),
   /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
