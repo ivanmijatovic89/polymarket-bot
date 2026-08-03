@@ -1964,6 +1964,46 @@ export const ConfigSchema = z.strictObject({
    * of, at whatever the book is asking for it.
    */
   holdSwap: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * A SECOND, higher pair budget that only a nearly-complete leg may reach, and
+   * only by taking the ask. 0 (or anything at or below `pairCeil`) disables it.
+   *
+   * `pairCeil` is deliberately set below the 0.98 the game scores against, and
+   * the gap is insurance: a window that ends one leg short scores its pair cost
+   * against the shares it actually matched, so a run that spends right up to
+   * 0.98 and then falls short posts a cost above the ceiling. The insurance is
+   * worth holding while the position is still being built.
+   *
+   * It is worth nothing at all in the one case this exists for. A leg nine
+   * tenths built, whose last hundred shares are on the screen at a price the
+   * plan misses by a cent, is not a position being built — it is a position
+   * that either completes in the next second or scores zero. Refusing to spend
+   * a dollar of the insurance there does not protect the ceiling; it guarantees
+   * the loss the insurance was bought against.
+   *
+   * Measured on the market that gates level 52: the plan has 92 dollars left
+   * for the last 102 shares of the chased leg and 344 of the other, which
+   * prices the chase at 0.565. The offer is 0.56 and the taker fee 1.7 cents,
+   * so the take is refused by 1.2 cents — 1.25 dollars on a 1,000-share
+   * position. The offer never comes back: the leg stalls at 898, the window
+   * ends 1000/898 and scores −44. With the exemption the same window takes the
+   * offer, finishes at 1000/1000, and lands at 0.967 a pair — the identical
+   * result the luckier latency draws already reach without it.
+   *
+   * The exemption is narrow on purpose: extra budget can only be spent to
+   * FINISH a leg (`finishCeilShare`), never to accumulate one, and only through
+   * a crossing order, so it can never raise a resting bid.
+   */
+  finishCeil: z.coerce.number().finite().min(0).max(0.98).default(0.975),
+  /**
+   * Fraction of `qty` a leg must already hold before `finishCeil` applies to
+   * it. 1 ⇒ never.
+   *
+   * The same argument `finishShare` and `jumpFinishShare` make: refusing to GROW
+   * a position costs only the opportunity, while refusing to FINISH one costs
+   * everything already spent on it.
+   */
+  finishCeilShare: z.coerce.number().finite().min(0).max(1).default(0.85),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   debug: z.coerce.number().int().min(0).max(1).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
@@ -2419,7 +2459,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
     // ---- budget split -----------------------------------------------------
     const budgetLeft = cfg.qty * cfg.pairCeil - spent
-    if (budgetLeft <= 0) return intents
+    // Every cap below is built from `budgetLeft`. `finishCeil` adds a strictly
+    // larger second budget that only the crossing test of a nearly-complete leg
+    // reads, so exhausting `pairCeil` still stops the player accumulating — it
+    // just no longer strands a leg that is one clip from done.
+    const finishExtra = cfg.finishCeil > cfg.pairCeil ? cfg.qty * (cfg.finishCeil - cfg.pairCeil) : 0
+    if (budgetLeft + finishExtra <= 0) return intents
 
     // The aggregate budget alone is NOT enough: it only bounds the pair cost if
     // both legs actually reach `qty`. A window that ends short can hold a few
@@ -2472,6 +2517,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // judged against this: it is the price the ceiling and the budget allow us
     // to pay, whether we wait for the book or reach out and take it.
     const cap: Partial<Record<Side, number>> = {}
+    // The same ceiling recomputed against `finishCeil`'s larger budget. Only a
+    // leg past `finishCeilShare`, and only when it is crossing, ever reads it.
+    const capFin: Partial<Record<Side, number>> = {}
     const target: Partial<Record<Side, number>> = {}
     // Share of the target either leg is allowed to hold this early in the
     // window — see `holdRamp`. 1 whenever the ramp is off or has fully opened.
@@ -2650,16 +2698,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // Everything except the jump filter. With `jumpCross` on, this is what the
       // resting bid answers to: the cap refuses to pay up but does not push the
       // leg out of the book, so it still fills on every downtick.
-      const capChase = Math.min(
+      // Everything the ceiling refuses on grounds other than how much money is
+      // left — split out so the finish budget can replace the money term alone.
+      const capChaseBase = Math.min(
         cfg.maxPrice,
         capFirst,
         chaseCap,
         paceCap,
         cfg.jumpCross === 1 ? Infinity : jumpCap,
         avgCap(first, sizeFirst),
-        (budgetLeft - needSecond * reserve) / needFirst,
       )
+      const capChase = Math.min(capChaseBase, (budgetLeft - needSecond * reserve) / needFirst)
       const capOfFirst = Math.min(capChase, jumpCap)
+      // The priority leg's cap recomputed on the finish budget. Only the money
+      // term moves: the price limits above still apply, so this can release
+      // budget the plan was holding back but never a price it already refused.
+      const capFinFirst = Math.min(
+        capChaseBase,
+        jumpCap,
+        (budgetLeft + finishExtra - needSecond * reserve) / needFirst,
+      )
       const bidFirst = floorTick(Math.min(askFirst - TICK, capChase))
       // What the underdog may pay is whatever the ceiling still holds once the
       // priority leg is finished at today's price. A FIXED split cannot do this
@@ -2691,6 +2749,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const capOfSecond = Math.min(budgetOfSecond, loserCap) * underdogRamp
       cap[first] = capOfFirst
       cap[second] = capOfSecond
+      capFin[first] = capFinFirst
+      // The underdog's finish budget: the same projection, with the money term
+      // and the ceiling it is projected against both moved to `finishCeil`.
+      capFin[second] =
+        Math.min(
+          cfg.maxPrice,
+          cfg.pairCeil + finishExtra / cfg.qty - projFirst,
+          avgCap(second, sizeSecond),
+          (budgetLeft + finishExtra - needFirst * Math.max(0, bidFirst)) / needSecond,
+          loserCap,
+        ) * underdogRamp
       target[first] = bidFirst
       target[second] =
         cfg.postSecondLeg === 1
@@ -2698,9 +2767,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           : -1
     } else if (needUp > 0) {
       cap.UP = Math.min(budgetLeft / needUp, avgCap('UP', Math.min(needUp, cfg.clip)))
+      capFin.UP = Math.min(
+        (budgetLeft + finishExtra) / needUp,
+        avgCap('UP', Math.min(needUp, cfg.clip)),
+      )
       target.UP = floorTick(cap.UP)
     } else {
       cap.DOWN = Math.min(budgetLeft / needDown, avgCap('DOWN', Math.min(needDown, cfg.clip)))
+      capFin.DOWN = Math.min(
+        (budgetLeft + finishExtra) / needDown,
+        avgCap('DOWN', Math.min(needDown, cfg.clip)),
+      )
       target.DOWN = floorTick(cap.DOWN)
     }
     logTick(leadSide, conv, target)
@@ -2891,7 +2968,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           Math.min(1, elapsed / (mix(cfg.takePace, cfg.convTakePace) * WINDOW_MS)),
         )
       const takeFee = TAKER_FEE_RATE * ask * (1 - ask)
-      const capNoAsk = cap[side]
+      // A leg past `finishCeilShare` judges the take against the finish budget
+      // instead of the pair budget. Crossing only — the resting bid below still
+      // answers to `cap`, so the exemption can never raise a passive quote or
+      // buy a share the player was not already one clip from needing.
+      const capNoAsk =
+        cfg.finishCeilShare < 1 && held[side] >= cfg.finishCeilShare * cfg.qty
+          ? (capFin[side] ?? cap[side])
+          : cap[side]
       const cross =
         cfg.takeMode === 1 &&
         held[side] < paceTarget &&
