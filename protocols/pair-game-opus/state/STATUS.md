@@ -9,8 +9,9 @@
 ## Evidence — levels 1–46
 
 Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
-run 3743+N). Level 46 re-run at commit `ad24bd93`: run **3883**, 46/46, worst
-pair cost 0.9695 against a ceiling of 0.98.
+run 3743+N). Level 46 re-run at this session's final commit: run **3904**, 46/46,
+worst pair cost 0.9696 against a ceiling of 0.98. (Run 3883 is the same result at
+the session's first commit.)
 
 ## What carried level 46: the spike gate
 
