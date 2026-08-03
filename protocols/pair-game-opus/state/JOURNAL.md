@@ -1390,3 +1390,76 @@ them and had been held up by a coin-flip nobody had noticed was a coin-flip.
 The lasting thing here is not the spending rule, it is the seeding. Any future
 "this market only fails sometimes" is now a thirty-second sweep instead of a
 theory, and a single passing probe should never again be read as a verdict.
+
+## Session 21 — eight more levels, then a wall worth describing
+
+Levels sixty through sixty-six needed nothing. I ran them two at a time, three
+runs each, and every one passed with the player exactly as the last session left
+it. That is seven levels in about an hour of machine time and no thinking at all,
+which is the pattern from last time repeating: the player is better than the
+ladder for stretches, and then one market stops it dead.
+
+Level sixty-seven was that market. It is a window that changes its mind. For the
+first minute the two sides trade either side of fifty cents; then the DOWN side
+leads for twenty seconds and the player buys four hundred and sixty-nine of it at
+fifty-seven cents; then the UP side leads and the player buys the same amount of
+that at fifty-five. Both halves of the pair bought expensive, which is the one
+thing a pair buyer must never do — the whole game is buying the winner at fifty
+cents and the loser at two. From there the UP side ran to ninety-nine cents and
+never came back, and the player was left five hundred shares short with no money.
+
+What was actually blocking it was subtler than the overspend, and this is the
+part I would want a reader to take away. The player holds money back for the side
+it is not currently buying, priced at the cheapest that side has so far traded.
+Here it was holding about twenty cents a share for a DOWN side that would end the
+window at two cents — roughly a hundred dollars set aside for shares that would
+cost ten — while the side it was withholding that money from needed four cents
+more to complete. The reserve is a sensible guess right up until the outcome is
+no longer in doubt, and then it is money reserved against a price that will never
+be seen again.
+
+So: once the underlying bitcoin price has run clear of the level the market
+settles on, far enough and in the direction of the side the player is buying, the
+reserve stands down. "Far enough" turned out to matter. Releasing it the moment
+the signal first fires is too eager and costs an earlier market that finishes
+with a one-cent margin; requiring half again as much clears both, and both
+windows finish on all eighteen seeded draws I threw at them. Level sixty-seven
+then passed three times cleanly.
+
+Level sixty-eight I did not get. It is worth describing because it is the same
+mistake in mirror image and it beat me. The window opens as a coin flip, leans
+one way for twenty seconds around a minute and a half in, and the player buys its
+entire thousand-share leg inside that lean, at prices from fifty-six to
+sixty-four cents. Eight tenths of everything it has, gone in twenty seconds, on a
+side that then spends ten more minutes at even money and finally loses. There was
+no reading available at the time that named the reversal.
+
+I found four different ways to make that one market pass and every one of them
+destroyed between twelve and thirty of the sixty-seven markets behind it. That is
+the real lesson of the session and it cost me most of the afternoon: a change
+tested on the market that is failing will always look like a fix, because I only
+kept the ones that looked like fixes. The single-market probe is a way of
+generating candidates, not of judging them, and I should have gone to the full
+ladder two hours earlier than I did.
+
+The deepest of those attempts is the one I would warn the next attempt off
+hardest. The obvious diagnosis — "it owned too much of one side too early" —
+leads straight to a cap on how much of a side may be owned, and a cap is the
+third time this player has been offered that idea and the third time it has
+answered the same way. Capped, the specimen passes beautifully at every setting I
+tried. Capped, two dozen other markets end with a leg stopped exactly on the cap
+and never resumed, because a side refused while it was cheap is unaffordable by
+the time the cap lets go. The failures are always share counts and never prices,
+and that signature is now written into the code three times over.
+
+What I have not tried, and what I have left as the next step, is the same test
+aimed at the right target: not how much you may own and not how much you may pay,
+but whether this particular purchase, at this price, leaves the other side of the
+pair buyable at what it is asking right now. I built that test during the session
+and wired it to the wrong place — it turned out to guard a door the player was
+not walking through. Moving it onto the ordinary buying decision is the untried
+idea, and it will need care, because for most of any window the two sides sum to
+slightly more than the pair budget, so a naive version refuses everything.
+
+Nothing is broken, nothing is half-finished, and the player on disk is the one
+that passed sixty-seven three times.
