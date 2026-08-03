@@ -228,6 +228,170 @@ export const ConfigSchema = z.strictObject({
    * (the reserve starves a leg that genuinely had to be chased). Ships disabled.
    */
   reserveAsk: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * How far above its OWN running low ask the priority leg may pay. 1 disables it.
+   *
+   * Every other rule the player owns is instantaneous: it reads the two asks at
+   * this tick and nothing else. That is enough in a trending window, where the
+   * current price IS the whole story, and it is exactly wrong in a whipsawing
+   * one. There the priority role changes hands every time the asks cross, and
+   * each time it changes the newly-promoted leg is bought at whatever it costs
+   * NOW — which, after a swing, is well above what the same leg traded at two
+   * minutes ago. Both legs end up bought near 0.5 by taking turns, which is the
+   * one shape whose pair can never come in under the ceiling.
+   *
+   * Giving each leg a memory of its own cheapest ask so far turns that around.
+   * A leg may be chased only while it is at or near its own low, so:
+   *   - in a monotone trend the losing leg keeps setting new lows and stays
+   *     buyable the whole way down, while the winner is bought in its first
+   *     seconds when its low IS its current price — unchanged behaviour;
+   *   - in a whipsaw the second and third swings are refused outright, because
+   *     the leg being re-promoted has already been seen cheaper.
+   *
+   * It is deliberately NOT applied to the underdog (`underdogMax` already holds
+   * that leg to a loser's price) nor to a leg left alone after its partner has
+   * finished, where there is no decision left to protect and the shares simply
+   * have to be bought.
+   *
+   * MEASURED AND REJECTED, and the reason is structural rather than a matter of
+   * tuning. On level 19's whipsaw market alone the cap works exactly as
+   * designed: 0.03, 0.05 and 0.08 all finish 1000/1000 at pair costs of 0.79 to
+   * 0.90, against 1.07 and 1000/687 without it. Across the level it loses more
+   * than it wins at every setting tried — ungated 8 to 13 of 19; gated on the
+   * other leg's realized average (0.10 / 0.20 / 0.30) 9 to 10; gated on elapsed
+   * time 11 to 18; measured over a trailing window instead of the whole market
+   * 7 to 15; released late 10 to 16. The best of them, pad 0.05 released at
+   * four tenths of the window, wins market 19 and loses three others.
+   *
+   * Every one of those failures is a share count, never a pair cost — the
+   * refused markets routinely finish at 0.65 to 0.90 on a leg that reached only
+   * 200 of 1,000. That is the structural objection: the leg the cap refuses is
+   * by construction the one whose ask is rising, which in a market that does
+   * trend is the winner, and the winner is only ever cheap early. So the cap
+   * systematically pushes the budget into the leg that is falling — the loser —
+   * and the player ends holding all of the wrong outcome at an excellent price.
+   * A price cap on the chase cannot tell the two cases apart, because a leg
+   * bought back above its own low looks identical in both.
+   */
+  chasePad: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * Milliseconds into the window before `chasePad` engages. 0 ⇒ from the open.
+   *
+   * The cap must not touch the move that pays for the whole strategy. A window
+   * that trends identifies its winner in the first minute or two, and the
+   * winner is affordable only there — blocked at the open it is never bought at
+   * all, and the market ends 200/1000. So the cap has to stay out of the way
+   * while the winner is still being established, and only then start refusing.
+   *
+   * After that point the argument reverses. A leg still being chased minutes
+   * into the window is one whose price has already been all over the place;
+   * every cent it is now above its own low is a cent that was available earlier
+   * and was not taken, and paying it commits the ceiling to a leg the window
+   * has not actually settled on.
+   */
+  chaseAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Length of the trailing window `chasePad` measures its low over. 0 ⇒ the
+   * whole market.
+   *
+   * A low that never expires cannot tell a trend from a whipsaw, and the two
+   * need opposite treatment. In a market that trends from the first tick, the
+   * winner's cheapest ask IS its opening ask, so a lifetime low pins the cap at
+   * the open and the leg that has to be bought all the way up is never bought
+   * at all. In a market that swings, the leg being re-promoted was cheap a
+   * minute ago and the cap should refuse it.
+   *
+   * Measuring the low over a trailing window separates them. Under a steady
+   * trend the trailing low walks up behind the price and the cap stays clear of
+   * it, so nothing changes. Under a swing the dip is still inside the window
+   * and the cap bites. The window therefore has to be long enough to still
+   * remember the last dip and short enough to forget the open.
+   */
+  chaseLookbackMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Fraction of the window after which `chasePad` stops applying. 1 ⇒ never.
+   *
+   * A price cap with no release is a share-count failure waiting to happen, and
+   * that is exactly how every ungated variant of `chasePad` loses: a leg gets
+   * refused at 0.61, its price never returns, and the market ends 200/1000 with
+   * an excellent pair cost on 200 pairs and no pass. The refusal is only worth
+   * making if the player still intends to finish the leg.
+   *
+   * Releasing it late costs much less than it looks. By then the window has
+   * decided, so the leg that was refused is either the loser — now trading at a
+   * few cents, and the refusal saved most of its cost — or the winner at 0.90,
+   * paid for out of a partner leg that the same decisiveness has made nearly
+   * free. What is NOT survivable is paying 0.60 for a leg in the third minute
+   * of a window that has not decided anything, which is what the cap is there
+   * to stop.
+   */
+  chaseUntil: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * 1 ⇒ the `edgeFull` pace budgets the TWO legs together instead of each
+   * separately.
+   *
+   * Per leg, the pace is not the guard it looks like. At an edge a third of
+   * `edgeFull` it permits a third of the UP target AND a third of the DOWN
+   * target, and a window whose priority role changes hands in its first seconds
+   * takes both: the player ends ten seconds in holding a quarter of each leg,
+   * every share bought around 0.5, a quarter of the ceiling gone and the pair
+   * already priced at 1.00. Nothing later recovers that, because the only way
+   * back under the ceiling is a leg bought cheap, and the budget for it is
+   * spent.
+   *
+   * The edge measures how much the window has revealed, and what it has
+   * revealed is a total amount of information, not one allowance per side. Held
+   * jointly, the same reading says: own as many shares as the book has earned,
+   * distributed however the priority rule currently likes. A flip then costs
+   * nothing — the newly promoted leg simply spends the allowance the demoted
+   * one was using, instead of opening a second one.
+   *
+   * Measured neutral and it ships off. It holds all eighteen passing markets at
+   * `edgeFull` 0.24, 0.32 and 0.40, so the joint pace costs nothing there, and
+   * it does change the whipsaw market's shape — the double purchase in the
+   * opening ten seconds stops happening. It still does not win that market: the
+   * allowance has to lapse once the edge is full (a shared budget of `qty`
+   * cannot carry two legs of `qty` each, and without the release both legs
+   * deadlock short — 3 of 19), and the moment it lapses the player buys the
+   * same leg at the same high price, finishing 1000/144 instead of 1000/688.
+   * Worth keeping on the shelf: it is the only change measured this session
+   * that costs nothing, so it is the natural carrier for a rule that also fixes
+   * what happens after the release.
+   */
+  pairEdge: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Exponent by which `underdogMax` lifts toward the budget's own allowance as
+   * the priority leg fills. 0 disables the lift.
+   *
+   * The player holds two rules about the second leg that contradict each other.
+   * The budget reserves it a real per-share allowance — whatever the ceiling
+   * still holds once the priority leg is projected to completion, often 0.3 or
+   * more — and `underdogMax` then forbids it from paying above 0.10. In a
+   * trending window that contradiction is invisible, because the second leg
+   * really does fall to a few cents and the reserve is never needed. In a
+   * window where the second leg turns out to be the winner it is fatal: the
+   * money is set aside, the leg never trades under 0.10, and the reserve is
+   * carried unspent to settlement while the market fails on share count. Runs
+   * that reserve aggressively show it plainly — a pair cost comfortably inside
+   * the ceiling on a leg that only ever reached a third of its target.
+   *
+   * The lift resolves it in the order the information arrives. While the
+   * priority leg is still being built the player has not committed to anything
+   * and the 0.10 cap is right: a second leg filling at 0.45 in the first minute
+   * is the classic way to lose a window. Once the priority leg is nearly
+   * finished the bet is made, the ceiling's remainder exists for exactly one
+   * purpose, and refusing to spend it buys nothing. Raising the exponent keeps
+   * the cap near 0.10 for longer and hands the allowance over later.
+   *
+   * Measured inert on its own — 18 of 19 at exponents 1, 2, 3 and 5, with the
+   * whipsaw market unchanged to the cent — because by the time the priority leg
+   * is nearly full the budget it was supposed to hand over has already been
+   * spent. Paired with `reserveAsk` 0.7 or 1.0, which is what actually keeps
+   * money back, it is worse than either alone (14 to 17 of 19) and the whipsaw
+   * market still ends short. Ships off, with the contradiction it describes
+   * left standing and unresolved.
+   */
+  underdogLift: z.coerce.number().finite().min(0).max(8).default(0),
   /** `leadReserve` used at full conviction: the underdog will be cheap, so reserve little. */
   convReserve: z.coerce.number().finite().min(0).max(1).default(0.25),
   /** `soloShare` used at full conviction. */
@@ -473,6 +637,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // Committed priority leg for the whole window — see `priorityLatch`.
   let latched: Side | null = null
 
+  /**
+   * Sliding-window minimum of each leg's ask, as a monotonically increasing
+   * deque of (time, ask) samples: the head is the window's low, and a sample is
+   * dropped as soon as a later, lower one makes it unreachable. That keeps both
+   * the update and the query O(1) amortised over the ~100k ticks a market
+   * delivers, and it is exact rather than a decayed approximation, so the cap it
+   * feeds can be read straight off a price chart.
+   */
+  const lowQ: Record<Side, { t: number; v: number }[]> = { UP: [], DOWN: [] }
+  const pushLow = (side: Side, t: number, v: number): void => {
+    const q = lowQ[side]
+    while (q.length > 0 && q[q.length - 1]!.v >= v) q.pop()
+    q.push({ t, v })
+    if (cfg.chaseLookbackMs > 0) {
+      const cutoff = t - cfg.chaseLookbackMs
+      while (q.length > 1 && q[0]!.t < cutoff) q.shift()
+    }
+  }
+  const trailingLow = (side: Side): number => lowQ[side][0]?.v ?? Infinity
+
   // diagnostics
   let minAsk: Record<Side, number> = { UP: Infinity, DOWN: Infinity }
   let minAskAtMs: Record<Side, number> = { UP: 0, DOWN: 0 }
@@ -530,6 +714,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       ema.DOWN += k * (askDown - ema.DOWN)
     }
     lastEmaMs = nowMs
+
+    pushLow('UP', nowMs, askUp)
+    pushLow('DOWN', nowMs, askDown)
 
     if (askUp < minAsk.UP) {
       minAsk = { ...minAsk, UP: askUp }
@@ -709,9 +896,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const reservePrice =
         cfg.reserveAsk * askSecond + (1 - cfg.reserveAsk) * Math.min(askSecond, cfg.underdogMax)
       const reserve = Math.max(cfg.minPrice, mix(cfg.leadReserve, cfg.convReserve) * reservePrice)
+      // The priority leg may not be chased far above its own cheapest ask so
+      // far: this is the player's only non-instantaneous rule, and the only
+      // thing that refuses the second and third swing of a whipsaw.
+      const chaseCap =
+        cfg.chasePad >= 1 ||
+        elapsed < cfg.chaseAfterMs ||
+        elapsed >= cfg.chaseUntil * WINDOW_MS
+          ? Infinity
+          : trailingLow(first) + cfg.chasePad
       const capOfFirst = Math.min(
         cfg.maxPrice,
         capFirst,
+        chaseCap,
         avgCap(first, sizeFirst),
         (budgetLeft - needSecond * reserve) / needFirst,
       )
@@ -728,14 +925,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const projFirst = (basis[first] + needFirst * Math.max(0, projPrice)) / cfg.qty
       const underdogRamp =
         cfg.underdogRamp <= 0 ? 1 : Math.min(1, elapsed / (cfg.underdogRamp * WINDOW_MS))
-      const capOfSecond =
-        Math.min(
-          cfg.maxPrice,
-          cfg.underdogMax,
-          cfg.pairCeil - projFirst,
-          avgCap(second, sizeSecond),
-          (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
-        ) * underdogRamp
+      // What the ceiling and the remaining budget alone would let the second
+      // leg pay, before the loser-price cap is applied on top.
+      const budgetOfSecond = Math.min(
+        cfg.maxPrice,
+        cfg.pairCeil - projFirst,
+        avgCap(second, sizeSecond),
+        (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
+      )
+      // The loser-price cap hands its allowance back as the priority leg fills:
+      // by then the bet has been made and the reserve exists to be spent.
+      const lift = cfg.underdogLift <= 0 ? 0 : (held[first] / cfg.qty) ** cfg.underdogLift
+      const loserCap = cfg.underdogMax + lift * Math.max(0, budgetOfSecond - cfg.underdogMax)
+      const capOfSecond = Math.min(budgetOfSecond, loserCap) * underdogRamp
       cap[first] = capOfFirst
       cap[second] = capOfSecond
       target[first] = bidFirst
@@ -781,10 +983,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           : cfg.openShare * cfg.qty - held[side]
       // Edge pace: a leg may only hold as much of its target as the book has
       // already revealed. Only meaningful while both legs are still contested.
+      const edgeFrac = Math.min(1, Math.max(cfg.openShare, edge / cfg.edgeFull))
+      // Held jointly the allowance has to lapse once the book has revealed
+      // everything it is going to: a shared budget of `qty` can never carry two
+      // legs of `qty` each, and the pace would deadlock both of them short.
+      const edgeHeld = cfg.pairEdge === 1 ? held.UP + held.DOWN : held[side]
       const edgeRoom =
-        cfg.edgeFull <= 0 || leadSide === null
+        cfg.edgeFull <= 0 || leadSide === null || (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
-          : cfg.qty * Math.min(1, Math.max(cfg.openShare, edge / cfg.edgeFull)) - held[side]
+          : cfg.qty * edgeFrac - edgeHeld
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),

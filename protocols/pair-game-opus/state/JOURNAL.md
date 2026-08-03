@@ -378,3 +378,81 @@ in a steadily trending market, where the recent low simply is the current price.
 
 Eighteen levels standing, all on one unchanged configuration, every market
 finishing with exactly a thousand shares of each side.
+
+---
+
+## Session 6 — the market I could not win, and why
+
+I came into this session with one idea written down: the player has no memory of
+where a price has been, and the market that has blocked it for two sessions is
+one where it repeatedly paid sixty cents for something it had watched trade at
+forty-six a minute earlier. So I gave each side a memory of its own cheapest
+price so far, and refused to let the player chase a side more than a few cents
+above that.
+
+On the blocking market it worked immediately and completely. Where the old
+player finishes holding a thousand of one side and six hundred of the other at a
+combined price of a dollar and seven cents — a loss — the new rule finishes with
+a full thousand of each at seventy-nine cents. That is a comfortable win on the
+market that has been the wall.
+
+Then I ran the other eighteen and it fell apart. Half of them stopped
+completing. The pattern was the same everywhere and it took me a while to see
+what it was really saying: the markets that now failed were failing on share
+count, not on price. They were finishing at seventy or eighty cents a pair —
+well inside what the game asks for — on a side that had only reached two hundred
+shares out of a thousand. The player was saving money and then not spending it.
+
+I spent most of the session trying to let it through the right door. I tried
+switching the refusal on only once the other side had already been bought
+expensively; only after the first minute; only before the sixth; measured
+against a rolling recent low instead of the whole market's low; and released
+late so a blocked side could still finish. Roughly thirty full runs. The best
+combination wins the blocking market and loses three others. Nothing won all
+nineteen.
+
+What that search bought was an explanation, and I think it is worth more than
+the rule would have been. A refusal rule always refuses the side whose price is
+rising. In a market that genuinely trends, the side whose price is rising is the
+one that wins — and it is only ever cheap in its first minute. So the rule
+systematically pushes the money into the side that is falling, which is the side
+that ends up worthless. The player finishes owning all of the wrong outcome at a
+very good price. And from inside the moment the two cases are indistinguishable:
+a price that has come back up above its own recent low looks exactly the same
+whether the market is trending or thrashing.
+
+So I stopped tuning that family and tried two other things. One was to stop the
+two sides drawing on separate spending allowances — the old rule let each side
+buy a quarter of its target on the same weak evidence, so a market that changes
+its mind in the first ten seconds buys a quarter of both at fifty cents, which
+is the one combination that can never work. Making them share a single allowance
+does stop that, and it costs nothing: all eighteen markets still pass. It just
+doesn't win the nineteenth, because once the allowance runs out the player goes
+and buys the same side at the same bad price anyway. I have left it available
+and switched off, since it is free.
+
+The other was a contradiction I noticed in the player's own rules. The budget
+carefully reserves real money for the second side — thirty or forty cents a
+share — and a separate rule then forbids that side from ever paying more than
+ten. In a normal market you never notice, because the second side really does
+collapse to a few cents. In this market it doesn't: the reserved money sits
+there unspent while the market fails for want of shares. I built the fix — hand
+the allowance back as the first side fills — and it changed nothing, because by
+the time the first side is nearly full the money is already gone. The
+contradiction is real; my fix was aimed at the wrong end of it.
+
+Nothing shipped. The player is exactly the eighteen-level configuration it was,
+which I re-verified rather than assumed: eighteen markets pass, the nineteenth
+fails identically to before, and the two levels I sampled still pass. Every new
+dial is off by default and carries its own measurements next to it, so the next
+session doesn't repeat any of this.
+
+Where I would go next is somewhere I have not looked at all. The game allows the
+player to see the Bitcoin price, the Chainlink price and the level the market
+settles against, and the player currently reads none of them — every decision it
+makes comes from the order book alone. The market that beats it is precisely one
+where the order book spent six minutes saying nothing. How far Bitcoin actually
+is from the level it has to beat, with four minutes left, is a genuinely
+different piece of information, and it is a reason to prefer a side rather than
+another reason to refuse a purchase — which, after this session, is the
+distinction I would build on.
