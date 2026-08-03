@@ -1724,6 +1724,39 @@ export const ConfigSchema = z.strictObject({
    */
   commitLoss: z.coerce.number().finite().min(0).max(1).default(0.045),
   /**
+   * Milliseconds the `commitLoss` verdict must stand CONTINUOUSLY before the
+   * exemption it unlocks may be used. 0 ⇒ the first tick that reads wrong is
+   * enough.
+   *
+   * `commitLoss` asks whether the market has turned against the leg the player
+   * committed to, and answers on two readings of the same instant — the last
+   * quote and a thirty-second average. Both of those are prices, and a price
+   * that moves twenty cents in fifteen seconds drags a thirty-second average a
+   * long way with it. The reading the pair was built to reject is a two- or
+   * three-cent wobble, not a genuine excursion that reverts.
+   *
+   * The market blocking level 95 is the excursion. The player holds 719 of the
+   * leg that eventually wins and 531 of the other, and is two hundred dollars
+   * from finishing both. Its committed leg spikes twenty cents against it over
+   * fifteen seconds, the verdict flips, four hundred and sixty-nine shares of
+   * the other leg are taken in four seconds at prices thirteen cents above
+   * where that leg traded thirty seconds earlier, and the spike is fully
+   * reverted fifteen seconds later. What was left could not finish either leg.
+   *
+   * A clock is the right instrument here and a price is not: the excursion and
+   * the real turn are indistinguishable on every price reading at the instant
+   * they start, and differ only in whether they are still there afterwards.
+   * What waiting costs is the first seconds of a genuine chase, which is real
+   * but bounded — the chase runs for minutes when it is right.
+   *
+   * Band, over the first 110 markets: eight seconds is too short to sit out the
+   * excursion and costs an earlier market as well; ten, twelve and fifteen all
+   * carry the same three failures, none of them below level 103; twenty breaks
+   * market 52, whose chase is genuine and starts inside that window. Ships at
+   * twelve, the middle of the band that holds.
+   */
+  commitDwellMs: z.coerce.number().finite().min(0).default(12_000),
+  /**
    * Shares per second the chased leg may acquire while the `commitShare`
    * exemption is active, measured over the last `commitRateMs`. 0 ⇒ unlimited.
    *
@@ -2708,6 +2741,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let prevLeadAtMs = 0
   // Whether the exemption has been armed — one way, see `commitLag`.
   let commitArmed = false
+  // When the committed leg first started reading as wrong, and 0 whenever it is
+  // not reading that way. Reset on every tick the test fails, so it measures a
+  // CONTINUOUS stretch rather than a total. See `commitDwellMs`.
+  let chaseWrongSinceMs = 0
   // The leg `oracleHold` has caught. Latched: the cap follows that leg for the
   // rest of the window and never touches the other one. See `oracleHold`.
   let holdLatch: Side | null = null
@@ -3757,7 +3794,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const otherAvg = avgOf(other)
       const otherAsk = other === 'UP' ? askUp : askDown
       const otherRef = Math.max(otherAsk, ema[other] ?? otherAsk)
-      const chaseWrong = cfg.commitLoss <= 0 || otherAvg <= 0 || otherRef <= otherAvg - cfg.commitLoss
+      const chaseWrongNow =
+        cfg.commitLoss <= 0 || otherAvg <= 0 || otherRef <= otherAvg - cfg.commitLoss
+      // How long the verdict has stood. Updated for the chased leg only, which
+      // is the only side `completing` reads, so exactly one of the two passes
+      // through the loop touches it. See `commitDwellMs`.
+      if (side === chaseLeg) {
+        if (!chaseWrongNow) chaseWrongSinceMs = 0
+        else if (chaseWrongSinceMs === 0) chaseWrongSinceMs = nowMs
+      }
+      const chaseWrong =
+        chaseWrongNow &&
+        (cfg.commitDwellMs <= 0 ||
+          side !== chaseLeg ||
+          nowMs - chaseWrongSinceMs >= cfg.commitDwellMs)
       const completing =
         cfg.commitShare > 0 && side === chaseLeg && chaseRising && chaseWrong && commitArmed
       // Shares this leg may still acquire: the imbalance throttle, and the
