@@ -708,6 +708,39 @@ export const ConfigSchema = z.strictObject({
    */
   earlyFairEdge: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * How far the MODEL itself must lean toward a leg before it lifts
+   * `earlyShare` off it. 0 ⇒ the lift is decided by `earlyFair` alone.
+   *
+   * `earlyFair` has two states and needs three. It lifts the cap unless the
+   * outside price positively disagrees, so a leg the model has NOTHING to say
+   * about is finished on the book's word alone — which is the exact case the
+   * cap exists to prevent. `earlyFairEdge` inverts that and treats silence as
+   * doubt, and it fails the other way: a window that trends all the way has a
+   * model that merely AGREES with the book rather than leading it, so silence
+   * there is not doubt and the cap wrongly refuses the leg that has to be
+   * bought.
+   *
+   * The two cases separate on the model's own reading rather than on its
+   * disagreement with the book. In a window that genuinely runs, BTC moves
+   * clear of the strike and the model leans hard on the same side as the book.
+   * In a window that leans and then reverses, the book prices the favourite at
+   * 0.59 while BTC has barely left the strike and the model reads 0.53 — it is
+   * not contradicting the book, it is failing to confirm it. Requiring
+   * CONFIRMATION rather than the absence of contradiction is what tells them
+   * apart.
+   *
+   * MEASURED AND NOT SHIPPED, and the measurement says something more useful
+   * than the knob. Over the first sixty markets it costs the thirty-seventh at
+   * 0.03, 0.05 and 0.08, costs a second one at 0.08, and fixes NONE of the five
+   * markets it was built for. The reason is that the cap it modifies cannot
+   * reach those markets at all: they over-commit around the first minute while
+   * holding barely a third of the other leg, and `earlyBoth` — which asks
+   * whether the player has already been made to buy BOTH sides — is what keeps
+   * the cap out. Lengthening `earlyMs` to 90 s does not change one share of the
+   * result. Whatever answers that family, it is not this cap with better gates.
+   */
+  earlyModelMin: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /**
    * Edge at which a leg may be completed. 0 disables the pace.
    *
    * `openMs`/`openShare` is a two-state version of one idea: do not size a
@@ -1252,10 +1285,22 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
     const fairGap = (cfg.ptbFairTauMs > 0 ? emaGap : rawGap) ?? 0
     const fairWant: Side = fairGap > 0 ? 'UP' : 'DOWN'
-    const earlyEdge = cfg.earlyFairEdge > 0 ? cfg.earlyFairEdge : cfg.ptbFairEdge
-    if (pModel !== null && Math.abs(fairGap) >= earlyEdge) earlyFree[fairWant] = true
     // The model's own view, and whether it points the same way as the gap.
     const modelLean = (pModel ?? 0.5) - 0.5
+    const earlyEdge = cfg.earlyFairEdge > 0 ? cfg.earlyFairEdge : cfg.ptbFairEdge
+    if (pModel !== null) {
+      // Whichever reading is in force, the permission it grants LATCHES: a
+      // window where the outside price has once backed a leg is not a window
+      // where the player is committing on the book's word alone, and a reading
+      // that wobbles back across its threshold does not make it one.
+      if (cfg.earlyModelMin > 0) {
+        if (Math.abs(modelLean) >= cfg.earlyModelMin) {
+          earlyFree[modelLean > 0 ? 'UP' : 'DOWN'] = true
+        }
+      } else if (Math.abs(fairGap) >= earlyEdge) {
+        earlyFree[fairWant] = true
+      }
+    }
     const modelBacks =
       cfg.ptbFairModelMin <= 0 ||
       (Math.abs(modelLean) >= cfg.ptbFairModelMin && (modelLean > 0) === (fairWant === 'UP'))
@@ -1539,9 +1584,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const fairAgainst =
         pModel === null
           ? true
-          : cfg.earlyFairEdge > 0
-            ? !(fairWant === side && Math.abs(fairGap) >= cfg.earlyFairEdge)
-            : Math.abs(fairGap) >= cfg.ptbFairEdge && fairWant !== side
+          : cfg.earlyModelMin > 0
+            ? // Confirmation, not the absence of contradiction: the model has to
+              // lean toward THIS leg on its own reading before the cap comes off.
+              !(Math.abs(modelLean) >= cfg.earlyModelMin && (modelLean > 0) === (side === 'UP'))
+            : cfg.earlyFairEdge > 0
+              ? !(fairWant === side && Math.abs(fairGap) >= cfg.earlyFairEdge)
+              : Math.abs(fairGap) >= cfg.ptbFairEdge && fairWant !== side
       const earlyRoom =
         cfg.earlyShare >= 1 ||
         elapsed >= cfg.earlyMs ||
