@@ -1510,6 +1510,62 @@ export const ConfigSchema = z.strictObject({
   /** Model-minus-book disagreement, in probability, that engages `fairHold`. */
   fairHoldGap: z.coerce.number().finite().min(0).default(0.06),
   /**
+   * Share of its target the leg that is ALREADY AHEAD may hold while its own
+   * book is a THIN OFFER — `depthGate` or more of the size within three levels
+   * sitting on the bid rather than the ask. 1 disables the cap.
+   *
+   * Every earlier cap read a price: the ask gap, the leg's own ask, the model,
+   * the oracle, the player's own spend. Measured over the first 68 markets, the
+   * level 68 window is unremarkable in all of them — median in what it pays
+   * (26th of 68 in the ask it chases and in the gap it chases on), near the top
+   * in how fast the book moved, twelfth in how far it commits past its own cash.
+   * That is why six families of price rule each cost between seven and
+   * forty-three of the markets that already pass: nothing in the price separates
+   * this window from the ones that must be chased.
+   *
+   * The SIZE behind the quote does. At the instant it commits, the leg this
+   * player is buying has 85% of its near depth on the bid and 15% on the offer:
+   * third-highest of the 68 markets, and higher than all eighteen windows
+   * measured to break when money or shares are withheld. The lean it is chasing
+   * is a lean nobody funded — the price is high because there is nothing left to
+   * sell, not because anyone bought size. In `…1775110500`, the window whose
+   * chase is most essential, this reading never reaches the gate at all.
+   *
+   * Smoothed over `depthTauMs` and required to bite while the leg is still being
+   * bought, a 0.80 gate would fire in only 17 of the 68 windows and for one to
+   * eleven seconds in all but this one, where it covers the whole buyout.
+   */
+  depthHold: z.coerce.number().finite().min(0).max(1).default(0.8),
+  /** Share of near depth on the bid that makes a leg's offer "thin". */
+  depthGate: z.coerce.number().finite().min(0).max(1).default(0.7),
+  /** Time constant of the depth-imbalance estimate, in ms. */
+  depthTauMs: z.coerce.number().finite().min(0).default(10_000),
+  /** How many top book levels the depth reading sums. */
+  depthLevels: z.coerce.number().int().min(1).max(10).default(3),
+  /**
+   * How long into the window the depth cap stays disarmed, in ms.
+   *
+   * A window that has just opened has almost nothing resting on either side, so
+   * the ratio is noise: it takes one order to empty an offer that is only a few
+   * hundred shares deep. Measured over the first 68 markets, every casualty of
+   * the cap that survives a tighter gate is armed between t+10s and t+27s, while
+   * the lean it is built to refuse arrives at t+70s.
+   */
+  depthAfterMs: z.coerce.number().finite().min(0).default(45_000),
+  /**
+   * How recently the book must have crossed the coin flip for the depth cap to
+   * arm, in ms. 0 ⇒ no freshness requirement.
+   *
+   * A thin offer means two different things depending on how long the leg has
+   * been dear. A leg the book has priced above even for a full minute has had
+   * its offer bought through: the depth is gone because someone took it. A leg
+   * that crossed the coin flip eleven seconds ago and is already at 0.61 has an
+   * empty offer because nobody has put one up yet. Only the second is evidence
+   * of nothing. The two windows that collide on every other reading are 11s and
+   * 63s old at the moment the cap would arm.
+   */
+  depthFreshMs: z.coerce.number().finite().min(0).default(30_000),
+  /**
    * Standard deviations of BTC's OWN measured volatility at which the outside
    * price releases a leg `fairHold` has stopped, for the rest of the window.
    * 0 ⇒ the cap is never released this way.
@@ -2561,6 +2617,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // The leg `fairHold` has actually stopped. Latched for the rest of the window,
   // and released only once its partner is complete. See `fairHold`.
   let fairHeld: Side | null = null
+  // Each leg's near-depth imbalance — the share of the size within
+  // `depthLevels` that sits on the bid — smoothed over `depthTauMs`. Null until
+  // the first tick. See `depthHold`.
+  const depthImb: Record<Side, number | null> = { UP: null, DOWN: null }
+  // The same three latches as `fairHold`, driven by the depth reading instead of
+  // the model-book disagreement. `depthCapSide` and `depthHandover` are per-tick
+  // and MUST be cleared above the both-legs-contested branch; `depthHeld` is
+  // latched for the window. See `depthHold`.
+  let depthCapSide: Side | null = null
+  let depthHandover: Side | null = null
+  let depthHeld: Side | null = null
+  // The last time the book was NOT already pricing this leg as the favourite —
+  // how old the lean on it is. See `depthFreshMs`.
+  const lastEvenMs: Record<Side, number | null> = { UP: null, DOWN: null }
   // When the current unbroken stretch of "the book leans by at least
   // `convEdge`" began. Null while the book is inside the deadband.
   let leanSinceMs: number | null = null
@@ -2750,6 +2820,30 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       jumpEma.UP += kj * (askUp - jumpEma.UP)
       jumpEma.DOWN += kj * (askDown - jumpEma.DOWN)
     }
+    // Near-depth imbalance per leg: of the size resting within `depthLevels` of
+    // the top of that leg's own book, how much is on the bid. A leg whose offer
+    // has been emptied reads near 1. Smoothed, because a single tick's ladder
+    // has a hole in it constantly. See `depthHold`.
+    {
+      const cum = (a: number[] | undefined): number => {
+        if (!a || a.length === 0) return 0
+        const v = a[Math.min(cfg.depthLevels, a.length) - 1]
+        return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0
+      }
+      const kd =
+        cfg.depthTauMs > 0 ? 1 - Math.exp(-Math.max(0, nowMs - lastEmaMs) / cfg.depthTauMs) : 1
+      for (const [s, b] of [
+        ['UP', upBook],
+        ['DOWN', downBook],
+      ] as const) {
+        const bid = cum(b.bidsDepthByLevel)
+        const ask = cum(b.asksDepthByLevel)
+        if (bid + ask <= 0) continue
+        const raw = bid / (bid + ask)
+        const prev = depthImb[s]
+        depthImb[s] = prev === null ? raw : prev + kd * (raw - prev)
+      }
+    }
     lastEmaMs = nowMs
 
     pushLow('UP', nowMs, askUp)
@@ -2878,6 +2972,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const pModel =
       diff === null ? null : normCdf(diff / (cfg.ptbSigma * Math.sqrt(Math.max(leftFrac, 1e-6))))
     const pBook = askUp + askDown > 0 ? askUp / (askUp + askDown) : 0.5
+    // How old the book's lean on each leg is: the last moment the book was not
+    // already pricing that leg above even. See `depthFreshMs`.
+    if (pBook <= 0.5) lastEvenMs.UP = nowMs
+    if (pBook >= 0.5) lastEvenMs.DOWN = nowMs
     const rawGap = pModel === null ? null : pModel - pBook
     if (rawGap !== null) {
       if (emaGap === null || cfg.ptbFairTauMs <= 0) emaGap = rawGap
@@ -2937,12 +3035,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // what the outside price did later in the window.
     if (cfg.debug === 2 && nowMs - lastLogMs >= cfg.debugEveryMs) {
       lastLogMs = nowMs
+      // Depth is reported here and nowhere else: no rule reads it yet. Every
+      // price-shaped reading of this book has now been measured and none of them
+      // separates the windows that must be chased from the one that must not, so
+      // the next question is whether the SIZE behind the quote does.
+      const cum = (a: number[] | undefined, n: number): number => {
+        if (!a || a.length === 0) return 0
+        const v = a[Math.min(n, a.length) - 1]
+        return typeof v === 'number' && Number.isFinite(v) ? v : 0
+      }
+      const dep = (b: typeof upBook): string =>
+        `${cum(b.bidsDepthByLevel, 3).toFixed(0)}/${cum(b.asksDepthByLevel, 3).toFixed(0)}`
       console.log(
         `[pair.v1] obs slug=${ctx?.market?.slug ?? '?'} t+${Math.round(elapsed / 1000)}s ` +
           `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
           `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
           `diff=${diff === null ? '-' : diff.toFixed(1)} need=${needDiff.toFixed(2)} z=${outsideZ.toFixed(2)} ` +
-          `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)}`,
+          `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+          `depUp=${dep(upBook)} depDown=${dep(downBook)} ` +
+          `bidUp=${upBook.bestBid === null ? '-' : upBook.bestBid.toFixed(3)} ` +
+          `bidDown=${downBook.bestBid === null ? '-' : downBook.bestBid.toFixed(3)}`,
       )
     }
     const logTick = (lead: Side | null, conv: number, tgt: Partial<Record<Side, number>>): void => {
@@ -2957,6 +3069,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `z=${outsideZ.toFixed(2)}${fairFreed ? '!' : ''} ` +
           `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
           `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'} ` +
+          `dimb=${depthImb.UP === null ? '-' : depthImb.UP.toFixed(2)}/` +
+          `${depthImb.DOWN === null ? '-' : depthImb.DOWN.toFixed(2)}` +
+          `${depthHeld === null ? '' : `!${depthHeld}`} ` +
           `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''} ` +
           `edg=${edge.toFixed(2)}/${sustainedEdge.toFixed(2)} ` +
           `chs=${chaseLeg ?? '-'}/${(chaseLeadMs / 1000).toFixed(1)}s`,
@@ -3095,6 +3210,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // would refuse the only leg still being bought.
     fairCapSide = null
     fairHandover = null
+    depthCapSide = null
+    depthHandover = null
     // The release of `fairHold`, latched and evaluated here for the same reason
     // the two lines above are: the branch below is skipped once a leg completes,
     // and the witness can arrive on any tick.
@@ -3257,6 +3374,33 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         if (held[o] < cfg.qty) {
           fairCapSide = fairHeld
           fairHandover = o
+          first = o
+        }
+      }
+      // The same shape as `fairHold` above, on the one reading measured to
+      // separate this window from the ones that must be chased: the leg that is
+      // ahead is being bought into an offer that has been emptied out. Stop it
+      // at `depthHold` of its target and hand the chase to the other leg, which
+      // is cheap for exactly the same reason. See `depthHold`.
+      if (cfg.depthHold < 1 && depthHeld === null && elapsed >= cfg.depthAfterMs) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        const imb = depthImb[first]
+        const evenAt = lastEvenMs[first]
+        const fresh =
+          cfg.depthFreshMs <= 0 || (evenAt !== null && nowMs - evenAt <= cfg.depthFreshMs)
+        if (imb !== null && imb >= cfg.depthGate && fresh && held[first] > held[o]) {
+          depthCapSide = first
+          if (held[first] >= cfg.depthHold * cfg.qty) depthHeld = first
+        }
+      }
+      // Latched for the same reason `fairHold`'s cap is: the offer refills as
+      // soon as the player stops taking it, and letting the cap fade with it
+      // would resume the purchase it just refused.
+      if (depthHeld !== null) {
+        const o: Side = depthHeld === 'UP' ? 'DOWN' : 'UP'
+        if (held[o] < cfg.qty) {
+          depthCapSide = depthHeld
+          depthHandover = o
           first = o
         }
       }
@@ -3578,12 +3722,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // both legs on the same line. See `fairHold`.
       const fairRoom =
         fairCapSide !== side ? Infinity : cfg.fairHold * cfg.qty - held[side]
+      // The same room cap, driven by the depth reading. See `depthHold`.
+      const depthRoom =
+        depthCapSide !== side ? Infinity : cfg.depthHold * cfg.qty - held[side]
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||
         finishing ||
         completing ||
         side === fairHandover ||
+        side === depthHandover ||
         (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
@@ -3643,6 +3791,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, edgeRoom),
         Math.max(0, oracleRoom),
         Math.max(0, fairRoom),
+        Math.max(0, depthRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
