@@ -55,7 +55,10 @@
  * with crossing unthrottled a leg completes in under three seconds, which means
  * the whole market can be decided by a tick-zero guess, and a wrong guess sets
  * an average that no later cheapness can undo. Capping the first seconds to a
- * fifth of the target is what makes being wrong survivable.
+ * fifth of the target is what makes being wrong survivable, and `edgeFull`
+ * generalises that cap: a leg may hold only as much of its target as the gap
+ * between the two asks has already revealed, so a position grows with the
+ * evidence behind it rather than with the clock.
  *
  * Order placement rules:
  *   - rest one tick behind the ask by default, so most fills are free maker
@@ -303,6 +306,27 @@ export const ConfigSchema = z.strictObject({
   openMs: z.coerce.number().finite().min(0).default(5_000),
   /** Fraction of `qty` any one leg may hold before `openMs`. 1 disables the cap. */
   openShare: z.coerce.number().finite().min(0).max(1).default(0.2),
+  /**
+   * Edge at which a leg may be completed. 0 disables the pace.
+   *
+   * `openMs`/`openShare` is a two-state version of one idea: do not size a
+   * position larger than the evidence behind it. This is the continuous form.
+   * `edge = |askUp − askDown|` is how much the window has already revealed, and
+   * a leg may hold `edge / edgeFull` of its target — a fifth of it while the
+   * book is a coin flip, all of it once the market has clearly decided.
+   *
+   * What it prevents is the failure that survived the opening cap: a leg
+   * completed at 0.45 in the first ten seconds on a still-undecided book, after
+   * which the pair needs the other leg under 0.52 and the other leg never trades
+   * there. Pacing by the edge stops that leg at a few hundred shares, and when
+   * the book then swings the other way there is budget left to buy the leg that
+   * actually ran.
+   *
+   * It applies only while BOTH legs are short of `qty`. Once one leg is done
+   * there is no decision left to protect and the other simply has to be
+   * completed.
+   */
+  edgeFull: z.coerce.number().finite().min(0).max(1).default(0.32),
   /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
@@ -733,11 +757,18 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.openShare >= 1 || elapsed >= cfg.openMs
           ? Infinity
           : cfg.openShare * cfg.qty - held[side]
+      // Edge pace: a leg may only hold as much of its target as the book has
+      // already revealed. Only meaningful while both legs are still contested.
+      const edgeRoom =
+        cfg.edgeFull <= 0 || leadSide === null
+          ? Infinity
+          : cfg.qty * Math.min(1, Math.max(cfg.openShare, edge / cfg.edgeFull)) - held[side]
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),
         Math.max(0, paceRoom),
         Math.max(0, openRoom),
+        Math.max(0, edgeRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
