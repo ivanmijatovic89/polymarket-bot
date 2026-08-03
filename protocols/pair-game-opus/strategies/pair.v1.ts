@@ -1536,8 +1536,16 @@ export const ConfigSchema = z.strictObject({
    * eleven seconds in all but this one, where it covers the whole buyout.
    */
   depthHold: z.coerce.number().finite().min(0).max(1).default(0.8),
-  /** Share of near depth on the bid that makes a leg's offer "thin". */
-  depthGate: z.coerce.number().finite().min(0).max(1).default(0.7),
+  /**
+   * Share of near depth on the bid that makes a leg's offer "thin".
+   *
+   * Measured over the first 80 markets with the clock below stood down, the
+   * clean band is 0.65–0.68: at 0.70 the level 80 window survives (its reading
+   * only grazes 0.71 and falls back below the gate in the same seconds its leg
+   * crosses `depthHold`, so the cap never latches), and at 0.62 the rule starts
+   * biting a window that has to be chased. 0.66 is the middle of that band.
+   */
+  depthGate: z.coerce.number().finite().min(0).max(1).default(0.66),
   /** Time constant of the depth-imbalance estimate, in ms. */
   depthTauMs: z.coerce.number().finite().min(0).default(10_000),
   /** How many top book levels the depth reading sums. */
@@ -1550,8 +1558,41 @@ export const ConfigSchema = z.strictObject({
    * hundred shares deep. Measured over the first 68 markets, every casualty of
    * the cap that survives a tighter gate is armed between t+10s and t+27s, while
    * the lean it is built to refuse arrives at t+70s.
+   *
+   * It was suspected of being what let the level 80 window through, since that
+   * window's reading crosses the gate at t+42s. It is not: standing the clock
+   * down entirely leaves that window failing exactly as before, because at the
+   * old 0.70 gate the reading fell back under the gate in the same seconds the
+   * leg crossed `depthHold`, so the cap never latched. The gate was the problem.
+   * It is now off, replaced by `depthMinDep` — the thing it was a proxy for,
+   * measured directly. Over the first 80 markets both are clean, but the size
+   * floor holds a wider gate band (0.65–0.68 against 0.65–0.68 minus 0.64…0.65,
+   * where the clock already fails) and costs less further out: probed market by
+   * market over the first 110, the clock leaves six failures beyond level 80 and
+   * the size floor five.
    */
-  depthAfterMs: z.coerce.number().finite().min(0).default(45_000),
+  depthAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Total size that must be resting within `depthLevels` of the leading leg,
+   * smoothed on `depthTauMs`, before its bid/ask share is trusted. 0 ⇒ no size
+   * requirement.
+   *
+   * This is what `depthAfterMs` is a proxy for, said causally instead of as a
+   * clock. The reason a just-opened book gives a meaningless ratio is not that
+   * the clock is young: it is that one order empties an offer only a few hundred
+   * shares deep, so the share swings to 1 on no information. State the size
+   * directly and the cap can arm the moment a book is thick enough, however
+   * early that is. Measured at the moment the cap would engage, the windows that
+   * arm in the first half-minute — the ones the clock was added to protect — are
+   * carrying 1,250 to 1,750 shares near the top of the book, while the level 80
+   * window is carrying 3,100. The floor sits between them.
+   *
+   * 2,500 is not a knife edge for the level: the first 80 markets are clean at
+   * 2,000, 2,500 and 3,200 alike. It is the best of the three further out, where
+   * 2,000 is too low to hold `…1775160000` and 3,200 too high to hold
+   * `…1775179800`.
+   */
+  depthMinDep: z.coerce.number().finite().min(0).default(2500),
   /**
    * How recently the book must have crossed the coin flip for the depth cap to
    * arm, in ms. 0 ⇒ no freshness requirement.
@@ -2621,6 +2662,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // `depthLevels` that sits on the bid — smoothed over `depthTauMs`. Null until
   // the first tick. See `depthHold`.
   const depthImb: Record<Side, number | null> = { UP: null, DOWN: null }
+  // Each leg's ABSOLUTE near depth — the total size within `depthLevels`, bid
+  // plus ask — on the same time constant. This is what the ratio above is a
+  // share OF, and what decides whether that share means anything. See
+  // `depthMinDep`.
+  const depthAbs: Record<Side, number | null> = { UP: null, DOWN: null }
   // The same three latches as `fairHold`, driven by the depth reading instead of
   // the model-book disagreement. `depthCapSide` and `depthHandover` are per-tick
   // and MUST be cleared above the both-legs-contested branch; `depthHeld` is
@@ -2842,6 +2888,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const raw = bid / (bid + ask)
         const prev = depthImb[s]
         depthImb[s] = prev === null ? raw : prev + kd * (raw - prev)
+        const prevAbs = depthAbs[s]
+        depthAbs[s] = prevAbs === null ? bid + ask : prevAbs + kd * (bid + ask - prevAbs)
       }
     }
     lastEmaMs = nowMs
@@ -3053,6 +3101,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `diff=${diff === null ? '-' : diff.toFixed(1)} need=${needDiff.toFixed(2)} z=${outsideZ.toFixed(2)} ` +
           `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)} ` +
           `depUp=${dep(upBook)} depDown=${dep(downBook)} ` +
+          `dimb=${depthImb.UP === null ? '-' : depthImb.UP.toFixed(2)}/` +
+          `${depthImb.DOWN === null ? '-' : depthImb.DOWN.toFixed(2)} ` +
+          `dabs=${depthAbs.UP === null ? '-' : depthAbs.UP.toFixed(0)}/` +
+          `${depthAbs.DOWN === null ? '-' : depthAbs.DOWN.toFixed(0)} ` +
+          `dcap=${depthHeld ?? '-'} ` +
           `bidUp=${upBook.bestBid === null ? '-' : upBook.bestBid.toFixed(3)} ` +
           `bidDown=${downBook.bestBid === null ? '-' : downBook.bestBid.toFixed(3)}`,
       )
@@ -3072,6 +3125,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `dimb=${depthImb.UP === null ? '-' : depthImb.UP.toFixed(2)}/` +
           `${depthImb.DOWN === null ? '-' : depthImb.DOWN.toFixed(2)}` +
           `${depthHeld === null ? '' : `!${depthHeld}`} ` +
+          `dabs=${depthAbs.UP === null ? '-' : depthAbs.UP.toFixed(0)}/` +
+          `${depthAbs.DOWN === null ? '-' : depthAbs.DOWN.toFixed(0)} ` +
           `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''} ` +
           `edg=${edge.toFixed(2)}/${sustainedEdge.toFixed(2)} ` +
           `chs=${chaseLeg ?? '-'}/${(chaseLeadMs / 1000).toFixed(1)}s`,
@@ -3388,7 +3443,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const evenAt = lastEvenMs[first]
         const fresh =
           cfg.depthFreshMs <= 0 || (evenAt !== null && nowMs - evenAt <= cfg.depthFreshMs)
-        if (imb !== null && imb >= cfg.depthGate && fresh && held[first] > held[o]) {
+        // A share of nothing is not a reading. See `depthMinDep`.
+        const thick = cfg.depthMinDep <= 0 || (depthAbs[first] ?? 0) >= cfg.depthMinDep
+        if (imb !== null && imb >= cfg.depthGate && fresh && thick && held[first] > held[o]) {
           depthCapSide = first
           if (held[first] >= cfg.depthHold * cfg.qty) depthHeld = first
         }
