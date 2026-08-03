@@ -70,8 +70,25 @@
  *   - reprice only when the target moves ≥ 1 tick;
  *   - stop entirely once both legs hold `qty`.
  *
+ * The fifth thing is not in the book at all. Everything above reads the two
+ * asks, and a window whose asks spend six minutes crossing around 0.50 gives
+ * that machinery nothing to work with: the priority role changes hands on every
+ * swing and both legs end up bought near half a dollar, which is the one shape
+ * whose pair can never come in under the ceiling. BTC's own distance from the
+ * price to beat is an independent reading of the same question. Turned into a
+ * probability — a random walk of scale `ptbSigma` over the time still left — it
+ * can be compared directly with the probability the book is quoting, and where
+ * the two disagree the book is paying up for an outcome the underlying does not
+ * support (`ptbFair`). The player then chases the other leg, which is both
+ * cheaper now and, on that reading, likelier to win. Three qualifications make
+ * it safe rather than merely clever: the disagreement must persist rather than
+ * flicker (`ptbFairTauMs`), it must exceed a deadband (`ptbFairEdge`), and it
+ * may not touch the opening lean (`ptbFairAfterMs`) — a book that opens at
+ * 0.41/0.60 knows something BTC, which starts every window exactly on its own
+ * strike, cannot yet know.
+ *
  * Nothing here branches on slug, timestamp or outcome: the only inputs are the
- * live books, the window clock and our own inventory.
+ * live books, the window clock, the public price feeds and our own inventory.
  */
 import * as z from 'zod'
 import type {
@@ -84,6 +101,8 @@ import type {
 import type { StrategyContext } from '../../../src/strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../../../src/strategy/strategyDefinition.js'
 import type { Plugin } from '../../../src/strategy/plugins/PluginSet.js'
+import type { ExternalFeedsSnapshot } from '../../../src/trading/feeds/externalFeeds.js'
+import { ExternalFeedsRequestPlugin } from '../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { isWarmed, parseGammaMarketStartMs } from '../../../src/strategy/strategyToolkit.js'
 
 const TICK = 0.01
@@ -574,6 +593,191 @@ export const ConfigSchema = z.strictObject({
   minPrice: z.coerce.number().finite().positive().default(0.02),
   /** Per-side cap price. */
   maxPrice: z.coerce.number().finite().positive().max(0.99).default(0.97),
+  /**
+   * The outside-price signal: how the player uses BTC's distance from the level
+   * the market settles against.
+   *
+   * 0 ⇒ off, and the external-feed request is not even registered, so the run
+   *     has no dependency on those datasets.
+   * 1 ⇒ on: the feeds are read, and whichever of `ptbPriority` / `ptbPace` is
+   *     enabled uses them. With both off this is observation only.
+   *
+   * Everything else the player owns is derived from the order book, and the
+   * market that blocks level 19 is exactly one where the book says nothing for
+   * six minutes: the two asks cross repeatedly around 0.5 and the momentum
+   * reading follows each swing. BTC's distance from the price to beat is an
+   * independent read on the same question, and the two things it can do with it
+   * are quite different — see `ptbPriority` and `ptbPace`.
+   */
+  ptbMode: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * 1 ⇒ when BTC is decisively clear of the price to beat, the signal, not the
+   * book, chooses which leg is chased.
+   *
+   * Ships off: by the time raw distance is decisive the book has long since
+   * priced it, so this only ever repeats what momentum already said. The
+   * informative case is the two readings DISAGREEING (`ptbFair`).
+   */
+  ptbPriority: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * 1 ⇒ the accumulation pace requires OUTSIDE evidence as well as book
+   * evidence: a leg may hold only as much of its target as the smaller of the
+   * two readings supports.
+   *
+   * `edgeFull` already paces by how far the two asks have separated, on the
+   * principle that a position may not be larger than the evidence behind it.
+   * The book, though, is only one opinion, and in a whipsawing window it is a
+   * loud one: the asks separate to 0.16 within seconds and the pace lets the
+   * player commit half a leg to a market that has decided nothing.
+   *
+   * Crucially this is NOT the family of rules that failed before. Those capped
+   * the price of the leg whose ask was RISING, which in a trending window is
+   * the winner — so they systematically bought the loser. This one is blind to
+   * which leg is which: it asks only whether BTC is far enough from the strike
+   * that the outcome is settled at all, and in a genuinely trending window that
+   * distance grows immediately, so the pace opens rather than closes.
+   *
+   * MEASURED AND REJECTED, and the reason is that it has exactly one scalar to
+   * trade off. On level 19 the required distance has to be at least $60 to hold
+   * the whipsawing market back and at most $55 to let the two markets that open
+   * on a genuine move through; the boundary is that sharp, and nothing passes
+   * both sides of it (30 and 45: markets 2 and 3 pass, 19 fails 1000/419 and
+   * 1000/496; 50 and 55: 19 fails 1000/476 and 1000/531; 60: 19 passes, 2 fails
+   * 267/1000; 70 and 90: 2 fails 227/1000). The whole level runs 17 of 19 at
+   * $60. Smoothing the distance first (`ptbTauMs` 30s/60s/120s) does not
+   * separate them either — 12 of 19 at a minute. Replaced by `ptbFair`, which
+   * asks a question the book cannot answer instead of the same question louder.
+   */
+  ptbPace: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Which outside price is compared with the price to beat.
+   *
+   * `chainlink` is what the market actually resolves against but updates only
+   * about once a minute; `binance` is continuous but carries a basis against
+   * Chainlink; `blend` uses the Binance tape shifted by the latest observed
+   * Chainlink−Binance basis, which is continuous AND anchored to the resolving
+   * feed.
+   */
+  ptbSrc: z.enum(['binance', 'chainlink', 'blend']).default('blend'),
+  /**
+   * Dollars BTC must sit away from the price to beat, at the START of the
+   * window, for the signal to name a leg. The requirement shrinks with the
+   * square root of the time left, because that is how far a random walk can
+   * still travel: $60 of lead means little with fifteen minutes to go and is
+   * decisive with one.
+   */
+  ptbEdge: z.coerce.number().finite().min(0).default(60),
+  /**
+   * Time constant of the EMA applied to that distance before it is used as
+   * evidence. 0 ⇒ use the instantaneous reading.
+   *
+   * A momentary excursion is not the same fact as a maintained one. BTC printing
+   * $68 clear of the strike for a few seconds, in a window that spends the rest
+   * of its time within $20 of it, released the pace at the exact top of a spike
+   * and let a whole leg be bought there. Smoothing asks the outcome to have
+   * STAYED decided, which a genuine trend does easily and a whipsaw never does.
+   */
+  ptbTauMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * 1 ⇒ the priority leg is chosen by DISAGREEMENT between the book and the
+   * outside price, rather than by either one alone.
+   *
+   * The book prices UP at `askUp / (askUp + askDown)`. The outside price implies
+   * its own probability: BTC is `diff` dollars from the strike with `leftFrac`
+   * of the window to run, so on a random walk of scale `ptbSigma` the chance of
+   * finishing above is `Φ(diff / (ptbSigma·√leftFrac))`. Where the two agree
+   * there is nothing to say and the book's own momentum reading governs, exactly
+   * as before. Where they disagree by more than `ptbFairEdge`, the book is
+   * paying up for an outcome the underlying does not support, and the leg to
+   * chase is the OTHER one — which is both cheaper now and, on this reading,
+   * likelier to win.
+   *
+   * This is what the raw distance could not do. A pure magnitude gate has one
+   * scalar to trade off — small enough to let a trending window through is
+   * already too small to hold a whipsawing one back — and the measured boundary
+   * between those two demands sits between 55 and 60 dollars, with markets
+   * failing on either side of it. Disagreement separates the same two cases
+   * cleanly, because a window whose book merely reflects the underlying produces
+   * no disagreement at all, however far from the strike it is.
+   *
+   * This is what carries level 19: 19 of 19 with pair costs between 0.928 and
+   * 0.969, against 18 of 19 without it.
+   */
+  ptbFair: z.coerce.number().int().min(0).max(1).default(1),
+  /** Dollar scale of BTC's move over a FULL window: the 1σ of the model. */
+  ptbSigma: z.coerce.number().finite().positive().default(110),
+  /** Probability gap between book and model below which neither is preferred. */
+  ptbFairEdge: z.coerce.number().finite().min(0).max(1).default(0.07),
+  /**
+   * Time constant of the EMA applied to that gap. 0 ⇒ act on the instantaneous
+   * reading.
+   *
+   * A disagreement that lasts ten seconds is a quote wobble; one that lasts a
+   * minute is the book pricing an outcome the underlying is not supporting. The
+   * player commits real money the moment the priority leg changes hands, so the
+   * flip should require the second kind.
+   */
+  ptbFairTauMs: z.coerce.number().finite().min(0).default(30_000),
+  /**
+   * How far from a coin flip the BOOK may be and still be overruled by the
+   * disagreement. 1 ⇒ no limit.
+   *
+   * The rule is meant to correct an indifferent book, not to argue with a
+   * decided one. When the book opens at 0.41/0.60 it is already telling the
+   * player which way the window has gone, and BTC — which has not moved yet —
+   * says only that it has not moved yet. Treating that as a disagreement buys
+   * the leg the market has already abandoned: measured on a strongly trending
+   * market, the player took a full thousand shares of the outcome that expired
+   * at a fifth of a cent. The book leads the underlying at the open, so the
+   * override has to stand down whenever the book is speaking clearly.
+   *
+   * Measured and NOT shipped. It does rescue the trending market, and a second
+   * one with it, but at both 0.05 and 0.08 it silences the override in the
+   * whipsawing market too — whose useful disagreements happen while the book
+   * sits at 0.58–0.62, inside the same band. The two cases are not separable by
+   * how far the book has leaned; they ARE separable by when it leaned, which is
+   * what `ptbFairAfterMs` does instead.
+   */
+  ptbFairBookMax: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * How far the MODEL itself must be from a coin flip, on the side it is
+   * arguing for, before the disagreement counts. 0 ⇒ no requirement.
+   *
+   * This is the same objection as `ptbFairBookMax` seen from the other end, and
+   * it is the sharper one. A gap can open in two ways: the underlying moves, or
+   * the book leans. Only the first is information the player does not already
+   * have. A window that opens at 0.41/0.60 with BTC exactly on the strike
+   * produces a gap of 0.09 in which the model has contributed nothing at all —
+   * it is not a prediction, it is the absence of one — and acting on it means
+   * buying whatever the market has just abandoned. Requiring the model to have
+   * moved keeps the override to cases where the underlying is actually saying
+   * something.
+   *
+   * Measured and NOT shipped, for a reason worth keeping: at 0.03 and 0.06 it
+   * fixes five of the six markets it was tested on and loses the whipsawing
+   * one, because that market's decisive disagreements are precisely the ones
+   * where the model contributes nothing — BTC keeps returning to the strike
+   * while the book insists on 0.58–0.62. So "the book leans and the underlying
+   * does not" is fatal in one market and load-bearing in another, and the thing
+   * that tells them apart is the clock, not the size of either reading.
+   */
+  ptbFairModelMin: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /**
+   * Milliseconds into the window before the disagreement may override anything.
+   *
+   * The book's OPENING lean is the one lean the player should not fade: it
+   * carries whatever the market learned in the minutes before the window began,
+   * and BTC starts every window exactly on its own strike, so the model has
+   * nothing to say yet and a gap at t+0 measures only the book. A few tens of
+   * seconds later the underlying has either confirmed the lean or failed to, and
+   * the disagreement means what it claims to mean.
+   *
+   * 45 s is what ships and it is the whole difference between 17 and 19 of 19:
+   * at 0 the override fires on the opening lean and loses two markets outright
+   * (1000/200 and 200/1000 — a full leg of the outcome that expired worthless),
+   * at 20 s one of them still fails, at 45 s every market on the level passes.
+   */
+  ptbFairAfterMs: z.coerce.number().finite().min(0).default(45_000),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   debug: z.coerce.number().int().min(0).max(1).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
@@ -611,6 +815,18 @@ type LiveOrder = {
   acked: boolean
   /** When the cancel was requested — used to re-send one that went missing. */
   cancelAtMs: number
+}
+
+/** Standard normal CDF (Abramowitz & Stegun 7.1.26 erf approximation). */
+function normCdf(z: number): number {
+  const x = z / Math.SQRT2
+  const t = 1 / (1 + 0.3275911 * Math.abs(x))
+  const y =
+    1 -
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+      t *
+      Math.exp(-x * x)
+  return 0.5 * (1 + (x >= 0 ? y : -y))
 }
 
 function floorTick(p: number): number {
@@ -656,6 +872,46 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
   }
   const trailingLow = (side: Side): number => lowQ[side][0]?.v ?? Infinity
+
+  /**
+   * Latest Chainlink−Binance basis. The two feeds price the same asset a few
+   * dollars apart and the gap drifts; the market resolves on Chainlink, so the
+   * continuous Binance tape is only usable once shifted by this.
+   */
+  let clBasis: number | null = null
+  let clBasisAtMs = 0
+  /** Smoothed distance from the price to beat — see `ptbTauMs`. */
+  let emaDiff: number | null = null
+  let emaDiffAtMs = 0
+  /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
+  let emaGap: number | null = null
+  let emaGapAtMs = 0
+
+  /**
+   * BTC's signed distance from the price to beat, in dollars, on whichever
+   * outside price `ptbSrc` selects. Positive ⇒ UP is currently winning.
+   * Null when the feeds have not produced enough to say.
+   */
+  const outsideDiff = (ctx: StrategyContext | undefined): number | null => {
+    if (cfg.ptbMode === 0) return null
+    const feeds = ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined
+    const ptb = feeds?.polymarketPriceToBeat?.openPrice
+    if (ptb === undefined || !Number.isFinite(ptb)) return null
+    const bin = feeds?.binanceWsSpotPrice
+    const cl = feeds?.rtdsPolymarketCryptoPrices?.chainlink
+    if (cl && bin && Number.isFinite(cl.value) && Number.isFinite(bin.value) && cl.tsMs > clBasisAtMs) {
+      clBasis = cl.value - bin.value
+      clBasisAtMs = cl.tsMs
+    }
+    if (cfg.ptbSrc === 'chainlink') {
+      return cl && Number.isFinite(cl.value) ? cl.value - ptb : null
+    }
+    if (cfg.ptbSrc === 'binance') {
+      return bin && Number.isFinite(bin.value) ? bin.value - ptb : null
+    }
+    if (bin && Number.isFinite(bin.value)) return bin.value + (clBasis ?? 0) - ptb
+    return cl && Number.isFinite(cl.value) ? cl.value - ptb : null
+  }
 
   // diagnostics
   let minAsk: Record<Side, number> = { UP: Infinity, DOWN: Infinity }
@@ -738,6 +994,53 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const spent = basis.UP + basis.DOWN
     const avgOf = (s: Side): number => (held[s] > 0 ? basis[s] / held[s] : 0)
 
+    // The outside read: BTC's distance from the price to beat, and the side it
+    // names once that distance is large relative to the time still available
+    // for the price to travel back.
+    const rawDiff = outsideDiff(ctx)
+    if (rawDiff !== null) {
+      if (emaDiff === null || cfg.ptbTauMs <= 0) emaDiff = rawDiff
+      else {
+        const kd = 1 - Math.exp(-Math.max(0, nowMs - emaDiffAtMs) / cfg.ptbTauMs)
+        emaDiff += kd * (rawDiff - emaDiff)
+      }
+      emaDiffAtMs = nowMs
+    }
+    const diff = cfg.ptbTauMs > 0 ? emaDiff : rawDiff
+    const leftFrac = Math.min(1, Math.max(0, 1 - elapsed / WINDOW_MS))
+    const needDiff = cfg.ptbEdge * Math.sqrt(leftFrac)
+    const outsideSide: Side | null =
+      diff === null || Math.abs(diff) < needDiff ? null : diff > 0 ? 'UP' : 'DOWN'
+    /** How settled the outcome is on the outside price: 1 ⇒ decided, 0 ⇒ a coin flip. */
+    const outsideFrac = diff === null ? 0 : Math.abs(diff) / Math.max(needDiff, 1e-9)
+    // The two probabilities, and the leg the disagreement between them favours.
+    const pModel =
+      diff === null ? null : normCdf(diff / (cfg.ptbSigma * Math.sqrt(Math.max(leftFrac, 1e-6))))
+    const pBook = askUp + askDown > 0 ? askUp / (askUp + askDown) : 0.5
+    const rawGap = pModel === null ? null : pModel - pBook
+    if (rawGap !== null) {
+      if (emaGap === null || cfg.ptbFairTauMs <= 0) emaGap = rawGap
+      else {
+        const kg = 1 - Math.exp(-Math.max(0, nowMs - emaGapAtMs) / cfg.ptbFairTauMs)
+        emaGap += kg * (rawGap - emaGap)
+      }
+      emaGapAtMs = nowMs
+    }
+    const fairGap = (cfg.ptbFairTauMs > 0 ? emaGap : rawGap) ?? 0
+    const fairWant: Side = fairGap > 0 ? 'UP' : 'DOWN'
+    // The model's own view, and whether it points the same way as the gap.
+    const modelLean = (pModel ?? 0.5) - 0.5
+    const modelBacks =
+      cfg.ptbFairModelMin <= 0 ||
+      (Math.abs(modelLean) >= cfg.ptbFairModelMin && (modelLean > 0) === (fairWant === 'UP'))
+    const fairSide: Side | null =
+      Math.abs(fairGap) < cfg.ptbFairEdge ||
+      Math.abs(pBook - 0.5) > cfg.ptbFairBookMax ||
+      elapsed < cfg.ptbFairAfterMs ||
+      !modelBacks
+        ? null
+        : fairWant
+
     const logNow = cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs
     if (logNow) lastLogMs = nowMs
     const logTick = (lead: Side | null, conv: number, tgt: Partial<Record<Side, number>>): void => {
@@ -747,7 +1050,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
           `lead=${lead ?? '-'} conv=${conv.toFixed(2)} ` +
           `tgt=${tgt.UP?.toFixed(2) ?? '-'}/${tgt.DOWN?.toFixed(2) ?? '-'} ` +
-          `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'}`,
+          `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'} ` +
+          `diff=${diff === null ? '-' : diff.toFixed(0)} need=${needDiff.toFixed(0)} out=${outsideSide ?? '-'} ` +
+          `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} fair=${fairSide ?? '-'}`,
       )
     }
 
@@ -872,6 +1177,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       }
       // A book leaning this hard overrides the trend reading: chase the favourite.
       if (conv > 0) first = askUp >= askDown ? 'UP' : 'DOWN'
+      // The outside price overrides both. The momentum reading and the
+      // conviction reading are two views of the same order book; when BTC is
+      // decisively clear of the price to beat, which leg will end up dear is
+      // not a matter of opinion.
+      if (cfg.ptbMode === 1 && cfg.ptbPriority === 1 && outsideSide !== null) first = outsideSide
+      if (cfg.ptbMode === 1 && cfg.ptbFair === 1 && fairSide !== null) first = fairSide
       if (cfg.priorityLatch === 1) {
         if (conv > 0 || latched === null) latched = first
         first = latched
@@ -983,7 +1294,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           : cfg.openShare * cfg.qty - held[side]
       // Edge pace: a leg may only hold as much of its target as the book has
       // already revealed. Only meaningful while both legs are still contested.
-      const edgeFrac = Math.min(1, Math.max(cfg.openShare, edge / cfg.edgeFull))
+      // The outside reading is required alongside the book's when `ptbPace` is
+      // on: the position may be no larger than the WEAKER of the two pieces of
+      // evidence supports.
+      const bookFrac = edge / cfg.edgeFull
+      const evidence =
+        cfg.ptbMode === 1 && cfg.ptbPace === 1 ? Math.min(bookFrac, outsideFrac) : bookFrac
+      const edgeFrac = Math.min(1, Math.max(cfg.openShare, evidence))
       // Held jointly the allowance has to lapse once the book has revealed
       // everything it is going to: a shared budget of `qty` can never carry two
       // legs of `qty` each, and the pace would deadlock both of them short.
@@ -1106,5 +1423,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   }
 
   const strategy: Strategy = { name, onMarketTick, onAccountEvent }
-  return { strategy, plugins: [] }
+  // The feed request is registered only when the signal is actually used, so a
+  // run with `ptbMode=0` keeps zero dependency on the price-to-beat, Binance
+  // and Chainlink datasets (any of which can hard-error a replay when a market
+  // falls in a coverage hole).
+  const plugins: Plugin[] =
+    cfg.ptbMode === 0
+      ? []
+      : [
+          new ExternalFeedsRequestPlugin({
+            binanceWsSpotPrice: {},
+            rtdsCryptoPrices: {},
+            polymarketPriceToBeat: { enabled: true },
+          }),
+        ]
+  return { strategy, plugins }
 }
