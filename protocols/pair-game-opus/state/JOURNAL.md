@@ -681,3 +681,72 @@ next.
 Standing at forty-four levels, with all forty-four re-verified from scratch on
 the final code, every market ending with a full thousand shares of each side and
 the worst pair costing ninety-seven cents against a ceiling of ninety-eight.
+
+---
+
+The previous session was cut off mid-flight and left an unfinished idea sitting
+in the working tree, so the first job was to decide whether it was any good. It
+was the idea I'd flagged as the one to try next: before committing more money to
+the side the market is favouring, add up what finishing that side would cost plus
+what the other side would cost at the cheapest price it has actually been quoted
+at, and if the total can't come in under the ceiling, hand the chase to the other
+side instead. I measured it across sixty markets at seven different strengths.
+It's worse than doing nothing at every strength where it does anything at all,
+and where it stops doing anything it is identical to doing nothing. There is no
+setting in between.
+
+The reason is worth writing down because it kills a whole way of thinking, not
+just one rule. The two sides of one of these markets always cost about a dollar
+together. So "finishing this side and funding the other one" always overruns a
+ninety-eight cent ceiling, in nearly every market, from the first minute. The
+overrun isn't a warning sign, it's the normal state of the world. What's left to
+decide anything is the difference between the two versions of that sum, and that
+difference is a couple of cents wide — small enough that any filter big enough to
+ignore noise also ignores the entire signal, and anything smaller just tells the
+player to buy whichever side is currently cheapest, which is a rule I already
+know loses. I recorded all of that next to the code and switched it off.
+
+Then I went and actually watched the problem market tick by tick instead of
+reasoning about it, which I should have done sooner. It is bleaker than I
+realised. The player spends four fifths of its entire budget in the first
+seventy-five seconds of a fifteen-minute window, finishing one side at
+sixty-four cents. Thirty seconds later that side starts sliding and ends
+essentially worthless. It then sits motionless for thirteen more minutes,
+priced out of everything.
+
+That suggested an obvious cure — simply don't let the player own that much of one
+side that early, and if it hits the limit, point it at the other side so it isn't
+just frozen. Deliberately a limit on how much, not on what price, because every
+price limit in this player has failed the same way: it leaves a cheap bid resting
+under the market, and the side that reverses falls straight through it, so you
+pay the lower price and gain nothing. The size limit avoids that trap and is
+still much worse — roughly three to five times the failures, at four different
+strengths, and worse the more it restrains. It doesn't even fix the market it was
+built for. What it exposes is that slowing the buying doesn't help when the harm
+is the price you paid, not the speed you paid it at; by the time the clock lets
+go, the side you throttled has still been bought at fifty-five cents and the
+other one has already run away.
+
+The good news came from the same debug timeline. The player carries two opinions
+about which side should win: the order book's, and one computed from where
+Bitcoin actually is relative to the level the market settles against. Most of the
+time it only acts on a disagreement between them when the disagreement is large.
+In this market the disagreement is there and it is small — the book wants
+sixty-four cents for a side the Bitcoin reading says is worth fifty-seven. Lower
+the threshold so that a small disagreement counts, and the market is repaired.
+Five separate runs, all clean, which given how noisy this harness is counts as
+proof.
+
+It isn't free. The same lowered threshold breaks three markets further down the
+ladder that currently pass. I spent the rest of the session trying to buy the fix
+without the bill: letting the sensitive reading act only early in the window
+(doesn't help — those three lose their way in the first two minutes, not at the
+end), requiring Bitcoin's own move to confirm before acting (removes the fix
+without saving anything), and tightening a guard on how far the book has already
+leaned (saves one of the three, costs another). All measured, all written down.
+
+So I end where I'd rather end: with one live lead instead of a list of dead ones.
+The next question is narrow and answerable — line up the four markets' opening two
+minutes and find what distinguishes the one where the sensitive reading is right
+from the three where it isn't. Everything else about the player is untouched, and
+all forty-four levels were re-verified from scratch on the committed code, twice.
