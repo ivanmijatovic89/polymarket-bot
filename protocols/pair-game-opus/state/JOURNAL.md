@@ -126,3 +126,65 @@ it saved here, so it ships switched off and recorded as measured.
 Next session picks up there: let the buying respond to the opportunity rather
 than to a stopwatch, and stop the collapsing side from quietly filling its whole
 target and spending the ceiling on the way down.
+
+---
+
+## 2026-08-03 — Session 3: level five falls, and the culprit was a speed limit
+
+The market that blocked the last session is a violent one-way collapse, and the
+first thing I did was stop guessing about it and measure it. Within the first
+minute the "up" side falls from 41 cents to 13 and the "down" side climbs from
+60 to 88. The question that mattered was whether there was any patient way to
+win it — buy the collapsing side for pennies, then pick up the other one on a
+dip. The answer is no, and now I can say exactly why: after the first
+forty-eight seconds the down side never trades below 87 cents again, so the
+patient line would have required buying a thousand shares of the up side at an
+average under ten cents *and* finishing inside twenty seconds. That is not a
+thin chance, it is arithmetic. The pair in that market can only be started in
+its first three-quarters of a minute, by paying up for the side the market has
+already decided is winning.
+
+So the player needed something it did not have: a reason to commit in the
+opening seconds, before any trend is measurable. I gave it one. The width of the
+gap between the two prices at the open is the market telling you how strongly it
+believes. Two of the five markets open with a nineteen-cent gap and three with
+seven. When the gap is wide the player now backs the favourite immediately;
+when it is narrow it goes back to the patient dip-buying that already worked.
+Nothing in this looks at the market's name or its result — only at the prices on
+screen at that instant.
+
+That got level five passing, but only about half the time, and half is not a
+strategy, it is a coin toss with extra steps. I spent a long stretch chasing the
+wrong thing: I tried spreading the buying out over the window, forcing the two
+sides to stay level with each other, committing to one side and refusing to
+switch, and several ways of making the cheaper side hold out for a better price.
+Some of those looked brilliant on two runs and fell apart on eight. The honest
+lesson there is about method rather than trading — at this level of run-to-run
+noise, a two-run test tells you nothing, and I was briefly fooled by it more
+than once.
+
+The actual culprit turned out to be a speed limit I had inherited and never
+questioned. The player rations how fast it is allowed to reach across the spread
+and buy, spreading that over a quarter of the fifteen-minute window. But the
+side worth buying is the side that is running away, and it is only affordable
+for a minute or two. The third market's rising side was buyable for about ninety
+seconds; in that time the speed limit let the player acquire barely a quarter of
+what it needed, so it finished the window badly lopsided and the pair was ruined
+— not because it picked the wrong side, but because it was too slow to finish
+buying the right one. Letting it complete a side in about forty-five seconds
+instead fixed it outright. Level five then passed eight times out of eight, and
+levels one through four came along with it on exactly the same settings, every
+market ending with a thousand shares of each side and pairs costing between 94
+and 96 cents.
+
+Worth saying plainly: nearly everything I invented this session is switched off
+in the shipped player. The pacing, the balancing, the commitment latch — all
+measured, all rejected, all left in the file with the numbers that killed them
+so the next session does not spend an afternoon rediscovering them. What
+survived is two changes: read the opening conviction, and stop rationing the one
+purchase that has a deadline.
+
+Level six adds a sixth market. I have not looked at it yet, deliberately — the
+right first move is to run the gate and let it tell me whether it is already
+solved, and if not, to measure its price series the way I measured this one
+before touching any logic.

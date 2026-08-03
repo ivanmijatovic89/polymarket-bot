@@ -31,10 +31,18 @@
  * of the one that ran away. The player therefore ranks the two legs every tick
  * and gives priority to the side whose ask is rising against its own EMA: that
  * side will only get dearer, while its partner keeps getting cheaper and can be
- * picked up late for very little. `soloShare` splits the ceiling between them —
- * the priority leg may spend that share of it, the other only the remainder —
- * which is what stops the early minutes, when both asks sit either side of
- * 0.50, from quietly eating the budget on whichever leg ticks down first.
+ * picked up late for very little. The underdog's allowance is then whatever the
+ * ceiling still holds once the priority leg is finished at today's price, which
+ * is what stops the early minutes, when both asks sit either side of 0.50, from
+ * quietly eating the budget on whichever leg ticks down first.
+ *
+ * Two things decide whether that plan survives contact with a real window. The
+ * priority leg has to be COMPLETED while it is still affordable — its window is
+ * a minute or two, so crossing is paced to finish inside it rather than inside
+ * the market (`takePace`). And when the book opens already leaning hard, the
+ * trend reading is too slow to be useful: the favourite is never cheaper than
+ * in its first seconds and the pair is only affordable if it is bought there,
+ * so the size of the opening lean overrides the trend outright (`convEdge`).
  *
  * Order placement rules:
  *   - rest one tick behind the ask by default, so most fills are free maker
@@ -100,10 +108,39 @@ export const ConfigSchema = z.strictObject({
   /** 1 ⇒ allow crossing the spread when the ceiling guard says it is affordable. */
   takeMode: z.coerce.number().int().min(0).max(1).default(1),
   /**
-   * Fraction of the window by which crossing aims to have a leg complete. Larger
-   * values buy more patiently and lean harder on free maker fills.
+   * Fraction of the window by which crossing aims to have the priority leg
+   * complete. Larger values buy more patiently and lean harder on free maker
+   * fills — but patience here is not free, and this throttle turned out to be
+   * the binding constraint on the whole strategy.
+   *
+   * The priority leg is by definition the one running away, so the stretch of
+   * window in which it is still affordable is short — often a minute or two,
+   * and in a window that opens already trending, under a minute. Rationing the
+   * crossing over a quarter of the window means the leg is still half-built
+   * when its price has gone; the ceiling is then spent on the leg that ends up
+   * worthless and the market finishes lopsided. Completing the priority leg
+   * inside its own window is worth far more than the taker fee it costs.
    */
-  takePace: z.coerce.number().finite().min(0.05).max(1).default(0.25),
+  takePace: z.coerce.number().finite().min(0.05).max(1).default(0.05),
+  /**
+   * Fraction of the window by which the UNDERDOG leg may reach `qty` shares.
+   *
+   * A resting bid one tick under the ask fills on every downtick, so an unpaced
+   * leg buys the WHOLE of a collapse and pays the average of the descent
+   * instead of its minimum — and, worse, it reaches `qty` near the TOP of that
+   * descent, which spends the ceiling and leaves nothing to average down with.
+   * Pacing inverts that: the early, expensive part of the fall can only ever be
+   * a few shares, and the bulk of the leg is acquired near the bottom.
+   *
+   * It applies to the underdog ONLY. Pacing both legs measured much worse, and
+   * the reason is the asymmetry that runs through this whole strategy: the
+   * favourite has to be secured while it is still affordable, whereas the
+   * underdog only ever gets cheaper and should be bought as late as the window
+   * allows.
+   *
+   * 0 disables pacing entirely.
+   */
+  fillPace: z.coerce.number().finite().min(0).max(1).default(0),
   /**
    * Milliseconds at the start of the window during which nothing is posted. The
    * trend signal is meaningless on the first ticks, so the tie-break decides,
@@ -116,6 +153,88 @@ export const ConfigSchema = z.strictObject({
   warmupMs: z.coerce.number().finite().min(0).default(0),
   /** Which leg gets the aggressive bid each tick. */
   priority: z.enum(['lag', 'momentum', 'cheap', 'dear']).default('momentum'),
+  /**
+   * How far the momentum readings of the two legs must diverge before the
+   * priority leg is allowed to switch. The raw signal is `ask − ownEMA` on each
+   * side, and around a flat book it changes sign on a single tick of noise. An
+   * ungated switch hands the aggressive bid — and the permission to cross — to
+   * whichever leg happens to have wiggled, which is how a window that is
+   * quietly building the right leg suddenly buys 1,000 shares of the other one
+   * at the worst price. The priority leg latches and only moves on a real
+   * divergence.
+   */
+  momDeadband: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Conviction override. `edge = |askUp − askDown|` is how strongly the book
+   * favours one outcome right now; `convEdge` is where that starts to count and
+   * `convFull` where it counts fully. Values ≥ 1 disable the whole mechanism.
+   *
+   * Why it has to exist: in a window that opens already trending hard, the
+   * favourite is never cheaper than in its first seconds, and the underdog is
+   * never expensive again. There is no patient line — the pair is affordable
+   * only if the favourite is bought immediately, and the ceiling that pays for
+   * it is earned back on an underdog that ends up costing a few cents. The
+   * player cannot know the window will keep trending, but it can read how
+   * strongly the market already believes it, and size its commitment to that.
+   * Below `convEdge` the book is close to a coin flip and the patient,
+   * dip-buying behaviour is right.
+   */
+  convEdge: z.coerce.number().finite().min(0).default(0.12),
+  /** Edge at which conviction is full. Must exceed `convEdge` to ramp. */
+  convFull: z.coerce.number().finite().min(0).default(0.2),
+  /**
+   * Fraction of the window during which conviction can fire at all.
+   *
+   * The edge widens in EVERY window as the market resolves, so an ungated
+   * reading says "high conviction" late in all of them — and chasing a
+   * favourite that has already run to 0.85 is the one thing the player must
+   * never do. What the mechanism is actually for is the opposite case: a book
+   * that leans hard in its first seconds, before anything has moved. Outside
+   * this opening window the patient, dip-buying behaviour governs.
+   */
+  convUntil: z.coerce.number().finite().min(0).max(1).default(0.06),
+  /** `leadReserve` used at full conviction: the underdog will be cheap, so reserve little. */
+  convReserve: z.coerce.number().finite().min(0).max(1).default(0.25),
+  /** `soloShare` used at full conviction. */
+  convShare: z.coerce.number().finite().min(0.1).max(1).default(0.9),
+  /** `takePace` used at full conviction — the favourite's window is seconds, not minutes. */
+  convTakePace: z.coerce.number().finite().min(0.01).max(1).default(0.05),
+  /**
+   * How much further the priority leg is assumed to run before it is finished,
+   * when deciding what the other leg may pay.
+   *
+   * The underdog's allowance is the ceiling minus the projected cost of
+   * completing the priority leg, and projecting that leg at TODAY's ask is
+   * exactly wrong: it is the priority leg because it is running away, so it
+   * will cost more than it does now. Under-projecting hands the underdog an
+   * allowance near 0.5 in the opening minutes, and a pair with both legs bought
+   * near 0.5 is the one shape that can never come in under the ceiling.
+   */
+  leadPad: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /**
+   * Fraction below its own allowance at which the underdog rests its bid.
+   *
+   * Without it the underdog bids exactly AT the highest price the ceiling
+   * permits, so every one of its fills happens at the worst price it was ever
+   * allowed to pay — a systematic leak, because the leg only fills while it is
+   * getting cheaper and would have come to a lower bid moments later anyway.
+   * Bidding under the allowance turns each fill into a better one, and the
+   * saving compounds: a cheaper underdog average is exactly what raises the
+   * ceiling room the favourite needs to finish.
+   */
+  underdogDiscount: z.coerce.number().finite().min(0).max(0.6).default(0),
+  /**
+   * 1 ⇒ the priority leg is chosen once and then held for the window.
+   *
+   * The plan this strategy plays is "buy leg A while it is still cheap, collect
+   * leg B once it has been abandoned". That is a commitment, and re-deciding it
+   * every tick destroys it: whichever leg is currently cheaper (or currently
+   * rising) keeps swapping into the role, so BOTH legs end up bought around
+   * 0.5 — the one shape whose pair can never come in under the ceiling. Only
+   * conviction may re-latch, because that is the case where the opening read
+   * was genuinely superseded.
+   */
+  priorityLatch: z.coerce.number().int().min(0).max(1).default(0),
   /** 1 ⇒ also rest a bid on the non-priority leg with the leftover budget. */
   postSecondLeg: z.coerce.number().int().min(0).max(1).default(1),
   /** Time constant of the ask EMA that defines `priority=momentum`. */
@@ -131,6 +250,8 @@ export const ConfigSchema = z.strictObject({
   maxPrice: z.coerce.number().finite().positive().max(0.99).default(0.97),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   debug: z.coerce.number().int().min(0).max(1).default(0),
+  /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
+  debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -172,6 +293,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // Time-weighted ask EMAs; an ask above its own EMA is a leg running away.
   const ema: Record<Side, number | null> = { UP: null, DOWN: null }
   let lastEmaMs = 0
+  // Latched priority leg — see `momDeadband`.
+  let priorityLeg: Side | null = null
+  // Committed priority leg for the whole window — see `priorityLatch`.
+  let latched: Side | null = null
 
   // diagnostics
   let minAsk: Record<Side, number> = { UP: Infinity, DOWN: Infinity }
@@ -236,7 +361,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const spent = basis.UP + basis.DOWN
     const avgOf = (s: Side): number => (held[s] > 0 ? basis[s] / held[s] : 0)
 
-    if (cfg.debug === 1 && nowMs - lastLogMs >= 60_000) {
+    if (cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs) {
       lastLogMs = nowMs
       console.log(
         `[pair.v1] t+${Math.round(elapsed / 1000)}s askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
@@ -305,14 +430,32 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // asymmetric: the priority leg may spend `soloShare` of the ceiling, the
     // other only the remainder, which is what makes the non-priority leg wait
     // for a genuinely cheap price instead of taking the first tick down.
-    const capFirst = cfg.soloShare * cfg.pairCeil
-    const capSecond = (1 - cfg.soloShare) * cfg.pairCeil
+    // Conviction: how hard the book is already leaning. At full conviction the
+    // favourite is chased (it will never be cheaper), the reserve held back for
+    // the underdog shrinks (it will be cheap), and the crossing throttle opens
+    // (its window is measured in seconds).
+    const edge = Math.abs(askUp - askDown)
+    const conv =
+      cfg.convEdge >= 1 || elapsed > cfg.convUntil * WINDOW_MS
+        ? 0
+        : cfg.convFull > cfg.convEdge
+          ? Math.min(1, Math.max(0, (edge - cfg.convEdge) / (cfg.convFull - cfg.convEdge)))
+          : edge >= cfg.convEdge
+            ? 1
+            : 0
+    const mix = (base: number, full: number): number => base * (1 - conv) + full * conv
+
+    const soloShare = mix(cfg.soloShare, cfg.convShare)
+    const capFirst = soloShare * cfg.pairCeil
 
     // Bid ceiling per side WITHOUT the "stay behind the ask" term. Crossing is
     // judged against this: it is the price the ceiling and the budget allow us
     // to pay, whether we wait for the book or reach out and take it.
     const cap: Partial<Record<Side, number>> = {}
     const target: Partial<Record<Side, number>> = {}
+    // The priority leg, once both legs are contested — the underdog pace below
+    // keys off it. Null when only one leg is left, where pacing has no meaning.
+    let leadSide: Side | null = null
     if (needUp > 0 && needDown > 0) {
       // Which leg gets the aggressive bid. `lag` chases whichever side holds
       // fewer shares — the balancing instinct. `momentum` chases the side whose
@@ -324,7 +467,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       if (cfg.priority === 'momentum') {
         const mUp = ema.UP === null ? 0 : askUp - ema.UP
         const mDown = ema.DOWN === null ? 0 : askDown - ema.DOWN
-        first = mUp !== mDown ? (mUp > mDown ? 'UP' : 'DOWN') : askUp <= askDown ? 'UP' : 'DOWN'
+        const diff = mUp - mDown // > 0 ⇒ UP is the leg running away
+        if (priorityLeg === null || Math.abs(diff) >= cfg.momDeadband) {
+          priorityLeg = diff !== 0 ? (diff > 0 ? 'UP' : 'DOWN') : askUp <= askDown ? 'UP' : 'DOWN'
+        }
+        first = priorityLeg
       } else if (cfg.priority === 'cheap') {
         first = askUp <= askDown ? 'UP' : 'DOWN'
       } else if (cfg.priority === 'dear') {
@@ -343,6 +490,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
               ? 'UP'
               : 'DOWN'
       }
+      // A book leaning this hard overrides the trend reading: chase the favourite.
+      if (conv > 0) first = askUp >= askDown ? 'UP' : 'DOWN'
+      if (cfg.priorityLatch === 1) {
+        if (conv > 0 || latched === null) latched = first
+        first = latched
+      }
+      leadSide = first
       const second: Side = first === 'UP' ? 'DOWN' : 'UP'
       const askFirst = first === 'UP' ? askUp : askDown
       const askSecond = second === 'UP' ? askUp : askDown
@@ -354,7 +508,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // Bid the priority leg as high as the book, the ceiling guard and the
       // remaining budget allow, holding back `leadReserve` × the other leg's
       // current ask so its own need stays fundable.
-      const reserve = Math.max(cfg.minPrice, cfg.leadReserve * askSecond)
+      const reserve = Math.max(cfg.minPrice, mix(cfg.leadReserve, cfg.convReserve) * askSecond)
       const capOfFirst = Math.min(
         cfg.maxPrice,
         capFirst,
@@ -362,11 +516,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         (budgetLeft - needSecond * reserve) / needFirst,
       )
       const bidFirst = floorTick(Math.min(askFirst - TICK, capOfFirst))
-      // The other leg gets whatever the priority leg left behind, so the
-      // aggregate invariant holds exactly.
+      // What the underdog may pay is whatever the ceiling still holds once the
+      // priority leg is finished at today's price. A FIXED split cannot do this
+      // job: set it wide and the underdog buys at 0.4 in the opening minutes,
+      // spending the ceiling on a coin flip; set it narrow and a genuinely
+      // mid-priced underdog is starved until the priority leg completes — which
+      // is how a window ends 0/1000. This projection is both at once, and it
+      // self-corrects: every cent the priority leg runs away costs the underdog
+      // a cent of allowance, and every cent it falls back hands one over.
+      const projPrice = Math.min(capOfFirst, mix(askFirst + cfg.leadPad, capOfFirst))
+      const projFirst = (basis[first] + needFirst * Math.max(0, projPrice)) / cfg.qty
       const capOfSecond = Math.min(
         cfg.maxPrice,
-        capSecond,
+        cfg.pairCeil - projFirst,
         avgCap(second, sizeSecond),
         (budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond,
       )
@@ -374,7 +536,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       cap[second] = capOfSecond
       target[first] = bidFirst
       target[second] =
-        cfg.postSecondLeg === 1 ? floorTick(Math.min(askSecond - TICK, capOfSecond)) : -1
+        cfg.postSecondLeg === 1
+          ? floorTick(Math.min(askSecond - TICK, capOfSecond * (1 - cfg.underdogDiscount)))
+          : -1
     } else if (needUp > 0) {
       cap.UP = Math.min(budgetLeft / needUp, avgCap('UP', Math.min(needUp, cfg.clip)))
       target.UP = floorTick(cap.UP)
@@ -394,7 +558,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // so without this the trending market hands us 1,000 shares of the side
       // that is collapsing and none of the side that is running away.
       const lead = held[side] - held[side === 'UP' ? 'DOWN' : 'UP']
-      const room = Math.max(0, cfg.maxImbalance - lead)
+      // Shares this leg may still acquire: the imbalance throttle, and the
+      // accumulation pace that stops a one-way window from being bought
+      // entirely at the expensive end of its own trend.
+      // Underdog pacing only, and conviction opens even that gate: when the
+      // favourite's only affordable moment is the next thirty seconds,
+      // rationing anything by the clock is fatal.
+      const paceRoom =
+        cfg.fillPace <= 0 || leadSide === null || side === leadSide
+          ? Infinity
+          : cfg.qty * Math.max(conv, Math.min(1, elapsed / (cfg.fillPace * WINDOW_MS))) - held[side]
+      // Sub-share room is dust: posting it would churn the book for nothing.
+      const roomRaw = Math.min(Math.max(0, cfg.maxImbalance - lead), Math.max(0, paceRoom))
+      const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
       if (need <= 0 || want === undefined || room <= 0) {
         if (o && !o.cancelRequested) {
@@ -412,7 +588,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // affordable whenever the ceiling guard says so — that guard already
       // knows what the other leg has cost. Crossing is paced so it fills the
       // gap the book left rather than emptying the budget in the first seconds.
-      const paceTarget = cfg.qty * Math.min(1, elapsed / (cfg.takePace * WINDOW_MS))
+      // `conv` opens the throttle outright: rationing the favourite by elapsed
+      // time locks crossing out for seconds after the very first clip, which is
+      // most of the window it had.
+      const paceTarget =
+        cfg.qty *
+        Math.max(
+          conv,
+          Math.min(1, elapsed / (mix(cfg.takePace, cfg.convTakePace) * WINDOW_MS)),
+        )
       const takeFee = TAKER_FEE_RATE * ask * (1 - ask)
       const capNoAsk = cap[side]
       const cross =
