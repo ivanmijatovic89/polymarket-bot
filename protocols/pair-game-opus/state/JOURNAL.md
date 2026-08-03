@@ -2017,3 +2017,84 @@ One process note for whoever picks this up. I nearly shipped a change that
 passed the level I was working on and broke the next market along. It cost
 nothing because sweeping five markets past the current level takes two extra
 minutes, and I now do that before believing any level.
+
+## Session 29 — eighteen levels, and one that passed on luck
+
+This was the best session the loop has had, and it ends with a caveat worth
+reading before the number.
+
+The player went from level eighty-six to level one hundred and four. Two
+changes did it, and both came out of the same habit: read the player's own
+minute-by-minute log of the market that blocks it, find the exact instant the
+money went wrong, and then check whether the rule you suspect is actually the
+one that fired.
+
+The first market opens at a coin flip, grinds one way for three minutes, and
+the player follows it and buys that side out at the top. Then the market comes
+all the way back and settles the other way. The previous session's note said to
+look at the rule that lets a nearly-finished side ignore the player's pacing. I
+turned that rule off and the market did not change by a single share, so the
+note was wrong — worth saying plainly, because acting on it would have cost the
+session.
+
+What was actually happening was much smaller and much later. Six minutes after
+the mistake, the market offered the side the player still needed at twenty-eight
+cents. Buying six hundred of them would have closed the position at ninety-seven
+cents a pair and turned a four-hundred-dollar loss into a small profit. The
+player refused, because its own safety margin said it could afford twenty-nine
+point nine seven cents. It missed by a cent, and there was no second offer.
+
+The obvious fix — give the player a slightly bigger budget — repairs this market
+and breaks one from level thirty-nine, which spends the extra cent early and
+strands itself. So instead I gave the extra budget a much narrower door: it
+opens only when one side is already complete, and then only for the side still
+being bought. At that point the player is holding a thousand shares whose entire
+value depends on finishing the other side, so every dollar the ceiling holds
+back is a dollar that buys nothing at all. Over a hundred and ten markets it
+repairs the one and moves nothing else. Levels eighty-seven through ninety-four
+followed immediately.
+
+The second market is a different animal. The player had already done the hard
+part: it held seven hundred of the side that eventually won, and was two hundred
+dollars from finishing both. Then the side it had committed to spiked twenty
+cents against it over fifteen seconds. The player has a rule that reads a
+committed side trading below what it paid as the market disagreeing with the
+commitment, and switches to buying the other side hard. That rule fired, four
+hundred and sixty-nine shares went out in four seconds at thirteen cents above
+where that side had traded half a minute earlier, and the spike was completely
+gone fifteen seconds later. What remained could not finish either side.
+
+The rule already had two guards against noise, and both of them are prices read
+at the same instant — a last quote and a thirty-second average. A twenty-cent
+move in fifteen seconds drags a thirty-second average a long way, so both guards
+agreed. The thing that separates a real turn from an excursion is not visible in
+any price at the moment it starts; it is only visible afterwards, in whether the
+move is still there. So I gave the rule a clock: the verdict now has to stand
+for twelve continuous seconds before the player is allowed to act on it. Eight
+seconds is too short, twenty breaks a market whose turn is genuine and starts
+inside that window, and ten through fifteen all behave identically. Levels
+ninety-five through one hundred and four followed.
+
+Now the caveat. Level one hundred and five failed, and it failed on a market
+that levels one hundred and three and one hundred and four had already passed.
+I ran that market four times and it passed once. So two of the eighteen levels
+this session claims were caught on a good roll of the simulator's latency dice,
+and the honest floor without a real fix is one hundred and two.
+
+The good news is that I know exactly why, and it is a bug rather than a mystery.
+Two runs of that market are identical to the second for two and a half minutes.
+Then the book spikes, and in the winning run a safety cap notices that almost
+all the resting size has piled onto one side, stops that side at eight hundred
+shares, and sends the money to the other side — which is being offered at a
+third of a dollar and turns out to be the winner. In the losing runs that cap
+never switches on at all, the favoured side runs from seven hundred to a
+thousand inside the spike, and the other side never moves. The cap does the
+entire job when it engages; whether it engages is decided by twenty milliseconds
+of simulated network delay, because it only arms if it happens to observe the
+side sitting at exactly the right share count while the reading is elevated, and
+a burst that jumps straight past that number never gives it the chance. This is
+a trap already written down in this workspace from an earlier session, in almost
+those words. It should arm on the reading, not on the holdings.
+
+That is the next session's first job, and fixing it repairs three levels at once
+rather than one.
