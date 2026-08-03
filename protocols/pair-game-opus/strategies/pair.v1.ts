@@ -1263,6 +1263,138 @@ export const ConfigSchema = z.strictObject({
    */
   solvAfterMs: z.coerce.number().finite().min(0).default(60_000),
   /**
+   * Multiple of the remaining budget's own average that the priority leg may
+   * pay. 0 disables it.
+   *
+   * Every other price cap in this file reserves money for the OTHER leg at some
+   * guess about what that leg will cost — `underdogMax` guesses a loser's few
+   * cents, `reserveLow` guesses the cheapest price that leg has actually shown.
+   * Both guesses are about a leg the player is not currently buying, and both
+   * are wrong in the same direction when the window reverses: the leg left
+   * behind turns out to be the winner and none of the reserved money is
+   * anywhere near enough.
+   *
+   * This cap makes no guess at all. The player still needs `needUp + needDown`
+   * shares and has `budgetLeft` to buy them with, so `budgetLeft / (needUp +
+   * needDown)` is the average it can afford across everything still
+   * outstanding — a fact, recomputed every tick, that needs no view on which
+   * leg is which. Paying above that average is not forbidden; the whole
+   * strategy depends on paying above it for the favourite and far below it for
+   * the loser. What the multiple says is HOW FAR above it a single leg may go
+   * before the arithmetic it is leaving behind stops being survivable.
+   *
+   * It is the failure shape shared by the four markets that block level 46,
+   * read off their timelines side by side. Each spends between a half and three
+   * fifths of its ceiling acquiring six hundred-odd shares of one leg at an
+   * average near 0.59, the window then reverses, and the leg still owed six or
+   * seven hundred shares is quoted at 0.65 to 0.85 against a remaining budget
+   * that affords 0.60. At the instant of those fills the remaining average is
+   * 0.41 to 0.48 and the price being paid is 1.3 to 1.5 times it; at the open,
+   * where the same legs must be bought for the strategy to work at all, the
+   * ratio is 1.0 to 1.15. The two regimes separate on this ratio in a way they
+   * do not separate on price, on elapsed time, or on either leg's own history.
+   *
+   * It tightens on its own as the budget goes, which is what the reserve family
+   * could never do: the more of the ceiling is already committed, the smaller
+   * the average that remains and the lower the cap, so the last third of the
+   * budget cannot be spent at opening prices.
+   *
+   * MEASURED AND DEAD, by a wide margin: over the first sixty markets, 19
+   * failures at 1.15, 19 at 1.25, 18 at 1.35 and 17 at 1.45, against four with
+   * it off — and none of the four markets it was built for is repaired at any
+   * setting. The separating ratio does not exist. Reading it off four timelines
+   * gave a window of 1.15 to 1.3; measured across sixty, ordinary passing
+   * markets routinely buy their favourite at two and three times the remaining
+   * average, late in the window when the average has collapsed but the leg
+   * still has to be finished. The cap's self-tightening, the property it was
+   * built for, is exactly what makes it ruinous: the last third of the budget
+   * is when the second leg is bought, and refusing to spend it at anything
+   * above a shrinking average strands a leg in market after market.
+   */
+  budgetPace: z.coerce.number().finite().min(0).max(4).default(0),
+  /**
+   * Milliseconds into the window before `budgetPace` engages. 0 ⇒ from the open.
+   */
+  budgetPaceAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * How far above its own ask EMA the priority leg may be bought. 1 disables it.
+   *
+   * Every price cap this file has rejected is PINNED to something the leg can
+   * never get back to. `chasePad` pins to the leg's cheapest ask ever, the
+   * reserve floor pins to the other leg's cheapest ask ever, `budgetPace` pins
+   * to an average that only falls as money is spent. All three fail the same
+   * way and the failures are share counts, not pair costs: the leg that is
+   * running away is refused, its price never returns, and the market ends with
+   * a stranded leg at 200 to 600 of 1,000. A cap that cannot follow a real move
+   * cannot tell a real move from a spike, so it refuses both.
+   *
+   * This one FOLLOWS. The leg's own exponential average of its ask is a moving
+   * reference: a sustained trend drags it along within a time constant, so the
+   * cap climbs behind the price and the leg is bought the whole way up, a few
+   * seconds late and a cent or two dearer. An instantaneous jump outruns it,
+   * because an average cannot move fourteen cents in five seconds, so the cap
+   * bites exactly there. The distinction it draws is between a price that has
+   * moved and a price that is moving, and that is the distinction the four
+   * markets blocking level 46 turn on.
+   *
+   * Their common anatomy: the book jumps, the player crosses into the jump, and
+   * the jump reverts within a minute — 400 shares at 0.59-0.64 while the
+   * average sat at 0.51, 625 shares at 0.63-0.67 while it sat at 0.46, 456
+   * shares at 0.54-0.61 while it sat at 0.53. In each case the reversion left
+   * the other leg quoted above what the remaining ceiling could ever pay, and
+   * the market failed on share count with more than half the budget already
+   * spent on the wrong outcome. Being a few seconds late to those fills costs
+   * almost nothing; being on time for them costs the market.
+   *
+   * Unlike a pinned cap it also releases itself, which is what makes refusing
+   * safe: the player is never left waiting on a price that has gone, only on an
+   * average that is still catching up.
+   *
+   * NOT SHIPPED, and it is the most interesting failure in this file, because
+   * it is the first restraint on the chase that repairs anything at all.
+   * Over the first sixty markets, against four failures with it off: 11 at pad
+   * 0.03, 9 at 0.05, 6 at 0.08, 6 at 0.12 (all at the default time constant),
+   * and with the pad held at 0.08, 6 at a time constant of 8 s, 5 at 15 s, 5 at
+   * 20 s, 10 at 45 s. At its best it fixes markets 46 and 55 — the two whose
+   * fills come inside a jump, and which no pinned cap has ever moved by a
+   * single share — and the mechanism does exactly what it was designed to do.
+   *
+   * It is not shipped because of what it cannot reach and what it costs. The
+   * other two blocking markets are not jumps at all: their legs climb eight
+   * cents over sixty seconds, which an average follows comfortably, so the cap
+   * waves them through at every setting tried. And the delay it imposes is not
+   * free — a leg held back through a climb is finished later and dearer, which
+   * is how the second market of the universe goes from passing to buying its
+   * last three hundred shares at 0.72 and stranding the other leg at four
+   * tenths. The twenty-sixth market, which is starved by every restraint this
+   * file has ever tried, is lost here too.
+   *
+   * The lesson worth keeping is the diagnosis, not the knob: the four markets
+   * are two different failures wearing the same result. Two of them buy inside
+   * a spike and are reachable by a cap that can tell a spike from a trend; two
+   * of them buy a genuine trend that later reverses, and nothing that reads the
+   * price path can distinguish those from the trends the player must chase.
+   */
+  jumpPad: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
+   * Milliseconds into the window before `jumpPad` engages. 0 ⇒ from the open.
+   *
+   * The EMA is seeded with the first ask it sees, so for the first fraction of
+   * a time constant it IS the current price and the cap is at its tightest
+   * precisely when the opening lean has to be bought.
+   */
+  jumpPadAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Time constant of the ask average `jumpPad` measures against. 0 ⇒ reuse
+   * `momentumTauMs`, the average the priority rule already keeps.
+   *
+   * The two readings want different memories. Momentum asks which leg is
+   * rising, which wants a long enough window to survive a pullback; the jump
+   * filter asks whether THIS price has been available for more than a moment,
+   * which wants a short one, or it refuses trends it should be following.
+   */
+  jumpTauMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -1403,6 +1535,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
   // Time-weighted ask EMAs; an ask above its own EMA is a leg running away.
   const ema: Record<Side, number | null> = { UP: null, DOWN: null }
+  /** The shorter ask average `jumpPad` measures against. */
+  const jumpEma: Record<Side, number | null> = { UP: null, DOWN: null }
   let lastEmaMs = 0
   // Latched priority leg — see `momDeadband`.
   let priorityLeg: Side | null = null
@@ -1528,6 +1662,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       const k = 1 - Math.exp(-Math.max(0, nowMs - lastEmaMs) / cfg.momentumTauMs)
       ema.UP += k * (askUp - ema.UP)
       ema.DOWN += k * (askDown - ema.DOWN)
+    }
+    if (jumpEma.UP === null || jumpEma.DOWN === null) {
+      jumpEma.UP = askUp
+      jumpEma.DOWN = askDown
+    } else {
+      const tau = cfg.jumpTauMs > 0 ? cfg.jumpTauMs : cfg.momentumTauMs
+      const kj = 1 - Math.exp(-Math.max(0, nowMs - lastEmaMs) / tau)
+      jumpEma.UP += kj * (askUp - jumpEma.UP)
+      jumpEma.DOWN += kj * (askDown - jumpEma.DOWN)
     }
     lastEmaMs = nowMs
 
@@ -1859,10 +2002,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         elapsed >= cfg.chaseUntil * WINDOW_MS
           ? Infinity
           : trailingLow(first) + cfg.chasePad
+      // What the remaining budget affords, on average, across every share still
+      // outstanding on BOTH legs. The priority leg is allowed a multiple of it;
+      // see `budgetPace`.
+      const paceCap =
+        cfg.budgetPace <= 0 || elapsed < cfg.budgetPaceAfterMs
+          ? Infinity
+          : (cfg.budgetPace * budgetLeft) / (needFirst + needSecond)
+      // A cap that FOLLOWS the price instead of being pinned behind it: the
+      // priority leg may run away, but only as fast as its own average can.
+      const jumpRef = jumpEma[first]
+      const jumpCap =
+        cfg.jumpPad >= 1 || elapsed < cfg.jumpPadAfterMs || jumpRef === null
+          ? Infinity
+          : jumpRef + cfg.jumpPad
       const capOfFirst = Math.min(
         cfg.maxPrice,
         capFirst,
         chaseCap,
+        paceCap,
+        jumpCap,
         avgCap(first, sizeFirst),
         (budgetLeft - needSecond * reserve) / needFirst,
       )
