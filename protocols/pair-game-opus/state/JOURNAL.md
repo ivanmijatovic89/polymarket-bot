@@ -1792,3 +1792,92 @@ one.
 The player on disk is unchanged: everything added this session is switched off by
 default, sixty-seven of sixty-seven still pass, and the sixty-eighth still fails
 the same way.
+
+---
+
+## Session 26 — the level breaks, and then eleven more
+
+The last session left a note saying: stop looking at what the player does and
+look at what the market around it does. That turned out to be right, though not
+in the way it guessed, and the level that had held for five sessions fell in the
+first half of this one. The player is now eleven levels further on.
+
+I started by following the note literally. The recording from last session was
+still on disk, so I could ask the question offline, without running the player at
+all: at the moment each of the sixty-eight markets makes its big commitment, how
+does that market look? I built a scan that finds the commitment on its own — the
+largest burst of spending on a side the market has already made expensive — and
+then ranks that moment against all sixty-eight on everything I could think of.
+How dear the price is. How wide the gap between the two sides. How fast the price
+had moved to get there. How choppy the market had been. How long the favourite
+had been the favourite.
+
+The blocking market is thoroughly ordinary on every one of them. Twenty-sixth of
+sixty-eight in the price it pays, twenty-sixth in the gap, middling in the rest.
+That is the fifth independent confirmation of the same thing, and it explains why
+five sessions of rules all died: there is nothing in the *price* that tells this
+market apart from the ones where the same aggressive buying is exactly right.
+
+So I looked at something the player had never recorded: not the price, but the
+size sitting behind it. Every quote has a queue of orders behind it on each side,
+and the recording had simply never captured how big those queues were. I added
+that to the observation channel — a logging change only, nothing the player acts
+on — and re-ran the sixty-eight markets to get four minutes of new data.
+
+It separates them cleanly, and the reason is intuitive once you see it. At the
+instant the player commits in the blocking market, eighty-five per cent of the
+size near the top of that side's book is people wanting to buy and only fifteen
+per cent is people willing to sell. It is third-highest of the sixty-eight, and
+higher than every one of the eighteen markets already known to break if you hold
+the player back. The market it collides with most — the one where the aggressive
+buying is essential — never comes close to that reading. The price had gone up
+because nobody was left selling, not because anyone had bought size. It was a
+rally nobody funded, and the player was paying for it as though it were news.
+
+The rule follows directly: when the leading side's own offer has been emptied
+out like that, stop buying it and put the money into the other side, which is
+cheap for precisely the same reason. That is what makes this different from the
+seven families that failed before it — none of them saved money, they only
+redirected it, and here redirecting it is the entire point.
+
+The first version worked on the blocking market and cost six others. Both times I
+looked at why, the answer was in the data rather than in tuning. The casualties
+that survived a tighter threshold were all triggering in the first half-minute of
+their window, when a market has just opened and there is barely anything resting
+on either side, so the ratio is meaningless — a single order empties a queue that
+shallow. Standing the rule down for the first forty-five seconds left exactly one
+casualty. And that last one differed from the blocking market on a reading I had
+already measured and not used: its favourite had been the favourite for a full
+minute, while the blocking market's had crossed over eleven seconds earlier. A
+side that has been expensive for a minute has had its sellers bought through; a
+side that jumped eleven seconds ago has an empty offer because nobody has posted
+one yet. Only the second is evidence of nothing. Requiring the move to be fresh
+took it to zero.
+
+Sixty-eight of sixty-eight. And unlike everything before it, this is not balanced
+on a knife edge — the blocking market is repaired across a wide range of both
+settings, and the full set comes in clean at several of them.
+
+Then the levels came quickly. Sixty-nine passed first try. Rather than climb one
+at a time, I probed the next forty markets individually — each market is an
+independent fifteen minutes, so a level passes exactly when all its markets do —
+and found the next real obstacle at market eighty. Everything between is clean,
+so I took the formal evidence for levels seventy through seventy-nine. Worth
+noting: all seven of the failures further out fail identically with the new rule
+switched off, so the rule costs nothing out there either.
+
+The market that blocks level eighty is almost a mirror of the one that just
+fell — it opens even, one side runs to sixty-four cents inside fifty seconds, the
+player buys that entire side, and the market drifts back to even and settles the
+other way. The encouraging part is that the new reading *does* see it: the
+emptied-offer signal crosses its threshold at forty-five seconds. The rule
+doesn't fire because I told it to stand down for the first forty-five seconds,
+and by fifty the buying is already finished. The protection that saved three
+markets is what lets this one through.
+
+That gives the next session a concrete first move rather than a search. The
+forty-five-second delay is a proxy for something better stated directly: don't
+trust the ratio until there is enough size in the book for the ratio to mean
+anything. Replacing the clock with an actual size requirement is the same idea
+said honestly, and it would let the rule arm earlier in markets whose books fill
+up quickly. That is a measurement to make first, on data that already exists.

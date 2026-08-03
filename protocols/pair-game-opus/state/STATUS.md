@@ -1,7 +1,7 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **67** (first 67 eligible markets)
-- Current level: **68** (first 68 eligible markets)
+- Highest passed level: **79** (first 79 eligible markets)
+- Current level: **80** (first 80 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
@@ -10,291 +10,177 @@
 
 Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
 run 3743+N). Levels 46–51 at `3d8055f9`. Levels 52–59 at `e16f30fe`. Levels
-60–66 at `18640212`. Level 67 at `80d695a0`, runs 4231/4232/4233; again at
-`c2791855` as run 4353; at `00a423e7` as run 4380; at `fd08c719` as run 4409;
-and again at this session's HEAD as run **4429** (`play-level --level 67`, 67/67).
+60–66 at `18640212`. Level 67 at `80d695a0`.
 
-The first 68 at shipped defaults, at this session's HEAD: exactly one failure,
-`btc-updown-15m-1775148300`, 1000/343.75. Every parameter added this session
-(`fairHoldZ`, `volTauMs`, `volSampleMs`, `debug=2`) is inert at its default.
+Levels **68–79 at `71e47612`**, all defaults, one `play-level` run each:
 
-## Level 68 — the open problem
+| Level | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Run | 4485 | 4486 | 4491 | 4489 | 4490 | 4492 | 4493 | 4494 | 4495 | 4496 | 4497 | 4498 |
 
-The added market is `btc-updown-15m-1775148300`. It opens a coin flip (UP 0.44,
-DOWN 0.58), leans UP hard from t+70, and the player takes its ENTIRE UP leg
-inside that lean — 656 shares between 0.56 and 0.64, from a balanced 344/344 at
-t+70 to 1000/344 at t+89, spending $416 of its $970 in nineteen seconds. The
-window then sits at 0.50/0.50 for ten more minutes and settles DOWN. The player
-holds 344 DOWN and has 0.28 a share to buy 656 more of a leg the market never
-offers below 0.35 again.
+## What passed level 68 — `depthHold`, the size behind the quote
 
-**What releases the buyout** is `edgeFull`. The ask gap touches 0.32 for a few
-seconds at the top of the spike, `edgeFrac` hits 1, the whole target is granted
-on the book's word, and a cascade takes the leg from 719 to 1000 in one tick.
+Level 68 had blocked five sessions. Seven families of rule had been tried and
+each cost between seven and forty-three of the sixty-seven markets that already
+passed. Every one of them scored a PRICE: the ask gap, the leg's own ask, the
+model, the oracle, the player's own spend and inventory. `tools/bookScan.ts`
+measured the level 68 window against the whole field on all of them and it is
+unremarkable in each — 26th of 68 in the ask it chases and in the gap it chases
+on, near the top in how fast the book moved, twelfth in how far it commits past
+its own cash. That is why the price rules all died the same death.
+
+The SIZE behind the quote separates them. At the instant each window commits,
+`bookScan.ts` reads how much of the depth within three levels of the chased leg
+sits on the bid rather than the offer. The level 68 window reads **0.85** —
+third of 68, and above all eighteen windows measured to break when money or
+shares are withheld. `…1775110500`, the window whose chase is most essential,
+never reaches the gate at all. The lean the player was chasing was one nobody
+funded: the price was high because there was nothing left to sell.
+
+`depthHold=0.8` stops the leading leg at 0.8 of its target while its own
+smoothed offer is that thin (`depthGate=0.7`, `depthTauMs=10000`,
+`depthLevels=3`) and hands the chase to the other leg, which is cheap for the
+same reason. Two conditions keep it off the windows it would otherwise ruin:
+
+- `depthAfterMs=45000` — a window that has just opened is thin on both sides, so
+  the ratio is noise. Every casualty that survived a tighter gate armed between
+  t+10s and t+27s; the lean it is built to refuse arrives at t+70s.
+- `depthFreshMs=30000` — the cap only arms on a lean under thirty seconds old.
+  A leg the book has priced above even for a full minute has had its offer
+  bought through; a leg that crossed the coin flip eleven seconds ago and is
+  already at 0.61 has an empty offer because nobody has posted one. The last
+  surviving casualty (`…1775112300`) is 63s old at the moment the cap would arm;
+  the level 68 window is 11s old.
+
+It is not a knife edge. The specimen is repaired across `depthHold` 0.35–0.80
+and `depthGate` 0.68–0.74, and the whole first 68 comes in at zero failures at
+`depthFreshMs` 30000 **and** 40000, and at `depthGate` 0.72 as well as 0.70.
+
+## Level 80 — the open problem
+
+The added market is `btc-updown-15m-1775159100`. It opens at a coin flip, DOWN
+leans to 0.64 by t+50, the player takes its ENTIRE DOWN leg inside that lean —
+1000 shares for $706 in fifty seconds — and the window then mean-reverts to a
+coin flip and settles **UP**. It ends 200/1000.
+
+This is the level 68 shape with the sides swapped and the clock moved forward,
+and the depth reading DOES see it: DOWN's smoothed imbalance runs 0.64 at t+35,
+0.67 at t+40, **0.71 at t+45** — over the gate. The cap does not fire because
+`depthAfterMs=45000` has it disarmed until t+45s, and by t+50 the leg is
+already complete. **The warmup that saves three other windows is what lets this
+one through.**
+
+Two things to try, in order:
+
+1. Replace the time warmup with what it is actually a proxy for. The reason a
+   just-opened book gives a noisy ratio is that there is almost nothing resting
+   on either side — one order empties an offer only a few hundred shares deep.
+   So gate on ABSOLUTE near depth (require `bid+ask` within three levels to
+   exceed some size before the ratio is trusted) instead of on elapsed time.
+   That is the same idea stated causally, and it would let the cap arm at t+35
+   here if the book is thick by then. Measure the absolute depth at the arming
+   moment in all 80 windows first — `bookScan.ts` already parses `depUp`/
+   `depDown` from the observation channel and reports `askDep`.
+2. If depth at t+35 in this window is genuinely thin, shorten `depthAfterMs`
+   toward 30000 and re-measure the three windows the warmup was added for
+   (`…1775096100`, `…1775112300`, `…1775116800`).
+
+## The already-known blockers past level 80
+
+Probed individually at shipped defaults, markets 70–110 give seven failures, and
+all seven are IDENTICAL with the depth cap turned off (`depthHold=1`) — they are
+pre-existing, not caused by the new rule:
+
+`…1775159100` 200/1000 (level 80), `…1775162700` 1000/200, `…1775165400`
+1000/343.75, `…1775172600` 1000/718.75, `…1775179800` 1000/406.25,
+`…1775184300` 200/1000, `…1775185200` 343.75/1000.
+
+Each market is an independent episode, so a level passes exactly when every
+market in it passes on its own. Probing the new markets in one batch finds the
+next blocker in about a minute and is far cheaper than climbing level by level.
 
 ## The budget arithmetic — read this before designing anything
 
-Per-share cost including the 7 bp taker fee is `p + 0.07·p·(1−p)`. So a pair
-bought symmetrically at a coin flip costs **1.035**; a pair completed after the
-market has decided, winner at 0.95 and loser at 0.03, costs **0.985**. A plan
-that holds N pairs from the coin-flip period and completes the rest after the
-decision therefore costs `1.035·N + 0.985·(1000−N)`, which is **$985 at N=0 and
-rises with N** — above the $980 the rule allows. Two consequences:
+Per-share cost including the 7 bp taker fee is `p + 0.07·p·(1−p)`. A pair bought
+symmetrically at a coin flip costs **1.035**; a pair completed after the market
+has decided, winner at 0.95 and loser at 0.03, costs **0.985**. So a plan that
+holds N pairs from the coin-flip period and completes the rest after the
+decision costs `1.035·N + 0.985·(1000−N)` — **$985 at N=0 and rising** — above
+the $980 the rule allows. Two consequences:
 
-1. **There is no safe play.** No amount of symmetric early inventory, and no
-   amount of waiting, produces a pair inside the ceiling on its own. The player
-   must make a directional bet before the market has decided and be right.
-2. **The whole margin lives in the price at which the winner is caught.** At
-   0.85 instead of 0.95 the late pair costs 0.965 rather than 0.985, and the
-   plan fits. Everything this player earns, it earns there.
-
-That also explains the shipped player's cost distribution over the 67 markets it
-passes: min 0.832, p25 0.955, median 0.962, p75 0.966, max 0.969. It is
-budget-bound in nearly every window, so **any rule that withholds money from a
-leg does not make it careful — it makes some market end short.**
+1. **There is no safe play.** The player must make a directional bet before the
+   market has decided and be right.
+2. The player's real game is: name the winner, buy it out, and sweep the loser
+   for pennies at the death. Its cost distribution is budget-bound in nearly
+   every window (median 0.962), so **any rule that withholds money from a leg
+   does not make it careful — it makes some market end short.** `depthHold`
+   survives only because it does not withhold: it redirects the money to the
+   other leg, which is cheap at exactly the moment the cap fires.
 
 `pairCeil` can be raised to 0.975 (with `finishCeil` 0.978) or 0.978 (0.98) with
-no failures and a worst realized cost of 0.9758 / 0.9784. So half a cent to a
-cent of budget is available on demand, and on its own it buys nothing.
-
-## Measured dead on level 68 — do not re-try
-
-Every one of these repairs the specimen in a single-market probe. All were then
-run over the full 68 and are ruinous. **A single-market probe is not evidence
-for a global pace or cap change.**
-
-| Change | Failures over the first 68 (baseline: 1) |
-|---|---|
-| `edgeFull` 0.45 / 0.50 | 12 / 15 |
-| `edgeHoldMs` (sustained ask gap) 20 s / 30 s / gated | 14 / 15 / 9 |
-| `holdRamp` 0.3 | 16 |
-| `spendPace` 0.35 / 0.40 / 0.45 | 18 / 16 / 13 |
-| `maxImbalance` 300 | 43 |
-| `oracleHold` 0.6 / 0.7 / 0.8 (latched) | 24 / 31 / 29 |
-| priority swap on "can't afford both at today's asks" | 24 / 13 / 21 / 23 |
-| the same, gated on the chased leg holding 0.5–0.8 of target | 24 / 27 / 24 / 20 |
-| `solvDrop` 0.10 / 0.14 / 0.18 / 0.18+gap | 21 / 19 / 19 / 21 |
-| `solvFree` | inert — 22 / 19 / 20 |
-| `burstShare` 0.15 / 0.18 / 0.20 (money velocity cap) | 13 / 9 / 12 |
-| `finishSolv` any | inert — does not bind |
-| solvency as a room cap (`solvCap`) | does not repair the specimen; removed |
-| `chasePad` 0.04–0.15, `budgetPace` 1.2–2.5 | do not repair the specimen |
-| `convDwellMs` 1000–5000 | inert — identical 1000/344 |
-| `openCheapMs` 3000–30000 | 15 s ⇒ 9; never repairs |
-| `reserveLow` 0.7 / 0.8 / 0.9 / 1.0 | 3 / **9 (repairs)** / 9 / 11 |
-| `reserveLow=0.8` + `oracleReserve` 1.0 / 1.2 / 1.3 | 9 / 10 / 10 — stops repairing |
-| `reserveFull` 0.7 / 1.0 | specimen 1000/594 — still fails |
-| `pairCeil` 0.975 / 0.978 (+ matching `finishCeil`) | 1 — safe and inert |
-| **`fairHold`** 0.72/0.06, 0.72/0.08, 0.65/0.06, 0.60/0.06 | **9 / 7 / 8 / 8 (repairs robustly)** |
-| `fairHold` 0.72 + `fairHoldZ` 1.0 / 0.8, gap 0.06 | 9 / 7 — the release changes almost nothing |
-| `fairHold` 0.72/0.08 + `fairHoldZ` 1.0; 0.60/0.06 + 1.0 | 7 / 8 — same |
-| the parity hold released by the oracle (bands 1.2–3.0, hold 0–0.5) | 7 at BEST, on perfect execution — see above |
-
-Seven families have now been tried on this window and every one costs between
-seven and forty-three of the sixty-seven markets that already pass: share caps,
-price caps, total-spend paces, reassigning the chase, a money velocity cap, a cap
-keyed on the model-book disagreement (with and without a release), and a parity
-hold released by the oracle.
-
-## The model-book disagreement is a GOOD direction signal — and it cannot be capped
-
-`fairHold` (new, in the code at an inert default of 1) caps the leg that is ahead
-at a share of its target whenever the player's own model runs ahead of the book
-on that leg by `fairHoldGap`, hands the chase to the other leg while the cap
-holds, and releases once that other leg is complete. It was built on the one
-reading that separates the level 68 window from the window that most needs the
-aggressive chase (`…1775110500`): there the book is at or above the model (gap
-0.000 / −0.021 / −0.029 at t+30 / t+45 / t+61), while in the level 68 window the
-model sits 5 to 11 cents ABOVE the book for the whole approach and rises
-monotonically as the player buys.
-
-It repairs the specimen properly — 1000/1000 at 0.965–0.968 at 0.50, 0.60, 0.65
-AND 0.72, the first setting of anything to survive a whole band rather than one
-lucky point. It costs seven to nine other markets, and **the casualties invert
-the premise**: every one of them is the capped leg stranded exactly on the cap,
-and in every one of them that leg is the WINNER. Eight windows settle on the leg
-the model was running ahead of the book on. So the disagreement is a good
-directional read, right in eight of the nine windows where it is strong, and the
-level 68 window is its only miss. Do not build another rule that distrusts it.
-
-Casualties at (0.72, 0.06), all of which pass at defaults: `…1775092500`,
-`…1775093400`, `…1775095200`, `…1775104200`, `…1775107800`, `…1775120400`,
-`…1775131200`, `…1775132100`, `…1775140200`. Disjoint from `reserveLow`'s nine.
-
-### Why a release cannot save it — measured, and it kills the family
-
-The obvious repair, and the one this session built (`fairHoldZ`), is to make the
-cap a DELAY: hold the leg, then let it go when a reliable witness agrees with the
-model. The witness exists and it arrives in time. Measured in the player's own
-reading, the volatility-normalised oracle names the winner at one sigma at
-t+135s, 181, 292, 465, 536, 540, 576, 588 and 709 in the nine casualties — every
-one of them, and in the level 68 window it never reaches 0.8 for the leg the cap
-stops, so the repair is not at risk.
-
-It changes almost nothing: 9 → 9 failures at (0.72, 0.06, z=1.0), 7 → 7 at
-(0.72, 0.08), 9 → 7 at z=0.8. Every remaining failure is still the capped leg
-sitting on EXACTLY 720 shares.
-
-The reason is that the cap does not save the money, it REDIRECTS it. Stopping one
-leg hands the chase to the other, which is then bought out completely, so by the
-time the witness speaks the budget is gone: `…1775092500` is at 1000/720 having
-spent $789 of $970, and the 280 shares it still owes cost $263 at the release
-price; `…1775132100` is at $864 spent with $199 still to pay. The release fires
-and buys nothing.
-
-So a released cap needs the money held back as well as the shares — and holding
-the money back is the parity hold, which is separately dead. `fairHold` is
-finished: do not spend another session on it.
-
-## Going underwater is normal too
-
-`tools/underwaterScan.ts` measures, per market, the worst moment before t+600s at
-which the player owes more on the leg it is behind on, at that leg's current ask,
-than it has budget left. The level 68 window peaks at 2.20× (656 shares at 0.62
-with $185 left, t+237s) and is TWELFTH of 68 — eleven windows that pass go
-further underwater than it does, up to 5.69×. Committing past your own money is
-the normal operation of this player, not the anomaly, which is the same answer
-`solvDrop`, `reserveLow` and `finishSolv` gave one experiment at a time.
-
-## The other measured foothold — `reserveLow=0.8`
-
-Passes the specimen outright, 1000/1000 at 0.9668. Knife-edge in the parameter
-(0.7 fails, 0.8 passes, 0.9 gives 1000/200, 1.0 gives 1000/594) and costs nine
-markets, all of which pass at 0.956–0.968 at defaults. Its nine:
-`…1775089800` 344/1000, `…1775094300` 582/1000, `…1775109600` 1000/469,
-`…1775110500` 0/1000, `…1775124900` 613/1000, `…1775129400` 1000/281,
-`…1775133900` 1000/544, `…1775138400` 531/1000, `…1775147400` 219/1000.
-
-Under `reserveLow=0.8`, `…1775110500` shows the whole mechanism: the reserve
-prices the leading leg's cap at 0.64–0.71 while its ask runs 0.68 → 0.99, so the
-leg is refused four cents behind the market for the entire window and ends at
-zero. The money the reserve saved was being saved for a leg that ended at 0.13.
-
-## The parity hold released by the oracle — MEASURED DEAD
-
-The shape the last session left as the next action (hold both legs, buy nothing
-until the oracle names a side by a high band, then buy the named leg out and
-finish the other late) was measured over all 68 markets before being built, and
-it does not survive its own arithmetic. It was right about the two colliding
-windows and wrong about the rest.
-
-`tools/parityScan.ts`, over the whole-window observation channel, scores exactly
-that plan: 344 pairs at 1.035 plus the rest at the named leg's ask when the band
-is first crossed plus the OTHER leg's cheapest ask any time afterwards — perfect
-execution, no depth limit, no latency, and the loser bought at its best price of
-the window. Even so:
-
-| Band | Never confirms | Names the LOSER | Over the $980 ceiling |
-|---|---|---|---|
-| 1.2 | 0/68 | 20 | 10 |
-| 1.4 | 0/68 | 15 | 12 |
-| 1.6 | 0/68 | 14 | 12 |
-| 2.0 | 0/68 | 11 | 13 |
-| 3.0 | 0/68 | 2 | 35 |
-
-Raising the band buys accuracy and pays for it in lateness: at 3.0 the reading is
-almost never wrong, and by the time it speaks the winner asks 0.93–0.96. Holding
-less early helps a little and changes nothing: at hold 0 the floor is 7 markets
-over budget at band 1.4. Seven unaffordable windows against the shipped player's
-one. The fallback for a window that never confirms is moot — every window
-confirms.
-
-The two colliding windows really are separated by a 1.6-band gate. Fourteen
-other windows are separated the wrong way by the same gate.
-
-## The volatility-normalised oracle — an accurate, late witness
-
-Every reading of the outside price in this player measures BTC's distance from
-the price to beat against a FIXED number of dollars: `needDiff = ptbEdge ·
-sqrt(timeLeft)` with `ptbEdge ≈ 60`, and `pModel` likewise divides by a constant
-`ptbSigma`. The same sixty dollars therefore counts the same in a calm quarter
-hour and a violent one.
-
-Divide instead by BTC's OWN measured volatility — the mean square of its
-one-second moves over a trailing few minutes — and the reading becomes a true
-z-score, `|diff| / sqrt(volVar · secondsLeft)`. Measured over all 68 markets
-(`tools/volScan.ts`), at the first instant each reading crosses a band:
-
-| Reading | Band | Names the LOSER | Median crossing |
-|---|---|---|---|
-| fixed | 1.2 | 20/68 | t+153s |
-| **adaptive** | 1.2 | **3/68** | t+574s |
-| fixed | 1.6 | 14/68 | t+262s |
-| **adaptive** | 1.6 | **1/68** | t+680s |
-| fixed | 2.0 | 11/68 | t+423s |
-| **adaptive** | 2.0 | **0/68** | t+783s |
-
-So it is a much better witness and a much later one, and the two facts are the
-same fact. It is useless as a gate on the chase — a player that waited for one
-sigma would buy every winner at 0.71–0.94, which is the parity plan that just
-died. It is exactly right as a RELEASE.
-
-It also does not separate the two colliding windows at the decisive moment: the
-level 68 window reads 0.52–0.56 sigma while the player is buying UP at t+81–91,
-and `…1775110500` reads 0.57 sigma at t+61 while the player is buying UP at 0.85.
-Nothing measured so far separates those two instants except the model-book
-disagreement.
-
-The reading is in the code as `outsideZ` (estimator time constant `volTauMs`,
-default 180 s) and appears in both debug channels as `z=`. Nothing reads it
-except `fairHoldZ`.
-
-## Not an outlier: buying dear while unconfirmed
-
-Before building anything on "do not pay this much for a leg the outside price has
-not confirmed", `tools/buyScan.ts` counted, per market, the shares bought at an
-ask of 0.55 or more while the oracle had not confirmed that leg to 1.6 bands. The
-level 68 window is FOURTH on that list with 1063 such shares, and 26 of the 68
-markets are at 1000 or more. Buying dear and unconfirmed is not an anomaly — it
-is the normal operation of the player. A price cap conditioned on the oracle
-would fire in nearly every window.
-
-## What passed level 67 — `oracleReserve`
-
-Level 67's market is a whipsaw: DOWN leads for twenty seconds and takes 469
-shares at 0.57, then UP leads and takes 469 at 0.55, and UP then runs to 0.99
-and never comes back. The bid could not reach because the `reserveLow` floor was
-holding 0.198 a share for a DOWN leg that ended up trading at two cents.
-`oracleReserve=1.5` stands that floor down once BTC has run clear of the price to
-beat by 1.5 bands in the priority leg's own direction. The band 1.3–1.8 keeps
-both that window and an earlier one that lands with a one-cent margin.
-
-## What passed level 47 — three gates on the commitment exemption
-
-`commitShare=0.6` + `commitReserve=1` repair two blockers and cost four other
-markets. Three gates separate them: `commitLeadMs=12000`, `commitLag=0.15` and
-`commitLoss=0.045`. Arming is one-way.
-
-## What passed level 52 — `finishCeil`
-
-`finishCeil=0.975` is a second, higher pair budget that only a leg past
-`finishCeilShare=0.85` may reach, and only by crossing — it can never raise a
-resting bid or grow a position, only finish one.
+no failures. Half a cent to a cent of budget is available on demand, and on its
+own it buys nothing.
 
 ## Measured dead — do not re-try
 
-- **`commitRate`** — monotone harm over the first sixty markets.
-- **`commitRise`** — inert up to 0.10, harmful at 0.15.
-- `underdogMax` / `underdogLift`, `swapEdge`, `reserveMom`, `maxImbalance`,
-  `reserveLowUntilMs`, `priorityLatch`, `momDeadband`, `priority=dear`,
-  `reserveLow` escalation and de-escalation, `edgeHoldMs`, `spendPace`, price
-  caps pinned to a leg's own low, budget averages, `avgGuard`/`avgGuardFrom`,
-  the `earlyShare` family, `reserveLow=0` globally, `solvSwap`.
-- The chased leg's ask average as an "is it running away" test — too noisy.
+Everything below was measured over the FULL market set, not a single-market
+probe. **A single-market probe is not evidence for a global pace or cap change.**
 
-## The jitter is a seedable draw — use `seedRandom.mjs`
+On the level 68 window (baseline was 1 failure over the first 68):
 
-The ONLY non-determinism in a run is `Math.random()` in `BacktestExecution` (the
-±20 ms latency jitter). It is unseeded, so a single-market probe is one sample.
+| Change | Failures |
+|---|---|
+| `edgeFull` 0.45 / 0.50 | 12 / 15 |
+| `edgeHoldMs` 20 s / 30 s / gated | 14 / 15 / 9 |
+| `holdRamp` 0.3 | 16 |
+| `spendPace` 0.35 / 0.40 / 0.45 | 18 / 16 / 13 |
+| `maxImbalance` 300 | 43 |
+| `oracleHold` 0.6 / 0.7 / 0.8 | 24 / 31 / 29 |
+| priority swap on "can't afford both", 4 gates | 24 / 13 / 21 / 23 |
+| the same, gated on the chased leg's share of target | 24 / 27 / 24 / 20 |
+| `solvDrop` 0.10 / 0.14 / 0.18 / 0.18+gap | 21 / 19 / 19 / 21 |
+| `burstShare` 0.15 / 0.18 / 0.20 | 13 / 9 / 12 |
+| `reserveLow` 0.7 / 0.8 / 0.9 / 1.0 | 3 / 9 / 9 / 11 |
+| `fairHold` (the model-book disagreement as a cap) | 7–9, on four settings |
+| `fairHold` + a release on the volatility-normalised oracle | 7–9 — unchanged |
+| the parity hold released by the oracle, any band | 7 at BEST, on perfect execution |
 
-```
-PG_SEED=11 NODE_OPTIONS="--import file://$PWD/protocols/pair-game-opus/tools/lib/seedRandom.mjs" \
-  protocols/pair-game-opus/tools/probe2.sh tag "<slugs>"
-```
+Earlier: `commitRate`, `commitRise`, `underdogMax`/`underdogLift`, `swapEdge`,
+`reserveMom`, `reserveLowUntilMs`, `priorityLatch`, `momDeadband`,
+`priority=dear`, `reserveLow` escalation/de-escalation, price caps pinned to a
+leg's own low, budget averages, `avgGuard`/`avgGuardFrom`, the `earlyShare`
+family, `reserveLow=0` globally, `solvSwap`, and the chased leg's ask average as
+an "is it running away" test.
 
-Record level evidence from ordinary unseeded runs. **Pass the `--param` flags to
-`probe2.sh` — a sweep that silently drops them reproduces the baseline and looks
-like a result.**
+**Do not reopen** on any window: the parity hold; `fairHold` with or without a
+release; the opening-lean thread (`convDwellMs`, `openCheapMs`); any solvency or
+underwater test; and any rule that treats the model-book disagreement as a
+warning (it is a GOOD direction signal — eight of the nine windows where it is
+strong settle the way it points).
+
+## What is measured about the player, and stays true
+
+- **Going underwater is normal.** `tools/underwaterScan.ts`: the level 68 window
+  peaks at 2.20× its remaining budget and is twelfth of 68 — eleven passing
+  windows go further, up to 5.69×.
+- **Buying dear while unconfirmed is normal.** `tools/buyScan.ts`: 26 of 68
+  markets buy 1000+ shares at an ask of 0.55 or more while the oracle has not
+  confirmed that leg.
+- **The volatility-normalised oracle is an accurate, LATE witness.**
+  `tools/volScan.ts`: dividing BTC's distance from the price to beat by its own
+  measured volatility instead of a fixed $60 takes the wrong-side rate at 1.6
+  bands from 14/68 to 1/68, but moves the median crossing from t+262s to t+680s.
+  Useless as a gate on the chase, right as a release. It is in the code as
+  `outsideZ` and only `fairHoldZ` reads it.
+
+## What passed the earlier levels
+
+- **47** — `commitShare=0.6` + `commitReserve=1`, gated by `commitLeadMs=12000`,
+  `commitLag=0.15`, `commitLoss=0.045`. Arming is one-way.
+- **52** — `finishCeil=0.975`, a second higher pair budget that only a leg past
+  `finishCeilShare=0.85` may reach, and only by crossing.
+- **67** — `oracleReserve=1.5` stands the `reserveLow` floor down once BTC has
+  run clear of the price to beat by 1.5 bands in the priority leg's direction.
 
 ## Tools
 
@@ -302,79 +188,51 @@ like a result.**
   explicit slug list; writes `/tmp/pg/<tag>.{json,err,rows}`. Use this rather
   than `probe.sh`, which swallows stderr.
 - **`--param debug=2` is the observation channel**: one line per market per
-  `debugEveryMs` for the WHOLE window, emitted above every early return, so it
-  keeps reporting after both legs are complete. `debug=1` stops the moment the
-  player is done, which silently truncates any measurement of what happened
-  later — half the markets never even print their summary line. Every `debug=2`
-  line carries its own slug, so parallel chunks can be parsed without tracking
-  market boundaries. One pass over the first 68 takes about four minutes in four
-  parallel chunks and is worth far more than a probe: three of this session's
-  four results came from it without running the player at all.
-- `tools/parityScan.ts`, `tools/buyScan.ts`, `tools/volScan.ts` — offline
-  analyses of that channel (the parity plan, what the player pays and when, and
-  the volatility-normalised reading). `volScan.ts --dump <slug>` prints both
-  oracle readings second by second; `--release <z>` prints when each window's
-  WINNER is first named at that many sigma, and at what ask.
+  `debugEveryMs` for the WHOLE window, emitted above every early return. It now
+  also carries `depUp=`/`depDown=` (cumulative bid/ask size within three levels)
+  and both best bids. `debug=1` stops the moment the player is done, which
+  silently truncates any measurement of what happened later. One pass over 68
+  markets takes about four minutes in four parallel chunks.
+- `tools/bookScan.ts` — finds each window's chase without reference to any rule
+  (largest rise in spend over five seconds on a leg priced at least 0.55) and
+  ranks it against the field on ask, gap, book velocity, lean age, book churn,
+  path efficiency and depth imbalance. `--sort <feature>`, `--imbGate <x>` prints
+  the live blast radius of a gate on the depth reading.
+- `tools/parityScan.ts`, `tools/buyScan.ts`, `tools/volScan.ts`,
+  `tools/underwaterScan.ts` — the other offline analyses of that channel.
+- `tools/level.ts --level N --run <id>` — the only place a level may be scored.
+  It requires the run's market set to be EXACTLY the level's universe, so every
+  level needs its own run.
+- `tools/play-level.ts --level N` — run and score one level in one command.
+  About three minutes for a level in the seventies; five run fine in parallel.
+- `tools/lib/seedRandom.mjs` — the ONLY non-determinism in a run is
+  `Math.random()` in `BacktestExecution` (the ±20 ms latency jitter), so a
+  single-market probe is one sample:
+  `PG_SEED=11 NODE_OPTIONS="--import file://$PWD/protocols/pair-game-opus/tools/lib/seedRandom.mjs" probe2.sh tag "<slugs>"`.
+  Record level evidence from ordinary unseeded runs.
+- The first N slugs:
+  `npx tsx protocols/pair-game-opus/tools/universe.ts --first N --slugs-only`.
+- Failure count from a probe's rows:
+  `awk '$1 ~ /^btc-updown/ {split($9,a,"/"); if (a[1]+0<1000 || a[2]+0<1000 || $3+0<=0 || $4/1000>0.98) print $1, a[1]"/"a[2]}' /tmp/pg/<tag>.rows`
+
+### Traps that have each cost a session
+
 - **`/tmp` is case-insensitive here.** Probe tags `Z1` and `z1` are the same
   files, so a run can silently read a previous session's rows. Delete the target
   `.rows` before waiting on it.
-- Failure count from a probe's rows:
-  `awk '$1 ~ /^btc-updown/ {split($9,a,"/"); if (a[1]+0<1000 || a[2]+0<1000 || $3+0<=0 || $4/1000>0.98) print $1, a[1]"/"a[2]}' /tmp/pg/<tag>.rows`
-- `tools/lib/seedRandom.mjs` — see above.
-- `tools/level.ts --level N --run <id>` — the only place a level may be scored.
-- `tools/play-level.ts --level N` — run and score one level in one command.
 - **zsh does not word-split unquoted variables.** Never collect `--param` flags
-  in a shell variable, and never use `set -- $pair` to split a "a b" string —
-  both silently produce one argument and reproduce the baseline.
-- A 68-market sequential run takes about six minutes locally; four run in
-  parallel on 10 cores. `--param debug=1 --param debugEveryMs=1000` slows it
-  about tenfold.
-- Debug timelines go to **stderr**. Tick lines carry `held=`, `spent=`, `tgt=`,
-  `lead=`, `edg=`, `out=`, `diff=`/`need=` (the oracle band), `z=` (the same
-  distance in measured sigma, `!` once `fairHoldZ` has released a cap),
-  `pModel=`/`pBook=`, `want=`/`gap=` (the model-book disagreement) and `chs=`.
-- The first N slugs:
-  `npx tsx protocols/pair-game-opus/tools/universe.ts --first N --slugs-only`
-  (cache them to a file; the sweeps above use `/tmp/pg/slugs68.txt`).
+  in a shell variable, and never use `set -- $pair` to split a "a b" string.
+  Pass the flags literally to `probe2.sh` — a sweep that silently drops them
+  reproduces the baseline and looks like a result.
 - **Per-tick state set inside the `needUp > 0 && needDown > 0` branch is stale
-  once a leg completes.** A cap left standing from the previous tick refused the
-  only leg still being bought and looked exactly like the rule not working. The
-  fix is in the code (`fairCapSide` / `fairHandover` are cleared above the
-  branch); check any new per-tick latch the same way.
-
-## What is left, and where to look
-
-Seven families have now been tried on this window and every one costs between
-seven and forty-three of the sixty-seven markets that already pass. What the four
-measurements of this session add up to is that **the level 68 window is not an
-outlier in anything the player can see about ITSELF**: not in what it pays
-(fourth of 68 in shares bought dear and unconfirmed, with 26 windows at the
-maximum), not in how far it commits past its own money (twelfth of 68, and eleven
-passing windows go further), and not in what the outside price says at the moment
-it commits (0.52–0.56 sigma, indistinguishable from `…1775110500`'s 0.57 at the
-moment that window's chase is essential). Every rule that scores the player's own
-state fires everywhere or nowhere. That is why six families have died the same
-death.
-
-The one reading that does separate the two windows is the model-book
-disagreement, and this session established that it cannot be used as a cap
-because a cap redirects money rather than saving it.
-
-So the next session should look at the ONE thing not yet measured: what the book
-does AROUND the commitment rather than what the player does. Concretely, over the
-observation channel: in each window, how quickly does the leaning leg's ask come
-BACK after the lean — the shape of the excursion in the book itself, not in BTC.
-The level 68 window's UP ask goes 0.46 → 0.64 → 0.45 in a hundred seconds and
-then sits at a coin flip for ten minutes; `…1775110500`'s goes 0.49 → 0.85 and
-never returns. If the book's own reversion behaviour separates them, it is a
-signal available at the instant, and no measurement of it exists yet. `volScan.ts`
-and `underwaterScan.ts` show the pattern to follow: measure over the recording
-first, and only build if the separation is there.
-
-Do not reopen: the parity hold on any band or hold level; `fairHold` with or
-without a release; the opening-lean thread (`convDwellMs`, `openCheapMs`); any
-share or price cap on the chased leg; any solvency or underwater test; and any
-rule that treats the model-book disagreement as a warning.
+  once a leg completes.** `fairCapSide`/`fairHandover` and now
+  `depthCapSide`/`depthHandover` are cleared above the branch; check any new
+  per-tick latch the same way.
+- **The live reading is not the offline reading.** The depth imbalance measured
+  as a boxcar mean over 1 Hz observation samples peaked at 0.83 in the level 68
+  window; the same quantity as an EWMA over the dense tick stream peaks at 0.76.
+  Offline scans are for finding a separation and ranking windows, never for
+  picking a threshold — read the threshold off the player's own debug timeline.
 
 ## Needs human
 
