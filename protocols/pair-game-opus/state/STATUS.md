@@ -6,111 +6,130 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-## Evidence — levels 1–46 at commit `4f21eb1e`
+## Evidence — levels 1–46
 
-| Level | Run | Level | Run | Level | Run | Level | Run | Level | Run |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 3744 | 11 | 3754 | 21 | 3764 | 31 | 3774 | 41 | 3784 |
-| 2 | 3745 | 12 | 3755 | 22 | 3765 | 32 | 3775 | 42 | 3785 |
-| 3 | 3746 | 13 | 3756 | 23 | 3766 | 33 | 3776 | 43 | 3786 |
-| 4 | 3747 | 14 | 3757 | 24 | 3767 | 34 | 3777 | 44 | 3787 |
-| 5 | 3748 | 15 | 3758 | 25 | 3768 | 35 | 3778 | 45 | 3788 |
-| 6 | 3749 | 16 | 3759 | 26 | 3769 | 36 | 3779 | 46 | 3789 |
-| 7 | 3750 | 17 | 3760 | 27 | 3770 | 37 | 3780 | | |
-| 8 | 3751 | 18 | 3761 | 28 | 3771 | 38 | 3781 | | |
-| 9 | 3752 | 19 | 3762 | 29 | 3772 | 39 | 3782 | | |
-| 10 | 3753 | 20 | 3763 | 30 | 3773 | 40 | 3783 | | |
+Levels 1–45 at commit `4f21eb1e`, runs 3744–3788 (one run per level, level N =
+run 3743+N). Level 46 re-run at the current commit: run **3823** (see below);
+the earlier level-46 evidence is run 3789.
 
 Every market ends exactly 1000/1000; worst pair cost on the ladder is 0.970
-against a ceiling of 0.98. Level 46 (run 3789) reports 46/46 with no integrity
-findings.
+against a ceiling of 0.98.
 
 ## What carried level 46: the spike gate
 
 `spikeEdge` 35 / `spikeHoldMs` 10 s, both shipped on. While BTC sits more than
 35 dollars from its own five-second average — and for ten seconds afterwards —
-the player buys nothing and rests nothing on either side.
-
-It is the first restraint in this file that repairs markets without costing any:
-over the first sixty markets, failures go from four to two. It reads the SPEED of
+the player buys nothing and rests nothing on either side. It reads the SPEED of
 the underlying, which the order book cannot express, and that is why every price
-cap before it failed. The two markets it fixes lurch 86 dollars in five seconds
-and give it back; the two markets that every earlier restraint destroyed never
-travel more than 27.
-
-Both bands are measured and both edges are real: threshold 30/35/40 clean and
-repeatable, 45 loses one spike market outright, 50 loses both; hold 8/10/12 s
-clean, 5 s lifts too early, 15 s starts refusing a window that must buy its
-favourite in the first minute.
+cap before it failed.
 
 ## Runs are NOT reproducible — read results accordingly
 
 Latency jitter is random per order, so the same configuration on the same market
 can finish differently. **Before promoting anything, repeat the probe two or
-three times.** The shipped setting was confirmed four times over sixty markets
-plus a fifth at the neighbouring threshold.
+three times.**
 
 ## Tools
 
 - `tools/probe2.sh <tag> "<slugs>" [--param k=v ...]` — one parameter set over an
   explicit slug list; writes `/tmp/pg/<tag>.{json,err,rows}` and prints the run
-  id. **Use this rather than `probe.sh`**, which swallows stderr and so makes a
-  run that died environmentally look exactly like one that produced no report.
+  id. **Use this rather than `probe.sh`**, which swallows stderr.
 - **zsh does not word-split unquoted variables.** Never collect `--param` flags
-  in a shell variable and expand it — the whole string arrives as one argument
-  and the launcher rejects it. Write the flags out.
-- `tools/ladder.sh <from> <to> [parallel] [outdir]` — `play-level` over a range,
-  one PASS/FAIL line with run id and worst pair cost per level. 1–46 takes about
-  twenty-five minutes at parallelism 6.
-- Score any 60-market probe with
-  `tools/level.ts --level 60 --run <id>` — the real RULES grader, rather than
-  reading share counts by eye.
+  in a shell variable and expand it, and never `set -- $line` inside a loop —
+  the whole string arrives as one argument and the launcher rejects it. Write
+  the flags out.
+- `tools/ladder.sh <from> <to> [parallel] [outdir]` — `play-level` over a range.
+  1–46 takes about twenty-five minutes at parallelism 6.
+- Score any 60-market probe with `tools/level.ts --level 60 --run <id>`. Scoring
+  a 60-market probe at `--level 46` works and prints `passed=46/46`, but the
+  header still says FAIL because the run carries markets outside that level's
+  universe — read the INTEGRITY line before believing a FAIL.
+- A 60-market sequential probe takes about 4–5 minutes locally; two run in
+  parallel comfortably on 10 cores.
 - Debug timelines go to **stderr**: `run-backtest.ts ... --param debug=1 --param
-  debugEveryMs=1000 --sequential --json >/dev/null 2>file`. The tick line now
-  carries `spk=` (BTC's deviation from its own short average), which is how the
-  spike gate was sized.
+  debugEveryMs=15000 --sequential --json >/dev/null 2>file`. Tick lines carry
+  `spk=` (BTC's deviation from its own short average) and `edg=` (the book's
+  spread, instantaneous/sustained). The `summary` line per market prints each
+  leg's lowest ask and when it printed — the cheapest pair the window ever
+  offered.
 - The first sixty slugs:
   `npx tsx protocols/pair-game-opus/tools/universe.ts --first 60 --slugs-only`
 
-## Level 47 — the blocker, diagnosed
+## Level 47 — the blocker
 
 Remaining failures over the first sixty markets are exactly two: 47 and 52
-(`btc-updown-15m-1775129400`, `-1775133900`). Both are unreachable by everything
-tried so far and both have the same anatomy, freshly re-read at the shipped
-defaults:
+(`btc-updown-15m-1775129400`, `-1775133900`). Both are slow windows (peak BTC
+deviation 12 dollars), so the spike gate never engages and never should.
 
-- They are SLOW windows. Peak BTC deviation is 12 dollars in market 47 and 12 in
-  52, so the spike gate never engages and never will.
-- The priority role changes hands ONCE, mid-window, and both legs end up bought
-  around 0.5 by taking turns. Market 47 buys 281 DOWN at ~0.53 in its first
-  fifty seconds, then flips and takes UP from 200 to 656 at 0.57–0.61. Market 52
-  does the same with 344 DOWN at ~0.53 and then UP to 656 at 0.52–0.61.
-- At the handover the pair is already lost on arithmetic: with 656 UP at 0.62 the
-  remaining 719 DOWN would have to average 0.28, and DOWN is quoted at 0.40–0.44
-  at that moment and never trades below 0.30 again.
-- Both then reverse, and both end 1000 of the leg that lost against 281–344 of
-  the leg that won.
+Anatomy, read tick-by-tick this session:
+
+- Neither window is unwinnable. Market 47's cheapest UP is 0.002 (at t+835 s)
+  and its cheapest DOWN 0.400 (at t+48 s) — a floor of 0.402 against a 0.98
+  ceiling. The pair is simply never affordable at ONE instant: the two asks sum
+  to about 1.01 for the whole window, so the only way through is to buy each leg
+  in its own trough, minutes apart.
+- The player instead spends more than half its money in the first minute on the
+  leg quoted 0.53–0.61, on a book that is still a coin flip, and that leg is the
+  one that expires worthless. In market 47 it holds 656 UP by t+60 s; the window
+  then reverses for good at t+105 s and DOWN runs from 0.44 to 0.99. It finishes
+  1000 UP / 281 DOWN.
+- What licenses those 656 shares is the edge pace (`edgeFull`): the allowance is
+  `|askUp − askDown| / 0.32` of the target, read at ONE tick and ratcheting.
+  A single instant of 0.21 spread inside a minute of coin-flip book buys 656
+  shares permanently.
+
+## Measured dead — do not re-try
+
+- `reserveLow` escalation (0.7 / 0.8 / 0.9) — re-measured this session ON TOP of
+  the spike gate, since the earlier rejection predated it. Worse than ever:
+  3 / 7 / 7 failures over the first sixty markets against 2 with it off (runs
+  3792, 3794, 3795 versus baseline 3793). Closed.
+- Sustained edge (`edgeHoldMs`, new this session) — the edge pace reading the
+  LOWEST spread over a trailing window instead of this tick's. It repairs both
+  blocking windows cleanly (1000/1000, pair cost ~0.96, six probes). It costs
+  14 / 15 / 14 / 9 markets under four different gates. Full numbers in the
+  parameter's own comment.
+- `spendPace` (new this session) — ration the shared BUDGET by the clock rather
+  than shares. Repairs market 47 outright and lifts market 52 from 344 to 825,
+  at the cheapest pair costs this player has ever printed (0.83–0.95) — and
+  fails 22 of sixty. Anything gentle enough to be safe is inert.
+- Price caps pinned to a leg's own low, budget averages, and the `earlyShare`
+  family with better gates — all measured dead in earlier sessions.
+
+## A fact that killed one plan
+
+The previous session's next action was to build a rule around the HANDOVER —
+the moment the priority role changes hands. It cannot be done as stated: the
+priority role does not change once mid-window, it flickers on essentially every
+tick. A counter over it saturates within seconds of the first fill, and gating
+the sustained edge on "at least one handover" reproduced the ungated result
+market for market (run 3803 versus 3799). "The priority leg changed" is not a
+rare event and cannot carry a rule. Fifteen-second debug logs make it look rare;
+it is not.
 
 ## Next action
 
-1. **Re-measure `reserveLow` escalation on top of the spike gate.** The escalation
-   (0.7 / 0.8 / 0.9) was rejected last session at 6 / 10 / 9 failures against 4 —
-   but that measurement predates the spike gate, and two of the four markets it
-   was fighting are now gone. `reserveLow` at 1.0 is exactly the arithmetic the
-   handover violates: it refuses to chase the new favourite past what the other
-   leg's own observed low still needs. Cheap to run: four probes, sixty markets.
-2. **If that fails, attack the HANDOVER itself rather than the price.** The
-   distinguishing fact in both markets is not a price level but an event: the
-   player spends a third of the window chasing one leg, then promotes the other
-   and chases it too, at a HIGHER price than the first. Nothing in the player
-   notices that this has happened. A rule that reads the handover — refuse to
-   promote a leg whose current ask is above what the demoted leg has already been
-   bought at, or require the promotion to pay for itself against the realized
-   average — is untried and is keyed to the player's own history rather than to
-   the quote.
-3. Do NOT re-try price caps pinned to a leg's own low, budget averages, or the
-   `earlyShare` family with better gates. All are measured dead in `pair.v1.ts`,
-   and the two remaining markets are the ones they were built for.
+Three restraint families are now closed, and they failed the same way: any rule
+strong enough to stop the bad commitment also delays the good one, because at
+the moment of commitment the two are indistinguishable in the book, in the
+clock, and in the budget.
+
+What has NOT been tried is changing what the player does AFTER the read goes
+wrong, rather than trying to prevent the read. The specific arithmetic:
+
+1. `underdogMax` is 0.10. The non-priority leg may never pay more than a
+   loser's price. In both blocking windows the leg that wins is the demoted one,
+   quoted 0.44–0.56 for two full minutes after the reversal, and the player rests
+   at 0.48 and never crosses. Everything else is affordable at that moment —
+   the budget line alone would allow 0.487 — so the binding constraint is
+   `underdogMax`, not money. Measure `underdogLift` (0 today), which hands the
+   underdog its allowance back as the priority leg fills, and `underdogMax`
+   itself at 0.15–0.25. This is the one constraint in the chain that has never
+   been moved.
+2. If that fails, look at the endgame rather than the open: both windows still
+   hold 700-odd unbought shares of the winning leg with five minutes and real
+   money left. A rule that abandons the pair ceiling's projected arithmetic once
+   one leg is complete and simply buys the other as cheaply as it can is untried.
 
 ## Needs human
 

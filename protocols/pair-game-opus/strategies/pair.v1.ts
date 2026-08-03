@@ -765,6 +765,67 @@ export const ConfigSchema = z.strictObject({
    */
   edgeFull: z.coerce.number().finite().min(0).max(1).default(0.32),
   /**
+   * Milliseconds the book's spread must have been WIDE before it licenses
+   * inventory. 0 ⇒ the pace reads the spread at this instant.
+   *
+   * `edgeFull` grants an allowance from `edge = |askUp − askDown|` read at one
+   * tick, and the allowance RATCHETS: once bought, the shares stay bought even
+   * after the spread closes again. So a single instant of separation licenses a
+   * position permanently, and the book produces such instants constantly — a
+   * one-sided sweep prints a wide spread for a second before the other side
+   * re-quotes. That is how the two windows that block this level are lost: the
+   * book is a coin flip for their whole first minute, momentarily shows a
+   * twenty-cent spread, and the player takes six hundred shares of a leg at
+   * 0.57–0.61 on the strength of it. The spread then closes, the window turns,
+   * and the leg is worthless.
+   *
+   * The remedy is the one that worked for the spike gate: judge the signal over
+   * a stretch of time rather than at an instant. With this set, `edge` becomes
+   * the LOWEST spread seen in the trailing window, so a burst licenses nothing
+   * until it persists. A genuine trend pays only the delay — its spread widens
+   * and stays wide, so the allowance follows it one window later.
+   *
+   * MEASURED AND REJECTED, and it is the cleanest demonstration yet that the
+   * edge pace is load-bearing exactly as it stands. It DOES repair both windows
+   * that block this level — at 20 s and at 30 s, over six probes, they finish
+   * 1000/1000 at a pair cost near 0.96 where the shipped player finishes
+   * 1000/281. It also costs, against two failures with it off: 14 failures
+   * unconditional at 20 s, 15 unconditional at 30 s, 14 gated on a handover, 9
+   * gated on a thirty-second clock. Every one of them is a leg stranded between
+   * 200 and 700 at a pair cost above 1.05 — the price of a delayed chase, paid
+   * in every window whose favourite really was running away. Four windows lost
+   * per window saved, and narrowing the gate does not improve the trade,
+   * because the gate late enough to spare the trends is too late for the coin
+   * flips: at 45 s the repair itself is gone.
+   */
+  edgeHoldMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Milliseconds into the window before `edgeHoldMs` engages. Until then the
+   * pace reads the spread at this instant, as it always did.
+   *
+   * The trailing minimum applied from the first tick is far too strong: it
+   * costs a dozen windows for the two it repairs, and every one of them is lost
+   * the same way — a leg frozen at two or four hundred shares while its partner
+   * finishes, at a pair cost of 1.10 and up. The reason is structural. A window
+   * whose favourite is genuinely running away has to have it bought in the
+   * first minute, and a trailing minimum delays exactly that purchase by the
+   * length of the window it measures over, because the spread it looks back at
+   * is the coin-flip spread the window opened with.
+   *
+   * Gating on a HANDOVER instead — waiting until the priority role has changed
+   * hands while the demoted leg held shares — was tried and is worthless: it
+   * reproduced the unconditional result market for market. The role does not
+   * change hands once mid-window, as reading a fifteen-second log suggests; it
+   * flickers on essentially every tick, so any counter over it saturates within
+   * seconds of the first fill. That is a fact about this player worth keeping:
+   * "the priority leg changed" is not a rare event and cannot carry a rule.
+   *
+   * The clock can. It leaves the opening chase alone, which is what the trend
+   * windows need, and still arrives in time for the second and third swings,
+   * which is where the coin-flip windows lose their money.
+   */
+  edgeHoldAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * Fraction of `qty` past which a leg is FINISHED rather than paced. 1 ⇒ the
    * pace applies all the way to the target.
    *
@@ -1573,6 +1634,41 @@ export const ConfigSchema = z.strictObject({
    */
   holdRamp: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * Share of the whole budget the player may have SPENT at the open, ramping to
+   * all of it by `spendPaceUntil`. 1 disables the pace.
+   *
+   * `holdRamp` rations shares and fails because a share is not the scarce thing:
+   * refusing a leg at 0.05 costs the window its cheap half for no saving, while
+   * one clip at 0.60 does the real damage. Money is the scarce thing, and it is
+   * the quantity the pair ceiling is actually denominated in. Rationed by money,
+   * the same clock lets the cheap side through untouched — five hundred shares
+   * at a nickel spend what fifty do at half a dollar — and bites only on the
+   * expensive commitment made before the window has said anything.
+   *
+   * That is exactly the shape of the two windows blocking this level: both spend
+   * more than half of everything they have inside the first minute, on a leg
+   * quoted between 0.53 and 0.61 with the book still a coin flip, and both then
+   * reverse and cannot fund the leg that wins.
+   *
+   * MEASURED AND REJECTED. The reasoning survives contact — money IS the right
+   * quantity, and rationing it does exactly what it promised. Market 47 goes
+   * from 1000/281 to a clean 1000/1000, market 52 from 344 to 825, and the pair
+   * costs of what it does buy fall to 0.83–0.95, the cheapest this player has
+   * ever bought. It still fails, and worse than `holdRamp`: at (0.15, 0.6),
+   * 22 failures over the first sixty markets against two. Anything gentle
+   * enough to be safe is inert — at 0.35 the allowance at t+90 s already exceeds
+   * what the losing windows had spent by then, so nothing changes at all.
+   *
+   * The failures are share counts, never pair costs, and that is the whole
+   * lesson. This player wins by completing legs; a budget it may not spend is a
+   * leg it may not finish, and an unmatched share is worth nothing however
+   * cheaply it was bought. The clock cannot distinguish money spent early on
+   * the leg that wins from the same money spent on the leg that turns.
+   */
+  spendPace: z.coerce.number().finite().min(0).max(1).default(1),
+  /** Fraction of the window by which the whole budget is released. */
+  spendPaceUntil: z.coerce.number().finite().min(0.05).max(1).default(0.33),
+  /**
    * Share of the target either leg may hold at the open, before the ramp has
    * opened at all. 1 disables the ramp as surely as `holdRamp` 0.
    */
@@ -1687,6 +1783,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
   }
   const trailingLow = (side: Side): number => lowQ[side][0]?.v ?? Infinity
+
+  /**
+   * The same deque over the book's own spread, so the pace can ask how wide the
+   * spread has been for a while rather than how wide it is right now. Head is
+   * the trailing minimum. See `edgeHoldMs`.
+   */
+  const edgeQ: { t: number; v: number }[] = []
+  const pushEdge = (t: number, v: number): void => {
+    while (edgeQ.length > 0 && edgeQ[edgeQ.length - 1]!.v >= v) edgeQ.pop()
+    edgeQ.push({ t, v })
+    const cutoff = t - cfg.edgeHoldMs
+    while (edgeQ.length > 1 && edgeQ[0]!.t < cutoff) edgeQ.shift()
+  }
 
   /**
    * Latest Chainlink−Binance basis. The two feeds price the same asset a few
@@ -1806,6 +1915,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
     pushLow('UP', nowMs, askUp)
     pushLow('DOWN', nowMs, askDown)
+
+    // How hard the book is leaning, now and over the trailing window. Both are
+    // needed before the early returns below, or a tick the player sits out
+    // would leave a hole in the trailing minimum.
+    const edge = Math.abs(askUp - askDown)
+    pushEdge(nowMs, edge)
+    const sustainedEdge =
+      cfg.edgeHoldMs > 0 && nowMs - windowStartMs >= cfg.edgeHoldAfterMs
+        ? (edgeQ[0]?.v ?? edge)
+        : edge
 
     if (askUp < minAsk.UP) {
       minAsk = { ...minAsk, UP: askUp }
@@ -1931,7 +2050,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `diff=${diff === null ? '-' : diff.toFixed(0)} need=${needDiff.toFixed(0)} out=${outsideSide ?? '-'} ` +
           `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
           `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'} ` +
-          `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''}`,
+          `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''} ` +
+          `edg=${edge.toFixed(2)}/${sustainedEdge.toFixed(2)}`,
       )
     }
 
@@ -2000,7 +2120,6 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // favourite is chased (it will never be cheaper), the reserve held back for
     // the underdog shrinks (it will be cheap), and the crossing throttle opens
     // (its window is measured in seconds).
-    const edge = Math.abs(askUp - askDown)
     const conv =
       cfg.convEdge >= 1 || elapsed > cfg.convUntil * WINDOW_MS
         ? 0
@@ -2280,7 +2399,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The outside reading is required alongside the book's when `ptbPace` is
       // on: the position may be no larger than the WEAKER of the two pieces of
       // evidence supports.
-      const bookFrac = edge / cfg.edgeFull
+      const bookFrac = sustainedEdge / cfg.edgeFull
       const evidence =
         cfg.ptbMode === 1 && cfg.ptbPace === 1 ? Math.min(bookFrac, outsideFrac) : bookFrac
       const edgeFrac = Math.min(1, Math.max(cfg.openShare, evidence))
@@ -2307,6 +2426,23 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // which is the point — a bid left in the book is run through by the very
       // move being refused.
       const spikeRoom = spiking ? 0 : Infinity
+      // Spend pace: shares this leg could buy at today's ask without taking the
+      // running total past what the clock has released. See `spendPace`.
+      const spendRoom =
+        cfg.spendPace >= 1
+          ? Infinity
+          : (Math.max(
+              0,
+              cfg.qty *
+                cfg.pairCeil *
+                Math.min(
+                  1,
+                  cfg.spendPace +
+                    (1 - cfg.spendPace) * (elapsed / (cfg.spendPaceUntil * WINDOW_MS)),
+                ) -
+                spent,
+            ) /
+              Math.max(ask, cfg.minPrice))
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),
@@ -2316,6 +2452,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, edgeRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
+        Math.max(0, spendRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
