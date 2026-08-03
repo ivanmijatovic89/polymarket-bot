@@ -2590,6 +2590,35 @@ export const ConfigSchema = z.strictObject({
    * everything already spent on it.
    */
   finishCeilShare: z.coerce.number().finite().min(0).max(1).default(0.85),
+  /**
+   * 1 ⇒ a leg whose PARTNER is already complete also reads the finish budget,
+   * whatever fraction of its own target it holds.
+   *
+   * `finishCeilShare` releases the extra budget to a leg that is nearly done on
+   * the argument that the shares it still owes make everything already bought
+   * unmatchable. That argument is at its strongest, not its weakest, when the
+   * OTHER leg has reached `qty`: at that point the player holds a thousand
+   * shares whose entire value depends on the trailing leg being completed, and
+   * every dollar the ceiling withholds from it is a dollar that buys nothing at
+   * all. The share test cannot see this — it asks how far the trailing leg has
+   * come, and a leg at three tenths reads as an accumulation to be paced even
+   * when it is the only purchase left in the window.
+   *
+   * The market that blocks level 87 is exactly this shape. Its window grinds one
+   * way for three minutes, the player finishes that leg at the top of the move,
+   * the market comes all the way back, and the trailing leg is offered at 0.28
+   * against a remaining budget that affords 0.2997 a share — a fill that would
+   * have closed the pair at 0.966 and passed. Six hundred shares are refused for
+   * a cent, and there is no second offer.
+   *
+   * Narrow in the same two ways `finishCeilShare` is: crossing only, so it can
+   * never raise a resting bid, and only ever the difference between `pairCeil`
+   * and `finishCeil` — five dollars at the shipped settings, which is all this
+   * market needed. Over the first 110 markets it repairs 87 and moves nothing
+   * else: the failures either side of it are unchanged, and raising the whole
+   * ceiling to buy the same cent instead costs market 39.
+   */
+  closeFinish: z.coerce.number().int().min(0).max(1).default(1),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   /** 0 off, 1 the decision timeline, 2 the whole-window observation channel. */
   debug: z.coerce.number().int().min(0).max(2).default(0),
@@ -3933,7 +3962,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // answers to `cap`, so the exemption can never raise a passive quote or
       // buy a share the player was not already one clip from needing.
       const capNoAsk =
-        cfg.finishCeilShare < 1 && held[side] >= cfg.finishCeilShare * cfg.qty
+        (cfg.finishCeilShare < 1 && held[side] >= cfg.finishCeilShare * cfg.qty) ||
+        (cfg.closeFinish === 1 && held[other] >= cfg.qty)
           ? (capFin[side] ?? cap[side])
           : cap[side]
       const cross =
