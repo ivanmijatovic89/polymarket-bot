@@ -944,12 +944,30 @@ export const ConfigSchema = z.strictObject({
    * holds the JOINT allowance at the opening size until the book has enough in
    * it for its own price to mean something.
    *
-   * The clean band over the first 84 markets is 1,200–1,800: 1,000 leaves the
-   * level 84 window failing and 1,900 costs `…1775119500`. 2,500 — the value
-   * `depthMinDep` uses — costs five. The pace is read on every tick of every
-   * window, where the cap arms once, so it needs the lower floor.
+   * As a ramp (`edgeDepRamp=1`, the default) every value from 1,200 to 2,000
+   * carries the first 86 markets; the failures further out move around inside
+   * that band and the moves are the size of the latency jitter. As a bare gate
+   * the band is narrower — 1,200–1,800 over the first 84 — and it costs the
+   * level 85 window. 2,500, the value `depthMinDep` uses, costs five markets
+   * either way: the pace is read on every tick of every window, where the cap
+   * arms once, so it needs the lower floor.
    */
   edgeMinDep: z.coerce.number().finite().min(0).default(1_500),
+  /**
+   * 1 ⇒ `edgeMinDep` is a RAMP rather than a gate: the ask gap counts in
+   * proportion to how much of the floor the book has, instead of not at all
+   * until the floor is reached.
+   *
+   * The gate is too blunt, and the window that blocks level 85 says why. It
+   * opens already leaning, trends one way for twenty-five seconds and only
+   * reverses after the pair is finished — a window the player has to buy into,
+   * and the whole of that stretch happens on 600–1,500 shares. A gate refuses
+   * it outright and it finishes the leg twenty seconds later at 0.79 instead of
+   * 0.74, with nothing left for the other side. The ramp lets a thin book buy a
+   * proportionally smaller position rather than none, which is what the reading
+   * actually supports.
+   */
+  edgeDepRamp: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * Milliseconds the book's spread must have been WIDE before it licenses
    * inventory. 0 ⇒ the pace reads the spread at this instant.
@@ -3759,9 +3777,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // evidence supports.
       // An ask gap on a book with nothing in it is not evidence either. Same
       // floor as `depthMinDep`, applied to the pace instead of the cap.
+      const depSeen = depthAbs[side] ?? 0
       const edgeThick =
-        cfg.edgeMinDep <= 0 || (depthAbs[side] ?? 0) >= cfg.edgeMinDep
-      const bookFrac = edgeThick ? sustainedEdge / cfg.edgeFull : 0
+        cfg.edgeMinDep <= 0
+          ? 1
+          : cfg.edgeDepRamp === 1
+            ? Math.min(1, depSeen / cfg.edgeMinDep)
+            : depSeen >= cfg.edgeMinDep
+              ? 1
+              : 0
+      const bookFrac = (edgeThick * sustainedEdge) / cfg.edgeFull
       const evidence =
         cfg.ptbMode === 1 && cfg.ptbPace === 1 ? Math.min(bookFrac, outsideFrac) : bookFrac
       const edgeFrac = Math.min(1, Math.max(cfg.openShare, evidence))
