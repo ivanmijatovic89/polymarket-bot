@@ -277,12 +277,18 @@ export const ConfigSchema = z.strictObject({
    * be the winner instead, the momentum reading promotes it and the cap lifts.
    *
    * Measured on level 6: the whole level is lost without this cap (0 of 20
-   * runs) and won with it anywhere from 0.08 to 0.50 (20 of 20 at 0.08, 0.12,
-   * 0.15, 0.20, 0.30, 0.45, 0.50). It ships at the middle of that plateau. 0.60
-   * fails outright, and the reason is exactly the mechanism above: market 6's
-   * losing leg opens at 0.53, so a cap above it lets the leg fill at the open.
+   * runs) and won with it anywhere from 0.08 to 0.50.
+   *
+   * Level 14 narrowed that band from above. Its fourteenth market whipsaws — the
+   * two asks cross five times in seven minutes — so the priority role keeps
+   * changing hands and BOTH legs get bought around 0.5 by taking turns. The
+   * lower the cap, the less of the ceiling the leg that is momentarily second
+   * can spend before the market changes its mind. Level 14 passes 5 of 5 at
+   * 0.03, 0.05, 0.08, 0.10, 0.12 and 0.15, and fails 5 of 5 at 0.17, 0.20 and
+   * the old 0.25. It ships at 0.10, roughly the middle of the surviving band and
+   * about where a losing leg trades late in these windows.
    */
-  underdogMax: z.coerce.number().finite().min(0.02).max(1).default(0.25),
+  underdogMax: z.coerce.number().finite().min(0.02).max(1).default(0.1),
   /**
    * Milliseconds at the start of the window during which NO leg may hold more
    * than `openShare` × `qty` shares.
