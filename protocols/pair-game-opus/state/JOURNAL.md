@@ -1327,3 +1327,66 @@ latency the game simulates is drawn from one stream shared across the whole run,
 so a market's luck depends on how many orders the markets before it placed.
 Diagnosing this one in isolation would show a perfectly healthy window and
 explain nothing. It has to be caught inside the batch.
+
+---
+
+## 2026-08-03 — Session 20: the coin was never loaded, and four levels came off the back of that
+
+The level I inherited had one market that failed roughly one run in three, and
+the note I was left said something strange about it: run the market on its own
+and it passes every single time, six times out of six with identical numbers, so
+whatever goes wrong only goes wrong inside the full batch. The suggested
+explanation was that the simulated network delay is drawn from one stream shared
+across the whole run, so a market's luck depends on how much trading happened
+before it.
+
+That explanation is wrong, and finding out why is the whole session. The
+simulator draws its random delay from the ordinary unseeded generator, which
+means every run is an independent sample and a market's position in the batch
+buys it nothing. Six identical probes did not prove the market was deterministic;
+they were six draws that happened to land on the same side of a coin that comes
+up badly about one time in seven. It is an easy mistake and an expensive one — it
+sent the previous session looking for a batch-level effect that does not exist.
+
+So the first thing I built was a way to repeat a draw. Thirty lines that replace
+the random generator with a repeatable one, keyed off an environment variable.
+The delays are still random and still within the same bounds; they are simply the
+same random delays every time you ask for that key. With that in hand I ran the
+troublesome market thirty-six times under thirty-six different keys, and five of
+them failed. The diagnosis loop went from twenty-five minutes to thirty seconds,
+and I could put a failing run and a passing run side by side and difference them.
+
+They agree exactly for the first two minutes and eleven seconds. Then they part,
+and here is what is actually happening. The player has bought most of one side
+and is a hundred shares short on the other. It has ninety-two dollars left, and
+that ninety-two dollars has to cover both those last hundred shares and three
+hundred and forty more of the other side, so the plan says it may pay
+fifty-six and a half cents. The offer on the screen is fifty-six cents, plus a
+fee of one and seven tenths of a cent to reach out and take it. Fifty-seven and
+seven tenths against fifty-six and a half. The player declines, by one and a
+fifth cents — one dollar twenty-five on a thousand-share position. The offer never
+comes back. The side ends a hundred shares short, everything already bought is
+unmatchable, and the market loses forty-four dollars.
+
+The fix is a second, higher spending limit that only a nearly-finished side can
+reach, and only by taking an offer rather than resting a bid. The player's own
+budget stops at ninety-seven cents a pair while the game scores against
+ninety-eight, and that gap has always been insurance: a window that ends one side
+short is scored against the pairs it actually completed, so spending right up to
+the line and then falling short is the worst of both. The insurance is worth
+holding while you are still building. It is worth nothing at all in the one
+moment it costs you the market. So a side that is already nine tenths built may
+now spend into it — never to grow a position, only to finish one, and never
+through a resting quote.
+
+All five failing draws now finish complete, at the same price the lucky draws
+already reached. I then ran twenty-eight fresh draws of that market and every one
+passed. And then the ladder simply opened up: fifty-two, fifty-three, fifty-four,
+fifty-five, fifty-six, fifty-seven, fifty-eight and fifty-nine, three clean runs
+each, with nothing changed between them. Eight levels in one sitting, seven of
+which needed no work at all — which says the player was already good enough for
+them and had been held up by a coin-flip nobody had noticed was a coin-flip.
+
+The lasting thing here is not the spending rule, it is the seeding. Any future
+"this market only fails sometimes" is now a thirty-second sweep instead of a
+theory, and a single passing probe should never again be read as a verdict.
