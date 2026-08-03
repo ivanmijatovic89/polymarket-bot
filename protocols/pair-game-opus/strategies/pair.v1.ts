@@ -248,6 +248,47 @@ export const ConfigSchema = z.strictObject({
    */
   reserveAsk: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * Fraction of the OTHER leg's own cheapest observed ask that must stay
+   * reserved for it, whatever the rest of the budget split says. 0 disables it.
+   *
+   * The priority leg's price cap is `(budgetLeft − needSecond × reserve) /
+   * needFirst`, and `reserve` is normally `underdogMax` — a bet that the leg not
+   * being chased ends the window nearly worthless. In a trending market that bet
+   * is right and it is what lets the favourite be bought at all. In a market
+   * that opens leaning, runs, and then reverses for good, it is what kills the
+   * player: the favourite is completed at 0.68 on the strength of an assumption
+   * that the other leg will be available at 0.09, the reversal arrives, and the
+   * leg that has to be bought never trades below 0.30 again.
+   *
+   * The other leg's own cheapest ask so far is a fact rather than an assumption,
+   * and it is the right one to plan against, because it is the price the player
+   * has actually seen and can hope to see again. Reserving against it costs
+   * nothing in a trending window — the loser keeps setting new lows, so the
+   * reserve keeps shrinking on its own — and in a reversing one it stops the
+   * favourite from spending money the second leg is going to need.
+   *
+   * It has to stand down for the opening seconds for the same reason
+   * `underdogMax` exists: at t+0 the other leg's low IS its opening ask, near
+   * 0.50, and reserving that much leaves the favourite unable to buy anything at
+   * all in the one moment it is affordable (`reserveLowAfterMs`).
+   *
+   * Measured and NOT shipped, and the reason is the one that sinks every price
+   * cap in this strategy. Alone over the first forty markets it is genuinely
+   * useful — 0.7 fixes two of the three failures and costs one, where 0.5 fixes
+   * one and 1.0 costs seven — and alongside the early size cap it fixes the last
+   * market outstanding. But what it does to the market it is aimed at is not
+   * what it looks like: capping the price the favourite may pay only turns a
+   * taker fill into a resting maker bid a few cents lower, and when the window
+   * reverses the favourite falls straight through that bid. The same thousand
+   * shares of the same losing outcome are bought anyway, slightly cheaper. The
+   * one market it costs (the twenty-sixth) is refused outright and ends at a
+   * seventh of its target, which is the same failure `chasePad` documents.
+   * Ships off; `earlyShare` does the job by bounding size instead.
+   */
+  reserveLow: z.coerce.number().finite().min(0).max(1).default(0),
+  /** Milliseconds into the window before `reserveLow` engages. */
+  reserveLowAfterMs: z.coerce.number().finite().min(0).default(20_000),
+  /**
    * How far above its OWN running low ask the priority leg may pay. 1 disables it.
    *
    * Every other rule the player owns is instantaneous: it reads the two asks at
@@ -512,6 +553,104 @@ export const ConfigSchema = z.strictObject({
   openMs: z.coerce.number().finite().min(0).default(5_000),
   /** Fraction of `qty` any one leg may hold before `openMs`. 1 disables the cap. */
   openShare: z.coerce.number().finite().min(0).max(1).default(0.2),
+  /**
+   * Milliseconds at the start of the window during which no leg may hold more
+   * than `earlyShare` × `qty` shares. The same idea as `openMs`/`openShare`, one
+   * stage later and one stage looser.
+   *
+   * `openMs` protects the tick-zero guess; this protects the whole stretch in
+   * which the ONLY evidence available is the order book. The outside price is
+   * not allowed to overrule the book until `ptbFairAfterMs`, for good reason —
+   * a book that leans in its first seconds is carrying what the market learned
+   * before the window opened, and BTC, which starts every window exactly on its
+   * own strike, cannot contradict it yet. But that stand-down is also a blind
+   * spot: conviction can complete an entire leg inside it, on the book's word
+   * alone, and if the window then reverses the budget is gone and the leg that
+   * has to be bought is the one that ran.
+   *
+   * Capping how much may be committed before the outside price is allowed to
+   * speak makes that reversal survivable without touching the stand-down
+   * itself. The favourite is still bought from the first tick and still bought
+   * ahead of everything else; it simply may not be finished on the strength of
+   * one opinion.
+   *
+   * The length matters and it is the stand-down's length, not a free parameter:
+   * shortened to 30 s the cap lifts before the override arrives and the market
+   * it exists for is lost again exactly as before; extended to 60 s it starts
+   * costing trending markets that had finished deciding.
+   *
+   * Price caps cannot do this job — measured, and the reason is worth keeping.
+   * Capping what the priority leg may PAY (`chasePad`, and the reserve floor
+   * `reserveLow` below) only converts a taker fill into a resting maker bid a
+   * few cents lower, and in a window that reverses the leg falls straight
+   * through that bid: the same 1,000 shares of the same losing outcome are
+   * bought anyway, slightly cheaper. Only a cap on SIZE stops the commitment.
+   *
+   * 1 disables it.
+   */
+  earlyMs: z.coerce.number().finite().min(0).default(45_000),
+  /**
+   * Fraction of `qty` any one leg may hold before `earlyMs`. 1 disables the cap.
+   *
+   * The surviving band is narrow and it is not smooth: with the two gates below
+   * in force, 0.5 leaves one market of the first forty unsolved, 0.4 leaves
+   * two and 0.45 leaves three. Treat a change here as a change of behaviour, not
+   * a tuning nudge.
+   */
+  earlyShare: z.coerce.number().finite().min(0).max(1).default(0.5),
+  /**
+   * Fraction of `qty` the OTHER leg must already hold before `earlyShare`
+   * applies to this one. 0 ⇒ the cap is unconditional.
+   *
+   * Unconditional, the cap costs more than it saves, and the markets it costs
+   * say why: a window that trends from its first tick has to have its favourite
+   * finished inside the first minute, because that is the whole time the
+   * favourite is affordable, and a cap that stops it at four tenths of target
+   * leaves the leg unbought when the price has gone. Restraint is not free.
+   *
+   * What separates those windows from the ones the cap is for is not how far
+   * the book has leaned but whether the player has ALREADY been made to buy both
+   * sides. `underdogMax` holds the non-priority leg to a loser's price, so in a
+   * window that trends the second leg simply does not fill early — the player
+   * owns one leg and nothing else. The second leg only accumulates when the
+   * priority role has changed hands, which means the book has contradicted
+   * itself, and both legs are then being bought at coin-flip prices. That is
+   * exactly the window that must not be finished on the book's word alone, and
+   * it identifies itself by the player's own inventory rather than by any
+   * reading of the quote.
+   *
+   * A quarter of the target is what ships. It is a real threshold rather than a
+   * fitted one: below it (0.05, 0.15) the cap starts catching trending windows
+   * whose second leg picked up a token fill, above it (0.35) the windows it
+   * exists for slip under the bar.
+   */
+  earlyBoth: z.coerce.number().finite().min(0).max(1).default(0.25),
+  /**
+   * 1 ⇒ `earlyShare` restrains a leg only while the outside price DISAGREES
+   * with buying it.
+   *
+   * `ptbFairAfterMs` makes the disagreement wait 45 s before it may switch the
+   * priority leg, and the reason is sound: the book's opening lean carries what
+   * the market learned before the window began, and BTC, sitting exactly on its
+   * own strike, cannot contradict it yet. But that argument is about
+   * OVERRULING the book. It says nothing against using the same reading, in the
+   * same seconds, for the far weaker purpose of deciding how much to commit —
+   * and the price to beat arrives about three seconds into the window, so the
+   * reading is there long before the override may use it.
+   *
+   * This is what separates the two windows the unconditional cap cannot tell
+   * apart. Both open near even, buy a few hundred of each leg, and then run
+   * hard on one side. In the one that keeps running, the model agrees with the
+   * book the whole way up — the underlying really has moved — and the leg must
+   * be finished immediately, because it is never cheaper again. In the one that
+   * reverses, the book is quoting 0.68 while the model reads 0.58, and the
+   * player is being asked to spend its ceiling on an outcome the underlying does
+   * not support. Restraint belongs to the second case only.
+   *
+   * It is worth two markets on its own: with the cap otherwise unchanged, the
+   * first forty go from thirty-seven passing to thirty-nine.
+   */
+  earlyFair: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * Edge at which a leg may be completed. 0 disables the pace.
    *
@@ -1206,7 +1345,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // the first seconds never got taken at all.
       const reservePrice =
         cfg.reserveAsk * askSecond + (1 - cfg.reserveAsk) * Math.min(askSecond, cfg.underdogMax)
-      const reserve = Math.max(cfg.minPrice, mix(cfg.leadReserve, cfg.convReserve) * reservePrice)
+      // The floor the other leg's own observed low puts under that reserve. It
+      // is deliberately outside the conviction mix: conviction shrinks the
+      // reserve because it expects the second leg to be cheap, and this is the
+      // evidence that says how cheap it has actually managed to be.
+      const lowSecond = trailingLow(second)
+      const reserveFloor =
+        cfg.reserveLow <= 0 || elapsed < cfg.reserveLowAfterMs || !Number.isFinite(lowSecond)
+          ? 0
+          : cfg.reserveLow * Math.min(askSecond, lowSecond)
+      const reserve = Math.max(
+        cfg.minPrice,
+        mix(cfg.leadReserve, cfg.convReserve) * reservePrice,
+        reserveFloor,
+      )
       // The priority leg may not be chased far above its own cheapest ask so
       // far: this is the player's only non-instantaneous rule, and the only
       // thing that refuses the second and third swing of a whipsaw.
@@ -1292,6 +1444,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.openShare >= 1 || elapsed >= cfg.openMs
           ? Infinity
           : cfg.openShare * cfg.qty - held[side]
+      // Second-stage cap: before the outside price is allowed to overrule the
+      // book, no leg may be finished on the book's word alone.
+      // Does the outside price argue against buying THIS leg right now? Unknown
+      // (the price to beat has not arrived yet) counts as "yes": the whole point
+      // of the cap is that the book alone is not enough.
+      const fairAgainst =
+        pModel === null || (Math.abs(fairGap) >= cfg.ptbFairEdge && fairWant !== side)
+      const earlyRoom =
+        cfg.earlyShare >= 1 ||
+        elapsed >= cfg.earlyMs ||
+        held[side === 'UP' ? 'DOWN' : 'UP'] < cfg.earlyBoth * cfg.qty ||
+        (cfg.earlyFair === 1 && !fairAgainst)
+          ? Infinity
+          : cfg.earlyShare * cfg.qty - held[side]
       // Edge pace: a leg may only hold as much of its target as the book has
       // already revealed. Only meaningful while both legs are still contested.
       // The outside reading is required alongside the book's when `ptbPace` is
@@ -1314,6 +1480,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, cfg.maxImbalance - lead),
         Math.max(0, paceRoom),
         Math.max(0, openRoom),
+        Math.max(0, earlyRoom),
         Math.max(0, edgeRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
