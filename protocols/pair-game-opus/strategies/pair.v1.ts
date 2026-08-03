@@ -131,6 +131,20 @@ export const ConfigSchema = z.strictObject({
    * trending window holding a full position in the collapsing outcome and
    * nothing in the other. This is the throttle that forces the legs to take
    * turns.
+   *
+   * Re-measured against level 47, where the arithmetic said it should work: both
+   * blocking windows die because the budget is spent finishing the leg that
+   * expires worthless, and refusing to finish it leaves exactly enough money to
+   * buy the winner during the reversal. It does save the money — 300 caps the
+   * losing leg at 581 shares and the spend at 484 of 970 — and the winning leg
+   * still does not move a share (281 and 344, unchanged to the decimal). The
+   * saved budget cannot be spent because the leg that needs it is capped
+   * somewhere else: at the reversal the player's bid is 0.52 against an ask of
+   * 0.56, held there by the reserve `reserveLow` sets aside for the leg it is
+   * abandoning. Money is not the constraint on the winning leg; the bid is.
+   * Combined with `swapEdge` it is worse than either alone — the imbalance cap
+   * then prevents EITHER leg from finishing (600/300 on both blockers at 300,
+   * and it re-breaks at 450 and 600 what `swapEdge` alone repairs).
    */
   maxImbalance: z.coerce.number().int().positive().default(1_000_000),
   /**
