@@ -1087,6 +1087,35 @@ export const ConfigSchema = z.strictObject({
    */
   commitReserve: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * Multiple of the oracle band the price-to-beat signal must clear, in the
+   * direction of the PRIORITY leg, before `reserveLow`'s floor stops applying.
+   * 0 disables it; 1 ⇒ the moment `outsideSide` names the priority leg.
+   *
+   * The floor asks "how cheap can the second leg honestly be expected to get"
+   * and answers with the cheapest price that leg has actually shown. That is
+   * the best answer available while the window is still a coin flip. It is the
+   * wrong answer once BTC has run clear of the price to beat in the priority
+   * leg's own direction, because then the second leg is the one heading for
+   * zero: its trailing low is an overestimate of what it will finally cost, and
+   * the money held back at that stale price is withheld from the only leg whose
+   * price is still running away.
+   *
+   * This is `commitReserve`'s release keyed to evidence about the OUTCOME
+   * rather than evidence about the player's own inventory. The two answer
+   * different windows: `commitReserve` needs the player to already hold most of
+   * the leg it reserves against, and a whipsaw that split the spend evenly
+   * across both legs never satisfies it.
+   *
+   * The margin the value has to carry is a real one. At 1 — release the floor
+   * the instant the band is cleared — the release fires early enough in a
+   * window that later reverses to overspend on the leg that eventually loses,
+   * and an earlier market that finishes with a one-cent margin fails instead.
+   * 1.3 through 1.8 fix the level 67 whipsaw and keep that market; 1.5 is the
+   * middle of the band, and both windows finish on all of eighteen seeded
+   * latency draws across it.
+   */
+  oracleReserve: z.coerce.number().finite().min(0).default(1.5),
+  /**
    * How far above its OWN trailing low the chased leg must trade before the
    * `commitShare` pace exemption applies. 0 ⇒ always.
    *
@@ -2655,13 +2684,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // held back for shares it has mostly already bought, and it is withheld
       // from the only leg that can still complete the pair. See `commitReserve`.
       const secondCommitted = cfg.commitReserve === 1 && first === chaseLeg && commitArmed
+      // The oracle has already called the window in the priority leg's favour,
+      // so the leg being reserved against is the one heading for zero and its
+      // trailing low overstates what finishing it will cost. See `oracleReserve`.
+      const secondDoomed =
+        cfg.oracleReserve > 0 &&
+        outsideSide === first &&
+        outsideFrac >= cfg.oracleReserve
       const reserveFloor =
         cfg.reserveLow <= 0 ||
         elapsed < cfg.reserveLowAfterMs ||
         elapsed >= cfg.reserveLowUntilMs ||
         !Number.isFinite(lowSecond) ||
         secondFalling ||
-        secondCommitted
+        secondCommitted ||
+        secondDoomed
           ? 0
           : cfg.reserveLow * Math.min(askSecond, lowSecond)
       const reserve = Math.max(
