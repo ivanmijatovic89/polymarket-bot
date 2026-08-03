@@ -1073,3 +1073,88 @@ has never once been moved in sixteen sessions. It is where I would go next.
 Everything is committed, the two new knobs ship switched off with their negative
 results written into the code beside them, and I re-ran level 46 at the new
 commit to confirm the player still behaves identically: forty-six of forty-six.
+
+---
+
+## 2026-08-03 — Session 17: the plan I inherited was wrong, and the reason is useful
+
+Last session left a very specific next move, pinned to arithmetic rather than
+intuition: in the two windows still blocking level 47, the side that ends up
+winning is quoted around half a dollar for two full minutes after the market
+turns, the player clearly has the money to buy it, and it does not, because a
+separate rule holds the side it is not chasing to a loser's price of ten cents.
+Move that ten-cent ceiling, said the note, and the windows should open.
+
+I moved it — to fifteen cents, twenty, twenty-five, forty. Nothing changed. Not
+approximately nothing: the two markets finished on identical share counts to the
+decimal place at every setting. That is the signature of a rule that is not
+running at all, and when I went and read the code path it is exactly that. The
+ten-cent ceiling only applies while both sides are still being built. By the time
+these windows reverse, the player has already finished one side, and it has left
+that part of the code entirely. The constraint everyone has been staring at for
+two sessions was never in the picture.
+
+So I went back to the tick-by-tick record and read what actually stops the
+purchase. At the moment market forty-seven turns, the player wants to buy the
+winning side, the side is offered at fifty-six cents, and the player's own bid
+sits at fifty-two. It rests there while the price walks away from it to ninety-
+nine. Four cents. The arithmetic behind those four cents is a reserve: before
+deciding what it may pay for the side it is chasing, the player sets aside money
+for the side it is abandoning, and it sizes that reserve from the cheapest price
+the abandoned side has traded at so far. That number is stale by construction —
+a side that is collapsing is making a new low every few seconds — and in this
+window it withholds about a hundred dollars for shares that end up costing two
+cents each. Meanwhile the winning side goes unbought for want of four cents a
+share. **The constraint on these windows is the bid, not the money.** That is the
+single most useful thing I learned today, and everything below is a consequence
+of testing it.
+
+I tried three things against it. The first was the obvious one — stop the player
+changing its mind. In both blocking windows it opens by picking the cheaper side,
+which turns out to be the eventual winner, and then abandons it within a minute
+because Bitcoin has moved three to fifteen dollars, which is noise. So I made
+changing its mind cost something, in proportion to what it has already bought:
+with nothing committed, switch freely; with most of a side bought, the market has
+to shout. This works beautifully on the two blockers. Both finish complete, at
+the best pair prices this player has ever produced. It also breaks three markets
+that currently pass, and there is no gentler setting — below the level that fixes
+the two, the fix simply vanishes.
+
+The three casualties taught me something I would not have guessed. The
+mind-changing I suppressed was doing a second job nobody designed. A side only
+gets bought on the ticks where it holds priority, so priority flickering back and
+forth every tick was acting as a brake on how fast the player could load up. Take
+the flicker away and it buys its chosen side out in seventy-five seconds instead
+of minutes — and if that side is the loser, there is no money left for anything.
+All three casualties end holding a thousand shares of the worthless outcome and
+two hundred of the good one, which is the same shape as the two markets I was
+trying to fix. I have written that into the notes, because any future rule that
+makes the player stick to its choice has to put the brake back deliberately.
+
+The second attempt went at the stale reserve directly: stop reserving against a
+price the abandoned side is still falling through. The reasoning is sound and the
+distinction turned out to be empty — it reproduced simply switching the reserve
+off, to the cent, in every configuration. At the moments the reserve binds, the
+abandoned side is always falling. That is what being abandoned means.
+
+The third was a cap on how far one side may run ahead of the other, which the
+arithmetic said should work: if the player never finishes the losing side, it
+keeps the money, and the money is what it needs at the reversal. It does keep the
+money — the losing side stops at five hundred and eighty shares and the spend at
+under half the budget — and the winning side still does not move a single share.
+Which is the whole lesson again, from a third direction: the bid, not the money.
+
+Nothing shipped. Both new knobs default to off, with their numbers written beside
+them in the code, and the player is bit-for-bit the one that passed level 46 — I
+re-ran that level at the new commit to prove it, forty-six of forty-six.
+
+Four sessions of this now share a pattern worth saying plainly: every change I
+have found either does nothing or trades one set of winnable markets for another.
+The player wins fifty-eight of sixty, and the changes reshuffle which fifty-eight.
+That is what parameter search looks like when it has run out of road, and it is
+why next session goes at the measured constraint instead. The reserve should be
+sized by what the abandoned side will actually cost — pennies, once the market has
+made up its mind — not by any price it has already traded at. The first probe is
+cheap and decisive: force the reserve to nothing from ninety seconds in and see
+whether market forty-seven finishes. If it does, the work is finding the honest
+rule that says when.
