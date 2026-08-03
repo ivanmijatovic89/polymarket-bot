@@ -1395,6 +1395,41 @@ export const ConfigSchema = z.strictObject({
    */
   jumpTauMs: z.coerce.number().finite().min(0).default(0),
   /**
+   * 1 ⇒ `jumpPad` governs only the decision to CROSS the spread, leaving the
+   * resting bid where the rest of the budget machinery puts it.
+   *
+   * The whole cost of the following cap is the delay it imposes: a leg held
+   * back through a legitimate climb is finished later and dearer, and one
+   * market of the first sixty pays 0.72 for its last three hundred shares
+   * instead of 0.61 for exactly that reason. But the delay and the refusal are
+   * separable. What actually does the damage in a spike is CROSSING into it —
+   * taking the ask while it is fourteen cents above where it sat five seconds
+   * ago. A bid resting one tick under that ask is a different animal: it cannot
+   * chase, it only fills if the price comes back to it, and when the spike
+   * reverts it is exactly where the player wants to be.
+   *
+   * So this splits the mechanism in two. The cap still refuses to pay up, and
+   * the leg still stays in the book at the best passive price the ceiling
+   * allows, filling on every downtick. In a climb that means the leg keeps
+   * building — a tick behind, maker-priced, but building — which is the cost the
+   * unsplit cap could not avoid.
+   */
+  jumpCross: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Fraction of `qty` past which `jumpPad` stops applying to a leg. 1 ⇒ never.
+   *
+   * The same argument `finishShare` makes about the evidence pace: refusing to
+   * GROW a position costs only the opportunity, while refusing to FINISH one
+   * costs everything already spent on it, because the shares left unbought make
+   * every share already held unmatchable. A leg eight tenths built is not a
+   * commitment being considered, it is a commitment made, and the cheapest way
+   * to complete it is usually now rather than after the average catches up.
+   *
+   * This is also where the unsplit cap's one clear casualty goes wrong: the leg
+   * it delays is completed minutes later at a price the delay itself created.
+   */
+  jumpFinishShare: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -2013,19 +2048,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // priority leg may run away, but only as fast as its own average can.
       const jumpRef = jumpEma[first]
       const jumpCap =
-        cfg.jumpPad >= 1 || elapsed < cfg.jumpPadAfterMs || jumpRef === null
+        cfg.jumpPad >= 1 ||
+        elapsed < cfg.jumpPadAfterMs ||
+        jumpRef === null ||
+        (cfg.jumpFinishShare < 1 && held[first] >= cfg.jumpFinishShare * cfg.qty)
           ? Infinity
           : jumpRef + cfg.jumpPad
-      const capOfFirst = Math.min(
+      // Everything except the jump filter. With `jumpCross` on, this is what the
+      // resting bid answers to: the cap refuses to pay up but does not push the
+      // leg out of the book, so it still fills on every downtick.
+      const capChase = Math.min(
         cfg.maxPrice,
         capFirst,
         chaseCap,
         paceCap,
-        jumpCap,
+        cfg.jumpCross === 1 ? Infinity : jumpCap,
         avgCap(first, sizeFirst),
         (budgetLeft - needSecond * reserve) / needFirst,
       )
-      const bidFirst = floorTick(Math.min(askFirst - TICK, capOfFirst))
+      const capOfFirst = Math.min(capChase, jumpCap)
+      const bidFirst = floorTick(Math.min(askFirst - TICK, capChase))
       // What the underdog may pay is whatever the ceiling still holds once the
       // priority leg is finished at today's price. A FIXED split cannot do this
       // job: set it wide and the underdog buys at 0.4 in the opening minutes,
@@ -2034,7 +2076,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // is how a window ends 0/1000. This projection is both at once, and it
       // self-corrects: every cent the priority leg runs away costs the underdog
       // a cent of allowance, and every cent it falls back hands one over.
-      const projPrice = Math.min(capOfFirst, mix(askFirst + cfg.leadPad, capOfFirst))
+      // Projected at the cap the RESTING bid answers to: with `jumpCross` on
+      // that is what the leg will end up paying, since the jump filter only
+      // withholds the crossing.
+      const projPrice = Math.min(capChase, mix(askFirst + cfg.leadPad, capChase))
       const projFirst = (basis[first] + needFirst * Math.max(0, projPrice)) / cfg.qty
       const underdogRamp =
         cfg.underdogRamp <= 0 ? 1 : Math.min(1, elapsed / (cfg.underdogRamp * WINDOW_MS))
