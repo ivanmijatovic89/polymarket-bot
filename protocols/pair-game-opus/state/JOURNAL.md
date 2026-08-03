@@ -456,3 +456,79 @@ is from the level it has to beat, with four minutes left, is a genuinely
 different piece of information, and it is a reason to prefer a side rather than
 another reason to refuse a purchase — which, after this session, is the
 distinction I would build on.
+
+## Session 7 — eighteen levels in one step, by letting the player look outside the order book
+
+Last session ended with a market I could not win and a suspicion about why.
+Every decision the player made came from the order book alone, and the market
+that beat it was one where the book said nothing for six minutes: the two prices
+crossed back and forth around fifty cents, the player chased whichever side had
+just ticked up, and it finished owning a thousand shares of the outcome that
+expired nearly worthless. The game does allow the player to see the Bitcoin
+price and the level the market settles against. It had never looked.
+
+So the first thing I did was let it look, and simply print what it saw. That was
+worth the twenty minutes on its own. In the market I could not win, Bitcoin
+spent those six minutes within twenty dollars of the level it had to beat —
+genuinely undecided — while the order book was confidently quoting a
+sixty-percent chance for the side that lost. The book and the world disagreed,
+and the disagreement was persistent rather than momentary.
+
+My first two attempts used the raw distance: hold back while Bitcoin is close to
+the line, and prefer whichever side it is on when it is far. Neither works, and
+the reason is instructive. Preferring the far side tells the player nothing new,
+because by the time the distance is obvious the book has already priced it. And
+holding back has exactly one dial to turn, which has to be set above sixty
+dollars to restrain the market that thrashes and below fifty-five to let two
+genuinely trending markets through. There is no number that does both; I
+measured the boundary from either side.
+
+What works is the disagreement itself. The distance from the settlement level,
+divided by how much time is left for the price to travel, gives a probability.
+The order book quotes its own. Where the book is confidently pricing an outcome
+that Bitcoin's own position does not support, the player now buys the other side
+— which is both cheaper at that moment and, on this reading, likelier to win. It
+is a reason to prefer a side, not a reason to refuse a purchase, which was the
+distinction I said last time I would build on.
+
+Getting it safe took three more attempts, and two of them were wrong in an
+interesting way. A disagreement can arise because Bitcoin moved or because the
+book leaned, and only the first is news. I tried twice to encode that — once by
+ignoring the rule when the book is confident, once by requiring Bitcoin itself
+to have moved — and both fixed the trending markets and broke the thrashing one,
+because in the thrashing market the whole point is that Bitcoin has NOT moved
+while the book insists it has. What separates the two cases is not the size of
+either reading but the clock. A book that leans in the first forty-five seconds
+is carrying what the market learned before the window even opened, and Bitcoin,
+which starts every window exactly on its own settlement level, cannot possibly
+contradict it yet. Leave that opening lean alone and the rule is safe: at no
+stand-down the level scores seventeen of nineteen, at twenty seconds eighteen,
+at forty-five seconds all nineteen.
+
+Then it kept going. I re-ran every earlier level to make sure nothing had been
+traded away — all eighteen still pass — and then walked the ladder up market by
+market without changing anything else. Level nineteen through level thirty-six
+all fall to the same unchanged player, every market ending with a full thousand
+shares of each side and a pair costing between eighty-nine and ninety-seven
+cents against a ceiling of ninety-eight. That is eighteen levels in one session,
+where the previous six sessions had produced eighteen in total.
+
+Two smaller things worth recording. The comparison uses the Binance price
+shifted by its current gap to the Chainlink price, because Chainlink is what the
+market actually settles on but only updates about once a minute; dropping that
+correction and using Binance raw costs one market out of twenty-two, so the
+correction is load-bearing rather than decorative. And every new dial that did
+not ship is switched off with its measurements written next to it in the code,
+so none of this has to be rediscovered.
+
+Level thirty-seven is the next wall and I already know its shape. That window
+opens leaning hard, the player's conviction rule buys the entire first side
+inside forty-five seconds at sixty-five cents, and the market then reverses for
+good — leaving nothing to buy the winning side with, even though it was
+available at twenty-eight cents in the first half-minute. The forty-five second
+stand-down that makes the new rule safe is precisely the window in which that
+damage is done. Shortening it regresses two other markets, so the thing to try
+is the other end: limit how much the player may commit before the outside price
+is allowed to speak. The settlement level arrives about three seconds into the
+window, so there is real information available long before the override is
+permitted to use it.

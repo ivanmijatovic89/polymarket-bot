@@ -1,47 +1,41 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **18** (first 18 eligible markets, runs **2713**, **2764**
-  and **2863**)
-- Current level: **19** (first 19 eligible markets)
+- Highest passed level: **36** (first 36 eligible markets, run **3022**)
+- Current level: **37** (first 37 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: (no entries)
 
-## Evidence
+## Evidence — every level on the shipped defaults
 
-| Level | Run | Level | Run |
-|---:|---:|---:|---:|
-| 1 | 2696 | 10 | 2705 |
-| 2 | 2697 | 11 | 2706 |
-| 3 | 2698 | 12 | 2707 |
-| 4 | 2699 | 13 | 2708 |
-| 5 | 2700 | 14 | 2709 |
-| 6 | 2701 | 15 | 2710 |
-| 7 | 2702 | 16 | 2711 |
-| 8 | 2703 | 17 | 2712 |
-| 9 | 2704 | 18 | 2713 |
+| Level | Run | Level | Run | Level | Run | Level | Run |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 2966 | 10 | 2978 | 19 | 2965 | 28 | 3006 |
+| 2 | 2967 | 11 | 2979 | 20 | 2984 | 29 | 3007 |
+| 3 | 2968 | 12 | 2980 | 21 | 2988 | 30 | 3008 |
+| 4 | 2969 | 13 | 2981 | 22 | 2989 | 31 | 3009 |
+| 5 | 2970 | 14 | 2982 | 23 | 2993 | 32 | 3010 |
+| 6 | 2971 | 15 | 2983 | 24 | 2994 | 33 | 3019 |
+| 7 | 2974 | 16 | 2985 | 25 | 2995 | 34 | 3020 |
+| 8 | 2976 | 17 | 2986 | 26 | 3004 | 35 | 3021 |
+| 9 | 2977 | 18 | 2987 | 27 | 3005 | 36 | 3022 |
 
-All eighteen gate runs PASS on **pure defaults** (only the level's injected
-`qty`), every market ending exactly 1000/1000.
-
-Runs 2696–2713 predate two behaviour-neutral commits (the disabled `reserveAsk`
-knob, then this session's disabled knobs). Re-verified on the current file:
-level 18 PASS at **2764** and **2863**, level 14 PASS at **2866**, level 7 PASS
-at **2865**. Level 19 on defaults is **2864**: 18 of 19, failing only
-`btc-updown-15m-1775104200` at 1000/687.5 and a pair cost of 1.0662 — identical
-to the pre-session baseline, so every knob added this session is inert at its
-shipped value.
-
-Stability on the shipped defaults: levels 1–9 and 11–14 5 of 5 each, levels
-15–18 5 of 5 each, level 7 also 25 of 25 earlier.
+Every one of these runs is on pure defaults (only the level's injected `qty`),
+every market ending exactly 1000/1000. Level 19 also passed at **2964** with the
+same values passed explicitly before they were promoted to defaults. Pair costs
+across level 36 run 0.89–0.97 against a ceiling of 0.98.
 
 ## How the player works now
 
 1. **The remaining-budget line is the whole ceiling guarantee.** Both legs
    finish at exactly `qty`, so pair cost = total spend ÷ `qty`.
-2. **`avgGuard` off** — the realized-average guard reads a leg holding a fifth
-   of its target at 0.59 as a "0.59 leg" and locks the other leg out exactly
-   when the player needs to recover from a bad opening read. Redundant given 1.
+2. **`ptbFair` — the outside price fades the book.** BTC's distance from the
+   price to beat becomes a probability (`Φ(diff / (ptbSigma·√timeLeft))`,
+   `ptbSigma` 110) and is compared with the book's own `askUp/(askUp+askDown)`.
+   When the two disagree by more than `ptbFairEdge` 0.07, smoothed over
+   `ptbFairTauMs` 30 s, the priority leg becomes the one the book is NOT paying
+   up for. The override stands down for the first `ptbFairAfterMs` 45 s so the
+   book's opening lean is never faded.
 3. **`openMs` 5000 / `openShare` 0.2** — before 5 s no leg may hold more than a
    fifth of its target.
 4. **`edgeFull` 0.32** — a leg may hold `|askUp − askDown| / edgeFull` of its
@@ -49,79 +43,81 @@ Stability on the shipped defaults: levels 1–9 and 11–14 5 of 5 each, levels
 5. **`underdogMax` 0.10** — the non-priority leg may never bid above 0.10.
 6. **Momentum priority**, **unthrottled crossing** (`takeFloor` 1), **ack-gated
    cancels** (P-002), **conviction override** (`convEdge` 0.12 / `convFull` 0.20
-   / `convUntil` 0.06) — unchanged from earlier sessions.
+   / `convUntil` 0.06), **`avgGuard` off** — unchanged from earlier sessions.
+
+The feed request (price to beat + Binance spot + Chainlink) is registered only
+when `ptbMode=1`; at `ptbMode=0` the player has no dataset dependency at all.
 
 Measured and shipped disabled, with the numbers next to each in the file:
-`chasePad` (+ `chaseAfterMs`, `chaseUntil`, `chaseLookbackMs`), `pairEdge`,
-`underdogLift`, `reserveAsk`, `priorityLatch`, `momDeadband`, `maxImbalance`,
-`fillPace`, `leadPad`, `underdogRamp`, `underdogDiscount`, `warmupMs`,
-`soloShare` below 0.8.
+`ptbPace` (+ `ptbEdge`, `ptbTauMs`), `ptbPriority`, `ptbFairBookMax`,
+`ptbFairModelMin`, `chasePad` (+ `chaseAfterMs`, `chaseUntil`,
+`chaseLookbackMs`), `pairEdge`, `underdogLift`, `reserveAsk`, `priorityLatch`,
+`momDeadband`, `maxImbalance`, `fillPace`, `leadPad`, `underdogRamp`,
+`underdogDiscount`, `warmupMs`, `soloShare` below 0.8.
 
-## Level 19 — the blocker, and what it costs to attack it
+## What the outside price bought, and what it cost to find
 
-Level 19 fails on `btc-updown-15m-1775104200`, ending 1000/687 at a pair cost of
-1.07. The window oscillates between roughly 0.46 and 0.65 for six minutes with
-no direction, the player chases UP the whole time, completes it at an average
-near 0.60 around t+220 s having spent 929 of its 970 budget, and only then does
-DOWN run away for good. UP — the leg it completed — expires worthless at 0.11.
-Its oracle floor is about 0.44, so it is easily winnable by whoever refuses to
-chase.
+The level-19 blocker was a window whose two asks crossed around 0.50 for six
+minutes; the player chased UP the whole way, completed it near 0.60, and UP
+expired at 0.11. Everything measured before this session refused purchases, and
+refusals systematically buy the loser (see the `chasePad` note in the strategy
+file). The outside price is a different kind of input, and only one of the three
+ways of using it works:
 
-**The one structural finding of this session.** Every mechanism that makes this
-market cheaper does so by refusing purchases, and refusing purchases costs share
-completion somewhere else. The refused markets consistently finish at pair costs
-of 0.65–0.90 — far inside the ceiling — on a leg that reached only 200 of 1,000.
-The reason is not tuning: the leg any such rule refuses is the one whose ask is
-rising, which in a market that genuinely trends is the WINNER, and the winner is
-only ever cheap early. So a refusal rule systematically pushes the budget into
-the falling leg — the loser — and the player ends holding all of the wrong
-outcome at an excellent price. A leg bought back above its own low looks
-identical in a trend and in a whipsaw.
+- **Raw distance as a pace** (`ptbPace`): rejected. It has a single scalar to
+  trade off and the boundary is sharp — ≥ $60 is needed to hold the whipsaw
+  back, ≤ $55 to let two genuinely trending markets through. 17 of 19 at best.
+- **Raw distance as priority** (`ptbPriority`): inert. By the time distance is
+  decisive the book has already priced it.
+- **Disagreement as priority** (`ptbFair`): this is the one. 19 of 19, and it
+  carried levels 20–25 without a single further change.
 
-Measured and rejected on level 19 (this session, single-market loop ~3.5 s, full
-level ~35 s):
+Two guards on the disagreement turned out to be false friends and one was
+essential. Limiting it to a near-even book (`ptbFairBookMax` 0.05/0.08) and
+requiring the model itself to have moved (`ptbFairModelMin` 0.03/0.06) each fix
+the trending markets and each break the whipsaw, because the whipsaw's decisive
+disagreements are exactly the ones where the model contributes nothing. What
+separates the two cases is the clock: a book that leans in its first 45 seconds
+is carrying information from before the window, and BTC — which starts every
+window exactly on its own strike — cannot yet contradict it. At
+`ptbFairAfterMs` 0 the level is 17 of 19 (two markets end 1000/200 and 200/1000);
+at 20 s, 18 of 19; at 45 s, 19 of 19.
 
-- `chasePad` — cap the priority leg at its own running low plus a pad. Wins the
-  blocking market outright on its own (0.03/0.05/0.08 all finish 1000/1000 at
-  0.79–0.90) and loses the level at every gating: ungated 8–13 of 19; gated on
-  the other leg's realized average 9–10; gated on elapsed time 11–18; measured
-  over a trailing window 7–15; released late 10–16. Best point found: pad 0.05
-  released at four tenths of the window — wins market 19, loses three others.
-- `pairEdge` — pace the two legs against one shared `edgeFull` allowance.
-  Neutral: 18 of 19 at `edgeFull` 0.24/0.32/0.40, and it does stop the opening
-  double purchase, but after the allowance lapses the player buys the same leg
-  at the same price and ends 1000/144. **Free to keep on** — the only change
-  measured that costs nothing.
-- `underdogLift` — hand the underdog's price cap back as the priority leg fills,
-  resolving the contradiction between the budget's reserve and `underdogMax`.
-  Inert alone (18 of 19, market unchanged); with `reserveAsk` 0.7/1.0, worse
-  (14–17 of 19).
-- `underdogEdge` (underdog paced more tightly than the leader) — no effect at
-  all, 0.1 through 0.75. Removed.
-- `chaseGate` (chase cap gated on the other leg's average) — no separating
-  power, identical results at 0.10/0.20/0.30. Removed.
-- Re-measured and still rejected: `reserveAsk` 0.4/0.7/1.0 (17/17/14 of 19),
-  `maxImbalance` 300/500 (7/12 of 19).
+Also measured: `ptbSrc=binance` (drop the Chainlink basis correction and compare
+the raw Binance tape with the strike) fails one market of level 22, so the basis
+correction is load-bearing, not decoration. `blend` ships.
 
-Also still on the rejected list from earlier sessions: `fillPace` 0.5,
-`edgeFull` 0.40, `priorityLatch`, `momDeadband` 0.02/0.05, `soloShare`
-0.5/0.6/0.7, `underdogMax` below 0.10.
+## Level 37 — the new blocker, already diagnosed
+
+Level 37 fails on `btc-updown-15m-1775120400` (1000/375, pair cost 1.135). The
+window opens at 0.60/0.41, conviction fires at 0.87, and the player owns the
+whole UP leg inside 45 seconds at an average near 0.65 — 846 of its 970 budget.
+The market then reverses for good and DOWN settles at 0.99. DOWN is never bought
+because the remaining budget allows only 0.19 a share and DOWN's cheapest ask
+was 0.28, at t+23 s. The oracle floor is 0.30, so the market is comfortably
+winnable by anyone holding a little back.
+
+The relevant tension is explicit: `ptbFairAfterMs` 45 s is what makes the
+disagreement rule safe on levels 19–36, and it is exactly the window in which
+conviction can complete an entire leg. Shortening the stand-down was measured
+and regresses two markets, so the direction to try is the other side of it —
+bound how much conviction may commit BEFORE the outside price has had its say.
+The price to beat arrives about 3 s into the window, so there is a real signal
+available long before 45 s; it is only the OVERRIDE that has to wait. A cap on
+holdings until the stand-down expires (the `openMs`/`openShare` idea, extended
+to 45 s at a larger share) is the cheapest thing to measure first, and the
+single-market probe loop makes it about 12 s a try.
+
+Note the failure shape when reading results: a share-count failure means the
+player refused or could not afford a leg; a pair-cost failure means it bought
+both legs near 0.50. They have opposite cures. Markets 38 and 40 also fail on
+their own (750/1000 and 469/1000), so levels 38 and 40 will need work after 37.
 
 ## Next action
 
-Stop looking for a rule that refuses a purchase; the finding above says that
-family cannot work. The remaining untried direction is information the player
-does not currently use at all: RULES permit price-to-beat, the Binance price and
-the Chainlink price, and the player reads none of them. In this market the book
-spent six minutes undecided, but BTC's distance from the price to beat, measured
-against how much time is left, is an independent read on which outcome is
-actually likely — and it is exactly the read the order book was failing to
-provide. Build that as a priority signal (not a new cap), sweep it on level 19,
-then regress 1–18. Sample any candidate at least 5 times per level before
-promoting it.
-
-Second option if that fails: turn `pairEdge` on (free) and find a rule that
-governs what happens after its allowance lapses.
+Attack level 37 as above, then continue the ladder. Single markets probe in
+about 12 s; a full level of 37 markets takes about 8 minutes, and several levels
+can run in parallel on this machine.
 
 ## Needs human
 
