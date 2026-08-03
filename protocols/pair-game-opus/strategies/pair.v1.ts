@@ -1430,6 +1430,54 @@ export const ConfigSchema = z.strictObject({
    */
   jumpFinishShare: z.coerce.number().finite().min(0).max(1).default(1),
   /**
+   * Dollars BTC must travel away from its own short average before the player
+   * stops buying anything at all. 0 disables the gate.
+   *
+   * Every restraint in this file so far reads a PRICE — the leg's own ask, the
+   * other leg's ask, a budget average — and every one of them fails the same
+   * way: the leg whose ask is rising is, in a window that trends, the winner,
+   * and refusing it hands the ceiling to the loser. `jumpPad` got closest by
+   * reading the ask's own average, and it still cannot separate the two markets
+   * that matter, because the BOOK looks the same in both: a lurch to a new
+   * level with the model agreeing.
+   *
+   * The underlying does not look the same. Read the two side by side:
+   *
+   *   - the market that must be chased moves 25 dollars in five seconds and then
+   *     keeps going — 18, 36, 43, 54, 69 dollars clear of the strike at five
+   *     second intervals, a ramp;
+   *   - the market that must not be chased moves 91 dollars in five seconds and
+   *     gives two thirds of it back in the next five, a spike.
+   *
+   * Both produce a decisive book and a confident model at the instant the money
+   * is committed. They differ in the SPEED of the underlying, and speed is
+   * something the order book cannot express, because a book that has re-priced
+   * has re-priced regardless of how quickly it got there.
+   *
+   * So this gate is not a price cap and names no leg. It asks one question — is
+   * the underlying in a violent excursion right now? — and while the answer is
+   * yes the player buys nothing, on either side, and pulls whatever it has
+   * resting so a bid cannot be run through by the excursion itself. A spike
+   * lasting seconds costs the player those seconds. A genuine move settles
+   * within one time constant and the player resumes with its budget intact,
+   * which is the whole difference: after refusing the spike in the market that
+   * blocks this level, the player still holds 469 and 375 of the two legs with
+   * half the ceiling unspent, and the reversal it then trades into is affordable.
+   */
+  spikeEdge: z.coerce.number().finite().min(0).default(0),
+  /**
+   * Time constant of the BTC average `spikeEdge` measures deviation from. Short
+   * by design: the question is whether the price is moving NOW, not where it has
+   * been.
+   */
+  spikeTauMs: z.coerce.number().finite().positive().default(5_000),
+  /**
+   * Milliseconds into the window before the spike gate engages. The average is
+   * seeded with the first reading it sees, so the opening ticks are the one
+   * stretch where a deviation means nothing.
+   */
+  spikeAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -1608,6 +1656,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   /** Smoothed distance from the price to beat — see `ptbTauMs`. */
   let emaDiff: number | null = null
   let emaDiffAtMs = 0
+  /** The short BTC average the spike gate measures deviation from. */
+  let spikeEma: number | null = null
+  let spikeEmaAtMs = 0
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
   let emaGap: number | null = null
   let emaGapAtMs = 0
@@ -1744,6 +1795,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       }
       emaDiffAtMs = nowMs
     }
+    // How far BTC has run from its own short average — the speed of the move,
+    // read before the new price is folded in, or the average would already have
+    // followed it. See `spikeEdge`.
+    const spikeDev =
+      rawDiff === null || spikeEma === null ? 0 : Math.abs(rawDiff - spikeEma)
+    if (rawDiff !== null) {
+      if (spikeEma === null) spikeEma = rawDiff
+      else {
+        const ks = 1 - Math.exp(-Math.max(0, nowMs - spikeEmaAtMs) / cfg.spikeTauMs)
+        spikeEma += ks * (rawDiff - spikeEma)
+      }
+      spikeEmaAtMs = nowMs
+    }
+    const spiking = cfg.spikeEdge > 0 && elapsed >= cfg.spikeAfterMs && spikeDev >= cfg.spikeEdge
     const diff = cfg.ptbTauMs > 0 ? emaDiff : rawDiff
     const leftFrac = Math.min(1, Math.max(0, 1 - elapsed / WINDOW_MS))
     const needDiff = cfg.ptbEdge * Math.sqrt(leftFrac)
@@ -1817,7 +1882,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `live=${live.UP?.price ?? '-'}/${live.DOWN?.price ?? '-'} ` +
           `diff=${diff === null ? '-' : diff.toFixed(0)} need=${needDiff.toFixed(0)} out=${outsideSide ?? '-'} ` +
           `pModel=${pModel === null ? '-' : pModel.toFixed(2)} pBook=${pBook.toFixed(2)} ` +
-          `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'}`,
+          `want=${fairWant} gap=${fairGap.toFixed(3)} lag=${fairLag.toFixed(0)} fair=${fairSide ?? '-'} ` +
+          `spk=${spikeDev.toFixed(0)}${spiking ? '!' : ''}`,
       )
     }
 
@@ -2188,6 +2254,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // and its shares simply have to be bought.
       const rampRoom =
         cfg.holdRamp <= 0 || leadSide === null ? Infinity : cfg.qty * holdShare - held[side]
+      // Spike gate: while BTC is in a violent excursion the player buys nothing
+      // and rests nothing, on either side. Zero room also pulls the live order,
+      // which is the point — a bid left in the book is run through by the very
+      // move being refused.
+      const spikeRoom = spiking ? 0 : Infinity
       // Sub-share room is dust: posting it would churn the book for nothing.
       const roomRaw = Math.min(
         Math.max(0, cfg.maxImbalance - lead),
@@ -2196,6 +2267,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, earlyRoom),
         Math.max(0, edgeRoom),
         Math.max(0, rampRoom),
+        Math.max(0, spikeRoom),
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
 
