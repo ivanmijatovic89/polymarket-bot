@@ -1642,6 +1642,86 @@ export const ConfigSchema = z.strictObject({
    */
   depthFreshMs: z.coerce.number().finite().min(0).default(30_000),
   /**
+   * The LOWER gate the depth reading must fall through before an already-armed
+   * cap disarms. `>= depthGate` ⇒ no hysteresis, one gate both ways.
+   *
+   * The cap and its latch are two different things and only the latch was
+   * broken. Every tick the reading is above `depthGate` the cap is recomputed
+   * and the leg cannot pass `depthHold` × `qty`; the latch is what makes that
+   * permanent once the reading fades and, more importantly, what hands the
+   * chase to the other leg. The latch waits to see the leg at or above the
+   * threshold, so it fires only if a fill happens to land there while the
+   * reading is still up.
+   *
+   * `…1775179800` is the market that showed it. Two draws of the same window,
+   * identical to the share until t+151s, both holding 747 of UP with the
+   * reading at 0.68: one fill lands 53 shares and stops exactly on 800, the
+   * latch engages, the chase moves to DOWN, and DOWN is bought out in the next
+   * second at 0.32. The other lands 32 shares and stops on 779, the latch does
+   * not engage, the reading slides under the gate two seconds later, and eight
+   * seconds after that UP runs 779 → 1000 with DOWN left on 406. Twenty
+   * milliseconds of latency jitter chose between +75 and −427, and the market
+   * passed about one draw in four.
+   *
+   * Latching earlier — the moment the cap would clamp the next clip — is the
+   * obvious repair and it is WRONG: it arms the cap in windows where the leg
+   * would never have reached the threshold at all. `…1775172600` latches DOWN
+   * at 719 on that rule, hands the chase to UP, buys UP out at 0.40, and ends
+   * 1000/719 with DOWN — the winner — short. The escape is not the threshold,
+   * it is the release: the reading in the level-103 window slides 0.68 → 0.61
+   * over eight seconds and never comes back, and a cap released at 0.66 is
+   * simply gone when the burst arrives. Hold it to 0.60 and the burst is
+   * clamped at 800, the ordinary latch engages there, and nothing about when
+   * the cap ARMS has changed.
+   */
+  depthRelease: z.coerce.number().finite().min(0).max(1).default(0.6),
+  /**
+   * How long, in ms, an armed depth cap may stand on `depthRelease` alone after
+   * its full arming condition stops holding. 0 ⇒ no grace, one gate both ways.
+   *
+   * The grace has to be bounded. Dropping the freshness clock from the release
+   * entirely — letting the cap stand for as long as the reading leans — holds
+   * the level-103 window but strands two much earlier ones on 800/1000: the cap
+   * survives into windows where the leg it stopped is the one that WINS, and
+   * the last two hundred shares are then unaffordable at the death. A few
+   * seconds is all the level-103 window needs; its cap loses freshness at
+   * t+156.7s and the burst it has to clamp arrives at t+159.2s.
+   */
+  depthReleaseMs: z.coerce.number().finite().min(0).default(5_000),
+  /**
+   * 1 ⇒ an armed depth cap also latches once the leg is buying faster, per
+   * `commitRateMs`, than the room the cap has left it. 0 ⇒ the latch waits to
+   * see the leg at `depthHold` × `qty`.
+   *
+   * The cap and its latch are two different things and only the latch was
+   * broken. Every tick the reading is armed the cap is recomputed and the leg
+   * cannot pass `depthHold` × `qty`; the latch is what makes that permanent
+   * when the reading fades, and what hands the chase to the other leg. Waiting
+   * to SEE the leg at the threshold makes all of that depend on where a fill
+   * happens to land.
+   *
+   * `…1775179800` is the market that showed it. Two draws of the same window,
+   * identical to the share until t+151s, both holding 747 of UP with the
+   * reading at 0.68 and 53 shares of room under the cap: one fill lands 53 and
+   * stops exactly on 800, the latch engages, the chase moves to DOWN, and DOWN
+   * is bought out in the next second at 0.32. The other lands 32 and stops on
+   * 779, the latch does not engage, and UP later runs to 1000 with DOWN left on
+   * 406. Twenty milliseconds of latency jitter chose between +75 and −427.
+   *
+   * Latching whenever the cap would clamp the next CLIP is the obvious repair
+   * and it is wrong: it also latches in windows where the leg is not going
+   * anywhere. `…1775172600` latches DOWN at 719 on that rule, hands the chase
+   * to UP, buys UP out at 0.40, and ends 1000/719 with DOWN — the winner —
+   * short. The rate separates the two cleanly, because it is the actual
+   * difference between them: the level-103 leg took 153 shares in the second
+   * before it was capped, the other took 31 in the previous half-minute.
+   */
+  depthLatchRate: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * The window, in ms, the depth latch measures that rate over.
+   */
+  depthRateMs: z.coerce.number().finite().positive().default(3_000),
+  /**
    * Standard deviations of BTC's OWN measured volatility at which the outside
    * price releases a leg `fairHold` has stopped, for the rest of the window.
    * 0 ⇒ the cap is never released this way.
@@ -2775,6 +2855,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let depthCapSide: Side | null = null
   let depthHandover: Side | null = null
   let depthHeld: Side | null = null
+  // Which leg the cap is currently armed on, carried ACROSS ticks so the
+  // release may use a lower gate than the arm. Null while unarmed. See
+  // `depthRelease`.
+  let depthArmed: Side | null = null
+  // The last moment the cap's full arming condition held, so the grace period
+  // after it stops holding can be bounded. See `depthReleaseMs`.
+  let depthStrictMs: number | null = null
   // The last time the book was NOT already pricing this leg as the favourite —
   // how old the lean on it is. See `depthFreshMs`.
   const lastEvenMs: Record<Side, number | null> = { UP: null, DOWN: null }
@@ -2816,6 +2903,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
   }
   const boughtRecently = (side: Side, h: number): number => h - (rateQ[side][0]?.h ?? h)
+
+  /**
+   * The same deque on its own window, for the depth latch. It cannot share
+   * `commitRateMs`: one second is the right window for throttling a chase and
+   * far too short to tell a leg mid-burst from a leg that is standing still,
+   * because the burst arrives in thirty-share fills a second apart.
+   */
+  const depthQ: Record<Side, { t: number; h: number }[]> = { UP: [], DOWN: [] }
+  const pushDepthRate = (side: Side, t: number, h: number): void => {
+    const q = depthQ[side]
+    q.push({ t, h })
+    const cutoff = t - cfg.depthRateMs
+    while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
+  }
+  const boughtOverDepthWindow = (side: Side, h: number): number => h - (depthQ[side][0]?.h ?? h)
 
   /**
    * The same deque over MONEY rather than shares, so the burst cap can ask how
@@ -3040,6 +3142,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       pushRate('UP', nowMs, held.UP)
       pushRate('DOWN', nowMs, held.DOWN)
     }
+    // Kept out of the `commitRate` guard above: the depth latch reads this
+    // deque and `commitRate` is off.
+    if (cfg.depthLatchRate === 1) {
+      pushDepthRate('UP', nowMs, held.UP)
+      pushDepthRate('DOWN', nowMs, held.DOWN)
+    }
     if (cfg.burstShare < 1) {
       pushBurst('UP', nowMs, basis.UP)
       pushBurst('DOWN', nowMs, basis.DOWN)
@@ -3206,7 +3314,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `${depthImb.DOWN === null ? '-' : depthImb.DOWN.toFixed(2)} ` +
           `dabs=${depthAbs.UP === null ? '-' : depthAbs.UP.toFixed(0)}/` +
           `${depthAbs.DOWN === null ? '-' : depthAbs.DOWN.toFixed(0)} ` +
-          `dcap=${depthHeld ?? '-'} ` +
+          `dcap=${depthHeld ?? '-'} darm=${depthArmed ?? '-'} ` +
           `bidUp=${upBook.bestBid === null ? '-' : upBook.bestBid.toFixed(3)} ` +
           `bidDown=${downBook.bestBid === null ? '-' : downBook.bestBid.toFixed(3)}`,
       )
@@ -3546,9 +3654,38 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           cfg.depthFreshMs <= 0 || (evenAt !== null && nowMs - evenAt <= cfg.depthFreshMs)
         // A share of nothing is not a reading. See `depthMinDep`.
         const thick = cfg.depthMinDep <= 0 || (depthAbs[first] ?? 0) >= cfg.depthMinDep
-        if (imb !== null && imb >= cfg.depthGate && fresh && thick && held[first] > held[o]) {
+        // Hysteresis: what ARMS the cap is not what releases it. Arming is as
+        // strict as it ever was — gate, freshness and size all have to agree.
+        // An armed cap survives a few seconds longer on the reading alone, and
+        // no longer than `depthReleaseMs`: the strict conditions are a
+        // description of the whole episode, not of the instant, and losing the
+        // cap for two seconds in the middle of one is what let the burst
+        // through. See `depthRelease`.
+        const ahead = held[first] > held[o]
+        const strict = imb !== null && imb >= cfg.depthGate && fresh && thick && ahead
+        const graced =
+          depthArmed === first &&
+          depthStrictMs !== null &&
+          nowMs - depthStrictMs <= cfg.depthReleaseMs &&
+          imb !== null &&
+          imb >= Math.min(cfg.depthGate, cfg.depthRelease) &&
+          ahead
+        if (strict) depthStrictMs = nowMs
+        if (strict || graced) {
           depthCapSide = first
-          if (held[first] >= cfg.depthHold * cfg.qty) depthHeld = first
+          depthArmed = first
+          // A leg buying faster than the room the cap has left is a leg the
+          // threshold test will miss: the fill that would have landed on it
+          // lands past it, or the reading goes before the fill comes. Latch on
+          // the rate instead of waiting for the coincidence. See
+          // `depthLatchRate`.
+          const bursting =
+            cfg.depthLatchRate === 1 &&
+            cfg.depthHold * cfg.qty - held[first] < boughtOverDepthWindow(first, held[first])
+          if (held[first] >= cfg.depthHold * cfg.qty || bursting) depthHeld = first
+        } else {
+          depthArmed = null
+          depthStrictMs = null
         }
       }
       // Latched for the same reason `fairHold`'s cap is: the offer refills as
