@@ -1257,3 +1257,73 @@ Everything is committed. All four new switches ship turned off with their
 measurements written beside them in the code, so the player is the one that
 passed level forty-six, and I re-ran that level at the final commit to prove it:
 forty-six of forty-six.
+
+---
+
+## 2026-08-03 — Session 19: five levels in one sitting, and an honest stop at the sixth
+
+The plan I inherited was a speed limit. Last session had noticed that in the two
+windows the player needed to win, it bought the neglected side gradually over
+half a minute, and in the window it broke, it bought seven hundred and fifty
+shares in five seconds. So: cap how fast it may buy, and the good case survives
+while the bad one is starved.
+
+I built it and it does not work. A speed limit slows the spending without
+stopping it — the money still goes out, one clip a second instead of four at
+once, and in both bad windows the cheap moment lasts long enough that the cap
+never binds. What it does reliably is ruin the windows where speed is the whole
+point. Across sixty markets the count fell as I tightened it: fifty-eight with
+no cap, fifty-seven, fifty-four, and fifty-one at the tightest setting. Monotone
+harm. It is now recorded in the code as a dead end with those numbers beside it.
+
+The reason the reading was wrong is worth keeping. Those five-second bursts
+looked instantaneous only because the purchase finished. Once a side is bought
+out it stops being contested, so the record shows the market going quiet, and I
+had read that quiet as the burst being over in an instant. When I put four
+windows side by side at one-second resolution and measured the thing that
+actually precedes the buying rather than the buying itself, the picture inverted
+and became clean.
+
+Here is what separates them. Before the player commits its remaining budget to
+the side it is behind on, ask how long the market has been saying that side is
+the one to buy. In the two windows where the chase is right, the book has been
+saying it for twelve to fifteen seconds, in stretches, before the chase is even
+half done. In the windows where the chase is a mistake, it has been saying it for
+one second, sometimes two. A regime change is something a market keeps saying;
+one tick of a side being dearer is a flicker, and emptying the ceiling into a
+flicker is how a window ends with one side finished, the other two hundred short
+and seventy dollars sitting in hand. That is a twelve-second waiting period
+before the exemption may fire, and it is the discriminator three sessions of
+price tests could not find.
+
+Two smaller gates came with it. One window armed the exemption when the two
+sides were seven hundred and nineteen against seven hundred and eighty-one —
+sixty-two apart, the imbalance essentially gone — and spent the ceiling closing
+that gap. So the exemption now also has to find an imbalance actually worth
+having when it fires. And the third gate is a test from last session that I had
+written off: the side the player is committed to must be marked down against both
+its latest price and its own half-minute average. Alone it was too jumpy to
+trust. With the waiting period carrying the timing, it earns its place — it is
+the only one of the three that catches a particular window forty-odd markets in.
+
+With all three on, level forty-seven passes, and it passed three times running
+before I believed it. Then it kept going: forty-eight, forty-nine, fifty and
+fifty-one, each verified three times, none of them needing a single change. The
+player now ships with these settings turned on by default, so a plain run is the
+run that passed.
+
+Level fifty-two is where I stopped, and I want to be clear that I stopped rather
+than claimed it. Two runs of it pass completely; a third fails the newly added
+market by a hundred shares, ending a hair over the cost ceiling instead of
+comfortably under it. Two passing runs would technically be evidence. It would
+also be a level that fails one time in three forever afterwards, poisoning every
+regression check above it, so I am leaving it as the current level rather than
+banking it.
+
+One last thing I learned that will save the next session an afternoon. That
+marginal market, run on its own, passes six times out of six with identical
+numbers — it only fails inside the full fifty-two-market batch. The random
+latency the game simulates is drawn from one stream shared across the whole run,
+so a market's luck depends on how many orders the markets before it placed.
+Diagnosing this one in isolation would show a perfectly healthy window and
+explain nothing. It has to be caught inside the batch.
