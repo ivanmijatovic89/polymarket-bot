@@ -532,3 +532,73 @@ is the other end: limit how much the player may commit before the outside price
 is allowed to speak. The settlement level arrives about three seconds into the
 window, so there is real information available long before the override is
 permitted to use it.
+
+---
+
+## Session 9 — one level, and a scare about what "passing" means
+
+Level thirty-seven was blocked by a single window, and I knew its shape before I
+started: it opens leaning one way, the player buys the whole of that side inside
+the first forty-five seconds at sixty-five cents, and the market then turns round
+and stays turned. The side it needed was available at twenty-eight cents while
+that was happening, and it never came back.
+
+The first thing I did was make the experiment loop fast. Replaying all forty of
+the markets I care about takes about ninety seconds, and four or five of those
+can run side by side, so a whole idea can be tested in two minutes instead of the
+several-minute cycle earlier sessions were working with. Two small scripts do
+this now; they are the reason this session got through about twenty distinct
+configurations.
+
+Three families of cure. The first was to refuse any purchase that would push the
+two average prices, together, over the ceiling. It fixes all four of the markets
+I was stuck on and breaks five earlier ones — precisely the failure the code
+already warns about, where refusing the expensive winner leaves the player owning
+a full position in the cheap loser. The second was subtler and I thought it was
+the answer for a while: reserve money for the second side based on the cheapest
+price that side has actually traded at, rather than on the assumption that it
+will end up nearly worthless. That reads well and measures well, and it is
+nonetheless a mirage. Capping what the player may PAY only turns an aggressive
+purchase into a patient one a few cents lower, and in a window that reverses the
+price falls straight through the patient order. The same thousand shares of the
+same losing outcome get bought anyway, very slightly cheaper. I have written that
+down next to the knob, which ships switched off, because it is the third time
+this project has rediscovered it.
+
+What works is a cap on SIZE, not price. Before the outside price is allowed to
+overrule the book — a stand-down that exists for a good reason and that I did not
+want to touch — no side may be more than half built. On its own that is too blunt
+and costs three markets that genuinely had to finish a position early, so it
+carries two conditions. It only applies once the player has already been made to
+buy BOTH sides, which only happens when the book has contradicted itself; and it
+only applies while the outside price argues against the side being bought. A
+window that trends and is confirmed by Bitcoin's own price is left completely
+alone. That is the whole change, and it wins the level.
+
+Then the useful scare. My first version of it passed level thirty-seven and, on
+the same configuration, failed eight of the levels below it. The culprit was the
+fourth market of the whole universe, which had become bistable: identical inputs,
+finishing either with a full position or two thirds of one, depending on nothing
+but the random few milliseconds of simulated order latency. Runs here are not
+reproducible, and I had not appreciated how sharp that can get — a threshold
+sitting right at the edge of a decision turns a coin-flip into a market outcome.
+Moving the gate from a quarter of the target to just over a third puts that
+market outside the mechanism entirely, and it is deterministic again. The lesson
+is worth more than the level: a level that passes three runs in four is not
+passed, and I have written the instruction to repeat every probe into the status
+file.
+
+So: level thirty-seven, with all thirty-seven levels re-run from scratch on the
+final code, every market ending with a full thousand shares of each side and the
+worst pair costing ninety-seven cents against a ceiling of ninety-eight.
+
+Level thirty-eight is a different animal and I have diagnosed it. There the
+player correctly identifies the winning side and builds three quarters of it
+cheaply — and then a pacing rule, which limits how large a position may be
+relative to how much the market has revealed, freezes it. The gap between the two
+prices narrows, the allowance falls below what is already held, and the position
+simply stops growing. The budget then goes to the other side, and the last
+quarter of the winner is never affordable again. The fix I want to try is the
+obvious one and does not refuse anything: a side that is three quarters built
+should be finished, because shares that never get matched are a total loss and
+that is worth more than the pace being violated.
