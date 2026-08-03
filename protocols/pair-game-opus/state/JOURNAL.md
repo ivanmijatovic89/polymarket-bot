@@ -750,3 +750,86 @@ The next question is narrow and answerable — line up the four markets' opening
 minutes and find what distinguishes the one where the sensitive reading is right
 from the three where it isn't. Everything else about the player is untouched, and
 all forty-four levels were re-verified from scratch on the committed code, twice.
+
+## Session 13 — level 45 passes, and level 46 is a different animal
+
+Last session ended with one live lead and a question: line up the four markets
+side by side and find what tells the one repair apart from its three casualties.
+That worked, and the answer was simpler than I expected.
+
+I printed all four windows' opening two minutes next to each other. At the moment
+the player's two opinions are allowed to disagree — forty-five seconds in — the
+four markets are almost indistinguishable on everything the player already
+measures. The disagreement is a couple of percentage points in all four. The book
+sits anywhere between a third and three quarters. Bitcoin's own reading points
+whichever way it likes. Nothing separates them.
+
+They differ on one thing. In the market that gets repaired, the player is holding
+594 shares of one side and 136 of the other, and the side the disagreement names
+is the one 458 shares behind. In all three casualties the player is holding 500
+and 375, and the side named is behind by exactly 125. Same reading, same
+threshold, wildly different amount of catching up to do.
+
+That turns out to be the whole argument. Following a small disagreement is cheap
+when you're already badly lopsided, because following it and rebalancing are then
+the same action — if the reading is wrong you have at least bought the side you
+were short of. When your two sides are close together the same reading has no such
+cover: it spends what's left of the budget putting you lopsided the other way,
+which is exactly the shape all three casualties come to rest in.
+
+Getting from that observation to a working rule took two wrong turns worth
+recording. The first was to make the imbalance a requirement — no acting on a
+disagreement unless you're badly behind. That is worse than doing nothing at all,
+eight to ten failures against five, because the disagreement rule isn't a rescue
+mechanism that only matters in trouble; it earns its keep in ordinary balanced
+windows too, and silencing it there costs more than the casualties it saves. The
+second was subtler: acting on the imbalance closes the imbalance, so a rule that
+re-checks it every instant switches itself off halfway through its own repair. The
+market landed on 1000/606 that way — better than the 1000/344 it fails at, still a
+failure.
+
+What works is neither a requirement nor a re-check. It's a second threshold. A
+side that's already far behind is read against a sensitive threshold; two sides
+close together are read against the strict one; and whichever threshold opens the
+decision keeps it until the disagreement itself dies. Four failures over the first
+sixty markets instead of five, the blocker repaired, no casualty anywhere. Three
+independent runs at each of two settings, identical results every time. Then the
+whole ladder from scratch: forty-five levels, every market ending exactly
+1000/1000, worst pair cost 0.970 against a ceiling of 0.98.
+
+So level 45 is passed and I moved on to 46, which I had assumed was more of the
+same. It isn't. This market opens ordinarily, and then Bitcoin falls ninety-one
+dollars in ten seconds. The player reads that correctly — one side really is
+winning — and buys that side all the way to its target, six hundred shares at
+sixty-five cents apiece, eating almost the entire budget. Ten seconds later
+Bitcoin reverses. The other side is now unbuyable and the market ends 469/1000.
+
+The uncomfortable part is that the trade was doomed before the reversal. The
+player was already holding 469 of the other side at fifty-eight cents, which
+leaves room for at most thirty-nine cents on this one. Nothing that happened next
+mattered; sixty-five cent shares could never have come in under the ceiling. The
+only thing standing between the player and those fills is a budget check that
+looks at the total and permits eighty-three cents a share.
+
+I spent the rest of the session on the obvious fix and it failed badly. The idea
+was to check the exact arithmetic whenever an order would *finish* a side, since
+at that moment the average you've realized is the average you'll end with. Twenty-
+three to forty-one failures depending on how much of a leg it governs, against
+four without it, and it doesn't even fix the market it was built for. The reason
+is worth keeping: refusing the last shares of a side doesn't undo the expensive
+ones you already bought. It just turns one kind of failure into another, and it
+does it in every ordinary window too.
+
+Which points somewhere specific for next time. The ceiling can't be defended at
+the end of a leg; it has to be defended while the expensive fills are happening.
+The test I want is affordability priced at what things cost *right now* — at the
+moment of that ninety-one dollar drop, buying the winning side at sixty-five cents
+while still needing five hundred of the loser at its own thirty-one cent ask needs
+more money than remains, and the fills stop there. That is a different thing from
+a mechanism I rejected two sessions ago, which priced the other side at the
+cheapest it had ever been and swapped which side to chase rather than refusing the
+order.
+
+Everything is committed, pushed and verified. Three more markets in the first
+sixty still fail; I'll read their timelines before building anything, in case one
+mechanism takes all four.

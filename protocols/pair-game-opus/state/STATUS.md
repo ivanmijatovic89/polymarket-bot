@@ -1,36 +1,43 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **44** (first 44 eligible markets)
-- Current level: **45** (first 45 eligible markets)
+- Highest passed level: **45** (first 45 eligible markets)
+- Current level: **46** (first 46 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-## Inbox item — session 11's dirty work, resolved
+## Evidence — levels 1–45 at commit `58dcf8ed`
 
-The uncommitted mechanism was the solvency swap (`solvSwap`). It was measured
-this session and **rejected**; it ships off, with the measurement recorded in
-its own doc comment, and the workspace is clean.
-
-## Evidence — levels 1–44 re-run at the current commit
-
-| Level | Run | Level | Run | Level | Run | Level | Run |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 3515 | 12 | 3526 | 23 | 3537 | 34 | 3548 |
-| 2 | 3516 | 13 | 3527 | 24 | 3538 | 35 | 3549 |
-| 3 | 3517 | 14 | 3528 | 25 | 3539 | 36 | 3550 |
-| 4 | 3518 | 15 | 3529 | 26 | 3540 | 37 | 3551 |
-| 5 | 3519 | 16 | 3530 | 27 | 3541 | 38 | 3552 |
-| 6 | 3520 | 17 | 3531 | 28 | 3542 | 39 | 3553 |
-| 7 | 3521 | 18 | 3532 | 29 | 3543 | 40 | 3554 |
-| 8 | 3522 | 19 | 3533 | 30 | 3544 | 41 | 3555 |
-| 9 | 3523 | 20 | 3534 | 31 | 3545 | 42 | 3556 |
-| 10 | 3524 | 21 | 3535 | 32 | 3546 | 43 | 3557 |
-| 11 | 3525 | 22 | 3536 | 33 | 3547 | 44 | 3558 |
+| Level | Run | Level | Run | Level | Run | Level | Run | Level | Run |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 3579 | 10 | 3588 | 19 | 3597 | 28 | 3606 | 37 | 3615 |
+| 2 | 3580 | 11 | 3589 | 20 | 3598 | 29 | 3607 | 38 | 3616 |
+| 3 | 3581 | 12 | 3590 | 21 | 3599 | 30 | 3608 | 39 | 3617 |
+| 4 | 3582 | 13 | 3591 | 22 | 3600 | 31 | 3609 | 40 | 3618 |
+| 5 | 3583 | 14 | 3592 | 23 | 3601 | 32 | 3610 | 41 | 3619 |
+| 6 | 3584 | 15 | 3593 | 24 | 3602 | 33 | 3611 | 42 | 3620 |
+| 7 | 3585 | 16 | 3594 | 25 | 3603 | 34 | 3612 | 43 | 3621 |
+| 8 | 3586 | 17 | 3595 | 26 | 3604 | 35 | 3613 | 44 | 3622 |
+| 9 | 3587 | 18 | 3596 | 27 | 3605 | 36 | 3614 | 45 | 3623 |
 
 Every market ends exactly 1000/1000; worst pair cost on the ladder is 0.970
-against a ceiling of 0.98. An earlier ladder at the previous commit (runs
-3450–3494) passed identically.
+against a ceiling of 0.98. Defaults were re-verified over the first sixty
+markets at the current commit (run 3629): markets 1–45 all clean.
+
+## What passed level 45 — the two-tier deadband
+
+The disagreement between book and model is now read against two thresholds, not
+one. A leg already at least 0.2 × qty behind the other is read against
+`ptbFairLagEdge` (0.03); otherwise `ptbFairEdge` (0.07) governs as before. The
+lag decides which threshold may OPEN an override and then stops mattering,
+because acting on the override is what closes the lag.
+
+The separating feature came off four debug timelines read side by side at the
+instant the override fires. Market 45's named leg was 458 shares behind; all
+three casualties' named legs were behind by exactly 125. Applied everywhere,
+0.03 gave 7 failures over the first sixty markets; applied only to a lagging
+leg it gives 4. Three independent runs each at 0.15 and 0.2, identical failure
+sets both times; 0.3 lets a balanced market through to 1000/950.
 
 ## Runs are NOT reproducible — read results accordingly
 
@@ -46,79 +53,61 @@ four is not passed.
   four can run in parallel on this machine.
 - `tools/ladder.sh <from> <to> [parallel] [outdir]` — `play-level` over a range,
   one PASS/FAIL line with run id and worst pair cost per level. The whole ladder
-  1–44 takes about twenty minutes at parallelism 6.
-- The strategy's own `--param debug=1 --param debugEveryMs=15000` prints a
-  per-window timeline (asks, holdings, spend, targets) plus every fill. This is
-  how market 45 was diagnosed and it is much faster than the SQL tools.
+  1–45 takes about twenty-five minutes at parallelism 6.
+- `--param debug=1 --param debugEveryMs=10000` prints a per-window timeline
+  (asks, holdings, spend, targets, the model and book probabilities, the
+  disagreement, the lag) plus every fill. Every level since 44 has been diagnosed
+  this way; it is much faster than the SQL tools.
+- The first sixty slugs:
+  `npx tsx protocols/pair-game-opus/tools/universe.ts --first 60 --slugs-only`
 
-## Level 45 — the blocker, and what six families have ruled out
+## Level 46 — the blocker, diagnosed
 
-Blockers over the first sixty markets are 45, 46, 47, 52 and 55
-(`btc-updown-15m-1775127600`, `-1775128500`, `-1775129400`, `-1775133900`,
-`-1775136600`). One family: the window leans for a minute, the player completes
-the leg the book favours, the window reverses for good.
+Remaining failures over the first sixty markets are 46, 47, 52 and 55
+(`btc-updown-15m-1775128500`, `-1775129400`, `-1775133900`, `-1775136600`).
 
-**Market 45 minute by minute** (from the debug timeline). Opens 0.51/0.50. By
-t+45s the player holds 594 UP and 136 DOWN for 414 spent. At t+60s it buys 207
-DOWN at 0.45, then between t+60 and t+75 it finishes UP — 5 and 16 shares at
-0.63, then 200 and 185 at 0.64 — reaching 1000 UP for 778 total, four fifths of
-its ceiling, inside 75 seconds of a 15-minute window. At t+105 UP begins a slide
-it never recovers from, ending at 0.002. DOWN's cheapest quote all window is
-0.37, at t+66s. From t+75 the ceiling arithmetic allows DOWN only 0.29, so DOWN
-never fills again and the market ends 1000/344. An oracle's pair here is 0.372.
+**Market 46 is NOT market 45's family.** Its timeline:
 
-Measured and rejected, all over the first sixty markets against five failures:
+- t+0 → t+20: builds 469 UP at 0.584 and 375 DOWN at 0.449, 452 spent.
+- t+30: BTC falls 91 dollars in ten seconds. UP's ask collapses 0.58 → 0.31,
+  DOWN's rises to 0.70. DOWN becomes the priority leg at full conviction.
+- t+30 → t+40: the player **finishes DOWN outright** — 625 shares filled between
+  0.63 and 0.67 — taking spend to 864 of the 970 ceiling.
+- t+40: BTC reverses. UP's ask is back to 0.55 and rises to 0.999 by the close.
+  UP's allowance is 116 / 531 = 0.19. It never fills again. Final 469/1000.
 
-- **Larger reserve floor** — monotonically worse (0.7 → 6, 0.8 → 10, 1.0 → 12)
-  and does not fix market 45.
-- **Outside-evidence pace (`ptbPace`)** — 8 / 12 / 19 failures.
-- **The early size cap** — inert on this family at every gate setting.
-- **The solvency swap (`solvSwap`)** — 11, 11, 10, 12, 7 failures as the
-  deadband widens, then exactly the baseline five, share for share, once the
-  deadband is wide enough that it never fires. Strictly worse where active,
-  identical where not. Two asks on one market sum to about one all window, so
-  the projection overruns the ceiling nearly everywhere from the first minute:
-  the overrun is the normal state, not a signal.
-- **The clock pace (`holdRamp`)** — 14 / 20 / 18 / 24 failures, monotone in how
-  much restraint is applied. Legs stranded at 600–750. It does not fix market 45
-  either (1000/531 at best): by the time the ramp lets go, the restrained leg has
-  still been bought around 0.55 and the other has reversed past 0.52, so no
-  allowance the ceiling can compute will buy it.
-- **A closing time on the fair gate (`ptbFairUntil`)** — inert against the
-  problem it was built for; see below. Ships at 1.
+The pair was already lost as those fills printed: 469 UP at 0.584 leaves DOWN
+room for only 0.386, so **no** completion of DOWN at 0.65 could ever have come in
+under the ceiling, whatever BTC did next. The only cap in force at that moment
+is the aggregate budget, `budgetLeft / needDown`, which permitted 0.83 a share.
 
-## Level 45 — the live lead
+Measured and rejected for this market:
 
-**Narrowing `ptbFairEdge` from the shipped 0.07 to 0.03 repairs market 45.** It
-did so in five independent runs (`--param ptbFairEdge=0.03`, alone and in four
-combinations), which for a non-reproducible harness is as solid as this gets.
-This is the disagreement between the order book's implied probability and the
-one implied by BTC's distance from the price to beat: at t+75s the book asks
-0.61–0.64 for UP while the model says 0.57, and the narrow reading is the only
-thing measured so far that names the reversal from inside the window.
-
-It is not shippable yet: at 0.03 it breaks three markets that currently pass —
-`btc-updown-15m-1775103300`, `-1775116800`, `-1775124900` — for a net 7 failures
-against 5. Attempts to separate the two cases:
-
-- `ptbFairUntil` at 0.15 / 0.25 / 0.4 / 0.6 — the casualties fail at identical
-  share counts every time. They are misassigned in the first two minutes, not
-  abandoned late.
-- `ptbFairModelMin` at 0.02 / 0.04 / 0.07 — removes the repair (market 45 fails
-  again) without saving the casualties.
-- `ptbFairBookMax` 0.12 — keeps the repair and saves one casualty, still 7.
+- **The finishing-leg average cap (`avgGuardFrom`)** — apply the realized-average
+  cap to orders that take a leg to its target, where the realized average IS the
+  final average. 23 / 34 / 41 / 41 failures at 1.0 / 0.9 / 0.75 / 0.5 against 4
+  without it, and market 46 fails at every setting. Refusing the last shares of a
+  leg does not undo the expensive ones already bought; it converts 1000/469 into
+  469/833, and it does it everywhere, because in an ordinary window the other
+  leg's realized average is high for most of the window.
 
 ## Next action
 
-Stay on the narrow fair reading; it is the only lever that has ever moved market
-45. The question is now specific and small: **what distinguishes market 45 from
-the three casualties at the moment the narrow gap fires?** Read the debug
-timelines of `-1775103300`, `-1775116800` and `-1775124900` side by side with
-market 45's, looking at the first two minutes only, and find the feature that
-separates them — how large the gap is, how long it persists, how far the book has
-already leaned, or how much of either leg is already held when it fires. Then
-express that feature as a condition on the gate. Do not widen the search to new
-families; five have now been measured dead on this market and this one is alive.
+The lesson from that rejection is the lead: **the ceiling cannot be defended at
+the end of a leg, so whatever fixes market 46 has to act while the expensive
+fills are being taken.** The specific thing to try is a price cap on the priority
+leg that does not depend on that leg being nearly finished — the highest price at
+which buying `size` shares still leaves the OTHER leg's remaining need affordable
+at that leg's *currently shown* ask, rather than at the ask it might show later.
+At t+30 in market 46 that test is decisive on its own: DOWN at 0.66 with 531 UP
+still to buy at UP's own 0.31 ask needs 0.66 × 625 + 0.31 × 531 = 577 against a
+remaining budget of 518, so the fills stop. Note this is NOT the solvency swap
+already rejected in earlier sessions — that projected against the cheapest ask a
+leg had ever shown and swapped the priority; this refuses the order outright and
+prices the other leg at what it costs right now.
+
+Read the timelines of 47, 52 and 55 too before building; if they share the shape
+(a spike that finishes one leg expensively) one mechanism may take all four.
 
 ## Needs human
 
