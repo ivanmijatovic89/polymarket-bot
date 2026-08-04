@@ -1,14 +1,16 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **141** (first 141 eligible markets)
-- Current level: **142** (first 142 eligible markets)
+- Highest passed level: **142** (first 142 eligible markets)
+- Current level: **143** (first 143 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: play level 142, then 143 and onward.** No wall is known past 141.
-A look-ahead sweep of the first 145–150 at the new defaults is the cheapest way
-to find the next one before spending a level run on it.
+**Next step: play level 143, then 144 and onward.** No wall is known past 142 —
+levels 141 and 142 both scored on the shipped defaults with no change at all.
+A look-ahead sweep of the first 148–150 is the cheapest way to find the next wall
+before spending a level run on it, and it also re-samples the two flakes below,
+which cost three of this session's six level runs.
 
 ## What passed 140 — a discount may not be spent on a leg the book is marking up
 
@@ -321,7 +323,9 @@ Levels 115–118 at `fc890aa7` (runs 5566, 5568, 5569, 5575). Levels 119–122 a
 Levels **130–132 at `caeed993`**, all defaults, one `play-level` run each:
 **130 → 5869**, **131 → 5870**, **132 → 5871**, each with every market passed.
 
-Levels **140 and 141 at `b17517ce`**, all defaults: **140 → 5972**, **141 → 5973**, every market passed. Two full sweeps
+Levels **140–142 at `b17517ce`**, all defaults: **140 → 5972**, **141 → 5973**,
+**142 → 5975**, every market passed. Runs 5961, 5962 (`…1775122200`) and 5974
+(`…1775199600`) are the three flake losses described under Flakes below. Two full sweeps
 of the first 140 at those defaults returned 0 failures. Runs 5961 and 5962 are
 the two `…1775122200` flakes described under Flakes below.
 
@@ -649,7 +653,8 @@ leg at the top of a slow trend.
 - **A fix measured on one level breaks the next one.** Sweep the first N+5.
 - **A level can pass on luck.** Run its newest market four times in parallel.
 - **A flaky market can hide behind the sweep**, and a new rule can CREATE one:
-  `…1775199600` went from 4-in-4 to 3-in-4 and back.
+  `…1775199600` went from 4-in-4 to 3-in-4 and back, and it cost the first level
+  142 run (5974, 523/1000).
 - **Diff the failing draw against a passing one at `debugEveryMs=250`.**
 - **`/tmp` is case-insensitive here.** Probe tags `Z1` and `z1` are the same
   files. Delete the target `.rows` before waiting on it.

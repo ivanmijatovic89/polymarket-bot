@@ -3220,6 +3220,9 @@ evidence that a market is safe in a level. This one has now cost four level runs
 across the project; if it takes three in a row it stops being a re-run and
 becomes the next piece of work.
 
-Level 141 is running as I write. There is no known wall past 140, so the next
-session should look ahead five or ten markets with a cheap sweep before spending
-a full level run on finding out.
+Levels 141 and 142 then scored on top of it with no further change — six level
+runs this session, three of them lost to flaky markets and re-run. There is no
+known wall past 142, so the next session should look ahead five or ten markets
+with a cheap sweep before spending a full level run on finding out. That sweep
+would also re-sample the two coin-flip markets, which between them cost half of
+today's runs and are becoming the more expensive problem.
