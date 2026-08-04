@@ -6,12 +6,12 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step:** there is no live lead. `stallFinish` — the previous session's
-lead — was gated four ways and measured out; its best configuration costs two
-markets against a baseline of one. What the session bought instead is a much
-sharper statement of what market 109 actually needs, and proof that two of the
-three things that could supply it are already ruled out. Read "the blocker,
-restated" below before designing anything.
+**Next step:** there is no live lead. Session 34 built and measured out three
+more families — the parity cap, the money-velocity pause, and the
+completion clock — and the last of them produced the general fact that explains
+all three: **every one of the first 110 windows completes a leg mid-window, and
+84 of them do it before t+120s.** Read "why every room cap on the chase dies"
+below before designing anything that slows the chase down.
 
 ## Evidence
 
@@ -37,6 +37,11 @@ Level **108 at `c6669a59`**, all defaults, two independent `play-level` runs:
 **4949** and **4950**, both 108/108. A third run at the same configuration
 (4932) FAILED on `…1775178000` — see the flake section below; that market is a
 pre-existing coin flip, not a consequence of this commit.
+
+Session 34 changed no default. `overtakeCap`, `burstPause`, `burstFrom` and
+`lateShare` all ship OFF, each with its measurements in its own doc comment, and
+a 110-market sweep at defaults after the change still returns the single known
+failure.
 
 ## What passed 87–94 — the last leg standing may read the finish budget
 
@@ -239,6 +244,73 @@ previous session read the common casualty shape as "the release is sound, the
 question is which leg"; the honest reading is that the release is a directional
 bet placed while the book is at a coin flip, and it is wrong most of the time.
 
+## Why every room cap on the chase dies — measured, and it is the whole player
+
+`closeScan --tag obs34 --sort t` over the first 110 at shipped defaults:
+
+- **110 of 110 windows complete a leg mid-window.** There is no such thing here
+  as a window that accumulates evenly and finishes both legs at the death.
+- **84 of the 110 complete that leg before t+120s**, and the earliest are
+  absurdly early: 1775116800 holds 200/200 four seconds in and 1000/375 at t+8s.
+  Fourteen windows finish a leg inside the first twenty seconds.
+- Market 109 completes DOWN at **t+149s — later than three quarters of the
+  field.** Its spend at that instant (792) and the other leg's ask (0.36) are
+  mid-field on every column.
+
+So "a leg finished this early was finished before the window said anything" is
+simply false about this player: finishing early is how it wins, and the shares
+are not there to buy again later. Any rule that delays or rations the completing
+purchase — by clock, by money velocity, by share of target — blocks the
+mechanism in most of the field, and the measurements below are what that looks
+like.
+
+| Change (at `d60e48e1`, baseline 1 failure over the first 110) | Failures |
+|---|---|
+| `lateShare=0.7` + `lateMs=240s` / `300s` (no leg past 0.7 of target early, with a handover) | **50 / 46** |
+| `burstShare=0.20` / `0.25` + `burstPause=1` (velocity cap on the chase, chase handed over while paused) | **48 / 36** |
+| the same, gated by `burstFrom` 0.5 / 0.6 / 0.7 (cap only a leg already mostly built) | **39 / 41 / 39** |
+| `burstShare=0.20` + `burstFrom=0.7`, **pause off** (the cap alone, no handover) | **10**, and 109 unmoved |
+
+The last row is the informative one. A cap that rations only the last 300 shares
+of a leg, to a fifth of the ceiling per thirty seconds, still costs nine
+markets — every one of them ending with a leg stranded between 600 and 950 and
+several hundred dollars of the ceiling unspent. **The finishing burst is not an
+anomaly to be restrained; it is the only moment most of these legs are buyable
+in.** The handover then adds thirty more failures on top, because exempting the
+receiving leg from the edge pace un-paces the whole window.
+
+`burstShare=0.20`+`burstPause=1` DOES repair market 109 (1000/1000 at 0.968), as
+does 0.25. That repair is worth nothing at 36 casualties, and it is recorded here
+only so nobody re-derives it.
+
+## The parity cap is dead too, now with its deadlock released
+
+`overtakeCap` — a chase pointed at the leg the player holds LESS of may draw
+level and no further, chase handed back, latched. Session 32 measured the
+ungated version at 12 failures and diagnosed nine of them as a deadlock: the
+leader latched by `depthHold` at 800, the trailer pinned at parity with it,
+nothing buyable. This session rebuilt it WITH that release (the parity cap stands
+down for good the moment `fairHold`/`depthHold`/`burstSwap` latches the leg it is
+measured against) and gated it four ways:
+
+| Configuration | Failures |
+|---|---|
+| ungated | 16 |
+| `overtakeFrom` 0.20 / 0.30 / 0.40 (the abandoned leg must already hold this share) | 19 / 17 / 10 |
+
+The release was right about the deadlock and it does not matter. The new failure
+shape is `1000/0` and `200/1000`: the pinned leg answers to `underdogMax`, a
+loser's price a contested leg is never quoted at, so it never buys at all and the
+player buys the LOSER out. Exempting it from `underdogMax` cannot help either —
+the budget arithmetic below forbids owning both legs at contested prices.
+
+**The general statement, which is now the strongest thing known about this
+player:** the leg the book names is right 109 times in 110, and every rule that
+has overridden that choice permanently — `priorityLatch`, `overtakeCap`,
+`burstSwap`, `stallFinish` — has cost between 6 and 29 markets by buying the
+loser out. Market 109 is the one window where the book is wrong, and it is wrong
+in a way no observable the player has can see.
+
 ## The old lead's diagnosis, which still stands
 
 Market 109's first two minutes are a total stall, and that is where the money
@@ -395,6 +467,17 @@ the second was `…1775110500`, a known flake):
 | `jumpPad` 0.02–0.08 × `jumpCross` 0/1, τ 5–15 s | 109 unmoved; DOWN reaches 1,000 in all five |
 | `priorityLatch=1` | **12** |
 
+At `d60e48e1` (baseline 1 failure over the first 110, confirmed twice this
+session) — see the two sections above for what each of these is:
+
+| Change | Failures |
+|---|---|
+| `overtakeCap=1`, ungated / `overtakeFrom` 0.2 / 0.3 / 0.4 | 16 / 19 / 17 / 10 |
+| `burstShare` 0.20 / 0.25 with `burstPause=1` | 48 / 36 |
+| the same at `burstFrom` 0.5 / 0.6 / 0.7 | 39 / 41 / 39 |
+| `burstShare=0.20` + `burstFrom=0.7`, no handover | 10 |
+| `lateShare=0.7` + `lateMs` 240 s / 300 s | 50 / 46 |
+
 `overtakeCap` is worth one paragraph because the idea keeps suggesting itself.
 Three of the failures — market 101's losing draw, market 108 before the fix, and
 market 109 — are the same picture: the player holds 719/509, 686/344, 344/671,
@@ -438,9 +521,12 @@ an "is it running away" test.
 
 **Do not reopen** on any window: the parity hold; `fairHold` with or without a
 release; the opening-lean thread (`convDwellMs`, `openCheapMs`); any solvency or
-underwater test; and any rule that treats the model-book disagreement as a
-warning (it is a GOOD direction signal — eight of the nine windows where it is
-strong settle the way it points).
+underwater test; any rule that treats the model-book disagreement as a warning
+(it is a GOOD direction signal — eight of the nine windows where it is strong
+settle the way it points); **any rule that permanently overrides which leg the
+book names**; and **any cap that delays, rations or slows the purchase that
+completes a leg**, by clock, by money velocity or by share of target — the
+completion-time distribution above is why.
 
 **Also dead, from level 87's diagnosis:** `finishShare` and `finishCeilShare` are
 NOT what completes the leg at the top of a slow trend. Turning `finishShare` off
@@ -521,7 +607,9 @@ STATUS pointed at the finish exemptions here and was wrong.
   signed toward the completed leg, and the depth share. Needs
   `sweep80.sh <tag> 110 --param debug=2 --param debugEveryMs=500` first.
   `--sort other|z|p|t|slug`. This is what retired the whole "restrain the
-  completing purchase" family in one pass.
+  completing purchase" family in one pass, and `--sort t` is what retired the
+  clock version of it — read the completion-time distribution before proposing
+  any rule that delays a leg.
 - `tools/depScan.ts` — locates each window's arming moment offline (first sample
   where the dearer leg's smoothed share clears `--gate`, the lean is fresh and
   that leg is ahead) and reports the elapsed time, the share and the absolute

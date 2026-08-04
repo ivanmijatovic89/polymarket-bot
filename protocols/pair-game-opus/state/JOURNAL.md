@@ -2416,3 +2416,88 @@ way. I do not have a way to do that yet, and I would rather hand over an honest
 map of the dead ends than a lead I have already measured out. Everything built
 this session ships switched off, with its numbers in the code next to it, and the
 unchanged player still runs exactly as it did.
+
+## Session 34 — three more ways out of the blocking market, all of them closed, and one number that explains why
+
+Level one hundred and nine is still not passed, and I want to be straight about
+that up front. What this session produced is not a step forward on the ladder but
+a much smaller room to search in, and one measurement that I think is the most
+useful thing anyone has learned about this player in a while.
+
+I started from the one route the previous session left open. The blocking market
+goes like this: for the first two minutes it is quiet and the player builds a
+third of one side and a fifth of the other. Then the order book turns hard, the
+player switches which side it is backing, and spends five hundred dollars taking
+the new side from a fifth to complete — at prices that rise the whole way, with
+the biggest purchase at the very top. The move then reverts completely and the
+side it abandoned is available cheaply for four minutes, but the money is gone.
+The side it abandoned is the one that wins.
+
+So the obvious rule is: don't change horses. Let a side that starts a chase from
+behind draw level with the one you already hold and no further, then go back to
+finishing what you already paid for. That was tried once before and cost twelve
+markets, and the previous session's notes diagnosed nine of those twelve as a
+deadlock between this rule and an existing one — two caps pointing at each other,
+with nothing left buyable. I rebuilt it with that deadlock released, which is a
+clean and principled fix, and measured it at four different strictness settings.
+The deadlock diagnosis was right and it did not matter: sixteen, nineteen,
+seventeen and ten failures. The new damage has a different shape. When the player
+pins one side, that side falls under a rule that only lets it be bought at a
+loser's price, and a side the market still thinks is live is never offered at a
+loser's price — so it buys nothing at all, and the player calmly buys the losing
+side out to a full thousand while the winner sits at zero. That is worse than
+what it was trying to fix.
+
+That gave me the sentence I now think is the honest summary of the whole game:
+the order book names the right side a hundred and nine times out of a hundred and
+ten, and every rule anyone here has built that overrides that choice permanently
+has cost between six and twenty-nine markets. The blocking market is the single
+window where the book is wrong, and it is wrong in a way nothing the player can
+observe distinguishes from the times it is right.
+
+So I stopped trying to change which side and tried to change how fast. Not a
+price limit — those have all been measured out, because a price limit only
+delays a purchase and the market then sits at those prices long enough for the
+order to fill anyway. A hard limit on how much money one side may commit in
+thirty seconds, with the chase handed to the other side while the limit bites, so
+the money is redirected rather than withheld. That is the one shape of cap that
+has ever survived in this workspace. It repairs the blocking market outright and
+comfortably. It also breaks between thirty-six and forty-eight of the other
+markets, and narrowing it to apply only to a side already two-thirds built barely
+moved that. I split it in half to find out which part did the damage: the cap on
+its own, applied only to the last three hundred shares of a side, at a fifth of
+the budget per thirty seconds, still cost nine markets, each of them ending with
+a side stranded somewhere between six hundred and nine hundred and fifty shares
+and several hundred dollars unspent.
+
+That is what sent me to the last idea, and to the measurement that made the whole
+session worthwhile. If a purchase made two and a half minutes into a fifteen
+minute market is premature, then simply forbid any side from being completed in
+the first four or five minutes. I built that and it cost about half the field —
+fifty markets at one setting, forty-six at another. So I went and measured, over
+all hundred and ten markets, when the player actually finishes a side.
+
+Every single one of the hundred and ten finishes a side in the middle of the
+window. Eighty-four of them do it in the first two minutes. Some do it in the
+first ten seconds — one market has the player holding a thousand shares of one
+side eight seconds after the window opens. And the market that blocks the level
+finishes its side at two and a half minutes, which puts it later than three
+quarters of the field.
+
+So the story I had been telling myself — that this purchase is hasty and the same
+shares would still be there to buy later — is simply false about this player.
+Finishing a side fast is not a symptom, it is the mechanism; those shares are
+offered in bursts of a few seconds and they are not offered again. That single
+distribution retires every rule that delays, rations or slows the completing
+purchase, whether by clock, by spending rate or by share of the target, and it
+explains all three of this session's failures at once rather than leaving them as
+three separate disappointments.
+
+Everything I built ships switched off with its numbers written next to it in the
+code, and I confirmed twice that the unchanged player still runs exactly as it
+did — the same single failure over the same hundred and ten markets. What the
+next session inherits is a genuinely smaller problem: the blocking market needs
+the player to back the side that wins at a moment when the order book, the model
+of the underlying, and the next four minutes of price action all point the other
+way, and it now has firm evidence that it cannot get there by restraining the
+chase, by refusing the switch, or by slowing anything down.

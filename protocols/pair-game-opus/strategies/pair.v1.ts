@@ -1228,6 +1228,70 @@ export const ConfigSchema = z.strictObject({
   /** Length of the rolling window `burstShare` is measured over. */
   burstMs: z.coerce.number().finite().positive().default(30_000),
   /**
+   * 1 ⇒ while the priority leg has spent its `burstShare` allowance, the chase is
+   * handed to the other leg for as long as the pause lasts. 0 disables it.
+   *
+   * `burstShare` on its own is a cap that withholds: the seconds it refuses the
+   * chase are seconds in which the other leg answers to `underdogMax`, a loser's
+   * price a contested leg is never quoted at, so the player buys NOTHING and the
+   * pause is a hole in the window rather than a redirection of the money. Every
+   * cap on this player that survives — `depthHold`, `fairHold`, `edgeMinDep` —
+   * survives because it hands the money somewhere, and every one that does not
+   * has cost between nine and forty-nine markets.
+   *
+   * Unlike `depthHold` and `burstSwap` this one does NOT latch. It is a pause,
+   * not a verdict: when the rolling window rolls on, the chase goes back to
+   * whichever leg the book names. That matters because the leg the book names is
+   * right about a hundred and nine times in a hundred and ten, and every rule
+   * that has overridden it permanently — `priorityLatch`, the parity cap — has
+   * cost twelve markets or more by buying the loser out.
+   */
+  burstPause: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Share of `qty` a leg must already hold before `burstShare` applies to it at
+   * all. 0 ⇒ from the first share, which is the original behaviour.
+   *
+   * Ungated the velocity cap is a cap on the whole player, and it strands legs
+   * everywhere: at 0.20 with the pause on, forty-eight of the first hundred and
+   * ten windows end with one leg complete and the other between 400 and 950 —
+   * not out of money (most spend under 800 of a 965 ceiling) but out of window.
+   * The buying opportunities in these markets are concentrated in seconds, and a
+   * rule that rations every second rations the wrong ones.
+   *
+   * What has to be slowed is not the build but the FINISH. A burst that takes a
+   * leg from nothing to most of its target is how this player wins a trending
+   * window; the burst that has to be interrupted is the one that takes an
+   * already-built leg the last third of the way, because the money it spends is
+   * the money the partner needed and there is no cheaper moment left to find.
+   */
+  burstFrom: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Share of `qty` no leg may pass before `lateMs`. 1 ⇒ off.
+   *
+   * A ROOM cap rather than a price cap, and that distinction is the whole idea.
+   * Every price cap tried on the chase — `jumpPad` with and without `jumpCross`,
+   * `chasePad`, the realized-average guard — delays the crossing and nothing
+   * more: the window then spends four minutes with the same leg as the
+   * favourite and the resting bid fills at much the same prices. A room cap is
+   * the one thing measured to actually stop the burst that strands a partner.
+   *
+   * The clock is what keeps it from being a verdict. Nothing here claims the
+   * completing purchase is unwise — no observable at that instant separates the
+   * market that blocks level 109 from the field. It claims something weaker and
+   * checkable: that a leg finished in the first third of the window is finished
+   * before the window has said anything, and that the same shares will still be
+   * there to buy later, usually cheaper. `earlyShare` makes that argument for
+   * the first 45 seconds and half the target; this is the same argument carried
+   * to the completion itself.
+   *
+   * Like every cap on this player that survives, it redirects rather than
+   * withholds: while the priority leg sits at the cap the chase is handed to the
+   * other leg, which is cheap for exactly the same reason.
+   */
+  lateShare: z.coerce.number().finite().min(0).max(1).default(1),
+  /** How long into the window `lateShare` applies. */
+  lateMs: z.coerce.number().finite().min(0).default(300_000),
+  /**
    * 1 ⇒ a leg that has committed `burstSwapShare` of the ceiling inside
    * `burstSwapMs` is LATCHED at `burstSwapHold` of its target and the chase is
    * handed to the other leg. 0 disables it.
@@ -1273,6 +1337,58 @@ export const ConfigSchema = z.strictObject({
    * money the partner needed and there is no cheaper moment left to find it in.
    */
   burstSwapFrom: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * 1 ⇒ a chase pointed at the leg the player holds LESS of may draw LEVEL with
+   * the other leg and no further; while it is held there the chase is handed
+   * back to the leg that is already paid for. 0 disables it.
+   *
+   * This is a change of horse in the middle of the race, and it is the shape of
+   * every market that has blocked a level since 101: the player holds 719/509,
+   * 686/344 or 344/671, the book turns, the chase points at the SMALLER leg, and
+   * it takes that leg to a thousand in one burst while the larger one is left
+   * stranded and worthless. The shares in the abandoned leg are unmatchable
+   * until it is finished, and the money the new leg wants is exactly the money
+   * that would have finished it — there is one pot, and the leg left behind ends
+   * the window not overpriced but unfunded.
+   *
+   * The cap is on SHARES and it is asymmetric on purpose. Building one leg out
+   * in front is how this player wins a trending window and is never refused;
+   * what is refused is overtaking from behind. `maxImbalance`, the symmetric
+   * version, costs forty-three markets.
+   *
+   * Nothing is withheld. The parity cap dissolves on its own: it is measured
+   * against the other leg's holding, so every share the leader takes hands one
+   * back, and it lifts entirely once the leader is complete. That is the same
+   * bargain `depthHold` makes — stop one leg, buy the other OUT, then finish the
+   * first at whatever it is worth by the close.
+   *
+   * The release matters as much as the rule. Measured ungated at `c6669a59` the
+   * parity cap cost TWELVE markets, nine of them coming to rest at 800/something
+   * with nothing buyable at all: the leader had been latched by `depthHold` at
+   * 800, the trailer was pinned at parity with it, and neither could move. A cap
+   * whose parity reference is itself frozen is a deadlock, so the overtake cap
+   * stands down for good the moment `fairHold`, `depthHold` or `burstSwap` has
+   * latched the leg it is measured against.
+   */
+  overtakeCap: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Multiple of the other leg's holding the capped leg may reach. 1 ⇒ parity.
+   * Above 1 it may overtake by that proportion before being stopped.
+   */
+  overtakeHold: z.coerce.number().finite().min(0).max(2).default(1),
+  /**
+   * Share of `qty` the leg being LEFT BEHIND must already hold before the cap
+   * may arm. 0 ⇒ from the first share.
+   *
+   * Two legs at 40 and 30 shares are not a commitment anyone has made yet, and
+   * refusing to change horses that early is refusing to read the book at all.
+   */
+  overtakeFrom: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Share of `qty` the two legs must differ by before the cap may arm. 0 ⇒ any
+   * deficit at all counts as being behind.
+   */
+  overtakeGap: z.coerce.number().finite().min(0).max(1).default(0),
   /**
    * 1 ⇒ a leg holding MORE than the edge pace currently allows, continuously for
    * `stallFinishMs`, is finished rather than paced. 0 disables it.
@@ -3113,6 +3229,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let burstCapSide: Side | null = null
   let burstHandover: Side | null = null
   let burstHeld: Side | null = null
+  // The same three latches once more, driven by the chase pointing at the leg
+  // the player holds LESS of. `overtakeCapSide` and `overtakeHandover` are
+  // per-tick and MUST be cleared above the both-legs-contested branch;
+  // `overtakeHeld` stands until the leg it is measured against completes or is
+  // itself latched by another cap. See `overtakeCap`.
+  let overtakeCapSide: Side | null = null
+  let overtakeHandover: Side | null = null
+  let overtakeHeld: Side | null = null
+  // Per-tick only, and deliberately unlatched: which leg the chase was handed to
+  // while the priority leg sits out its `burstShare` allowance. See `burstPause`.
+  let burstPauseHandover: Side | null = null
+  // Per-tick only, and unlatched for the same reason: which leg the chase was
+  // handed to while the priority leg sits at its early-completion cap.
+  // See `lateShare`.
+  let lateHandover: Side | null = null
   // When each leg last went above the edge pace's current allowance and stayed
   // there. 0 while the leg is inside its allowance. See `stallFinish`.
   const overSinceMs: Record<Side, number> = { UP: 0, DOWN: 0 }
@@ -3648,6 +3779,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `dcap=${depthHeld ?? '-'} darm=${depthArmed ?? '-'} ` +
           `bcap=${burstHeld ?? '-'} bspend=${spentOverSwapWindow('UP', basis.UP).toFixed(0)}/` +
           `${spentOverSwapWindow('DOWN', basis.DOWN).toFixed(0)} ` +
+          `ocap=${overtakeHeld ?? '-'} ` +
           `bidUp=${upBook.bestBid === null ? '-' : upBook.bestBid.toFixed(3)} ` +
           `bidDown=${downBook.bestBid === null ? '-' : downBook.bestBid.toFixed(3)}`,
       )
@@ -3811,6 +3943,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     depthHandover = null
     burstCapSide = null
     burstHandover = null
+    overtakeCapSide = null
+    overtakeHandover = null
+    burstPauseHandover = null
+    lateHandover = null
     // The release of `fairHold`, latched and evaluated here for the same reason
     // the two lines above are: the branch below is skipped once a leg completes,
     // and the witness can arrive on any tick.
@@ -3947,6 +4083,66 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         ) {
           solvDemoted = first
           first = o
+        }
+      }
+      // The chase is at its early-completion cap. Same bargain as every other
+      // cap here: the leg stops where it stands and the money goes to the other
+      // one rather than sitting still. See `lateShare`.
+      if (cfg.lateShare < 1 && elapsed < cfg.lateMs) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        if (held[first] >= cfg.lateShare * cfg.qty && held[o] < cfg.lateShare * cfg.qty) {
+          lateHandover = o
+          first = o
+        }
+      }
+      // The chase has spent its velocity allowance for the moment. Refusing it
+      // alone leaves the window buying nothing at all, because the leg that is
+      // not the priority answers to `underdogMax`; hand the chase over for as
+      // long as the pause lasts, and take it back when the window rolls on.
+      // See `burstPause`.
+      if (
+        cfg.burstShare < 1 &&
+        cfg.burstPause === 1 &&
+        held[first] >= cfg.burstFrom * cfg.qty
+      ) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        const spentHere = spentRecently(first, basis[first])
+        const roomHere = cfg.burstShare * cfg.qty * cfg.pairCeil - spentHere
+        if (roomHere <= 0 && held[o] < cfg.qty) {
+          burstPauseHandover = o
+          first = o
+        }
+      }
+      // A chase pointed at the leg the player holds LESS of is a change of horse
+      // in the middle of the race. Let the new leg draw LEVEL and no further,
+      // and hand the chase back to the leg that is already paid for. Evaluated
+      // BEFORE the three caps below so it only ever sees the leg the book named:
+      // if one of them then hands the chase over, that override wins, and the
+      // parity cap stands down rather than pinning the trailer against a leader
+      // that is itself frozen. See `overtakeCap`.
+      if (cfg.overtakeCap === 1 && overtakeHeld === null) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        if (
+          held[o] >= cfg.overtakeFrom * cfg.qty &&
+          held[o] - held[first] >= cfg.overtakeGap * cfg.qty &&
+          held[o] > held[first]
+        ) {
+          overtakeHeld = first
+        }
+      }
+      if (overtakeHeld !== null) {
+        const o: Side = overtakeHeld === 'UP' ? 'DOWN' : 'UP'
+        if (
+          held[o] < cfg.qty &&
+          fairHeld !== o &&
+          depthHeld !== o &&
+          burstHeld !== o
+        ) {
+          overtakeCapSide = overtakeHeld
+          overtakeHandover = o
+          first = o
+        } else {
+          overtakeHeld = null
         }
       }
       // The leg that is ahead is being bought on an ask gap the model is running
@@ -4347,6 +4543,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         (cfg.earlyFair === 1 && (!fairAgainst || earlyFree[side]))
           ? Infinity
           : cfg.earlyShare * cfg.qty - held[side]
+      // Early-completion cap: no leg may be taken past `lateShare` of its target
+      // while the window is younger than `lateMs`. See `lateShare`.
+      const lateRoom =
+        cfg.lateShare >= 1 || elapsed >= cfg.lateMs
+          ? Infinity
+          : cfg.lateShare * cfg.qty - held[side]
       // Edge pace: a leg may only hold as much of its target as the book has
       // already revealed. Only meaningful while both legs are still contested.
       // The outside reading is required alongside the book's when `ptbPace` is
@@ -4408,6 +4610,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The same room cap again, driven by the money velocity. See `burstSwap`.
       const burstSwapRoom =
         burstCapSide !== side ? Infinity : cfg.burstSwapHold * cfg.qty - held[side]
+      // The parity cap. Its reference is the OTHER leg's holding rather than a
+      // share of `qty`, so it hands room back as that leg fills instead of
+      // withholding money outright. See `overtakeCap`.
+      const overtakeRoom =
+        overtakeCapSide !== side
+          ? Infinity
+          : cfg.overtakeHold * held[side === 'UP' ? 'DOWN' : 'UP'] - held[side]
       // How long this leg has held more than the pace currently allows. Updated
       // for BOTH sides, once each per tick, since each pass touches only its own
       // side. See `stallFinish`.
@@ -4451,6 +4660,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         side === fairHandover ||
         side === depthHandover ||
         side === burstHandover ||
+        side === overtakeHandover ||
+        side === burstPauseHandover ||
+        side === lateHandover ||
         (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
@@ -4495,7 +4707,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // a budget cap — a VELOCITY cap, and the only one of the three that never
       // refuses a leg permanently. See `burstShare`.
       const burstRoom =
-        cfg.burstShare >= 1
+        cfg.burstShare >= 1 || held[side] < cfg.burstFrom * cfg.qty
           ? Infinity
           : Math.max(
               0,
@@ -4507,11 +4719,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, paceRoom),
         Math.max(0, openRoom),
         Math.max(0, earlyRoom),
+        Math.max(0, lateRoom),
         Math.max(0, edgeRoom),
         Math.max(0, oracleRoom),
         Math.max(0, fairRoom),
         Math.max(0, depthRoom),
         Math.max(0, burstSwapRoom),
+        Math.max(0, overtakeRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
