@@ -3201,9 +3201,39 @@ export const ConfigSchema = z.strictObject({
    * ceiling to buy the same cent instead costs market 39.
    */
   closeFinish: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * 1 ⇒ re-post a live order at an UNCHANGED price when this tick has decided to
+   * cross and that order was sent to wait.
+   *
+   * The two orders are the same `place_limit` at the same price and the
+   * difference between them is settled only at the instant of placement: a
+   * marketable order walks the asks as it lands, an order already resting at
+   * that price fills only when the ask goes THROUGH it. So a passive quote at
+   * 0.26 and an ask that falls to exactly 0.26 is a standoff, and the player —
+   * whose target price has not moved — never re-posts.
+   */
+  takeStale: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * Fraction of the clip below which a live CROSSING order is re-posted rather
+   * than left to rest. 0 disables it.
+   *
+   * "Never re-post merely because a fill made room for a bigger clip" is right
+   * about a queue and wrong about a cross, which has no queue. A marketable clip
+   * landing on a level thinner than itself takes what is there and leaves its
+   * remainder resting — dust at the ask, unable to fill, while the level it
+   * wanted is still quoted.
+   *
+   * It applies ONLY to an order that was itself sent as a cross. Applied to
+   * every undersized order it costs a market of its own: a partially filled
+   * PASSIVE quote is a queue position that has already proved itself, and
+   * re-sending it throws that away and pays the taker fee for the privilege.
+   * `takeStale` already covers the case where a waiting order should become a
+   * crossing one.
+   */
+  takeSmall: z.coerce.number().finite().min(0).max(1).default(0.25),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
   /** 0 off, 1 the decision timeline, 2 the whole-window observation channel. */
-  debug: z.coerce.number().int().min(0).max(2).default(0),
+  debug: z.coerce.number().int().min(0).max(3).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
   debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
@@ -3239,6 +3269,18 @@ type LiveOrder = {
   acked: boolean
   /** When the cancel was requested — used to re-send one that went missing. */
   cancelAtMs: number
+  /**
+   * Whether this order was sent to TAKE the book rather than to sit in it.
+   *
+   * The two are the same `place_limit` at the same price, and the difference is
+   * only ever settled at the instant of placement: a marketable order walks the
+   * asks as it lands, while an order already resting at that price fills only
+   * once the ask goes THROUGH it. So a passive quote left at 0.26 and an ask
+   * that falls to exactly 0.26 is a standoff neither side breaks — and the
+   * player, whose target price is unchanged, never re-posts. See the reprice
+   * test at the bottom of the tick.
+   */
+  crossed: boolean
 }
 
 /** Standard normal CDF (Abramowitz & Stegun 7.1.26 erf approximation). */
@@ -4878,6 +4920,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         burstRoom,
       )
       const room = roomRaw < Math.min(1, need) ? 0 : roomRaw
+      if (cfg.debug === 3 && need > 0) {
+        console.log(
+          `[pair.v1] room ${side} t+${Math.round(elapsed / 1000)}s need=${need.toFixed(0)} ` +
+            `room=${roomRaw.toFixed(0)} imb=${(cfg.maxImbalance - lead).toFixed(0)} ` +
+            `pace=${paceRoom.toFixed(0)} open=${openRoom.toFixed(0)} early=${earlyRoom.toFixed(0)} ` +
+            `late=${lateRoom.toFixed(0)} edge=${edgeRoom.toFixed(0)} orc=${oracleRoom.toFixed(0)} ` +
+            `fair=${fairRoom.toFixed(0)} dep=${depthRoom.toFixed(0)} bsw=${burstSwapRoom.toFixed(0)} ` +
+            `ovt=${overtakeRoom.toFixed(0)} ramp=${rampRoom.toFixed(0)} spk=${spikeRoom.toFixed(0)} ` +
+            `spend=${spendRoom.toFixed(0)} rate=${rateRoom.toFixed(0)} burst=${burstRoom.toFixed(0)} ` +
+            `cap=${cap[side]?.toFixed(4) ?? '-'} capFin=${capFin[side]?.toFixed(4) ?? '-'} ` +
+            `want=${want?.toFixed(3) ?? '-'} ask=${ask.toFixed(3)}`,
+        )
+      }
 
       if (need <= 0 || want === undefined || room <= 0) {
         const c = cancelIntent(side, nowMs, 'filled')
@@ -4933,7 +4988,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
       if (!o) {
         const clientOrderId = `pg-${side}-${++seq}`
-        live[side] = { clientOrderId, price, size, cancelRequested: false, acked: false, cancelAtMs: 0 }
+        live[side] = {
+          clientOrderId,
+          price,
+          size,
+          cancelRequested: false,
+          acked: false,
+          cancelAtMs: 0,
+          crossed: cross,
+        }
         intents.push({
           kind: 'place_limit',
           clientOrderId,
@@ -4952,8 +5015,35 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // larger than what is still needed (a partial fill on the other path).
       // Never re-post merely because a fill made room for a bigger clip: `size`
       // is already the cap, and churning would lose queue position for nothing.
-      if (o.cancelRequested || Math.abs(o.price - price) >= TICK - 1e-9 || o.size > size + 1e-9) {
-        const c = cancelIntent(side, nowMs, o.cancelRequested ? 'cancel-retry' : 'reprice')
+      //
+      // The third case is a re-post at an UNCHANGED price, and it is not churn.
+      // The tick has decided to cross and the order sitting there was sent to
+      // wait; a waiting order at the ask does not trade, because a resting bid
+      // fills only when the book goes through it, while the same price sent
+      // fresh walks the asks on arrival. `crossed` makes it a one-way door, so
+      // an order that crosses and does not fill is never re-sent for this
+      // reason again.
+      // The exception is the same one: "a fill made room for a bigger clip" is
+      // not a reason to churn a QUEUE, but a crossing order has no queue. A
+      // marketable clip that lands on a level thinner than itself takes what is
+      // there and leaves its remainder resting — dust at the ask, the wrong size
+      // and unable to fill, while the level it wanted is still quoted. Sending
+      // the clip again is the only way to keep taking it.
+      const takeStale = cfg.takeStale === 1 && cross && !o.crossed
+      const takeSmall =
+        cfg.takeSmall > 0 && cross && o.crossed && o.size < cfg.takeSmall * size - 1e-9
+      if (
+        o.cancelRequested ||
+        Math.abs(o.price - price) >= TICK - 1e-9 ||
+        o.size > size + 1e-9 ||
+        takeStale ||
+        takeSmall
+      ) {
+        const c = cancelIntent(
+          side,
+          nowMs,
+          o.cancelRequested ? 'cancel-retry' : takeStale ? 'take-stale' : 'reprice',
+        )
         if (c) intents.push(c)
       }
     }

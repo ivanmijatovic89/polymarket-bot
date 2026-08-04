@@ -1,17 +1,73 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **112** (first 112 eligible markets)
-- Current level: **113** (first 113 eligible markets)
+- Highest passed level: **113** (first 113 eligible markets)
+- Current level: **114** (first 114 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step:** **market 113 (`…1775188800`) is the blocker — 668.75/1000, cost
-0.879.** Market 115 (`…1775190600`) fails too (200/1000) and will block level
-115. Market 114 (`…1775189700`) is a flake: 1000/375 on one draw and 1000/1000 at
-cost 0.961 on the next. Note that `solvSwap` never fires in any of the three, so
-whatever they need is a different rule; start with a `debug=2` timeline rather
-than by tuning the new gates.
+**Next step:** **market 114 (`…1775189700`) is a coin flip, not a wall.** It
+passes 3 draws in 4 and 7 seeds in 8; the loser is `PG_SEED=4`, which ends
+1000 UP / 375 DOWN when DOWN is the winner. Diff seed 4 against seed 5 at
+`debugEveryMs=250` — that is the whole job. Market 115 (`…1775190600`) is a
+genuine wall behind it: the player buys 1000 DOWN out for 718 in the first 53
+seconds on a book and an oracle that both say DOWN decisively, and the window
+then reverses to UP for good. From t+53 it needs 800 UP at 0.315 and UP never
+trades under 0.32, so 115 has to be won before t+53 or not at all.
+
+## What passed 113 — a projection is an estimate, not a verdict
+
+`solvUnderPad=0.035`, `solvCheap=1`, `solvCheapPad=0.03` (all new).
+
+`solvUnder` required the receiving assignment to project INSIDE `qty ×
+pairCeil`. It reads that projection as a verdict, and it is not one: the plan
+funds the leg it is NOT chasing at the cheapest price that leg has yet shown,
+which deliberately over-estimates what the leg the window is abandoning costs at
+the death. Market 113's repair projects 1,004 against a ceiling of 970 and then
+completes for 963.
+
+- **`solvUnderPad`** — how far outside the ceiling the receiving plan may still
+  project. Alone it repairs 113 and 114 and costs three markets below them
+  (`…1775089800`, `…1775129400`, `…1775147400`), because it reopens exactly the
+  comparison the old rejection note convicted: two overrunning plans separated
+  by a couple of cents of trailing-low noise.
+- **`solvCheap`** — settle that comparison with a reading that is not stale. The
+  swap may only hand the chase to the leg quoted CHEAPER right now. At the
+  moment of decision every casualty hands it to the DEARER leg; the repair hands
+  it to the leg quoted four cents under the one it abandons.
+- **`solvCheapPad`** — one tick is not enough. The last casualty is blocked one
+  cent DEARER and fires a second later one cent CHEAPER on the same book. Three
+  cents is still that noise; the repair is four cents clear.
+
+| Configuration (first 115) | Failures |
+|---|---|
+| baseline (level 112 defaults) | 3 — markets 113, 114, 115 |
+| `solvUnder=0` | 4 — 3, 33, 51 and 115 |
+| `solvUnderPad` 0.035 / 0.06 | 4 / 4 — same three casualties |
+| `+ solvEdge=0.03` | 3 |
+| `+ solvCheap=1` (no edge) | 2 — market 3 and 115 |
+| `+ solvCheap=1 + solvEdge=0.03` | 4 |
+| **`+ solvCheap=1 + solvCheapPad=0.03`** | **1, 2, 1** (three draws) — 115, and 114 once |
+
+The moment of decision, which is the only place these separate:
+
+```
+3    t+69s UP→DOWN  askUp 0.520 askDown 0.490  held 219/344  projTo 973  z=0.30
+33   t+82s DOWN→UP  askUp 0.540 askDown 0.480  held 656/281  projTo 997  z=0.24
+51   t+72s UP→DOWN  askUp 0.480 askDown 0.530  held 200/469  projTo 992  z=0.15
+113  t+64s UP→DOWN  askUp 0.530 askDown 0.490  held 313/438  projTo 1004 z=0.27
+```
+
+Market 51 receives the DEARER leg; markets 3 and 33 receive a leg cheaper by
+exactly three cents, after being dearer a second earlier; market 113 receives a
+leg cheaper by four. `projTo` orders them backwards — the repair is the FURTHEST
+outside the ceiling — which is why no pad alone can cut this and why the cut has
+to be made on the live quotes.
+
+The cheapness test compares the GAP against `solvCheapPad + 0.005` rather than
+`askFrom − solvCheapPad`: neither side of that subtraction is exactly
+representable and the identical three-cent gap comes out allowed at one price
+level and refused at another.
 
 ## What passed 109–112 — the solvency swap, gated on the oracle
 
@@ -100,6 +156,9 @@ Levels **109–112 at `47bbd823`**, all defaults, one `play-level` run each:
 **109 → 5293**, **110 → 5294**, **111 → 5296**, **112 → 5297**. Three sweeps of
 the first 110 at those defaults returned zero failures, and a 115-market sweep at
 the same defaults returned three failures, all of them above level 112.
+
+Level **113 at `cbbc24bd`**, all defaults, one `play-level` run: **113 → 5359**,
+113/113 markets passed.
 
 ## Why market 109 fell to this and not to anything else
 
