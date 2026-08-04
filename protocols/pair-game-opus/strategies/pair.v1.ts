@@ -2202,6 +2202,63 @@ export const ConfigSchema = z.strictObject({
    */
   ptbFairLagEdge: z.coerce.number().finite().min(0).max(1).default(0.03),
   /**
+   * 1 ⇒ the narrow threshold's latch only keeps an override alive if the LAG
+   * licensed that override in the first place. 0 ⇒ any override that has ever
+   * opened is read at the narrow threshold from then on, which is what the
+   * latch above did on its own.
+   *
+   * The latch exists because acting on the lag closes the lag, so an override
+   * the lag licensed would switch itself off halfway through its own repair.
+   * That argument says nothing about an override the lag never licensed — one
+   * that opened on a single tick of the WIDE reading in a window where the two
+   * legs were level, or where the leg the disagreement names is the leg already
+   * ahead. Such an override gets the narrow threshold as a gift, and then it
+   * only has to keep clearing 0.03 to run for the rest of the window.
+   *
+   * That gift is what loses the market blocking level 108. Its book leans UP
+   * from the first quote while BTC sits within twenty dollars of the strike all
+   * the way to the seventh minute, so the disagreement points DOWN. It clears
+   * 0.07 for eight seconds around t+48s, hands the chase to DOWN, and then sits
+   * between 0.040 and 0.069 — under the wide reading, over the narrow one — for
+   * the next three minutes, holding the chase on DOWN while the book walks UP
+   * from 0.48 to 0.58. The player finishes DOWN, and UP wins the window.
+   *
+   * 1 ships. On its own it takes that market from 200/1000 to 648/1000 — the
+   * chase points the right way for three minutes — and it breaks nothing over
+   * the first 110. What it does not survive is the last second of that chase;
+   * see `ptbFairLagDwellMs`.
+   */
+  fairLagLatch: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * Milliseconds the lag must have STOOD at `ptbFairMinLag` before it may
+   * license the narrow threshold. 0 ⇒ the instant reading, which is what the
+   * rule did on its own.
+   *
+   * The lag's whole argument is that redirecting the chase is cheap when the
+   * player is already lopsided — following the disagreement and closing the
+   * imbalance are the same action, so a wrong reading still leaves the player
+   * holding the leg it was short of. That argument assumes the lopsidedness is
+   * a condition the player has been living with. It is not an argument for a
+   * lag the player created three hundred milliseconds ago by deliberately
+   * chasing a leg.
+   *
+   * That is what the market blocking level 108 does. At t+190s it holds 469 of
+   * UP against 344 of DOWN — 125 apart, under the floor — and in one second the
+   * book jumps and it takes 217 more UP. The lag is now 342, the floor opens on
+   * the same tick, the disagreement has been sitting quietly at 0.04 (over the
+   * narrow reading, under the wide one) for three minutes, and the chase is
+   * handed to DOWN. It spends 260 of its remaining 394 dollars buying DOWN out
+   * at 0.38, and the 686 shares of UP it had just chosen to buy — in the window
+   * UP wins — are stranded 314 short.
+   *
+   * 10 s ships, out of a flat band: over the first 110 markets, 5 s, 10 s and
+   * 20 s all leave exactly one failure and it is the same market in all three.
+   * The dwell only pays alongside `fairLagLatch=1` — on its own it leaves this
+   * market failing untouched at 200/1000, because by t+190s the override is
+   * already alive on the narrow threshold and never has to re-open.
+   */
+  ptbFairLagDwellMs: z.coerce.number().finite().min(0).default(10_000),
+  /**
    * 1 ⇒ the priority leg is taken away from a leg whose completion the ceiling
    * can no longer pay for, and given to the other one.
    *
@@ -2977,6 +3034,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   const earlyFree: Record<Side, boolean> = { UP: false, DOWN: false }
   /** Side the disagreement is currently overriding towards — see `ptbFairMinLag`. */
   let fairLatch: Side | null = null
+  /**
+   * Side of an override that was LICENSED BY THE LAG, as opposed to one that
+   * merely happens to be running — see `fairLagLatch`.
+   */
+  let fairLagLatch: Side | null = null
+  /** Side and start of the lag currently being timed — see `ptbFairLagDwellMs`. */
+  let fairLagSide: Side | null = null
+  let fairLagSinceMs: number | null = null
 
   /**
    * BTC's signed distance from the price to beat, in dollars, on whichever
@@ -3269,11 +3334,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     // The lag decides which threshold the disagreement is read against, and it
     // decides it once: an override already running keeps the threshold it
     // opened on, because acting on the lag is what closes it.
-    const fairEdge =
-      cfg.ptbFairLagEdge > 0 &&
-      (fairLag >= cfg.ptbFairMinLag * cfg.qty || fairLatch === fairWant)
-        ? cfg.ptbFairLagEdge
-        : cfg.ptbFairEdge
+    //
+    // Which override, though. `fairLagLatch` is the difference between "an
+    // override the lag licensed keeps its threshold" and "any override that
+    // ever opened is henceforth read at the narrow one".
+    // A lag the player has been CARRYING, not one it created on this tick. See
+    // `ptbFairLagDwellMs`.
+    const lagRaw = fairLag >= cfg.ptbFairMinLag * cfg.qty
+    if (!lagRaw) {
+      fairLagSide = null
+      fairLagSinceMs = null
+    } else if (fairLagSide !== fairWant) {
+      fairLagSide = fairWant
+      fairLagSinceMs = nowMs
+    }
+    const lagServed =
+      lagRaw && (fairLagSinceMs === null || nowMs - fairLagSinceMs >= cfg.ptbFairLagDwellMs)
+    const lagOk =
+      lagServed ||
+      (cfg.fairLagLatch === 1 ? fairLagLatch === fairWant : fairLatch === fairWant)
+    const fairEdge = cfg.ptbFairLagEdge > 0 && lagOk ? cfg.ptbFairLagEdge : cfg.ptbFairEdge
     const fairOpen =
       Math.abs(fairGap) >= fairEdge &&
       Math.abs(pBook - 0.5) <= cfg.ptbFairBookMax &&
@@ -3281,6 +3361,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       (cfg.ptbFairUntil >= 1 || elapsed < cfg.ptbFairUntil * WINDOW_MS) &&
       modelBacks
     fairLatch = fairOpen ? fairWant : null
+    fairLagLatch = fairOpen && lagOk ? fairWant : null
     const fairSide: Side | null = fairLatch
 
     const logNow = cfg.debug === 1 && nowMs - lastLogMs >= cfg.debugEveryMs
