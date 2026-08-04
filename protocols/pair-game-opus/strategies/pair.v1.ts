@@ -2521,6 +2521,83 @@ export const ConfigSchema = z.strictObject({
    */
   ptbFairModelMin: z.coerce.number().finite().min(0).max(0.5).default(0),
   /**
+   * 1 ⇒ a fair-lag override that OPENED with the model on its side keeps
+   * running only while the model stays there.
+   *
+   * `ptbFairModelMin` is the same objection applied to every override, and it
+   * cannot ship because the disagreement opens in two quite different ways.
+   * Either the model leans the way the override points — "BTC has moved and the
+   * book has not caught up" — or it does not, and the override is a purely
+   * RELATIVE reading: the book prices one leg further from the model's own
+   * number than the other, whichever way the model itself leans. The second
+   * kind is load-bearing in five of the first hundred and thirty windows
+   * (`…1775109600`, `…1775120400`, `…1775127600`, `…1775167200`,
+   * `…1775201400` all open their override with the model on the OTHER side),
+   * and a blanket requirement kills it.
+   *
+   * The first kind carries a premise the second does not, and the premise can
+   * expire. Market `…1775204100` opens its override at t+107 with the model at
+   * 0.614 for UP against a book at 0.485 — the good case, exactly what the rule
+   * is for. Eleven seconds later BTC is back on the strike and the model is
+   * under 0.5, while the book has run to 0.41/0.60: the gap survives only
+   * because the BOOK moved, and the player spends the money DOWN still needs
+   * taking UP — which the market is abandoning — to a thousand. DOWN settles
+   * the winner and is stranded at 469.
+   *
+   * So this is not "the model must back the override"; it is "an override may
+   * not outlive the reason it was opened on".
+   */
+  ptbFairModelKeep: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * How far onto the OTHER side the model must go before it withdraws the
+   * backing `ptbFairModelKeep` reads. 0 ⇒ the bare sign.
+   *
+   * A gate that reads a price needs a margin rather than a sign, and this is
+   * where that margin lives: the model wobbling a thousandth across even is not
+   * the same event as BTC crossing back to the other side of the strike.
+   */
+  ptbFairModelKeepMin: z.coerce.number().finite().min(0).max(0.5).default(0.02),
+  /**
+   * How far the model must have TRAVELLED away from the override's side, over
+   * `ptbFairModelKeepTauMs`, before `ptbFairModelKeep` withdraws its backing.
+   * 0 ⇒ no requirement, the level alone decides.
+   *
+   * The premise being tested is "BTC moved and the book has not caught up", and
+   * the way that premise dies is BTC MOVING BACK — not the model drifting a
+   * point or two across even while it stands still. Both readings are needed
+   * because the two windows that separate them are two hundredths apart on the
+   * level and eight on the move: market `…1775204100` gives up seventeen points
+   * of model in twenty seconds and must be suspended, market `…1775133000`
+   * gives up eight and must not.
+   */
+  ptbFairModelKeepDrop: z.coerce.number().finite().min(0).max(1).default(0.1),
+  /** The window `ptbFairModelKeepDrop` measures that travel over. */
+  ptbFairModelKeepTauMs: z.coerce.number().finite().min(0).default(20_000),
+  /**
+   * 1 ⇒ the backing may only be withdrawn while the override's own leg is not
+   * BEHIND the other one.
+   *
+   * Suspending an override hands the chase back to the book, and the fair-lag
+   * rule exists to serve a leg the book has left behind — so the suspension can
+   * strand precisely the leg the override was buying. This is `solvHeld`'s
+   * sentence read from the other end: do not demote the leg you own less of.
+   * Market `…1775199600` suspends at t+301 holding 469 of the promoted leg
+   * against 594 of the other and ends 536/1000 in one draw of four; market
+   * `…1775204100` suspends holding 594 against 469 and completes both.
+   */
+  ptbFairModelKeepHeld: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * How late into the window the backing may still be withdrawn, in ms. 0 ⇒ any
+   * time.
+   *
+   * Withdrawing it reverses a decision the player has already been acting on,
+   * and a reversal only pays for itself if there is still window left to chase
+   * the other leg in. The two windows that need the suspension take it at t+125
+   * and t+128; `…1775199600` takes one at t+301 holding 469 against 594 and
+   * ends 536/1000 in one draw of four.
+   */
+  ptbFairModelKeepUntilMs: z.coerce.number().finite().min(0).default(240_000),
+  /**
    * Milliseconds into the window before the disagreement may override anything.
    *
    * The book's OPENING lean is the one lean the player should not fade: it
@@ -3793,6 +3870,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // Whether the outside price has contradicted that opening read. Once it has,
   // the latch is gone for the rest of the window. See `convLatchZ`.
   let convLatchDead = false
+  // When the latch was recorded, so the revocation instrument can say how long
+  // the opening read had lived when the model tore it up.
+  let convLatchAtMs = -1
+  let dbgFairTook: Side | null = null
+  let dbgFairKept: Side | null = null
   let dbgLastFirst: Side | null = null
   let dbgLastConvFirst: Side | null = null
 
@@ -3879,6 +3961,28 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
    * spread has been for a while rather than how wide it is right now. Head is
    * the trailing minimum. See `edgeHoldMs`.
    */
+  /**
+   * A trailing record of the two probabilities and the two asks, so a rule — or
+   * an instrument — can ask WHO opened the disagreement the fair-lag reading is
+   * acting on: the model, because BTC moved, or the book, because it abandoned a
+   * leg. Sixty seconds is enough for both questions and costs a few hundred
+   * entries a window.
+   */
+  const fairHist: { t: number; pm: number; pb: number; au: number; ad: number }[] = []
+  const pushFairHist = (t: number, pm: number, pb: number, au: number, ad: number): void => {
+    fairHist.push({ t, pm, pb, au, ad })
+    while (fairHist.length > 1 && fairHist[0]!.t < t - 60_000) fairHist.shift()
+  }
+  /** The most recent sample at least `ms` old, or the oldest one there is. */
+  const fairAgo = (t: number, ms: number): (typeof fairHist)[number] | null => {
+    let out: (typeof fairHist)[number] | null = null
+    for (const h of fairHist) {
+      if (h.t <= t - ms) out = h
+      else break
+    }
+    return out ?? fairHist[0] ?? null
+  }
+
   const edgeQ: { t: number; v: number }[] = []
   const pushEdge = (t: number, v: number): void => {
     while (edgeQ.length > 0 && edgeQ[edgeQ.length - 1]!.v >= v) edgeQ.pop()
@@ -3924,6 +4028,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
    * merely happens to be running — see `fairLagLatch`.
    */
   let fairLagLatch: Side | null = null
+  /** Side of an override the MODEL opened — see `ptbFairModelKeep`. */
+  let fairModelSide: Side | null = null
   /** Side and start of the lag currently being timed — see `ptbFairLagDwellMs`. */
   let fairLagSide: Side | null = null
   let fairLagSinceMs: number | null = null
@@ -4077,6 +4183,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       elapsed <= (cfg.convLatchByMs > 0 ? cfg.convLatchByMs : cfg.convUntil * WINDOW_MS)
     ) {
       convLeg = askUp >= askDown ? 'UP' : 'DOWN'
+      convLatchAtMs = nowMs
     }
     const sustainedEdge =
       cfg.edgeHoldMs > 0 && nowMs - windowStartMs >= cfg.edgeHoldAfterMs
@@ -4209,6 +4316,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const pModel =
       diff === null ? null : normCdf(diff / (cfg.ptbSigma * Math.sqrt(Math.max(leftFrac, 1e-6))))
     const pBook = askUp + askDown > 0 ? askUp / (askUp + askDown) : 0.5
+    if (pModel !== null) pushFairHist(nowMs, pModel, pBook, askUp, askDown)
     // The opening lean, revoked. Evaluated here — above the early returns, and
     // above the branch that stops running once a leg completes — because a
     // contradiction can arrive on any tick and the latch is only safe while
@@ -4222,6 +4330,23 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       outsideZ >= cfg.convLatchZ
     ) {
       convLatchDead = true
+      // The revocation instrument: one line per window, at the moment the
+      // opening read is torn up, carrying everything the revocation could have
+      // been decided on. `age` is how long the latch had lived, `pBook` says
+      // whether the BOOK has crossed over with the model or is still where the
+      // latch found it.
+      if (cfg.debug >= 2) {
+        console.log(
+          `[pair.v1] latchkill slug=${ctx?.market?.slug ?? '?'} ` +
+            `t+${Math.round(elapsed / 1000)}s latch=${convLeg} ` +
+            `age=${convLatchAtMs >= 0 ? Math.round((nowMs - convLatchAtMs) / 1000) : -1}s ` +
+            `pModel=${pModel.toFixed(3)} z=${outsideZ.toFixed(2)} ` +
+            `diff=${diff === null ? '-' : diff.toFixed(1)} need=${needDiff.toFixed(1)} ` +
+            `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+            `edge=${edge.toFixed(3)} held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} ` +
+            `spent=${spent.toFixed(1)}`,
+        )
+      }
     }
     // How old the book's lean on each leg is: the last moment the book was not
     // already pricing that leg above even. See `depthFreshMs`.
@@ -4283,12 +4408,55 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       lagServed ||
       (cfg.fairLagLatch === 1 ? fairLagLatch === fairWant : fairLatch === fairWant)
     const fairEdge = cfg.ptbFairLagEdge > 0 && lagOk ? cfg.ptbFairLagEdge : cfg.ptbFairEdge
+    // How far the model leans TOWARDS the leg the disagreement promotes.
+    // Positive ⇒ the model is behind this override; negative ⇒ the override is
+    // the purely relative reading. See `ptbFairModelKeep`.
+    const leanToward = fairWant === 'UP' ? modelLean : -modelLean
+    // An override the model opened keeps running only while the model is still
+    // behind it. Recorded per leg and never cleared by its own suspension: the
+    // condition has to survive being acted on, or the next tick reopens the
+    // override and nothing changes. A different leg's disagreement is a
+    // different reading and starts free of this.
+    // How far the model has travelled AWAY from that leg over the trailing
+    // window. Positive ⇒ it is giving the override back. See
+    // `ptbFairModelKeepDrop`.
+    const keepAgo = fairAgo(nowMs, cfg.ptbFairModelKeepTauMs)
+    const leanThen =
+      keepAgo === null ? leanToward : fairWant === 'UP' ? keepAgo.pm - 0.5 : 0.5 - keepAgo.pm
+    const keepDrop = leanThen - leanToward
+    const keepOk =
+      cfg.ptbFairModelKeep !== 1 ||
+      fairModelSide !== fairWant ||
+      leanToward >= -cfg.ptbFairModelKeepMin ||
+      keepDrop < cfg.ptbFairModelKeepDrop ||
+      (cfg.ptbFairModelKeepUntilMs > 0 && elapsed > cfg.ptbFairModelKeepUntilMs) ||
+      (cfg.ptbFairModelKeepHeld === 1 &&
+        held[fairWant] < held[fairWant === 'UP' ? 'DOWN' : 'UP'])
     const fairOpen =
       Math.abs(fairGap) >= fairEdge &&
       Math.abs(pBook - 0.5) <= cfg.ptbFairBookMax &&
       elapsed >= cfg.ptbFairAfterMs &&
       (cfg.ptbFairUntil >= 1 || elapsed < cfg.ptbFairUntil * WINDOW_MS) &&
-      modelBacks
+      modelBacks &&
+      keepOk
+    if (fairOpen && leanToward > 0) fairModelSide = fairWant
+    // The suspension instrument: one line the first time the model withdraws
+    // from an override it opened, carrying how far it has crossed and what the
+    // book has done in the meantime.
+    if (cfg.debug >= 2 && !keepOk && dbgFairKept !== fairWant) {
+      dbgFairKept = fairWant
+      const ago = fairAgo(nowMs, 20_000)
+      console.log(
+        `[pair.v1] fairkeep slug=${ctx?.market?.slug ?? '?'} ` +
+          `t+${Math.round(elapsed / 1000)}s side=${fairWant} lean=${leanToward.toFixed(3)} ` +
+          `drop=${keepDrop.toFixed(3)} ` +
+          `gap=${fairGap.toFixed(3)} pModel=${(pModel ?? 0.5).toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+          `dModel=${ago === null ? '-' : ((pModel ?? 0.5) - ago.pm).toFixed(3)} ` +
+          `dBook=${ago === null ? '-' : (pBook - ago.pb).toFixed(3)} ` +
+          `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} z=${outsideZ.toFixed(2)} ` +
+          `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+      )
+    }
     fairLatch = fairOpen ? fairWant : null
     fairLagLatch = fairOpen && lagOk ? fairWant : null
     const fairSide: Side | null = fairLatch
@@ -4568,7 +4736,33 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // decisively clear of the price to beat, which leg will end up dear is
       // not a matter of opinion.
       if (cfg.ptbMode === 1 && cfg.ptbPriority === 1 && outsideSide !== null) first = outsideSide
-      if (cfg.ptbMode === 1 && cfg.ptbFair === 1 && fairSide !== null) first = fairSide
+      if (cfg.ptbMode === 1 && cfg.ptbFair === 1 && fairSide !== null) {
+        // The fair-lag instrument: one line each time the disagreement TAKES the
+        // chase off another reading, carrying who opened the gap it is acting
+        // on. `dModel`/`dBook` are the two probabilities' moves over the last
+        // twenty seconds and `dAskT` is what the promoted leg's own price did in
+        // that time: a leg the fair reading calls cheap while its ask is
+        // collapsing is a leg the book is abandoning, not a bargain.
+        if (cfg.debug >= 2 && fairSide !== first && dbgFairTook !== fairSide) {
+          dbgFairTook = fairSide
+          const ago = fairAgo(nowMs, 20_000)
+          const askT = fairSide === 'UP' ? askUp : askDown
+          const askO = fairSide === 'UP' ? askDown : askUp
+          const agoT = ago === null ? askT : fairSide === 'UP' ? ago.au : ago.ad
+          const agoO = ago === null ? askO : fairSide === 'UP' ? ago.ad : ago.au
+          console.log(
+            `[pair.v1] fairtake slug=${ctx?.market?.slug ?? '?'} ` +
+              `t+${Math.round(elapsed / 1000)}s from=${first} to=${fairSide} ` +
+              `gap=${fairGap.toFixed(3)} pModel=${(pModel ?? 0.5).toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+              `dModel=${ago === null ? '-' : ((pModel ?? 0.5) - ago.pm).toFixed(3)} ` +
+              `dBook=${ago === null ? '-' : (pBook - ago.pb).toFixed(3)} ` +
+              `dAskT=${(askT - agoT).toFixed(3)} dAskO=${(askO - agoO).toFixed(3)} ` +
+              `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} z=${outsideZ.toFixed(2)} ` +
+              `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+          )
+        }
+        first = fairSide
+      }
       // The latched opening lean is applied HERE, below the fair-lag reading
       // rather than above it, because the reading it has to survive is that one.
       // The fair-lag rule names the leg the book has run further from than the
