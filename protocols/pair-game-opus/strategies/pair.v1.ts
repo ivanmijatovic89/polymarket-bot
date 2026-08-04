@@ -2705,6 +2705,86 @@ export const ConfigSchema = z.strictObject({
    */
   ptbFairLagEdge: z.coerce.number().finite().min(0).max(1).default(0.03),
   /**
+   * How much of the edge the INSTANTANEOUS gap must still show, as a fraction of
+   * whichever edge the override is being read against. 0 ⇒ off; 1 ⇒ the raw gap
+   * must clear that edge on its own, exactly as the smoothed one does.
+   *
+   * `fairGap` is an EMA over `ptbFairTauMs`, and the smoother is there to stop
+   * the reading chattering — it is not a memory the player may trade on. The
+   * fair-lag claim is a claim about NOW: the book has not caught up with the
+   * model YET. When the raw gap has already collapsed, the book HAS caught up,
+   * and the average is reporting a lag that no longer exists.
+   *
+   * Market 140 is that case in its purest form. At t+45 the override takes the
+   * chase off UP and gives it to DOWN on a smoothed gap of 0.032 — three
+   * thousandths past the narrow edge — while the raw gap is 0.019, well inside
+   * it. Twenty seconds earlier the raw gap was about 0.052; the model did not
+   * move at all (`dModel` 0.003) and the book came to meet it (`dBook` 0.030).
+   * Nothing was mispriced by then. The player buys DOWN out anyway and strands
+   * UP at 594; UP settles the winner.
+   *
+   * Measured across the first 140: the instrument prints 28 windows that take
+   * the chase this way, and market 140's raw gap of 0.019 is the smallest of the
+   * 28 by half a cent — the next is 0.031, and every window whose edge is known
+   * to be the narrow one clears 0.03 on the raw reading.
+   */
+  ptbFairRawShare: z.coerce.number().finite().min(0).max(2).default(0),
+  /**
+   * How much the promoted leg's OWN ask may have risen over
+   * `ptbFairTakeRiseTauMs` and still let the override open. 0 ⇒ off.
+   *
+   * The override's whole premise is that the book has not caught up with the
+   * model YET, so the leg it names is still going cheap. A leg whose ask is
+   * being marked UP right now is a leg the book is catching up ON: the lag is
+   * closing, in that leg's own price, while the reading is being taken. The
+   * smoothed gap cannot see this — it was computed before the move — which is
+   * why the reading survives the move that falsifies it.
+   *
+   * The instrument prints this column (`dAskT`) for every window that takes the
+   * chase this way, and across the first 140 it is at or below zero in all but
+   * four. Market 140 is the largest by half again: at t+45 DOWN's ask has gone
+   * 0.410 → 0.440 in twenty seconds and the override calls DOWN under-priced,
+   * takes the chase off a leg 59% bought, and buys DOWN out. UP settles the
+   * winner and 594 UP shares are stranded.
+   */
+  ptbFairTakeRise: z.coerce.number().finite().min(0).max(1).default(0.025),
+  /** The window `ptbFairTakeRise` measures the promoted leg's ask over. */
+  ptbFairTakeRiseTauMs: z.coerce.number().finite().min(0).default(20_000),
+  /**
+   * 1 ⇒ a leg refused by `ptbFairTakeRise` loses the NARROW threshold for the
+   * rest of the window and is read at `ptbFairEdge` from then on. 0 ⇒ the
+   * refusal lasts only as long as the move is inside the trailing window.
+   *
+   * Measured: the bare refusal is worth nothing on market 140 at 0.005, 0.015
+   * and 0.025 alike — 594/1000 every time, the same number as the baseline.
+   * Twenty seconds after the blip the trailing window has rolled past it and the
+   * same override opens on the same gap, having cost the player a few seconds.
+   * A rule whose precondition expires on its own does nothing.
+   */
+  ptbFairTakeRiseLatch: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * How loudly the outside price must CONTRADICT the override before the mark-up
+   * is allowed to discredit the narrow threshold, in standard deviations of the
+   * volatility-normalised oracle. 0 ⇒ the mark-up alone is enough. The model
+   * must also lean away from the promoted leg: a silent oracle contradicts
+   * nothing however large its `z`.
+   *
+   * The latch instrument printed market 140 and `…1775127600` as near twins at
+   * t+45 — same second, same 0.030 mark-up on DOWN, 594 UP held against 136 and
+   * 200 DOWN, 414 and 449 spent, asks a cent apart. On every column the rule was
+   * written from they are the same window, and the latch alone costs
+   * `…1775127600` its override and the market with it.
+   *
+   * The column that separates them is `z`: 0.24 against 0.03. BTC is a quarter
+   * of a deviation clear of the strike in the window the latch must fire in, and
+   * dead on it in the window it must not. This is `solvLevelZMax`'s distinction
+   * over again — missing backing and contradicted backing are not the same
+   * state — and it is the reason a mark-up is evidence at all: a book marking a
+   * leg up while the outside price walks away from it is a book repricing, and a
+   * book marking it up over a coin flip is noise.
+   */
+  ptbFairTakeRiseZ: z.coerce.number().finite().min(0).default(0.15),
+  /**
    * 1 ⇒ the narrow threshold's latch only keeps an override alive if the LAG
    * licensed that override in the first place. 0 ⇒ any override that has ever
    * opened is read at the narrow threshold from then on, which is what the
@@ -4065,6 +4145,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let fairLagLatch: Side | null = null
   /** Side of an override the MODEL opened — see `ptbFairModelKeep`. */
   let fairModelSide: Side | null = null
+  /** Legs that have lost the narrow threshold — see `ptbFairTakeRiseLatch`. */
+  const fairRiseDead: Record<Side, boolean> = { UP: false, DOWN: false }
   /** Side and start of the lag currently being timed — see `ptbFairLagDwellMs`. */
   let fairLagSide: Side | null = null
   let fairLagSinceMs: number | null = null
@@ -4442,7 +4524,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const lagOk =
       lagServed ||
       (cfg.fairLagLatch === 1 ? fairLagLatch === fairWant : fairLatch === fairWant)
-    const fairEdge = cfg.ptbFairLagEdge > 0 && lagOk ? cfg.ptbFairLagEdge : cfg.ptbFairEdge
+    // The lag the override trades on, read in the promoted leg's own price. See
+    // `ptbFairTakeRise`.
+    const riseAgo = cfg.ptbFairTakeRise > 0 ? fairAgo(nowMs, cfg.ptbFairTakeRiseTauMs) : null
+    const askWant = fairWant === 'UP' ? askUp : askDown
+    const askWantThen = riseAgo === null ? askWant : fairWant === 'UP' ? riseAgo.au : riseAgo.ad
+    const riseOk = cfg.ptbFairTakeRise <= 0 || askWant - askWantThen <= cfg.ptbFairTakeRise
+    const narrowOk = lagOk && !(cfg.ptbFairTakeRiseLatch === 1 && fairRiseDead[fairWant])
+    const fairEdge = cfg.ptbFairLagEdge > 0 && narrowOk ? cfg.ptbFairLagEdge : cfg.ptbFairEdge
     // How far the model leans TOWARDS the leg the disagreement promotes.
     // Positive ⇒ the model is behind this override; negative ⇒ the override is
     // the purely relative reading. See `ptbFairModelKeep`.
@@ -4467,13 +4556,60 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       (cfg.ptbFairModelKeepUntilMs > 0 && elapsed > cfg.ptbFairModelKeepUntilMs) ||
       (cfg.ptbFairModelKeepHeld === 1 &&
         held[fairWant] < held[fairWant === 'UP' ? 'DOWN' : 'UP'])
-    const fairOpen =
+    // The smoothed gap says there is a lag; the instantaneous one says whether
+    // there still is. Same sign as well as same size: a raw gap that has crossed
+    // over is the book past the model, not behind it. See `ptbFairRawShare`.
+    const rawOk =
+      cfg.ptbFairRawShare <= 0 ||
+      (rawGap !== null &&
+        Math.abs(rawGap) >= cfg.ptbFairRawShare * fairEdge &&
+        rawGap > 0 === (fairWant === 'UP'))
+    // Everything the override needs EXCEPT the promoted leg's own price.
+    const fairElse =
       Math.abs(fairGap) >= fairEdge &&
+      rawOk &&
       Math.abs(pBook - 0.5) <= cfg.ptbFairBookMax &&
       elapsed >= cfg.ptbFairAfterMs &&
       (cfg.ptbFairUntil >= 1 || elapsed < cfg.ptbFairUntil * WINDOW_MS) &&
       modelBacks &&
       keepOk
+    // Being marked up is a MOMENT; what it discredits lasts the window. The
+    // narrow threshold is a discount on evidence, granted because the promoted
+    // leg is behind — and a leg the book has been seen repricing UPWARD while
+    // this reading called it cheap has not earned that discount. Without the
+    // latch the refusal is worth nothing: twenty seconds later the trailing
+    // window has rolled past the move and the same override opens on the same
+    // number.
+    //
+    // The latch is recorded only where the discount was actually being SPENT:
+    // an override that was otherwise ready to open, and only on the strength of
+    // the narrow threshold. Marking the leg on any tick whose gap merely points
+    // at it disqualifies legs no override ever wanted, and costs two markets
+    // that need theirs. See `ptbFairTakeRiseLatch`.
+    if (
+      cfg.ptbFairTakeRiseLatch === 1 &&
+      !riseOk &&
+      fairElse &&
+      narrowOk &&
+      Math.abs(fairGap) < cfg.ptbFairEdge &&
+      (cfg.ptbFairTakeRiseZ <= 0 || (outsideZ >= cfg.ptbFairTakeRiseZ && leanToward < 0))
+    ) {
+      fairRiseDead[fairWant] = true
+      // The latch instrument: one line the first time a leg loses the narrow
+      // threshold, carrying the move that took it, the gap it was about to open
+      // on, and how far apart the two legs already are.
+      if (cfg.debug >= 2) {
+        console.log(
+          `[pair.v1] fairrise slug=${ctx?.market?.slug ?? '?'} ` +
+            `t+${Math.round(elapsed / 1000)}s side=${fairWant} ` +
+            `rise=${(askWant - askWantThen).toFixed(3)} gap=${fairGap.toFixed(3)} ` +
+            `pModel=${(pModel ?? 0.5).toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+            `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} z=${outsideZ.toFixed(2)} ` +
+            `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+        )
+      }
+    }
+    const fairOpen = fairElse && riseOk
     if (fairOpen && leanToward > 0) fairModelSide = fairWant
     // The suspension instrument: one line the first time the model withdraws
     // from an override it opened, carrying how far it has crossed and what the
