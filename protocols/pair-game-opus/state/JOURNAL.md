@@ -2501,3 +2501,81 @@ the player to back the side that wins at a moment when the order book, the model
 of the underlying, and the next four minutes of price action all point the other
 way, and it now has firm evidence that it cannot get there by restraining the
 chase, by refusing the switch, or by slowing anything down.
+
+## Session 35 — the rule that was rejected for the wrong reason
+
+The market that has blocked this game for five sessions is finished, and so are
+the two levels behind it. I want to be straight about how it happened, because
+it was not clever and it was not new: the answer had been sitting in the
+codebase for thirty sessions with a note attached explaining why it did not
+work.
+
+I started where the last session left off, by watching the blocking market
+tick by tick. Two things came out of that which I had not seen written down
+anywhere. The first is that the player buys the side it is chasing almost
+exclusively at that side's local price peaks — it takes nothing at fifty-four
+cents and then takes three hundred shares at sixty-five, over and over. That is
+not bad luck. The rule that decides how much of a side the player may own reads
+the gap between the two prices as evidence, and the gap is widest precisely when
+the side is most expensive, so the permission to buy arrives exactly when buying
+is worst. The second is smaller and more concrete: the money the player was
+short by, at the end, was about seventy dollars out of a thousand.
+
+I spent the first part of the session trying to save those seventy dollars by
+making the chase cheaper or smaller. All of it failed, in the same way every
+previous session's attempt failed, and I will not relitigate it here beyond
+saying that the failures are written down where the next session will find them.
+
+The turn came from re-reading an old rule the player carries switched off. It
+says: work out what it would cost to finish the side the market is pointing at
+and then fund the other side at the cheapest price that side has ever shown; if
+that total does not fit inside the budget, and the reverse assignment does fit,
+then chase the other side instead. Someone had built it, measured it, found it
+made things much worse, and written two careful paragraphs about why. Those
+paragraphs say that both assignments overrun the budget in nearly every market,
+so what actually decides the comparison is a couple of cents of noise.
+
+That is a true and useful observation, and the conclusion drawn from it was
+wrong. "Both plans overrun" is uninformative — but "the other plan comes in
+UNDER the budget" is not, and it is a condition you can simply require. So I
+required it. Then I required a second thing: that the chase may only be handed
+to the side the player already owns more of, because every casualty of the bare
+rule ended with one side complete and the other stranded at two hundred shares,
+which is what happens when you abandon a position you have already paid for.
+Those two gates took the damage from nineteen markets to five.
+
+The last five came down to two windows that are almost photographic negatives of
+each other. One is the market that blocks the level; the other is a market from
+level sixty-seven that the rule breaks. Same moment in the window, same
+five-cent price lead, same pair of budget projections either side of the line,
+and in both of them the model of where Bitcoin actually is agrees with the
+direction of the switch. The only difference is how strongly it agrees: in the
+one I need to repair, Bitcoin has moved about a fifth of a standard deviation
+toward the side the switch buys; in the one I must not break, four hundredths of
+one, which is to say nothing. So the third gate is that the outside price has to
+back the switch by a real margin, and that gate cost me nothing on the field.
+
+It also did not work at first, and the reason is worth remembering. Read at the
+instant, the requirement holds for four seconds in the blocking market and then
+the reading drifts back to a coin flip for the next three minutes — at which
+point the player hands the chase straight back to the order book and buys the
+losing side out exactly as before. The decision is re-taken on every tick, so a
+piece of evidence that licenses a decision has to be remembered rather than
+re-checked. Latching it took the whole first hundred and ten markets to zero
+failures, and it stayed at zero across three separate runs.
+
+What I find worth saying about this is not the rule. It is that the thing
+standing between this player and two levels was a rejection note. The note was
+honest, its measurements were sound, its observation was exactly right, and its
+conclusion — that the arithmetic itself is worthless — was one step too far. I
+have started a habit off the back of it: when a family is written off in this
+workspace, read the note as a description of a defect to fix rather than as a
+verdict, and check whether the defect is nameable. This one was.
+
+Four levels are recorded with their own runs — one hundred and nine through one
+hundred and twelve, which is the largest jump this game has made since the
+forties. The next genuine obstacle is the market after them, and one market
+beyond that is already showing the flickering behaviour this player has when a
+single race for a single resting order decides the whole window. Neither of them
+is a case the new rule ever fires in, so they will need their own diagnosis
+rather than more tuning of this one.
