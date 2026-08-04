@@ -505,6 +505,24 @@ projections at the moment of the purchase are 1019 against 972 — over and unde
 the ceiling, but by 0.039 and 0.008, well inside `solvArith`'s margins, and the
 model contradicts at 0.18 in any case.
 
+### The one untried idea both of them point at
+
+`projTotal` funds the leg left behind at `trailingLow(o)` — the cheapest ask that
+leg has shown since the window opened. That low never expires. In a window that
+has decided, the loser keeps getting cheaper and **the winner never returns to its
+low**, so the estimate flatters whichever plan chases the currently-cheap leg,
+which in a decided window is the losing one. Market 147 at t+60 prefers UP by 1007
+against 801, and the 801 rests on a DOWN low of 0.40 that had left the book forty
+seconds earlier.
+
+The obvious experiment is a **shelf life on the low** — fund the abandoned leg at
+the cheapest price it has shown in the last N seconds rather than ever. It is one
+parameter, it touches `solvSwap`, `solvDrop` and now `solvArith` at once, and it
+has never been tried. `solvLevelEdge` / `solvLevelEdgeMax` already record the same
+complaint for the parity waiver — "the comparison must be decided by prices the
+player can still trade at, not by a trailing low that has left the book" — which
+is evidence the axis is real and was only ever patched locally.
+
 ## Measured dead — do not re-try
 
 Everything below was measured over the FULL market set, not a single-market
