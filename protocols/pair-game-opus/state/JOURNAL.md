@@ -3393,3 +3393,40 @@ Nothing that happens after the fortieth second of that market matters. The
 question to open with is not which side it chose but what allowed one side to
 reach an average that leaves the other one unbuyable, when the two prices summed
 to about one dollar and one cent the entire time.
+
+**Later the same session.** I spent the remaining time on market one hundred and
+forty-eight so the next session does not start cold, and the picture is much
+clearer than it was.
+
+The good news is that the market is winnable. There is a crude setting — simply
+forbidding the player from getting more than three hundred shares ahead on
+either side — that takes it to a full pair, though only just inside the cost
+limit. That setting is unusable in general; it was measured years of sessions
+ago at more than forty failures elsewhere. But it proves the disease. In the
+space of four seconds the player goes from two hundred and eighty-one shares of
+one side to a thousand, while the other side stays at two hundred.
+
+The bad news is that every gentler version of the same idea fails. I tried four
+ways of slowing that purchase down and all four end in the same place: the side
+still gets completed, just later and in more pieces, and the other side is still
+unaffordable afterwards. So this is not a pacing problem.
+
+What I did find is worth writing down. Two separate restraints in this player
+open up at exactly the moment they should be closing, and both for the same
+reason: they are computed from the very price move they are supposed to be
+judging. The allowance to buy is proportional to how far apart the two sides are
+priced — so as one side runs away, it earns itself more room. And the price
+ceiling on that side is whatever is left after funding the other side at the
+cheapest it has ever been quoted — and the other side is getting cheaper for the
+same reason. Second by second, as one price climbs eight cents, the allowance
+grows tenfold and the ceiling rises eighteen cents. The player ends up paying a
+rising ladder — fifty-five, fifty-six, fifty-seven, all the way to sixty-three
+cents — for what is really one decision. Made once, at one price, it would have
+cost fifty-five and the market would still be alive.
+
+The genuinely hard part is that nothing available at the time argues for the
+other side. The order book, the Bitcoin price and the model all point the same
+way, and the reversal does not begin for another two minutes. So the next
+session's question is not "how did it pick the wrong side" — it picked the side
+all the evidence named — but "why is it allowed to spend seventy percent of its
+budget on a decision it has not had to defend for more than four seconds".

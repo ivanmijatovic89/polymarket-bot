@@ -565,6 +565,45 @@ never been spent. **148 is the opposite case and the number to start from is
 0.3203**: ask what allowed UP to reach an average that leaves the other leg
 thirty-two cents, when the two asks summed to 1.01 the whole time.
 
+### What session 45 measured on 148
+
+**The window is winnable, and what wins it is refusing the IMBALANCE.**
+`maxImbalance=300` alone takes it to 1000/1000 at 0.9749 — the only thing tried
+so far that does. It is not shippable (43 failures on the level-68 window, in
+the dead table below) but it names the mechanism exactly: between t+30 and t+34
+UP goes 281 → 1000 while DOWN sits at 200, and eight hundred shares of lead is
+the whole disease.
+
+**Slowing the allowance does NOT work.** `edgeFull` 0.5 / 0.7 / 0.9 →
+1000/320, 1000/200, 1000/200; `edgeHoldMs=20000` → 1000/299; `holdRamp=0.3` →
+1000/469. UP completes anyway, later and in more clips, and DOWN is still
+unaffordable. Do not spend a session pacing the edge allowance here.
+
+**The allowance and the price cap open TOGETHER, and both are functions of the
+move they are meant to be evidence about.** Second by second from t+30 to t+33,
+as UP's ask climbs 0.55 → 0.63 and DOWN's falls 0.48 → 0.38:
+
+```
+edge   31 → 63 → 94 → 125 → 156 → 187 → 243 → 265 → 296 → 327
+cap  0.684  0.691  0.701  0.709  0.716  0.744  0.762  0.773  0.782  0.860
+```
+
+The share allowance is `qty × |askUp − askDown| / edgeFull`, so UP running away
+widens the gap and buys itself more room. The price cap is `pairCeil` minus the
+other leg's projection, and that projection is funded at DOWN's trailing low —
+which is falling for the same reason. **The player pays a rising ladder for a
+single decision**: 719 shares acquired across an eight-cent climb in three
+seconds, at 0.55, 0.56, 0.57 … 0.63. Taken at one price it would have averaged
+0.55 and the market would be alive.
+
+What makes 148 hard is that nothing visible argues for DOWN at t+30: the book is
+0.55/0.46, `pModel` is 0.586 and `z` is 0.18, all leaning UP, and the reversal
+does not begin until t+140. `solvArith` misses on all three of its gates and
+each by a narrow margin (`projFrom` 1019 against a ceiling of 970 — 49 against a
+threshold of 50; `projTo` 972, which is 2 OVER rather than 30 under; `z` 0.18
+against 0.09). **A rule that just relaxes those three margins is not the answer**
+— they were placed on printed casualties at level 145.
+
 ## Measured dead — do not re-try
 
 Everything below was measured over the FULL market set, not a single-market
@@ -584,6 +623,11 @@ and by `spikeMaxMs` at 25, 30, 35 and 40 s. **`spikeEdge` itself is not the leve
 to raise** — its own note measures 45 and 50 losing the two spike markets over
 the first sixty; the shelf life gets the same repair without touching the
 threshold.
+
+Single-market probes on 148 (see the wall section above for what they mean):
+`edgeFull` 0.5 / 0.7 / 0.9 → 1000/320, 1000/200, 1000/200; `edgeHoldMs=20000` →
+1000/299; `holdRamp=0.3` → 1000/469; **`maxImbalance=300` → 1000/1000 at
+0.9749**, the only setting that has repaired it.
 
 ### Session 44 — over the first 152 at `e4e14184` (baseline 4: the flake, 145, 147, 148)
 
