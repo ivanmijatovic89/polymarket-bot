@@ -1,7 +1,7 @@
 import type { MarketStats } from './stats/marketStats.js'
 import type { MarketResolution } from './stats/marketResolution.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
-import type { StrategyArtifactRef } from '../strategy/artifacts/types.js'
+import type { StrategyArtifactMeta, StrategyArtifactRef } from '../strategy/artifacts/types.js'
 import type {
   RunSingleMarketInputMode,
   RunSingleMarketLatency,
@@ -82,13 +82,7 @@ export type AggregateJobData = {
     latest: boolean
     /** External artifact provenance (issue #211). Null for registry strategies. */
     strategyArtifactSha256: string | null
-    strategyArtifactMeta: {
-      r2Url: string
-      sourceRepo: string
-      sourceCommit: string
-      sourceDirty: boolean
-      entrypoint: string
-    } | null
+    strategyArtifactMeta: StrategyArtifactMeta | null
   }
   /**
    * Set when this aggregate is the completion of an extension batch. Drives

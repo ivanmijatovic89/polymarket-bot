@@ -81,7 +81,9 @@ import { isWarmed } from '../../polymarket-bot/src/strategy/strategyToolkit.js'
 
 export const definition: StrategyDefinition<{ size: number }> = {
   id: 'my-strat.v1',
-  schema: z.object({ size: z.number().default(1) }),
+  // z.coerce: `--param` values always arrive as STRINGS — plain z.number()
+  // would reject `--param size=2` at launch.
+  schema: z.object({ size: z.coerce.number().default(1) }),
   create: (params) => ({
     strategy: {
       name: `my-strat:${params.size}`,

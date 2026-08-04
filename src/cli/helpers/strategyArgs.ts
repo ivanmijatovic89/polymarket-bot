@@ -1,7 +1,7 @@
 import { getStrategyArtifactBySha } from '../../db/strategyArtifacts.js'
 import type { Strategy } from '../../strategy/Strategy.js'
 import { ensureArtifactLoaded } from '../../strategy/artifacts/loader.js'
-import type { StrategyArtifactRef } from '../../strategy/artifacts/types.js'
+import type { StrategyArtifactMeta, StrategyArtifactRef } from '../../strategy/artifacts/types.js'
 import type { Plugin, PluginSet } from '../../strategy/plugins/PluginSet.js'
 import {
   CliArgsError,
@@ -26,12 +26,7 @@ export type BuildStrategyFromCliArgsResult = {
 /** Provenance of an artifact-selected strategy, for job payloads + run rows. */
 export type ResolvedStrategyArtifact = {
   ref: StrategyArtifactRef
-  meta: {
-    sourceRepo: string
-    sourceCommit: string
-    sourceDirty: boolean
-    entrypoint: string
-  }
+  meta: StrategyArtifactMeta
 }
 
 export type ResolveStrategyResult = BuildStrategyFromCliArgsResult & {
@@ -121,10 +116,18 @@ export async function resolveStrategyFromCliArgs(args: {
 /**
  * Resolve an already-published artifact sha to a built strategy. Shared by
  * fresh launches (CLI) and `--extend` (sha persisted on the parent run row).
+ *
+ * `allowRegistryIdCollision`: fresh launches reject an artifact whose id
+ * collides with a registry strategy (ambiguous selection). Extensions MUST
+ * NOT — the sha is inherited from the parent run and cannot be changed, so a
+ * registry strategy added later under the same id would otherwise make the
+ * run permanently un-extendable. The definition is passed explicitly
+ * everywhere (never looked up by id), so a collision is harmless there.
  */
 export async function resolveStrategyFromArtifact(args: {
   sha256: string
   rawParams: Record<string, unknown>
+  allowRegistryIdCollision?: boolean
 }): Promise<ResolveStrategyResult> {
   const row = await getStrategyArtifactBySha(args.sha256)
   if (!row) {
@@ -140,8 +143,13 @@ export async function resolveStrategyFromArtifact(args: {
     )
   }
   if (strategyRegistry[def.id]) {
-    throw new CliArgsError(
-      `artifact strategy id ${JSON.stringify(def.id)} collides with a registry strategy — republish under a different id`,
+    if (!args.allowRegistryIdCollision) {
+      throw new CliArgsError(
+        `artifact strategy id ${JSON.stringify(def.id)} collides with a registry strategy — republish under a different id`,
+      )
+    }
+    console.warn(
+      `[strategy] artifact id ${JSON.stringify(def.id)} now also exists in the registry — this run keeps using the artifact (sha ${args.sha256.slice(0, 12)})`,
     )
   }
   const built = buildStrategyFromConfig({
@@ -155,6 +163,7 @@ export async function resolveStrategyFromArtifact(args: {
     artifact: {
       ref: { sha256: row.sha256, r2Url: row.r2Url },
       meta: {
+        r2Url: row.r2Url,
         sourceRepo: row.sourceRepo,
         sourceCommit: row.sourceCommit,
         sourceDirty: row.sourceDirty,

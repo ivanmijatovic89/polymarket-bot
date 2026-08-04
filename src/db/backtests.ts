@@ -6,6 +6,7 @@ import {
   type SegmentRow,
 } from '../backtest/stats/backtestSegments.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
+import type { StrategyArtifactMeta } from '../strategy/artifacts/types.js'
 import { getDb } from './index.js'
 import {
   backtestRunFailures,
@@ -108,13 +109,7 @@ type InsertBacktestRunRow = {
   params: Record<string, unknown>
   /** External artifact provenance (issue #211). Null for registry strategies. */
   strategyArtifactSha256?: string | null
-  strategyArtifactMeta?: {
-    r2Url: string
-    sourceRepo: string
-    sourceCommit: string
-    sourceDirty: boolean
-    entrypoint: string
-  } | null
+  strategyArtifactMeta?: StrategyArtifactMeta | null
   symbol: string | null
   // Optional run-shape metadata. Populated for telonex runs so the dashboard
   // coverage feature can identify the eligible universe a run targeted

@@ -314,6 +314,7 @@ async function main(): Promise<void> {
             ? await resolveStrategyFromArtifact({
                 sha256: parent.strategyArtifactSha256,
                 rawParams: parent.params,
+                allowRegistryIdCollision: true,
               })
             : buildStrategyFromConfig({
                 strategyId: parent.strategy,
@@ -1114,9 +1115,7 @@ async function main(): Promise<void> {
         strategy: built.strategyId,
         params: built.params as Record<string, unknown>,
         strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
-        strategyArtifactMeta: built.artifact
-          ? { r2Url: built.artifact.ref.r2Url, ...built.artifact.meta }
-          : null,
+        strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
         symbol: parsed.symbol ?? null,
         timeframe: parsed.timeframe ?? null,
         inputMode: parsed.inputMode ?? null,
@@ -1221,9 +1220,7 @@ async function main(): Promise<void> {
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
       strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
-      strategyArtifactMeta: built.artifact
-        ? { r2Url: built.artifact.ref.r2Url, ...built.artifact.meta }
-        : null,
+      strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
       symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
       timeframe: isExtend ? planOk!.parent.timeframe : (parsed.timeframe ?? null),
       inputMode: effectiveInputMode ?? null,

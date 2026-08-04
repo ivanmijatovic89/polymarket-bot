@@ -36,6 +36,19 @@ export type StrategyArtifactRef = {
 }
 
 /**
+ * Reproducibility metadata persisted alongside a run
+ * (`backtest_runs.strategy_artifact_meta`) and carried in aggregate-job
+ * insertMeta. Single shared shape — do not re-declare it inline.
+ */
+export type StrategyArtifactMeta = {
+  r2Url: string
+  sourceRepo: string
+  sourceCommit: string
+  sourceDirty: boolean
+  entrypoint: string
+}
+
+/**
  * Embedded in every bundle as `export const __pmbArtifact`. Deliberately
  * timestamp-free: the same source must always produce byte-identical bundles
  * (deterministic sha). Build-time metadata lives in the DB row instead. The
