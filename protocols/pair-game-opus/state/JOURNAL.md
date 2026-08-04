@@ -2821,3 +2821,82 @@ affordable is not the same as correct. I have written down the one shape of fix
 that has not been tried, which is to make the early read of the book stick
 rather than be recomputed from four seconds of history on every tick. Two rules
 of exactly that shape have passed levels before.
+
+## Session 39 — four levels, from one four-second mistake
+
+The obstacle I inherited was a market where everything available said which side
+would win and the player bought the other one. The book leaned one way from the
+first tick, the outside price agreed within a second and never stopped agreeing,
+and inside a minute the player had spent most of its money on the side that
+ended up worthless. I had written down last time that the whole window turns on
+about four seconds, and that turned out to be exactly right.
+
+Here is what happens. The player has a rule that says: when the order book is
+leaning hard at the start of a window, chase the side it favours, because a
+window that opens trending never offers the favourite cheaper than it is right
+now. That rule is on at the very first tick and it names the correct side. Four
+seconds later the two prices wobble by two cents each, the lean measures a
+hair under the threshold the rule needs, the rule switches itself off for that
+instant, and a much twitchier reading — a running average with four seconds of
+history — grabs the decision and never lets go. The argument the rule is making
+is about how the window OPENED. It has no business being re-derived from scratch
+sixty times a second.
+
+So I made it remember. The first time the book leans hard enough, the player
+writes down which side that was and keeps chasing it. On its own that made
+things worse, not better: five markets lost instead of one. Two of them were
+lost badly, in the specific way that hurts most — the player bought one side out
+completely and never bought a single share of the other. Watching those two
+told me what the memory was missing, and it needed three things rather than one.
+
+It needed a source. One casualty had a book that sat flat for twenty-five
+seconds and only then drifted apart. That is not a window that opened trending,
+it is a window that wandered, and remembering the wander pinned the player to a
+side that settled at zero. So only a lean in the first ten seconds may be
+recorded.
+
+It needed a way to be revoked. Another casualty opened leaning one way, crossed
+over four seconds later, and had the outside price shouting the opposite for the
+rest of the window; the memory held on anyway, bought the loser out for four
+hundred and sixty dollars, and never touched the winner. A memory of the order
+book must not be allowed to outrank the one witness that is not the order book.
+So the moment the model disagrees, the memory is torn up for good.
+
+And it needed to sit in the right place in the queue. With the first two
+conditions in place the memory survived everything else and then lost the
+argument, forty-five seconds in, to a rule that compares the book against the
+model and buys whichever side the book has run further from. That rule is making
+a value argument — this side is cheap relative to what it should be — and in a
+window that is trending, the cheap side and the losing side are the same side.
+So the remembered lean now outranks it, for as long as it holds.
+
+With those three, the market is repaired and the field is untouched: two full
+runs over a hundred and twenty markets with nothing failing at all, against one
+to three failures a run before. Levels 119, 120, 121 and 122 all scored clean.
+That is four levels in one session, which is the most this game has given up in
+a while, and all four came from the same small idea.
+
+One tool came out of it that I expect to keep paying. I could not tell which of
+a dozen rules was taking the decision away, so I made the player print a line
+every time the side it is chasing changes hands, naming the rule that took it.
+It found the culprit above in a single run. It also settled an old argument
+about a market that fails roughly one draw in eight: I had guessed the switching
+rule was to blame, and the new print-out showed it is the depth rule — the one
+that stops buying into an emptied-out offer — handing the money to the wrong
+side two minutes in. The two draws of that market make the same five decisions
+at the same seconds; the only difference is how much has already been spent when
+the sixth arrives.
+
+The next wall is the market after the four I just passed, and it is a familiar
+shape rather than a new one. The player refuses to buy anything for ten seconds,
+then the gap between the two prices widens, an allowance keyed to that gap opens
+up, and it buys six hundred shares at the most expensive moment of the window.
+It has now cost three markets and the mechanism is not in doubt: the side is
+bought fastest exactly when it is dearest. Both previous times, the repair was
+not to cap the buying but to hand the chase to the other side. Here that handover
+is blocked by two guards at once — one saying you may not abandon the side you
+already own more of, the other saying the outside price must agree before you
+overrule the book. Turning either off alone changes this market by literally
+nothing; turning both off wins it outright. So the next session's job is a
+carefully bounded exception to those two, argued and measured on their own
+premises, in the same way the exception that passed level 115 was.
