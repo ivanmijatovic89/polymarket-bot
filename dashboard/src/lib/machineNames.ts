@@ -2,10 +2,16 @@ import machines from '@/data/machines.json'
 
 /**
  * Per-machine metadata, keyed by `machineId` (first 12 hex chars of the
- * hardware UUID — see `src/backtest/workerIdentity.ts`). Edit
+ * hardware UUID — see `src/machines/identity.ts`). Edit
  * `src/data/machines.json` to add a box or fill in details; nothing here is
  * persisted to the DB. Display code uses `machineLabel` for the friendly
  * name and falls back to the raw id for unregistered machines.
+ *
+ * This is the dashboard's bundler view of the catalog (client components
+ * cannot use fs). Runtime consumers (scripts, workers, Global Runtime) use
+ * the fs-based loader in the repo root's `src/machines/catalog.ts` — keep
+ * this type aligned with `MachineCatalogEntry` there. The JSON file stays
+ * the single source of truth.
  *
  * Fields:
  * - `name`     — human-readable alias shown in the UI.
@@ -20,6 +26,8 @@ export type MachineInfo = {
   name: string
   hardware: string[]
   cores?: number | null
+  /** Default `--market-concurrency` for backtest workers on this box (see scripts/run-worker.sh). */
+  cores_for_backtest?: number | null
   geekbench6Multi?: number | null
   geekbench6Source?: 'verified' | 'estimated' | 'unknown'
   priceUsd?: number
