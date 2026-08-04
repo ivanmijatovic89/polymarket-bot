@@ -3010,6 +3010,22 @@ export const ConfigSchema = z.strictObject({
    */
   solvLevelMax: z.coerce.number().finite().min(0).max(1).default(0.21),
   /**
+   * 1 ⇒ `solvLevelMax` is measured against the leg the swap would DEMOTE rather
+   * than against the larger of the two holdings. 0 ⇒ the larger of the two.
+   *
+   * `solvLevelMax`'s own sentence is about abandonment: "the leg that loses the
+   * chase drops to `underdogMax` holding four hundred shares nobody will
+   * finish". The leg the swap hands the chase TO is not abandoned by it — it is
+   * the leg that gets bought — so its holding has no business in a cap on how
+   * much commitment may be walked away from. At 594/594, 469/469 and 344/344
+   * the distinction is invisible because the legs are equal, which is why the
+   * bound was written on `Math.max` in the first place; `solvZLevel` only
+   * requires them to be level within one fiftieth of `qty`, and one clip plus a
+   * remainder against a bare clip is level enough to slip 9 shares past a bound
+   * measured on the wrong leg.
+   */
+  solvLevelDemoted: z.coerce.number().int().min(0).max(1).default(1),
+  /**
    * Largest gap between the two asks at which the parity waiver applies. 0
    * removes the bound.
    *
@@ -3063,6 +3079,25 @@ export const ConfigSchema = z.strictObject({
    * must be decided by prices the player can still trade at".
    */
   solvLevelEdgeMax: z.coerce.number().finite().min(0).max(1).default(0.05),
+  /**
+   * Loudest outside reading, in `outsideZ`, the parity waiver may fire against.
+   * The reading counts only when the model leans toward the leg the swap would
+   * DEMOTE. 0 removes the bound.
+   *
+   * The waiver stands in for `solvZ`, and `solvZ` is a licence: it asks the
+   * outside price to back the receiving leg before the swap may overrule the
+   * book. At parity the swap abandons nothing, so the licence is not needed —
+   * that is the whole waiver. What the waiver quietly also does is fire when the
+   * outside price is not silent but actively pointing the OTHER way, and no part
+   * of the parity argument covers that. Missing backing and contradicted backing
+   * are not the same state.
+   *
+   * The two windows this separates read almost identically otherwise — a swap at
+   * 219 against 200 shares, a four-cent ask gap, the two plans 48 dollars apart —
+   * and differ only in how loudly the model disagrees: 0.17 where the swap is
+   * right, 0.30 where it is wrong.
+   */
+  solvLevelZMax: z.coerce.number().finite().min(0).max(4).default(0.25),
   /**
    * Milliseconds into the window before a WAIVED swap may fire. Applies only
    * when the parity waiver is otherwise satisfied; every other swap answers to
@@ -4807,7 +4842,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         cfg.solvZLevel > 0 &&
         Math.abs(held.UP - held.DOWN) <= cfg.solvZLevel * cfg.qty &&
         (cfg.solvLevelMax <= 0 ||
-          Math.max(held.UP, held.DOWN) <= cfg.solvLevelMax * cfg.qty) &&
+          (cfg.solvLevelDemoted === 1 ? held[first] : Math.max(held.UP, held.DOWN)) <=
+            cfg.solvLevelMax * cfg.qty) &&
         (cfg.solvLevelGap <= 0 || Math.abs(askUp - askDown) <= cfg.solvLevelGap + 0.005)
       if (
         cfg.solvSwap === 1 &&
@@ -4820,8 +4856,16 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const projOther = projTotal(o)
         // The waiver in full: the arithmetic has to separate the two plans by a
         // real margin before it is allowed to stand in for the oracle.
+        // The outside price is not silent, it is pointing at the leg the swap
+        // would abandon. See `solvLevelZMax`.
+        const solvLevelContradicted =
+          cfg.solvLevelZMax > 0 &&
+          pModel !== null &&
+          (pModel > 0.5 ? 'UP' : 'DOWN') === first &&
+          outsideZ >= cfg.solvLevelZMax
         const solvWaived =
           solvLevelOk &&
+          !solvLevelContradicted &&
           (cfg.solvLevelEdge <= 0 ||
             projOther <= projFirstSide - cfg.solvLevelEdge * cfg.qty) &&
           (cfg.solvLevelEdgeMax <= 0 ||
