@@ -2795,7 +2795,99 @@ export const ConfigSchema = z.strictObject({
    * all three readings, so it is not a decision the player got right — it is a
    * coin flip that landed.
    */
-  solvZLevel: z.coerce.number().finite().min(0).max(1).default(0),
+  solvZLevel: z.coerce.number().finite().min(0).max(1).default(0.02),
+  /**
+   * Largest either leg may be, as a share of `qty`, for the parity waiver to
+   * apply. 0 removes the bound.
+   *
+   * "Level" and "nothing has been committed" are not the same statement, and
+   * `solvZLevel` alone only tests the first. Four of the waiver's ten casualties
+   * are level at 219, 344, 469 and 594 shares — positions the player spent
+   * between two hundred and six hundred dollars building, on both legs, before
+   * the swap reassigns the chase. Level or not, the leg that loses the chase
+   * there drops to `underdogMax` holding four hundred shares nobody will finish.
+   *
+   * The argument for the waiver is that at parity the swap abandons nothing.
+   * That argument is only true at the OPENING position, where both legs hold the
+   * player's first guess and nothing else. 0.21 is one opening clip.
+   */
+  solvLevelMax: z.coerce.number().finite().min(0).max(1).default(0.21),
+  /**
+   * Largest gap between the two asks at which the parity waiver applies. 0
+   * removes the bound.
+   *
+   * The waiver's other unstated assumption. Position cost is not the only thing
+   * a swap spends: `solvZ` is the licence to overrule the BOOK, and how much
+   * licence is needed depends on how loudly the book is speaking. Overruling two
+   * asks four cents apart is a claim about a coin flip; overruling asks
+   * twenty-nine cents apart is a claim that the market is wrong. The waiver's
+   * loudest casualty swaps across a 0.29 gap and its second loudest across 0.11;
+   * the window it repairs swaps across 0.04.
+   *
+   * Compared as a gap against `solvLevelGap + 0.005`, for the reason recorded on
+   * `solvCheapPad`: quotes live on a one-cent grid and neither side of a
+   * floating-point subtraction of two of them is exactly representable.
+   */
+  solvLevelGap: z.coerce.number().finite().min(0).max(1).default(0.04),
+  /**
+   * How much cheaper, per share of `qty`, the receiving assignment must project
+   * for the parity waiver to apply. 0 removes the bound.
+   *
+   * `solvEdge` applied globally was measured at 4 failures over the first 115
+   * and is off. Applied to the waived swap ALONE it is a different test: with no
+   * oracle behind it and nothing sunk into either leg, the only evidence the
+   * waived swap has is the arithmetic, so the arithmetic had better say
+   * something. Two of the waiver's casualties separate the two plans by 32
+   * dollars; the window it repairs separates them by 40.
+   *
+   * That is a thin margin and it is recorded as thin. It is doing the same job
+   * as `solvCheapPad` — refusing a verdict read off noise — with the same
+   * weakness: 32 against 40 is not a gulf.
+   */
+  solvLevelEdge: z.coerce.number().finite().min(0).max(1).default(0.035),
+  /**
+   * How much cheaper, per share of `qty`, the receiving assignment may project
+   * before the parity waiver stops applying. 0 removes the bound.
+   *
+   * A ceiling on the arithmetic's own advantage looks backwards next to
+   * `solvLevelEdge` until you write out where the advantage comes from. Each
+   * projection finishes one leg at TODAY's ask and funds the other at the
+   * cheapest price that leg has ever shown, so the difference between the two
+   * plans is roughly `need × [(ask gap) + (trailing-low gap)]`. At parity, with
+   * around eight hundred shares outstanding on each leg and a four-cent ask gap,
+   * the ask term is worth about thirty-two dollars. Everything above that is the
+   * two legs' STALE lows disagreeing.
+   *
+   * The waiver's four survivors separate the two plans by 40, 40, 48 and 48
+   * dollars — a cent or two of trailing-low disagreement on top of the asks. Its
+   * last two casualties separate them by 64 and 96, which on a four-cent ask gap
+   * means four and eight cents of low that is no longer on the book. So the
+   * bound is not "the alternative must not be too good"; it is "the comparison
+   * must be decided by prices the player can still trade at".
+   */
+  solvLevelEdgeMax: z.coerce.number().finite().min(0).max(1).default(0.05),
+  /**
+   * Milliseconds into the window before a WAIVED swap may fire. Applies only
+   * when the parity waiver is otherwise satisfied; every other swap answers to
+   * `solvAfterMs`.
+   *
+   * The waiver exists for the opening position, and the opening position is gone
+   * by `solvAfterMs`. Lowering `solvAfterMs` itself to reach it moves every swap
+   * in the field forward by forty seconds, which is a much larger change than
+   * the one intended.
+   */
+  solvLevelAfterMs: z.coerce.number().finite().min(0).default(20_000),
+  /**
+   * 1 ⇒ a swap that fires on the parity waiver also sets `solvZLatch`'s licence,
+   * as any other swap does. 0 ⇒ it does not, and the waived swap must re-earn
+   * its licence every tick.
+   *
+   * Worth knowing which: the latch is what makes a waived swap permanent. Set,
+   * the waiver stops being a decision taken at parity and becomes a decision
+   * taken at parity and then never revisited — including for the rest of a
+   * window in which the legs are 800 apart.
+   */
+  solvLevelLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * Milliseconds into the window before the swap may fire.
    *
@@ -3448,6 +3540,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // The leg the outside price has licensed `solvSwap` to hand the chase to.
   // See `solvZLatch`.
   let solvZSide: Side | null = null
+  // Whether a swap has already fired on the parity waiver. Once one has, the
+  // waived swap's earlier clock stays open for the rest of the window: the
+  // waiver's own conditions are all destroyed by the swap succeeding — the
+  // legs stop being level the moment the promoted one is bought — so without
+  // this the swap is handed straight back to the book on the next tick and
+  // changes NOTHING. Measured: market 115's waived swap fires at t+21 and the
+  // window then ends to the cent as if it never had. See `solvZLevel`.
+  let solvLevelFired = false
   // The highest edge allowance each leg has ever been granted, in shares. A leg
   // holding more than the pace allows is only a RATCHET victim if the allowance
   // once covered what it holds; a leg that never had the licence is one the pace
@@ -4235,10 +4335,38 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const askOld = committed === 'UP' ? askUp : askDown
         if (askNew - askOld < (cfg.swapEdge * held[committed]) / cfg.qty) first = committed
       }
-      if (cfg.solvSwap === 1 && elapsed >= cfg.solvAfterMs) {
+      // Everything the parity waiver needs that does not depend on the two
+      // projections: the legs are level, neither has been chased past the
+      // opening guess, and the book is not saying anything loud enough to need
+      // the oracle to overrule it. It gates the waived swap's own earlier clock
+      // as well as the waiver itself. See `solvZLevel`.
+      const solvLevelOk =
+        cfg.solvZLevel > 0 &&
+        Math.abs(held.UP - held.DOWN) <= cfg.solvZLevel * cfg.qty &&
+        (cfg.solvLevelMax <= 0 ||
+          Math.max(held.UP, held.DOWN) <= cfg.solvLevelMax * cfg.qty) &&
+        (cfg.solvLevelGap <= 0 || Math.abs(askUp - askDown) <= cfg.solvLevelGap + 0.005)
+      if (
+        cfg.solvSwap === 1 &&
+        (elapsed >= cfg.solvAfterMs ||
+          solvLevelFired ||
+          (solvLevelOk && elapsed >= cfg.solvLevelAfterMs))
+      ) {
         const o: Side = first === 'UP' ? 'DOWN' : 'UP'
         const projFirstSide = projTotal(first)
         const projOther = projTotal(o)
+        // The waiver in full: the arithmetic has to separate the two plans by a
+        // real margin before it is allowed to stand in for the oracle.
+        const solvWaived =
+          solvLevelOk &&
+          (cfg.solvLevelEdge <= 0 ||
+            projOther <= projFirstSide - cfg.solvLevelEdge * cfg.qty) &&
+          (cfg.solvLevelEdgeMax <= 0 ||
+            projOther >= projFirstSide - cfg.solvLevelEdgeMax * cfg.qty)
+        // The oracle test itself, split out so a swap that earns its licence
+        // still latches it even when a waived one would not.
+        const solvOracleOk =
+          pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ
         if (
           projFirstSide > cfg.qty * cfg.pairCeil &&
           projOther < projFirstSide - cfg.solvEdge * cfg.qty &&
@@ -4258,11 +4386,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
             (cfg.solvZLatch === 1 && solvZSide === o) ||
             // At parity the swap abandons nothing, so the reading that licenses
             // it to overrule the book is not needed. See `solvZLevel`.
-            (cfg.solvZLevel > 0 &&
-              Math.abs(held.UP - held.DOWN) <= cfg.solvZLevel * cfg.qty) ||
-            (pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ))
+            solvWaived ||
+            solvOracleOk)
         ) {
-          if (cfg.solvZ > 0) solvZSide = o
+          // A waived swap latches only if it is allowed to: the licence it is
+          // standing in for was never earned. See `solvLevelLatch`.
+          if (cfg.solvZ > 0 && (cfg.solvLevelLatch === 1 || solvOracleOk)) solvZSide = o
+          if (solvWaived && elapsed < cfg.solvAfterMs) solvLevelFired = true
           if (cfg.debug >= 2 && solvSwapLogged !== o) {
             solvSwapLogged = o
             console.log(
@@ -4271,6 +4401,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
                 `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
                 `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
                 `projFrom=${projFirstSide.toFixed(0)} projTo=${projOther.toFixed(0)} ` +
+                `waived=${solvWaived ? 1 : 0} ` +
                 `out=${outsideSide ?? '-'} z=${outsideZ.toFixed(2)} ` +
                 `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)}`,
             )
