@@ -3430,3 +3430,100 @@ way, and the reversal does not begin for another two minutes. So the next
 session's question is not "how did it pick the wrong side" — it picked the side
 all the evidence named — but "why is it allowed to spend seventy percent of its
 budget on a decision it has not had to defend for more than four seconds".
+
+## Session 46 — the book ran and Bitcoin did not
+
+I came in with one market standing between the player and the next level, and
+a note from last session saying the market was winnable but that every gentle
+way of slowing the player down had failed. That note was right, and it pointed
+at the wrong half of the problem.
+
+What decides that market is four seconds long. The player has been sitting on
+a flat book for half a minute, holding a bit of each side and spending nothing,
+and then the price of one side climbs ten cents while the price of the other
+falls ten cents — and the player buys seven hundred shares of the climbing side
+on the way up, paying fifty-five, then fifty-six, then fifty-seven, all the way
+to sixty-three. Nearly half its entire budget, in three seconds, at a rising
+sequence of prices, for what is really one decision. After that the other side
+is unaffordable and nothing in the remaining fourteen minutes matters.
+
+The interesting part is what Bitcoin was doing while the book did this: almost
+nothing. The order book moved ten points of implied probability and Bitcoin
+moved three and a half, and by the measure the player uses for "has this market
+actually decided anything", the answer stayed a flat no for the next two
+minutes. The book repriced a coin flip, and the market later reversed outright
+and settled the other way.
+
+So the rule I built says: the player may not pay the new price of a side the
+book has just repriced, until the outside price agrees that the coin flip has
+ended. That sounds like an idea this workspace threw out a hundred and thirty
+levels ago, and it is — there is a two-paragraph note in the code explaining
+why a cap on how far the chased side may run is structurally hopeless, because
+the side whose price is rising is usually the winner and the winner is only
+ever cheap early. I measured that old idea again to be sure, and the note is
+not exaggerating: it costs forty-two of the first hundred and forty-eight
+markets, and every single failure is a market that ended holding a thousand of
+one side and two hundred of the other. The point is that the objection needs
+the player to be unable to tell the two situations apart, and it can now — the
+distinction is whether Bitcoin moved with the book or the book moved alone.
+
+Gated that way, the same cap costs seven instead of forty-two. Then I spent the
+rest of the session working the seven down, and each one I removed taught me
+something I had to print to see:
+
+Refusing a price nobody was about to pay does nothing while the move lasts and
+freezes the side out when the price comes back — so the refusal only arms where
+the player is actually buying into the run. Refusing the side the player is
+building while it holds none of the other side refuses the only side there is.
+And the measure of "has anything happened outside" divides by how volatile the
+market is, so in a genuinely wild window a huge Bitcoin move can still register
+as small — in two of the casualties Bitcoin had moved much further than the
+book had, which is the opposite situation and one where paying up is the whole
+strategy. Reading it as a ratio rather than a level fixes that.
+
+That got me to five, and then I hit something I want to record properly,
+because it is the most interesting thing that happened today. The five
+remaining markets arm the rule on readings that are indistinguishable from the
+target market's on every single column I could print: same seconds into the
+window, same size of move, same number of shares bought into it, same ratio of
+Bitcoin to book, same outside reading. They are not separable at the moment of
+the decision. What separates them is something that has not happened yet — in
+the market I am trying to win, the price comes back within fifteen seconds, and
+in the others it does not. So the refusal became a bet with a deadline: if the
+side has not come back near the refused price in fifteen seconds, the bet has
+lost and holding the refusal only strands the side. That is the same lesson as
+last session's fix, one level on, and it is starting to look like a general
+principle rather than a coincidence.
+
+Four, then three, then — with one more restraint, that a side already
+two-thirds bought is a decision already paid for and not one to be second-
+guessed — one.
+
+One market left, and I could not crack it in the time I had. It is a near twin
+of the market I am trying to win: same size of move, same prices to the penny,
+same shares bought into the run. They differ in when it happens, in how much of
+the budget is already spent by then, and in how much of the other side the
+player is holding. None of those is yet an argument rather than a number, and I
+would rather hand over an honest gap than invent one.
+
+Two things I tried that did not work, both recorded so nobody spends a session
+on them again. Letting the other side spend freely while the running side is
+capped — the obvious cure for the freeze — makes things distinctly worse,
+because what it then buys is the side the book just marked down, which in a
+market that really is trending is the loser. And requiring the capped side to
+actually be ahead of its partner is right about the last market's first arming,
+blocks it, and simply lets the same market arm again a minute later.
+
+One more thing worth writing down about method. Halfway through, a gate looked
+completely worthless — it took seven failures to six and I nearly threw it out.
+It turned out my instrument printed only the first time the rule fired in each
+market, so blocking that first firing just moved the firing later and out of
+sight. Printing every firing turned the same gate into one of the ones that
+works. Before concluding a change did nothing, check that the thing you changed
+is the thing you were watching.
+
+The new rule ships switched off, so the player's behaviour is exactly what it
+was when it passed the previous level — I confirmed that with a full sweep at
+the shipped settings, which fails on the same two markets as before and nothing
+else. It stays off until it costs nothing, because a rule that breaks a level
+the player has already passed cannot ship however good its argument is.

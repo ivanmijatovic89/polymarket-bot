@@ -3690,6 +3690,243 @@ export const ConfigSchema = z.strictObject({
    */
   spikeMaxMs: z.coerce.number().finite().min(0).default(30_000),
   /**
+   * 1 ⇒ the priority leg may not be paid up for while the BOOK is repricing it
+   * and the outside price is not. 0 ⇒ off.
+   *
+   * `chasePad` — a flat cap on how far above its own low the chased leg may be
+   * bought — carries a two-paragraph rejection note from level 19, and the
+   * objection in it is structural rather than a matter of tuning: "the leg the
+   * cap refuses is by construction the one whose ask is rising, which in a
+   * market that does trend is the winner, and the winner is only ever cheap
+   * early ... A price cap on the chase cannot tell the two cases apart, because
+   * a leg bought back above its own low looks identical in both."
+   *
+   * Market 148 is where that stops being true, because the player now has a
+   * second witness. Between t+29 and t+33 the book takes UP from 0.53 to 0.63
+   * and DOWN from 0.48 to 0.38 — ten cents of repricing in four seconds — and
+   * the player spends 491 dollars taking UP from 219 shares to 1,000 across
+   * that climb, at 0.55, 0.56, 0.57 … 0.63. UP's own price cap never binds
+   * anywhere in it (0.67 rising to 0.76 against those asks), and the share
+   * allowance is `qty × |askUp − askDown| / edgeFull`, so the run widens the gap
+   * and buys itself the room. Nothing after t+40 matters: UP's realized 0.61
+   * leaves the other leg 32 cents against an ask of 0.38 that never returns.
+   *
+   * What the second witness says is that BTC did not move. Over the same four
+   * seconds `pBook` goes 0.525 → 0.624 while `pModel` goes 0.502 → 0.537, and
+   * `outsideZ` — BTC's distance from the strike in standard deviations of where
+   * it can still finish — reads 0.00, 0.10, 0.08, 0.08. It stays under 0.22 for
+   * the whole first 140 seconds. The book repriced a coin flip by ten cents,
+   * and the market then reverses outright: DOWN settles the winner.
+   *
+   * So the rule is not "a leg may not run away". It is that **the player may not
+   * pay the new price of a leg the book has just repriced, until the outside
+   * price says the coin flip has ended.** In a window that genuinely trends BTC
+   * has moved, `outsideZ` is large, and the cap is never armed — which is
+   * exactly the case the level-19 note is protecting.
+   */
+  bookRun: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Seconds of book history the run is measured over, in ms.
+   *
+   * The move that decides market 148 is four seconds long, so the lookback has
+   * to be short enough to still contain the price the leg traded at before it —
+   * that price is what the cap is pinned to. Too long and the reference is a
+   * stale low the leg has legitimately left behind; too short and a one-tick
+   * wobble reads as a run.
+   */
+  bookRunTauMs: z.coerce.number().finite().min(0).default(5_000),
+  /**
+   * How far the priority leg's ask must have risen over `bookRunTauMs` for the
+   * cap to arm, in price.
+   *
+   * A margin, not a sign: an ask wobbles two or three cents around a flat leg
+   * all window, and reading that as the book repricing would arm the cap
+   * everywhere. Market 148's run is ten cents in four seconds.
+   */
+  bookRunRise: z.coerce.number().finite().min(0).max(1).default(0.05),
+  /**
+   * The `outsideZ` at which the outside price is taken to have confirmed the
+   * run, so the cap does not arm and an armed cap is released.
+   *
+   * This is `solvZ`'s shape and it is a LICENCE, not a warning: the cap refuses
+   * to pay a price the book has just made, and the book is entitled to be
+   * right, so the outside price is what decides whether the repricing is
+   * information. The confirmation must point at the CAPPED leg — market 148's
+   * `outsideZ` climbs past 1.0 later in the window, all of it in the other
+   * leg's favour, and reading the magnitude alone would release the cap at
+   * precisely the moment it is most obviously correct.
+   */
+  bookRunZ: z.coerce.number().finite().min(0).default(0.25),
+  /**
+   * How far above its pre-run price the capped leg may still be bought.
+   *
+   * The cap is pinned to the ask the leg traded at before the run, not to its
+   * low: the player is not being asked to wait for a bargain, only to decline
+   * the part of the price that arrived in the last few seconds on nobody's
+   * authority.
+   */
+  bookRunPad: z.coerce.number().finite().min(0).max(1).default(0.03),
+  /**
+   * Share of `qty` past which the running leg is too far bought to be capped.
+   *
+   * `jumpFinishShare`'s argument, and the file's own standing rule: no cap may
+   * delay, ration or slow the purchase that COMPLETES a leg, because the shares
+   * that finish a leg are what makes every share already bought matchable.
+   * Market 147 arms holding 746 of 1,000 and market `…1775094300` 719; market
+   * 148 arms holding 343. A leg three-quarters bought is not a decision being
+   * taken, it is a decision already paid for.
+   */
+  bookRunHeldMax: z.coerce.number().finite().min(0).max(1).default(0.6),
+  /**
+   * Share of `qty` the running leg must be AHEAD of the other one by.
+   *
+   * The disease this rule exists for is an imbalance: market 148 takes UP from
+   * 281 to 1,000 while DOWN sits at 200, and eight hundred shares of lead is
+   * what leaves DOWN thirty-two cents of a ceiling. `…1775133900` arms on a leg
+   * holding 325 against the other's 344 — the leg being marked up is BEHIND its
+   * partner — and capping it strands the pair from the other side: UP completes
+   * anyway and DOWN ends at 656. A cap on a leg that is not running ahead of
+   * anything is not about imbalance at all.
+   *
+   * MEASURED AND OFF. The reading is right about that arming and it does not
+   * repair the window: over the first 148 the gate costs 2 and 3 against 1
+   * without it, and `…1775133900` only improves from 656 to 750 shares. Blocked
+   * at t+63 it simply arms again on a later reading where the leg IS ahead.
+   * The lesson is the one this file keeps relearning — the arming the
+   * instrument prints first is not necessarily the arming that decides.
+   */
+  bookRunLead: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Fraction of the window after which the cap stops applying.
+   *
+   * `chaseUntil`'s argument, and it is the one that keeps a price cap from
+   * becoming a share-count failure: the refusal is only worth making while
+   * there is still window left to finish the leg in. By the release the window
+   * has decided, so the refused leg is either the loser at a few cents — where
+   * the refusal saved most of its cost — or the winner at 0.90, paid for out of
+   * a partner the same decisiveness has made nearly free.
+   */
+  bookRunUntil: z.coerce.number().finite().min(0).max(1).default(0.7),
+  /**
+   * Milliseconds into the window before the cap may arm at all.
+   *
+   * `chaseAfterMs`'s argument, and the sweep says it is the whole difference
+   * between this rule and the blunt cap it replaces. Ungated, `bookRun` costs
+   * seven windows over the first 148 and every one of them is a share count —
+   * 343/1000, 242/1000, 10/1000 — the failure mode the level-19 rejection note
+   * predicts. Printed, the seven arm at t+3, t+4, t+13, t+14, t+15, t+20 and
+   * t+21. Market 148 arms at t+31.
+   *
+   * That separation is not a coincidence of thresholds, it is what the note
+   * says: "the winner is affordable only early, and blocked at the open it is
+   * never bought at all". In the opening seconds every window's book is
+   * repricing, because that is when the book is finding out what the window is;
+   * a leg that moves five cents there has not run away from a settled price, it
+   * IS the price being set. Market 148 is the opposite shape — the book sits
+   * at 0.53/0.48 without moving for twenty-seven seconds, the player holds
+   * 219/200 and spends nothing, and then ten cents arrive in four seconds. The
+   * cap is about a book that reprices something it had already priced.
+   */
+  bookRunAfterMs: z.coerce.number().finite().min(0).default(25_000),
+  /**
+   * 1 ⇒ while the cap is armed, the OTHER leg stops answering to `underdogMax`
+   * and answers to the budget instead. 0 ⇒ it does not.
+   *
+   * This is the difference between redirecting the money and withholding it,
+   * and the sweep says the rule is worth nothing without it. A capped priority
+   * leg cannot buy, and the leg that is not the priority is held to
+   * `underdogMax` — a loser's ten cents — so NEITHER side trades and the window
+   * simply stops while the market decides. Every casualty of the bare cap is
+   * that freeze: 343/1000, 242/1000, 10/1000, share counts rather than pair
+   * costs, exactly what the level-19 note predicts and exactly what "any rule
+   * that withholds money from a leg makes some market end short" says.
+   *
+   * `solvFree` already carries this argument for the solvency swap: "a leg the
+   * rule has just demoted is not a loser the market has abandoned — holding it
+   * to `underdogMax` is what turns the handover into a freeze." A leg the book
+   * has just marked DOWN ten cents on no outside evidence is the same case.
+   *
+   * MEASURED AND OFF. The argument is right about the freeze and wrong about
+   * the cure: over the first 148 the bare cap costs 7 and this costs 11 and 13
+   * in two draws. Freeing the underdog does unfreeze the window, and what it
+   * then buys is the leg the book has just marked down — in a window that is
+   * genuinely trending, the loser, at forty cents. The freeze is real; the
+   * money has to go somewhere better than the other side of the same move.
+   */
+  bookRunFree: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Shares of the running leg, as a fraction of `qty`, the player must have
+   * bought DURING `bookRunTauMs` for the cap to arm.
+   *
+   * A refusal is only worth making where the player was about to pay. Market
+   * 148 acquires 125 shares of UP inside the four seconds the book takes it up
+   * ten cents — that ladder IS the disease. The windows the ungated cap breaks
+   * arm on runs the player is not buying into at all: `…1775155500` and market
+   * 147 acquire nothing in their run, `…1775089800` 63 shares and
+   * `…1775146500` 93. Refusing a price nobody was about to pay changes nothing
+   * while the run lasts and freezes the leg out when the price comes back.
+   */
+  bookRunInto: z.coerce.number().finite().min(0).max(1).default(0.1),
+  /**
+   * Share of `qty` the OTHER leg must already hold for the cap to arm.
+   *
+   * `…1775088000` and `…1775155500` both arm holding 469 shares of the running
+   * leg and ZERO of the other one. A player with one leg and no pair at all is
+   * not paying up for a decision it has already made — it is buying its first
+   * position, and the cap refuses the only leg there is. The abandonment bound
+   * again: a rule about which leg to prefer has nothing to say when there is
+   * only one.
+   */
+  bookRunOtherMin: z.coerce.number().finite().min(0).max(1).default(0.1),
+  /**
+   * How far the model may have moved, as a multiple of the book's move over the
+   * same seconds, and still leave the run "unconfirmed".
+   *
+   * `outsideZ` is a LEVEL — how far BTC stands from the strike — and it is
+   * blind in exactly one case: a window volatile enough that a large move
+   * leaves z small, because z divides by the volatility. `…1775094300` arms
+   * with BTC moving 18 points of probability in five seconds against 8 points
+   * of book, at z=0.07; market 147 arms on 22 points against 18. Those are not
+   * books repricing a coin flip, they are books LAGGING a genuine excursion —
+   * the fair-lag rule's own case, in which paying up is the whole strategy.
+   * Market 148 moves 4.9 points of model against 5.4 of book: the book led and
+   * BTC did not follow.
+   *
+   * So the reading is a ratio, not a level, and 1 is not a tuned number: it is
+   * the point where the model stops trailing the book and starts leading it.
+   */
+  bookRunFollow: z.coerce.number().finite().min(0).default(1),
+  /**
+   * Milliseconds an armed cap has to be proved right in. 0 ⇒ never lapses.
+   *
+   * With the three gates above in place, the five windows the rule still costs
+   * over the first 148 arm on readings that are market 148's arming on every
+   * column printed — same seconds into the window, same rise, same shares
+   * bought into the run, same model-to-book ratio, same oracle. They are not
+   * separable at the moment of the decision, and that is not a failure of the
+   * columns: what actually distinguishes market 148 is something that has not
+   * happened yet. Its run is RETRACED — UP goes 0.63 back to 0.57 within
+   * fifteen seconds and the cap is a price the leg trades at again. The
+   * casualties' runs are not: the leg keeps going and the refusal strands it.
+   *
+   * `spikeMaxMs`'s lesson, one level on. Refusing to pay a new price is a bet
+   * that the price is coming back. The bet is checkable, and if the leg has not
+   * come back within `bookRunBack` of the cap in this long, the bet has lost —
+   * holding the refusal after that only costs the leg. The lapse is permanent
+   * for that side: re-arming would make the clock a delay rather than a verdict.
+   */
+  bookRunKeepMs: z.coerce.number().finite().min(0).default(15_000),
+  /**
+   * How near the cap the leg's ask has to come, by `bookRunKeepMs`, for the cap
+   * to be treated as vindicated rather than lapsed.
+   *
+   * Not "at or below the cap": a run that has given back most of itself has
+   * conceded the point, and requiring the full retrace would lapse a cap that
+   * is working. Market 148's UP is 0.57 against a cap of 0.55 fifteen seconds
+   * after the run.
+   */
+  bookRunBack: z.coerce.number().finite().min(0).max(1).default(0.04),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -4222,6 +4459,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   const spentRecently = (side: Side, b: number): number => b - (burstQ[side][0]?.b ?? b)
 
   /**
+   * The share deque again, on `bookRunTauMs`, so the run cap can ask whether the
+   * player is buying INTO the run it is about to refuse. Written on every tick
+   * whatever `bookRun` is set to: a deque read by a rule and filled only when
+   * that rule is on is the trap this file has already walked into once.
+   */
+  const runQ: Record<Side, { t: number; h: number }[]> = { UP: [], DOWN: [] }
+  const pushRunRate = (side: Side, t: number, h: number): void => {
+    const q = runQ[side]
+    q.push({ t, h })
+    const cutoff = t - cfg.bookRunTauMs
+    while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
+  }
+  const boughtOverRun = (side: Side, h: number): number => h - (runQ[side][0]?.h ?? h)
+
+  /**
    * The same deque on its own window for the burst latch. It cannot share
    * `burstQ`: that one is only written when `burstShare` is on, and `burstShare`
    * ships disabled — a rule reading a deque nobody fills is the trap this file
@@ -4302,6 +4554,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let spikePeak = 0
   /** The current engagement has outlived `spikeMaxMs` — see there. */
   let spikeLapsed = false
+  /**
+   * The leg an unconfirmed book run is currently capping, and the price it is
+   * capped at. Latched rather than recomputed every tick: the reference the cap
+   * is pinned to is the ask BEFORE the run, and a trailing lookback rolls past
+   * it in `bookRunTauMs` — a refusal that expires by itself only delays. See
+   * `bookRun`.
+   */
+  let runCapSide: Side | null = null
+  let runCapPrice = 0
+  let runCapAtMs = 0
+  /** Sides whose cap has lapsed unvindicated — see `bookRunKeepMs`. */
+  const runCapDead: Record<Side, boolean> = { UP: false, DOWN: false }
+  /** How many `bookrun` instrument lines this window has already printed. */
+  let runCapLogged = 0
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
   let emaGap: number | null = null
   let emaGapAtMs = 0
@@ -4513,6 +4779,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       pushBurst('UP', nowMs, basis.UP)
       pushBurst('DOWN', nowMs, basis.DOWN)
     }
+    pushRunRate('UP', nowMs, held.UP)
+    pushRunRate('DOWN', nowMs, held.DOWN)
     if (spent > lastSpend + 1e-9 || lastSpend < 0) {
       lastSpend = spent
       lastSpendMs = nowMs
@@ -5640,6 +5908,86 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         (cfg.jumpFinishShare < 1 && held[first] >= cfg.jumpFinishShare * cfg.qty)
           ? Infinity
           : jumpRef + cfg.jumpPad
+      // The book has repriced this leg in the last few seconds and BTC has not
+      // moved with it. Arming pins the cap to what the leg cost BEFORE the run;
+      // the outside price backing THIS leg releases it, and so does the clock.
+      // See `bookRun`.
+      // The confirmation has to be about the leg being asked about, not about
+      // whichever leg happens to hold the chase: market 148's `outsideZ` climbs
+      // past 1.0 later in the window, all of it in the OTHER leg's favour.
+      const runBacks = (side: Side): boolean =>
+        outsideZ >= cfg.bookRunZ && pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === side
+      // Released by confirmation only. Not by the priority moving elsewhere and
+      // back: the reference the cap is pinned to would have rolled forward by
+      // then, and re-arming at the higher price is the delay this rule exists
+      // not to be.
+      if (runCapSide !== null && runBacks(runCapSide)) runCapSide = null
+      // The refusal has had its shelf life and the leg never came back to it.
+      // See `bookRunKeepMs`.
+      if (
+        runCapSide !== null &&
+        cfg.bookRunKeepMs > 0 &&
+        nowMs - runCapAtMs >= cfg.bookRunKeepMs &&
+        (runCapSide === 'UP' ? askUp : askDown) > runCapPrice + cfg.bookRunBack
+      ) {
+        runCapDead[runCapSide] = true
+        runCapSide = null
+      }
+      if (
+        cfg.bookRun === 1 &&
+        runCapSide === null &&
+        !runCapDead[first] &&
+        elapsed >= cfg.bookRunAfterMs &&
+        !runBacks(first)
+      ) {
+        const runAgo = fairAgo(nowMs, cfg.bookRunTauMs)
+        const askNow = first === 'UP' ? askUp : askDown
+        const askThen = runAgo === null ? askNow : first === 'UP' ? runAgo.au : runAgo.ad
+        // Both moves read in the running leg's own direction, so a DOWN run and
+        // an UP run are the same comparison.
+        const dirBook =
+          runAgo === null ? 0 : first === 'UP' ? pBook - runAgo.pb : runAgo.pb - pBook
+        const dirModel =
+          runAgo === null
+            ? 0
+            : first === 'UP'
+              ? (pModel ?? 0.5) - runAgo.pm
+              : runAgo.pm - (pModel ?? 0.5)
+        if (
+          runAgo !== null &&
+          askNow - askThen >= cfg.bookRunRise &&
+          boughtOverRun(first, held[first]) >= cfg.bookRunInto * cfg.qty &&
+          held[second] >= cfg.bookRunOtherMin * cfg.qty &&
+          held[first] < cfg.bookRunHeldMax * cfg.qty &&
+          held[first] - held[second] >= cfg.bookRunLead * cfg.qty &&
+          dirModel < cfg.bookRunFollow * dirBook
+        ) {
+          runCapSide = first
+          runCapPrice = askThen + cfg.bookRunPad
+          runCapAtMs = nowMs
+          // Every arming, not just the first: the clock gate showed that a
+          // window whose first arming is early simply arms again later, and a
+          // once-per-window line hides exactly that.
+          if (cfg.debug >= 2 && runCapLogged < 12) {
+            runCapLogged += 1
+            console.log(
+              `[pair.v1] bookrun slug=${ctx?.market?.slug ?? '?'} ` +
+                `t+${Math.round(elapsed / 1000)}s side=${first} ` +
+                `rise=${(askNow - askThen).toFixed(3)} cap=${runCapPrice.toFixed(3)} ` +
+                `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} ` +
+                `pModel=${pModel === null ? '-' : pModel.toFixed(3)} ` +
+                `dModel=${((pModel ?? 0.5) - runAgo.pm).toFixed(3)} ` +
+                `pBook=${pBook.toFixed(3)} dBook=${(pBook - runAgo.pb).toFixed(3)} ` +
+                `z=${outsideZ.toFixed(2)} held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} ` +
+                `into=${boughtOverRun(first, held[first]).toFixed(0)} ` +
+                `intoO=${boughtOverRun(second, held[second]).toFixed(0)} ` +
+                `spent=${spent.toFixed(0)}`,
+            )
+          }
+        }
+      }
+      const runCap =
+        runCapSide === first && elapsed < cfg.bookRunUntil * WINDOW_MS ? runCapPrice : Infinity
       // Everything except the jump filter. With `jumpCross` on, this is what the
       // resting bid answers to: the cap refuses to pay up but does not push the
       // leg out of the book, so it still fills on every downtick.
@@ -5650,6 +5998,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         capFirst,
         chaseCap,
         paceCap,
+        runCap,
         cfg.jumpCross === 1 ? Infinity : jumpCap,
         avgCap(first, sizeFirst),
       )
@@ -5706,6 +6055,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         budgetOfSecond >= askSecond + cfg.sweepFitPad
       const loserCap =
         sweepFits ||
+        (cfg.bookRunFree === 1 && runCapSide === first) ||
         (cfg.solvFree === 1 && solvDemoted === second) ||
         (cfg.underdogHeldShare < 1 && held[second] >= cfg.underdogHeldShare * cfg.qty)
           ? budgetOfSecond

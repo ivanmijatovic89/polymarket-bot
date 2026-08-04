@@ -6,12 +6,112 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: take the wall at 148 (`…1775220300`).** It is the ONLY market past
-147 that the sweeps fail, and it is diagnosed below with the binding cap named.
-Two levers built for the 147/148 pair are **measured dead and shipped at 0** —
-`solvZKeep` (revoking a stale swap licence) and `solvLowMs` (a shelf life on the
-trailing low the projections use). **Neither moves 148 by a share at any
+**Next step: `bookRun=1` is one market away from passing 148.** Session 46 built
+it, repaired 148 with it, and got the field down from 42 casualties to 1. The
+one that is left is **`…1775133900`**, and the whole state of the problem is in
+the section below. It ships at **0** (behaviour-identical to level 147's
+defaults) because a rule that costs a regression gate cannot ship.
+
+Two older levers built for the 147/148 pair are **measured dead and shipped at
+0** — `solvZKeep` (revoking a stale swap licence) and `solvLowMs` (a shelf life
+on the trailing low the projections use). **Neither moves 148 by a share at any
 setting; do not re-derive them.**
+
+## The state of 148 — `bookRun`, one market from shipping
+
+`bookRun=1` at the shipped defaults takes market 148 to **1000/1000 at 0.968**,
+every time it has been run, and sweeps the first 148 at **1 failure**
+(`…1775133900`, 1000/750) in two draws — the second draw adding only the known
+`…1775199600` flake.
+
+**The rule.** The book may reprice a leg faster than BTC moves, and the player
+then pays a rising ladder for a decision the outside price has not confirmed.
+So: while the priority leg's ask has risen `bookRunRise` over `bookRunTauMs`
+and the outside price does not back THAT leg at `bookRunZ`, the leg may not be
+bought above what it cost before the run, plus `bookRunPad`. Released by
+confirmation, by `bookRunUntil`, or by its own shelf life.
+
+**Why it is not `chasePad` again.** `chasePad` carries a structural rejection
+note from level 19 — "a price cap on the chase cannot tell the two cases apart,
+because a leg bought back above its own low looks identical in both" — and the
+note is still right. What has changed is that the player now has a second
+witness. Over the four seconds that decide 148, `pBook` goes 0.525 → 0.624 and
+`pModel` goes 0.502 → 0.537; `outsideZ` reads 0.00, 0.10, 0.08, 0.08 and stays
+under 0.22 for the whole first 140 seconds. **The book repriced a coin flip by
+ten cents and the market then reversed outright.** In a window that genuinely
+trends, BTC has moved, `outsideZ` is large, and the cap never arms — which is
+exactly the case the level-19 note protects.
+
+**Every gate was placed on a printed casualty.** The bare cap costs 7 over the
+first 148, all share counts (343/1000, 242/1000, 10/1000), and each gate below
+removed one or two:
+
+| Configuration (first 148) | Failures | Market 148 |
+|---|---|---|
+| `chasePad=0.03` (the blunt cap) | **42** | repaired |
+| `jumpPad=0.03` + `jumpCross=1` (the blunt follow cap) | **26** | repaired |
+| `bookRun=1`, no gates | 7, twice | repaired |
+| `+ bookRunAfterMs=25000` | 6 | repaired |
+| `+ bookRunFree=1` (free the underdog) | 11 / 13 | repaired |
+| `+ bookRunInto` / `bookRunOtherMin` / `bookRunFollow` | 5 | repaired |
+| `+ bookRunKeepMs=15000` / `bookRunBack=0.04` | 4 | repaired |
+| `+ bookRunPad=0.03` | 3 | repaired |
+| `+ bookRunHeldMax=0.6` | **1, twice** | repaired |
+| `+ bookRunLead=0.05` | 3 / 2 | repaired |
+
+- **`bookRunInto`** — a refusal is only worth making where the player was about
+  to pay. 148 acquires 125 shares of the leg inside its run; the casualties
+  acquire 0, 0, 63 and 93.
+- **`bookRunOtherMin`** — `…1775088000` and `…1775155500` arm holding 469 of the
+  running leg and ZERO of the other. A cap on the leg the player is building,
+  while the other leg is at zero, refuses the only leg there is.
+- **`bookRunFollow`** — `outsideZ` is a LEVEL and is blind in one case: a window
+  volatile enough that a large move still divides down to a small z.
+  `…1775094300` arms with BTC moving 18 points of probability against 8 of book
+  at z=0.07; market 147 moves 22 against 18. Those are books LAGGING a real
+  excursion. 148 moves 4.9 of model against 5.4 of book. The reading is a
+  ratio, and 1 is not tuned — it is where the model stops trailing the book and
+  starts leading it.
+- **`bookRunKeepMs` / `bookRunBack`** — `spikeMaxMs`'s lesson again. The five
+  windows left after the three gates arm on readings that are **market 148's
+  arming on every column printed**: same seconds in, same rise, same shares
+  bought into the run, same model-to-book ratio, same oracle. What separates
+  them has not happened yet — 148's run is RETRACED (0.63 back to 0.57 inside
+  fifteen seconds) and theirs are not. So refusing is a bet the price is coming
+  back, and the bet is checkable.
+- **`bookRunHeldMax`** — the standing rule that no cap may slow the purchase
+  that COMPLETES a leg. Market 147 arms holding 746 of 1,000 and `…1775094300`
+  719; 148 arms holding 343.
+
+**`bookRunFree` is measured and off** (11 and 13 against 7). Freeing the
+underdog from `underdogMax` does unfreeze the window, and what it then buys is
+the leg the book has just marked down — in a trending window, the loser.
+**`bookRunLead` is measured and off** (2 and 3 against 1): it is right about
+`…1775133900`'s printed arming, blocks it, and the window simply arms again
+later on a reading where the leg IS ahead.
+
+### What is left: `…1775133900`
+
+At the shipped settings it arms once, at t+63:
+
+```
+bookrun 1775133900 t+63s side=UP rise=0.060 cap=0.550 ask=0.580/0.430
+   pModel=0.533 dModel=0.032 pBook=0.574 dBook=0.059 z=0.05 held=469/344 into=269 spent=446
+bookrun 1775220300 t+31s side=UP rise=0.060 cap=0.550 ask=0.590/0.430
+   pModel=0.547 dModel=0.049 pBook=0.578 dBook=0.054 z=0.10 held=343/200 into=125 spent=293
+```
+
+Identical on the rise, the cap, both asks to a cent, the book's move and the
+lead. They separate on **when** (t+63 against t+31), on **how much of the
+ceiling is already gone** (446 against 293) and on **what the other leg holds**
+(344 against 200). None of those is yet an argument. `bookRunLead` has been
+tried and is dead; an upper bound on the arming time has NOT been tried and is
+the obvious next probe (`bookRunAfterMs` has a partner shape, "the cap is about
+a book repricing something it had already priced, and by the fifth minute
+everything has been repriced twice").
+
+**Do not re-derive:** `bookRunFree`, `bookRunLead`, and pacing the edge
+allowance on 148 (session 45's four dead settings).
 
 ## What passed 147 — a refusal to trade at all needs a shelf life
 
@@ -441,6 +541,11 @@ passed in both.
 Level **147 at `d3a54b43`**, all defaults (`spikeMaxMs=30000` shipped):
 **147 → 6062**, `passed=147/147`, every market passed on the first attempt.
 
+Session 46 added the `bookRun` family at **default 0**, which is
+behaviour-identical to level 147's defaults: a sweep of the first 148 at the
+shipped settings after the change fails on market 148 and the `…1775199600`
+flake and nothing else, exactly the pre-change baseline. Smoke run 6192.
+
 Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
 **133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
 **138 → 5920**, **139 → 5921**, each with every market passed. Level 137's
@@ -608,6 +713,29 @@ against 0.09). **A rule that just relaxes those three margins is not the answer*
 
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
+
+### Session 46 — over the first 148 at `997fa03c` (baseline 1: market 148, + the flake)
+
+The full `bookRun` ladder is the table in "The state of 148" above. The two
+blunt price caps it replaces, and the two gates that are dead:
+
+| Change | Failures | Market 148 |
+|---|---|---|
+| `chasePad=0.03` | **42** — every one a share count | repaired |
+| `jumpPad=0.03` + `jumpCross=1` | **26** — every one a share count | repaired |
+| `bookRun=1` + `bookRunFree=1` | 11 / 13 | repaired |
+| `bookRun=1` + `bookRunLead=0.05` | 3 / 2 | repaired |
+
+Single-market probes on 148, all of which repair it 1000/1000: `chasePad` 0.03
+(945.56) and 0.05 (966.19); `jumpPad` 0.03 (974.21) and 0.05 (967.08) with
+`jumpCross=1`; `bookRun=1` at every gate combination tried (967–974).
+`bookRunRise=0.07` does NOT repair it (343 DOWN) — 0.05 is the edge.
+
+**The blunt cap is not a near miss to be tuned.** 42 and 26 against a baseline
+of 1 means the level-19 rejection note is describing the mechanism correctly:
+the leg a price cap refuses is the one whose ask is rising, which in a trending
+window is the winner. Every casualty of both is a share count, never a pair
+cost. Only the outside-price gate makes a cap on the chase survivable at all.
 
 ### Session 45 — over the first 147 at `dc7d5574` (baseline 1: market 147)
 
@@ -840,6 +968,15 @@ leg at the top of a slow trend.
     what showed that market 147's gate holds for forty-six seconds while every
     other engagement in the field is a dozen, and that most long ones happen
     after both legs are already complete.
+  - **`bookrun` (new)** — one line per arming of the unconfirmed-run cap (up to
+    twelve a window), with the rise, the cap it pins, both asks, both
+    probabilities and their moves over `bookRunTauMs`, the oracle, the holdings
+    and how many shares of the running leg the player bought INSIDE the run.
+    It is the channel that showed market 148 and its five near-twins are the
+    same event on every column at the moment of the decision. **It deliberately
+    prints EVERY arming**: the first version printed once a window, which hid
+    the fact that a window blocked from arming early simply arms again later —
+    the reason the clock gate looked like it did nothing.
   - `obs` — one line per `debugEveryMs` for the WHOLE window (set
     `debugEveryMs=900000` to silence it and keep the others).
   - **The `obs` channel is `debug === 2` EXACTLY**, while every other instrument
@@ -866,6 +1003,18 @@ leg at the top of a slow trend.
 
 ### Traps that have each cost a session
 
+- **An instrument that prints once a window measures the wrong thing.** The
+  `bookrun` gate on elapsed time looked worthless — 7 failures became 6 — and
+  the reason was that the instrument only showed the FIRST arming, so blocking
+  it just moved the arming later and out of sight. Printing every arming turned
+  the same gate into the one that works. Before believing a gate did nothing,
+  check that the event you gated is the event you measured.
+- **A rejection note can be right about the mechanism and wrong about the
+  verdict.** `chasePad`'s note says a price cap on the chase cannot tell a
+  winner being established from a leg running away, and it is exactly right —
+  42 failures. The cap becomes usable the moment a second witness is added that
+  CAN tell them apart. Ask what the note's objection needs in order to stop
+  applying, not whether the note is true.
 - **Read the money that was never spent before the money that was.** Market 147
   ends 435 dollars under its ceiling and the whole inherited diagnosis was about
   which leg a 179-dollar purchase should have gone to. `spent` in the `obs`
