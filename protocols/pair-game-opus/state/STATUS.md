@@ -1,10 +1,16 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **107** (first 107 eligible markets)
-- Current level: **108** (first 108 eligible markets)
+- Highest passed level: **108** (first 108 eligible markets)
+- Current level: **109** (first 109 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
+
+**Next step:** market `…1775185200` (109) is the only sweep failure. Its fatal
+act is the last 329 shares of the DOWN chase, taken at 0.65 at the top of a
+spike that fully reverts — see the blocker section. Second job, and probably the
+more valuable one: `…1775178000` is a reproducible 1-in-12 flake with seeds
+(`PG_SEED=1`, `PG_SEED=11`) that make it deterministic.
 
 ## Evidence
 
@@ -25,6 +31,11 @@ Levels **105–107 at `f52fa712`**, all defaults, one `play-level` run each:
 105 → 4883, 106 → 4884, 107 → 4885. Levels 103 and 104 were recorded on lucky
 latency draws at `5c27b8dc`; `f52fa712` is what makes them (and 105–107) real —
 `…1775179800` now passes 4 draws out of 4.
+
+Level **108 at `c6669a59`**, all defaults, two independent `play-level` runs:
+**4949** and **4950**, both 108/108. A third run at the same configuration
+(4932) FAILED on `…1775178000` — see the flake section below; that market is a
+pre-existing coin flip, not a consequence of this commit.
 
 ## What passed 87–94 — the last leg standing may read the finish budget
 
@@ -100,29 +111,74 @@ together are what hold.
 the rate rule silently did nothing. The sweeps looked like the idea failing.
 `pushDepthRate` now has its own guard. Check the guard on any deque you read.
 
-## The remaining known blockers — the player backs the wrong horse
+## What passed 108 — a lag the player just made is not a lag it was carrying
 
-Probed at shipped defaults over the first 110 markets, the failures are:
+`fairLagLatch=1` plus `ptbFairLagDwellMs=10000` (both new, both default on).
+Neither works without the other: the latch alone leaves market 108 at 648/1000,
+the dwell alone leaves it at 200/1000, together it passes.
 
-`…1775184300` (108) 200/1000, outcome UP; `…1775185200` (109) 343.75/1000,
-outcome UP. Deterministic — 108 fails 4 draws out of 4.
+The model-book disagreement may override which leg is chased, and the leg it
+names is read against the narrow 0.03 threshold instead of the wide 0.07 once
+that leg is `ptbFairMinLag` behind. Two things were wrong with how the narrow
+threshold was granted.
 
-They are consecutive and identical in shape, and they are NOT timing accidents:
+1. **The latch did not remember what licensed it.** `fairLatch === fairWant` in
+   the `fairEdge` expression means *any* override that has ever opened is read
+   at the narrow threshold from then on. Market 108's disagreement clears 0.07
+   for eight seconds around t+48s in a balanced window, and then sits between
+   0.040 and 0.069 for three minutes — under the wide reading, over the narrow
+   one — holding the chase on DOWN while the book walks UP from 0.48 to 0.58.
+   `fairLagLatch=1` gives the lag its own latch.
+2. **The lag was read as an instant.** With the latch fixed, the player chases
+   UP correctly to t+190s, then takes 217 more UP in ONE SECOND as the book
+   jumps. That fill *creates* a lag of 342, the floor opens on the same tick,
+   the chase is handed to DOWN, and 260 of the remaining 394 dollars buy DOWN
+   out at 0.38. 686 UP stranded, UP wins. `ptbFairLagDwellMs` requires the lag
+   to have STOOD for ten seconds first.
 
-- 108: the book wobbles either side of even for three minutes (askUp 0.48–0.58).
-  The player takes 200 UP and 344 DOWN in the first ten seconds, then buys
-  **nothing at all from t+20s to t+140s** — correctly, the pair is quoted at
-  ~1.00 throughout. From t+141s it commits to DOWN and finishes it at t+191s for
-  551.9 total. UP is then 0.63 and rising with 420 left for 800 shares (0.525 a
-  share), so UP never moves again and the window ends 200/1000 on an UP market.
-- The cheapest UP after the opening was 0.48 (t+30–t+80), affordable then.
+The dwell band is flat: 5 s, 10 s and 20 s each leave exactly one failure over
+the first 110 and it is the same market (109) in all three.
 
-So the decision that loses these two is the commitment itself, made against a
-book that was leaning UP (pBook 0.51–0.62 from t+91s on) while `pModel` sat
-below it. Every fix so far has been about caps and latches on a chase that was
-already pointed the right way; this one is about which leg to chase. Expect it to
-need a different kind of change, and remember the budget arithmetic below: there
-is no safe play, so "chase neither" is not an answer.
+## The remaining known blocker — market 109
+
+`…1775185200` (109) ends 343.75/1000, outcome UP, and nothing in this session
+moved it. Its timeline (`--param debug=1 --param debugEveryMs=2000`):
+
+- t+0–t+113s: quiet, the player holds 344/200 for 289 dollars.
+- t+115s: askDown jumps 0.48 → 0.61 in two seconds. Genuine — `pModel` goes to
+  0.39 with it. The book is not wobbling; the market really moved.
+- t+129s–t+149s: the player buys 800 DOWN at 0.55, 0.62, 0.61, 0.63 and finally
+  **329 shares at 0.65**, reaching 1000 for 791.7 total. Note it buys MORE as
+  the price goes UP: the cheap fills at 0.53–0.55 are the small ones.
+- The move then reverts completely. askUp is 0.34–0.47 for the next four
+  minutes; the player has 178 left for 656 UP (0.27 a share) and never fills.
+
+The counterfactual worth knowing: had it stopped DOWN at 671 instead of buying
+the last 329 at 0.65, it would have had 398 left, enough to finish UP at
+0.36–0.40 and then sweep DOWN at the death (DOWN closes at 0.02). So the fatal
+act is the LAST purchase of the chase, not the decision to chase DOWN.
+
+## The flake — `…1775178000` is a reproducible coin flip
+
+Market 101, inside the level 105–108 regression set. It fails about **2 draws in
+24** at 718.75/1000, and it does so IDENTICALLY at the pre-`c6669a59`
+configuration — same share counts, same cost to the cent. This is not something
+this session introduced; levels 101 through 107 were all recorded over it.
+
+It now has a handle. With `tools/lib/seedRandom.mjs`, **`PG_SEED=1` and
+`PG_SEED=11` fail; 22 other seeds in 1–24 pass.** Diffing seed 1 against seed 3
+at `debugEveryMs=250` locates the split exactly:
+
+- Both draws reach 523/375 at t+25s with a live UP bid at 0.63 and askUp 0.63.
+- Seed 3 fills 477 more shares off that one resting order and finishes UP at
+  t+26s for 802. Seed 1 fills 53, the re-quote drops the bid to 0.62, and askUp
+  never trades below 0.63 again until it collapses to 0.33.
+- Seed 1 then ends the window the way markets 108 and 109 end theirs: at t+286s
+  it takes DOWN from 509 to 1000 in one burst at ~0.60, leaving 36 dollars for
+  281 UP. UP wins.
+
+So the flip is a latency race on ONE resting cross, and the loss it causes is
+the same burst-completes-the-losing-leg shape as the other two blockers.
 
 Each market is an independent episode, so a level passes exactly when every
 market in it passes on its own. `tools/sweep80.sh` finds the next blocker over
@@ -166,6 +222,24 @@ Over the first 110, at the levels-84–86 configuration (baseline 5 failures):
 | `reserveFull` 0.6 / 0.75 / 0.9 | 17 / 17 / 20 |
 | the depth latch on "the next clip would be clamped" | 3, and market 95 breaks |
 | the depth release with no freshness clock at all | 4, markets 28 and 31 break |
+
+At `c6669a59` (baseline 1 failure over the first 110):
+
+| Change | Failures |
+|---|---|
+| `depthGate` 0.60 (the reading misses market 109's burst by 0.05) | 3, and 109 unmoved |
+| `overtakeCap=0.5` — a chase starting from BEHIND is capped at parity and handed back | **12** |
+
+`overtakeCap` is worth one paragraph because the idea keeps suggesting itself.
+Three of the failures — market 101's losing draw, market 108 before the fix, and
+market 109 — are the same picture: the player holds 719/509, 686/344, 344/671,
+the chase points at the smaller leg, and it runs that leg to a thousand in one
+burst while the larger one is stranded. Capping the trailing chase at parity
+looks like it addresses all three at once. It does not: it deadlocks windows.
+Nine of the twelve failures come to rest at 800/something or something/800 —
+the leg that is ahead is stopped by `depthHold` at 800, the leg behind is
+stopped at parity, and nothing may be bought at all. This is the same deadlock
+`solvDrop`'s comment describes, arrived at from the other direction.
 
 On the level 68 window (baseline was 1 failure over the first 68):
 
@@ -248,6 +322,7 @@ STATUS pointed at the finish exemptions here and was wrong.
 - **95–104** — `commitDwellMs=12000`.
 - **105–107** — `depthLatchRate=1`/`depthRateMs=3000` plus `depthRelease=0.6`/
   `depthReleaseMs=5000`.
+- **108** — `fairLagLatch=1` plus `ptbFairLagDwellMs=10000`.
 
 ## Tools
 
@@ -310,6 +385,14 @@ STATUS pointed at the finish exemptions here and was wrong.
 - **A level can pass on luck.** Market 103 passes one draw in four, and levels
   103 and 104 are recorded on passing draws. Before treating a level as solid,
   run its newest market four times in parallel.
+- **A flaky market can hide behind the sweep.** `…1775178000` passed twelve
+  unseeded single-market probes AND five 110-market sweeps in a row, then failed
+  a level run. Four parallel probes is not enough resolution for a 1-in-12
+  event; when a level run fails on a market the sweep says is fine, scan seeds
+  1–24 with `seedRandom.mjs` rather than re-running and hoping.
+- **Diff the failing draw against a passing one at `debugEveryMs=250`.** Two
+  seeds and one `paste` located market 101's split to a single resting order in
+  about a minute. The 5-second timeline showed nothing but the aftermath.
 - **`/tmp` is case-insensitive here.** Probe tags `Z1` and `z1` are the same
   files, so a run can silently read a previous session's rows. Delete the target
   `.rows` before waiting on it. `rm -f /tmp/pg/tag.*` fails under zsh when

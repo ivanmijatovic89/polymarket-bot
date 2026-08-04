@@ -2158,3 +2158,96 @@ winner, which by then costs more than the money left. Unlike everything I have
 fixed so far these are not accidents of timing — they are the player backing the
 wrong horse, twice in a row, and no amount of care about caps and latches will
 help. That is a harder problem and it is where the next session starts.
+
+## Session 31 — level 108, and the difference between a lag you have and a lag you just made
+
+Last session left a firm prediction: the two markets blocking level 108 were the
+player backing the wrong horse, and fixing them would need a different kind of
+change from all the caps and timers that came before. That turned out to be half
+right in a way that is worth reporting carefully, because the half that was
+wrong is the more useful half.
+
+I started by watching the first of the two markets tick by tick instead of
+reasoning about it. The picture the last session described was accurate — the
+player buys a little of each side in the opening seconds, sits still for two
+minutes while both sides are quoted at a hundred cents the pair, and then
+commits everything to the side that loses. But the reason it commits that way is
+not a judgement about direction at all. It is a rule with a loophole.
+
+The player carries a tiebreaker for those quiet, evenly-priced windows: when its
+own estimate of who is winning disagrees with what the order book is charging,
+it follows its own estimate. That disagreement has to be large before it counts
+— unless the side it points to is already far behind on shares, in which case a
+much smaller disagreement is enough. The reasoning is sound: when you are
+lopsided, following the disagreement and evening yourself up are the same
+action, so a wrong call costs you nothing you did not already need.
+
+Two things had gone wrong with that. The first is that once the small threshold
+had ever been used, it stayed in force for the rest of the window even in
+situations it was never meant to cover. In this market a disagreement large
+enough to count appeared for eight seconds, three quarters of a minute in, and
+from then on a disagreement a third that size was enough to keep the player
+pointed at the losing side for the next three minutes while the book walked
+steadily the other way. Making the small threshold answer only to the situation
+that licensed it took the market from two hundred shares of the winner to six
+hundred and fifty, and cost nothing anywhere else.
+
+The second is more interesting and it is the part last session could not have
+seen. With the first fix in, the player chases the correct side for three
+minutes — and then, in a single second, buys two hundred and seventeen more
+shares of it as the price jumps. That purchase is what puts it far enough ahead
+to unlock the small threshold, which fires on the very same tick and sends it to
+the other side, where it spends two hundred and sixty of its remaining three
+hundred and ninety dollars. It was not lopsided and therefore following the
+disagreement cheaply. It made itself lopsided a third of a second earlier, by
+deliberate choice, and the rule read the result as a condition it had been
+living with. Requiring the imbalance to have stood for ten seconds before it
+counts closes that. The window now passes, comfortably, on every draw I tried.
+
+So the prediction was wrong about the diagnosis and right about nothing being
+easy. This was not the player failing to judge direction. It was two rules, both
+defensible on their own, conspiring so that the act of backing the right horse
+immediately triggered the machinery for backing the other one.
+
+Level one hundred and eight passes, on two independent scored runs.
+
+I have to report one thing plainly. A third run of the same level, at the same
+settings, failed — on a much older market, not either of the two I was working
+on. I chased that down rather than re-running until it passed. That market is a
+genuine coin flip: it fails about two draws in twenty-four, and it fails
+identically on the previous version of the player, so it is not something I
+introduced. It has been sitting under levels one hundred and one through one
+hundred and seven the whole time, and those were all recorded over it without
+anyone noticing. Twelve single-market probes in a row passed before the level
+run caught it, which says something uncomfortable about the four-probe check the
+workspace has been relying on.
+
+The good news is that it is no longer a rumour. Fixing the random number
+generator to a known value makes it reproducible, and two specific values fail
+while twenty-two others pass. Comparing a failing run against a passing one at
+quarter-second resolution shows the whole thing turns on one resting order: both
+draws are identical up to a quarter past the twenty-fifth second, both have the
+same bid sitting at the same price, and one of them gets fifty-three shares off
+it before its own re-quote pulls it while the other gets four hundred and
+seventy-seven and finishes the side outright. Everything after that is
+consequence.
+
+What is genuinely encouraging is that the losing draw of that market, the
+remaining blocker at market one hundred and nine, and market one hundred and
+eight before I fixed it all end the same way: the player takes one side from
+half-built to complete in a single burst, in the middle of the window, at a
+price near a local peak, and the money that burst spends is exactly the money
+the other side needed. Three different routes into one shape. That looks like
+the next real thing to solve.
+
+I tried the obvious version of solving it — forbidding a chase that starts from
+behind to overtake the side that is ahead — and it was much worse, twelve
+failures against one. The reason is instructive and I have written it into the
+notes: the two sides then cap each other and the player deadlocks, unable to buy
+anything at all, which is a failure mode this workspace has now discovered from
+three separate directions.
+
+Next session starts on market one hundred and nine, which is fully diagnosed and
+waiting: the fatal act there is not the decision to chase, it is the last three
+hundred and twenty-nine shares of that chase, bought at the top of a jump that
+completely reverses two minutes later.
