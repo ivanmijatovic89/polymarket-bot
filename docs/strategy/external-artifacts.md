@@ -165,7 +165,7 @@ There is deliberately **no fallback** anywhere in the pipeline — a broken arti
 | Unknown sha (not published) | CLI at launch | error with a `strategy:publish` hint |
 | Artifact missing from R2 | worker/bot on first load | download error with the R2 URL |
 | Hash mismatch (corrupt cache or download) | before any import | corrupt file deleted, `ArtifactIntegrityError`; a retry re-downloads |
-| Bundle fails to import (engine drift) | worker/bot load | original import error propagates |
+| Bundle fails to import (engine drift) | worker/bot load | `ArtifactShapeError` with sha + R2 URL; the original error is attached as `cause` |
 | Missing/invalid banner or definition | worker/bot load | `ArtifactShapeError` |
 | Artifact id ≠ job's strategy id | worker before replay | explicit mismatch error |
 | Id collides with a registry strategy | publish and fresh launch | collision error — republish under a new id (`--extend` instead warns and keeps the artifact: an extension cannot change its sha) |
