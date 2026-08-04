@@ -3226,3 +3226,76 @@ known wall past 142, so the next session should look ahead five or ten markets
 with a cheap sweep before spending a full level run on finding out. That sweep
 would also re-sample the two coin-flip markets, which between them cost half of
 today's runs and are becoming the more expensive problem.
+
+---
+
+## 2026-08-04 — Session 44: the decision the player never took
+
+I started by looking ten markets further ahead than the level I was on, which the
+last session had recommended, and it was the right call. Three of the next ten
+markets fail, at positions 145, 147 and 148, so instead of discovering each wall
+by spending a forty-minute level run on it, I could go straight at the first one.
+
+Market 145 is worth describing because of how it was found rather than what the
+fix is. The market sits at a coin flip for ten minutes and then falls decisively.
+Just before it falls, the player is holding six hundred shares of the up side and
+five hundred of the down side, with three hundred and sixty dollars left, and the
+book has opened right out — up is asking seventy-three cents, down twenty-eight.
+It spends two hundred and fifty of its three hundred and sixty dollars finishing
+the *up* side, at an average of sixty-seven cents, and then cannot afford the down
+side at all. Down settles the winner. That is a familiar shape here: the moment
+the two sides are furthest apart is simultaneously the moment the player is
+allowed to buy out one side and the moment the *other* side is cheapest, because
+those two things are computed from the same number.
+
+What I could not see was why nothing stopped it. Every diagnostic this player has
+prints a line when some rule *acts*. So I added one that prints when a rule wants
+to act and is refused — and the answer fell out immediately. The rule that
+reassigns which side to chase had been asking to switch to the down side on
+practically every tick for six solid minutes, and had been refused every time by a
+single gate. Six minutes of a decision that left no trace anywhere.
+
+The gate in question asks an outside price signal to back the switch before the
+player is allowed to disagree with the order book about which side wins. That is a
+reasonable thing to demand — the book is usually right — but it is an argument
+about *opinions*. Here the player was not disagreeing about who wins. It was
+looking at two arithmetic plans, one of which came in sixty dollars over the
+budget ceiling and the other eighty under, and being told it needed permission to
+prefer the affordable one. The book can be entirely right about the winner and the
+pair still be unpayable. So: when the plan the book prefers cannot be paid for,
+and the alternative comfortably can, no permission is needed.
+
+The bare version of that broke two other markets, and they turned out to be the
+same shape the last three rules have run into — the switch happening while
+Bitcoin had already walked a long way onto the other side. Adding the same
+condition those rules use (the outside price being *silent* is not the same as the
+outside price *disagreeing*) separated them cleanly, and the fix is the fourth
+independent rule in this player to need that distinction. Two full sweeps over
+the first hundred and fifty-two markets then came back with only 147 and 148
+failing, both of which are past where I am.
+
+I also spent an hour on 147, and did not solve it, but the notes are worth having.
+Its chase is handed to the wrong side on a *permission slip issued twenty seconds
+earlier and never revoked* — the outside price said "up" at one moment and "down"
+by the time the permission was spent. That is exactly the mistake a rule from
+three sessions ago fixed elsewhere, so I built the revocation. It moves the market
+from four hundred and forty shares to five hundred and fourteen and no further,
+because by then the money is already gone; the chase was never what was binding.
+I left the lever in, switched off, with the measurement written on it. The more
+interesting thing 147 exposes is that the player's affordability estimate funds
+whichever side it is *not* chasing at the cheapest price that side has ever shown
+— and in a market that has already decided, the loser keeps getting cheaper while
+the winner never returns to its low. The estimate therefore quietly flatters
+whichever plan chases the currently-cheap side, which in a decided market is the
+losing one. That is probably the next real piece of work.
+
+The frustration of the day is not the strategy. Level 143 scored cleanly. Levels
+144, 145 and 146 contain no market the sweeps cannot pass — and every level run I
+have started since has failed on one single market from an hour earlier in the
+day, which passes four times out of four when run on its own and fails about half
+the time when it is the hundred and twenty-fifth market of a level. A second
+market has just acquired the same character. Both of them finish about one cent
+inside the cost ceiling when they pass, which is why a few milliseconds of timing
+noise flips them. Re-running is currently costing more than the fixes are, and the
+next session should probably treat those two markets as the work rather than as
+bad luck.
