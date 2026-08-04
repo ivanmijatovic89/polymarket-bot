@@ -80,7 +80,7 @@
     "protocol:check": "tsx scripts/protocol-check.mts",
     "strategy:publish": "tsx src/cli/strategy-publish.ts",
     "strategy:check": "tsx src/cli/strategy-check.ts",
-    "artifacts:test": "tsx --test src/strategy/artifacts/*.test.ts",
+    "artifacts:test": "tsx --test src/strategy/artifacts/*.test.ts src/cli/helpers/strategySelection.test.ts",
     "code:typecheck:webui": "npm --prefix webui run code:typecheck",
     "code:typecheck-eslint": "npm run code:typecheck && npm run code:eslint",
     "code:eslint": "eslint \"src/**/*.{ts,tsx}\"",

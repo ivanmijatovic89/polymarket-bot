@@ -171,6 +171,8 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
       model: data.insertMeta.model,
       strategy: data.insertMeta.strategy,
       params: data.insertMeta.params,
+      strategyArtifactSha256: data.insertMeta.strategyArtifactSha256 ?? null,
+      strategyArtifactMeta: data.insertMeta.strategyArtifactMeta ?? null,
       symbol: data.insertMeta.symbol,
       timeframe: data.insertMeta.timeframe,
       inputMode: data.insertMeta.inputMode,

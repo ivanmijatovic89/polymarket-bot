@@ -106,6 +106,15 @@ type InsertBacktestRunRow = {
   model: string | null
   strategy: string
   params: Record<string, unknown>
+  /** External artifact provenance (issue #211). Null for registry strategies. */
+  strategyArtifactSha256?: string | null
+  strategyArtifactMeta?: {
+    r2Url: string
+    sourceRepo: string
+    sourceCommit: string
+    sourceDirty: boolean
+    entrypoint: string
+  } | null
   symbol: string | null
   // Optional run-shape metadata. Populated for telonex runs so the dashboard
   // coverage feature can identify the eligible universe a run targeted
@@ -406,6 +415,8 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         model: row.model,
         strategy: row.strategy,
         params: row.params,
+        strategyArtifactSha256: row.strategyArtifactSha256 ?? null,
+        strategyArtifactMeta: row.strategyArtifactMeta ?? null,
         symbol: row.symbol,
         timeframe: row.timeframe,
         inputMode: row.inputMode,
@@ -669,6 +680,8 @@ export type ExtensibleRun = {
   cmd: string | null
   strategy: string
   params: Record<string, unknown>
+  /** External artifact sha (issue #211). Null for registry strategies. */
+  strategyArtifactSha256: string | null
   symbol: string
   timeframe: string
   inputMode: string
@@ -704,6 +717,7 @@ export async function getRunForExtension(
       cmd: backtestRuns.cmd,
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
+      strategyArtifactSha256: backtestRuns.strategyArtifactSha256,
       symbol: backtestRuns.symbol,
       timeframe: backtestRuns.timeframe,
       inputMode: backtestRuns.inputMode,
@@ -738,6 +752,7 @@ export async function getRunForExtension(
       cmd: row.cmd,
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
+      strategyArtifactSha256: row.strategyArtifactSha256,
       symbol: row.symbol!,
       timeframe: row.timeframe!,
       inputMode: row.inputMode,

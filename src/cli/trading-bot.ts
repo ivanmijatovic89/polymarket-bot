@@ -13,7 +13,7 @@ import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
-import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
+import { printCliArgsError, resolveStrategyFromCliArgs } from './helpers/strategyArgs.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { createBalanceTracker } from '../blockchain/balanceTracker.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
@@ -171,14 +171,26 @@ async function main(): Promise<void> {
   let currentTokenMap: Record<string, string> | undefined
   let currentWarmup: WarmupSnapshot | undefined
 
-  const built = (() => {
+  // Supports both registry strategies (--strategy) and external artifacts
+  // (--strategy-artifact): the artifact path loads the SAME hash-verified
+  // bundle the backtest workers execute — one StrategyDefinition contract.
+  const built = await (async () => {
     try {
-      return buildStrategyFromCliArgs({ argv: process.argv.slice(2), script: 'trading-bot' })
+      return await resolveStrategyFromCliArgs({
+        argv: process.argv.slice(2),
+        script: 'trading-bot',
+      })
     } catch (err) {
       printCliArgsError({ script: 'trading-bot', err })
       process.exit(2)
     }
   })()
+  if (built.artifact) {
+    console.log(
+      `[trading-bot] strategy=${built.strategyId} artifact=${built.artifact.ref.sha256.slice(0, 12)} ` +
+        `(source ${built.artifact.meta.sourceCommit.slice(0, 12)}${built.artifact.meta.sourceDirty ? ', DIRTY' : ''})`,
+    )
+  }
   const strategy = built.strategy
   let pluginSet = built.pluginSet ?? null
   if (!pluginSet && Array.isArray(built.plugins) && built.plugins.length > 0) {

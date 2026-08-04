@@ -3,9 +3,11 @@ import { getCurrentGitSha, getMachineId, isWorkingTreeDirty } from '../backtest/
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
 import {
-  buildStrategyFromCliArgs,
   buildStrategyFromConfig,
   printCliArgsError,
+  resolveStrategyFromArtifact,
+  resolveStrategyFromCliArgs,
+  type ResolveStrategyResult,
 } from './helpers/strategyArgs.js'
 import { planExtension } from '../backtest/extendPlanner.js'
 import {
@@ -302,21 +304,29 @@ async function main(): Promise<void> {
   const submissionUid = chosenLabel ? `${chosenLabel.slice(0, 180)}--${randomUUID()}` : randomUUID()
   const batchUid = chosenLabel ?? submissionUid
   const cmd = buildBacktestCmdWithBatchUid(args, batchUid)
-  const built = isExtend
-    ? (() => {
+  const built: ResolveStrategyResult = isExtend
+    ? await (async () => {
         try {
-          return buildStrategyFromConfig({
-            strategyId: planOk!.parent.strategy,
-            rawParams: planOk!.parent.params,
-          })
+          const parent = planOk!.parent
+          // Artifact runs rehydrate the exact published code from the sha
+          // persisted on the parent row; registry runs stay sync as before.
+          return parent.strategyArtifactSha256
+            ? await resolveStrategyFromArtifact({
+                sha256: parent.strategyArtifactSha256,
+                rawParams: parent.params,
+              })
+            : buildStrategyFromConfig({
+                strategyId: parent.strategy,
+                rawParams: parent.params,
+              })
         } catch (err) {
           printCliArgsError({ script: 'backtest', err })
           process.exit(2)
         }
       })()
-    : (() => {
+    : await (async () => {
         try {
-          return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
+          return await resolveStrategyFromCliArgs({ argv: args, script: 'backtest' })
         } catch (err) {
           printCliArgsError({ script: 'backtest', err })
           process.exit(2)
@@ -564,7 +574,9 @@ async function main(): Promise<void> {
   }
   installSignalHandlers({ onSignal: shutdown })
 
-  console.log(`[backtest] strategy=${built.strategyId}`)
+  console.log(
+    `[backtest] strategy=${built.strategyId}${built.artifact ? ` artifact=${built.artifact.ref.sha256.slice(0, 12)}` : ''}`,
+  )
 
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
   const totalMarkets = filePaths.length
@@ -969,6 +981,7 @@ async function main(): Promise<void> {
             marketResolution: ctx.marketResolution,
             strategyId: built.strategyId,
             strategyParams: built.params as Record<string, unknown>,
+            ...(built.definition ? { strategyDefinition: built.definition } : {}),
             inputMode: effectiveInputMode,
             order: parsed.order,
             timeDriven: parsed.timeDriven,
@@ -1100,6 +1113,10 @@ async function main(): Promise<void> {
         model: provenance.model,
         strategy: built.strategyId,
         params: built.params as Record<string, unknown>,
+        strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
+        strategyArtifactMeta: built.artifact
+          ? { r2Url: built.artifact.ref.r2Url, ...built.artifact.meta }
+          : null,
         symbol: parsed.symbol ?? null,
         timeframe: parsed.timeframe ?? null,
         inputMode: parsed.inputMode ?? null,
@@ -1203,6 +1220,10 @@ async function main(): Promise<void> {
       model: provenance.model,
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
+      strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
+      strategyArtifactMeta: built.artifact
+        ? { r2Url: built.artifact.ref.r2Url, ...built.artifact.meta }
+        : null,
       symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
       timeframe: isExtend ? planOk!.parent.timeframe : (parsed.timeframe ?? null),
       inputMode: effectiveInputMode ?? null,
@@ -1227,6 +1248,7 @@ async function main(): Promise<void> {
       marketResolution: ctx.marketResolution,
       strategyId: built.strategyId,
       strategyParams: built.params as Record<string, unknown>,
+      ...(built.artifact ? { strategyArtifact: built.artifact.ref } : {}),
       inputMode: effectiveInputMode,
       order: parsed.order,
       timeDriven: parsed.timeDriven,
