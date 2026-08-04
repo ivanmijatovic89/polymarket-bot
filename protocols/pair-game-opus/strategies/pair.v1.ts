@@ -1199,6 +1199,52 @@ export const ConfigSchema = z.strictObject({
   /** Length of the rolling window `burstShare` is measured over. */
   burstMs: z.coerce.number().finite().positive().default(30_000),
   /**
+   * 1 ⇒ a leg that has committed `burstSwapShare` of the ceiling inside
+   * `burstSwapMs` is LATCHED at `burstSwapHold` of its target and the chase is
+   * handed to the other leg. 0 disables it.
+   *
+   * `burstShare` above is the same reading used as a plain cap, and it fails for
+   * the reason every plain cap on this player fails: the money it withholds is
+   * money `underdogMax` then forbids the other leg from spending, so the window
+   * simply stops buying. This is the `depthHold` shape instead — cap, latch, and
+   * hand the chase over — on the one reading that describes all three markets
+   * that have blocked a level since 101: the player takes one leg from half
+   * built to complete in a single burst, in the middle of the window, and the
+   * money that burst spends is exactly the money the other leg needed.
+   *
+   * The reading is deliberately MONEY rather than shares. A leg bought out at
+   * 0.20 a share is a cheap sweep and must never be interrupted; the same
+   * thousand shares at 0.65 is more than half the ceiling and is the purchase
+   * that strands the partner. Only the money form tells those apart.
+   *
+   * What it cannot use is anything measured at the instant of completion.
+   * `closeScan` over the first 110 shows market 109's completing purchase is
+   * indistinguishable from the field on every observable the player has — the
+   * other leg's ask, the shares already held on it, the money already spent, the
+   * volatility-normalised oracle and the depth share all sit inside the passing
+   * distribution, and about twenty passing windows complete a leg on WORSE
+   * numbers. So the rule cannot ask whether this completion looks wise. It can
+   * only ask how fast the money is going.
+   */
+  burstSwap: z.coerce.number().int().min(0).max(1).default(0),
+  /** Fraction of `qty × pairCeil` one leg may commit inside `burstSwapMs`. */
+  burstSwapShare: z.coerce.number().finite().min(0).max(2).default(0.35),
+  /** Length of the rolling window `burstSwapShare` is measured over. */
+  burstSwapMs: z.coerce.number().finite().positive().default(30_000),
+  /** Share of `qty` the latched leg is held at, exactly as `depthHold` holds its own. */
+  burstSwapHold: z.coerce.number().finite().min(0).max(1).default(0.8),
+  /**
+   * Share of `qty` a leg must already hold before the burst latch may fire.
+   * 0 ⇒ from the first share.
+   *
+   * A burst that BUILDS a position from nothing is the ordinary way this player
+   * wins a trending window, and interrupting it is what makes the ungated rule
+   * cost twenty-eight markets. The burst that has to be stopped is the one that
+   * FINISHES a leg already mostly built, because the money it spends is the
+   * money the partner needed and there is no cheaper moment left to find it in.
+   */
+  burstSwapFrom: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
    * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
@@ -2916,6 +2962,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // release may use a lower gate than the arm. Null while unarmed. See
   // `depthRelease`.
   let depthArmed: Side | null = null
+  // The same three latches again, driven by how fast one leg is spending the
+  // ceiling. `burstCapSide` and `burstHandover` are per-tick and MUST be cleared
+  // above the both-legs-contested branch; `burstHeld` is latched for the window.
+  // See `burstSwap`.
+  let burstCapSide: Side | null = null
+  let burstHandover: Side | null = null
+  let burstHeld: Side | null = null
   // The last moment the cap's full arming condition held, so the grace period
   // after it stops holding can be bounded. See `depthReleaseMs`.
   let depthStrictMs: number | null = null
@@ -2988,6 +3041,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
   }
   const spentRecently = (side: Side, b: number): number => b - (burstQ[side][0]?.b ?? b)
+
+  /**
+   * The same deque on its own window for the burst latch. It cannot share
+   * `burstQ`: that one is only written when `burstShare` is on, and `burstShare`
+   * ships disabled — a rule reading a deque nobody fills is the trap this file
+   * has already paid for twice. See `burstSwap`.
+   */
+  const swapQ: Record<Side, { t: number; b: number }[]> = { UP: [], DOWN: [] }
+  const pushSwapBurst = (side: Side, t: number, b: number): void => {
+    const q = swapQ[side]
+    q.push({ t, b })
+    const cutoff = t - cfg.burstSwapMs
+    while (q.length > 1 && q[1]!.t <= cutoff) q.shift()
+  }
+  const spentOverSwapWindow = (side: Side, b: number): number => b - (swapQ[side][0]?.b ?? b)
 
   /**
    * The same deque over the book's own spread, so the pace can ask how wide the
@@ -3217,6 +3285,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       pushBurst('UP', nowMs, basis.UP)
       pushBurst('DOWN', nowMs, basis.DOWN)
     }
+    // Its own deque on its own window: `burstQ` above is only filled while
+    // `burstShare` is on, and it ships off. See `burstSwap`.
+    if (cfg.burstSwap === 1) {
+      pushSwapBurst('UP', nowMs, basis.UP)
+      pushSwapBurst('DOWN', nowMs, basis.DOWN)
+    }
 
     // The outside read: BTC's distance from the price to beat, and the side it
     // names once that distance is large relative to the time still available
@@ -3396,6 +3470,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
           `dabs=${depthAbs.UP === null ? '-' : depthAbs.UP.toFixed(0)}/` +
           `${depthAbs.DOWN === null ? '-' : depthAbs.DOWN.toFixed(0)} ` +
           `dcap=${depthHeld ?? '-'} darm=${depthArmed ?? '-'} ` +
+          `bcap=${burstHeld ?? '-'} bspend=${spentOverSwapWindow('UP', basis.UP).toFixed(0)}/` +
+          `${spentOverSwapWindow('DOWN', basis.DOWN).toFixed(0)} ` +
           `bidUp=${upBook.bestBid === null ? '-' : upBook.bestBid.toFixed(3)} ` +
           `bidDown=${downBook.bestBid === null ? '-' : downBook.bestBid.toFixed(3)}`,
       )
@@ -3557,6 +3633,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     fairHandover = null
     depthCapSide = null
     depthHandover = null
+    burstCapSide = null
+    burstHandover = null
     // The release of `fairHold`, latched and evaluated here for the same reason
     // the two lines above are: the branch below is skipped once a leg completes,
     // and the witness can arrive on any tick.
@@ -3777,6 +3855,31 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         if (held[o] < cfg.qty) {
           depthCapSide = depthHeld
           depthHandover = o
+          first = o
+        }
+      }
+      // The same shape once more, on the money velocity: a leg that has just
+      // eaten `burstSwapShare` of the ceiling in `burstSwapMs` is stopped where
+      // it stands and the chase changes hands. Nothing about this reading looks
+      // at whether the purchase was wise — no observable at the moment of
+      // completion separates the market that blocks level 109 from the field —
+      // only at how fast the money went. See `burstSwap`.
+      if (cfg.burstSwap === 1 && burstHeld === null) {
+        const o: Side = first === 'UP' ? 'DOWN' : 'UP'
+        if (
+          held[first] > held[o] &&
+          held[first] >= cfg.burstSwapFrom * cfg.qty &&
+          spentOverSwapWindow(first, basis[first]) >=
+            cfg.burstSwapShare * cfg.qty * cfg.pairCeil
+        ) {
+          burstHeld = first
+        }
+      }
+      if (burstHeld !== null) {
+        const o: Side = burstHeld === 'UP' ? 'DOWN' : 'UP'
+        if (held[o] < cfg.qty) {
+          burstCapSide = burstHeld
+          burstHandover = o
           first = o
         }
       }
@@ -4125,6 +4228,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The same room cap, driven by the depth reading. See `depthHold`.
       const depthRoom =
         depthCapSide !== side ? Infinity : cfg.depthHold * cfg.qty - held[side]
+      // The same room cap again, driven by the money velocity. See `burstSwap`.
+      const burstSwapRoom =
+        burstCapSide !== side ? Infinity : cfg.burstSwapHold * cfg.qty - held[side]
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||
@@ -4132,6 +4238,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         completing ||
         side === fairHandover ||
         side === depthHandover ||
+        side === burstHandover ||
         (cfg.pairEdge === 1 && edgeFrac >= 1)
           ? Infinity
           : cfg.qty * edgeFrac - edgeHeld
@@ -4192,6 +4299,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         Math.max(0, oracleRoom),
         Math.max(0, fairRoom),
         Math.max(0, depthRoom),
+        Math.max(0, burstSwapRoom),
         Math.max(0, rampRoom),
         Math.max(0, spikeRoom),
         Math.max(0, spendRoom),
