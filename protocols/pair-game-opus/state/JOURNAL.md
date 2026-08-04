@@ -2665,3 +2665,65 @@ is actually willing to pay. Working out which limit was the binding one used to
 be guesswork and a rebuild; it is now a single run and a grep. It is what turned
 "the market refuses to buy" into "the reserve set aside for the other side is
 six tenths of its own recent low, and that is where the money went."
+
+## Session 37 — nine ways to win one market, all of them by accident
+
+Last session left a clean diagnosis and no lever, so this one was about finding
+out whether the wall really is a wall. It is, and I think I can now say why in a
+way that is more useful than another list of failed settings.
+
+I started by making the market explain itself properly. There is a tool the
+player has for naming which of its internal limits is refusing a purchase, and
+pointed at the fifty seconds that decide this window it gave a clear answer:
+between the fortieth and the fiftieth second the player is not being stopped by
+any price limit — it would happily pay far more than the market is asking. It is
+being stopped by an allowance that is tied to how far apart the two sides are
+quoted. And that allowance is the trap. The wider the gap between the two
+prices, the more of the expensive side the player is permitted to buy. So the
+permission arrives exactly when the price is worst: at the fifty-first second
+the gap widens, three hundred and thirty-eight shares of allowance appear, and
+the player spends two hundred and twenty-five dollars buying the most expensive
+shares of the entire window. Seventy per cent of its budget is now in a side
+that loses.
+
+I also checked the rule I would have blamed for that burst — the one that lets a
+mostly-built side finish itself — and turned it off four different ways. The
+market came out identical to the cent every time. Worth saying plainly, because
+a wrong suspect costs a whole session.
+
+Then I tried to fix it, nine ways. Six of them worked on this market: handing
+the chase over on affordability grounds, two different relaxations of the check
+that stops the player overruling the order book, holding back more money for the
+side not being bought, a filter that refuses to buy into a price spike, and a
+rule that only counts a price gap once it has lasted. Every one of them turned
+the failing market into a comfortable win. Every one of them then cost between
+eight and thirty-four of the hundred and fourteen markets already passing. That
+is the whole session in one sentence, and it is a more interesting result than
+it sounds.
+
+The reason is the part I want to record. For the most promising of the six I
+printed the exact moment the player changes its mind, for the market it saves
+and for all eight it breaks, side by side. They are indistinguishable. The
+saved market's decision projects a total cost of nine hundred and eighty-five
+against a target of nine hundred and seventy; the broken ones range from eight
+hundred and seventy-two to a thousand and three, so the saved one sits in the
+middle. The two prices are four cents apart at the moment of decision; in the
+casualties they are anywhere from four to twenty-nine cents apart, so again the
+middle. The player's own valuation model actually leans slightly AGAINST the
+side it is switching to — and in three of the eight markets it breaks, the model
+leans in favour. On every reading the player has, the decision that wins is the
+same decision that loses.
+
+So this market is not being lost to a missing rule. It is one draw of a coin the
+whole field is flipping, and anything that disturbs the player's chase wins it
+about half the time while losing others at the same rate. I have written that
+down as a working rule for future sessions: repairing the blocking market with a
+single test run is the normal outcome, not a discovery, and only a full sweep is
+evidence. Six independent levers proved it in an afternoon.
+
+What is left for the next session is genuinely narrower, which is progress of a
+kind. The families that fail this way are now measured rather than guessed at,
+and the instrument that shows them failing takes one run and a search to
+produce. The honest position is that the next idea needs to come from somewhere
+other than the order book and the player's own arithmetic, because both have now
+been asked and neither can tell this window apart from its neighbours.

@@ -6,8 +6,31 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: market 115 (`…1775190600`) is a wall, and every named lever is
-already measured dead.** It ends 200 UP / 1000 DOWN for 718 with UP the winner.
+**Next step: nine more levers were measured on market 115 and all nine are
+dead. Six of them repair the market and each costs 8–34 of the first 115.**
+The measurement is below under "Session 37"; read it before proposing anything
+in the swap, reserve, jump, edge-pace or commit-exemption families.
+
+**What the session established.** The binding cap on DOWN between t+41 and t+50
+is the EDGE allowance, not a price cap (`debug=3`: `room=0 edge=-125
+cap=0.8366 want=0.580 ask=0.590`). The purchase that loses the market — 338
+shares at 0.65 at t+51 — is released by that allowance widening as the book gap
+widens from 0.17 to 0.29, which is the level-109 pathology exactly: the leg is
+bought fastest when it is dearest. It is NOT released by the commit exemption —
+`finishSolv=0.8`, `commitShare=0.75`, `commitDwellMs=25000` and
+`commitReserve=0` all leave the market unchanged to the cent.
+
+**And the reason every repair is luck.** With the parity waiver the swap fires
+at t+21 with both legs on 200, and the moment-of-decision instrument puts that
+swap in the MIDDLE of its eight casualties on every field the player has:
+projected total (985 against 872–1003), price gap (0.04 against 0.04–0.29) and
+model-book disagreement (−0.019 against −0.238 to +0.037). Nothing separates
+the repair from the markets it breaks, so the swap that wins 115 is a coin flip
+that landed, not a decision. Any future proposal for this market should be
+checked against that instrument first — it costs one sweep with `debug=2` and a
+grep for `swap slug`.
+
+Market 115 (`…1775190600`) ends 200 UP / 1000 DOWN for 718 with UP the winner.
 Everything that matters happens in 53 seconds:
 
 - t+8: 200/200 for 208, both asks at 0.50.
@@ -291,6 +314,31 @@ same settings are two different draws.
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
 
+### Session 37 — over the first 115 at `c6ebe3e7` (baseline 1 failure, market 115)
+
+| Change | Failures | Market 115 |
+|---|---|---|
+| `solvDrop=0.10` (the affordability handover) | **34** | repaired |
+| `solvZ=0` | 7 | not repaired |
+| `solvAfterMs=20000` | 2 (115 + the `…1775110500` flake) | not repaired |
+| `solvZ=0` + `solvAfterMs=20000` | 14 | repaired |
+| `solvZLevel=0.02` + `solvAfterMs=20000` | 10 / 8 (two draws) | repaired |
+| `reserveLow=0.9` | 18 | repaired |
+| `jumpPad=0.04` + `jumpCross=1` | 16 | repaired |
+| the same + `jumpFinishShare=0.8` | 14 | repaired |
+| `edgeHoldMs=20000` | 25 | repaired |
+
+Single-market probes on 115 that changed NOTHING: `finishSolv=0.8`,
+`commitShare=0.75`, `commitDwellMs=25000`, `commitReserve=0` (all identical to
+the cent), and `pairCeil=0.975`. `pairCeil=0.98` makes it worse (367/1000).
+`solvDrop` at 0.05, 0.10 and 0.18 (± `solvGap=0.15`) all repair 115 on a probe,
+which is exactly why the probe is not the evidence.
+
+`solvZLevel` is NEW and ships INERT at 0 — it waives `solvZ` while the two legs
+are level, on the argument that a swap at parity abandons nothing. The argument
+is sound and the field says it does not matter; the parameter stays in the file
+with its measurement so the next session does not rebuild it.
+
 At `47bbd823` (baseline 0 failures over the first 110):
 
 | Change | Failures |
@@ -428,6 +476,12 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   reading it as a description of what to fix rather than as a verdict is what
   passed levels 109 and 110. Before writing a family off, check whether the
   rejection note names a fixable defect.
+- **Repairing the blocking market on a single probe is the NORMAL case, not a
+  discovery.** Six unrelated levers did it in session 37 — a handover, two
+  oracle relaxations, a reserve, a spike filter and a pace hold — and each cost
+  between 8 and 34 of the markets below it. The blocking market is one draw of
+  a coin the whole field is flipping, so anything that perturbs the chase wins
+  it about half the time. Probe to find candidates; only the sweep is evidence.
 - **A cap you can name is not necessarily the cap that binds.** Before building a
   release for a ceiling, lift the ceiling to infinity and confirm the market
   moves at all — it costs one probe.

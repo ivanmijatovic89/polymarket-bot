@@ -2758,6 +2758,45 @@ export const ConfigSchema = z.strictObject({
    */
   solvZLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * Share of `qty` by which the two legs may differ for `solvZ` to be waived
+   * entirely. 0 disables the waiver.
+   *
+   * `solvZ` exists because the swap OVERRULES the book, and a decision that
+   * overrules the book must not be taken on the book's own word. That argument
+   * is about a swap that ABANDONS something: the leg losing the chase is a
+   * position the player has already paid for, and handing the chase away
+   * strands it at `underdogMax` until the market abandons it too. The oracle is
+   * the price of that risk.
+   *
+   * At parity there is no such position. Both legs are held equally, nothing
+   * has been sunk into the leg the swap demotes that has not equally been sunk
+   * into the leg it promotes, and the swap is not overruling a commitment — it
+   * is choosing which of two equal halves to build first. That choice is what
+   * `solvUnder` is for, and `solvUnder` answers it with an arithmetic the
+   * oracle cannot improve on: one assignment projects inside the ceiling and
+   * the other does not.
+   *
+   * The two windows `solvZ` was built to separate are both far from parity at
+   * the moment of decision — 219 against 469 and 344 against 200 — so a waiver
+   * this narrow cannot re-admit either of them.
+   *
+   * MEASURED AND INERT, and the reasoning above is worth keeping only as a
+   * warning. At 0.02, alongside `solvAfterMs` at 20 s, it does repair the
+   * window blocking level 115 — the swap fires at t+21 with both legs on 200 —
+   * and costs eight to ten of the first 115 markets, every one of them a leg
+   * stranded at 200 while its partner finishes. The moment-of-decision
+   * instrument says why there is no narrowing that saves it: printed side by
+   * side, the repair and its eight casualties are inseparable on every field
+   * the player has. The repair projects 985 against a ceiling of 970 with a
+   * four-cent gap between the asks and the model leaning two points AGAINST the
+   * leg it promotes; the casualties project 872 to 1003, at gaps from four to
+   * twenty-nine cents, with the model leaning anywhere from twenty-four points
+   * against to nine points for. The repair sits in the middle of that range on
+   * all three readings, so it is not a decision the player got right — it is a
+   * coin flip that landed.
+   */
+  solvZLevel: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
    * Milliseconds into the window before the swap may fire.
    *
    * At the open both legs sit either side of 0.50 and neither has ever been
@@ -4217,6 +4256,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
               cfg.solvCheapPad + 0.005) &&
           (cfg.solvZ <= 0 ||
             (cfg.solvZLatch === 1 && solvZSide === o) ||
+            // At parity the swap abandons nothing, so the reading that licenses
+            // it to overrule the book is not needed. See `solvZLevel`.
+            (cfg.solvZLevel > 0 &&
+              Math.abs(held.UP - held.DOWN) <= cfg.solvZLevel * cfg.qty) ||
             (pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ))
         ) {
           if (cfg.solvZ > 0) solvZSide = o
