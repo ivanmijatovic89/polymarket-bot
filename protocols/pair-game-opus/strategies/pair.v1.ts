@@ -3645,6 +3645,51 @@ export const ConfigSchema = z.strictObject({
    */
   spikeHoldMs: z.coerce.number().finite().min(0).default(10_000),
   /**
+   * Maximum milliseconds the spike gate may hold the player out of the market
+   * WITHOUT A BREAK. 0 ⇒ no limit, which is what shipped before this.
+   *
+   * The gate's own argument is that a spike is an EVENT: "a spike lasting
+   * seconds costs the player those seconds. A genuine move settles within one
+   * time constant and the player resumes with its budget intact." Both halves
+   * of that are claims about DURATION, and neither is checked anywhere. The
+   * hold above re-arms on every reading over the edge, so a market whose
+   * underlying stays violent simply never releases the player at all.
+   *
+   * That is the whole of market 147. BTC leaves its own five-second average by
+   * two hundred dollars at t+4, comes back through it, overshoots the other way
+   * and keeps thrashing; the deviation is over the edge on and off for
+   * forty-six consecutive seconds. The gate engages at t+4 and does not let go
+   * until t+52, and in those forty-six seconds the winning leg is quoted
+   * between 0.55 and 0.71 the entire time. By the time the player is allowed to
+   * trade, that leg's ask is 0.70 and four seconds later it is 0.77 and never
+   * comes back. The window is not lost to a bad purchase — `spikeEdge=0` shows
+   * what the gate is saving it from — it is lost to a refusal with no end.
+   *
+   * An event that never ends is not an event, it is the regime. So the refusal
+   * gets a shelf life: once the gate has been continuously engaged for this
+   * long, it LAPSES for the rest of that excursion, and re-arms only after the
+   * deviation has gone quiet for `spikeHoldMs` and a new excursion begins.
+   * Re-arming is the point — this is not a clock that disables the gate for the
+   * window, it is a clock that says one excursion may only cost the player so
+   * much.
+   *
+   * SHIPS AT 30 s, and the band is wide and flat: 25, 30, 35 and 40 all take
+   * market 147 to 1000/1000 (cost 0.932, 0.972, 0.952, 0.916), and 30 and 40
+   * both sweep the first 147 clean. The lower edge is real — at 15 s the gate
+   * gives up at t+18 while BTC is still a hundred dollars the wrong side of the
+   * strike and the book and model both lean at the leg that then loses, and the
+   * player buys 488 of it. So the clock is not "release as soon as possible";
+   * it is long enough that a genuine excursion has had time to resolve and
+   * short enough that a market cannot spend a whole minute unable to trade.
+   *
+   * The `spikegate` instrument prints every unbroken engagement. Over the first
+   * 147 markets the clock fires 26 times and 18 of those are after both legs
+   * are already complete — the gate simply latching on the endgame's noise. Of
+   * the eight that fire on an unfinished pair, seven were already passing and
+   * still pass.
+   */
+  spikeMaxMs: z.coerce.number().finite().min(0).default(30_000),
+  /**
    * Fraction of the window over which a leg's holding allowance ramps from
    * `holdRamp0` to the full target. 0 ⇒ off, no ramp at all.
    *
@@ -4251,6 +4296,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let fairFreed = false
   /** While `nowMs` is under this, the spike gate stays engaged (`spikeHoldMs`). */
   let spikeUntilMs = 0
+  /** When the current unbroken spike-gate engagement began; 0 ⇒ not engaged. */
+  let spikeOnAtMs = 0
+  /** The largest deviation seen inside the current engagement. */
+  let spikePeak = 0
+  /** The current engagement has outlived `spikeMaxMs` — see there. */
+  let spikeLapsed = false
   /** Smoothed book-versus-model disagreement — see `ptbFairTauMs`. */
   let emaGap: number | null = null
   let emaGapAtMs = 0
@@ -4505,10 +4556,46 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       spikeEmaAtMs = nowMs
     }
     if (cfg.spikeEdge > 0 && spikeDev >= cfg.spikeEdge) spikeUntilMs = nowMs + cfg.spikeHoldMs
-    const spiking =
+    const spikeRaw =
       cfg.spikeEdge > 0 &&
       elapsed >= cfg.spikeAfterMs &&
       (spikeDev >= cfg.spikeEdge || nowMs < spikeUntilMs)
+    // The `spikegate` instrument, and the shelf life on the refusal it applies.
+    // One line when an unbroken engagement ends — either because the underlying
+    // went quiet (`end=clear`) or because it outlived `spikeMaxMs` and the gate
+    // gave up on it (`end=lapse`). See `spikeMaxMs`.
+    if (spikeRaw) {
+      if (spikeOnAtMs === 0) {
+        spikeOnAtMs = nowMs
+        spikePeak = 0
+      }
+      if (spikeDev > spikePeak) spikePeak = spikeDev
+      if (cfg.spikeMaxMs > 0 && !spikeLapsed && nowMs - spikeOnAtMs >= cfg.spikeMaxMs) {
+        spikeLapsed = true
+        if (cfg.debug >= 2) {
+          console.log(
+            `[pair.v1] spikegate slug=${ctx?.market?.slug ?? '?'} t+${Math.round(elapsed / 1000)}s end=lapse ` +
+              `on=t+${Math.round((spikeOnAtMs - windowStartMs) / 1000)}s ` +
+              `for=${Math.round((nowMs - spikeOnAtMs) / 1000)}s peak=${spikePeak.toFixed(0)} ` +
+              `dev=${spikeDev.toFixed(0)} ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} ` +
+              `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+          )
+        }
+      }
+    } else if (spikeOnAtMs !== 0) {
+      if (cfg.debug >= 2) {
+        console.log(
+          `[pair.v1] spikegate slug=${ctx?.market?.slug ?? '?'} t+${Math.round(elapsed / 1000)}s end=clear ` +
+            `on=t+${Math.round((spikeOnAtMs - windowStartMs) / 1000)}s ` +
+            `for=${Math.round((nowMs - spikeOnAtMs) / 1000)}s peak=${spikePeak.toFixed(0)} ` +
+            `lapsed=${spikeLapsed ? 1 : 0} ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} ` +
+            `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+        )
+      }
+      spikeOnAtMs = 0
+      spikeLapsed = false
+    }
+    const spiking = spikeRaw && !spikeLapsed
     const diff = cfg.ptbTauMs > 0 ? emaDiff : rawDiff
     // BTC's own volatility, measured rather than assumed: the mean square of its
     // one-second moves, smoothed over `volTauMs`. Every other reading of the
