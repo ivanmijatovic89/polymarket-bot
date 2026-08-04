@@ -69,12 +69,46 @@ export async function buildStrategyArtifact(
     source: { ...args.source, entrypoint: args.entrypoint },
   }
 
+  // Shared tail of both engine-import branches (relative paths resolving into
+  // engineSrc, and hand-written `#pmb/*` specifiers): enforce the allowlist,
+  // verify the target source file exists, emit the normalized external form.
+  const externalizeEngineImport = (
+    relPosix: string,
+    importer: string,
+  ): { path: string; external: true } | { errors: [{ text: string }] } => {
+    if (!ENGINE_IMPORT_ALLOWLIST.some((prefix) => relPosix.startsWith(prefix))) {
+      return {
+        errors: [
+          {
+            text:
+              `engine import not allowed for external strategies: src/${relPosix} ` +
+              `(imported by ${importer}). Allowed: ${ENGINE_IMPORT_ALLOWLIST.map((p) => `src/${p}**`).join(', ')}`,
+          },
+        ],
+      }
+    }
+    if (!existsSync(path.join(engineSrc, `${relPosix}.ts`))) {
+      return {
+        errors: [
+          {
+            text: `engine import does not resolve to a source file: src/${relPosix}.ts (imported by ${importer})`,
+          },
+        ],
+      }
+    }
+    return { path: `#pmb/${relPosix}.ts`, external: true }
+  }
+
   const rewriteEngineImports: import('esbuild').Plugin = {
     name: 'pmb-rewrite-engine-imports',
     setup(build) {
       build.onResolve({ filter: /.*/ }, (a) => {
-        // Already-rewritten or hand-written engine references pass through.
-        if (a.path.startsWith('#pmb/')) return { path: a.path, external: true }
+        // Hand-written `#pmb/*` engine references go through the SAME
+        // allowlist as rewritten relative imports — no bypass.
+        if (a.path.startsWith('#pmb/')) {
+          const relPosix = a.path.slice('#pmb/'.length).replace(/\.(js|ts)$/u, '')
+          return externalizeEngineImport(relPosix, a.importer)
+        }
         // zod stays external: schema objects cross the artifact boundary and
         // the host consumes them (safeParse / flattenError) — one instance.
         if (a.path === 'zod' || a.path.startsWith('zod/')) {
@@ -101,27 +135,7 @@ export async function buildStrategyArtifact(
           .split(path.sep)
           .join('/')
           .replace(/\.(js|ts)$/u, '')
-        if (!ENGINE_IMPORT_ALLOWLIST.some((prefix) => relPosix.startsWith(prefix))) {
-          return {
-            errors: [
-              {
-                text:
-                  `engine import not allowed for external strategies: src/${relPosix} ` +
-                  `(imported by ${a.importer}). Allowed: ${ENGINE_IMPORT_ALLOWLIST.map((p) => `src/${p}**`).join(', ')}`,
-              },
-            ],
-          }
-        }
-        if (!existsSync(path.join(engineSrc, `${relPosix}.ts`))) {
-          return {
-            errors: [
-              {
-                text: `engine import does not resolve to a source file: src/${relPosix}.ts (imported by ${a.importer})`,
-              },
-            ],
-          }
-        }
-        return { path: `#pmb/${relPosix}.ts`, external: true }
+        return externalizeEngineImport(relPosix, a.importer)
       })
     },
   }

@@ -54,7 +54,10 @@ export function typecheckExternalRepo(args: { repoDir: string; engineRoot?: stri
           include: [
             path.join(engineRoot, 'src/**/*.ts'),
             path.join(engineRoot, 'src/**/*.tsx'),
+            // .tsx/.mts too — esbuild bundles them, so the gates must see them.
             path.join(repoDir, '**/*.ts'),
+            path.join(repoDir, '**/*.tsx'),
+            path.join(repoDir, '**/*.mts'),
           ],
           exclude: [
             path.join(engineRoot, 'src/llm-usage'),
@@ -89,7 +92,10 @@ export function typecheckExternalRepo(args: { repoDir: string; engineRoot?: stri
 export function lintExternalRepo(args: { repoDir: string; engineRoot?: string }): boolean {
   const engineRoot = path.resolve(args.engineRoot ?? ENGINE_ROOT)
   const repoDir = path.resolve(args.repoDir)
-  if (!existsSync(repoDir)) return true
+  if (!existsSync(repoDir)) {
+    console.error(`[strategy-lint] repo not found: ${repoDir}`)
+    return false
+  }
   const tmp = mkdtempSync(path.join(tmpdir(), 'strategy-lint-'))
   try {
     const configPath = path.join(tmp, 'eslint.config.cjs')
@@ -107,7 +113,7 @@ export function lintExternalRepo(args: { repoDir: string; engineRoot?: string })
         `module.exports = [`,
         `  { ignores: ['**/node_modules/**'] },`,
         `  {`,
-        `    files: ['**/*.ts', '**/*.tsx'],`,
+        `    files: ['**/*.ts', '**/*.tsx', '**/*.mts'],`,
         `    languageOptions: { parser: tsParser, parserOptions: { sourceType: 'module' } },`,
         `    plugins: { '@typescript-eslint': tsPlugin },`,
         `    rules: {`,
@@ -125,7 +131,7 @@ export function lintExternalRepo(args: { repoDir: string; engineRoot?: string })
     // outside its working directory, which would turn this gate into a no-op.
     return run(
       path.join(engineRoot, 'node_modules/.bin/eslint'),
-      ['--config', configPath, '**/*.ts', '--no-error-on-unmatched-pattern'],
+      ['--config', configPath, '**/*.{ts,tsx,mts}', '--no-error-on-unmatched-pattern'],
       repoDir,
     )
   } finally {

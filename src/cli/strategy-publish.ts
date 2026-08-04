@@ -79,7 +79,13 @@ function git(repoDir: string, args: string[]): string {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
 
-  const entryAbs = path.join(args.repo, args.entrypoint)
+  const entryAbs = path.resolve(args.repo, args.entrypoint)
+  if (path.relative(args.repo, entryAbs).startsWith('..')) {
+    // An escaping entrypoint would record provenance (repo, commit) that does
+    // not actually contain the published code.
+    console.error(`[strategy:publish] --entrypoint must stay inside --repo: ${args.entrypoint}`)
+    process.exit(2)
+  }
   await fs.access(entryAbs).catch(() => {
     console.error(`[strategy:publish] entrypoint not found: ${entryAbs}`)
     process.exit(2)

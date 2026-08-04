@@ -69,6 +69,23 @@ export function makeFixtureRepo(): { repoDir: string; entrypoint: string } {
     ].join('\n'),
   )
 
+  // Hand-written #pmb specifier outside the allowlist — must be rejected the
+  // same way as a rewritten relative import (no allowlist bypass).
+  writeFileSync(
+    path.join(strategiesDir, 'bad-pmb.v1.ts'),
+    [
+      `// @ts-expect-error #pmb only resolves inside the engine checkout`,
+      `import { getDb } from '#pmb/db/index.ts'`,
+      ``,
+      `export const definition = {`,
+      `  id: 'ext-bad-pmb.v1',`,
+      `  schema: {},`,
+      `  create: () => ({ strategy: { name: String(Boolean(getDb)), onMarketTick: () => [], onAccountEvent: () => [] } }),`,
+      `}`,
+      ``,
+    ].join('\n'),
+  )
+
   // A strategy that reaches outside the allowed engine surface — publish must reject it.
   writeFileSync(
     path.join(strategiesDir, 'bad.v1.ts'),

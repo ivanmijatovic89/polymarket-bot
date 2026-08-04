@@ -52,6 +52,18 @@ test('rejects engine imports outside the allowlist (src/db)', async () => {
   }
 })
 
+test('hand-written #pmb specifiers go through the same allowlist (no bypass)', async () => {
+  const { repoDir } = makeFixtureRepo()
+  try {
+    await assert.rejects(
+      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/bad-pmb.v1.ts', source: SOURCE }),
+      /engine import not allowed.*src\/db\/index/s,
+    )
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true })
+  }
+})
+
 test('a symlinked engine root still keeps engine imports external', async (t) => {
   const { symlinkSync, mkdtempSync } = await import('node:fs')
   const { tmpdir } = await import('node:os')

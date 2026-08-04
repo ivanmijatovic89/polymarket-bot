@@ -105,7 +105,16 @@ async function loadArtifact(ref: StrategyArtifactRef): Promise<StrategyDefinitio
       source: `${cachePath} (${ref.r2Url})`,
     })
   }
-  const mod = (await import(pathToFileURL(cachePath).href)) as Record<string, unknown>
+  let mod: Record<string, unknown>
+  try {
+    mod = (await import(pathToFileURL(cachePath).href)) as Record<string, unknown>
+  } catch (err) {
+    // Keep sha + r2Url context like every other failure path in this file —
+    // a bare import error (e.g. engine API drift) is otherwise untraceable.
+    throw new ArtifactShapeError(
+      `[artifact] ${ref.sha256.slice(0, 12)} failed to import: ${err instanceof Error ? err.message : String(err)} (${ref.r2Url})`,
+    )
+  }
   const banner = mod.__pmbArtifact
   if (!isArtifactBanner(banner)) {
     throw new ArtifactShapeError(
