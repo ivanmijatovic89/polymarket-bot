@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sha256OfBuffer } from '../../utils/hash.js'
@@ -52,8 +52,12 @@ export async function buildStrategyArtifact(
   // publish CLI (and tests) pay for it.
   const esbuild = await import('esbuild')
 
-  const repoDir = path.resolve(args.repoDir)
-  const engineRoot = path.resolve(args.engineRoot ?? DEFAULT_ENGINE_ROOT)
+  // realpath both roots: esbuild resolves through symlinks (preserveSymlinks
+  // is off), so a symlinked checkout path would otherwise make every
+  // `path.relative(engineSrc, resolved)` comparison miss — engine files would
+  // silently bundle IN, forking class identity with no error.
+  const repoDir = realpathSync(path.resolve(args.repoDir))
+  const engineRoot = realpathSync(path.resolve(args.engineRoot ?? DEFAULT_ENGINE_ROOT))
   const engineSrc = path.join(engineRoot, 'src')
   const entrypointAbs = path.join(repoDir, args.entrypoint)
   if (!existsSync(entrypointAbs)) {
@@ -78,9 +82,19 @@ export async function buildStrategyArtifact(
         }
         const isRel = a.path.startsWith('./') || a.path.startsWith('../')
         if (!isRel && !path.isAbsolute(a.path)) return undefined // bare → bundle
-        const resolved = path.isAbsolute(a.path)
+        const naive = path.isAbsolute(a.path)
           ? path.normalize(a.path)
           : path.resolve(a.resolveDir, a.path)
+        // realpath the DIRECTORY (the file itself may be a `.js` specifier for
+        // a `.ts` file on disk): an import that reaches the engine through a
+        // symlinked sibling checkout must still compare equal to engineSrc.
+        const resolved = (() => {
+          try {
+            return path.join(realpathSync(path.dirname(naive)), path.basename(naive))
+          } catch {
+            return naive
+          }
+        })()
         const rel = path.relative(engineSrc, resolved)
         if (rel.startsWith('..') || path.isAbsolute(rel)) return undefined // repo-own file → bundle
         const relPosix = rel

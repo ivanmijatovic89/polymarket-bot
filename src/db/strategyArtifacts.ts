@@ -39,7 +39,11 @@ export async function insertStrategyArtifactIfMissing(
     await getDb().insert(strategyArtifacts).values(row)
     return { inserted: true }
   } catch (err) {
-    if ((err as { code?: string }).code === 'ER_DUP_ENTRY') return { inserted: false }
+    // drizzle wraps driver errors in DrizzleQueryError with the mysql2 error
+    // on `cause` — check both shapes.
+    const code =
+      (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code
+    if (code === 'ER_DUP_ENTRY') return { inserted: false }
     throw err
   }
 }

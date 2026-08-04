@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs'
+import { promises as fs, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { downloadR2ToLocal } from '../../telonex/fetchConvertedToLocal.js'
@@ -28,7 +28,16 @@ import {
  * sha + r2Url context; there is deliberately NO fallback to another strategy.
  */
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+// realpath'd so cache paths stay stable when the checkout is reached through a
+// symlink (matches bundle.ts's engine-root handling).
+const REPO_ROOT = (() => {
+  const resolved = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+  try {
+    return realpathSync(resolved)
+  } catch {
+    return resolved
+  }
+})()
 
 /**
  * Cache directory override for tests. MUST stay under the repo root —

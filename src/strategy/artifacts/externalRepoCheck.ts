@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +10,15 @@ import { fileURLToPath } from 'node:url'
  * repo needs no tsc/eslint installs of its own — it is just code.
  */
 
-const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+// realpath'd for consistency with bundle.ts's engine-root handling.
+const ENGINE_ROOT = (() => {
+  const resolved = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+  try {
+    return realpathSync(resolved)
+  } catch {
+    return resolved
+  }
+})()
 
 function run(cmd: string, cmdArgs: string[], cwd: string): boolean {
   const res = spawnSync(cmd, cmdArgs, { cwd, stdio: 'inherit' })
@@ -68,15 +76,59 @@ export function typecheckExternalRepo(args: { repoDir: string; engineRoot?: stri
   }
 }
 
-/** The engine's ESLint config run against the external repo's .ts files. Returns success. */
+/**
+ * The engine's ESLint rules run against the external repo's .ts files.
+ * Returns success.
+ *
+ * Uses a throwaway flat config mirroring eslint.config.cjs but WITHOUT
+ * `parserOptions.project`: the root config does typed linting pinned to this
+ * repo's tsconfigs, and external files are not part of any of those projects
+ * — typed linting would hard-fail on every external repo regardless of code
+ * quality. Type-aware checking is strategy:check's tsc step instead.
+ */
 export function lintExternalRepo(args: { repoDir: string; engineRoot?: string }): boolean {
   const engineRoot = path.resolve(args.engineRoot ?? ENGINE_ROOT)
   const repoDir = path.resolve(args.repoDir)
-  const patterns = [path.join(repoDir, '**/*.ts')]
-  if (!patterns.some((p) => existsSync(path.dirname(p)))) return true
-  return run(
-    path.join(engineRoot, 'node_modules/.bin/eslint'),
-    [...patterns, '--no-error-on-unmatched-pattern'],
-    engineRoot,
-  )
+  if (!existsSync(repoDir)) return true
+  const tmp = mkdtempSync(path.join(tmpdir(), 'strategy-lint-'))
+  try {
+    const configPath = path.join(tmp, 'eslint.config.cjs')
+    writeFileSync(
+      configPath,
+      [
+        // The temp config lives in the OS tmpdir, so bare plugin specifiers
+        // must be resolved from the engine checkout (exports-aware — a direct
+        // directory require would bypass package "exports" and fail).
+        `const { createRequire } = require('node:module')`,
+        `const engineRequire = createRequire(${JSON.stringify(path.join(engineRoot, 'package.json'))})`,
+        `const tsParser = engineRequire('@typescript-eslint/parser')`,
+        `const tsPlugin = engineRequire('@typescript-eslint/eslint-plugin')`,
+        `const prettierConfig = engineRequire('eslint-config-prettier')`,
+        `module.exports = [`,
+        `  { ignores: ['**/node_modules/**'] },`,
+        `  {`,
+        `    files: ['**/*.ts', '**/*.tsx'],`,
+        `    languageOptions: { parser: tsParser, parserOptions: { sourceType: 'module' } },`,
+        `    plugins: { '@typescript-eslint': tsPlugin },`,
+        `    rules: {`,
+        `      ...tsPlugin.configs.recommended.rules,`,
+        `      ...(prettierConfig.rules ?? {}),`,
+        `      'no-console': 'off',`,
+        `      '@typescript-eslint/no-explicit-any': 'warn',`,
+        `    },`,
+        `  },`,
+        `]`,
+        ``,
+      ].join('\n'),
+    )
+    // cwd MUST be the external repo: ESLint silently skips lint targets
+    // outside its working directory, which would turn this gate into a no-op.
+    return run(
+      path.join(engineRoot, 'node_modules/.bin/eslint'),
+      ['--config', configPath, '**/*.ts', '--no-error-on-unmatched-pattern'],
+      repoDir,
+    )
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
 }
