@@ -679,6 +679,35 @@ export const ConfigSchema = z.strictObject({
    */
   underdogMax: z.coerce.number().finite().min(0.02).max(1).default(0.1),
   /**
+   * Share of `qty` the NON-priority leg must already hold before `underdogMax`
+   * stops applying to it and the ordinary budget cap takes over. 1 ⇒ never.
+   *
+   * `underdogMax` is a bet that the leg not being chased will be sweepable for a
+   * loser's few cents at the death. The bet is cheap on an EMPTY leg — losing it
+   * costs only the opportunity. It is expensive on a leg that already holds a
+   * third of its target, because every one of those shares is worthless unless
+   * the leg is finished, and a ten-cent ceiling on the rest is how the player
+   * throws away what it has already spent on it.
+   *
+   * This is the other half of the market-109 diagnosis. The counterfactual that
+   * wins that window — finish the leg the player is already holding, at 0.36 to
+   * 0.40, while the other leg is being chased — is not blocked by the pace at
+   * all after t+115. It is blocked here: the priority flips to DOWN, the 344 UP
+   * shares become an underdog's, and their ceiling drops to 0.10 in a window
+   * where UP never trades below 0.34 again.
+   *
+   * WRONG, and measured wrong the moment it was built. At 0.2, 0.3, 0.5 and 0.7
+   * market 109 does not move by a single share — same 343.75/1000, same cost to
+   * the cent. `underdogMax` is not what refuses that leg. The BUDGET is: the
+   * second leg's cap is also `(budgetLeft − needFirst × bidFirst) / needSecond`,
+   * and with 800 DOWN still to buy near 0.6 that term is about 0.32 while UP is
+   * asking 0.39. Lifting a price ceiling cannot fund a leg whose money has been
+   * reserved for the other one — which is the lesson worth keeping: there is one
+   * pot, and after the priority flips the leg left behind is not overpriced, it
+   * is unfunded. Ships off; kept because it turns an assumption into a fact.
+   */
+  underdogHeldShare: z.coerce.number().finite().min(0).max(1).default(1),
+  /**
    * Milliseconds at the start of the window during which NO leg may hold more
    * than `openShare` × `qty` shares.
    *
@@ -1300,6 +1329,65 @@ export const ConfigSchema = z.strictObject({
    * it gates ships at 0.
    */
   stallFinishIdle: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * 1 ⇒ the STALLED LEG itself must have bought nothing for `stallFinishMs`.
+   * The window-wide `stallFinishIdle` above is the same test over both legs.
+   *
+   * The distinction the release actually needs is between a position that was
+   * built slowly and has since been frozen, and one that is still being built
+   * this second. Both look identical in a snapshot — measured, not argued: the
+   * blocking market's stall and the first casualty's are the same state to the
+   * cent (344 shares against a 200-share allowance, the leg at 0.53 and its
+   * partner at 0.48, the same money left, the same unaffordable pair) and they
+   * differ only in that one is at t+54 and the other at t+110. What separates
+   * them is not the snapshot but the leg's own recent history.
+   *
+   * Except that this reading of the history is degenerate and does not have to
+   * be tried: a leg over its allowance has zero pace room, so it CANNOT buy, so
+   * its own idle time is always at least the dwell by construction. Measured
+   * anyway — 20, 21, 21, 20, 29 and 39 seconds across the release moments, with
+   * the LONGEST belonging to a casualty. Ships off.
+   */
+  stallFinishIdleSide: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * Milliseconds into the window before the stall release may fire at all.
+   *
+   * The last axis left after every snapshot reading was measured and found not
+   * to separate. Over the first 110 markets the release costs six windows and
+   * every one of them fires between t+26 and t+77, while the window it repairs
+   * fires at t+110. The story the clock tells: in the opening minute the edge
+   * allowance is still climbing off its `openShare` floor and a leg over it is a
+   * leg that outran an allowance which had not yet been granted, which is the
+   * pace doing its job. A leg still stuck over a RETREATED allowance two minutes
+   * in is a position the book has walked away from.
+   *
+   * The story is wrong. The clock does not PREVENT a release, it POSTPONES one —
+   * the leg is still over its allowance at t+90 and fires then instead — and one
+   * window is repaired by an early release and destroyed by a late one, which no
+   * reading of "early releases are premature" survives. Measured over the first
+   * 110 against a baseline of 1 failure: 90 s ⇒ 3, 90 s with a 0.03 ask lead ⇒ 2,
+   * 100 s with it ⇒ 2, and `…1775109600` fails in EVERY clocked variant while
+   * passing every unclocked one.
+   */
+  stallFinishAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * How far the stalled leg's ask must sit ABOVE its partner's before the
+   * release may fire. Negative ⇒ never binding.
+   *
+   * The one gate on the release with a story rather than a threshold. This
+   * player's whole method is to secure the leg that becomes unaffordable and
+   * sweep the other one at the death; a release spent on the CHEAPER leg buys
+   * shares that will still be there, and cheaper, later. So the release belongs
+   * to the leg the book currently prices as the favourite, and only when it says
+   * so clearly.
+   *
+   * It is the best of the gates and it is still not enough. Over the first 110
+   * against a baseline of 1: 0.03 alone ⇒ 6, 0.03 with a 90 s clock ⇒ 2, 0.06
+   * with it ⇒ 3. No single threshold can hold, because the ask lead at the
+   * release is 0.07 in the window that must be repaired and 0.03, 0.05, 0.11 and
+   * 0.13 in windows that must not be — it straddles.
+   */
+  stallFinishAskLead: z.coerce.number().finite().min(-1).max(1).default(-1),
   /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
@@ -3028,10 +3116,25 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // When each leg last went above the edge pace's current allowance and stayed
   // there. 0 while the leg is inside its allowance. See `stallFinish`.
   const overSinceMs: Record<Side, number> = { UP: 0, DOWN: 0 }
+  // Instrument only: whether the stall release has already been reported for a
+  // leg, so `debug>=2` prints ONE line at the instant it first fires. Reads
+  // nothing, gates nothing. See `stallFinish`.
+  const stallLogged: Record<Side, boolean> = { UP: false, DOWN: false }
+  // The highest edge allowance each leg has ever been granted, in shares. A leg
+  // holding more than the pace allows is only a RATCHET victim if the allowance
+  // once covered what it holds; a leg that never had the licence is one the pace
+  // is legitimately still refusing. See `stallFinishLic`.
+  const peakAllow: Record<Side, number> = { UP: 0, DOWN: 0 }
   // The last moment the player spent anything at all, and the total it had spent
   // then, so `stallFinishIdle` can ask how long the window has been silent.
   let lastSpend = -1
   let lastSpendMs = 0
+  // The same reading PER LEG: when this leg last bought a share. Maintained
+  // unconditionally — a deque or clock read by a rule but written behind a
+  // disabled guard is the trap that cost session 30 a full afternoon.
+  // See `stallFinishIdleSide`.
+  const lastSideSpend: Record<Side, number> = { UP: -1, DOWN: -1 }
+  const lastSideSpendMs: Record<Side, number> = { UP: 0, DOWN: 0 }
   // The last moment the cap's full arming condition held, so the grace period
   // after it stops holding can be bounded. See `depthReleaseMs`.
   let depthStrictMs: number | null = null
@@ -3351,6 +3454,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     if (spent > lastSpend + 1e-9 || lastSpend < 0) {
       lastSpend = spent
       lastSpendMs = nowMs
+    }
+    for (const s of ['UP', 'DOWN'] as Side[]) {
+      if (basis[s] > lastSideSpend[s] + 1e-9 || lastSideSpend[s] < 0) {
+        lastSideSpend[s] = basis[s]
+        lastSideSpendMs[s] = nowMs
+      }
     }
     // Its own deque on its own window: `burstQ` above is only filled while
     // `burstShare` is on, and it ships off. See `burstSwap`.
@@ -4100,7 +4209,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // holding it to `underdogMax` is what turns the handover into a freeze.
       // See `solvFree`.
       const loserCap =
-        cfg.solvFree === 1 && solvDemoted === second
+        (cfg.solvFree === 1 && solvDemoted === second) ||
+        (cfg.underdogHeldShare < 1 && held[second] >= cfg.underdogHeldShare * cfg.qty)
           ? budgetOfSecond
           : cfg.underdogMax + lift * Math.max(0, budgetOfSecond - cfg.underdogMax)
       const capOfSecond = Math.min(budgetOfSecond, loserCap) * underdogRamp
@@ -4303,12 +4413,35 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // side. See `stallFinish`.
       if (held[side] <= cfg.qty * edgeFrac + 1e-9) overSinceMs[side] = 0
       else if (overSinceMs[side] === 0) overSinceMs[side] = nowMs
+      peakAllow[side] = Math.max(peakAllow[side], cfg.qty * edgeFrac)
       const stalled =
         cfg.stallFinish === 1 &&
+        elapsed >= cfg.stallFinishAfterMs &&
+        sideAsk - otherAsk >= cfg.stallFinishAskLead &&
         held[side] >= cfg.stallFinishShare * cfg.qty &&
         overSinceMs[side] > 0 &&
         nowMs - overSinceMs[side] >= cfg.stallFinishMs &&
-        (cfg.stallFinishIdle === 0 || nowMs - lastSpendMs >= cfg.stallFinishMs)
+        (cfg.stallFinishIdle === 0 || nowMs - lastSpendMs >= cfg.stallFinishMs) &&
+        (cfg.stallFinishIdleSide === 0 ||
+          nowMs - lastSideSpendMs[side] >= cfg.stallFinishMs)
+      if (stalled && !stallLogged[side] && cfg.debug >= 2) {
+        stallLogged[side] = true
+        console.log(
+          `[pair.v1] stall slug=${ctx?.market?.slug ?? '?'} side=${side} ` +
+            `t+${Math.round(elapsed / 1000)}s ask=${sideAsk.toFixed(3)} other=${otherAsk.toFixed(3)} ` +
+            `held=${held[side].toFixed(0)}/${held[other].toFixed(0)} ` +
+            `budgetLeft=${budgetLeft.toFixed(1)} ` +
+            `finish=${(Math.max(0, cfg.qty - held[side]) * sideAsk).toFixed(1)} ` +
+            `sweep=${(Math.max(0, cfg.qty - held[other]) * otherAsk).toFixed(1)} ` +
+            `out=${outsideSide ?? '-'} z=${outsideZ.toFixed(2)} ` +
+            `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)} ` +
+            `dimb=${depthImb[side] === null ? '-' : (depthImb[side] as number).toFixed(2)} ` +
+            `allow=${(cfg.qty * edgeFrac).toFixed(0)} peak=${peakAllow[side].toFixed(0)} ` +
+            `idleSide=${((nowMs - lastSideSpendMs[side]) / 1000).toFixed(0)}s ` +
+            `idleAll=${((nowMs - lastSpendMs) / 1000).toFixed(0)}s ` +
+            `lead=${leadSide ?? '-'} chase=${chaseLeg ?? '-'}`,
+        )
+      }
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||

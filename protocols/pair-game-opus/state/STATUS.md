@@ -6,12 +6,12 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step:** `stallFinish` is the lead. It is the first mechanism that repairs
-market 109 by LOOSENING the player rather than restraining it, at a cost of six
-other markets, and every one of those six fails in the same shape — one leg at
-1,000 and the other stranded. The release is sound; what is unsolved is WHICH
-leg may take it. Do NOT spend another session on restraining the completing
-purchase: the section below shows that decision is unreachable.
+**Next step:** there is no live lead. `stallFinish` — the previous session's
+lead — was gated four ways and measured out; its best configuration costs two
+markets against a baseline of one. What the session bought instead is a much
+sharper statement of what market 109 actually needs, and proof that two of the
+three things that could supply it are already ruled out. Read "the blocker,
+restated" below before designing anything.
 
 ## Evidence
 
@@ -170,7 +170,76 @@ and both keep their measurements in their doc comments:
   ceiling in half a minute is ORDINARY.
 - **`stallFinish`** — see below.
 
-## The lead — `stallFinish`, and the freeze nobody had looked at
+## The blocker, restated — one pot, and a choice that has to be made at t+115
+
+Market 109 needs the player to own UP rather than DOWN. Everything else about
+the window is settled, and two of the three routes to it are now closed by
+measurement rather than by argument.
+
+1. **After the flip, UP is not overpriced — it is UNFUNDED.** The obvious
+   diagnosis was `underdogMax=0.1`: the priority flips to DOWN at t+115, the 344
+   UP shares become an underdog's, and a leg the market never quotes below 0.34
+   can never be bought at a ten-cent ceiling. `underdogHeldShare` lifts that
+   ceiling for a leg already holding a share of its target, and at 0.2/0.3/0.5/
+   0.7 market 109 **does not move by a single share** — 343.75/1000 and the same
+   cost to the cent. The binding term is the other half of the second leg's cap,
+   `(budgetLeft − needFirst × bidFirst) / needSecond`: with 800 DOWN still to buy
+   near 0.6 it is about 0.32 against an UP ask of 0.39. There is one pot and the
+   chase has already claimed it. No price ceiling can reach this.
+2. **The chase itself cannot be made cheaper.** `jumpPad` with and without
+   `jumpCross`, at pads 0.02–0.08 and τ 5–15 s, leaves DOWN at 1,000 in every
+   setting and moves the spend by at most fifty dollars (779.7, 790.5, 775.5,
+   738.0, 739.6). The cap delays the crossing; the window then spends four
+   minutes with DOWN as the favourite and the leg fills passively at much the
+   same prices. Two of the five settings make the market strictly worse.
+3. **Never flipping the priority is worse than flipping.** `priorityLatch=1`
+   re-measured at `4c5b9ce7`: **12 failures** over the first 110, four of them
+   ending 0/1000 or 1000/0. Unchanged verdict, now at the current configuration.
+
+So the only surviving route is the one below — commit to UP BEFORE the flip —
+and the four gates tried on it all straddle.
+
+## The lead that closed — `stallFinish`, gated four ways
+
+Baseline over the first 110 is one certain failure (109). Every configuration of
+the release is worse:
+
+| Configuration | Failures | 109 |
+|---|---|---|
+| release ungated, 20 s dwell | 6 | repaired |
+| + release only after t+90s | 3 | repaired |
+| + release only to the leg 0.03 dearer | 6 | repaired |
+| both gates | **2** | repaired |
+| both, ask lead 0.06 | 3 | repaired |
+| both, clock 100 s | 2 | repaired |
+| both, dwell 25 s | 2 | **lost** |
+
+Two things killed it.
+
+- **The snapshot does not separate.** `…1775184300` releases DOWN at t+26 with
+  ask 0.520 against 0.490 and 344/200 held, and 109 releases UP at t+110 with ask
+  0.540 against 0.470 and 344/200 held. Same shares, same allowance (200 vs 219),
+  same money left to the dollar, the same unaffordable pair (finish + sweep is
+  1.07× the budget in one and 1.06× in the other). Peak allowance, per-leg idle
+  time, solvency ratio and the share held were all measured across all seven
+  release moments and none of them orders 109 against the field. Only the clock
+  does.
+- **The clock is not a rule, it is a delay.** A leg over its allowance at t+30 is
+  still over it at t+90, so the gate postpones the release rather than refusing
+  it — and `…1775109600` passes with an early release and fails with a late one,
+  in every clocked variant. That is the opposite of the story the clock tells.
+
+The release moments themselves, for whoever picks this up: 109 fires UP at t+110
+with the ask 0.07 dearer; the casualties fire at t+26, t+27, t+30, t+54, t+70 and
+t+77 with leads of 0.03, 0.05, 0.05, 0.11 and 0.13 — the repair sits inside the
+casualties' range on every axis except elapsed time.
+
+Six of the seven releases hand the window to the leg that goes on to LOSE. The
+previous session read the common casualty shape as "the release is sound, the
+question is which leg"; the honest reading is that the release is a directional
+bet placed while the book is at a coin flip, and it is wrong most of the time.
+
+## The old lead's diagnosis, which still stands
 
 Market 109's first two minutes are a total stall, and that is where the money
 goes missing. The player holds 344 UP against an edge allowance of 219, its own
@@ -203,9 +272,9 @@ silence begins at t+82 but the leg only goes over its allowance at t+91, so the
 idle clock pushes the release to t+111, three seconds before the turn.
 
 Every casualty at every setting is one leg at 1,000 and the other stranded
-between 200 and 600. The release is sound; the open question is which leg may
-take it. Untried: restricting it to the leg the outside price backs, to the
-cheaper leg, or to windows where both asks are still within a few cents of even.
+between 200 and 600 — and the gates tried on that shape are in the section
+above. The ratchet itself is real and the counterfactual is still the best one
+this window has; what has no answer is who gets to take the release.
 
 ## The remaining known blocker — market 109
 
@@ -316,6 +385,16 @@ At `c6669a59` (baseline 1 failure over the first 110):
 | `avgGuardFrom=0.9` — the realized-average ceiling applied to the completing clip only | **49**. It stops the leg at 700–800 in almost every window and the money has nowhere to go: the textbook demonstration that a cap without a handover is inert. |
 | `burstSwap` 0.35 / 0.45, and with `burstSwapFrom` 0.6 / 0.7 | 29 / 19 / 29 / 30 |
 
+At `4c5b9ce7` (baseline 1 failure over the first 110, 2 on this session's draw —
+the second was `…1775110500`, a known flake):
+
+| Change | Failures |
+|---|---|
+| `stallFinish` gated six ways (see the table above) | 2 at BEST |
+| `underdogHeldShare` 0.2 / 0.3 / 0.5 / 0.7 (lift the loser cap on a leg already part-built) | 109 unmoved to the cent — not a price problem |
+| `jumpPad` 0.02–0.08 × `jumpCross` 0/1, τ 5–15 s | 109 unmoved; DOWN reaches 1,000 in all five |
+| `priorityLatch=1` | **12** |
+
 `overtakeCap` is worth one paragraph because the idea keeps suggesting itself.
 Three of the failures — market 101's losing draw, market 108 before the fix, and
 market 109 — are the same picture: the player holds 719/509, 686/344, 344/671,
@@ -421,6 +500,13 @@ STATUS pointed at the finish exemptions here and was wrong.
   than `probe.sh`, which swallows stderr. **Running four probes in parallel is
   the cheapest way to sample the latency jitter on one market**; when `.rows`
   comes back empty, read the run id out of the log and re-run `results.ts`.
+- **The stall instrument**: with `debug>=2` the player prints ONE line the first
+  time the `stallFinish` release fires on each leg, carrying both asks, both
+  holdings, the money left, what finishing and sweeping would each cost, the
+  oracle, the current and peak edge allowance, and both idle clocks. That one
+  line is what showed the repair and its casualties to be the same state. Reads
+  nothing and gates nothing; copy the shape for the next rule that needs a
+  moment-of-decision measurement rather than a timeline.
 - **`--param debug=2` is the observation channel**: one line per market per
   `debugEveryMs` for the WHOLE window, emitted above every early return. It
   carries `depUp=`/`depDown=` (cumulative bid/ask size within three levels),
@@ -466,6 +552,12 @@ STATUS pointed at the finish exemptions here and was wrong.
 
 ### Traps that have each cost a session
 
+- **A cap you can name is not necessarily the cap that binds.** Market 109's
+  abandoned leg was diagnosed as blocked by `underdogMax`; a knob that lifts it
+  entirely moved the window by zero shares, because the second leg's cap is a
+  `min` and the BUDGET term was the smaller one. Before building a release for a
+  ceiling, lift the ceiling to infinity and confirm the market moves at all — it
+  costs one probe.
 - **A single failing market does not name its own cause.** Level 80 was recorded
   as "the warmup lets it through" on a reading of one timeline; the warmup was
   innocent, and the counterfactual took one sweep to run. Level 87 was recorded

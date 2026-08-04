@@ -2326,3 +2326,93 @@ written that into the notes rather than quietly re-running until it looked clean
 
 Level one hundred and nine is not passed. What I have instead is a much smaller
 search space and one live lead.
+
+## Session 33 — the promising release turns out to be a coin flip, and the money was never the price
+
+Level one hundred and nine is still not passed. But the lead I inherited is now
+closed with numbers rather than left hanging, and two more ways out of that
+market are closed with it, so the ground under the next attempt is a lot firmer
+than it was this morning.
+
+The inherited idea was this. In the market that blocks the level, the player
+freezes for two minutes in the middle of a quiet window: it is holding a third
+of one side, its own bookkeeping says that is already more than the evidence
+justifies, and so it may neither buy more of that side nor sell any of it. Then
+the market turns and the money goes to the other side, which loses. The proposed
+fix was to treat a side that has been stuck like that for twenty seconds as a
+commitment to be finished rather than a position to be rationed. It repairs the
+blocking market outright and costs six others, and the previous session's read
+was that the release itself is right and the only open question is which side
+should be allowed to take it.
+
+I built the instrument to answer that question — a single line printed at the
+exact instant the release fires, carrying everything the player can see at that
+moment — and the answer was not the one I expected. The market that must be
+repaired and the first market that must not be look the same to the cent. Both
+release a side holding three hundred and forty-four shares against a two-hundred
+share ration; both have that side quoted at about fifty-three cents and its
+partner at about forty-eight; both have the same money left, and in both the cost
+of finishing one side and sweeping the other comes to about one and a seven
+hundredth of what remains. Share held, past ration, idle time, the underlying,
+the depth of the book — I checked all of them and none of them puts the one
+market on a different side of any line from the other. The only thing that
+differs is the clock: one fires at fifty-four seconds into the window and the
+other at a hundred and ten.
+
+So I tried the clock, with the story that a side over its ration in the first
+minute is one that outran an allowance which had not yet been granted, while a
+side still stuck two minutes in is one the market has walked away from. It halves
+the damage and it is still wrong, and the reason it is wrong is worth writing
+down: a clock does not refuse a release, it postpones one. The side is still over
+its ration at ninety seconds, so it simply fires then instead — and one market
+passes when the release comes early and fails when it comes late, which no
+version of "early releases are premature" can survive. Adding a second condition,
+that the release belongs only to the side the market currently prices as the
+favourite, is the best gate I found and it still leaves two markets broken
+against a baseline of one. The thresholds straddle: the number that has to be
+above the line in the market I want is below the line in two markets I would
+break.
+
+The blunt summary is that six of the seven releases hand the window to the side
+that goes on to lose. That is not a sound mechanism waiting for the right gate.
+It is a directional bet placed while the market is at a coin flip, and it is
+wrong most of the time — which is exactly what the budget arithmetic in this game
+has been saying for thirty sessions.
+
+The second half of the session was more useful, because it corrected something I
+was about to build on. The blocking market's winning alternative is to finish the
+side the player already holds, at around forty cents, while the other side is
+being chased. I was sure I knew why the player cannot do that: there is a rule
+that holds whichever side is not being chased to a ceiling of ten cents, on the
+theory that a losing side can always be swept for pennies at the end, and this
+side never trades below thirty-four cents again. So I built a release for that
+ceiling — a side already a third built is not a side you sweep, because every
+share in it is worthless unless it is finished — and measured it at four
+settings. The market did not move by a single share at any of them. Same result,
+same cost to the cent.
+
+The ceiling was innocent. What actually refuses that side is the money: the
+player's cap on the side it is not chasing is the smaller of a price rule and a
+budget rule, and with eight hundred shares of the chased side still to buy near
+sixty cents, the budget rule works out to about thirty-two cents against an ask
+of thirty-nine. Lifting a price ceiling cannot fund a side whose money has
+already been reserved for the other one. There is one pot, and after the player
+switches which side it is backing, the side left behind is not overpriced — it is
+unfunded. That reframes the whole market and it is now written into the notes as
+a fact rather than an assumption.
+
+Two more doors closed on the way past. Slowing the chase down so it stops paying
+up into the jump leaves the losing side at a full thousand shares in every
+setting I tried, because the market then spends four minutes at those prices and
+the orders fill anyway, a little more cheaply and just as fatally. And forbidding
+the player to ever switch which side it backs — an idea from thirty levels ago
+that keeps suggesting itself — costs twelve markets when re-measured against
+today's player, four of them ending with one side complete and the other at zero.
+
+So the market comes down to one sentence: the player has to commit to the side
+that eventually wins, at the moment the order book, its own model of the
+underlying, and the following four minutes of price action all point the other
+way. I do not have a way to do that yet, and I would rather hand over an honest
+map of the dead ends than a lead I have already measured out. Everything built
+this session ships switched off, with its numbers in the code next to it, and the
+unchanged player still runs exactly as it did.
