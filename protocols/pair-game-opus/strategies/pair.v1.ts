@@ -783,6 +783,51 @@ export const ConfigSchema = z.strictObject({
    */
   underdogHeldShare: z.coerce.number().finite().min(0).max(1).default(1),
   /**
+   * 1 ⇒ `underdogMax` stops applying whenever the pot ALREADY covers the second
+   * leg at today's ask. 0 ⇒ the loser-price cap always applies.
+   *
+   * `underdogMax` is a bet, and the note on `underdogHeldShare` says which one:
+   * that the leg not being chased will be sweepable for a loser's few cents at
+   * the death. It is also the answer to the wrong question. The reason the
+   * second leg must not fill at 0.4–0.5 in the first minute is that the money
+   * belongs to the priority leg — and the player computes that directly, in
+   * `budgetOfSecond`: the ceiling left once the priority leg is finished at
+   * today's bid, and the money left after the same purchase. When THAT number
+   * already covers the second leg's current ask, the pair on offer completes
+   * inside the ceiling with no improvement needed from anywhere. Holding out
+   * for a loser's price is then not caution; it is a second bet on a window
+   * that has already paid out.
+   *
+   * MEASURED AND OFF, and the measurement is the point. The window it was built
+   * for whipsaws at t+74: the player holds 719 DOWN and 200 UP, DOWN is asking
+   * 0.67 and UP 0.34 — UP's low for the window — and it bids 0.10 for UP,
+   * finishes DOWN at 0.67 and then watches UP climb back to 0.50 for twelve
+   * minutes with 800 shares still to find. So the refusal looked like this cap.
+   * It is not: at that tick `budgetOfSecond` is 0.324 against an ask of 0.340,
+   * and at every tick before it the shortfall is larger (0.341 vs 0.390, 0.396
+   * vs 0.450). The pot never covers the sweep, because `budgetOfSecond` reserves
+   * the priority leg at TODAY's bid and today's bid is the spike — the money the
+   * sweep needs is the money the spike is spending.
+   *
+   * Which makes this the same lesson `underdogHeldShare` records, one level up:
+   * a window that cannot afford both legs is not repaired by lifting a price
+   * ceiling on either of them. It is repaired by not buying the dear one, and
+   * `solvChase` is what does that.
+   */
+  sweepFit: z.coerce.number().int().min(0).max(1).default(0),
+  /**
+   * How far under the pot's own allowance the second leg's ask must sit before
+   * `sweepFit` releases the loser-price cap. 0 ⇒ covering it exactly is enough.
+   *
+   * `budgetOfSecond` reserves the priority leg at TODAY's bid, so a fit measured
+   * at zero is a fit that survives no move at all in the leg still being chased.
+   * The pad is the room that leg is allowed to run before the sweep it licensed
+   * turns into a leg the player can no longer afford.
+   */
+  sweepFitPad: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /** Milliseconds into the window before `sweepFit` may release the cap. */
+  sweepFitAfterMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * Milliseconds at the start of the window during which NO leg may hold more
    * than `openShare` × `qty` shares.
    *
@@ -2964,6 +3009,83 @@ export const ConfigSchema = z.strictObject({
    */
   solvLevelLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * 1 ⇒ `solvHeld` and `solvZ` are BOTH waived when the leg the swap is handing
+   * the chase to was itself the resolved priority leg within the last
+   * `solvChaseMs`. 0 disables the waiver.
+   *
+   * Both gates rest on the same sentence — the swap is overruling something —
+   * and both read a witness that lags the thing they mean. `solvHeld` means
+   * "do not abandon a commitment" and measures it in SHARES; `solvZ` means "do
+   * not overrule the book" and demands an outside witness before the book may
+   * be contradicted. Neither describes a swap that is undoing a priority flip
+   * one tick old. There is no commitment to abandon: the leg being demoted has
+   * been the chase for a second, and the leg being promoted was the chase for
+   * the minute before that — its holdings are small because the PACE refused
+   * it, not because the player chose against it. And there is nothing being
+   * overruled: the flip the swap is reversing is the book's own reading of four
+   * seconds of history, not a position the market has settled into.
+   *
+   * The window this is for whipsaws at t+69. The player has been chasing UP for
+   * thirteen seconds and is stopped at 200 shares by the ask-gap allowance; the
+   * gap widens by a cent, the momentum reading flips to DOWN, and one second
+   * later the arithmetic says the DOWN plan overruns the ceiling and the UP
+   * plan does not. `solvHeld` refuses because UP holds 200 against DOWN's 406,
+   * and `solvZ` refuses because the outside price still leans DOWN — it leans
+   * DOWN for another minute, and the market settles UP. Over the next six
+   * seconds the ask gap trebles, the allowance opens all the way, and 594 DOWN
+   * shares go through at an average of 0.665 while UP is on offer at 0.34.
+   *
+   * The waiver is self-sustaining by construction rather than by a latch: once
+   * it fires, the promoted leg IS the recent priority, so a book that flips
+   * straight back finds the waiver still open. That is the property the parity
+   * waiver had to be given (`solvLevelFired`) and this one has for free.
+   */
+  solvChase: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * How recently the receiving leg must have held the chase for `solvChase` to
+   * apply, in milliseconds.
+   *
+   * This is the whole width of the claim: a leg the player was chasing a second
+   * ago is not a leg it decided against. Long enough and it stops being a flip
+   * and starts being a change of mind the player has since paid for.
+   */
+  solvChaseMs: z.coerce.number().finite().min(0).default(2_000),
+  /**
+   * Largest the RECEIVING leg may be, as a share of `qty`, for `solvChase` to
+   * apply. 0 removes the bound.
+   *
+   * `solvChase`'s claim has two halves and the clock only tests one. "The
+   * player was chasing this leg a second ago" says it wanted the leg; "its
+   * holdings are small because the pace refused it" says it did not get it. A
+   * leg holding a third of its target got it. Measured over the first 123: the
+   * clock alone repairs the blocking window and costs four others, and all four
+   * hand the chase to a leg holding between 281 and 719 shares — positions
+   * built over minutes, which the pace plainly did not refuse. The window this
+   * is for hands it to a leg stopped dead on 200, one clip, with nineteen
+   * shares of allowance left.
+   *
+   * This is the mirror of `solvLevelMax` and it is the same sentence: being
+   * recently chased is not the same as being unbought.
+   */
+  solvChaseMax: z.coerce.number().finite().min(0).max(1).default(0.25),
+  /**
+   * 1 ⇒ once `solvChase` has carried a swap toward a leg, both gates stay
+   * waived for that leg for the rest of the window. 0 ⇒ the waiver must be
+   * re-earned every tick.
+   *
+   * Required, and for the reason `solvLevelFired` records: every condition
+   * `solvChaseMax` tests is destroyed by the swap succeeding. The waiver fires
+   * because the promoted leg holds 200 shares; the swap then buys that leg, it
+   * passes 250 shares, the waiver closes, `solvHeld` refuses again, and the
+   * chase goes straight back. Measured on the window it is for: 281 of 1,000
+   * without this, 1,000 of 1,000 with it.
+   *
+   * It waives two GATES, not the arithmetic. The swap is still re-evaluated
+   * every tick against both projections and still hands the chase back the
+   * moment the sums change, exactly as `solvZLatch` leaves it.
+   */
+  solvChaseLatch: z.coerce.number().int().min(0).max(1).default(1),
+  /**
    * Milliseconds into the window before the swap may fire.
    *
    * At the open both legs sit either side of 0.50 and neither has ever been
@@ -3446,7 +3568,7 @@ export const ConfigSchema = z.strictObject({
    * prints on change rather than on a clock, so it is cheap and it is the
    * fastest way to find out WHICH rule handed the chase over.
    */
-  debug: z.coerce.number().int().min(0).max(4).default(0),
+  debug: z.coerce.number().int().min(0).max(5).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
   debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
@@ -3630,6 +3752,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // changes NOTHING. Measured: market 115's waived swap fires at t+21 and the
   // window then ends to the cent as if it never had. See `solvZLevel`.
   let solvLevelFired = false
+  // The last moment each leg was the resolved priority, and the moment the
+  // current one took the role. Read by the swap instrument and by `solvChase`:
+  // "the player is abandoning a commitment" is a claim about which leg it has
+  // been CHASING, and holdings are a lagging witness of that — a leg the pace
+  // refused while it held the chase looks, to `solvHeld`, exactly like a leg the
+  // player never wanted.
+  const lastPriorityMs: Record<Side, number> = { UP: -1, DOWN: -1 }
+  let priorityLeg2: Side | null = null
+  let priorityLeg2SinceMs = -1
+  // The leg `solvChase` has already carried a swap toward. See `solvChaseLatch`.
+  let solvChaseSide: Side | null = null
   // The highest edge allowance each leg has ever been granted, in shares. A leg
   // holding more than the pace allows is only a RATCHET victim if the allowance
   // once covered what it holds; a leg that never had the licence is one the pace
@@ -4503,12 +4636,23 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         // still latches it even when a waived one would not.
         const solvOracleOk =
           pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ
+        // The swap is undoing a priority flip that is a tick old, so neither the
+        // commitment `solvHeld` protects nor the book `solvZ` refuses to
+        // overrule is actually in play. See `solvChase`.
+        const solvChased =
+          cfg.solvChase === 1 &&
+          ((cfg.solvChaseLatch === 1 && solvChaseSide === o) ||
+            (lastPriorityMs[o] >= 0 &&
+              nowMs - lastPriorityMs[o] <= cfg.solvChaseMs &&
+              (cfg.solvChaseMax <= 0 || held[o] <= cfg.solvChaseMax * cfg.qty)))
         if (
           projFirstSide > cfg.qty * cfg.pairCeil &&
           projOther < projFirstSide - cfg.solvEdge * cfg.qty &&
           (cfg.solvUnder === 0 ||
             projOther <= cfg.qty * (cfg.pairCeil + cfg.solvUnderPad)) &&
-          (cfg.solvHeld === 0 || held[o] >= held[first] + cfg.solvHeldPad * cfg.qty) &&
+          (cfg.solvHeld === 0 ||
+            solvChased ||
+            held[o] >= held[first] + cfg.solvHeldPad * cfg.qty) &&
           // Compared as a GAP with half a tick of slack rather than as
           // `askFrom - pad`: neither side of that subtraction is exactly
           // representable, and the identical three-cent gap comes out allowed at
@@ -4523,11 +4667,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
             // At parity the swap abandons nothing, so the reading that licenses
             // it to overrule the book is not needed. See `solvZLevel`.
             solvWaived ||
+            solvChased ||
             solvOracleOk)
         ) {
           // A waived swap latches only if it is allowed to: the licence it is
           // standing in for was never earned. See `solvLevelLatch`.
           if (cfg.solvZ > 0 && (cfg.solvLevelLatch === 1 || solvOracleOk)) solvZSide = o
+          if (solvChased) solvChaseSide = o
           if (solvWaived && elapsed < cfg.solvAfterMs) solvLevelFired = true
           if (cfg.debug >= 2 && solvSwapLogged !== o) {
             solvSwapLogged = o
@@ -4537,7 +4683,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
                 `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
                 `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
                 `projFrom=${projFirstSide.toFixed(0)} projTo=${projOther.toFixed(0)} ` +
-                `waived=${solvWaived ? 1 : 0} ` +
+                `waived=${solvWaived ? 1 : 0} chased=${solvChased ? 1 : 0} ` +
+                `lowF=${trailingLow(first).toFixed(3)} lowT=${trailingLow(o).toFixed(3)} ` +
+                `fAge=${priorityLeg2 === first && priorityLeg2SinceMs >= 0 ? Math.round((nowMs - priorityLeg2SinceMs) / 1000) : -1}s ` +
+                `tGap=${lastPriorityMs[o] >= 0 ? Math.round((nowMs - lastPriorityMs[o]) / 1000) : -1}s ` +
+                `avgF=${avgOf(first).toFixed(3)} avgT=${avgOf(o).toFixed(3)} ` +
                 `out=${outsideSide ?? '-'} z=${outsideZ.toFixed(2)} ` +
                 `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)}`,
             )
@@ -4769,6 +4919,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
             `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} spent=${spent.toFixed(0)}`,
         )
       }
+      // Recorded AFTER every handover above has had its say, so the reading is
+      // the leg the player actually chased, not the one an early stage named.
+      if (priorityLeg2 !== first) {
+        priorityLeg2 = first
+        priorityLeg2SinceMs = nowMs
+      }
+      lastPriorityMs[first] = nowMs
       committed = first
       leadSide = first
       const second: Side = first === 'UP' ? 'DOWN' : 'UP'
@@ -4914,12 +5071,37 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // abandoned — it is the leg the player was chasing one tick ago, and
       // holding it to `underdogMax` is what turns the handover into a freeze.
       // See `solvFree`.
+      // The pot's own answer to whether this leg is affordable NOW. Every term
+      // in `budgetOfSecond` already keeps the priority leg whole — the ceiling
+      // is measured after finishing it at today's bid, and so is the money — so
+      // a `budgetOfSecond` that covers today's ask says the pair on offer
+      // completes inside the ceiling with nothing left to wait for. See
+      // `sweepFit`.
+      const sweepFits =
+        cfg.sweepFit === 1 &&
+        elapsed >= cfg.sweepFitAfterMs &&
+        budgetOfSecond >= askSecond + cfg.sweepFitPad
       const loserCap =
+        sweepFits ||
         (cfg.solvFree === 1 && solvDemoted === second) ||
         (cfg.underdogHeldShare < 1 && held[second] >= cfg.underdogHeldShare * cfg.qty)
           ? budgetOfSecond
           : cfg.underdogMax + lift * Math.max(0, budgetOfSecond - cfg.underdogMax)
       const capOfSecond = Math.min(budgetOfSecond, loserCap) * underdogRamp
+      // The `sweepFit` instrument: every term of `budgetOfSecond` beside the
+      // ask it is being compared with.
+      if (cfg.debug >= 5) {
+        console.log(
+          `[pair.v1] fit t+${Math.round(elapsed / 1000)}s first=${first} ` +
+            `askF=${askFirst.toFixed(3)} askS=${askSecond.toFixed(3)} ` +
+            `bidF=${bidFirst.toFixed(3)} projFirst=${projFirst.toFixed(3)} ` +
+            `ceilTerm=${(cfg.pairCeil - projFirst).toFixed(3)} ` +
+            `avgTerm=${avgCap(second, sizeSecond).toFixed(3)} ` +
+            `moneyTerm=${((budgetLeft - needFirst * Math.max(0, bidFirst)) / needSecond).toFixed(3)} ` +
+            `bos=${budgetOfSecond.toFixed(3)} fits=${sweepFits ? 1 : 0} ` +
+            `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)}`,
+        )
+      }
       cap[first] = capOfFirst
       cap[second] = capOfSecond
       capFin[first] = capFinFirst
