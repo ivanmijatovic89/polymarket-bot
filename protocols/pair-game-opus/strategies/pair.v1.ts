@@ -2610,27 +2610,28 @@ export const ConfigSchema = z.strictObject({
    * and it is chased again — which is exactly right, because a cheap leg is a
    * cheap leg whatever the player thought of it two minutes ago.
    *
-   * MEASURED AND REJECTED. Over the first sixty markets, against five failures
-   * with the rule off: 11 failures at `solvEdge` 0 (twice), 11 at 0.02, 10 at
-   * 0.03, 12 at 0.04, 7 at 0.05; and exactly the baseline five — share for
-   * share, i.e. the rule never fires at all — at 0.10, or at 0.05 from two
-   * minutes onward. It is strictly worse than the baseline everywhere it is
-   * active and identical to it everywhere it is not; there is no setting in
-   * between. It does repair market 45, the specimen it was built for, but takes
-   * seven other markets to do it.
+   * Bare, it was measured and rejected twice. Over the first sixty markets,
+   * against five failures with the rule off: 11 failures at `solvEdge` 0
+   * (twice), 11 at 0.02, 10 at 0.03, 12 at 0.04, 7 at 0.05; and exactly the
+   * baseline — the rule never firing at all — at 0.10. Over the first 110 at
+   * the level 108 configuration, against one failure: 19 at `solvEdge` 0 and 14
+   * at 0.05. The diagnosis written down at the time is still correct: two asks
+   * on the same market sum to about one all window, so "finish this leg and
+   * fund the other at its own cheapest ask" overruns a ceiling of 0.97 in
+   * nearly every market from the first minute. The overrun is not a signal, it
+   * is the normal state, and what is left to decide the swap is a couple of
+   * cents of trailing-low noise.
    *
-   * The reason is in the arithmetic, not the tuning. Two asks on the same market
-   * sum to about one all window, so "finish this leg and fund the other at its
-   * own cheapest ask" overruns a ceiling of 0.97 in nearly every market from the
-   * first minute — the overrun is not a signal, it is the normal state. What is
-   * left to decide the swap is the DIFFERENCE between the two assignments, which
-   * reduces to how far each leg sits above its own trailing low, and that is a
-   * couple of cents wide. So a deadband big enough to ignore quote noise is big
-   * enough to ignore the whole signal, and anything smaller hands the chase to
-   * whichever leg is nearest its own low — which is `priority=cheap`, the rule
-   * the player already knows loses, reached by a longer road.
+   * What was wrong was the conclusion drawn from it — that the arithmetic is
+   * worthless — rather than the observation. The overrun is uninformative; the
+   * ALTERNATIVE coming in under the ceiling is not, and neither is the
+   * direction the swap points. With `solvUnder`, `solvHeld`, `solvZ` and
+   * `solvZLatch` the same rule carries all of the first 110 markets, including
+   * the one that blocked level 109 through five sessions. Each gate is worth a
+   * number: bare 19, +`solvUnder` 16, +`solvHeld` 9, both 5, both plus the
+   * oracle test and its latch 0 (three independent draws).
    */
-  solvSwap: z.coerce.number().int().min(0).max(1).default(0),
+  solvSwap: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * Fraction of the other leg's own cheapest observed ask used as its funding
    * price in that sum. 1 ⇒ plan to pay exactly what it has already shown.
@@ -2651,6 +2652,67 @@ export const ConfigSchema = z.strictObject({
    * on quote noise, at the price of leaving the smaller mistakes unfixed.
    */
   solvEdge: z.coerce.number().finite().min(0).max(0.5).default(0),
+  /**
+   * 1 ⇒ `solvSwap` may only change the chase when the OPPOSITE assignment
+   * projects INSIDE `qty × pairCeil`, not merely less far outside it.
+   *
+   * `solvDrop`'s own comment convicts the bare comparison: "both overrun in
+   * every market, so what decided it was a couple of cents of trailing-low
+   * noise and it degenerated into `priority=cheap`". This is the answer to that
+   * objection rather than another deadband on the same noisy difference. A
+   * swap is only worth making when the plan it swaps TO can actually be
+   * completed; two plans that both overrun are two failures and choosing
+   * between them is choosing between rounding errors.
+   */
+  solvUnder: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * 1 ⇒ `solvSwap` may only hand the chase to the leg the player already holds
+   * at least as much of.
+   *
+   * Every casualty of the bare swap ends with one leg at its target and the
+   * other stranded between 200 and 600, because a demoted leg answers to
+   * `underdogMax` and is never quoted at a loser's price while it is still
+   * contested. Swapping toward the SMALLER leg therefore abandons the larger
+   * position outright; swapping toward the larger one is at worst a decision to
+   * finish what is already mostly paid for.
+   */
+  solvHeld: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * Share of `qty` by which the receiving leg must be AHEAD of the demoted one
+   * before `solvHeld` lets the swap through. 0 ⇒ level is enough.
+   */
+  solvHeldPad: z.coerce.number().finite().min(0).max(1).default(0),
+  /**
+   * Volatility-normalised bands by which the OUTSIDE price must favour the leg
+   * `solvSwap` is handing the chase to. 0 disables the test.
+   *
+   * The swap overrules the order book, so the one thing it must not be decided
+   * by is the order book. `outsideZ` is BTC's distance from the price to beat
+   * divided by how far BTC can still travel, and it is the only reading the
+   * player has that the book does not already contain.
+   *
+   * The two windows this separates are near mirror images at the moment of
+   * decision — both around a hundred seconds in, both with the plan the book
+   * prefers projecting near 1,030 against an alternative near 965, both with
+   * the receiving leg quoted five cents under the demoted one. The difference
+   * is that in one of them BTC has moved a fifth of a band toward the leg the
+   * swap is buying, and in the other it has moved four hundredths of one, which
+   * is to say nothing at all.
+   */
+  solvZ: z.coerce.number().finite().min(0).max(3).default(0.12),
+  /**
+   * 1 ⇒ once `solvZ` has been satisfied for a leg, it stays satisfied for that
+   * leg for the rest of the window.
+   *
+   * Read at an instant the test is far too strong, and the window it is for
+   * says why: BTC clears a fifth of a band toward the abandoned leg for four
+   * seconds and then spends three minutes back at the coin flip. Without the
+   * latch the chase returns to the book's leg on the very next tick and buys it
+   * out anyway, so the gate blocks the repair it was built to protect. The same
+   * lesson `fairLagLatch` records: a reading that licenses a decision has to be
+   * remembered, because the decision is not re-taken every tick.
+   */
+  solvZLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
    * Milliseconds into the window before the swap may fire.
    *
@@ -3251,6 +3313,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // leg, so `debug>=2` prints ONE line at the instant it first fires. Reads
   // nothing, gates nothing. See `stallFinish`.
   const stallLogged: Record<Side, boolean> = { UP: false, DOWN: false }
+  // One line the first time `solvSwap` changes the chase, for the same reason
+  // the stall instrument exists: the repair and its casualties have to be
+  // compared at the moment of decision, not from the wreckage afterwards.
+  let solvSwapLogged = false
+  // The leg the outside price has licensed `solvSwap` to hand the chase to.
+  // See `solvZLatch`.
+  let solvZSide: Side | null = null
   // The highest edge allowance each leg has ever been granted, in shares. A leg
   // holding more than the pace allows is only a RATCHET victim if the allowance
   // once covered what it holds; a leg that never had the licence is one the pace
@@ -4041,10 +4110,29 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       if (cfg.solvSwap === 1 && elapsed >= cfg.solvAfterMs) {
         const o: Side = first === 'UP' ? 'DOWN' : 'UP'
         const projFirstSide = projTotal(first)
+        const projOther = projTotal(o)
         if (
           projFirstSide > cfg.qty * cfg.pairCeil &&
-          projTotal(o) < projFirstSide - cfg.solvEdge * cfg.qty
+          projOther < projFirstSide - cfg.solvEdge * cfg.qty &&
+          (cfg.solvUnder === 0 || projOther <= cfg.qty * cfg.pairCeil) &&
+          (cfg.solvHeld === 0 || held[o] >= held[first] + cfg.solvHeldPad * cfg.qty) &&
+          (cfg.solvZ <= 0 ||
+            (cfg.solvZLatch === 1 && solvZSide === o) ||
+            (pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ))
         ) {
+          if (cfg.solvZ > 0) solvZSide = o
+          if (cfg.debug >= 2 && !solvSwapLogged) {
+            solvSwapLogged = true
+            console.log(
+              `[pair.v1] swap slug=${ctx?.market?.slug ?? '?'} ` +
+                `t+${Math.round(elapsed / 1000)}s from=${first} to=${o} ` +
+                `askUp=${askUp.toFixed(3)} askDown=${askDown.toFixed(3)} ` +
+                `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(1)} ` +
+                `projFrom=${projFirstSide.toFixed(0)} projTo=${projOther.toFixed(0)} ` +
+                `out=${outsideSide ?? '-'} z=${outsideZ.toFixed(2)} ` +
+                `pModel=${pModel === null ? '-' : pModel.toFixed(3)} pBook=${pBook.toFixed(3)}`,
+            )
+          }
           first = o
         }
       }
