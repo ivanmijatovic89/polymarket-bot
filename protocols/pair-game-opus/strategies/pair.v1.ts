@@ -3035,6 +3035,54 @@ export const ConfigSchema = z.strictObject({
    */
   solvZLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * 1 ⇒ `solvZ` is waived when the arithmetic is DECISIVE: the plan the chase is
+   * on overruns the ceiling by `solvArithOver × qty` and the alternative comes
+   * in `solvArithUnder × qty` BELOW it. 0 disables the waiver.
+   *
+   * `solvZ` is a licence to overrule the BOOK — the swap is about to disagree
+   * with the leg the order book is pricing as the winner, so the outside price
+   * has to back it first. That argument is about an OPINION. When the plan the
+   * book prefers cannot be paid for at all, the swap is not contradicting the
+   * book's opinion about who wins: the book may be perfectly right, and the pair
+   * is still unaffordable. Declining to fund a purchase that leaves the other leg
+   * unbuyable needs no licence, in the same way and for the same reason that at
+   * parity the swap abandons nothing and needs none (`solvZLevel`).
+   *
+   * The margins are what makes it a decision rather than a re-reading of the
+   * entry condition, which is already "the current plan overruns". `projTotal`
+   * is an estimate — it funds the leg left behind at the cheapest price that leg
+   * has EVER shown, which the leg need never show again — so a plan a dollar over
+   * the ceiling and a plan a dollar under it are the same plan. See
+   * `solvUnderPad`, which makes the same point from the other side.
+   */
+  solvArith: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * Share of `qty` by which the CHASED plan must exceed `pairCeil` for
+   * `solvArith` to fire.
+   */
+  solvArithOver: z.coerce.number().finite().min(0).max(1).default(0.05),
+  /**
+   * Share of `qty` by which the ALTERNATIVE plan must come in under `pairCeil`
+   * for `solvArith` to fire.
+   */
+  solvArithUnder: z.coerce.number().finite().min(0).max(1).default(0.03),
+  /**
+   * `solvArith` does not fire when the outside price leans at the leg the swap
+   * would DEMOTE by at least this much. 0 disables the test.
+   *
+   * The waiver's argument is that an unaffordable plan is not an opinion worth
+   * a licence. That is an argument about SILENCE: the book prefers a leg, the
+   * arithmetic says the leg cannot be paid for, and nothing outside the book has
+   * been asked. It is not an argument about a price that is actively saying the
+   * demoted leg is the winner. `solvLevelZMax` records the same distinction for
+   * the parity waiver — missing backing and contradicted backing are not the
+   * same state — and the two casualties here are the same shape as its own: the
+   * swap hands the chase to the cheap leg at t+60 with BTC already a long way
+   * onto the other side (`pModel` 0.069 and 0.419 against the promoted leg),
+   * buys it out, and the market settles where the model was pointing.
+   */
+  solvArithZMax: z.coerce.number().finite().min(0).max(4).default(0.09),
+  /**
    * Share of `qty` by which the two legs may differ for `solvZ` to be waived
    * entirely. 0 disables the waiver.
    *
@@ -3760,7 +3808,7 @@ export const ConfigSchema = z.strictObject({
    * prints on change rather than on a clock, so it is cheap and it is the
    * fastest way to find out WHICH rule handed the chase over.
    */
-  debug: z.coerce.number().int().min(0).max(5).default(0),
+  debug: z.coerce.number().int().min(0).max(6).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
   debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
@@ -3933,6 +3981,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // outright, because a market whose FIRST swap is harmless can still be lost by
   // a second one pointing the other way.
   let solvSwapLogged: Side | null = null
+  // The leg a REFUSED swap wanted to hand the chase to, for the `swapmiss`
+  // instrument. A swap that never fires leaves no trace at all in the `swap`
+  // line above, so a window lost by executing a plan the arithmetic had already
+  // convicted looks exactly like a window the arithmetic never questioned.
+  let solvMissLogged: Side | null = null
+  let solvMissAtMs = -1
   // The leg the outside price has licensed `solvSwap` to hand the chase to.
   // See `solvZLatch`.
   let solvZSide: Side | null = null
@@ -5019,31 +5073,64 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
             (lastPriorityMs[o] >= 0 &&
               nowMs - lastPriorityMs[o] <= cfg.solvChaseMs &&
               (cfg.solvChaseMax <= 0 || held[o] <= cfg.solvChaseMax * cfg.qty)))
+        const missOver = projFirstSide > cfg.qty * cfg.pairCeil
+        const missEdge = projOther < projFirstSide - cfg.solvEdge * cfg.qty
+        const missUnder =
+          cfg.solvUnder === 0 || projOther <= cfg.qty * (cfg.pairCeil + cfg.solvUnderPad)
+        const missHeld =
+          cfg.solvHeld === 0 || solvChased || held[o] >= held[first] + cfg.solvHeldPad * cfg.qty
+        // Compared as a GAP with half a tick of slack rather than as
+        // `askFrom - pad`: neither side of that subtraction is exactly
+        // representable, and the identical three-cent gap comes out allowed at
+        // one price level and refused at another. Quotes live on a one-cent
+        // grid, so half a tick separates "more than the pad" from "exactly the
+        // pad" without inventing a new threshold.
+        const missCheap =
+          cfg.solvCheap === 0 ||
+          (first === 'UP' ? askUp : askDown) - (o === 'UP' ? askUp : askDown) >=
+            cfg.solvCheapPad + 0.005
+        // The book's own plan cannot be paid for, so there is no opinion to
+        // overrule and no licence to earn. See `solvArith`.
+        const solvArithContradicted =
+          cfg.solvArithZMax > 0 &&
+          pModel !== null &&
+          (pModel > 0.5 ? 'UP' : 'DOWN') === first &&
+          outsideZ >= cfg.solvArithZMax
+        const solvArithOk =
+          cfg.solvArith === 1 &&
+          !solvArithContradicted &&
+          projFirstSide >= cfg.qty * (cfg.pairCeil + cfg.solvArithOver) &&
+          projOther <= cfg.qty * (cfg.pairCeil - cfg.solvArithUnder)
+        const missZ =
+          cfg.solvZ <= 0 ||
+          (cfg.solvZLatch === 1 && solvZSide === o) ||
+          solvArithOk ||
+          // At parity the swap abandons nothing, so the reading that licenses
+          // it to overrule the book is not needed. See `solvZLevel`.
+          solvWaived ||
+          solvChased ||
+          solvOracleOk
         if (
-          projFirstSide > cfg.qty * cfg.pairCeil &&
-          projOther < projFirstSide - cfg.solvEdge * cfg.qty &&
-          (cfg.solvUnder === 0 ||
-            projOther <= cfg.qty * (cfg.pairCeil + cfg.solvUnderPad)) &&
-          (cfg.solvHeld === 0 ||
-            solvChased ||
-            held[o] >= held[first] + cfg.solvHeldPad * cfg.qty) &&
-          // Compared as a GAP with half a tick of slack rather than as
-          // `askFrom - pad`: neither side of that subtraction is exactly
-          // representable, and the identical three-cent gap comes out allowed at
-          // one price level and refused at another. Quotes live on a one-cent
-          // grid, so half a tick separates "more than the pad" from "exactly the
-          // pad" without inventing a new threshold.
-          (cfg.solvCheap === 0 ||
-            (first === 'UP' ? askUp : askDown) - (o === 'UP' ? askUp : askDown) >=
-              cfg.solvCheapPad + 0.005) &&
-          (cfg.solvZ <= 0 ||
-            (cfg.solvZLatch === 1 && solvZSide === o) ||
-            // At parity the swap abandons nothing, so the reading that licenses
-            // it to overrule the book is not needed. See `solvZLevel`.
-            solvWaived ||
-            solvChased ||
-            solvOracleOk)
+          cfg.debug >= 2 &&
+          missOver &&
+          missEdge &&
+          !(missUnder && missHeld && missCheap && missZ) &&
+          (cfg.debug >= 6 ? solvMissAtMs < 0 || nowMs - solvMissAtMs >= 10_000 : solvMissLogged !== o)
         ) {
+          solvMissLogged = o
+          solvMissAtMs = nowMs
+          console.log(
+            `[pair.v1] swapmiss slug=${ctx?.market?.slug ?? '?'} ` +
+              `t+${Math.round(elapsed / 1000)}s from=${first} to=${o} ` +
+              `under=${missUnder ? 1 : 0} held=${missHeld ? 1 : 0} ` +
+              `cheap=${missCheap ? 1 : 0} zOk=${missZ ? 1 : 0} ` +
+              `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} ` +
+              `hold=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} spent=${spent.toFixed(0)} ` +
+              `projFrom=${projFirstSide.toFixed(0)} projTo=${projOther.toFixed(0)} ` +
+              `z=${outsideZ.toFixed(2)} pModel=${pModel === null ? '-' : pModel.toFixed(3)}`,
+          )
+        }
+        if (missOver && missEdge && missUnder && missHeld && missCheap && missZ) {
           // A waived swap latches only if it is allowed to: the licence it is
           // standing in for was never earned. See `solvLevelLatch`.
           if (cfg.solvZ > 0 && (cfg.solvLevelLatch === 1 || solvOracleOk)) solvZSide = o
