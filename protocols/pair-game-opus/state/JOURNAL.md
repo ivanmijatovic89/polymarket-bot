@@ -2579,3 +2579,89 @@ beyond that is already showing the flickering behaviour this player has when a
 single race for a single resting order decides the whole window. Neither of them
 is a case the new rule ever fires in, so they will need their own diagnosis
 rather than more tuning of this one.
+
+---
+
+## 2026-08-04 — Session 36: two more levels, and a bid that was in the right place doing nothing
+
+Two levels this session, one hundred and thirteen and one hundred and fourteen,
+both recorded with their own scored runs. They came from two completely
+different kinds of mistake, and the second one is the more interesting.
+
+The first blocking market ends holding a thousand shares of one side and only
+six hundred and sixty-nine of the other, and the side it is short of is the one
+that wins. The rule that should have saved it is the one I built last session:
+it works out what it would cost to finish the side the market is pointing at and
+fund the other side at the cheapest that side has ever shown, and if that total
+does not fit the budget while the reverse assignment does, it chases the other
+side instead. Here it never fired, because neither assignment fitted. One
+projected about a thousand and thirty against a budget of nine hundred and
+seventy; the other projected a thousand and four. Both over, so the rule stayed
+silent — and the plan it stayed silent about went on to complete for nine
+hundred and sixty-three.
+
+That is the flaw. The projection is not a verdict. Half of it is a deliberate
+over-estimate: it funds the side the player is *not* chasing at the cheapest
+price that side has shown so far, and the side a window is abandoning always
+ends up far below anything it has shown so far. So I let the receiving plan
+project a few cents per pair outside the budget and still count as affordable.
+
+On its own that reopened precisely the objection an old rejection note had made
+about this whole family — that when both plans overrun, what decides between
+them is a couple of cents of noise in a stale price — and it cost three markets
+lower down the field. The note was right again, and the answer this time was to
+settle the comparison with something that isn't stale: the swap may only hand
+the chase to the side quoted *cheaper right now*. At the moment of decision every
+casualty hands it to the dearer side. The repair hands it to a side quoted four
+cents under the one it abandons. One more measurement showed a single cent is
+not enough — the last casualty is refused at one cent dearer and fires a second
+later at one cent cheaper on the same book — so the margin has to be real. Three
+cents was still noise; four was the repair. That carried the whole field.
+
+The second market was not a wall at all. It passed about three draws in four and
+failed the rest, which in this game means a race between two orders decided by
+simulated network latency. Making the latency repeatable let me find a losing
+draw on demand and put it side by side with a winning one, and they turn out to
+be nearly the same run: same purchases, same prices, twenty dollars apart for
+two full minutes. Then, with one side complete and the other needing six hundred
+and twenty-five more shares, the market offers exactly those shares at exactly a
+price the remaining money covers — and the losing draw buys none of them.
+
+Its bid was already sitting there at the right price. That is the whole problem.
+An order resting at a price only trades when the market moves *through* it,
+while the same price sent fresh reaches out and takes what is on offer as it
+lands. They are the same order in every respect the player checks, so the player,
+seeing its target price unchanged, never re-sent it, and sat next to the shares
+it needed for seven seconds while they were quoted. Re-sending an order when the
+tick decides to take rather than to wait fixed most of it. The rest was a second
+version of the same confusion: a taking order that lands on a thin level buys
+what is there and leaves its remainder resting as dust — the wrong size, unable
+to trade, and blocking the next full clip, because the player is allowed only one
+live order per side. Re-sending that dust as well took the market from seven
+seeds in eight to eight in eight.
+
+That second fix had to be narrowed twice before it stopped costing more than it
+earned. Applied to every undersized order it breaks a different market, because
+a partly filled *waiting* order is a queue position that has already proved
+itself and throwing it away costs a fee for nothing. Restricted to orders that
+were themselves taking, and only to remainders under a quarter of a clip, it is
+free.
+
+The market blocking the next level is a genuine one and I want to be honest
+about how it looks. Everything that decides it happens in fifty-three seconds:
+the order book leans hard one way, the outside price of Bitcoin agrees with it
+emphatically, the player buys that side out for seventy per cent of its budget —
+and then the window reverses for the rest of the fifteen minutes and never comes
+back. The winning line is visible and cheap in hindsight, and every one of the
+three safety conditions on the swap rule correctly refuses it, each for a reason
+that is carrying markets elsewhere. I also measured the two throttles I suspected
+of funding the overspend and neither moves that market by a single share. So the
+next session starts with a clean diagnosis and no obvious lever, which is at
+least better than starting with a plausible wrong one.
+
+One small tool came out of this: the player can now print, for a side that still
+needs shares, every one of its sixteen internal limits by name along with what it
+is actually willing to pay. Working out which limit was the binding one used to
+be guesswork and a rebuild; it is now a single run and a grep. It is what turned
+"the market refuses to buy" into "the reserve set aside for the other side is
+six tenths of its own recent low, and that is where the money went."

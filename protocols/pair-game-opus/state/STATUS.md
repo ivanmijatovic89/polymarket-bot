@@ -1,19 +1,41 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **113** (first 113 eligible markets)
-- Current level: **114** (first 114 eligible markets)
+- Highest passed level: **114** (first 114 eligible markets)
+- Current level: **115** (first 115 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step:** **market 114 (`…1775189700`) is a coin flip, not a wall.** It
-passes 3 draws in 4 and 7 seeds in 8; the loser is `PG_SEED=4`, which ends
-1000 UP / 375 DOWN when DOWN is the winner. Diff seed 4 against seed 5 at
-`debugEveryMs=250` — that is the whole job. Market 115 (`…1775190600`) is a
-genuine wall behind it: the player buys 1000 DOWN out for 718 in the first 53
-seconds on a book and an oracle that both say DOWN decisively, and the window
-then reverses to UP for good. From t+53 it needs 800 UP at 0.315 and UP never
-trades under 0.32, so 115 has to be won before t+53 or not at all.
+**Next step: market 115 (`…1775190600`) is a wall, and every named lever is
+already measured dead.** It ends 200 UP / 1000 DOWN for 718 with UP the winner.
+Everything that matters happens in 53 seconds:
+
+- t+8: 200/200 for 208, both asks at 0.50.
+- t+24: askUp 0.41, askDown 0.60. 394 DOWN bought at 0.616 average.
+- t+53: 1000 DOWN, 718 spent, UP still at 200. DOWN's last 344 cost 0.665 each.
+- The window then reverses for good — UP is 0.32–0.43 from t+24 to t+130 and
+  0.70 by t+158 — and 800 UP against 252 of remaining budget needs 0.315 a
+  share, which UP never trades at again. **115 is won before t+53 or not at
+  all.**
+
+The counterfactual that wins it is visible at t+49 (200/656, spent 490, askUp
+0.41, askDown 0.60): stop DOWN at 656, buy 800 UP at 0.38–0.41 for ~304, sweep
+DOWN at the death — askDown is 0.10 in the last minute — for about 34. That
+totals 827. It is exactly the solvency swap, and **all three of the gates that
+make the swap safe refuse it**: `solvHeld` (200 UP against 656 DOWN),
+`solvZ` (the oracle says DOWN, at 0.34–0.56 bands, and it is wrong), and
+nothing else is available. Each of those gates is carrying markets of its own.
+
+What binds DOWN's price is now measured rather than guessed (`debug=3`): its cap
+is `(budgetLeft − needUp × reserve) / needDown` with `reserve = 0.6 × UP's own
+low` — 0.658 at t+21, 0.838 at t+49. Capping DOWN near 0.55 would need
+`reserveLow` around 0.85, and `reserveLow` 0.7/0.8/0.9/1.0 were measured at
+3/9/9/11 failures on the level-68 window against a baseline of 1.
+
+Measured on market 115 and moving it by **not one share**: `convUntil` 0.02 /
+0.04, `convReserve` 0.4 / 0.6. The conviction mix is not what funds the
+overspend — `conv` is 0 here, because the book's edge never reaches `convEdge`
+before the money is gone.
 
 ## What passed 113 — a projection is an estimate, not a verdict
 
@@ -68,6 +90,43 @@ The cheapness test compares the GAP against `solvCheapPad + 0.005` rather than
 `askFrom − solvCheapPad`: neither side of that subtraction is exactly
 representable and the identical three-cent gap comes out allowed at one price
 level and refused at another.
+
+## What passed 114 — a waiting order at the ask does not trade
+
+`takeStale=1`, `takeSmall=0.25` (both new).
+
+Market 114 was a latency coin flip and the whole difference between the draws is
+one standoff. At t+135 the losing draw holds 1000 UP / 375 DOWN, has 168 dollars
+left, and DOWN is offered at 0.26 — 625 shares would cost 171 against a finish
+budget of 173. It buys none of them. Its bid is already resting at 0.26 from
+when the ask was 0.28, and a resting bid fills only when the book goes THROUGH
+it, while the same price sent fresh walks the asks on arrival. The target price
+has not moved, so the player never re-posts.
+
+- **`takeStale`** — re-post at an unchanged price when this tick has decided to
+  cross and the live order was sent to wait. One-way: an order that crosses and
+  does not fill is never re-sent for this reason again.
+- **`takeSmall`** — re-post a CROSSING clip left as dust. A marketable clip
+  landing on a level thinner than itself takes what is there and leaves its
+  remainder resting, the wrong size and unable to fill, while the level it
+  wanted is still quoted. In market 114 that remainder is 34 shares and it
+  blocks the other 259.
+
+`takeSmall` is narrow in two ways, and both were paid for. Applied to every
+undersized order it costs `…1775110500` on three separate draws: a partially
+filled PASSIVE quote is a queue position that has already proved itself, and
+re-sending it throws that away and pays the taker fee for the privilege. So it
+applies only to orders that were themselves crosses — and even then only to
+remainders under a QUARTER of a clip; at half a clip it costs `…1775122200`.
+
+| Configuration (first 115) | Failures |
+|---|---|
+| `takeStale=1` | 1 — market 115 only |
+| `takeSmall=1`, any order | 2 — `…1775110500` and 115 |
+| both, `takeSmall` on crossed orders only | 4 / 2 (two draws) |
+| **`takeStale=1` + `takeSmall=0.25`** | **1, 1, 1** (three draws) — market 115 |
+
+Market 114 alone, seeds 1–8: 7/8 before, **8/8** after.
 
 ## What passed 109–112 — the solvency swap, gated on the oracle
 
@@ -158,7 +217,8 @@ the first 110 at those defaults returned zero failures, and a 115-market sweep a
 the same defaults returned three failures, all of them above level 112.
 
 Level **113 at `cbbc24bd`**, all defaults, one `play-level` run: **113 → 5359**,
-113/113 markets passed.
+113/113 markets passed. Level **114 at `d4dbc21b`**, all defaults, one
+`play-level` run: **114 → 5437**, 114/114 markets passed.
 
 ## Why market 109 fell to this and not to anything else
 
@@ -215,8 +275,12 @@ in 1–24 pass. The split is a latency race on ONE resting cross: both draws rea
 523/375 at t+25s with a live UP bid at 0.63, one fills 477 shares off that order
 and the other fills 53.
 
-Above level 110, `…1775189700` (market 114) is already showing the same shape:
-1000/375 on one draw and 1000/1000 at cost 0.961 on the next.
+`…1775189700` (market 114) WAS the same shape — 1000/375 on one draw and
+1000/1000 on the next — and is now 8 seeds in 8. Its flake had a cause rather
+than being noise, and finding it took one seeded diff at `debugEveryMs=250`:
+two draws that are identical to within twenty dollars for two minutes and then
+part company over a single order that was in the right place at the right price
+and had been sent to wait instead of to take.
 
 **A level run can fail on a market the sweep has never shown you.** Treat a
 single clean sweep as weak evidence; sweeps are unseeded, so two sweeps at the
@@ -252,6 +316,12 @@ At `c6669a59` / `4c5b9ce7` / `d60e48e1` (baseline 1 failure over the first 110):
 | the same at `burstFrom` 0.5 / 0.6 / 0.7 | 39 / 41 / 39 |
 | `burstShare=0.20` + `burstFrom=0.7`, no handover | 10 |
 | `lateShare=0.7` + `lateMs` 240 s / 300 s | 50 / 46 |
+| `solvUnder=0` | 4 over the first 115 (3 casualties below 113) |
+| `solvUnderPad` 0.035 / 0.06 WITHOUT `solvCheap` | 4 / 4 — the same 3 casualties |
+| `solvEdge=0.03` with `solvCheap` | 4 |
+| `solvCheapPad` 0 (a single tick) / 0.02 | 2 / 2 |
+| `takeSmall` on every undersized order | costs `…1775110500`, 3 draws |
+| `takeSmall=0.5` | costs `…1775122200` |
 
 Earlier, at the levels-84–86 configuration (baseline 5): `ptbPace=1` 18;
 `pairCeil` 0.978 + `finishCeil` 0.98 breaks market 39; `commitDwellMs` 8 s / 20 s
@@ -307,6 +377,8 @@ what completes the leg at the top of a slow trend — the pace is lifted by
 - **108** — `fairLagLatch=1` plus `ptbFairLagDwellMs=10000`.
 - **109–112** — `solvSwap=1` + `solvUnder=1` + `solvHeld=1` + `solvZ=0.12` +
   `solvZLatch=1`.
+- **113** — `solvUnderPad=0.035` + `solvCheap=1` + `solvCheapPad=0.03`.
+- **114** — `takeStale=1` + `takeSmall=0.25`.
 
 ## Tools
 
@@ -322,6 +394,9 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   is what separated the repair from its last casualty, in one pass. The
   `stallFinish` release has the same shape. Copy it for the next rule that needs
   a moment-of-decision measurement rather than a timeline.
+- **`--param debug=3` names the binding cap.** One line per leg per tick with
+  all sixteen room caps by name plus `cap`/`capFin`/`want`/`ask`. Which of them
+  is the one refusing a purchase had been guesswork; it is now a grep.
 - **`--param debug=2` is the observation channel**: one line per market per
   `debugEveryMs` for the WHOLE window, emitted above every early return. It
   carries `depUp=`/`depDown=`, `dimb=`/`dabs=`, `dcap=` and both best bids.
@@ -381,6 +456,17 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   arm.
 - **The live reading is not the offline reading.** Offline scans are for finding
   a separation and ranking windows, never for picking a threshold.
+- **A gate that reads a price needs a MARGIN, not a sign.** `solvCheap` bare
+  refuses a swap on a leg quoted one cent dearer and allows the identical swap
+  one second later at one cent cheaper. Same book, same noise, opposite verdict.
+- **Compare prices as a GAP against a padded threshold, never as
+  `price − pad`.** Neither side of that subtraction is exactly representable, so
+  the identical three-cent gap comes out allowed at one price level and refused
+  at another. Half a tick of slack on the gap fixes it.
+- **A resting order at the ask is not a trade.** The simulator's worst-queue
+  model fills a maker bid only when the ask goes THROUGH it, so a passive quote
+  and a marketable one at the same price behave completely differently, and the
+  reprice test — which compares prices — cannot tell them apart.
 
 ## Needs human
 
