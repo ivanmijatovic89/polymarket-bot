@@ -76,6 +76,18 @@ export async function buildStrategyArtifact(
     relPosix: string,
     importer: string,
   ): { path: string; external: true } | { errors: [{ text: string }] } => {
+    // `.`/`..` segments could sneak past the prefix test (e.g.
+    // `strategy/../db/index`) — Node would reject the specifier at import
+    // time anyway, but the loud allowlist error belongs here.
+    if (relPosix.split('/').some((seg) => seg === '.' || seg === '..')) {
+      return {
+        errors: [
+          {
+            text: `engine import must not contain "." or ".." segments: ${relPosix} (imported by ${importer})`,
+          },
+        ],
+      }
+    }
     if (!ENGINE_IMPORT_ALLOWLIST.some((prefix) => relPosix.startsWith(prefix))) {
       return {
         errors: [

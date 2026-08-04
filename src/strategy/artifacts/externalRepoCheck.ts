@@ -32,6 +32,10 @@ function run(cmd: string, cmdArgs: string[], cwd: string): boolean {
 export function typecheckExternalRepo(args: { repoDir: string; engineRoot?: string }): boolean {
   const engineRoot = path.resolve(args.engineRoot ?? ENGINE_ROOT)
   const repoDir = path.resolve(args.repoDir)
+  if (!existsSync(repoDir)) {
+    console.error(`[strategy-check] repo not found: ${repoDir}`)
+    return false
+  }
   const tmp = mkdtempSync(path.join(tmpdir(), 'strategy-check-'))
   try {
     const tsconfigPath = path.join(tmp, 'tsconfig.json')

@@ -62,8 +62,8 @@ export class ArtifactIntegrityError extends Error {
 }
 
 export class ArtifactShapeError extends Error {
-  constructor(message: string) {
-    super(message)
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
     this.name = 'ArtifactShapeError'
   }
 }
@@ -111,8 +111,10 @@ async function loadArtifact(ref: StrategyArtifactRef): Promise<StrategyDefinitio
   } catch (err) {
     // Keep sha + r2Url context like every other failure path in this file —
     // a bare import error (e.g. engine API drift) is otherwise untraceable.
+    // `cause` preserves the original stack (in-bundle frames) for debugging.
     throw new ArtifactShapeError(
       `[artifact] ${ref.sha256.slice(0, 12)} failed to import: ${err instanceof Error ? err.message : String(err)} (${ref.r2Url})`,
+      { cause: err },
     )
   }
   const banner = mod.__pmbArtifact
