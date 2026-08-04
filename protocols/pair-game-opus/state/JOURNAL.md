@@ -2992,3 +2992,80 @@ today's: measure the pair across the field, print what the outside price is
 actually saying at the moment it revokes, and find out whether a lean of that
 size is evidence or noise. The lesson from today applies directly — a guard that
 tests a sign should probably be testing a margin.
+
+## Session 41 — the previous diagnosis was pointing at the wrong second
+
+I inherited a fairly confident story about the market that has been blocking
+this game: the player forms an opinion in the first second of the window, that
+opinion is correct, and three seconds later an outside reading tears it up. The
+suggested fix was to make the player harder to talk out of its opening opinion.
+
+The first thing I did was build a small instrument that prints exactly what the
+outside reading was saying at the moment it tore the opinion up, across every
+window where that happens. The answer was unambiguous and slightly comic: in
+every single case the reading is pure noise — the underlying is one to eight
+dollars away from the level that decides the market, against a threshold of
+sixty. So the objection was right. What was wrong was the conclusion. When I
+made the player ignore small contradictions, the market did not improve at any
+setting; it only improved when the player was told to ignore contradictions
+entirely, and that cost seven other markets. A knob that gets steadily worse as
+you turn it and only helps at the extreme is telling you it is not the knob.
+
+So I went and watched the window instead of theorising about it. From fifteen
+seconds in to nearly two minutes in, the player buys nothing at all — it holds
+about a third of one side and half of the other and sits on five hundred and
+forty dollars. Everything the opening opinion could have done was already done
+or already impossible. The window turns on a single second at t+107, when a
+different rule takes over the buying and points it at the side that is about to
+collapse. Over the next twenty seconds the player spends two hundred and seventy
+dollars buying that side out while its price falls from fifty-one cents to
+thirty-eight, and the side that actually wins is left less than half bought and
+never comes back under sixty cents.
+
+The rule that did it compares the market's price with the player's own model of
+where the underlying is, and buys whichever side looks underpriced. That is a
+sound idea and it earns its place elsewhere. But I added a second instrument that
+records who MOVED to open that gap, and in this window the answer is the market:
+the model was falling faster than the price the whole time, and the "underpriced"
+side was underpriced only because the market was abandoning it. This turns out to
+be the general shape of the thing. The rule opens in two quite different
+situations — either the underlying has moved and the market has not caught up
+yet, or the underlying has not moved at all and the rule is just saying one side
+is priced further from the model than the other. The second kind has no premise
+that can expire. The first kind does, and this window is what it costs when the
+premise expires and nobody notices.
+
+Two earlier sessions had tried to fix this with a blanket requirement that the
+model agree with the rule before it may act, and had rejected it — correctly:
+five of the first hundred and thirty markets need the second kind, where the
+model is on the other side, and demanding agreement everywhere costs seven or
+eight markets. The change I shipped is narrower and I think it is the honest
+version of the same objection: a decision may not outlive the reason it was made
+for. If the model was behind the rule when it took over the buying, then the
+model staying behind it is a condition of it keeping the buying. If the model was
+never behind it, nothing changes.
+
+That alone brought the field back to level, and three further conditions came
+straight off printed casualties rather than out of my head. The model must have
+crossed properly rather than wobbled a thousandth over the line. It must have
+travelled — the premise dies when the underlying moves back, not when the model
+drifts across the middle standing still. And the reversal is only allowed while
+there is enough window left for the buying to be re-run; one market takes a
+perfectly reasonable reversal five minutes in and loses a quarter of its draws to
+it, which was a flake I created and then removed.
+
+Three passes over a hundred and thirty markets: nothing, nothing, and one known
+coin-flip market that has been failing about one draw in eight since long before
+today. Levels 130, 131 and 132 all scored clean, so this session bought three.
+
+The next wall is four markets ahead and it is a different failure again. The
+window opens dead level and stays there for two and a half minutes, then one side
+runs from fifty-one to sixty-seven cents. The player buys that side out during
+the run — five hundred and fifty dollars in a minute, at the worst prices the
+window ever shows — and then the whole move reverses and the side it bought
+expires at nothing. What makes it worth investigating rather than shrugging at is
+that the purchase should not have been affordable on the player's own arithmetic:
+at the moment it finished that side, the two prices together added up to more
+than the ceiling it is supposed to respect. So before designing anything, the
+first job is to find out which of the sixteen caps let that purchase through.
+There is an instrument for exactly that, and it takes one run.
