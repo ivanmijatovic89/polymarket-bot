@@ -168,7 +168,7 @@ There is deliberately **no fallback** anywhere in the pipeline — a broken arti
 | Bundle fails to import (engine drift) | worker/bot load | original import error propagates |
 | Missing/invalid banner or definition | worker/bot load | `ArtifactShapeError` |
 | Artifact id ≠ job's strategy id | worker before replay | explicit mismatch error |
-| Id collides with a registry strategy | publish and launch | collision error — republish under a new id |
+| Id collides with a registry strategy | publish and fresh launch | collision error — republish under a new id (`--extend` instead warns and keeps the artifact: an extension cannot change its sha) |
 | Params fail the artifact's schema | CLI at launch | same validation error as registry strategies |
 | Disallowed engine import | publish build | allowlist error |
 
