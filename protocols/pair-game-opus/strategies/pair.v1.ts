@@ -1245,6 +1245,62 @@ export const ConfigSchema = z.strictObject({
    */
   burstSwapFrom: z.coerce.number().finite().min(0).max(1).default(0),
   /**
+   * 1 ⇒ a leg holding MORE than the edge pace currently allows, continuously for
+   * `stallFinishMs`, is finished rather than paced. 0 disables it.
+   *
+   * The edge allowance ratchets in one direction only: shares bought while the
+   * asks were apart stay bought after they come back together, and the pace then
+   * reads the position it already licensed as an over-commitment and freezes it.
+   * That is not a limit on new commitment — it is a leg the player cannot add to
+   * and cannot sell, held against an allowance that has already been spent.
+   *
+   * Market 109 is two minutes of exactly that. The player holds 344 of one leg
+   * against an allowance of 219, its own bid a cent under an ask it may not take,
+   * and it buys nothing at all from t+82 to t+113 while both asks sit either side
+   * of 0.50. Then the window turns, the other leg becomes the favourite, and the
+   * money that should have finished the first leg at 0.55 buys the second at 0.65
+   * instead. Releasing the pace outright (`finishShare` 0.35) does repair it, and
+   * costs seven other markets, each a leg that escaped the pace in the opening
+   * minute and ate the ceiling. The dwell is what tells the two apart: a leg that
+   * has been stuck above its allowance for twenty seconds is one the book has
+   * RETREATED from, where the leg escaping early is one the book is still moving
+   * toward.
+   *
+   * MEASURED AND NOT SHIPPED, and it is the most interesting result of the
+   * session, because it is the first thing that reaches market 109 by LOOSENING
+   * rather than tightening. Over the first 110, against one failure with it off:
+   * 7 at a twenty-second dwell (109 repaired, 1000/1000 at 0.967), 5 at thirty
+   * seconds (109 lost again). Every casualty is the same shape — one leg at
+   * 1,000 and the other stranded between 200 and 600 — which says the release is
+   * sound and the question left open is WHICH leg may take it. Adding the idle
+   * test below takes twenty seconds from 7 to 5 and gives 109 back, and
+   * shortening the dwell to 15 s or 10 s with the idle test on does not recover
+   * it (424/1000 and 425/1000): the release then lands too close to the turn to
+   * finish anything, and the sixty shares it does buy are spent for nothing.
+   */
+  stallFinish: z.coerce.number().int().min(0).max(1).default(0),
+  /** Milliseconds a leg must have stood above its edge allowance before it may finish. */
+  stallFinishMs: z.coerce.number().finite().min(0).default(20_000),
+  /** Share of `qty` the stalled leg must already hold. */
+  stallFinishShare: z.coerce.number().finite().min(0).max(1).default(0.3),
+  /**
+   * 1 ⇒ the player must also have bought NOTHING, on either leg, for
+   * `stallFinishMs`. 0 ⇒ the leg's own allowance is the whole test.
+   *
+   * The argument is that the pace deserves to be overruled only when it has
+   * actually STOPPED the player — when the window has gone silent with both legs
+   * short — and that is a different event from one leg being over its ration
+   * while the other is being bought perfectly happily.
+   *
+   * It is right about the casualties and wrong about the repair: at a twenty
+   * second dwell it takes the failures from 7 to 5, and market 109 is one of the
+   * two it gives back. The silence in that window starts at t+82 and the leg only
+   * goes over its allowance at t+91, so the idle clock pushes the release past
+   * t+111 — three seconds before the book turns. Ships at 1 only because the rule
+   * it gates ships at 0.
+   */
+  stallFinishIdle: z.coerce.number().int().min(0).max(1).default(1),
+  /**
    * 1 ⇒ keep the realized-average ceiling guard.
    *
    * The guard caps every bid so that `avgUp + avgDown` stays inside `pairCeil`
@@ -2969,6 +3025,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let burstCapSide: Side | null = null
   let burstHandover: Side | null = null
   let burstHeld: Side | null = null
+  // When each leg last went above the edge pace's current allowance and stayed
+  // there. 0 while the leg is inside its allowance. See `stallFinish`.
+  const overSinceMs: Record<Side, number> = { UP: 0, DOWN: 0 }
+  // The last moment the player spent anything at all, and the total it had spent
+  // then, so `stallFinishIdle` can ask how long the window has been silent.
+  let lastSpend = -1
+  let lastSpendMs = 0
   // The last moment the cap's full arming condition held, so the grace period
   // after it stops holding can be bounded. See `depthReleaseMs`.
   let depthStrictMs: number | null = null
@@ -3284,6 +3347,10 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     if (cfg.burstShare < 1) {
       pushBurst('UP', nowMs, basis.UP)
       pushBurst('DOWN', nowMs, basis.DOWN)
+    }
+    if (spent > lastSpend + 1e-9 || lastSpend < 0) {
+      lastSpend = spent
+      lastSpendMs = nowMs
     }
     // Its own deque on its own window: `burstQ` above is only filled while
     // `burstShare` is on, and it ships off. See `burstSwap`.
@@ -4231,11 +4298,23 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // The same room cap again, driven by the money velocity. See `burstSwap`.
       const burstSwapRoom =
         burstCapSide !== side ? Infinity : cfg.burstSwapHold * cfg.qty - held[side]
+      // How long this leg has held more than the pace currently allows. Updated
+      // for BOTH sides, once each per tick, since each pass touches only its own
+      // side. See `stallFinish`.
+      if (held[side] <= cfg.qty * edgeFrac + 1e-9) overSinceMs[side] = 0
+      else if (overSinceMs[side] === 0) overSinceMs[side] = nowMs
+      const stalled =
+        cfg.stallFinish === 1 &&
+        held[side] >= cfg.stallFinishShare * cfg.qty &&
+        overSinceMs[side] > 0 &&
+        nowMs - overSinceMs[side] >= cfg.stallFinishMs &&
+        (cfg.stallFinishIdle === 0 || nowMs - lastSpendMs >= cfg.stallFinishMs)
       const edgeRoom =
         cfg.edgeFull <= 0 ||
         leadSide === null ||
         finishing ||
         completing ||
+        stalled ||
         side === fairHandover ||
         side === depthHandover ||
         side === burstHandover ||

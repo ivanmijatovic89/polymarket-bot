@@ -2251,3 +2251,78 @@ Next session starts on market one hundred and nine, which is fully diagnosed and
 waiting: the fatal act there is not the decision to chase, it is the last three
 hundred and twenty-nine shares of that chase, bought at the top of a jump that
 completely reverses two minutes later.
+
+## Session 32 — the purchase that loses market 109 looks exactly like the ones that win
+
+I came in with a clear target. The market blocking level one hundred and nine
+spends five hundred dollars buying one side of the bet in twenty seconds, at the
+top of a move that then completely reverses, and the money it spends is exactly
+the money the other side needed. Last session had traced the fatal act down to
+the final three hundred and twenty-nine shares. My plan was to find something the
+player could see at that moment that would tell it to stop.
+
+There isn't one, and proving that is the main thing I have to show for the day.
+
+I wrote a small tool that replays every market in the regression set and reports
+what the order book looked like at the exact tick where the player first finished
+one side. Then I put the losing market's row next to the hundred and nine others.
+At the moment it commits, the other side is quoted at thirty-six cents, it
+already holds a third of that side, it has spent about eighty per cent of its
+budget, the underlying is pointing the right way but only weakly, and the resting
+size is leaning its way. Every single one of those numbers sits comfortably inside
+the range of markets that go on to pass. Around twenty windows finish a side on
+worse readings than that — one of them commits with the underlying pointing
+firmly the wrong way — and they all come out fine. The difference between them
+and the failure is not visible at the time. It is just which way the price went
+afterwards.
+
+That closes off a whole family of ideas at once, and it closes them with a
+measurement instead of an argument, which is worth more than another failed
+experiment. Nobody needs to try a price cap on the finishing order, or a "wait
+until the other side is cheap enough to sweep" test, or a confidence check on the
+last purchase. I also built the two most promising versions properly rather than
+assuming, and measured them: a rule that stops any side eating more than a third
+of the budget in half a minute and hands the buying over to its partner costs
+twenty-eight markets to save one, and a version of the ceiling check applied only
+to the finishing order costs forty-nine. Both are now in the code, switched off,
+with their numbers written next to them.
+
+The interesting part came from looking in the opposite direction. Everything this
+player has been taught for thirty sessions is about restraint. But the losing
+market has a two-minute hole in the middle of it where the player does nothing at
+all: it holds a third of one side, its own accounting says it is already carrying
+more than the evidence justifies, and its bid sits one cent under an ask it is
+not allowed to take. Then the market turns and the money goes to the wrong side.
+Had it simply finished the side it was already holding during that stall, at
+fifty-four cents, it would have won the market by the largest margin of any
+scenario I have looked at.
+
+The reason it can't is a one-way ratchet. The allowance the player grants itself
+grows when the two prices separate and shrinks when they come back together, but
+the shares it bought under the wider allowance stay bought. So a quiet market
+leaves it holding a position it is not permitted to add to and not permitted to
+sell, and it simply freezes.
+
+I built a release for that: a side that has been stuck over its allowance for
+twenty seconds is treated as a commitment to be finished rather than a position
+to be rationed. It repairs the blocking market outright, comfortably, and costs
+six others. Six is far too many to ship. But every one of those six fails in the
+same recognisable way — one side complete, the other left stranded — which says
+the release itself is right and the open question is which side is allowed to
+take it. I tried the obvious narrowing, requiring the whole window to have gone
+silent rather than just one side being over its ration, and it does cut the
+casualties, but it delays the release in the blocking market past the moment the
+book turns, so the repair evaporates. That is where the next session should
+start.
+
+One more thing worth saying plainly, because it affects how much anyone should
+trust a passing run. I ran the unchanged player over the same hundred and ten
+markets three separate times today and got one failure, one failure, and three.
+The two extra markets then passed four probes each on their own. So the flaky
+market this workspace found last session is not alone — there is a tail of
+markets that pass or fail on the roughly twenty milliseconds of simulated network
+jitter, and a level run can fail on one the sweep has never shown you. I have
+written that into the notes rather than quietly re-running until it looked clean.
+
+Level one hundred and nine is not passed. What I have instead is a much smaller
+search space and one live lead.

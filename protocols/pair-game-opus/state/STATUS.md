@@ -6,11 +6,12 @@
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step:** market `…1775185200` (109) is the only sweep failure. Its fatal
-act is the last 329 shares of the DOWN chase, taken at 0.65 at the top of a
-spike that fully reverts — see the blocker section. Second job, and probably the
-more valuable one: `…1775178000` is a reproducible 1-in-12 flake with seeds
-(`PG_SEED=1`, `PG_SEED=11`) that make it deterministic.
+**Next step:** `stallFinish` is the lead. It is the first mechanism that repairs
+market 109 by LOOSENING the player rather than restraining it, at a cost of six
+other markets, and every one of those six fails in the same shape — one leg at
+1,000 and the other stranded. The release is sound; what is unsolved is WHICH
+leg may take it. Do NOT spend another session on restraining the completing
+purchase: the section below shows that decision is unreachable.
 
 ## Evidence
 
@@ -139,6 +140,73 @@ threshold was granted.
 The dwell band is flat: 5 s, 10 s and 20 s each leave exactly one failure over
 the first 110 and it is the same market (109) in all three.
 
+## The completing purchase carries no signal — measured, not argued
+
+`tools/closeScan.ts` reads the observation channel and reports, for every window
+in the sweep, what the book looked like at the tick where the player first took a
+leg to its target. Market 109 completes DOWN at t+149 with the other leg quoted
+at 0.36, 344 of it already held, 792 dollars spent, the volatility-normalised
+oracle 0.19 bands in the completed leg's favour and 0.62 of the near depth on its
+own side. **Every one of those numbers sits inside the passing distribution, and
+about twenty passing windows complete a leg on worse ones** — 1775148300 finishes
+its leg with the oracle 0.76 bands AGAINST it and passes; a dozen finish with the
+other leg at 0.61–0.68.
+
+So no rule keyed to the moment of completion can reach market 109 without firing
+on the field. That is now measured rather than suspected, and it retires a whole
+family of ideas: a price cap on the finishing clip, an "is the other leg cheap
+enough to sweep yet" gate, a confidence test on the completing purchase, and any
+variant of the average-cost guard.
+
+Two mechanisms were built to test it rather than assume it. Both ship disabled
+and both keep their measurements in their doc comments:
+
+- **`burstSwap`** — the `depthHold` shape (cap, latch, hand the chase over) on
+  money velocity: how much of the ceiling one leg has committed in thirty
+  seconds. It is the one reading that does describe all three blockers since
+  level 101. Over the first 110: **29 failures at 0.35** (109 repaired), **19 at
+  0.45** (109 not), and gating it on the leg already holding six or seven tenths
+  of its target changes nothing (29 and 30). A leg spending a third of the
+  ceiling in half a minute is ORDINARY.
+- **`stallFinish`** — see below.
+
+## The lead — `stallFinish`, and the freeze nobody had looked at
+
+Market 109's first two minutes are a total stall, and that is where the money
+goes missing. The player holds 344 UP against an edge allowance of 219, its own
+bid one cent under an ask it may not take, and **buys nothing at all from t+82 to
+t+113** while both asks sit either side of 0.50. Then the book turns. Completing
+UP at 0.54–0.56 during that stall costs $360 and leaves $321 for a DOWN leg that
+ends at 0.02 — a pair cost near 0.66, by far the largest margin any counterfactual
+in this window has.
+
+The cause is that the edge allowance ratchets one way. Shares bought while the
+asks were apart stay bought when they come back together, and the pace then reads
+the position it licensed itself as an over-commitment and freezes it. That is not
+a limit on new commitment; it is a leg the player may neither add to nor sell.
+
+`stallFinish=1` treats a leg that has stood above its own allowance for
+`stallFinishMs` as finished rather than paced. Over the first 110, against one
+failure with it off:
+
+| Setting | Failures | 109 |
+|---|---|---|
+| `stallFinishMs=20000`, `stallFinishIdle=0` | 7 | repaired, 1000/1000 at 0.967 |
+| `stallFinishMs=30000`, `stallFinishIdle=0` | 5 | lost |
+| `stallFinishMs=20000`, idle on | 5 | lost (404/1000) |
+| `stallFinishMs=15000` / `10000`, idle on | 7 / 8 | lost (425/1000) |
+| `finishShare=0.35` (the blunt version of the same release) | 8 | repaired |
+
+`stallFinishIdle` — also require the player to have bought nothing on either leg
+for the dwell — is right about the casualties and wrong about the repair: 109's
+silence begins at t+82 but the leg only goes over its allowance at t+91, so the
+idle clock pushes the release to t+111, three seconds before the turn.
+
+Every casualty at every setting is one leg at 1,000 and the other stranded
+between 200 and 600. The release is sound; the open question is which leg may
+take it. Untried: restricting it to the leg the outside price backs, to the
+cheaper leg, or to windows where both asks are still within a few cents of even.
+
 ## The remaining known blocker — market 109
 
 `…1775185200` (109) ends 343.75/1000, outcome UP, and nothing in this session
@@ -157,6 +225,20 @@ The counterfactual worth knowing: had it stopped DOWN at 671 instead of buying
 the last 329 at 0.65, it would have had 398 left, enough to finish UP at
 0.36–0.40 and then sweep DOWN at the death (DOWN closes at 0.02). So the fatal
 act is the LAST purchase of the chase, not the decision to chase DOWN.
+
+## The flake list is longer than one market
+
+Three sweeps of the first 110 at shipped defaults in one session returned 1, 1
+and 3 failures. The two extra markets in the third are `…1775110500`
+(562.71/1000) and `…1775136600` (1000/543.75), and both then passed **4 of 4**
+single-market probes at the same configuration. They are marginal on the latency
+draw exactly the way `…1775178000` is, and neither is new — both appear
+intermittently in the experiment sweeps above.
+
+So the honest baseline over the first 110 is "one certain failure and a tail of
+draw-dependent ones", and **a level run can fail on a market the sweep has never
+shown you**. Treat a single clean sweep as weak evidence. Sweeps are unseeded, so
+two sweeps at the same settings are two different draws.
 
 ## The flake — `…1775178000` is a reproducible coin flip
 
@@ -228,7 +310,11 @@ At `c6669a59` (baseline 1 failure over the first 110):
 | Change | Failures |
 |---|---|
 | `depthGate` 0.60 (the reading misses market 109's burst by 0.05) | 3, and 109 unmoved |
+| `depthGate` 0.58 | 4, and 109 unmoved |
 | `overtakeCap=0.5` — a chase starting from BEHIND is capped at parity and handed back | **12** |
+| `swapEdge` 0.3 / 0.5 — the priority leg is sticky in proportion to what is sunk in it | 10 / 16, 109 unmoved in both. The threshold is fixed while the move that flips the leg is twenty cents, so it delays the swap by one second. |
+| `avgGuardFrom=0.9` — the realized-average ceiling applied to the completing clip only | **49**. It stops the leg at 700–800 in almost every window and the money has nowhere to go: the textbook demonstration that a cap without a handover is inert. |
+| `burstSwap` 0.35 / 0.45, and with `burstSwapFrom` 0.6 / 0.7 | 29 / 19 / 29 / 30 |
 
 `overtakeCap` is worth one paragraph because the idea keeps suggesting itself.
 Three of the failures — market 101's losing draw, market 108 before the fix, and
@@ -343,6 +429,13 @@ STATUS pointed at the finish exemptions here and was wrong.
   the moment the player is done, which silently truncates any measurement of what
   happened later. Diffing the same market's timeline across two jitter draws at
   `debugEveryMs=5000` is what located the level 103 bug in one pass.
+- **`tools/closeScan.ts --tag <sweepTag>`** — for every window in an observation
+  sweep, the book at the tick where the player first took a leg to 1,000: both
+  asks, the shares already held on the other leg, the money spent, the oracle
+  signed toward the completed leg, and the depth share. Needs
+  `sweep80.sh <tag> 110 --param debug=2 --param debugEveryMs=500` first.
+  `--sort other|z|p|t|slug`. This is what retired the whole "restrain the
+  completing purchase" family in one pass.
 - `tools/depScan.ts` — locates each window's arming moment offline (first sample
   where the dearer leg's smoothed share clears `--gate`, the lean is fresh and
   that leg is ahead) and reports the elapsed time, the share and the absolute
