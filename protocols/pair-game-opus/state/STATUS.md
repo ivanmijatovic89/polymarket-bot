@@ -1,34 +1,100 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **132** (first 132 eligible markets)
-- Current level: **133** (first 133 eligible markets)
+- Highest passed level: **139** (first 139 eligible markets)
+- Current level: **140** (first 140 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: market 133, `…1775206800` — a leg bought out at the top of a spike
-that fully reversed.** A sweep of the first 140 at the current defaults fails
-only on market 133 (1000/344) and market 140 (`…1775213100`, 594/1000).
+**Next step: market 140, `…1775213100` — the fair-lag override again, in its
+purely RELATIVE form.** A sweep of the first 140 at the new defaults fails only
+on market 140 (594/1000) and on the `…1775122200` flake.
 
-## The wall: market 133 (`…1775206800`) — completed into the top
+## The wall: market 140 (`…1775213100`) — the override the model never backed
 
-The window opens dead even (0.51/0.50) and does not move for two and a half
-minutes; the player sits on 200 UP / 219 DOWN with 224 spent. At t+96 the
-solvency swap's `solvChase` waiver hands the chase to UP across an even book
-(projections 1014 against 998, `z` 0.15, both probabilities 0.476). Between
-t+150 and t+210 UP runs 0.51 → 0.67 and the player takes UP from 200 to **1,000,
-spending 549 dollars during the run**. From t+300 the window reverses outright:
-UP collapses to 0.02, DOWN settles the winner at 0.99, and 656 DOWN shares are
-unbuyable with the 207 dollars left.
+`debug=4` takes one probe and names it. At t+45, with 594 UP against 200 DOWN
+and 449 spent, the fair-lag disagreement takes the chase off UP and gives it to
+DOWN. The player then buys DOWN out and strands UP at 594; UP settles the
+winner.
 
-The arithmetic is worth checking before anything else is built. At t+210 the ask
-is 0.67 with DOWN's trailing low already down at 0.34 — a projected pair of 1.01
-against a `pairCeil` of 0.97 — so the first question for the next session is
-**which cap allowed the completing purchase at all**, and `debug=3` answers it in
-one probe. This is the edge-allowance pathology in its purest form: the leg is
-bought fastest precisely while it is running away, and the money it spends is the
-money the other leg needs at prices the other leg is still showing (DOWN is
-0.34–0.41 from t+210 to t+240, and 656 × 0.32 is exactly what was left).
+The instrument line is the whole diagnosis:
+
+```
+fairtake t+45s from=UP to=DOWN gap=-0.032 pModel=0.545 pBook=0.564
+         dModel=0.003 dBook=-0.030 dAskT=0.030 dAskO=-0.030 ask=0.570/0.440 z=0.24
+```
+
+**The model did not move — the book did** (`dModel` 0.003 against `dBook` 0.030,
+UP's own ask up three cents in the same twenty seconds), and `pModel` 0.545 is on
+the side the override is taking the chase AWAY from. So this is the second kind
+of override described under level 130: not "BTC has moved and the book has not
+caught up" but a purely RELATIVE reading — the book prices UP further from the
+model's number than it prices DOWN, while the model itself leans UP.
+
+That is exactly the kind `ptbFairModelKeep` deliberately does not touch, and
+`ptbFairModelMin` — the blanket demand that the model back the override — is
+measured dead at 7 and 8 failures. **So the axis is not "must the model agree";
+it is "who opened the gap".** The `fairtake` instrument already prints
+`dModel`/`dBook`, and the level-130 note says in as many words that a value
+reading derived from a difference has to be asked which of its two terms moved.
+A gap the BOOK opened while the model stood still is the book repricing, and the
+override reads it as the book being wrong. Nothing in the player yet tests that.
+
+Before designing it, check the field: how many of the first 140 windows open a
+fair-lag override with `|dModel|` small and `|dBook|` large, and how many of
+those are survivors? The instrument prints one line per window, so one sweep with
+`debug=2` and `debugEveryMs=900000` answers it.
+
+## What passed 133 — a bound on abandonment must read the abandoned leg
+
+`solvLevelDemoted=1`, `solvLevelZMax=0.25` (both new).
+
+Market 133 (`…1775206800`) opens dead even, sits at 200 UP / 219 DOWN for two and
+a half minutes, then runs UP 0.51 → 0.67 and reverses outright: UP settles at
+0.02 and 656 DOWN shares are unbuyable with the 197 dollars left.
+
+The inherited hypothesis — that a price cap wrongly allowed the completing
+purchase — was wrong, and `debug=3` disposed of it in one probe. **No price cap
+bound anywhere in the run-up**: `cap` sat at 0.776 against asks of 0.51–0.67,
+because the priority leg's cap holds back only `leadReserve × underdogMax` ≈ 9
+cents per outstanding share of the other leg. What paced UP was `edgeRoom`, and
+what released it at 750 shares was `finishShare`. The pair ended at 0.77 — the
+market never failed on cost, only on 344 DOWN shares.
+
+`debug=4` named the second the window turns. At **t+147** the solvency swap wants
+to hand the chase to DOWN — projections 1031 against 983, holdings 200/219, asks
+0.53/0.49 — and is refused. Probes separate the two gates cleanly: `solvHeld=0`
+changes nothing at all, `solvZ=0` passes the market 1000/1000 for 959.
+
+The parity waiver satisfies every one of its own conditions there and misses on
+`solvLevelMax` by **nine shares**: 219 against a bound of 210. But the leg
+holding 219 is the one the swap hands the chase TO. `solvLevelMax` is a bound on
+ABANDONMENT — its own note reads "the leg that loses the chase drops to
+`underdogMax` holding four hundred shares nobody will finish" — and it was
+written on `Math.max(held.UP, held.DOWN)` because at 594/594, 469/469 and 344/344
+the two readings coincide.
+
+| Configuration (first 133) | Failures |
+|---|---|
+| baseline (level 132 defaults) | 1 — market 133 |
+| `solvLevelMax=0.22` (the blunt version) | 2 — `…1775136600` and `…1775172600` |
+| `solvLevelDemoted=1` | 1 — `…1775172600` |
+| `+ solvLevelZMax=0.25` | **0, twice** |
+
+`solvLevelDemoted=1` repairs 133 and breaks `…1775172600`, whose waived swap at
+t+41 is almost the same reading in mirror image: 219 against 200 shares, a
+four-cent ask gap, the two plans 48 dollars apart, the model leaning at the leg
+being abandoned in both. They differ in **how loudly** the model disagrees — 0.17
+where the swap is right, 0.30 where it is wrong — and `solvLevelZMax` is that
+threshold.
+
+The premise is not a tuned number. The waiver stands in for `solvZ`, and `solvZ`
+is a LICENCE: it asks the outside price to back the receiving leg before the swap
+may overrule the book. At parity the swap abandons nothing, so the licence is not
+needed — that is the entire waiver. What the waiver also quietly did was fire
+when the outside price is not silent but pointing the other way. **Missing
+backing and contradicted backing are not the same state**, and no part of the
+parity argument covers the second.
 
 ## What passed 130 — an override may not outlive the reason it was opened on
 
@@ -226,9 +292,14 @@ Levels 115–118 at `fc890aa7` (runs 5566, 5568, 5569, 5575). Levels 119–122 a
 
 Levels **130–132 at `caeed993`**, all defaults, one `play-level` run each:
 **130 → 5869**, **131 → 5870**, **132 → 5871**, each with every market passed.
-Three sweeps of the first 130 at those defaults returned 0, 0 and 1 failure (the
-`…1775122200` flake). A look-ahead sweep of the first 140 fails only on markets
-133 (`…1775206800`) and 140 (`…1775213100`).
+
+Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
+**133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
+**138 → 5920**, **139 → 5921**, each with every market passed. Level 137's
+first attempt (run 5917) failed on the `…1775122200` flake alone and passed on
+the re-run. Two sweeps of the first 133 at those defaults returned 0 and 0
+failures; a look-ahead sweep of the first 140 fails only on market 140
+(`…1775213100`) and the same flake.
 
 ## What is still true about the player
 
@@ -247,8 +318,21 @@ Three sweeps of the first 130 at those defaults returned 0, 0 and 1 failure (the
 - **The depth reading needs both a share and a size.**
 - **The edge allowance is the level-109 pathology and it is still there.** The
   licence to own a whole leg and the cheapest price the OTHER leg will ever show
-  arrive on the same tick — they are the same number. All THREE windows it has
-  cost were repaired by REASSIGNING the chase instead.
+  arrive on the same tick — they are the same number. All FOUR windows it has
+  cost were repaired by REASSIGNING the chase instead — never by a cap. Market
+  133 is the cleanest case yet: `debug=3` shows no price cap binding anywhere in
+  the run-up, `edgeRoom` paces the leg to `finishShare` and `finishShare`
+  releases the rest, and the repair is a swap sixty seconds earlier.
+- **The price cap on the priority leg is not a pair ceiling.** It reserves only
+  `leadReserve × underdogMax` — about nine cents — per outstanding share of the
+  other leg, so it sits near 0.78 all window and effectively never binds. Only
+  the UNDERDOG's cap is projected against `pairCeil`. Do not reason about the
+  chased leg as if the ceiling were guarding it.
+- **In a two-sided window the two asks sum to about 1.01 all the way through.**
+  Market 133 is never solvent at both current asks, from the first second to the
+  last. The pair is only ever bought below the ceiling by buying each leg at a
+  DIFFERENT time, which is exactly why every affordability test built on both
+  legs' simultaneous asks either never fires or fires everywhere.
 - **The model is not a slow book.** Market 130's fair-lag gap stays wide through
   the collapse only because the BOOK moved: `pModel` falls 0.61 → 0.47 while
   `pBook` falls 0.49 → 0.38. Whenever a value reading is derived from a
@@ -257,9 +341,10 @@ Three sweeps of the first 130 at those defaults returned 0, 0 and 1 failure (the
 ## Flakes
 
 `…1775178000` (market 101) is a reproducible coin flip that fails about 2 draws
-in 24. **`…1775122200` fails about one draw in eight** and cost one level 119
-run; it appeared in one of three sweeps this session, unchanged.
-`…1775110500` and `…1775136600` have each shown the same shape.
+in 24. **`…1775122200` fails about one draw in eight** and has now cost one
+level 119 run and one level 137 run; it appeared in one of two look-ahead sweeps
+this session, unchanged. `…1775110500` and `…1775136600` have each shown the same
+shape.
 
 **`…1775122200`'s flake is the depth handover, not the solvency swap.** `debug=4`
 at seeds 6 and 7 prints the SAME five priority changes at the same seconds; the
@@ -273,6 +358,16 @@ same settings are two different draws.
 
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
+
+### Session 42 — over the first 133 at `687dacea` (baseline 1: market 133)
+
+| Change | Failures | Market 133 |
+|---|---|---|
+| `solvLevelMax=0.22` | 2 — `…1775136600`, `…1775172600` | repaired |
+| `solvLevelDemoted=1` alone | 1 — `…1775172600` | repaired |
+
+Single-market probes on 133: `solvHeld=0` and `solvHeldPad=0` changed NOTHING
+(1000/344 either way) — the swap it needed was refused by `solvZ` alone.
 
 ### Session 41 — over the first 130 at `42e458f5` (baseline 2: market 130 + the flake)
 
@@ -398,6 +493,7 @@ leg at the top of a slow trend.
   `solvChaseLatch=1`.
 - **130–132** — `ptbFairModelKeep=1` + `ptbFairModelKeepMin=0.02` +
   `ptbFairModelKeepDrop=0.10` + `ptbFairModelKeepUntilMs=240000`.
+- **133–139** — `solvLevelDemoted=1` + `solvLevelZMax=0.25`.
 
 ## Tools
 
@@ -461,6 +557,13 @@ leg at the top of a slow trend.
 - **A rule whose preconditions are destroyed by its own success does nothing.**
   Written down and walked into twice. `fairModelSide` is deliberately never
   cleared by the suspension it causes.
+- **A bound written on `Math.max` of two things is a bound on neither.** The
+  parity waiver's abandonment cap read the LARGER of the two holdings for eight
+  levels, which is the right number only while the legs are equal — and the
+  waiver's own entry condition only requires them equal within one fiftieth of
+  `qty`. Nine shares of asymmetry hid market 133. When a rule's sentence names one
+  side of something ("the leg that LOSES the chase"), check that the expression
+  names it too.
 - **A rule rejected once may have been rejected for the wrong reason.** Both
   `ptbFairBookMax` and `ptbFairModelMin` carry two-paragraph rejection notes from
   early sessions. The notes are still right — and the objection they describe is
@@ -490,5 +593,3 @@ leg at the top of a slow trend.
 ## Needs human
 
 Nothing.
-</content>
-</invoke>

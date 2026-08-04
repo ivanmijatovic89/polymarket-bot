@@ -3069,3 +3069,90 @@ at the moment it finished that side, the two prices together added up to more
 than the ceiling it is supposed to respect. So before designing anything, the
 first job is to find out which of the sixteen caps let that purchase through.
 There is an instrument for exactly that, and it takes one run.
+
+## Session 42 — nine shares, and a rule that was looking at the wrong side
+
+The market that had been blocking this game opens with the two sides priced dead
+level, stays that way for two and a half minutes, then one side runs from fifty-
+one to sixty-seven cents. The player buys that side out during the run and the
+move then reverses completely; the side it bought expires at nothing and it
+cannot afford the six hundred and fifty shares it still needs of the other.
+
+I arrived with a hypothesis handed over from the last session: the purchase
+should not have been affordable on the player's own arithmetic, so some price
+limit must be broken. One run of the instrument that prints every limit, every
+second, settled it — and the hypothesis was simply wrong. No price limit was
+anywhere near binding. The one that governs the side being chased sits at about
+seventy-eight cents all window, because it only holds back nine cents a share for
+the other side, and the prices in question were in the sixties. What actually
+paced the buying was a completely different rule, one that lets a side grow only
+as fast as the price gap between the two sides justifies; and once that rule had
+carried it three quarters of the way, another rule declares the side "finished"
+and removes the pace altogether. So the money was not let through a hole in the
+ceiling. It was let through the front door.
+
+That is worth writing down twice, because it is the second session running where
+the confident inherited diagnosis named the wrong rule and cost nothing but one
+probe to disprove. The instrument beats the story every time.
+
+The instrument that names which rule chose the side then pointed at a single
+second, one minute before the disaster. At that moment the player holds two
+hundred of one side and two hundred and nineteen of the other, has spent two
+hundred and twenty-four dollars, and its own arithmetic says the plan it is
+running costs 1031 against a budget of 970 while the opposite plan costs 983. It
+wants to switch. Something stops it. Two probes established that only one of the
+several conditions was responsible: the one that asks the underlying's price to
+back the switch before the player is allowed to contradict the order book. Turn
+that condition off entirely and the market passes comfortably — but it has been
+measured before at seven lost markets elsewhere, so it cannot simply go.
+
+There is, however, an exemption already in the player for exactly this situation:
+when neither side has been committed to yet, switching abandons nothing, so the
+demand for outside backing is waived. And that exemption very nearly fired here.
+It passed every one of its own tests except a cap on how big a position may be
+before the waiver stops applying — and it missed that cap by **nine shares**.
+
+Nine shares is the sort of margin that tempts you to nudge the number, and I
+measured that too: nudging it costs two markets instead of one. But the cap turns
+out to be reading the wrong side. Its purpose, in its own words, is that the side
+that LOSES the chase must not be left holding hundreds of shares nobody will
+finish. The expression it was written as takes the larger of the two positions —
+which is identical to the intended number whenever the two sides are equal, and
+the earlier casualties that produced the cap were all exactly equal, so nobody
+noticed. Here the larger position is the side being switched TO. It is not
+abandoned by the switch at all; it is the side about to be bought.
+
+Pointing the cap at the side actually being abandoned repairs the blocking market
+and breaks exactly one other, which is close to the mirror image of it: the same
+219-against-200 position, the same four-cent price gap, the same forty-eight
+dollar difference between the two plans, and in both cases the underlying leaning
+gently toward the side the player is about to walk away from. The only thing
+separating them is how loudly it leans — 0.17 where switching is right, 0.30
+where it is wrong.
+
+So I added one more condition, and I think it is the honest one rather than a
+fitted threshold. The waiver exists because a licence is not needed when there is
+nothing to abandon. But the licence being unnecessary and the licence being
+actively refused are two different situations, and the waiver was firing in both.
+An outside reading that is silent is not the same as an outside reading pointing
+the other way. Nothing in the parity argument covers the second, and now it does
+not fire there.
+
+Two passes over a hundred and thirty-three markets returned nothing at all. Then
+levels 133 through 139 all scored clean, one at a time, with one re-run needed
+along the way for a market that has been a documented coin flip since long before
+today. That is six or seven levels from this session — the best haul so far — and
+the reason is not that the change was clever but that the field had six passing
+markets queued up behind one blockage.
+
+The next wall is one market further on and I have already run the instrument on
+it, so the next session starts with a diagnosis rather than a hunt. It is a
+familiar rule in an unfamiliar form: the one that compares the market's price
+against the player's model of the underlying and buys whichever side looks
+underpriced. Forty-five seconds in it takes the buying away from the side that
+eventually wins. The two extra columns I added last session make the shape plain
+— the model did not move at all in the twenty seconds before it fired; the order
+book moved three cents. The "underpriced" side is underpriced only because the
+market repriced the other one. Last session's fix covers the case where the model
+moved and then moved back; it deliberately does not cover this one, where the
+model never moved. Asking which of the two numbers moved is the thread to pull.
