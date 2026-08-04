@@ -1,52 +1,110 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **122** (first 122 eligible markets)
-- Current level: **123** (first 123 eligible markets)
+- Highest passed level: **129** (first 129 eligible markets)
+- Current level: **130** (first 130 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: level 123 is blocked by market 123, `…1775197800`, diagnosed
-below.** Markets 119–122 are clean and their levels are scored.
+**Next step: level 130 is blocked by market 130, `…1775204100`, diagnosed
+below.** Markets 123–129 are clean and their levels are scored.
 
-## The wall: market 123 (`…1775197800`) — the edge allowance again
+## The wall: market 130 (`…1775204100`) — the opening lean expires
 
-The player buys DOWN out to 1,000 by t+79 for **724 dollars** — an average of
-0.72 a share — and then UP sits between 0.46 and 0.54 for the remaining twelve
-minutes with 246 dollars left and 800 shares to find. It ends 200/1000 and the
-market settles **UP**.
+Not a flake: 4 seeds in 4 give 1000 UP / 469 DOWN to the cent, and the market
+settles **DOWN**. The player buys the losing leg out and strands the winner at
+469.
 
-The purchase that loses it is between t+70 and t+79, and `debug=3` names the
-cap exactly:
+The window opens **0.43 / 0.58** — a fifteen-cent lean toward DOWN — and the
+book never leaves the 0.43–0.56 band for the whole fifteen minutes. There is no
+trend to read and no moment where the book decides; the only clear statement the
+window ever makes is the one it makes at t+0, and that statement is correct.
 
-- At t+70 DOWN is 0.56, `want` is 0.550, and **`edge=-62`** — the edge allowance
-  is negative and the leg is bought NOTHING. Every other cap is `Infinity`.
-- At t+73 the book gap widens to 0.23 (askUp 0.39 / askDown 0.62), the allowance
-  opens, and 594 shares go through at an average of about 0.665.
+The conviction latch records that lean and then loses it twice over:
 
-So this is the **level-109 pathology in its purest form**: the leg is bought
-fastest at the moment it is dearest, because the allowance is a function of the
-book gap and the gap is widest when the price has already run. It is the third
-window this has cost, and the two before it were both repaired by REASSIGNING
-the chase rather than by capping it.
+- at the defaults the latch is **revoked at t+3** by `convLatchZ`, the model
+  having leaned UP;
+- with the revocation disabled the latch survives to **t+54**, which is its own
+  window (`convUntil` 0.06 of fifteen minutes), and then expires. At that moment
+  the player holds 0 UP / 469 DOWN, has spent 278, and cannot afford both legs —
+  531 DOWN at 0.56 plus 1,000 UP at 0.45 is 747 against 692 left. It picks the
+  cheap one, and the cheap one is the loser.
 
-The reassignment is available here and is blocked by exactly two gates, and by
-BOTH of them — a probe of each alone changes nothing, and a probe of the pair
-repairs the market outright (1000/1000, cost 969, pnl +31):
+`solvSwap` cannot rescue it: at t+54 the two plans project 1004 and 1005, which
+is no separation at all.
 
-| Gate | Why it blocks | Why it exists |
-|---|---|---|
-| `solvHeld` | at t+73 the player holds 200 UP against 719 DOWN, so the chase may not go to UP | without it every casualty of the bare swap strands the demoted leg, which then answers to `underdogMax` |
-| `solvZ` | `pModel` is 0.43 there — the oracle still says DOWN, and it is wrong all the way to t+120 | the swap overrules the book, so it must not be decided by the book |
+**A probe of the two together repairs it outright** — `convLatchZ` off with
+`convLatchMs` at 240 s or 500 s finishes 1000/1000 at 963 (at 120 s it improves
+to 1000/543 and still fails). So the repair is "hold the opening lean for four
+minutes and do not let the model revoke it", and both halves of that are
+load-bearing: `convLatchMs` alone changes NOTHING (the revocation still fires at
+t+3) and `convLatchZ` alone at 0.15, 0.3 and 0.5 changes nothing either.
 
-At the moment of decision the arithmetic is emphatic: chasing DOWN projects
-about 996 against a ceiling of 970, chasing UP projects about 950 — under the
-ceiling. **`solvUnder` is satisfied and `solvEdge` is satisfied; only the
-held-more test and the oracle test refuse.** A waiver for those two, of the same
-shape as the parity waiver that passed level 115, is the obvious next attempt —
-and the same discipline applies: the waiver must be separated from its
-casualties on the rule's OWN premises, and `solvHeld=0` / `solvZ=0` globally are
-both measured dead (4 and 7 failures).
+That is a blunt change to a rule that was carefully gated in session 39 — the
+revocation is worth 4 failures over the first 120 on its own, and the 54-second
+record window was chosen over 5 s on two clean sweeps. So the next session's job
+is the usual one: sweep the pair, print the casualties at their moment of
+decision, and separate them on the revocation's OWN premises. The question to
+ask of `convLatchZ` is the one `solvChase` just answered for `solvHeld`: what is
+the model actually saying at the moment it revokes, and is a lean of that size
+evidence or noise? A margin, not a sign.
+
+## What passed 123–129 — a swap may undo a flip it is one tick behind
+
+`solvChase=1`, `solvChaseMs=2000`, `solvChaseMax=0.25`, `solvChaseLatch=1`
+(all new). Two sweeps of the first 123 at those defaults: **0 failures each**.
+
+Market 123 whipsaws at t+69. `debug=3` names the mechanism exactly: the edge
+allowance is `qty × |askUp − askDown| / 0.32`, so when the gap trebles between
+t+69 and t+74 the licence to own 1,000 DOWN and the cheapest UP of the window
+(0.34, against DOWN's 0.67) arrive **on the same tick, because they are the same
+number**. 594 DOWN shares go through at an average of 0.665, UP is bid 0.10
+throughout, and the window ends 200/1000 with UP back at 0.50 for twelve
+minutes.
+
+The solvency swap wants to fire at t+69 and is refused by `solvHeld` and
+`solvZ`. The instrument shows why neither refusal applies. Two new columns on
+the swap line — how long the demoted leg has held the chase, and how long ago
+the promoted leg held it — read **1 second and 1 second**. The player had been
+chasing UP for thirteen seconds and was stopped on 200 shares by the allowance;
+the gap widened by a cent, momentum flipped to DOWN, and one second later the
+arithmetic objected. There is no commitment to abandon and no settled book to
+overrule. (The two columns are always the same number, which is obvious in
+hindsight: one flip sets both clocks.)
+
+| Configuration (first 123) | Failures |
+|---|---|
+| baseline (level 122 defaults) | 2 — market 123 and the `…1775122200` flake |
+| `solvHeld=0` + `solvZ=0` | 17 (twice), 123 repaired |
+| `solvChase` on the clock alone, 2 s / 4 s | 5 / 6 |
+| `+ solvChaseMax=0.25`, no latch | 2 — and **123 NOT repaired** (281/1000) |
+| **the same with `solvChaseLatch=1`** | **0, 0** (two sweeps) |
+
+- **`solvChaseMax`** — the clock tests half the claim. "The player was chasing
+  this leg a second ago" says it wanted the leg; "its holdings are small because
+  the pace refused it" says it did not get it. All four casualties of the bare
+  clock promote a leg holding 281 to 719 shares — positions built over minutes,
+  which the pace plainly did not refuse. The repaired window promotes a leg
+  stopped dead on 200 with nineteen shares of allowance left. This is
+  `solvLevelMax`'s sentence again: being recently chased is not the same as
+  being unbought.
+- **`solvChaseLatch`** — and this is the trap the file already warned about,
+  walked into anyway and caught in one sweep: **every condition `solvChaseMax`
+  tests is destroyed by the swap succeeding.** The waiver fires because the
+  promoted leg holds 200; the swap buys that leg; it passes 250; the waiver
+  closes; `solvHeld` refuses again; the chase goes straight back. 281/1000
+  without the latch, 1000/1000 with it. Ask it of every new gate.
+
+**`sweepFit` is measured and off**, and it is worth keeping the negative. The
+refusal at t+74 looks exactly like `underdogMax` — UP is on offer at its window
+low of 0.34 and the player bids 0.10 — so the obvious repair is to lift the
+loser-price cap whenever the pot already covers the underdog at today's ask.
+The pot never does: `budgetOfSecond` is 0.324 against an ask of 0.340 at t+74,
+and the shortfall is larger at every earlier tick. `budgetOfSecond` reserves the
+priority leg at TODAY's bid, and today's bid IS the spike — the money the sweep
+needs is the money the spike is spending. Same lesson `underdogHeldShare`
+records: a window that cannot afford both legs is not repaired by lifting a
+price ceiling on either of them.
 
 ## What passed 115 — the parity waiver, made into a decision
 
@@ -257,7 +315,14 @@ failures each. Level 119 (run 5576) scored 118/119, failing on `…1775122200`.
 
 Levels **119–122 at `a2213f53`**, all defaults, one `play-level` run each:
 **119 → 5649**, **120 → 5650**, **121 → 5657**, **122 → 5658**, each with every
-market passed. Level 123 is unattempted: `…1775197800` fails on every draw.
+market passed.
+
+Levels **123–129 at `cd795467`**, all defaults, one `play-level` run each:
+**123 → 5728**, **124 → 5729**, **125 → 5730**, **126 → 5731**, **127 → 5736**,
+**128 → 5737**, **129 → 5738**, each with every market passed. Two sweeps of the
+first 123 at those defaults returned zero failures each; a look-ahead sweep of
+the first 134 fails only on markets 130 (`…1775204100`) and 133
+(`…1775206800`).
 
 ## What is still true about the player
 
@@ -280,14 +345,15 @@ market passed. Level 123 is unattempted: `…1775197800` fails on every draw.
   oracle is an accurate but LATE witness** (`tools/volScan.ts`).
 - **The depth reading needs both a share and a size** (`tools/depScan.ts`).
 - **Absolute near depth belongs on the PACE as well as the cap**, proportionally.
-- **The edge allowance is the level-109 pathology and it is still there.** On
-  market 115 (`debug=3`) the binding cap between t+41 and t+50 was the edge
-  allowance, not any price cap, and the purchase that lost the market was
-  released by that allowance widening as the book gap widened 0.17 → 0.29. The
-  leg is bought fastest when it is dearest. Nothing measured so far repairs that
-  directly; both windows it has cost were repaired by REASSIGNING the chase, and
-  market 123 is the third and cleanest instance — `edge=-62` at t+70 with every
-  other cap infinite, then 594 shares at 0.665 the moment the gap widens.
+- **The edge allowance is the level-109 pathology and it is still there.** The
+  allowance is exactly `qty × |askUp − askDown| / edgeFull`, so the licence to
+  own a whole leg and the cheapest price the OTHER leg will ever show arrive on
+  the same tick — they are the same number. On market 115 the binding cap
+  between t+41 and t+50 was that allowance, not any price cap; on market 123 it
+  reads `edge=-62` at t+70 with every other cap infinite and then releases 594
+  shares at 0.665 six seconds later. The leg is bought fastest when it is
+  dearest. Nothing measured repairs it directly, and all THREE windows it has
+  cost were repaired by REASSIGNING the chase instead.
 
 ## Flakes
 
@@ -298,7 +364,9 @@ the level-118 defaults and `PG_SEED=2` fails at the current ones.
 and 8 pass, at both configurations, and it cost one level 119 run.
 `…1775110500` and `…1775136600` have each shown the same shape. The conviction
 latch changed none of this — it is inert on all four, which is why level 119
-needed a second run.
+needed a second run. Neither did `solvChase`: over session 40's sweeps
+`…1775122200` failed five times and passed five, including passing every one of
+the seven level runs 123–129.
 
 **`…1775122200`'s flake is the depth handover, not the solvency swap.** `debug=4`
 at seeds 6 and 7 prints the SAME five priority changes at the same seconds; the
@@ -342,6 +410,22 @@ probe. **A single-market probe is not evidence for a global pace or cap change.*
 | Change | Failures | Market 120 |
 |---|---|---|
 | `convEdge=0.10` (the conviction override that misses by one cent at t+4) | 4 | NOT repaired |
+
+### Session 40 — over the first 123 at `4b64f934` (baseline 2: market 123 + the flake)
+
+| Change | Failures | Market 123 |
+|---|---|---|
+| `solvHeld=0` + `solvZ=0` (the bare waiver) | 17, twice | repaired |
+| `solvChase=1` on the clock alone, `solvChaseMs` 2 s | 5 | repaired |
+| the same at 4 s | 6 | repaired |
+| `+ solvChaseMax=0.25`, `solvChaseLatch=0` | 2 | **NOT** repaired — 281/1000 |
+| `sweepFit=1`, pad 0 / 0.01 / 0.02 / 0.03 | — | NOT repaired, unmoved |
+
+Single-market probes on 130 (`…1775204100`) that changed NOTHING: `convLatchZ`
+0.15 / 0.3 / 0.5, and `convLatchMs` 90 s / 180 s / 400 s — each alone leaves the
+market at 1000/468.75 to the cent. `convLatchZ` off WITH `convLatchMs` at 240 s
+or 500 s repairs it (1000/1000 at 963); at 120 s it improves to 1000/543 and
+still fails.
 
 ### Session 39 — over the first 120 at `fc890aa7` / `a2213f53`
 
@@ -457,6 +541,8 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   and the waived swap's clock latching once it has fired.
 - **119–122** — `convLatch=1` + `convLatchByMs=10000` + `convLatchZ=0`, applied
   below the fair-lag reading.
+- **123–129** — `solvChase=1` + `solvChaseMs=2000` + `solvChaseMax=0.25` +
+  `solvChaseLatch=1`.
 
 ## Tools
 
@@ -481,6 +567,15 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   and the spend. Two seeded runs of the same market print SIDE BY SIDE, which is
   how the `…1775122200` flake was shown to be one shared decision path with
   different amounts of money already spent.
+- **`--param debug=5` prints the underdog's budget**, one line per tick with
+  every term of `budgetOfSecond` beside the ask it is being compared with. It is
+  what showed that `underdogMax` is NOT the cap refusing the cheap leg on market
+  123 — the pot is, by 1.6 cents.
+- **The swap line carries five more columns since session 40**: both trailing
+  lows, both realized averages, how long the demoted leg has held the chase
+  (`fAge`) and how long ago the promoted leg held it (`tGap`). The last two are
+  the ones that separated `solvChase`'s repair from its casualties, and they are
+  always equal — one flip sets both clocks.
 - **`--param debug=2` is the observation channel**: one line per market per
   `debugEveryMs` for the WHOLE window, emitted above every early return. It
   carries `depUp=`/`depDown=`, `dimb=`/`dabs=`, `dcap=` and both best bids.
@@ -525,7 +620,10 @@ what completes the leg at the top of a slow trend — the pace is lifted by
   The waived swap fires at parity, buys the promoted leg, and thereby stops the
   legs being level — so the next tick hands the chase straight back and the
   window ends to the cent as if the rule were off. Check every new gate for
-  this: does the state it reads survive the action it takes?
+  this: does the state it reads survive the action it takes? **Written down and
+  walked into anyway one session later** — `solvChaseMax` bounds the promoted
+  leg at 250 shares, the swap buys that leg past 250, and the window ends
+  281/1000. It cost one sweep to catch because the sweep was already running.
 - **A rule rejected once may have been rejected for the wrong reason.** The
   solvency swap carried a two-paragraph rejection note arguing the arithmetic was
   worthless. The note's OBSERVATION was correct and its CONCLUSION was not.

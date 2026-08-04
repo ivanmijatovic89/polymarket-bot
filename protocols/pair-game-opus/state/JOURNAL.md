@@ -2900,3 +2900,95 @@ overrule the book. Turning either off alone changes this market by literally
 nothing; turning both off wins it outright. So the next session's job is a
 carefully bounded exception to those two, argued and measured on their own
 premises, in the same way the exception that passed level 115 was.
+
+## Session 40 — seven levels, from a rule that was one second behind
+
+The obstacle I inherited was a market where the player spends almost all its
+money in six seconds buying the more expensive of the two sides at the most
+expensive moment of the day, and then spends the next twelve minutes unable to
+afford the other side. The note I was left said the repair was probably to hand
+the buying over to the other side instead, and that two separate guards were
+blocking that handover. Both of those things turned out to be true, but not for
+the reasons written down, and the useful part of today was finding out why.
+
+First, the mechanism, which I can now state in one sentence. The player rations
+how much of a side it is allowed to own by how far apart the two prices are —
+the wider the gap, the more conviction the market is showing, the more it may
+commit. That sounds reasonable and it has a nasty consequence: the gap is widest
+exactly when one side has spiked. So the permission to buy a side outright and
+the moment that side is at its most expensive are not merely correlated, they
+are computed from the same number. Worse, the same tick that grants that
+permission is also the tick where the OTHER side is at its cheapest price of the
+whole window. The player was being handed both halves of a good trade and taking
+the wrong one.
+
+My first attempt was to fix the other half: if the cheap side is on offer at a
+price the budget can clearly afford, stop holding out for the bargain-basement
+price the player normally waits for and just buy it. I built that, and it did
+nothing at all, and the reason is worth keeping. The budget "clearly affording"
+it is computed after setting aside enough money to finish the side currently
+being bought — at today's price. Today's price was the spike. So the money the
+cheap sweep needed was precisely the money the spike was spending. It misses by
+about one and a half cents at the critical moment and by more at every moment
+before. There is no version of that idea that works, because a window that
+cannot afford both sides is never repaired by raising a price ceiling on either
+of them. I have left the parameter in place, switched off, with the measurement
+written next to it.
+
+So back to the handover, and to the two guards. One says: never hand the buying
+to the side you own less of, because you will strand the side you have already
+paid for. The other says: never overrule the order book unless the outside
+price agrees. Both are sensible and both have earned their place. What I did was
+add two columns to the diagnostic — how long the side being abandoned had held
+the role, and how long ago the side being promoted had held it — and the answer
+came back one second and one second. The player had been buying the promoted
+side for the previous thirteen seconds and had been stopped at a fifth of its
+target by the rationing rule, not by any decision. Then the prices wobbled a
+cent, the role flipped, and one second later the arithmetic objected.
+
+Which means neither guard applied. There was no commitment being abandoned: the
+side losing the role had held it for a single second. And nothing was being
+overruled: the flip being reversed was the book's reading of four seconds of
+history, not a settled market. So both guards may be waived when the swap is
+undoing a flip that is a tick old. That is the whole idea.
+
+On its own it cost four markets, and the four told me what was missing. Each of
+them handed the role to a side already holding between a quarter and three
+quarters of its target — positions built over minutes, which nothing had
+refused. "I was chasing this a second ago" says the player wanted the side; it
+does not say the side is unbought. Adding that second half — the promoted side
+must still be small — cleared all four.
+
+And then the thing I had literally written down as a trap last session bit me
+anyway. The waiver fires because the promoted side is small; the swap then buys
+that side; it stops being small; the waiver closes; the guard refuses again; and
+the buying goes straight back where it came from. The market ended a fifth
+finished instead of whole. Once the waiver remembers that it has fired, it wins.
+I caught it in one sweep only because the sweep was already running.
+
+Two full passes over a hundred and twenty-three markets with nothing failing at
+all, against two before. Levels 123 through 129 all scored clean — seven in one
+session, which is the most this game has given up so far, and six of them came
+free because the field was already in good shape.
+
+The next wall is the market after those, and it is a genuinely different shape
+from anything so far. It is not a flake — four attempts give the identical
+result — and the player ends holding all of the losing side and less than half
+of the winner. What makes it interesting is that the window never decides
+anything: the two prices sit between forty-three and fifty-six cents for the
+entire fifteen minutes. The single clearest statement the market ever makes is
+the one it makes in its first second, when it opens fifteen cents apart, and
+that statement is correct. The player records that opening read and then loses
+it twice — once three seconds in, when the outside price disagrees and the read
+is torn up, and again at the fifty-four second mark, when the read expires by
+its own clock. By then it has bought less than half the winner and can no longer
+afford both. It picks the cheap one; the cheap one loses.
+
+Holding that opening read for four minutes, and not letting the outside price
+revoke it, wins the market outright. Both halves are needed — either alone
+changes it by not one share. But that is a blunt edit to a rule that was
+carefully fenced in last session, so the next job is the same discipline as
+today's: measure the pair across the field, print what the outside price is
+actually saying at the moment it revokes, and find out whether a lean of that
+size is evidence or noise. The lesson from today applies directly — a guard that
+tests a sign should probably be testing a margin.
