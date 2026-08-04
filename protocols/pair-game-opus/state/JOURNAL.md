@@ -3156,3 +3156,70 @@ book moved three cents. The "underpriced" side is underpriced only because the
 market repriced the other one. Last session's fix covers the case where the model
 moved and then moved back; it deliberately does not cover this one, where the
 model never moved. Asking which of the two numbers moved is the thread to pull.
+
+## Session 43 — the discount, and the leg that was being marked up
+
+Level 140 is passed. It took most of the session, and the answer was not the one
+I walked in with.
+
+The thread I inherited was "ask which of the two numbers moved". The player has a
+rule that compares the market's price against its own model of where Bitcoin is
+going, and buys whichever side looks underpriced. On the blocking market it fired
+forty-five seconds in, took the buying away from the side that eventually won,
+and left the player holding six hundred shares of a winner it could no longer
+finish. The note I had left said the model had stood still while the order book
+moved, so the "underpriced" reading was really about the book, not the model.
+
+I printed the same line for every market in the set that had ever triggered this
+rule — twenty-eight of them — and the inherited reading did not survive contact
+with the field. The book had moved, yes, but it had moved *toward* the model, not
+away from it: the disagreement the rule was acting on had mostly closed in the
+seconds before it fired, and what the rule was reading was a twenty-second
+average that had not caught up yet. I built a gate on that and it did not work.
+Blocking the rule when the live disagreement had collapsed only delayed it a
+second or two, and the market ended the same way. That was the first real lesson
+of the day, and it applies to anything measured over a trailing window: a refusal
+that expires by itself is not a refusal, it is a pause.
+
+The column that actually mattered was one I had printed but never looked at. This
+rule grants itself a discount — it will act on much weaker evidence when the side
+it wants to buy is already far behind, on the reasoning that you need that side
+anyway. On the blocking market it spent that discount on a side whose own price
+had just been marked up three cents in twenty seconds. That is the rule's premise
+falsified in the plainest possible terms: it exists to catch a market that has
+not yet caught up, and the market was visibly catching up, in that very side's
+price, while the reading was being taken. So: a side the book has been seen
+marking up may not be bought on the discount. It has to clear the full evidence
+bar for the rest of that fifteen minutes.
+
+That cost two markets that need their own version of the same rule, and the new
+instrument showed why in a way I could not have argued my way to. One of the
+casualties and the blocking market are near-twins — same second of the window,
+same three-cent mark-up, six hundred shares held on one side against a hundred
+and thirty-six versus two hundred on the other, prices a cent apart. On every
+column the rule was written from they are the same situation. They differ in one
+thing only: in the market that must be blocked, Bitcoin had clearly moved away
+from the strike price; in the one that must not, it was sitting dead on it. A
+market marking a side up while the underlying walks away from it is repricing. A
+market marking it up over a coin flip is noise. That distinction — silence is not
+the same as contradiction — is the third time this player has needed it, in a
+third unrelated rule, which is the closest thing to a general principle this
+project has found.
+
+With that condition added, both full passes over the hundred and forty markets
+came back clean, and the level scored.
+
+One thing worth flagging for its own sake. The level run failed twice in a row on
+a market that is a documented coin flip, with results identical to the second
+decimal place, which made me think I had broken it. I had not: it passes four
+times out of four on its own, with and without the new rule, and it passed both
+full sweeps. But a level replays every market down a single process, so a market
+near the end inherits the accumulated timing noise of everything before it, and
+that is a harder draw than running it alone. A clean isolated result is not
+evidence that a market is safe in a level. This one has now cost four level runs
+across the project; if it takes three in a row it stops being a re-run and
+becomes the next piece of work.
+
+Level 141 is running as I write. There is no known wall past 140, so the next
+session should look ahead five or ten markets with a cheap sweep before spending
+a full level run on finding out.

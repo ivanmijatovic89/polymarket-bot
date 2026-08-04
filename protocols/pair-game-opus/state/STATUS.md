@@ -1,49 +1,77 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **139** (first 139 eligible markets)
-- Current level: **140** (first 140 eligible markets)
+- Highest passed level: **141** (first 141 eligible markets)
+- Current level: **142** (first 142 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: market 140, `…1775213100` — the fair-lag override again, in its
-purely RELATIVE form.** A sweep of the first 140 at the new defaults fails only
-on market 140 (594/1000) and on the `…1775122200` flake.
+**Next step: play level 142, then 143 and onward.** No wall is known past 141.
+A look-ahead sweep of the first 145–150 at the new defaults is the cheapest way
+to find the next one before spending a level run on it.
 
-## The wall: market 140 (`…1775213100`) — the override the model never backed
+## What passed 140 — a discount may not be spent on a leg the book is marking up
 
-`debug=4` takes one probe and names it. At t+45, with 594 UP against 200 DOWN
-and 449 spent, the fair-lag disagreement takes the chase off UP and gives it to
-DOWN. The player then buys DOWN out and strands UP at 594; UP settles the
-winner.
+`ptbFairTakeRise=0.025`, `ptbFairTakeRiseLatch=1`, `ptbFairTakeRiseZ=0.15`
+(all new; `ptbFairTakeRiseTauMs` is 20 s).
 
-The instrument line is the whole diagnosis:
+Market 140 (`…1775213100`) is decided between t+45 and t+80. At t+45, holding 594
+UP against 200 DOWN with 449 spent, the fair-lag override takes the chase off UP
+and gives it to DOWN; the player pours 337 dollars into DOWN, completes it at
+t+80 with 214 left and UP's ask at 0.63, and never comes back. UP settles the
+winner. The model leans UP the whole time — 0.518 at t+20 rising monotonically
+to 0.94 — so this is the purely RELATIVE override, and `ptbFairModelMin` is
+measured dead at 7 and 8.
+
+**The override opened at a gap of 0.032, which only clears the NARROW threshold**
+(`ptbFairLagEdge` 0.03, granted because DOWN was 394 shares behind). That
+threshold is a discount on evidence, and the diagnosis is about what may be
+bought with it.
+
+The override's premise is that the book has not caught up with the model YET. The
+instrument prints the column that falsifies it: **`dAskT` +0.030** — DOWN's own
+ask has gone 0.410 → 0.440 in the twenty seconds before the reading. The book is
+catching up, in the promoted leg's own price, while the reading is being taken;
+the smoothed gap cannot see it because it was computed before the move. Across
+the first 140, `dAskT` is at or below zero in 24 of the 28 windows that take the
+chase this way, and market 140's is the largest by half again.
+
+**Refusing on the move alone is worth nothing** — 594/1000 at 0.005, 0.015 and
+0.025 alike, the baseline number. Twenty seconds later the trailing window has
+rolled past the move and the same override opens on the same gap. So the refusal
+LATCHES: the leg loses the narrow threshold and is read at the wide one for the
+rest of the window.
+
+The latch alone costs two markets that need theirs, and the new `fairrise`
+instrument shows why. Market 140 and `…1775127600` are near twins:
 
 ```
-fairtake t+45s from=UP to=DOWN gap=-0.032 pModel=0.545 pBook=0.564
-         dModel=0.003 dBook=-0.030 dAskT=0.030 dAskO=-0.030 ask=0.570/0.440 z=0.24
+fairrise 1775213100 t+45s side=DOWN rise=0.030 gap=-0.032 ask=0.570/0.440 z=0.24 held=594/200 spent=449
+fairrise 1775127600 t+45s side=DOWN rise=0.030 gap=-0.040 ask=0.580/0.440 z=0.03 held=594/136 spent=414
 ```
 
-**The model did not move — the book did** (`dModel` 0.003 against `dBook` 0.030,
-UP's own ask up three cents in the same twenty seconds), and `pModel` 0.545 is on
-the side the override is taking the chase AWAY from. So this is the second kind
-of override described under level 130: not "BTC has moved and the book has not
-caught up" but a purely RELATIVE reading — the book prices UP further from the
-model's number than it prices DOWN, while the model itself leans UP.
+Same second, same 0.030 mark-up on DOWN, 594 UP held against 136 and 200, asks a
+cent apart. On every column the rule was written from they are the same window.
+**They separate on the outside price and nowhere else: 0.24 against 0.03.** A
+book marking a leg up while BTC walks away from the strike is repricing; a book
+marking it up over a coin flip is noise. That is `solvLevelZMax`'s distinction
+again — missing backing and contradicted backing are not the same state — and it
+is why the latch also requires the model to lean AWAY from the promoted leg.
 
-That is exactly the kind `ptbFairModelKeep` deliberately does not touch, and
-`ptbFairModelMin` — the blanket demand that the model back the override — is
-measured dead at 7 and 8 failures. **So the axis is not "must the model agree";
-it is "who opened the gap".** The `fairtake` instrument already prints
-`dModel`/`dBook`, and the level-130 note says in as many words that a value
-reading derived from a difference has to be asked which of its two terms moved.
-A gap the BOOK opened while the model stood still is the book repricing, and the
-override reads it as the book being wrong. Nothing in the player yet tests that.
+Two other things had to be right for the latch to be worth anything:
 
-Before designing it, check the field: how many of the first 140 windows open a
-fair-lag override with `|dModel|` small and `|dBook|` large, and how many of
-those are survivors? The instrument prints one line per window, so one sweep with
-`debug=2` and `debugEveryMs=900000` answers it.
+- **It is recorded only where the discount was actually being SPENT** — an
+  override otherwise ready to open, on the strength of the narrow threshold
+  alone (`|gap| < ptbFairEdge`). The first version marked a leg on any tick whose
+  gap merely pointed at it, which disqualified legs no override ever wanted and
+  cost `…1775127600` and `…1775109600`.
+- The blunt alternatives are measured dead. Raising the narrow threshold to
+  0.045 repairs market 140 and costs 3; `ptbFairRawShare` — requiring the
+  INSTANTANEOUS gap to clear the same edge — does not repair it at any setting
+  (594 at 0.6 and 0.8, 794 at 1.0 and 1.3, 625 at 1.6, non-monotone).
+
+`ptbFairRawShare` is shipped at 0 and left in place: it is the right question
+asked of the wrong quantity, and the answer to the right one is `dAskT`.
 
 ## What passed 133 — a bound on abandonment must read the abandoned leg
 
@@ -293,6 +321,10 @@ Levels 115–118 at `fc890aa7` (runs 5566, 5568, 5569, 5575). Levels 119–122 a
 Levels **130–132 at `caeed993`**, all defaults, one `play-level` run each:
 **130 → 5869**, **131 → 5870**, **132 → 5871**, each with every market passed.
 
+Levels **140 and 141 at `b17517ce`**, all defaults: **140 → 5972**, **141 → 5973**, every market passed. Two full sweeps
+of the first 140 at those defaults returned 0 failures. Runs 5961 and 5962 are
+the two `…1775122200` flakes described under Flakes below.
+
 Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
 **133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
 **138 → 5920**, **139 → 5921**, each with every market passed. Level 137's
@@ -341,10 +373,19 @@ failures; a look-ahead sweep of the first 140 fails only on market 140
 ## Flakes
 
 `…1775178000` (market 101) is a reproducible coin flip that fails about 2 draws
-in 24. **`…1775122200` fails about one draw in eight** and has now cost one
-level 119 run and one level 137 run; it appeared in one of two look-ahead sweeps
-this session, unchanged. `…1775110500` and `…1775136600` have each shown the same
-shape.
+in 24. **`…1775122200` is the expensive one.** It has now cost one level 119 run,
+one level 137 run and **two consecutive level 140 runs** (5961 and 5962, both
+1000/776.21 to the hundredth), before passing on the third. `…1775110500` and
+`…1775136600` have each shown the same shape.
+
+**The level run and the probe are different draws, and the level run is the
+harder one.** `…1775122200` passed 4 of 4 single-market probes at the shipped
+defaults AND 4 of 4 with the new rule switched off, and passed both full sweeps
+of the first 140 — while failing two level runs back to back. A level replays all
+140 markets down one process, so the jitter stream a late market sees is the tail
+of every market before it. **Do not read a clean isolation probe as evidence that
+a market is safe in a level.** If this one starts costing three runs in a row it
+needs fixing on its own terms, not another re-run.
 
 **`…1775122200`'s flake is the depth handover, not the solvency swap.** `debug=4`
 at seeds 6 and 7 prints the SAME five priority changes at the same seconds; the
@@ -358,6 +399,23 @@ same settings are two different draws.
 
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
+
+### Session 43 — over the first 140 at `cded9496` (baseline 1: market 140)
+
+| Change | Failures | Market 140 |
+|---|---|---|
+| `ptbFairLagEdge=0.045` | 3 — `…1775109600`, `…1775127600`, `…1775145600` | repaired |
+| `ptbFairTakeRise=0.025` + latch, latched on ANY tick | 3 — `…1775109600`, `…1775127600`, `…1775167200` | repaired |
+| `+ ptbFairTakeRiseZ=0.15`, latched only where the discount was spent | **0** | repaired |
+
+Single-market probes on 140 that did NOT repair it: `ptbFairRawShare` 0.6 / 0.8 /
+1.0 / 1.3 / 1.6 → 594 / 594 / 794 / 794 / 625; `ptbFairTakeRise` 0.005 / 0.015 /
+0.025 with no latch → 594 at all three. `ptbFairLagEdge=0.06` repairs it exactly
+as 0.045 does, to the cent — the two are the same block.
+
+**Two ways of blocking the same override broke the same two markets.** When a
+second, unrelated-looking lever costs you the same casualties, you are on the
+right axis and the rule is too blunt, not the axis wrong.
 
 ### Session 42 — over the first 133 at `687dacea` (baseline 1: market 133)
 
@@ -494,6 +552,8 @@ leg at the top of a slow trend.
 - **130–132** — `ptbFairModelKeep=1` + `ptbFairModelKeepMin=0.02` +
   `ptbFairModelKeepDrop=0.10` + `ptbFairModelKeepUntilMs=240000`.
 - **133–139** — `solvLevelDemoted=1` + `solvLevelZMax=0.25`.
+- **140** — `ptbFairTakeRise=0.025` + `ptbFairTakeRiseLatch=1` +
+  `ptbFairTakeRiseZ=0.15`.
 
 ## Tools
 
@@ -512,8 +572,12 @@ leg at the top of a slow trend.
     TAKES the chase, carrying `gap`, both probabilities, `dModel`/`dBook` and
     both asks' moves over the last twenty seconds. This is what showed that the
     override opens in two different ways.
-  - **`fairkeep`** (new) — one line when the model withdraws the backing, with
-    the lean, the drop and the holdings.
+  - **`fairkeep`** — one line when the model withdraws the backing, with the
+    lean, the drop and the holdings.
+  - **`fairrise`** (new) — one line the first time a leg loses the narrow
+    threshold, with the mark-up that took it, the gap it was about to open on,
+    both asks, the oracle and the holdings. It is what showed that market 140 and
+    `…1775127600` are the same window on every column but `z`.
   - **`latchkill`** (new) — one line when the outside price revokes the
     conviction latch, with `pModel`, `z`, `diff` against `needDiff`, both asks
     and both holdings. It is what proved the revocation is a noise-level sign
@@ -540,6 +604,16 @@ leg at the top of a slow trend.
 
 ### Traps that have each cost a session
 
+- **A refusal that expires by itself is not a rule.** The mark-up gate refused
+  market 140's override on three settings and changed the outcome by nothing at
+  all, because twenty seconds later its own trailing window had rolled past the
+  evidence. Anything read over a trailing window and used to REFUSE needs a
+  latch, or it only ever delays.
+- **When a rule needs a state to hold, say WHEN it may be recorded.** The
+  mark-up latch fired on any tick whose gap happened to point at a leg — and the
+  gap points somewhere on every tick. Restricting it to ticks where an override
+  was actually about to open, on the strength of the discount alone, is the
+  difference between 3 failures and 0.
 - **The rule you can name is usually not the rule that acted.** Market 130's
   window was decided by the fair-lag override at t+107, while the whole diagnosis
   inherited from the previous session was about a latch revoked at t+3 — and the
