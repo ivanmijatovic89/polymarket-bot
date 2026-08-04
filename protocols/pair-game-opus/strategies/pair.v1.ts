@@ -3035,6 +3035,32 @@ export const ConfigSchema = z.strictObject({
    */
   solvZLatch: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * The latched `solvZ` licence is REVOKED when the outside price leans at the
+   * other leg by at least this much. 0 disables the revocation.
+   *
+   * `solvZLatch` exists because a licence has to be remembered — the decision it
+   * licenses is re-taken every tick and the reading that earned it is not. But a
+   * memory needs a shelf life and a way to be revoked, and this one had neither.
+   * `ptbFairModelKeep` records the same rule for the fair-lag override: an
+   * override may not outlive the reason it was opened on.
+   *
+   * BUILT FOR MARKET 147 (`…1775219400`) AND MEASURED NOT TO REPAIR IT. The
+   * licence there is earned at t+22 with the model at 0.685 UP and spent at t+60
+   * with the model at 0.170 — a complete reversal — so the diagnosis is right as
+   * far as it goes. Revoking it (0.12 and 0.20, with and without
+   * `solvZKeepChase`) moves the market from 444 to 514 DOWN shares and no
+   * further: what the window is short of is 556 DOWN shares at an ask that never
+   * comes back under 0.77, and by t+60 the money for them is already gone. The
+   * chase is not what is binding. Left in place at 0 because the revocation
+   * itself is sound and the next window that needs one will need this shape.
+   */
+  solvZKeep: z.coerce.number().finite().min(0).max(4).default(0),
+  /**
+   * 1 ⇒ `solvZKeep` also clears `solvChaseLatch`'s memory, which waives `solvZ`
+   * and `solvHeld` alike and is otherwise never cleared either.
+   */
+  solvZKeepChase: z.coerce.number().int().min(0).max(1).default(0),
+  /**
    * 1 ⇒ `solvZ` is waived when the arithmetic is DECISIVE: the plan the chase is
    * on overruns the ceiling by `solvArithOver × qty` and the alternative comes
    * in `solvArithUnder × qty` BELOW it. 0 disables the waiver.
@@ -5028,6 +5054,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // opening guess, and the book is not saying anything loud enough to need
       // the oracle to overrule it. It gates the waived swap's own earlier clock
       // as well as the waiver itself. See `solvZLevel`.
+      // A licence the outside price granted is withdrawn when the outside price
+      // reverses. See `solvZKeep`.
+      if (cfg.solvZKeep > 0 && pModel !== null && outsideZ >= cfg.solvZKeep) {
+        const against: Side = pModel > 0.5 ? 'DOWN' : 'UP'
+        if (solvZSide === against) solvZSide = null
+        if (cfg.solvZKeepChase === 1 && solvChaseSide === against) solvChaseSide = null
+      }
       const solvLevelOk =
         cfg.solvZLevel > 0 &&
         Math.abs(held.UP - held.DOWN) <= cfg.solvZLevel * cfg.qty &&
