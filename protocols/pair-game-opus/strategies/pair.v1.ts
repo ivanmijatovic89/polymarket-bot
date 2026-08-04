@@ -3056,6 +3056,31 @@ export const ConfigSchema = z.strictObject({
    */
   solvZKeep: z.coerce.number().finite().min(0).max(4).default(0),
   /**
+   * Length of the trailing window the SOLVENCY PROJECTIONS measure the abandoned
+   * leg's low over. 0 ⇒ the whole market, which is what they have always done.
+   *
+   * `projTotal` funds the leg it is not chasing at the cheapest price that leg
+   * has ever shown, and that low never expires. In a window that has decided,
+   * the loser keeps getting cheaper and the winner NEVER returns to its low, so
+   * the estimate quietly flatters whichever plan chases the currently-cheap leg
+   * — which in a decided window is the losing one. Market 147 at t+60 prefers UP
+   * by 1007 against 801, and the 801 rests on a DOWN low of 0.40 that had left
+   * the book forty seconds earlier.
+   *
+   * This is `chaseLookbackMs`'s argument applied to the projections rather than
+   * to the chase cap, and `solvLevelEdge` / `solvLevelEdgeMax` make the same
+   * complaint locally for the parity waiver: the comparison must be decided by
+   * prices the player can still trade at.
+   *
+   * MEASURED ON MARKET 147 AND IT IS NOT THE AXIS. DOWN shares finish at 444 at
+   * 10 s, 414 at 20 s and 30 s, 514 at 45 s, **600 at 60 s**, 514 at 120 s and
+   * 514 at 240 s, against the 1000 the level needs — non-monotone, best case
+   * barely half way, and market 148 does not move at any setting. The diagnosis
+   * the shelf life is built on is still right; it simply is not what decides
+   * either window. Shipped at 0.
+   */
+  solvLowMs: z.coerce.number().finite().min(0).default(0),
+  /**
    * 1 ⇒ `solvZKeep` also clears `solvChaseLatch`'s memory, which waives `solvZ`
    * and `solvHeld` alike and is otherwise never cleared either.
    */
@@ -4092,6 +4117,21 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }
   }
   const trailingLow = (side: Side): number => lowQ[side][0]?.v ?? Infinity
+  /**
+   * The same sliding-window minimum kept over `solvLowMs` instead, for the
+   * solvency projections alone. See `solvLowMs`.
+   */
+  const lowQ2: Record<Side, { t: number; v: number }[]> = { UP: [], DOWN: [] }
+  const pushLow2 = (side: Side, t: number, v: number): void => {
+    if (cfg.solvLowMs <= 0) return
+    const q = lowQ2[side]
+    while (q.length > 0 && q[q.length - 1]!.v >= v) q.pop()
+    q.push({ t, v })
+    const cutoff = t - cfg.solvLowMs
+    while (q.length > 1 && q[0]!.t < cutoff) q.shift()
+  }
+  const projLow = (side: Side): number =>
+    cfg.solvLowMs > 0 ? (lowQ2[side][0]?.v ?? Infinity) : trailingLow(side)
 
   /**
    * Rolling record of each leg's holding, kept so the rate cap can ask how many
@@ -4352,6 +4392,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
     pushLow('UP', nowMs, askUp)
     pushLow('DOWN', nowMs, askDown)
+    pushLow2('UP', nowMs, askUp)
+    pushLow2('DOWN', nowMs, askDown)
 
     // How hard the book is leaning, now and over the trailing window. Both are
     // needed before the early returns below, or a tick the player sits out
@@ -5036,7 +5078,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         const askO = o === 'UP' ? askUp : askDown
         const needS = s === 'UP' ? needUp : needDown
         const needO = o === 'UP' ? needUp : needDown
-        const lowO = trailingLow(o)
+        const lowO = projLow(o)
         const fundO = cfg.solvFrac * Math.min(askO, Number.isFinite(lowO) ? lowO : askO)
         return spent + needS * askS + needO * fundO
       }

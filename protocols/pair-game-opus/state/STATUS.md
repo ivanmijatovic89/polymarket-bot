@@ -1,18 +1,21 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **143** (first 143 eligible markets)
-- Current level: **144** (first 144 eligible markets)
+- Highest passed level: **146** (first 146 eligible markets)
+- Current level: **147** (first 147 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: score levels 144, 145 and 146, which the sweeps say are already
-solved, and then take the wall at 147.** The look-ahead sweep of the first 152
-paid for itself: the shipped defaults leave exactly **147 (`…1775219400`) and 148
-(`…1775220300`)** failing, both diagnosed below and neither yet repaired. Levels
-144, 145 and 146 have no unsolved market in them — 145 was the wall this session
-and is fixed — but every level run since has been lost to `…1775199600`, which
-is now the binding problem and is described under Flakes.
+**Next step: take the wall at 147 (`…1775219400`), then 148 (`…1775220300`).**
+Both are diagnosed below in detail and neither is repaired; three sweeps of the
+first 152 at the shipped defaults leave exactly those two plus the
+`…1775199600` flake. The two blunt levers the diagnosis suggested — revoking a
+stale licence (`solvZKeep`) and putting a shelf life on the trailing low the
+projections use (`solvLowMs`) — are both **built, measured and inert**: neither
+moves 148 at all and neither takes 147 past 600 of the 1000 DOWN shares it needs.
+**Do not spend the session re-deriving either.** 147 is short of DOWN shares at an
+ask that never comes back under 0.77, and the money for them is gone by t+60;
+start from where the money went, not from which leg was being chased.
 
 ## What passed 145 — a licence to overrule the book is not needed when the book's own plan is unaffordable
 
@@ -377,12 +380,13 @@ Levels **140–142 at `b17517ce`**, all defaults: **140 → 5972**, **141 → 59
 of the first 140 at those defaults returned 0 failures. Runs 5961 and 5962 are
 the two `…1775122200` flakes described under Flakes below.
 
-Level **143 at `b5e0a36c`**, all defaults (`solvArith` shipped on): **143 →
-6010**, every market passed. Two sweeps of the first 152 at those defaults return
-**3 and 2** failures, the difference being the `…1775199600` flake and the rest
-being markets 147 and 148, which are past the current level. Runs 6011 (level
-144) and 6012 (level 145) failed on `…1775199600` alone; market 145 itself passed
-in both.
+Levels **143–146 at `b5e0a36c`**, all defaults (`solvArith` shipped on):
+**143 → 6010**, **144 → 6018**, **145 → 6020**, **146 → 6019**, each with every
+market passed. Three sweeps of the first 152 at those defaults return **3, 2 and
+3** failures, the variation being the `…1775199600` flake and the rest being
+markets 147 and 148, which are past the current level. Runs 6011 (level 144) and
+6012 (level 145) failed on `…1775199600` alone and were re-run; market 145 itself
+passed in both.
 
 Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
 **133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
@@ -439,9 +443,14 @@ lands at 536–542 UP against 1000 DOWN, and in isolation it lands at **970.5 pa
 cost, four draws out of four**, which is a different outcome entirely and only one
 cent inside the ceiling. `…1775109600` (market 25) has just acquired the same
 shape — 973.2 in every sweep and every 25-market probe, 781 DOWN shares twice in a
-level. **Both markets pass in every context except the one that counts.** The
-prefix a level gives a market is 100+ markets of jitter draws deep; a sweep chunk
-is at most 38 and a probe is none.
+level. **Both markets pass in every context except the one that counts.**
+
+**The prefix is not the reproducer.** Replaying the first 125 markets down one
+process — which is exactly the level's prefix for `…1775199600` — passes it at
+970.77, the isolation number. So the level's extra difficulty is not "deeper in
+the jitter stream"; it is only that a level is one more unseeded draw of a market
+that is bimodal, and the two modes are 970 and 536. Both levels 144 and 145
+scored on the re-run. **Re-running works; it just costs forty minutes a time.**
 
 `…1775178000` (market 101) is a reproducible coin flip that fails about 2 draws
 in 24. **`…1775122200` was the expensive one.** It has now cost one level 119 run,
@@ -505,7 +514,7 @@ projections at the moment of the purchase are 1019 against 972 — over and unde
 the ceiling, but by 0.039 and 0.008, well inside `solvArith`'s margins, and the
 model contradicts at 0.18 in any case.
 
-### The one untried idea both of them point at
+### The idea both of them point at, built and measured dead
 
 `projTotal` funds the leg left behind at `trailingLow(o)` — the cheapest ask that
 leg has shown since the window opened. That low never expires. In a window that
@@ -515,13 +524,13 @@ which in a decided window is the losing one. Market 147 at t+60 prefers UP by 10
 against 801, and the 801 rests on a DOWN low of 0.40 that had left the book forty
 seconds earlier.
 
-The obvious experiment is a **shelf life on the low** — fund the abandoned leg at
-the cheapest price it has shown in the last N seconds rather than ever. It is one
-parameter, it touches `solvSwap`, `solvDrop` and now `solvArith` at once, and it
-has never been tried. `solvLevelEdge` / `solvLevelEdgeMax` already record the same
-complaint for the parity waiver — "the comparison must be decided by prices the
-player can still trade at, not by a trailing low that has left the book" — which
-is evidence the axis is real and was only ever patched locally.
+`solvLowMs` is that shelf life — a second sliding-window low, used by the
+projections alone so it does not disturb `chasePad`. **It is not the axis.** On
+market 147: 444 DOWN shares at 10 s, 414 at 20 s and 30 s, 514 at 45 s, **600 at
+60 s**, 514 at 120 s, 514 at 240 s, against 1000 needed — non-monotone, best case
+barely half way. Market 148 does not move at any setting. The reading is still
+true and the estimate is still flattered; it is simply not what decides either
+window. Shipped at 0.
 
 ## Measured dead — do not re-try
 
@@ -536,7 +545,10 @@ probe. **A single-market probe is not evidence for a global pace or cap change.*
 | `+ solvArithZMax=0.09` | **3, then 2** | repaired |
 
 Single-market probes on 147 that did NOT repair it: `solvZKeep` 0.12 and 0.20,
-with and without `solvZKeepChase` → 444 DOWN shares becomes 514 and stops.
+with and without `solvZKeepChase` → 444 DOWN shares becomes 514 and stops;
+`solvLowMs` 10 s / 20 s / 30 s / 45 s / 60 s / 120 s / 240 s → 444 / 414 / 414 /
+514 / 600 / 514 / 514. **Neither lever moves market 148 by a share at any
+setting.**
 
 ### Session 43 — over the first 140 at `cded9496` (baseline 1: market 140)
 

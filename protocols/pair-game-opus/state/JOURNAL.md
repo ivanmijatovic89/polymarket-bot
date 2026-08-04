@@ -3299,3 +3299,28 @@ inside the cost ceiling when they pass, which is why a few milliseconds of timin
 noise flips them. Re-running is currently costing more than the fixes are, and the
 next session should probably treat those two markets as the work rather than as
 bad luck.
+
+**Later the same session.** All three re-runs came back clean: levels 144, 145 and
+146 are scored, so the four levels of the day are 143 through 146 and the wall is
+now market 147.
+
+Two things I want on the record because they cost time and would cost it again.
+First, the coin-flip market: I reproduced its exact level context — the same
+hundred and twenty-four markets replayed ahead of it in a single process — and it
+passed, at the same number it gives when run alone. So the story I told above
+about "a level is a harder draw because the timing noise accumulates" is not what
+is happening. A level is simply one more roll of a market that has two very
+different outcomes and lands on the bad one about half the time. Re-running works;
+it is just slow.
+
+Second, the idea I ended the morning thinking was the next real piece of work — the
+player's affordability estimate leaning on a price that has long since left the
+book — I built and measured, and it is not the answer. Seven settings of the shelf
+life move market 147 from four hundred and forty shares to six hundred at best,
+non-monotonically, and move market 148 not at all. The observation is still
+true; it just is not what decides either window. That is the second lever this
+session that was right in its reading and wrong about what was binding, which is
+worth naming: in both cases the thing I could see happening was not the thing
+costing the money. For 147 the money is gone by the first minute, and the next
+session should start by following where it went rather than by arguing about
+which side was being chased.
