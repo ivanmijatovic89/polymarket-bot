@@ -2666,6 +2666,50 @@ export const ConfigSchema = z.strictObject({
    */
   solvUnder: z.coerce.number().int().min(0).max(1).default(1),
   /**
+   * Share of `qty` by which the receiving assignment may overrun the ceiling and
+   * still satisfy `solvUnder`. 0 ⇒ strictly inside.
+   *
+   * `solvUnder` reads the projection as a verdict, and it is not one: it is
+   * "finish this leg at today's ask, fund the other at the cheapest it has yet
+   * shown", and the second half is a deliberate over-estimate. The leg the
+   * player is NOT chasing is the one the window is abandoning, and by the death
+   * it trades far under any price it has shown so far, so a plan that projects a
+   * few cents per pair outside the ceiling is routinely completed inside it. A
+   * strict reading throws those away with the genuinely unaffordable ones.
+   *
+   * A pad is not the same relaxation as `solvUnder=0`. Off entirely, the rule
+   * degenerates back into the two-overrunning-plans comparison the rejection
+   * note convicted, and the field says so: over the first 115 markets, `0` costs
+   * three markets below level 113 while repairing two above it.
+   */
+  solvUnderPad: z.coerce.number().finite().min(0).max(0.5).default(0.035),
+  /**
+   * 1 ⇒ `solvSwap` may only hand the chase to the leg that is quoted CHEAPER
+   * than the one it is taking the chase away from.
+   *
+   * This is what separates the repair from its casualties once `solvUnderPad`
+   * lets two overrunning plans be compared. In every casualty the swap hands the
+   * chase to the DEARER leg, and there the projection difference is not paid for
+   * by anything the player can buy: the receiving plan only looks cheaper
+   * because the leg it leaves behind once printed a low that is no longer on the
+   * screen. Handing the chase to the cheaper leg is a different claim — the
+   * book's favourite is the expensive half of the pair and the affordable half
+   * is the one worth finishing — and that claim is settled by two live asks
+   * rather than by a stale one.
+   */
+  solvCheap: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * How much cheaper, in dollars per share, the receiving leg must be before
+   * `solvCheap` lets the swap through. 0 ⇒ a single tick is enough.
+   *
+   * A tick is not enough. The one casualty that survives the bare test simply
+   * waits: the swap it wants is blocked at a one-cent DEARER quote and fires a
+   * second later on the same book quoted one cent CHEAPER, which is the noise
+   * the rejection note complained about wearing a different hat. The repair this
+   * gate protects is four cents clear.
+   */
+  solvCheapPad: z.coerce.number().finite().min(0).max(0.5).default(0.03),
+  /**
    * 1 ⇒ `solvSwap` may only hand the chase to the leg the player already holds
    * at least as much of.
    *
@@ -3313,10 +3357,13 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // leg, so `debug>=2` prints ONE line at the instant it first fires. Reads
   // nothing, gates nothing. See `stallFinish`.
   const stallLogged: Record<Side, boolean> = { UP: false, DOWN: false }
-  // One line the first time `solvSwap` changes the chase, for the same reason
-  // the stall instrument exists: the repair and its casualties have to be
-  // compared at the moment of decision, not from the wreckage afterwards.
-  let solvSwapLogged = false
+  // One line each time `solvSwap` changes the chase to a leg it was not already
+  // handing it to, for the same reason the stall instrument exists: the repair
+  // and its casualties have to be compared at the moment of decision, not from
+  // the wreckage afterwards. Keyed on the receiving leg rather than latched
+  // outright, because a market whose FIRST swap is harmless can still be lost by
+  // a second one pointing the other way.
+  let solvSwapLogged: Side | null = null
   // The leg the outside price has licensed `solvSwap` to hand the chase to.
   // See `solvZLatch`.
   let solvZSide: Side | null = null
@@ -4114,15 +4161,25 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
         if (
           projFirstSide > cfg.qty * cfg.pairCeil &&
           projOther < projFirstSide - cfg.solvEdge * cfg.qty &&
-          (cfg.solvUnder === 0 || projOther <= cfg.qty * cfg.pairCeil) &&
+          (cfg.solvUnder === 0 ||
+            projOther <= cfg.qty * (cfg.pairCeil + cfg.solvUnderPad)) &&
           (cfg.solvHeld === 0 || held[o] >= held[first] + cfg.solvHeldPad * cfg.qty) &&
+          // Compared as a GAP with half a tick of slack rather than as
+          // `askFrom - pad`: neither side of that subtraction is exactly
+          // representable, and the identical three-cent gap comes out allowed at
+          // one price level and refused at another. Quotes live on a one-cent
+          // grid, so half a tick separates "more than the pad" from "exactly the
+          // pad" without inventing a new threshold.
+          (cfg.solvCheap === 0 ||
+            (first === 'UP' ? askUp : askDown) - (o === 'UP' ? askUp : askDown) >=
+              cfg.solvCheapPad + 0.005) &&
           (cfg.solvZ <= 0 ||
             (cfg.solvZLatch === 1 && solvZSide === o) ||
             (pModel !== null && (pModel > 0.5 ? 'UP' : 'DOWN') === o && outsideZ >= cfg.solvZ))
         ) {
           if (cfg.solvZ > 0) solvZSide = o
-          if (cfg.debug >= 2 && !solvSwapLogged) {
-            solvSwapLogged = true
+          if (cfg.debug >= 2 && solvSwapLogged !== o) {
+            solvSwapLogged = o
             console.log(
               `[pair.v1] swap slug=${ctx?.market?.slug ?? '?'} ` +
                 `t+${Math.round(elapsed / 1000)}s from=${first} to=${o} ` +
