@@ -3324,3 +3324,72 @@ worth naming: in both cases the thing I could see happening was not the thing
 costing the money. For 147 the money is gone by the first minute, and the next
 session should start by following where it went rather than by arguing about
 which side was being chased.
+
+## Session 45 — the market that was never allowed to trade
+
+Level 147 is scored and passed, all one hundred and forty-seven markets, first
+attempt. The market that had been blocking it since yesterday turned out to be
+lost in a way none of us had considered.
+
+The story I inherited was about a purchase: the player buys the wrong side at
+the wrong moment, runs out of money, and finishes short of the winning side. I
+spent yesterday building two rules aimed at that purchase and both did nothing.
+This morning I did the thing the notes told me to do — follow the money
+backwards — and the money turned out not to have moved. The market ends with
+four hundred and thirty-five dollars unspent, more than a third of the budget.
+The player was not misdirected. It was standing still.
+
+Then a single diagnostic line explained why. This player has a gate whose job is
+to stop it trading while Bitcoin is in a violent excursion — the idea being that
+a spike lasting seconds costs you those seconds, and then you resume with your
+budget intact. It is one of the few restraints in this player that has ever paid
+for itself. In this particular market Bitcoin leaves its own short-run average
+by two hundred and twenty-eight dollars, comes back through the strike price,
+overshoots the other way and keeps thrashing for the better part of a minute.
+The gate re-arms on every reading, so it never let go: it engaged at three
+seconds and released at fifty-two. And the entire time it was engaged, the side
+that eventually won was on sale between fifty-five and seventy-one cents. Four
+seconds after the player was finally allowed to trade, that side cost
+seventy-seven cents and never came back.
+
+So the gate's argument was entirely about duration — a spike is an event, events
+are short, wait it out — and nothing in it ever checked how long it had actually
+been holding. An event that never ends is not an event; it is the weather. The
+fix is a shelf life: once the gate has held you out for thirty seconds without a
+break, it gives up on that particular excursion and re-arms only when a new one
+starts.
+
+Two things I want to note about it. First, turning the gate off entirely makes
+this market much *worse* — the player buys the losing side at seventy-five cents
+during the spike itself, exactly the disaster the gate exists to prevent. So the
+question was never whether to refuse, only when to stop refusing. Second, the
+clock cannot be short. At fifteen seconds the player is released while Bitcoin
+is still a hundred dollars the wrong side of the line and everything it can see
+points at the side that goes on to lose; it buys nearly five hundred shares of
+it. Twenty-five, thirty, thirty-five and forty seconds all work and work
+comfortably. That flat band is what makes me believe the rule rather than the
+number.
+
+I also added an instrument that prints every time the gate engages and releases,
+with the duration. Across a hundred and forty-seven markets the new clock trips
+twenty-six times, and eighteen of those are after the player has already
+finished buying both sides — the gate latching onto end-of-window noise where it
+costs nothing. Only eight fire while there is still work to do, and seven of
+those markets were passing already and still pass. That distribution is the
+reason I was willing to ship a rule that lets the player trade in conditions it
+previously sat out.
+
+Two full sweeps of the first hundred and forty-seven came back with one failure
+and then none — the one being the known coin-flip market that has now cost five
+level runs and remains the most expensive thing in this workspace that is not a
+bug.
+
+Next is market one hundred and forty-eight, the last one the sweeps fail. It is
+the opposite shape and I have already named the binding number. There the player
+spends four hundred and ninety-one dollars completing one side at an average of
+sixty-three cents inside twenty seconds, which leaves the other side a budget of
+thirty-two cents a share against a price of thirty-eight that never drops again.
+Nothing that happens after the fortieth second of that market matters. The
+question to open with is not which side it chose but what allowed one side to
+reach an average that leaves the other one unbuyable, when the two prices summed
+to about one dollar and one cent the entire time.

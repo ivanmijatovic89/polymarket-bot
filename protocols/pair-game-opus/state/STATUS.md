@@ -1,21 +1,71 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **146** (first 146 eligible markets)
-- Current level: **147** (first 147 eligible markets)
+- Highest passed level: **147** (first 147 eligible markets)
+- Current level: **148** (first 148 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: take the wall at 147 (`…1775219400`), then 148 (`…1775220300`).**
-Both are diagnosed below in detail and neither is repaired; three sweeps of the
-first 152 at the shipped defaults leave exactly those two plus the
-`…1775199600` flake. The two blunt levers the diagnosis suggested — revoking a
-stale licence (`solvZKeep`) and putting a shelf life on the trailing low the
-projections use (`solvLowMs`) — are both **built, measured and inert**: neither
-moves 148 at all and neither takes 147 past 600 of the 1000 DOWN shares it needs.
-**Do not spend the session re-deriving either.** 147 is short of DOWN shares at an
-ask that never comes back under 0.77, and the money for them is gone by t+60;
-start from where the money went, not from which leg was being chased.
+**Next step: take the wall at 148 (`…1775220300`).** It is the ONLY market past
+147 that the sweeps fail, and it is diagnosed below with the binding cap named.
+Two levers built for the 147/148 pair are **measured dead and shipped at 0** —
+`solvZKeep` (revoking a stale swap licence) and `solvLowMs` (a shelf life on the
+trailing low the projections use). **Neither moves 148 by a share at any
+setting; do not re-derive them.**
+
+## What passed 147 — a refusal to trade at all needs a shelf life
+
+`spikeMaxMs=30000` (new), plus a new `spikegate` instrument at `debug>=2`.
+
+**Market 147 (`…1775219400`) is not lost to a purchase. It is lost to
+forty-six seconds in which the player was not allowed to buy anything.** The
+whole inherited diagnosis — the latched licence at t+22, the flattered
+projection, "the money is gone by t+60" — was chasing the wrong quantity. The
+money was never spent: the market ends 1000/414 with **435 dollars unspent**.
+
+`debug=3` names it in one line. From t+4 to t+50 every share-room term is
+Infinity or in the hundreds and `room` is 0 anyway, because **`spk=0`** — the
+spike gate. BTC leaves its own five-second average by 228 dollars at t+3, comes
+back through the strike, overshoots and keeps thrashing; the deviation is over
+`spikeEdge` on and off for the whole descent, and `spikeHoldMs` re-arms on every
+one of those readings. The gate engages at t+3 and does not release until t+52.
+DOWN — the winner — is quoted between 0.55 and 0.71 for that entire stretch. The
+player is let out at t+52 with DOWN at 0.70, buys 214 shares, and four seconds
+later the ask is 0.77 and never comes back.
+
+The gate is right to engage: `spikeEdge=0` takes the market to **1000/200**,
+because without it the player buys UP out at 0.75 during the spike itself, on a
+model reading 0.95 that reverses inside a minute. So the axis is not "refuse
+less", it is **when the refusal ends**.
+
+The gate's own note argues entirely about DURATION — "a spike lasting seconds
+costs the player those seconds", "a genuine move settles within one time
+constant and the player resumes with its budget intact" — and nothing anywhere
+checked either claim. An event that never ends is not an event, it is the
+regime. `spikeMaxMs` is that check: once the gate has been engaged without a
+break for this long it LAPSES for the rest of that excursion, and re-arms only
+once the deviation has gone quiet and a new excursion starts.
+
+| Configuration (first 147) | Failures | Market 147 |
+|---|---|---|
+| baseline (level 146 defaults) | 1 — market 147 (+ the flake) | 1000/414 |
+| `spikeMaxMs=15000` | — | **NOT** repaired — 688/200 |
+| `spikeMaxMs=30000` | **1 (the flake), then 0** | 1000/1000 @ 0.972 |
+| `spikeMaxMs=40000` | 1 (the flake) | 1000/1000 @ 0.916 |
+
+The band is wide and flat — 25, 30, 35 and 40 all pass market 147 (0.932,
+0.972, 0.952, 0.916). **The lower edge is real and it is the interesting part:**
+at 15 s the gate gives up at t+18, while BTC is still a hundred dollars the
+wrong side of the strike and both the book and the model lean at the leg that
+then loses, and the player buys 488 shares of it. The clock is not "release as
+early as possible"; it is long enough for a genuine excursion to resolve and
+short enough that no window can spend a minute unable to trade.
+
+The `spikegate` instrument makes the shape checkable rather than assumed: over
+the first 147 markets the lapse fires 26 times, and **18 of those are after both
+legs are already complete** — the gate latching on the endgame's noise, where it
+costs nothing either way. Of the eight that fire on an unfinished pair, seven
+were already passing and still pass.
 
 ## What passed 145 — a licence to overrule the book is not needed when the book's own plan is unaffordable
 
@@ -388,6 +438,9 @@ markets 147 and 148, which are past the current level. Runs 6011 (level 144) and
 6012 (level 145) failed on `…1775199600` alone and were re-run; market 145 itself
 passed in both.
 
+Level **147 at `d3a54b43`**, all defaults (`spikeMaxMs=30000` shipped):
+**147 → 6062**, `passed=147/147`, every market passed on the first attempt.
+
 Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
 **133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
 **138 → 5920**, **139 → 5921**, each with every market passed. Level 137's
@@ -475,67 +528,62 @@ only difference is how much DOWN was accumulated before the sixth.
 single clean sweep as weak evidence; sweeps are unseeded, so two sweeps at the
 same settings are two different draws.
 
-## The wall at 147 and 148 — what is already known
+## The wall at 148 — what is already known
 
-Both are the same hour as 145 and both settle DOWN. Neither is a chase problem in
-the way 130, 133 and 140 were.
+**148 (`…1775220300`)**, same hour as 145 and 147, settles DOWN. Between t+20
+and t+40 the player takes UP from 219 to 1000 — 781 shares for 491 dollars, an
+average of 0.63 — on a 0.59 / 0.42 book with `pModel` at 0.586 and `z` at 0.18.
+**The window is dead at t+40 and nothing after t+40 matters.**
 
-**147 (`…1775219400`)** decides in the first sixty seconds and never comes back —
-`z` is past 1.0 by t+360 and past 3.0 at the death. The player is 200/200 at t+40,
-buys 244 DOWN at 0.72 by t+60, then takes UP from 200 to 1000 for 179 dollars at
-an average of 0.22 and stops at 1000/444. **The UP purchase is not the mistake —
-it is cheap and it is the loser.** What the window is short of is 556 DOWN shares
-at an ask that never comes back under 0.77: 414 dollars left against roughly 460
-needed. Trace the money backwards and the window is already lost at t+60, and
-comfortably winnable at t+40, where 800 DOWN at 0.61 plus 800 UP at the death
-totals about 816.
+`debug=3` names the two halves cleanly and they are the level-109 pathology in
+its purest form yet:
 
-The chase at t+60 is handed to UP by the solvency swap on a **latched licence
-earned at t+22**, when `pModel` was 0.685 UP; by t+60 it is 0.170. That is the
-same rule `ptbFairModelKeep` records — a licence may not outlive the reading that
-earned it — and the new `solvZKeep` / `solvZKeepChase` levers implement it. They
-are **measured and inert**: at 0.12 and 0.20, with and without the chase latch,
-market 147 goes from 444 to 514 DOWN shares and no further. **The chase is not
-what is binding there.**
+- **What paces UP is `edgeRoom`, and what releases it is completion.** At t+18
+  and t+26 `edge` is −19 and UP cannot buy; at t+30 it opens to 31 shares; on
+  the next tick UP is `completing` and every room term goes to Infinity. No
+  price cap binds UP anywhere — its cap sits at 0.68 against asks of 0.53–0.56.
+- **From t+34 onward DOWN has unlimited SHARE room and a price cap of 0.3203**,
+  because UP's realized 0.63 leaves the underdog exactly that much of the
+  ceiling. DOWN's ask is 0.38 at that instant and never goes below it again.
+  DOWN buys nothing for the remaining fourteen minutes and the market ends
+  1000/200.
 
-The deeper thing 147 exposes: `projTotal` funds the leg left behind at the
-cheapest price that leg has EVER shown. In a window that has decided, the loser
-keeps getting cheaper and **the winner never returns to its low**, so the
-projection systematically flatters the plan that chases the currently-cheap leg.
-At t+60 it prefers UP by 1007 against 801, and the 801 is built on a DOWN low of
-0.40 that had already left the book forty seconds earlier.
+The projections at the moment of the purchase are 1019 against 972 — over and
+under the ceiling, but by 0.039 and 0.008, well inside `solvArith`'s margins,
+and the model contradicts at 0.18 in any case, so `solvArithZMax` refuses too.
 
-**148 (`…1775220300`)** is shorter to state and harder. Between t+20 and t+40 the
-player takes UP from 219 to 1000 — 781 shares for 491 dollars, an average of 0.63
-— on a 0.59 / 0.42 book with `pModel` at 0.586 and `z` at 0.18. That leaves 266
-dollars for 800 DOWN shares whose ask is 0.42 at that instant and never below it
-again. **The window is dead at t+40 and nothing after t+40 matters.** The
-projections at the moment of the purchase are 1019 against 972 — over and under
-the ceiling, but by 0.039 and 0.008, well inside `solvArith`'s margins, and the
-model contradicts at 0.18 in any case.
+Both levers built for this window are shipped at 0 and **measured dead — do not
+re-derive them**: `solvZKeep` (revoking a stale swap licence) and `solvLowMs`
+(a shelf life on the trailing low `projTotal` funds the abandoned leg at).
+Neither moves 148 by a share at any setting. The `solvLowMs` reading is still
+true — the loser keeps getting cheaper and the winner never returns to its low,
+so the estimate flatters whichever plan chases the currently-cheap leg — it is
+simply not what decides this window.
 
-### The idea both of them point at, built and measured dead
-
-`projTotal` funds the leg left behind at `trailingLow(o)` — the cheapest ask that
-leg has shown since the window opened. That low never expires. In a window that
-has decided, the loser keeps getting cheaper and **the winner never returns to its
-low**, so the estimate flatters whichever plan chases the currently-cheap leg,
-which in a decided window is the losing one. Market 147 at t+60 prefers UP by 1007
-against 801, and the 801 rests on a DOWN low of 0.40 that had left the book forty
-seconds earlier.
-
-`solvLowMs` is that shelf life — a second sliding-window low, used by the
-projections alone so it does not disturb `chasePad`. **It is not the axis.** On
-market 147: 444 DOWN shares at 10 s, 414 at 20 s and 30 s, 514 at 45 s, **600 at
-60 s**, 514 at 120 s, 514 at 240 s, against 1000 needed — non-monotone, best case
-barely half way. Market 148 does not move at any setting. The reading is still
-true and the estimate is still flattered; it is simply not what decides either
-window. Shipped at 0.
+Market 147 was repaired by looking at where the money went and finding it had
+never been spent. **148 is the opposite case and the number to start from is
+0.3203**: ask what allowed UP to reach an average that leaves the other leg
+thirty-two cents, when the two asks summed to 1.01 the whole time.
 
 ## Measured dead — do not re-try
 
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
+
+### Session 45 — over the first 147 at `dc7d5574` (baseline 1: market 147)
+
+| Change | Failures | Market 147 |
+|---|---|---|
+| `spikeMaxMs=30000` | **1 (the flake), then 0** | repaired — 1000/1000 |
+| `spikeMaxMs=40000` | 1 (the flake) | repaired |
+
+Single-market probes on 147: `spikeEdge=0` (gate off) → **1000/200, far worse**;
+`spikeHoldMs=0` → 1000/200; `spikeEdge=70` → 1000/517; `spikeTauMs=15000` →
+1000/200; `spikeMaxMs=15000` → 688/200. Repaired by `spikeEdge=50` (1000/1000)
+and by `spikeMaxMs` at 25, 30, 35 and 40 s. **`spikeEdge` itself is not the lever
+to raise** — its own note measures 45 and 50 losing the two spike markets over
+the first sixty; the shelf life gets the same repair without touching the
+threshold.
 
 ### Session 44 — over the first 152 at `e4e14184` (baseline 4: the flake, 145, 147, 148)
 
@@ -706,6 +754,7 @@ leg at the top of a slow trend.
   `ptbFairTakeRiseZ=0.15`.
 - **145** — `solvArith=1` + `solvArithOver=0.05` + `solvArithUnder=0.03` +
   `solvArithZMax=0.09`.
+- **147** — `spikeMaxMs=30000`.
 
 ## Tools
 
@@ -741,8 +790,18 @@ leg at the top of a slow trend.
     conviction latch, with `pModel`, `z`, `diff` against `needDiff`, both asks
     and both holdings. It is what proved the revocation is a noise-level sign
     test.
+  - **`spikegate`** (new) — one line per unbroken spike-gate engagement, with
+    when it began, how long it lasted, the peak deviation, whether it ended
+    naturally or on `spikeMaxMs`, and the holdings and asks at the end. It is
+    what showed that market 147's gate holds for forty-six seconds while every
+    other engagement in the field is a dozen, and that most long ones happen
+    after both legs are already complete.
   - `obs` — one line per `debugEveryMs` for the WHOLE window (set
     `debugEveryMs=900000` to silence it and keep the others).
+  - **The `obs` channel is `debug === 2` EXACTLY**, while every other instrument
+    above is `debug >= 2`. `debug=4` therefore prints priority changes and NO
+    observation lines, which reads exactly like a quiet window. Run the two
+    separately.
 - **`--param debug=3` names the binding cap**; **`--param debug=4` names the rule
   that took the chase**, one line per change of priority; **`--param debug=5`
   prints the underdog's budget**.
@@ -763,6 +822,18 @@ leg at the top of a slow trend.
 
 ### Traps that have each cost a session
 
+- **Read the money that was never spent before the money that was.** Market 147
+  ends 435 dollars under its ceiling and the whole inherited diagnosis was about
+  which leg a 179-dollar purchase should have gone to. `spent` in the `obs`
+  channel is flat from t+2 to t+50 and that single frozen number is the market.
+  When a window ends short of shares, check the unspent balance FIRST: if it is
+  large the player was blocked, not misdirected, and no rule about direction can
+  reach it.
+- **A rule with a clock on how long it STAYS ON is a different rule from one
+  with a clock on how long it takes to turn on.** `spikeHoldMs` re-arms on every
+  fresh reading, so its ten seconds bound nothing: forty-six seconds of readings
+  produce forty-six seconds of refusal. Any gate that re-arms needs a separate
+  bound on the total engagement, or its documented duration is fiction.
 - **A decision the player never took leaves no trace.** Every instrument in this
   file prints when a rule FIRES. Market 145 was lost by a rule that was asking to
   fire on nearly every tick for six minutes and was refused, and nothing in any
