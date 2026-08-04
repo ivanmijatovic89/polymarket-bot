@@ -316,6 +316,81 @@ export const ConfigSchema = z.strictObject({
    */
   convDwellMs: z.coerce.number().finite().min(0).default(0),
   /**
+   * Remember which leg conviction named, instead of re-deriving it from the
+   * live book on every tick. 1 ⇒ the first tick on which the book leans by
+   * `convEdge` records the dearer leg, and for as long as the latch is in force
+   * that leg keeps the chase even when the lean momentarily narrows.
+   *
+   * Market 120 is the whole argument. The book opens 0.44 / 0.57 and the
+   * outside price agrees with it from the first second and never stops
+   * agreeing; the player nevertheless buys out the OTHER leg inside a minute
+   * and cannot afford the winner's last three hundred shares. The reassignment
+   * rule is not involved and cannot be — its clock does not open until t+60 and
+   * the leg is already finished by then. What loses the window is four seconds
+   * of the opening: at t+0 conviction is on and names DOWN, at t+4 the asks
+   * wobble two cents each way, the lean reads 0.11 against a `convEdge` of
+   * 0.12, conviction switches off for that tick, and the momentum EMA — four
+   * seconds old — hands the chase to UP and never gives it back.
+   *
+   * The mechanism the override exists for is "a window that opens trending
+   * never offers the favourite cheaper". That claim is about the OPENING read,
+   * so re-taking it every tick against a reading with a four-second memory is a
+   * mistake of the same kind `solvZLatch` and `fairLagLatch` fixed: a reading
+   * that licences a decision has to be remembered, because the decision is
+   * re-taken every tick.
+   *
+   * The latch names a leg; it does not pin the chase to it. Everything below
+   * the override — the outside price, the solvency reassignment, the depth
+   * handover — still overrules it on the same tick, so this is not a permanent
+   * override of the book's own choice.
+   */
+  convLatch: z.coerce.number().int().min(0).max(1).default(1),
+  /**
+   * How long the `convLatch` leg keeps the chase, in ms from the window start.
+   * 0 ⇒ the same bound conviction itself has, `convUntil × 15 min`.
+   *
+   * The latch's job is to carry the opening read across the seconds in which
+   * the lean dips below `convEdge`, so it must outlive the dip; whether it
+   * should also outlive conviction's own window is a separate question and this
+   * is where it gets answered.
+   */
+  convLatchMs: z.coerce.number().finite().min(0).default(0),
+  /**
+   * The volatility-normalised distance at which the OUTSIDE price is allowed to
+   * revoke the `convLatch` leg. The latch dies — for the rest of the window,
+   * not just for the tick — the first time the model favours the other leg by
+   * at least this much.
+   *
+   * The latch is a memory of the opening book, and the one thing that must be
+   * able to overrule the book is the thing that is not the book. Market
+   * `…1775150100` is what happens without this: it opens 0.42 / 0.60, the latch
+   * names DOWN, and four seconds later the book has crossed over and the model
+   * is at 0.54 for UP and climbing to 0.65 with `z` near 1. The latch keeps the
+   * chase on DOWN regardless, buys it out for 463 dollars, and UP — the winner
+   * — is never bought at all, because by the time the latch expires UP is 0.65
+   * and no longer fits inside what is left of the ceiling.
+   *
+   * 0 ⇒ any model disagreement at all revokes it, which is the cautious reading
+   * and the default: the latch is an opinion formed in the first seconds of a
+   * window, and it should not be asked to outrank a witness that is looking at
+   * BTC itself. Set it high to keep the latch through a contradiction.
+   */
+  convLatchZ: z.coerce.number().finite().min(0).default(0),
+  /**
+   * How late into the window the `convLatch` leg may still be RECORDED.
+   * 0 ⇒ anywhere inside conviction's own window.
+   *
+   * The mechanism's premise is about a window that OPENS trending: such a
+   * window, the argument goes, never offers the favourite cheaper than it is
+   * now. A lean that only appears half a minute in is a different animal — the
+   * window did not open trending, it drifted — and remembering that drift is
+   * how market `…1775155500` is lost. There the book is inside the deadband for
+   * the first twenty-five seconds, crosses `convEdge` at t+27 with DOWN dear,
+   * and the latch pins the chase to DOWN for the eight seconds it takes to buy
+   * four hundred and sixty-nine shares of the leg that settles at zero.
+   */
+  convLatchByMs: z.coerce.number().finite().min(0).default(10_000),
+  /**
    * How much of the OTHER leg's current ask, rather than `underdogMax`, the
    * priority leg must leave behind for it. 0 reserves at `underdogMax`; 1
    * reserves the other leg's full shown price.
@@ -3363,8 +3438,15 @@ export const ConfigSchema = z.strictObject({
    */
   takeSmall: z.coerce.number().finite().min(0).max(1).default(0.25),
   /** 1 ⇒ print a per-window diagnostic summary (book extremes, fills). */
-  /** 0 off, 1 the decision timeline, 2 the whole-window observation channel. */
-  debug: z.coerce.number().int().min(0).max(3).default(0),
+  /**
+   * 0 off, 1 the decision timeline, 2 the whole-window observation channel,
+   * 3 the room caps by name, 4 the priority trail: one line every time the leg
+   * being chased changes, naming the reading that took it (`fair`, `dep`, `fh`,
+   * `sdrop`, `swap`) next to what the conviction stage had chosen. Level 4
+   * prints on change rather than on a clock, so it is cheap and it is the
+   * fastest way to find out WHICH rule handed the chase over.
+   */
+  debug: z.coerce.number().int().min(0).max(4).default(0),
   /** Debug log interval in ms. Drop to ~1000 to watch a fast window tick by tick. */
   debugEveryMs: z.coerce.number().finite().positive().default(60_000),
 })
@@ -3572,6 +3654,14 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   // When the current unbroken stretch of "the book leans by at least
   // `convEdge`" began. Null while the book is inside the deadband.
   let leanSinceMs: number | null = null
+  // The leg conviction named the first time it fired in this window, kept so
+  // the opening read survives a lean that momentarily narrows. See `convLatch`.
+  let convLeg: Side | null = null
+  // Whether the outside price has contradicted that opening read. Once it has,
+  // the latch is gone for the rest of the window. See `convLatchZ`.
+  let convLatchDead = false
+  let dbgLastFirst: Side | null = null
+  let dbgLastConvFirst: Side | null = null
 
   /**
    * Sliding-window minimum of each leg's ask, as a monotonically increasing
@@ -3841,6 +3931,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       leanSinceMs = null
     }
     const leanHeldMs = leanSinceMs === null ? 0 : nowMs - leanSinceMs
+    // The conviction latch, recorded here rather than next to `conv` for the
+    // same reason the lean clock is: the ticks below the early returns still
+    // happened, and the opening lean this is meant to remember can arrive on
+    // one of them.
+    if (
+      cfg.convLatch === 1 &&
+      convLeg === null &&
+      cfg.convEdge < 1 &&
+      edge >= cfg.convEdge &&
+      leanHeldMs >= cfg.convDwellMs &&
+      elapsed <= (cfg.convLatchByMs > 0 ? cfg.convLatchByMs : cfg.convUntil * WINDOW_MS)
+    ) {
+      convLeg = askUp >= askDown ? 'UP' : 'DOWN'
+    }
     const sustainedEdge =
       cfg.edgeHoldMs > 0 && nowMs - windowStartMs >= cfg.edgeHoldAfterMs
         ? (edgeQ[0]?.v ?? edge)
@@ -3972,6 +4076,20 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     const pModel =
       diff === null ? null : normCdf(diff / (cfg.ptbSigma * Math.sqrt(Math.max(leftFrac, 1e-6))))
     const pBook = askUp + askDown > 0 ? askUp / (askUp + askDown) : 0.5
+    // The opening lean, revoked. Evaluated here — above the early returns, and
+    // above the branch that stops running once a leg completes — because a
+    // contradiction can arrive on any tick and the latch is only safe while
+    // nothing outside the book has contradicted it. See `convLatchZ`.
+    if (
+      cfg.convLatch === 1 &&
+      convLeg !== null &&
+      !convLatchDead &&
+      pModel !== null &&
+      (pModel > 0.5 ? 'UP' : 'DOWN') !== convLeg &&
+      outsideZ >= cfg.convLatchZ
+    ) {
+      convLatchDead = true
+    }
     // How old the book's lean on each leg is: the last moment the book was not
     // already pricing that leg above even. See `depthFreshMs`.
     if (pBook <= 0.5) lastEvenMs.UP = nowMs
@@ -4291,8 +4409,17 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
               ? 'UP'
               : 'DOWN'
       }
-      // A book leaning this hard overrides the trend reading: chase the favourite.
+      // A book leaning this hard overrides the trend reading: chase the
+      // favourite. With `convLatch` the favourite is the one the opening lean
+      // named, and it keeps the chase across the seconds the lean spends inside
+      // the deadband — up to `convLatchMs`, or conviction's own window.
+      const latchedConv =
+        cfg.convLatch === 1 &&
+        convLeg !== null &&
+        !convLatchDead &&
+        elapsed <= (cfg.convLatchMs > 0 ? cfg.convLatchMs : cfg.convUntil * WINDOW_MS)
       if (conv > 0) first = askUp >= askDown ? 'UP' : 'DOWN'
+      const dbgFirstConv = latchedConv ? (convLeg as Side) : first
       // In the opening seconds of a book that is still close to even, neither
       // the lean nor the trend reading is information, and both of them name the
       // dearer leg. Lead with the cheaper one instead. See `openCheapMs`.
@@ -4309,6 +4436,15 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       // not a matter of opinion.
       if (cfg.ptbMode === 1 && cfg.ptbPriority === 1 && outsideSide !== null) first = outsideSide
       if (cfg.ptbMode === 1 && cfg.ptbFair === 1 && fairSide !== null) first = fairSide
+      // The latched opening lean is applied HERE, below the fair-lag reading
+      // rather than above it, because the reading it has to survive is that one.
+      // The fair-lag rule names the leg the book has run further from than the
+      // model has — a VALUE argument, and in a window that is trending the
+      // cheap leg and the losing leg are the same leg. On market 120 the model
+      // and the book agree all window that DOWN wins, and at t+45 the fair-lag
+      // reading hands the chase to UP anyway, with DOWN three quarters bought
+      // and the money still there to finish it. See `convLatch`.
+      if (latchedConv) first = convLeg as Side
       // Arithmetic overrides every opinion above. Chasing a leg is only worth
       // doing if the pair it belongs to can still be completed, and that is a
       // sum the player can evaluate from prices it has actually seen: finish
@@ -4619,6 +4755,19 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       if (cfg.priorityLatch === 1) {
         if (conv > 0 || latched === null) latched = first
         first = latched
+      }
+      if (cfg.debug >= 4 && (dbgLastFirst !== first || dbgLastConvFirst !== dbgFirstConv)) {
+        dbgLastFirst = first
+        dbgLastConvFirst = dbgFirstConv
+        console.log(
+          `[pair.v1] trail t+${Math.round(elapsed / 1000)}s conv=${conv.toFixed(2)} ` +
+            `latch=${convLeg ?? '-'}/${latchedConv ? 1 : 0} afterConv=${dbgFirstConv} ` +
+            `fair=${fairSide ?? '-'} out=${outsideSide ?? '-'} final=${first} ` +
+            `dep=${depthHandover ?? '-'} fh=${fairHandover ?? '-'} ` +
+            `sdrop=${solvDemoted ?? '-'} swap=${solvSwapLogged ?? '-'} ` +
+            `held=${held.UP.toFixed(0)}/${held.DOWN.toFixed(0)} ` +
+            `ask=${askUp.toFixed(3)}/${askDown.toFixed(3)} spent=${spent.toFixed(0)}`,
+        )
       }
       committed = first
       leadSide = first
