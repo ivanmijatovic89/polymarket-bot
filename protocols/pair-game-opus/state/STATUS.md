@@ -1,16 +1,64 @@
 # Status — Pair Game Opus
 
-- Highest passed level: **142** (first 142 eligible markets)
-- Current level: **143** (first 143 eligible markets)
+- Highest passed level: **143** (first 143 eligible markets)
+- Current level: **144** (first 144 eligible markets)
 - Active strategy: **`pair-game-opus-pair.v1`** (`strategies/pair.v1.ts`), all
   defaults — no `--param` needed
 - Inbox processed through: `2026-08-03T11:37:27.659Z-35d1de5f`
 
-**Next step: play level 143, then 144 and onward.** No wall is known past 142 —
-levels 141 and 142 both scored on the shipped defaults with no change at all.
-A look-ahead sweep of the first 148–150 is the cheapest way to find the next wall
-before spending a level run on it, and it also re-samples the two flakes below,
-which cost three of this session's six level runs.
+**Next step: score levels 144, 145 and 146, which the sweeps say are already
+solved, and then take the wall at 147.** The look-ahead sweep of the first 152
+paid for itself: the shipped defaults leave exactly **147 (`…1775219400`) and 148
+(`…1775220300`)** failing, both diagnosed below and neither yet repaired. Levels
+144, 145 and 146 have no unsolved market in them — 145 was the wall this session
+and is fixed — but every level run since has been lost to `…1775199600`, which
+is now the binding problem and is described under Flakes.
+
+## What passed 145 — a licence to overrule the book is not needed when the book's own plan is unaffordable
+
+`solvArith=1`, `solvArithOver=0.05`, `solvArithUnder=0.03`, `solvArithZMax=0.09`
+(all new).
+
+Market 145 (`…1775217600`) is a coin flip for ten minutes and then decides DOWN
+outright. At t+436 the player holds 625 UP / 531 DOWN with 361 dollars left, and
+the book has opened to 0.73 / 0.28. It spends 252 of the 361 completing **UP** at
+an average of 0.67 — the dear leg, on the widest gap of the window — and finishes
+1000 / 531 with DOWN unbuyable at 0.93. It is the level-109 pathology again: the
+licence to own a whole leg and the cheapest price the other leg will ever show
+are the same number.
+
+The new `swapmiss` instrument is what found it. **A swap that never fires leaves
+no trace at all**, so a window lost to a plan the arithmetic had already
+convicted looked exactly like a window nobody questioned. Printed, the solvency
+swap is asking to hand the chase to DOWN on nearly every tick from t+60 to t+436,
+and at the end it is refused by `solvZ` alone with `projFrom=1040` against
+`projTo=901`.
+
+`solvZ` is a **licence to overrule the BOOK** — the swap is about to disagree
+with the leg the order book prices as the winner, so the outside price has to
+back it first. That argument is about an OPINION. When the plan the book prefers
+cannot be paid for at all, the swap is not contradicting the book about who wins:
+the book may be perfectly right, and the pair is still unaffordable. Declining to
+fund a purchase that leaves the other leg unbuyable needs no licence — the same
+shape as the parity waiver, where at parity the swap abandons nothing.
+
+The margins are what make it a decision rather than a restatement of the entry
+condition, which is already "the current plan overruns". `projTotal` funds the leg
+left behind at the cheapest price that leg has EVER shown, so a plan a dollar over
+the ceiling and one a dollar under it are the same plan.
+
+| Configuration (first 152) | Failures |
+|---|---|
+| baseline (level 142 defaults) | 4 — the `…1775199600` flake, 145, 147, 148 |
+| `solvArith=1` at 0.05 / 0.03, no `solvArithZMax` | 4 — `…1775093400`, `…1775162700`, 147, 148 |
+| `+ solvArithZMax=0.09` | **3 — the flake, 147, 148** |
+
+Both casualties of the bare waiver are the `solvLevelZMax` shape yet again: the
+swap hands the chase to the cheap leg at t+60 with BTC already well onto the other
+side (`pModel` 0.069 and 0.419 against the promoted leg), buys it out, and the
+market settles where the model was pointing. Market 145's own fire is contradicted
+too, but at z=0.07 against their 0.18 and 0.10 — **missing backing and
+contradicted backing are not the same state**, for the third rule running.
 
 ## What passed 140 — a discount may not be spent on a leg the book is marking up
 
@@ -329,6 +377,13 @@ Levels **140–142 at `b17517ce`**, all defaults: **140 → 5972**, **141 → 59
 of the first 140 at those defaults returned 0 failures. Runs 5961 and 5962 are
 the two `…1775122200` flakes described under Flakes below.
 
+Level **143 at `b5e0a36c`**, all defaults (`solvArith` shipped on): **143 →
+6010**, every market passed. Two sweeps of the first 152 at those defaults return
+**3 and 2** failures, the difference being the `…1775199600` flake and the rest
+being markets 147 and 148, which are past the current level. Runs 6011 (level
+144) and 6012 (level 145) failed on `…1775199600` alone; market 145 itself passed
+in both.
+
 Levels **133–139 at `642f13a7`**, all defaults, one `play-level` run each:
 **133 → 5909**, **134 → 5915**, **135 → 5914**, **136 → 5916**, **137 → 5919**,
 **138 → 5920**, **139 → 5921**, each with every market passed. Level 137's
@@ -376,8 +431,20 @@ failures; a look-ahead sweep of the first 140 fails only on market 140
 
 ## Flakes
 
+**`…1775199600` (market 125) is now the expensive one and it is close to needing
+its own fix.** It has cost the first level 142 run, one level 143 run, one level
+144 run and one level 145 run — four level runs, against three level runs it has
+passed (140, 141, 142). It is not a coin flip in the ordinary sense: in a level it
+lands at 536–542 UP against 1000 DOWN, and in isolation it lands at **970.5 pair
+cost, four draws out of four**, which is a different outcome entirely and only one
+cent inside the ceiling. `…1775109600` (market 25) has just acquired the same
+shape — 973.2 in every sweep and every 25-market probe, 781 DOWN shares twice in a
+level. **Both markets pass in every context except the one that counts.** The
+prefix a level gives a market is 100+ markets of jitter draws deep; a sweep chunk
+is at most 38 and a probe is none.
+
 `…1775178000` (market 101) is a reproducible coin flip that fails about 2 draws
-in 24. **`…1775122200` is the expensive one.** It has now cost one level 119 run,
+in 24. **`…1775122200` was the expensive one.** It has now cost one level 119 run,
 one level 137 run and **two consecutive level 140 runs** (5961 and 5962, both
 1000/776.21 to the hundredth), before passing on the third. `…1775110500` and
 `…1775136600` have each shown the same shape.
@@ -399,10 +466,59 @@ only difference is how much DOWN was accumulated before the sixth.
 single clean sweep as weak evidence; sweeps are unseeded, so two sweeps at the
 same settings are two different draws.
 
+## The wall at 147 and 148 — what is already known
+
+Both are the same hour as 145 and both settle DOWN. Neither is a chase problem in
+the way 130, 133 and 140 were.
+
+**147 (`…1775219400`)** decides in the first sixty seconds and never comes back —
+`z` is past 1.0 by t+360 and past 3.0 at the death. The player is 200/200 at t+40,
+buys 244 DOWN at 0.72 by t+60, then takes UP from 200 to 1000 for 179 dollars at
+an average of 0.22 and stops at 1000/444. **The UP purchase is not the mistake —
+it is cheap and it is the loser.** What the window is short of is 556 DOWN shares
+at an ask that never comes back under 0.77: 414 dollars left against roughly 460
+needed. Trace the money backwards and the window is already lost at t+60, and
+comfortably winnable at t+40, where 800 DOWN at 0.61 plus 800 UP at the death
+totals about 816.
+
+The chase at t+60 is handed to UP by the solvency swap on a **latched licence
+earned at t+22**, when `pModel` was 0.685 UP; by t+60 it is 0.170. That is the
+same rule `ptbFairModelKeep` records — a licence may not outlive the reading that
+earned it — and the new `solvZKeep` / `solvZKeepChase` levers implement it. They
+are **measured and inert**: at 0.12 and 0.20, with and without the chase latch,
+market 147 goes from 444 to 514 DOWN shares and no further. **The chase is not
+what is binding there.**
+
+The deeper thing 147 exposes: `projTotal` funds the leg left behind at the
+cheapest price that leg has EVER shown. In a window that has decided, the loser
+keeps getting cheaper and **the winner never returns to its low**, so the
+projection systematically flatters the plan that chases the currently-cheap leg.
+At t+60 it prefers UP by 1007 against 801, and the 801 is built on a DOWN low of
+0.40 that had already left the book forty seconds earlier.
+
+**148 (`…1775220300`)** is shorter to state and harder. Between t+20 and t+40 the
+player takes UP from 219 to 1000 — 781 shares for 491 dollars, an average of 0.63
+— on a 0.59 / 0.42 book with `pModel` at 0.586 and `z` at 0.18. That leaves 266
+dollars for 800 DOWN shares whose ask is 0.42 at that instant and never below it
+again. **The window is dead at t+40 and nothing after t+40 matters.** The
+projections at the moment of the purchase are 1019 against 972 — over and under
+the ceiling, but by 0.039 and 0.008, well inside `solvArith`'s margins, and the
+model contradicts at 0.18 in any case.
+
 ## Measured dead — do not re-try
 
 Everything below was measured over the FULL market set, not a single-market
 probe. **A single-market probe is not evidence for a global pace or cap change.**
+
+### Session 44 — over the first 152 at `e4e14184` (baseline 4: the flake, 145, 147, 148)
+
+| Change | Failures | Market 145 |
+|---|---|---|
+| `solvArith=1` at 0.05 / 0.03, no `solvArithZMax` | 4 — two NEW casualties | repaired |
+| `+ solvArithZMax=0.09` | **3, then 2** | repaired |
+
+Single-market probes on 147 that did NOT repair it: `solvZKeep` 0.12 and 0.20,
+with and without `solvZKeepChase` → 444 DOWN shares becomes 514 and stops.
 
 ### Session 43 — over the first 140 at `cded9496` (baseline 1: market 140)
 
@@ -558,9 +674,18 @@ leg at the top of a slow trend.
 - **133–139** — `solvLevelDemoted=1` + `solvLevelZMax=0.25`.
 - **140** — `ptbFairTakeRise=0.025` + `ptbFairTakeRiseLatch=1` +
   `ptbFairTakeRiseZ=0.15`.
+- **145** — `solvArith=1` + `solvArithOver=0.05` + `solvArithUnder=0.03` +
+  `solvArithZMax=0.09`.
 
 ## Tools
 
+- **`swapmiss` (new, `debug>=2`)** — one line the first time the solvency swap
+  WANTS to change the chase and is refused, naming which of `solvUnder`,
+  `solvHeld`, `solvCheap` and `solvZ` said no, with both projections. At
+  `debug=6` it is throttled to one line per ten seconds instead of once per
+  receiving leg, which is what you want when the refusal that matters is the
+  hundredth one rather than the first. It is the instrument that found market
+  145, and it is the only way to see a decision the player never took.
 - **`tools/sweep80.sh <tag> <N> [--param k=v ...]`** — one parameter set over the
   first N markets in four parallel chunks, printing only the failures. About
   ninety seconds for 130 markets. This is the workhorse.
@@ -608,6 +733,12 @@ leg at the top of a slow trend.
 
 ### Traps that have each cost a session
 
+- **A decision the player never took leaves no trace.** Every instrument in this
+  file prints when a rule FIRES. Market 145 was lost by a rule that was asking to
+  fire on nearly every tick for six minutes and was refused, and nothing in any
+  channel said so. Before diagnosing a window from the rules that acted, ask
+  which rule wanted to act and did not — `swapmiss` is that channel for the
+  solvency swap and there is no equivalent for anything else yet.
 - **A refusal that expires by itself is not a rule.** The mark-up gate refused
   market 140's override on three settings and changed the outcome by nothing at
   all, because twenty seconds later its own trailing window had rolled past the
