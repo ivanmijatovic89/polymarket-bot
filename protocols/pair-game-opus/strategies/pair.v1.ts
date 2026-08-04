@@ -2780,20 +2780,20 @@ export const ConfigSchema = z.strictObject({
    * the moment of decision — 219 against 469 and 344 against 200 — so a waiver
    * this narrow cannot re-admit either of them.
    *
-   * MEASURED AND INERT, and the reasoning above is worth keeping only as a
-   * warning. At 0.02, alongside `solvAfterMs` at 20 s, it does repair the
-   * window blocking level 115 — the swap fires at t+21 with both legs on 200 —
-   * and costs eight to ten of the first 115 markets, every one of them a leg
-   * stranded at 200 while its partner finishes. The moment-of-decision
-   * instrument says why there is no narrowing that saves it: printed side by
-   * side, the repair and its eight casualties are inseparable on every field
-   * the player has. The repair projects 985 against a ceiling of 970 with a
-   * four-cent gap between the asks and the model leaning two points AGAINST the
-   * leg it promotes; the casualties project 872 to 1003, at gaps from four to
-   * twenty-nine cents, with the model leaning anywhere from twenty-four points
-   * against to nine points for. The repair sits in the middle of that range on
-   * all three readings, so it is not a decision the player got right — it is a
-   * coin flip that landed.
+   * Bare, alongside `solvAfterMs` at 20 s, this repairs the window blocking
+   * level 115 — the swap fires at t+21 with both legs on 200 — and costs eight
+   * to TEN of the first 115, every casualty a leg stranded at 200 while its
+   * partner finishes. On the three fields the instrument printed first
+   * (projection, ask gap, model lean) the repair sits in the middle of its
+   * casualties and looks like a coin flip that landed.
+   *
+   * It is not, and the reason is that the paragraph above states THREE
+   * assumptions and this parameter only tests one of them. "The legs are level"
+   * is not "nothing has been committed" (`solvLevelMax`), it is not "the book is
+   * not saying anything loud" (`solvLevelGap`), and it does not make the
+   * arithmetic that replaces the oracle trustworthy (`solvLevelEdge`,
+   * `solvLevelEdgeMax`). With those three the same waiver carries all 115 on
+   * five draws. Read the tables on each of them before touching this number.
    */
   solvZLevel: z.coerce.number().finite().min(0).max(1).default(0.02),
   /**

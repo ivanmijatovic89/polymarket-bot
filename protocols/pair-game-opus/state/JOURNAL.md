@@ -2727,3 +2727,97 @@ and the instrument that shows them failing takes one run and a search to
 produce. The honest position is that the next idea needs to come from somewhere
 other than the order book and the player's own arithmetic, because both have now
 been asked and neither can tell this window apart from its neighbours.
+
+## Session 38 — the market that was a coin flip was a coin flip in three ways
+
+Last session ended with a confident negative: the market blocking the next level
+cannot be won by any rule, because the decision that wins it is indistinguishable
+from the same decision in the eight markets it loses. I spent the first part of
+today deciding whether to believe that, and the answer turned out to be a useful
+lesson about how a negative result gets made.
+
+The claim rested on a table with three columns. I printed the same eight
+decisions again with two columns that had not been printed before — how many
+shares the player was actually holding at the moment it changed its mind, and
+how far apart the two prices were — and the eight cases fell into three tidy
+groups. Four of them were not the situation the rule was written for at all. The
+rule's whole argument is "when the two sides are level, switching which one you
+build first gives nothing up." That argument is true when both sides hold the
+player's opening guess and nothing more. Four of the casualties were level at
+three hundred, four hundred and seventy, even six hundred shares a side, with
+five or six hundred dollars already committed. Switching there abandons a real
+position; it just abandons an equal one. Level and uncommitted are not the same
+sentence, and the rule was only ever checking the first.
+
+Two more casualties came from the second unstated assumption. Switching sides
+overrules the order book, and the safety condition the rule skips is precisely
+the licence to do that. How much licence you need depends on how loudly the book
+is talking. Every case that survives switches across a four-cent price
+difference — a book that is barely leaning. The ones that fail switch across six
+cents, eleven cents, and in one case twenty-nine. Overruling a book that is
+twenty-nine cents apart is not a close call being resolved; it is a market being
+contradicted.
+
+The last two took longer and I like the answer. The rule compares two plans by
+arithmetic: finish this side at today's price and fund the other side at the
+cheapest price it has ever shown, then do it the other way round and see which
+total is smaller. Write out where the difference between those two totals comes
+from and it splits in half — part of it is today's price difference, and part of
+it is the two sides' historical cheapest prices disagreeing. At the moment these
+decisions get taken, with a four-cent price difference and eight hundred shares
+still to buy on each side, today's prices account for about thirty dollars of
+difference. Every surviving case comes in at forty to forty-eight dollars: a
+cent or two of history on top of the live prices. The two remaining casualties
+come in at sixty-four and ninety-six, which means four and eight cents of the
+verdict is being supplied by a price that is no longer available anywhere. So
+the bound I added is not "the alternative must not look too good". It is "the
+comparison has to be settled by prices you can still trade at."
+
+With those three conditions the rule repairs the blocking market and costs
+nothing: five separate runs over all hundred and fifteen markets, zero failures
+each. Level 115 is scored and passed.
+
+One more thing was wrong along the way and it is worth writing down because it
+looked like a wall for an hour. With the three conditions in place, the rule
+fired at the right moment in the right market — I could see it in the log — and
+the market came out identical to the cent, as though nothing had happened. The
+reason is embarrassing in hindsight and general enough to be worth keeping:
+every condition the rule tests is destroyed by the rule succeeding. It fires
+when the two sides are level; it then buys one of them; the sides are no longer
+level; on the very next tick the whole test is skipped and the decision hands
+itself back to the order book. A rule that only holds while its own
+preconditions hold is a rule that does nothing at all. Once it remembers that it
+has fired, the market is won.
+
+I also ran a sweep five markets past the level, which is the habit that keeps a
+fix from breaking the next one. Levels 116 through 119 look clear on that sweep;
+the next genuine wall is the market after them, and it is the exact mirror of
+the one I just fixed. The book leans one way from the first tick, the outside
+price agrees emphatically and keeps agreeing, and the player buys out the other
+side inside a minute — the side everything available said would lose. Then the
+winner runs away and the last three hundred shares of it cost more than the money
+left. That one should be more tractable than today's, because unlike today's the
+information was there and the player ignored it.
+
+Four levels went in after that — 115, 116, 117 and 118 all scored clean — and
+then the fifth stopped on something I did not expect. Level 119 failed, but not
+on its new market. It failed on a market from eighty places down the list that
+had passed the level before it and five separate full runs besides. That is the
+thing this game does that a normal test suite does not: the simulated network
+latency is random, so the same code plays a slightly different game every time,
+and a market that is a near-run thing fails whenever the dice land badly. I made
+the dice repeatable and found that this one fails about one draw in eight. It is
+now reproducible on command, which is most of the work.
+
+What it does in the losing draw is worth reporting because it is the same story
+as the market beyond it. Two minutes in, the player holds three hundred of one
+side and nearly eight hundred of the other, and the cheap side keeps getting
+cheaper while the expensive one climbs. It buys the cheap one out — which is
+arithmetically the better-looking plan at that instant, and I checked, the
+switching rule is right to stay quiet — and the cheap side is the one that ends
+up worth nothing. So both of the next two obstacles are the same sentence: the
+player settles on the side that is falling, because falling is affordable, and
+affordable is not the same as correct. I have written down the one shape of fix
+that has not been tried, which is to make the early read of the book stick
+rather than be recomputed from four seconds of history on every tick. Two rules
+of exactly that shape have passed levels before.
