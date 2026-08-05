@@ -113,6 +113,12 @@ npm run verify:parquet -- <file.parquet>
 npm run list:backtest-files -- --symbol btc
 npm run scan:disconnect-events -- <dir> [--delete-files-where-disconnects-equal-or-greater=N]
 
+# pte — global CLI (scripts/pte, symlinked into PATH; docs/reference/pte-cli.md).
+# Runs any engine command with cwd = this repo from ANY directory — the way
+# external protocol workspaces (polymarket-protocols/) invoke the engine.
+#   pte backtest --strategy-file strategies/my.v1.ts --symbol btc --limit 20
+#   pte strategy:check -- --repo "$PWD"
+
 # Lint / format (no test runner)
 npm run lint ; npm run lint:fix
 npm run format ; npm run format:check

@@ -306,6 +306,7 @@ export default withMermaid(
           text: 'Reference',
           items: [
             { text: 'Environment Variables', link: '/reference/environment-variables' },
+            { text: 'pte CLI', link: '/reference/pte-cli' },
             { text: 'Database Schema', link: '/reference/database-schema' },
             { text: 'Risk Limits', link: '/reference/risk-limits' },
             { text: 'Fee Computation', link: '/reference/fee-computation' },

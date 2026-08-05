@@ -1,0 +1,62 @@
+#!/bin/zsh
+# pte — Polymarket Twin Engine global CLI.
+#
+# Runs any command with cwd set to THIS repo, so relative paths (.env,
+# data/events/, drizzle/) resolve exactly as if you had cd'd here. Your shell
+# (and an AI agent's cwd) stays where it was — the cd happens only inside this
+# script's own process. Built for protocol sessions in external workspaces
+# (e.g. /Users/<user>/Sites/polymarket-protocols/<name>) that need engine
+# commands without leaving their folder.
+#
+# Install (once per machine): symlink into a PATH dir —
+#   ln -sfn "$(pwd)/scripts/pte" ~/.local/bin/pte
+# The repo path is derived from this file's own (symlink-resolved) location,
+# so the same script works on every machine regardless of checkout path, and
+# `git pull` updates it everywhere with no extra step.
+#
+# Usage:
+#   pte <npm-script> [args...]          → npm run <script> -- [args...]
+#   pte npm|npx|tsx|node|git <...>      → runs the command verbatim in the repo
+#   pte --dir                           → prints the repo path (for `cd $(pte --dir)`)
+#
+# Examples:
+#   pte backtest --strategy-file strategies/my.v1.ts --symbol btc --limit 20
+#   pte strategy:check -- --repo "$PWD"
+#   pte fleet:status
+#   pte tsx src/cli/pnl-report.ts --symbol btc
+
+# ${0:A} resolves symlinks to this file's real absolute path (zsh modifier);
+# the repo root is one level up from scripts/.
+PTE_DIR="${0:A:h:h}"
+export PATH="$PTE_DIR/node_modules/.bin:$PATH"
+
+if [[ "$1" == "--dir" ]]; then
+  echo "$PTE_DIR"
+  exit 0
+fi
+
+if [[ $# -eq 0 ]]; then
+  echo "pte — run Polymarket Twin Engine commands from anywhere (repo: $PTE_DIR)"
+  echo ""
+  echo "Usage:"
+  echo "  pte <npm-script> [args...]      e.g. pte backtest --strategy-file strategies/x.ts --symbol btc"
+  echo "  pte npm|npx|tsx|node|git <...>  e.g. pte tsx src/cli/pnl-report.ts"
+  echo "  pte --dir                       print repo path"
+  echo ""
+  echo "Available npm scripts:"
+  cd "$PTE_DIR" && npm run | grep -E '^  [a-z]' | sed 's/^ */  /'
+  exit 0
+fi
+
+cd "$PTE_DIR" || { echo "pte: repo not found at $PTE_DIR" >&2; exit 1 }
+
+case "$1" in
+  npm|npx|tsx|node|git)
+    exec "$@"
+    ;;
+  *)
+    script="$1"
+    shift
+    exec npm run "$script" -- "$@"
+    ;;
+esac

@@ -29,6 +29,16 @@
         worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
         drain_seconds: '{{ pull_drain_seconds | default(pull_drain_seconds_default) | int }}'
 
+    # Keep the pte CLI installed on every worker (protocol sessions and GR
+    # missions on these machines call engine commands through it). The symlink
+    # points into the checkout, so the git pull below is also the pte update.
+    - name: Ensure pte symlink
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p "$HOME/.local/bin"
+          ln -sfn "{{ worker_repo_dir }}/scripts/pte" "$HOME/.local/bin/pte"
+      changed_when: false
+
     # Everything in ONE remote shell: each ansible task costs an SSH round
     # trip, and the slowest (overseas) host pays for all of them — that is why
     # the multi-task fleet:update takes ~50s while this stays in seconds.
