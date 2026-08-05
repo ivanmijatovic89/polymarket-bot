@@ -246,6 +246,13 @@
       "when": 1785881425290,
       "tag": "0034_strategy_artifacts",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1785881863684,
+      "tag": "0035_backtest_runs_strategy_artifact",
+      "breakpoints": true
     }
   ]
 }

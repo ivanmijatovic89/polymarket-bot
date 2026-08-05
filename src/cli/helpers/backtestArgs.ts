@@ -322,6 +322,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
 
       case '--strategy':
       case '--param':
+      // The value of --strategy-artifact is a bare sha (doesn't start with
+      // '-') — without this case it would be swallowed as a parquet path.
+      case '--strategy-artifact':
         i += 1
         break
 
@@ -411,7 +414,12 @@ export function parseArgs(argv: string[]): BacktestArgs {
           toMs = parseNonNegativeBigIntMs(arg.slice('--to-ms='.length), '--to-ms')
           break
         }
-        if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
+        if (
+          arg.startsWith('--strategy=') ||
+          arg.startsWith('--strategy-artifact=') ||
+          arg.startsWith('--param=') ||
+          arg.startsWith('-')
+        ) {
           break
         }
         filePaths.push(arg)
@@ -496,6 +504,12 @@ export function parseArgs(argv: string[]): BacktestArgs {
     for (const token of argv) {
       if (token === '--strategy' || token?.startsWith('--strategy=')) {
         conflicting.push('--strategy')
+        break
+      }
+    }
+    for (const token of argv) {
+      if (token === '--strategy-artifact' || token?.startsWith('--strategy-artifact=')) {
+        conflicting.push('--strategy-artifact')
         break
       }
     }

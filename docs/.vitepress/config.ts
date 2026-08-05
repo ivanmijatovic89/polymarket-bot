@@ -240,6 +240,7 @@ export default withMermaid(
             { text: 'Template: Time Window Gate', link: '/strategy/template-time-window-gate' },
             { text: 'Template: Dwell Gate', link: '/strategy/template-dwell-gate' },
             { text: 'Split-Sell-Redeem Strategy', link: '/strategy/split-sell-redeem' },
+            { text: 'External Strategy Artifacts', link: '/strategy/external-artifacts' },
             {
               text: 'Plugins',
               items: [

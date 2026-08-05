@@ -101,6 +101,21 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    // External strategy artifact provenance (issue #211). Null for registry
+    // strategies. The sha is what `--extend` needs to reload the exact code;
+    // the meta json (r2Url, sourceRepo, sourceCommit, sourceDirty,
+    // entrypoint) makes the run reproducible without the strategy_artifacts
+    // table.
+    strategyArtifactSha256: varchar('strategy_artifact_sha256', { length: 64 }),
+    // Shape: StrategyArtifactMeta in src/strategy/artifacts/types.ts (kept
+    // structural here — schema.ts deliberately avoids importing app modules).
+    strategyArtifactMeta: json('strategy_artifact_meta').$type<{
+      r2Url: string
+      sourceRepo: string
+      sourceCommit: string
+      sourceDirty: boolean
+      entrypoint: string
+    } | null>(),
 
     symbol: varchar('symbol', { length: 10 }),
     timeframe: varchar('timeframe', { length: 16 }),
