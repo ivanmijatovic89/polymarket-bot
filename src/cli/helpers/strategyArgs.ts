@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { getStrategyArtifactBySha } from '../../db/strategyArtifacts.js'
 import type { Strategy } from '../../strategy/Strategy.js'
@@ -144,9 +144,15 @@ export async function resolveStrategyFromCliArgs(args: {
  * repo root is the nearest ancestor directory containing `.git` (publish
  * records that repo's commit as provenance).
  */
-function deriveStrategyFileSource(strategyFile: string): { repoDir: string; entrypoint: string } {
-  const abs = path.resolve(strategyFile)
-  if (!existsSync(abs)) throw new CliArgsError(`--strategy-file not found: ${abs}`)
+export function deriveStrategyFileSource(strategyFile: string): {
+  repoDir: string
+  entrypoint: string
+} {
+  const resolved = path.resolve(strategyFile)
+  if (!existsSync(resolved)) throw new CliArgsError(`--strategy-file not found: ${resolved}`)
+  // realpath: a file referenced through a symlink must anchor on the REAL
+  // file's repo — otherwise provenance records the symlink's repo (or none).
+  const abs = realpathSync(resolved)
   let dir = path.dirname(abs)
   for (;;) {
     if (existsSync(path.join(dir, '.git'))) break
