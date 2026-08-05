@@ -33,8 +33,8 @@ The bundler follows every import of your entrypoint and decides by location:
 
 Because engine imports stay external, there is exactly one copy of every engine class at run time — `instanceof`, plugin detection, and live/backtest parity all behave exactly as for in-repo strategies. Engine compatibility remains governed by the existing worker commit gate.
 
-::: tip Params are not part of the artifact
-The sha identifies **code only**. Ten backtests with ten different `--param` sets all reference the same artifact — no rebuilds, no re-uploads. A new sha exists only when the strategy code changes.
+::: tip The sha identifies code only
+Neither params nor git state are part of the artifact bytes. Ten backtests with ten different `--param` sets reference the same sha; committing journals or docs in the strategy repo does **not** mint a new sha; the same code built on two machines yields the identical sha. A new sha exists only when the strategy **code** (or its entrypoint path) changes. Git provenance (repo, commit, dirty flag) is recorded in the database at the **first** publish of that exact code.
 :::
 
 ## Set up the external repository
@@ -186,6 +186,7 @@ There is deliberately **no fallback** anywhere in the pipeline — a broken arti
 | Id collides with a registry strategy | publish and fresh launch | collision error — republish under a new id (`--extend` instead warns and keeps the artifact: an extension cannot change its sha) |
 | Params fail the artifact's schema | CLI at launch | same validation error as registry strategies |
 | Disallowed engine import | publish build | allowlist error |
+| Bundled file outside the strategy repo | publish build | rejected — the artifact would be irreproducible from its recorded commit (`node_modules` exempt) |
 
 ::: details Where things live
 - R2 object: `strategy-artifacts/<sha256>.mjs` (the artifact of record)

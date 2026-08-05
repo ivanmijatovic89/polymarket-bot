@@ -32,8 +32,6 @@ export type BuildStrategyArtifactArgs = {
   repoDir: string
   /** Entrypoint exporting `definition`, relative to repoDir (posix separators). */
   entrypoint: string
-  /** Source provenance stamped into the bundle banner (timestamp-free). */
-  source: { repo: string; commit: string; dirty: boolean }
   /** The polymarket-bot checkout providing the engine. Defaults to this one. */
   engineRoot?: string
 }
@@ -64,9 +62,11 @@ export async function buildStrategyArtifact(
     throw new Error(`[artifact] entrypoint not found: ${entrypointAbs}`)
   }
 
+  // CODE-ONLY banner: no commit/dirty/repo-URL — those would fork the sha for
+  // identical code (they live in the DB row / run meta instead).
   const banner: ArtifactBanner = {
     formatVersion: ARTIFACT_FORMAT_VERSION,
-    source: { ...args.source, entrypoint: args.entrypoint },
+    entrypoint: args.entrypoint.split(path.sep).join('/'),
   }
 
   // Shared tail of both engine-import branches (relative paths resolving into
@@ -177,13 +177,25 @@ export async function buildStrategyArtifact(
     plugins: [rewriteEngineImports],
   })
 
-  // Belt-and-braces: the rewrite plugin should make this unreachable, but an
-  // inlined engine file would silently fork class identities — hard error.
   for (const input of Object.keys(result.metafile.inputs)) {
     const abs = path.resolve(repoDir, input)
+    // Belt-and-braces: the rewrite plugin should make this unreachable, but an
+    // inlined engine file would silently fork class identities — hard error.
     const relToEngine = path.relative(engineSrc, abs)
     if (!relToEngine.startsWith('..') && !path.isAbsolute(relToEngine)) {
       throw new Error(`[artifact] engine source was inlined into the bundle: ${abs}`)
+    }
+    // Provenance guard: every bundled input must live inside the repo (its
+    // commit is what the run row records) — a `../outside.ts` escape would
+    // make the artifact silently irreproducible from source_commit.
+    // node_modules is exempt: package code may resolve through symlinks
+    // (e.g. a shared node_modules symlink) outside the repo path.
+    const relToRepo = path.relative(repoDir, abs)
+    const inNodeModules = abs.split(path.sep).includes('node_modules')
+    if ((relToRepo.startsWith('..') || path.isAbsolute(relToRepo)) && !inNodeModules) {
+      throw new Error(
+        `[artifact] bundled file lies outside the strategy repo (irreproducible from its commit): ${abs}`,
+      )
     }
   }
 

@@ -23,11 +23,7 @@ test('artifact plugin instances carry host class identity', async (t) => {
   t.after(() => rmSync(artifactCacheDir(), { recursive: true, force: true }))
   const { repoDir, entrypoint } = makeFixtureRepo()
   try {
-    const built = await buildStrategyArtifact({
-      repoDir,
-      entrypoint,
-      source: { repo: 'file://fixture', commit: 'c'.repeat(40), dirty: false },
-    })
+    const built = await buildStrategyArtifact({ repoDir, entrypoint })
     const cachePath = artifactCachePath(built.sha256)
     mkdirSync(path.dirname(cachePath), { recursive: true })
     writeFileSync(cachePath, built.bytes)

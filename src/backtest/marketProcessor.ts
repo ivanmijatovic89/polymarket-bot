@@ -1,5 +1,5 @@
-import { DelayedError, type Job } from 'bullmq'
-import { ensureArtifactLoaded } from '../strategy/artifacts/loader.js'
+import { DelayedError, UnrecoverableError, type Job } from 'bullmq'
+import { ArtifactShapeError, ensureArtifactLoaded } from '../strategy/artifacts/loader.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import { runSingleMarket } from './runSingleMarket.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
@@ -40,9 +40,17 @@ export function makeMarketProcessor(args: { machineId: string; workerChildId?: n
     // deliberately no fallback to the registry.
     let artifactDefinition: StrategyDefinition<unknown> | undefined
     if (data.strategyArtifact) {
-      artifactDefinition = await ensureArtifactLoaded(data.strategyArtifact)
+      try {
+        artifactDefinition = await ensureArtifactLoaded(data.strategyArtifact)
+      } catch (err) {
+        // Structural failures are deterministic — retrying re-downloads and
+        // re-fails identically; skip the retry ladder. Download and integrity
+        // failures stay retryable (transient network / corrupt cache heals).
+        if (err instanceof ArtifactShapeError) throw new UnrecoverableError(err.message)
+        throw err
+      }
       if (artifactDefinition.id !== data.strategyId) {
-        throw new Error(
+        throw new UnrecoverableError(
           `[worker] artifact ${data.strategyArtifact.sha256.slice(0, 12)} exports strategy id ` +
             `${JSON.stringify(artifactDefinition.id)} but the job expects ${JSON.stringify(data.strategyId)}`,
         )

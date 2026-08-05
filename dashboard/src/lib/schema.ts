@@ -30,6 +30,16 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    // External strategy artifact provenance (issue #211). Null for registry
+    // strategies. Mirrors src/db/schema.ts.
+    strategyArtifactSha256: varchar('strategy_artifact_sha256', { length: 64 }),
+    strategyArtifactMeta: json('strategy_artifact_meta').$type<{
+      r2Url: string
+      sourceRepo: string
+      sourceCommit: string
+      sourceDirty: boolean
+      entrypoint: string
+    } | null>(),
 
     symbol: varchar('symbol', { length: 10 }),
     timeframe: varchar('timeframe', { length: 16 }),

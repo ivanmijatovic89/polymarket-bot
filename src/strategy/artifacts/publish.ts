@@ -115,7 +115,6 @@ export async function publishStrategyArtifactFromSource(args: {
   const built = await buildStrategyArtifact({
     repoDir,
     entrypoint: args.entrypoint,
-    source: { repo: sourceRepo, commit, dirty },
   }).catch((err: unknown) => {
     // esbuild rejections (incl. allowlist violations from the rewrite plugin)
     // carry the full diagnostics in message — surface them as PublishError so
