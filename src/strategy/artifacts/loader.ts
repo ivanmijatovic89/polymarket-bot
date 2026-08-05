@@ -145,14 +145,22 @@ async function loadArtifact(ref: StrategyArtifactRef): Promise<StrategyDefinitio
     )
   }
   const banner = mod.__pmbArtifact
+  // Version check FIRST: an older-format artifact fails the full banner shape
+  // check too (v1 banners had a different layout), and "not a strategy
+  // artifact" would point operators the wrong way — the actionable message is
+  // "republish".
+  const bannerVersion =
+    typeof banner === 'object' && banner !== null
+      ? (banner as { formatVersion?: unknown }).formatVersion
+      : undefined
+  if (typeof bannerVersion === 'number' && bannerVersion !== ARTIFACT_FORMAT_VERSION) {
+    throw new ArtifactShapeError(
+      `[artifact] ${ref.sha256.slice(0, 12)} has format version ${bannerVersion}, this engine supports ${ARTIFACT_FORMAT_VERSION} — republish the strategy`,
+    )
+  }
   if (!isArtifactBanner(banner)) {
     throw new ArtifactShapeError(
       `[artifact] ${ref.sha256.slice(0, 12)} has no valid __pmbArtifact banner — not a strategy artifact (${ref.r2Url})`,
-    )
-  }
-  if (banner.formatVersion !== ARTIFACT_FORMAT_VERSION) {
-    throw new ArtifactShapeError(
-      `[artifact] ${ref.sha256.slice(0, 12)} has format version ${banner.formatVersion}, this engine supports ${ARTIFACT_FORMAT_VERSION} — republish the strategy`,
     )
   }
   const def = mod.definition

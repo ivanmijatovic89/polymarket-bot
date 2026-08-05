@@ -36,14 +36,21 @@ export function getR2Client(): S3Client {
     // Loud + validated: a stale/typo'd proxy env silently rerouting ALL R2
     // traffic (dataset sync, artifact fetches) would otherwise surface as
     // undiagnosable ECONNREFUSED/UnknownError with no proxy mention.
+    // NOTE: `new URL('localhost:8080')` PARSES (scheme "localhost:"), so a
+    // plain try/catch cannot catch the most common schemeless typo — the
+    // protocol must be checked explicitly.
+    let parsed: URL | null = null
     try {
-      const parsed = new URL(proxyUrl)
-      console.error(`[r2] routing through HTTPS_PROXY ${parsed.protocol}//${parsed.host}`)
+      parsed = new URL(proxyUrl)
     } catch {
+      parsed = null
+    }
+    if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
       throw new Error(
-        `[r2] HTTPS_PROXY is set but not a valid URL (needs a scheme, e.g. http://host:port): ${proxyUrl}`,
+        `[r2] HTTPS_PROXY is set but not a valid http(s) URL (needs a scheme, e.g. http://host:port): ${proxyUrl}`,
       )
     }
+    console.error(`[r2] routing through HTTPS_PROXY ${parsed.protocol}//${parsed.host}`)
   }
   cachedClient = new S3Client({
     region: 'auto',
