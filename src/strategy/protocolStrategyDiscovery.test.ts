@@ -19,7 +19,7 @@ function writeStrategyAt(dir: string, name: string, id: string): string {
   // Unique export per file so require() caching can never alias fixtures.
   writeFileSync(
     file,
-    `export const definition = { id: ${JSON.stringify(id)}, schema: {}, create: () => ({ strategy: {} }), seq: ${seq++} }\n`,
+    `export const definition = { id: ${JSON.stringify(id)}, schema: { safeParse: () => ({ success: true, data: {} }) }, create: () => ({ strategy: {} }), seq: ${seq++} }\n`,
   )
   return file
 }

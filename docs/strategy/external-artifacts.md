@@ -188,6 +188,17 @@ There is deliberately **no fallback** anywhere in the pipeline — a broken arti
 | Disallowed engine import | publish build | allowlist error |
 | Bundled file outside the strategy repo | publish build | rejected — the artifact would be irreproducible from its recorded commit (`node_modules` exempt) |
 
+## Trust model
+
+::: danger Artifacts are trusted, unsandboxed code
+An artifact executes with full engine privileges inside backtest workers **and the live trading bot** (which holds trading keys). The content is hash-pinned end-to-end — a swapped R2 object, edited `r2_url`, or tampered cache is caught by sha verification before any import — so the authority reduces to *who chooses the sha*: anyone who can run the CLIs on a producer machine, write to the R2 bucket + database (publish credentials), or write to the Redis queue. Keep those credentials as guarded as trading keys.
+
+Two boundaries that are often misread:
+
+- The **srt sandbox isolates protocol *sessions*** (which folders an agent can touch) — but code that a sandboxed agent publishes runs **unsandboxed** on the fleet and can be selected by the live bot. Publishing is the privilege, not editing.
+- The **`#pmb` allowlist is an SDK-surface convention enforced at publish time, not a security boundary** — bundled code can use Node builtins, and the runtime `imports` map exposes all of `src/*`.
+:::
+
 ::: details Where things live
 - R2 object: `strategy-artifacts/<sha256>.mjs` (the artifact of record)
 - Machine-local cache: `data/strategy-artifacts/<sha256>.mjs` (gitignored, content-addressed)
