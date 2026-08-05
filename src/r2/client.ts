@@ -5,6 +5,8 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3'
+import { NodeHttpHandler } from '@smithy/node-http-handler'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 import { Readable } from 'node:stream'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
@@ -25,6 +27,11 @@ export function getR2Client(): S3Client {
   const endpoint = readEnv('R2_ENDPOINT')
   const accessKeyId = readEnv('R2_ACCESS_KEY_ID')
   const secretAccessKey = readEnv('R2_SECRET_ACCESS_KEY')
+  // The AWS SDK ignores proxy env vars by default. Sandboxed environments
+  // (e.g. protocol sessions under @anthropic-ai/sandbox-runtime) allow HTTPS
+  // only through the proxy they inject via HTTPS_PROXY — without this, every
+  // R2 call dies with ENOTFOUND/EPERM inside the sandbox.
+  const proxyUrl = process.env.HTTPS_PROXY?.trim() || process.env.https_proxy?.trim()
   cachedClient = new S3Client({
     region: 'auto',
     endpoint,
@@ -35,6 +42,9 @@ export function getR2Client(): S3Client {
     // server-side validation works.
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
+    ...(proxyUrl
+      ? { requestHandler: new NodeHttpHandler({ httpsAgent: new HttpsProxyAgent(proxyUrl) }) }
+      : {}),
   })
   return cachedClient
 }
