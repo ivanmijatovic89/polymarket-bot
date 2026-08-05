@@ -1,4 +1,6 @@
 import { DelayedError, type Job } from 'bullmq'
+import { ensureArtifactLoaded } from '../strategy/artifacts/loader.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import { runSingleMarket } from './runSingleMarket.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
 import { WORKER_LAUNCH_SHA, STALE_JOB_RELEASE_DELAY_MS, canRunJobCommit } from './commitGate.js'
@@ -32,6 +34,21 @@ export function makeMarketProcessor(args: { machineId: string; workerChildId?: n
       throw new DelayedError()
     }
 
+    // External artifact strategy (issue #211): hash-verified load, cached on
+    // disk per machine and memoized per process — no per-market overhead
+    // after warm-up. Failures throw (BullMQ retry semantics apply); there is
+    // deliberately no fallback to the registry.
+    let artifactDefinition: StrategyDefinition<unknown> | undefined
+    if (data.strategyArtifact) {
+      artifactDefinition = await ensureArtifactLoaded(data.strategyArtifact)
+      if (artifactDefinition.id !== data.strategyId) {
+        throw new Error(
+          `[worker] artifact ${data.strategyArtifact.sha256.slice(0, 12)} exports strategy id ` +
+            `${JSON.stringify(artifactDefinition.id)} but the job expects ${JSON.stringify(data.strategyId)}`,
+        )
+      }
+    }
+
     return runSingleMarket({
       idx: data.idx,
       filePath: data.filePath,
@@ -41,6 +58,7 @@ export function makeMarketProcessor(args: { machineId: string; workerChildId?: n
       marketResolution: data.marketResolution,
       strategyId: data.strategyId,
       strategyParams: data.strategyParams,
+      ...(artifactDefinition ? { strategyDefinition: artifactDefinition } : {}),
       inputMode: data.inputMode,
       order: data.order,
       timeDriven: data.timeDriven,

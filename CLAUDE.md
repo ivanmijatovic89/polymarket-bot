@@ -22,6 +22,16 @@ All output must be in **English** — this includes PR titles and bodies, commit
 npm run trade:bot                      # uses TRADING_SYMBOL env
 npm run trade:bot:btc                  # BTC/ETH/SOL/XRP shortcuts also exist
 tsx src/cli/trading-bot.ts --strategy <id> [--param key=value ...]
+tsx src/cli/trading-bot.ts --strategy-artifact <sha256> [--param key=value ...]   # external artifact
+
+# External strategy artifacts (strategy source in an EXTERNAL repo; see
+# docs/strategy/external-artifacts.md). Publish bundles + uploads once
+# (idempotent, sha256 = identity); backtest/trade select with
+# --strategy-artifact <sha> (mutually exclusive with --strategy).
+npm run strategy:check   -- --repo /path/to/external-repo     # typecheck+lint with this repo's toolchain
+npm run strategy:publish -- --repo /path/to/external-repo --entrypoint strategies/my-strat.v1.ts
+npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20
+npm run artifacts:test                 # artifact bundler/loader/selection test suite
 
 # Backtesting — replays Parquet with same strategy code as live
 # Recorded mode (default; reads `markets` table + WS-recorded parquet)
@@ -206,7 +216,7 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 
 ### Strategy system
 
-Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Protocol workspaces are discovered too: `protocols/<name>/strategies/**` registers the same way, but **fail-soft** (broken files are warned about and skipped, never fatal) and ids must start with `<name>-`; check one protocol with `npm run protocol:check -- <name>` (see `protocols/README.md`). Each `definition` has:
+Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Protocol workspaces are discovered too: `protocols/<name>/strategies/**` registers the same way, but **fail-soft** (broken files are warned about and skipped, never fatal) and ids must start with `<name>-`; check one protocol with `npm run protocol:check -- <name>` (see `protocols/README.md`). **External artifact strategies** (source in an external repo, `--strategy-artifact <sha256>`) bypass the registry entirely: the producer/live bot loads a hash-verified ESM bundle and passes the definition explicitly through the same contract — engine imports stay external via `#pmb/*` (root package.json `imports`), allowlisted to `src/strategy/**`, `src/trading/feeds/**`, `src/market/**` (see `docs/strategy/external-artifacts.md`). Each `definition` has:
 
 - `id` (string) — selected via `--strategy <id>`
 - `schema` (Zod) — validates `--param key=value` pairs; unknown keys / invalid values error out

@@ -1,6 +1,7 @@
 import type { MarketStats } from './stats/marketStats.js'
 import type { MarketResolution } from './stats/marketResolution.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
+import type { StrategyArtifactMeta, StrategyArtifactRef } from '../strategy/artifacts/types.js'
 import type {
   RunSingleMarketInputMode,
   RunSingleMarketLatency,
@@ -26,6 +27,13 @@ export type MarketJobData = {
   marketResolution: MarketResolution | null
   strategyId: string
   strategyParams: Record<string, unknown>
+  /**
+   * External strategy artifact ref (issue #211). When present the worker
+   * hash-verifies + loads the artifact (machine-local cache, one download per
+   * machine) instead of consulting its strategy registry. Optional:
+   * pre-existing registry jobs replay unchanged.
+   */
+  strategyArtifact?: StrategyArtifactRef
   inputMode: RunSingleMarketInputMode
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
@@ -39,7 +47,7 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
-export const AGGREGATE_JOB_PROTOCOL_VERSION = 4
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 5
 
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
@@ -72,6 +80,9 @@ export type AggregateJobData = {
     limit: number | null
     random: boolean
     latest: boolean
+    /** External artifact provenance (issue #211). Null for registry strategies. */
+    strategyArtifactSha256: string | null
+    strategyArtifactMeta: StrategyArtifactMeta | null
   }
   /**
    * Set when this aggregate is the completion of an extension batch. Drives

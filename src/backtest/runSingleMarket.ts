@@ -14,6 +14,7 @@ import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { PluginSet } from '../strategy/plugins/PluginSet.js'
 import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import type { Strategy, Fill, PositionsSplit } from '../strategy/Strategy.js'
 import { computeMarketStats } from './stats/marketStats.js'
 import type { MarketStats, MarketExecutionMeta } from './stats/marketStats.js'
@@ -53,10 +54,17 @@ export type RunSingleMarketInput = {
   marketMeta: GammaMarketMeta | undefined
   /** Resolved tokenMap + final outcome. Null if not resolvable; stats are then skipped. */
   marketResolution: MarketResolution | null
-  /** Strategy id (key in strategyRegistry). */
+  /** Strategy id (key in strategyRegistry, or the external artifact's definition id). */
   strategyId: string
   /** Strategy params already parsed/validated by `buildStrategyFromCliArgs`. */
   strategyParams: Record<string, unknown>
+  /**
+   * Pre-resolved definition for external artifact strategies (issue #211).
+   * When present the registry is bypassed; create() and everything downstream
+   * are identical. Passed explicitly (never registered globally) so two
+   * artifacts sharing an id can never cross-wire inside one worker process.
+   */
+  strategyDefinition?: StrategyDefinition<unknown>
   /** Which replay path to use. */
   inputMode: RunSingleMarketInputMode
   /** Recorded-mode replay ordering. Unused for telonex modes. */
@@ -121,10 +129,11 @@ export type RunSingleMarketOutput = {
 function buildRunnerForMarket(args: {
   strategyId: string
   strategyParams: Record<string, unknown>
+  strategyDefinition?: StrategyDefinition<unknown>
   latency: RunSingleMarketLatency
   getMarket?: () => GammaMarketMeta | undefined
 }): { strategy: Strategy; runner: StrategyRunner; pluginSet: PluginSet | undefined } {
-  const def = getStrategyDefinition(args.strategyId)
+  const def = args.strategyDefinition ?? getStrategyDefinition(args.strategyId)
   const built = def.create(args.strategyParams as never)
   const strategy = built.strategy
   const pluginSet = (() => {
@@ -210,6 +219,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   const { runner, pluginSet } = buildRunnerForMarket({
     strategyId: input.strategyId,
     strategyParams: input.strategyParams,
+    ...(input.strategyDefinition ? { strategyDefinition: input.strategyDefinition } : {}),
     latency: input.latency,
     getMarket: () => input.marketMeta,
   })

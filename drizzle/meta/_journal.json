@@ -239,6 +239,20 @@
       "when": 1785450479283,
       "tag": "0033_runtime_effort_ultracode",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "5",
+      "when": 1785881425290,
+      "tag": "0034_strategy_artifacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1785881863684,
+      "tag": "0035_backtest_runs_strategy_artifact",
+      "breakpoints": true
     }
   ]
 }
