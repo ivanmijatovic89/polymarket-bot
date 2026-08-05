@@ -29,6 +29,10 @@
 # the repo root is one level up from scripts/.
 PTE_DIR="${0:A:h:h}"
 export PATH="$PTE_DIR/node_modules/.bin:$PATH"
+# Where the USER was standing. Engine CLIs resolve caller-relative paths
+# (e.g. `--strategy-file strategies/x.ts`) against this instead of the repo
+# cwd this script switches into.
+export PTE_CALLER_PWD="$PWD"
 
 if [[ "$1" == "--dir" ]]; then
   echo "$PTE_DIR"

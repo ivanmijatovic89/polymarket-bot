@@ -45,7 +45,16 @@ const REPO_ROOT = (() => {
  */
 export function artifactCacheDir(): string {
   const override = process.env.STRATEGY_ARTIFACT_CACHE_DIR?.trim()
-  return override ? path.resolve(REPO_ROOT, override) : path.join(REPO_ROOT, ARTIFACT_LOCAL_DIR)
+  if (!override) return path.join(REPO_ROOT, ARTIFACT_LOCAL_DIR)
+  const resolved = path.resolve(REPO_ROOT, override)
+  if (path.relative(REPO_ROOT, resolved).startsWith('..')) {
+    // Enforce the documented invariant instead of failing later with a
+    // confusing #pmb/zod resolution error at import time.
+    throw new Error(
+      `[artifact] STRATEGY_ARTIFACT_CACHE_DIR must stay under the repo root (got ${resolved})`,
+    )
+  }
+  return resolved
 }
 
 export function artifactCachePath(sha256: string): string {
@@ -94,7 +103,16 @@ async function loadArtifact(ref: StrategyArtifactRef): Promise<StrategyDefinitio
   }
   const cachePath = artifactCachePath(ref.sha256)
   if (!(await fileExists(cachePath))) {
-    await downloadR2ToLocal(ref.r2Url, cachePath)
+    try {
+      await downloadR2ToLocal(ref.r2Url, cachePath)
+    } catch (err) {
+      // Keep sha + r2Url context (a bare NoSuchKey in a BullMQ failure record
+      // is untraceable to the artifact it was for).
+      throw new ArtifactShapeError(
+        `[artifact] ${ref.sha256.slice(0, 12)} download failed: ${err instanceof Error ? err.message : String(err)} (${ref.r2Url})`,
+        { cause: err },
+      )
+    }
   }
   const actual = await sha256OfFile(cachePath)
   if (actual !== ref.sha256) {

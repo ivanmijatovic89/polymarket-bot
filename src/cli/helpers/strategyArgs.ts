@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync, realpathSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { getStrategyArtifactBySha } from '../../db/strategyArtifacts.js'
 import type { Strategy } from '../../strategy/Strategy.js'
@@ -90,20 +90,6 @@ export function formatStrategyParamsHelp(args: { script: string; strategyId: str
   return lines.join('\n')
 }
 
-export function buildStrategyFromCliArgs(args: {
-  argv: string[]
-  script: string
-}): BuildStrategyFromCliArgsResult {
-  const { strategyId, artifactSha256, strategyFile, rawParams } = parseStrategyArgs(args.argv)
-  if (artifactSha256 || strategyFile) {
-    // Artifact loading is async (dynamic import) — sync callers can't do it.
-    throw new CliArgsError(
-      '--strategy-artifact/--strategy-file are not supported by this entry point (use a runtime that resolves artifacts)',
-    )
-  }
-  return buildStrategyFromConfig({ strategyId: strategyId!, rawParams })
-}
-
 /**
  * Resolve strategy selection from argv:
  * - `--strategy <id>` — registry, sync path unchanged
@@ -148,8 +134,18 @@ export function deriveStrategyFileSource(strategyFile: string): {
   repoDir: string
   entrypoint: string
 } {
-  const resolved = path.resolve(strategyFile)
+  // Relative paths are CALLER-relative: `pte` runs engine CLIs with cwd = the
+  // engine repo but records where the user actually stood (PTE_CALLER_PWD);
+  // plain `npm run` sets INIT_CWD to the invocation dir. Without this,
+  // `pte backtest --strategy-file strategies/x.ts` from a protocol workspace
+  // would resolve against the ENGINE repo and fail (or worse, silently hit an
+  // unrelated file there).
+  const base = process.env.PTE_CALLER_PWD?.trim() || process.env.INIT_CWD?.trim() || process.cwd()
+  const resolved = path.resolve(base, strategyFile)
   if (!existsSync(resolved)) throw new CliArgsError(`--strategy-file not found: ${resolved}`)
+  if (!statSync(resolved).isFile()) {
+    throw new CliArgsError(`--strategy-file must be a file: ${resolved}`)
+  }
   // realpath: a file referenced through a symlink must anchor on the REAL
   // file's repo — otherwise provenance records the symlink's repo (or none).
   const abs = realpathSync(resolved)
