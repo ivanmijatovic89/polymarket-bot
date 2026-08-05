@@ -56,7 +56,7 @@ export type RunSingleMarketInput = {
   marketResolution: MarketResolution | null
   /** Strategy id (key in strategyRegistry, or the external artifact's definition id). */
   strategyId: string
-  /** Strategy params already parsed/validated by `buildStrategyFromCliArgs`. */
+  /** Strategy params already parsed/validated by the producer's strategy resolution. */
   strategyParams: Record<string, unknown>
   /**
    * Pre-resolved definition for external artifact strategies (issue #211).

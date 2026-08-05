@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { insertStrategyArtifactIfMissing } from '../../db/strategyArtifacts.js'
 import { getDefaultBucket, headObject, putObject } from '../../r2/client.js'
 import { formatR2Url } from '../../r2/parseR2Url.js'
@@ -89,9 +90,12 @@ export async function publishStrategyArtifactFromSource(args: {
   } catch {
     sourceRepo = repoDir // no remote — record the absolute path
   }
+  // Engine root derived from this file's location, NOT cwd: a direct tsx run
+  // from inside another git repo must not record that repo's HEAD.
+  const engineRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
   let engineCommit = 'unknown'
   try {
-    engineCommit = git(process.cwd(), ['rev-parse', 'HEAD'])
+    engineCommit = git(engineRoot, ['rev-parse', 'HEAD'])
   } catch {
     /* engine checkout without git — provenance only */
   }
@@ -112,6 +116,11 @@ export async function publishStrategyArtifactFromSource(args: {
     repoDir,
     entrypoint: args.entrypoint,
     source: { repo: sourceRepo, commit, dirty },
+  }).catch((err: unknown) => {
+    // esbuild rejections (incl. allowlist violations from the rewrite plugin)
+    // carry the full diagnostics in message — surface them as PublishError so
+    // callers get consistent classification/exit codes.
+    throw new PublishError(`bundle failed: ${err instanceof Error ? err.message : String(err)}`)
   })
   const sha256 = sha256OfBuffer(built.bytes)
 
@@ -125,13 +134,23 @@ export async function publishStrategyArtifactFromSource(args: {
   const r2Key = artifactR2Key(sha256)
   const bucket = args.dryRun ? 'dry-run' : getDefaultBucket()
   const r2Url = formatR2Url(bucket, r2Key)
-  const def = await ensureArtifactLoaded({ sha256, r2Url })
-  if (!def.id) throw new PublishError('artifact definition has an empty id')
-  if (strategyRegistry[def.id]) {
-    throw new PublishError(
-      `strategy id ${JSON.stringify(def.id)} collides with a registry strategy — rename the external strategy id`,
-    )
-  }
+  const def = await (async () => {
+    try {
+      const loaded = await ensureArtifactLoaded({ sha256, r2Url })
+      if (!loaded.id) throw new PublishError('artifact definition has an empty id')
+      if (strategyRegistry[loaded.id]) {
+        throw new PublishError(
+          `strategy id ${JSON.stringify(loaded.id)} collides with a registry strategy — rename the external strategy id`,
+        )
+      }
+      return loaded
+    } catch (err) {
+      // Don't leave a primed cache file behind for an artifact that was never
+      // published (unreferenced by DB or R2).
+      await fs.unlink(cachePath).catch(() => {})
+      throw err
+    }
+  })()
   log(
     `[strategy:publish] built ${def.id}  sha256=${sha256}  (${(built.bytes.length / 1024).toFixed(1)} KB)`,
   )

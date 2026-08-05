@@ -137,7 +137,9 @@ npm run backtest -- --strategy-file /path/to/repo/strategies/my-strat.v1.ts --in
 
 ::: warning One sha per (repo root, entrypoint) pair
 The bundle's identity includes the entrypoint path relative to the repo root. `--strategy-file` anchors at the nearest `.git`, while a manual `strategy:publish --repo <subfolder>` anchors wherever you point it — the same code published through differently-anchored flows yields different shas (both valid, no dedup across them). Stick to one flow per repo.
-::: Use the explicit sha form for exact reproduction of previously published code:
+:::
+
+Use the explicit sha form for exact reproduction of previously published code:
 
 ```bash
 npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20
