@@ -677,6 +677,8 @@ export type ExtensibleRun = {
   params: Record<string, unknown>
   /** External artifact sha (issue #211). Null for registry strategies. */
   strategyArtifactSha256: string | null
+  /** Run-row copy of the artifact meta — the extend fallback when the strategy_artifacts row is gone. */
+  strategyArtifactMeta: StrategyArtifactMeta | null
   symbol: string
   timeframe: string
   inputMode: string
@@ -713,6 +715,7 @@ export async function getRunForExtension(
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
       strategyArtifactSha256: backtestRuns.strategyArtifactSha256,
+      strategyArtifactMeta: backtestRuns.strategyArtifactMeta,
       symbol: backtestRuns.symbol,
       timeframe: backtestRuns.timeframe,
       inputMode: backtestRuns.inputMode,
@@ -748,6 +751,7 @@ export async function getRunForExtension(
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
       strategyArtifactSha256: row.strategyArtifactSha256,
+      strategyArtifactMeta: row.strategyArtifactMeta ?? null,
       symbol: row.symbol!,
       timeframe: row.timeframe!,
       inputMode: row.inputMode,

@@ -70,10 +70,19 @@ export class ArtifactIntegrityError extends Error {
   }
 }
 
+/** Structural/deterministic failures — retrying cannot help (bad banner, wrong format, invalid definition). */
 export class ArtifactShapeError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options)
     this.name = 'ArtifactShapeError'
+  }
+}
+
+/** Transport failures fetching the artifact — possibly transient, retryable. */
+export class ArtifactDownloadError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = 'ArtifactDownloadError'
   }
 }
 
@@ -108,7 +117,7 @@ async function loadArtifact(ref: StrategyArtifactRef): Promise<StrategyDefinitio
     } catch (err) {
       // Keep sha + r2Url context (a bare NoSuchKey in a BullMQ failure record
       // is untraceable to the artifact it was for).
-      throw new ArtifactShapeError(
+      throw new ArtifactDownloadError(
         `[artifact] ${ref.sha256.slice(0, 12)} download failed: ${err instanceof Error ? err.message : String(err)} (${ref.r2Url})`,
         { cause: err },
       )

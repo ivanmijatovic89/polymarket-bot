@@ -54,6 +54,11 @@ fi
 
 cd "$PTE_DIR" || { echo "pte: repo not found at $PTE_DIR" >&2; exit 1 }
 
+command -v npm >/dev/null || {
+  echo "pte: npm not on PATH — run from a login/interactive shell where node is set up (e.g. nvm in .zshrc)" >&2
+  exit 127
+}
+
 case "$1" in
   npm|npx|tsx|node|git)
     exec "$@"

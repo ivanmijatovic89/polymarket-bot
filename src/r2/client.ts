@@ -32,6 +32,19 @@ export function getR2Client(): S3Client {
   // only through the proxy they inject via HTTPS_PROXY — without this, every
   // R2 call dies with ENOTFOUND/EPERM inside the sandbox.
   const proxyUrl = process.env.HTTPS_PROXY?.trim() || process.env.https_proxy?.trim()
+  if (proxyUrl) {
+    // Loud + validated: a stale/typo'd proxy env silently rerouting ALL R2
+    // traffic (dataset sync, artifact fetches) would otherwise surface as
+    // undiagnosable ECONNREFUSED/UnknownError with no proxy mention.
+    try {
+      const parsed = new URL(proxyUrl)
+      console.error(`[r2] routing through HTTPS_PROXY ${parsed.protocol}//${parsed.host}`)
+    } catch {
+      throw new Error(
+        `[r2] HTTPS_PROXY is set but not a valid URL (needs a scheme, e.g. http://host:port): ${proxyUrl}`,
+      )
+    }
+  }
   cachedClient = new S3Client({
     region: 'auto',
     endpoint,

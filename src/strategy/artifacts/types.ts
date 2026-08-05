@@ -8,13 +8,18 @@
  * `#pmb/*` / bare references filled by the running machine's local checkout
  * (root package.json `imports` field).
  *
- * Identity = sha256 of the bundle bytes. Params are NOT part of the artifact:
- * many runs with different `--param` sets reference the same sha. A new sha
- * exists only when the strategy code changes.
+ * Identity = sha256 of the bundle bytes, and the bytes are derived from CODE
+ * ONLY (plus the entrypoint path relative to the repo root): no git commit,
+ * dirty flag, remote URL, or timestamp is embedded, so the same code produces
+ * the same sha across commits and machines. Params are NOT part of the
+ * artifact: many runs with different `--param` sets reference the same sha.
+ * Git provenance (repo, commit, dirty) lives in the `strategy_artifacts` DB
+ * row and in `backtest_runs.strategy_artifact_meta` — recorded at the FIRST
+ * publish of that exact code.
  */
 
 /** Bump when the bundle contract changes incompatibly (banner shape, externals model). */
-export const ARTIFACT_FORMAT_VERSION = 1
+export const ARTIFACT_FORMAT_VERSION = 2
 
 export const SHA256_HEX_RE = /^[0-9a-f]{64}$/
 
@@ -50,30 +55,20 @@ export type StrategyArtifactMeta = {
 
 /**
  * Embedded in every bundle as `export const __pmbArtifact`. Deliberately
- * timestamp-free: the same source must always produce byte-identical bundles
- * (deterministic sha). Build-time metadata lives in the DB row instead. The
- * strategy id is NOT duplicated here — `definition.id` is the source of truth.
+ * contains NOTHING machine- or git-dependent (no commit, dirty flag, repo
+ * URL, or timestamp) — the banner is part of the hashed bytes, so anything
+ * here would fork the sha for identical code. Git provenance lives in the DB
+ * row / run meta instead. The strategy id is NOT duplicated here —
+ * `definition.id` is the source of truth.
  */
 export type ArtifactBanner = {
   formatVersion: number
-  source: {
-    repo: string
-    commit: string
-    dirty: boolean
-    entrypoint: string
-  }
+  /** Entrypoint path relative to the repo root — part of the code identity. */
+  entrypoint: string
 }
 
 export function isArtifactBanner(x: unknown): x is ArtifactBanner {
   if (typeof x !== 'object' || x === null) return false
   const b = x as Partial<ArtifactBanner>
-  return (
-    typeof b.formatVersion === 'number' &&
-    typeof b.source === 'object' &&
-    b.source !== null &&
-    typeof b.source.repo === 'string' &&
-    typeof b.source.commit === 'string' &&
-    typeof b.source.dirty === 'boolean' &&
-    typeof b.source.entrypoint === 'string'
-  )
+  return typeof b.formatVersion === 'number' && typeof b.entrypoint === 'string'
 }

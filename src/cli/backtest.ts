@@ -315,6 +315,7 @@ async function main(): Promise<void> {
                 sha256: parent.strategyArtifactSha256,
                 rawParams: parent.params,
                 allowRegistryIdCollision: true,
+                fallbackMeta: parent.strategyArtifactMeta,
               })
             : buildStrategyFromConfig({
                 strategyId: parent.strategy,
@@ -1161,9 +1162,11 @@ async function main(): Promise<void> {
     process.env.BACKTEST_ALLOW_DIRTY !== '1'
   ) {
     console.error(
-      '[backtest] Working tree has uncommitted changes.\n' +
-        '  Distributed workers gate on the commit SHA, so uncommitted strategy code will\n' +
-        '  NOT reach them — they would run a stale strategy registry.\n' +
+      '[backtest] ENGINE working tree has uncommitted changes.\n' +
+        '  Distributed workers gate on the engine commit SHA, so uncommitted ENGINE code\n' +
+        '  will NOT reach them (registry strategies included). External artifact\n' +
+        '  strategies (--strategy-file/--strategy-artifact) are exempt from this gate —\n' +
+        '  their code travels by sha — but the engine itself must still be clean.\n' +
         '  Commit (and push) your changes first, or set BACKTEST_ALLOW_DIRTY=1 to override\n' +
         '  (only safe for a local --sequential run on this machine).',
     )

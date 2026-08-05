@@ -178,18 +178,43 @@ export async function resolveStrategyFromArtifact(args: {
   sha256: string
   rawParams: Record<string, unknown>
   allowRegistryIdCollision?: boolean
+  /**
+   * Recovery path for `--extend`: when the `strategy_artifacts` row is gone
+   * (partial restore, recreated table), the parent run's own
+   * `strategy_artifact_meta` still fully identifies the code — fall back to
+   * it instead of dead-ending a reproducible run.
+   */
+  fallbackMeta?: StrategyArtifactMeta | null
 }): Promise<ResolveStrategyResult> {
   const row = await getStrategyArtifactBySha(args.sha256)
-  if (!row) {
+  // publishedId is null on the fallback path — the id check is then skipped
+  // (the hash-verified bundle itself is the authority on its definition).
+  let source: (StrategyArtifactMeta & { publishedId: string | null }) | null = null
+  if (row) {
+    source = {
+      publishedId: row.strategyId,
+      r2Url: row.r2Url,
+      sourceRepo: row.sourceRepo,
+      sourceCommit: row.sourceCommit,
+      sourceDirty: row.sourceDirty,
+      entrypoint: row.entrypoint,
+    }
+  } else if (args.fallbackMeta) {
+    console.warn(
+      `[strategy] strategy_artifacts row missing for ${args.sha256.slice(0, 12)} — recovering from the run row's meta`,
+    )
+    source = { publishedId: null, ...args.fallbackMeta }
+  }
+  if (!source) {
     throw new CliArgsError(
       `unknown strategy artifact ${args.sha256} — publish it first:\n` +
         `  npm run strategy:publish -- --repo <dir> --entrypoint <rel.ts>`,
     )
   }
-  const def = await ensureArtifactLoaded({ sha256: row.sha256, r2Url: row.r2Url })
-  if (def.id !== row.strategyId) {
+  const def = await ensureArtifactLoaded({ sha256: args.sha256, r2Url: source.r2Url })
+  if (source.publishedId !== null && def.id !== source.publishedId) {
     throw new CliArgsError(
-      `artifact ${args.sha256.slice(0, 12)} exports strategy id ${JSON.stringify(def.id)} but was published as ${JSON.stringify(row.strategyId)}`,
+      `artifact ${args.sha256.slice(0, 12)} exports strategy id ${JSON.stringify(def.id)} but was published as ${JSON.stringify(source.publishedId)}`,
     )
   }
   if (strategyRegistry[def.id]) {
@@ -211,13 +236,13 @@ export async function resolveStrategyFromArtifact(args: {
     ...built,
     definition: def,
     artifact: {
-      ref: { sha256: row.sha256, r2Url: row.r2Url },
+      ref: { sha256: args.sha256, r2Url: source.r2Url },
       meta: {
-        r2Url: row.r2Url,
-        sourceRepo: row.sourceRepo,
-        sourceCommit: row.sourceCommit,
-        sourceDirty: row.sourceDirty,
-        entrypoint: row.entrypoint,
+        r2Url: source.r2Url,
+        sourceRepo: source.sourceRepo,
+        sourceCommit: source.sourceCommit,
+        sourceDirty: source.sourceDirty,
+        entrypoint: source.entrypoint,
       },
     },
   }
@@ -258,6 +283,14 @@ export function buildStrategyFromConfig(args: {
 export function printCliArgsError(args: { script: string; err: unknown }): void {
   const msg = args.err instanceof Error ? args.err.message : String(args.err)
   console.error(`[${args.script}] ${msg}`)
+  // Drizzle wraps driver errors: the actionable part (ECONNREFUSED, host)
+  // lives on `cause` — without this line "DB down" reads as a SQL failure.
+  const cause = args.err instanceof Error ? args.err.cause : undefined
+  if (cause !== undefined) {
+    console.error(
+      `[${args.script}] cause: ${cause instanceof Error ? cause.message : String(cause)}`,
+    )
+  }
   if (args.err instanceof CliArgsError) {
     console.error('')
     console.error(formatStrategyHelp({ script: args.script }))

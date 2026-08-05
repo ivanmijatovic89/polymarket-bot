@@ -18,8 +18,6 @@ import { FIXTURE_STRATEGY_ID, makeFixtureRepo } from './testFixture.js'
 // #pmb/* and zod resolve from the artifact (loader.ts documents this).
 process.env.STRATEGY_ARTIFACT_CACHE_DIR = `data/strategy-artifacts-test-${process.pid}`
 
-const SOURCE = { repo: 'file://fixture', commit: 'b'.repeat(40), dirty: false }
-
 function writeToCache(bytes: Buffer, sha256: string): string {
   const p = artifactCachePath(sha256)
   mkdirSync(path.dirname(p), { recursive: true })
@@ -31,7 +29,7 @@ test('loads a cached artifact end-to-end (#pmb + zod resolution from .mjs)', asy
   t.after(() => rmSync(artifactCacheDir(), { recursive: true, force: true }))
   const { repoDir, entrypoint } = makeFixtureRepo()
   try {
-    const built = await buildStrategyArtifact({ repoDir, entrypoint, source: SOURCE })
+    const built = await buildStrategyArtifact({ repoDir, entrypoint })
     writeToCache(built.bytes, built.sha256)
 
     const ref = { sha256: built.sha256, r2Url: 'r2://test-bucket/unused' }
@@ -57,13 +55,17 @@ test('hash mismatch deletes the corrupt cache file and throws', async (t) => {
   t.after(() => rmSync(artifactCacheDir(), { recursive: true, force: true }))
   const { repoDir, entrypoint } = makeFixtureRepo()
   try {
-    // Distinct source commit ⇒ distinct sha: the previous test's per-process
-    // memo must not short-circuit this load.
-    const built = await buildStrategyArtifact({
-      repoDir,
-      entrypoint,
-      source: { ...SOURCE, commit: 'd'.repeat(40) },
-    })
+    // Distinct CODE ⇒ distinct sha (git state is no longer part of the
+    // identity): the previous test's per-process memo must not short-circuit
+    // this load.
+    // Change code that the definition actually USES — comments are stripped
+    // and unused exports are tree-shaken, either of which would leave the
+    // bytes (and sha) identical.
+    writeFileSync(
+      path.join(repoDir, 'strategies/helper.ts'),
+      `export const helperName = 'ext-toy-corrupt-variant'\n`,
+    )
+    const built = await buildStrategyArtifact({ repoDir, entrypoint })
     const corrupted = Buffer.from(built.bytes)
     corrupted[0] = corrupted[0]! ^ 0xff
     const cached = writeToCache(corrupted, built.sha256)

@@ -4,12 +4,10 @@ import test from 'node:test'
 import { buildStrategyArtifact } from './bundle.js'
 import { makeFixtureRepo } from './testFixture.js'
 
-const SOURCE = { repo: 'file://fixture', commit: 'a'.repeat(40), dirty: false }
-
 test('bundles the external repo with engine imports rewritten to #pmb externals', async () => {
   const { repoDir, entrypoint } = makeFixtureRepo()
   try {
-    const built = await buildStrategyArtifact({ repoDir, entrypoint, source: SOURCE })
+    const built = await buildStrategyArtifact({ repoDir, entrypoint })
     const text = built.bytes.toString('utf8')
     // Engine stays external, with explicit .ts targets.
     assert.match(text, /from\s*["']#pmb\/strategy\/plugins\/PluginSet\.ts["']/)
@@ -20,9 +18,10 @@ test('bundles the external repo with engine imports rewritten to #pmb externals'
     assert.match(text, /helperName/)
     // Type-only engine import leaves no runtime trace.
     assert.doesNotMatch(text, /#pmb\/strategy\/strategyDefinition\.ts/)
-    // Banner is embedded, timestamp-free.
+    // Banner is embedded — code-only (no git state in the bytes).
     assert.match(text, /__pmbArtifact/)
-    assert.equal(built.banner.source.commit, SOURCE.commit)
+    assert.equal(built.banner.entrypoint, entrypoint)
+    assert.doesNotMatch(text, /sourceCommit|"commit"|"dirty"/)
   } finally {
     rmSync(repoDir, { recursive: true, force: true })
   }
@@ -31,8 +30,8 @@ test('bundles the external repo with engine imports rewritten to #pmb externals'
 test('same source produces byte-identical bundles (deterministic sha)', async () => {
   const { repoDir, entrypoint } = makeFixtureRepo()
   try {
-    const a = await buildStrategyArtifact({ repoDir, entrypoint, source: SOURCE })
-    const b = await buildStrategyArtifact({ repoDir, entrypoint, source: SOURCE })
+    const a = await buildStrategyArtifact({ repoDir, entrypoint })
+    const b = await buildStrategyArtifact({ repoDir, entrypoint })
     assert.equal(a.sha256, b.sha256)
     assert.deepEqual(a.bytes, b.bytes)
   } finally {
@@ -44,7 +43,7 @@ test('rejects engine imports outside the allowlist (src/db)', async () => {
   const { repoDir } = makeFixtureRepo()
   try {
     await assert.rejects(
-      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/bad.v1.ts', source: SOURCE }),
+      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/bad.v1.ts' }),
       /engine import not allowed.*src\/db\/index/s,
     )
   } finally {
@@ -56,7 +55,7 @@ test('hand-written #pmb specifiers go through the same allowlist (no bypass)', a
   const { repoDir } = makeFixtureRepo()
   try {
     await assert.rejects(
-      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/bad-pmb.v1.ts', source: SOURCE }),
+      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/bad-pmb.v1.ts' }),
       /engine import not allowed.*src\/db\/index/s,
     )
   } finally {
@@ -88,7 +87,6 @@ test('a symlinked engine root still keeps engine imports external', async (t) =>
     const built = await buildStrategyArtifact({
       repoDir,
       entrypoint,
-      source: SOURCE,
       engineRoot: engineLink,
     })
     const text = built.bytes.toString('utf8')
@@ -102,7 +100,7 @@ test('rejects a missing entrypoint', async () => {
   const { repoDir } = makeFixtureRepo()
   try {
     await assert.rejects(
-      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/nope.ts', source: SOURCE }),
+      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/nope.ts' }),
       /entrypoint not found/,
     )
   } finally {
