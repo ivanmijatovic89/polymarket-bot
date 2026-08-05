@@ -101,6 +101,21 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    // External strategy artifact provenance (issue #211). Null for registry
+    // strategies. The sha is what `--extend` needs to reload the exact code;
+    // the meta json (r2Url, sourceRepo, sourceCommit, sourceDirty,
+    // entrypoint) makes the run reproducible without the strategy_artifacts
+    // table.
+    strategyArtifactSha256: varchar('strategy_artifact_sha256', { length: 64 }),
+    // Shape: StrategyArtifactMeta in src/strategy/artifacts/types.ts (kept
+    // structural here — schema.ts deliberately avoids importing app modules).
+    strategyArtifactMeta: json('strategy_artifact_meta').$type<{
+      r2Url: string
+      sourceRepo: string
+      sourceCommit: string
+      sourceDirty: boolean
+      entrypoint: string
+    } | null>(),
 
     symbol: varchar('symbol', { length: 10 }),
     timeframe: varchar('timeframe', { length: 16 }),
@@ -620,5 +635,42 @@ export const runtimeSessions = mysqlTable(
     runSessionUnique: unique('uniq_runtime_sessions_run_session').on(t.runId, t.sessionNumber),
     runStartedIdx: index('idx_runtime_sessions_run_started').on(t.runId, t.startedAt),
     statusIdx: index('idx_runtime_sessions_status').on(t.status),
+  }),
+)
+
+// ---------------------------------------------------------------------------
+// External strategy artifacts — immutable content-addressed strategy bundles
+// published from external repos (see src/strategy/artifacts/). The R2 object
+// (`r2_url`) is the artifact of record; this row is producer-side provenance
+// plus the `--strategy-artifact <sha>` → r2Url resolution. Workers never read
+// this table — market jobs carry the {sha256, r2Url} ref directly.
+// ---------------------------------------------------------------------------
+export const strategyArtifacts = mysqlTable(
+  'strategy_artifacts',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    // sha256 of the bundle bytes — the artifact's identity. Immutable: the
+    // same sha can never map to different content.
+    sha256: varchar('sha256', { length: 64 }).notNull(),
+    strategyId: varchar('strategy_id', { length: 255 }).notNull(),
+    entrypoint: varchar('entrypoint', { length: 500 }).notNull(),
+    // External repo provenance: remote URL (fallback: absolute path) + commit.
+    sourceRepo: varchar('source_repo', { length: 500 }).notNull(),
+    sourceCommit: varchar('source_commit', { length: 40 }).notNull(),
+    sourceDirty: boolean('source_dirty').notNull().default(false),
+    // Publisher's polymarket-bot HEAD at build time (engine the bundle was
+    // typechecked/built against; execution engine is gated separately).
+    engineCommit: varchar('engine_commit', { length: 40 }).notNull(),
+    formatVersion: int('format_version').notNull(),
+    builtWith: json('built_with').$type<{ esbuild: string; node: string }>(),
+    r2Url: varchar('r2_url', { length: 500 }).notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    etag: varchar('etag', { length: 64 }),
+    builtAt: timestamp('built_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqSha: unique('uniq_strategy_artifacts_sha256').on(t.sha256),
+    strategyIdx: index('idx_strategy_artifacts_strategy').on(t.strategyId),
   }),
 )

@@ -46,6 +46,9 @@ jobs:
       - name: Global Runtime tests
         run: npm run global-runtime:test
 
+      - name: Strategy artifact tests
+        run: npm run artifacts:test
+
       - name: Research protocol check
         run: npm run research:check
 

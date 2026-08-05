@@ -62,7 +62,11 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     throw new Error(
       `[aggregateProcessor] protocol mismatch for batchUid=${data.batchUid} submissionUid=${data.submissionUid}: ` +
         `job=${String(data.protocolVersion)} worker=${AGGREGATE_JOB_PROTOCOL_VERSION}. ` +
-        `Restart all backtest workers and re-enqueue the batch.`,
+        `Restart all backtest workers and re-enqueue the batch.` +
+        (data.extension
+          ? ` This was an extension of run ${data.extension.parentRunId} — its extend lock stays set; clear it before re-extending: ` +
+            `UPDATE backtest_runs SET extending_at = NULL WHERE id = ${data.extension.parentRunId};`
+          : ''),
     )
   }
   if (!Array.isArray(data.expectedMarkets) || data.expectedMarkets.length !== data.totalMarkets) {
@@ -171,6 +175,8 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
       model: data.insertMeta.model,
       strategy: data.insertMeta.strategy,
       params: data.insertMeta.params,
+      strategyArtifactSha256: data.insertMeta.strategyArtifactSha256 ?? null,
+      strategyArtifactMeta: data.insertMeta.strategyArtifactMeta ?? null,
       symbol: data.insertMeta.symbol,
       timeframe: data.insertMeta.timeframe,
       inputMode: data.insertMeta.inputMode,

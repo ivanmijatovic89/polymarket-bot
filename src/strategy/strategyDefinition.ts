@@ -1,6 +1,7 @@
 import type { Strategy } from './Strategy.js'
 import type { Plugin, PluginSet } from './plugins/PluginSet.js'
 import type { z } from 'zod'
+import { SHA256_HEX_RE } from './artifacts/types.js'
 
 export type BuiltStrategy = {
   strategy: Strategy
@@ -34,7 +35,10 @@ export class CliArgsError extends Error {
 }
 
 export type ParsedStrategyArgs = {
-  strategyId: string
+  /** Registry strategy id (`--strategy`). Null when an artifact was selected. */
+  strategyId: string | null
+  /** External artifact sha256 (`--strategy-artifact`). Null when a registry id was selected. */
+  artifactSha256: string | null
   rawParams: Record<string, string>
 }
 
@@ -56,15 +60,26 @@ function parseParamKv(raw: string): { key: string; value: string } {
   return { key, value }
 }
 
+function validateArtifactSha(raw: string): string {
+  const v = raw.trim().toLowerCase()
+  if (!SHA256_HEX_RE.test(v)) {
+    throw new CliArgsError(
+      `invalid --strategy-artifact ${JSON.stringify(raw)} (expected a 64-char sha256 hex, printed by strategy:publish)`,
+    )
+  }
+  return v
+}
+
 /**
  * Parse strategy selection and repeated `--param key=value` pairs from argv.
  *
  * Strict behavior:
- * - `--strategy` is required
+ * - exactly one of `--strategy <id>` / `--strategy-artifact <sha256>` is required
  * - duplicate `--param` keys are rejected
  */
 export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
   let strategyId: string | null = null
+  let artifactSha256: string | null = null
   const rawParams: Record<string, string> = {}
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -80,6 +95,18 @@ export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
       const v = a.slice('--strategy='.length)
       if (!v) throw new CliArgsError('missing value for --strategy')
       strategyId = v
+      continue
+    }
+
+    if (a === '--strategy-artifact') {
+      artifactSha256 = validateArtifactSha(mustGetNextValue(argv, i, '--strategy-artifact'))
+      i += 1
+      continue
+    }
+    if (a.startsWith('--strategy-artifact=')) {
+      const v = a.slice('--strategy-artifact='.length)
+      if (!v) throw new CliArgsError('missing value for --strategy-artifact')
+      artifactSha256 = validateArtifactSha(v)
       continue
     }
 
@@ -104,6 +131,11 @@ export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
     }
   }
 
-  if (!strategyId) throw new CliArgsError('missing required --strategy <id>')
-  return { strategyId, rawParams }
+  if (strategyId && artifactSha256) {
+    throw new CliArgsError('--strategy and --strategy-artifact are mutually exclusive — pass one')
+  }
+  if (!strategyId && !artifactSha256) {
+    throw new CliArgsError('missing required --strategy <id> or --strategy-artifact <sha256>')
+  }
+  return { strategyId, artifactSha256, rawParams }
 }
