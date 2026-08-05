@@ -55,7 +55,10 @@ export function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknow
     x !== null &&
     typeof (x as { id?: unknown }).id === 'string' &&
     typeof (x as { create?: unknown }).create === 'function' &&
-    'schema' in (x as object)
+    // A real zod schema, not just any `schema` key: consumers call
+    // `schema.safeParse` unconditionally, and a bare TypeError there would
+    // lose the artifact/file context this validation exists to preserve.
+    typeof (x as { schema?: { safeParse?: unknown } }).schema?.safeParse === 'function'
   )
 }
 

@@ -96,6 +96,39 @@ test('a symlinked engine root still keeps engine imports external', async (t) =>
   }
 })
 
+test('rejects bundling a file that lies outside the strategy repo', async (t) => {
+  const { writeFileSync: wf } = await import('node:fs')
+  const path = (await import('node:path')).default
+  const { repoDir, entrypoint } = makeFixtureRepo()
+  // A real file OUTSIDE the repo dir (sibling in the tmp parent) — imported
+  // relatively, it bundles content that no commit of the repo contains.
+  const outside = path.join(repoDir, '..', `outside-${path.basename(repoDir)}.ts`)
+  wf(outside, 'export const leaked = 1\n')
+  t.after(() => rmSync(outside, { force: true }))
+  wf(
+    path.join(repoDir, 'strategies', 'escape.v1.ts'),
+    [
+      `import { leaked } from '../../${path.basename(outside).replace(/\.ts$/, '.js')}'`,
+      `export const definition = {`,
+      `  id: 'ext-escape.v1',`,
+      `  schema: { safeParse: () => ({ success: true, data: {} }) },`,
+      `  create: () => ({ strategy: { name: String(leaked), onMarketTick: () => [], onAccountEvent: () => [] } }),`,
+      `}`,
+      ``,
+    ].join('\n'),
+  )
+  try {
+    await assert.rejects(
+      buildStrategyArtifact({ repoDir, entrypoint: 'strategies/escape.v1.ts' }),
+      /outside the strategy repo/,
+    )
+    // Sanity: the base fixture still builds (guard doesn't overfire).
+    await buildStrategyArtifact({ repoDir, entrypoint })
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true })
+  }
+})
+
 test('rejects a missing entrypoint', async () => {
   const { repoDir } = makeFixtureRepo()
   try {

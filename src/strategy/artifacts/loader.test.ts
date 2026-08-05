@@ -92,6 +92,51 @@ test('a module without the artifact banner is rejected', async (t) => {
   )
 })
 
+test('an outdated banner formatVersion points to republish (not "not an artifact")', async (t) => {
+  t.after(() => rmSync(artifactCacheDir(), { recursive: true, force: true }))
+  const bytes = Buffer.from(
+    `export const definition = { id: 'v1', schema: {}, create: () => ({ strategy: {} }) }\n` +
+      `export const __pmbArtifact = { formatVersion: 1, source: { repo: 'r', commit: 'c', dirty: false, entrypoint: 'e' } }\n`,
+  )
+  writeToCache(bytes, sha256OfBuffer(bytes))
+  await assert.rejects(
+    ensureArtifactLoaded({ sha256: sha256OfBuffer(bytes), r2Url: 'r2://test-bucket/unused' }),
+    (err: unknown) =>
+      err instanceof ArtifactShapeError && /republish the strategy/.test((err as Error).message),
+  )
+})
+
+test('a rejected load is evicted from the memo — retry gets a fresh attempt', async (t) => {
+  t.after(() => rmSync(artifactCacheDir(), { recursive: true, force: true }))
+  const { repoDir, entrypoint } = makeFixtureRepo()
+  try {
+    writeFileSync(
+      path.join(repoDir, 'strategies/helper.ts'),
+      `export const helperName = 'memo-eviction-variant'\n`,
+    )
+    const built = await buildStrategyArtifact({ repoDir, entrypoint })
+    const ref = { sha256: built.sha256, r2Url: 'r2://test-bucket/unused' }
+    // Cache miss + no R2 env in tests ⇒ the download wrapper rejects.
+    await assert.rejects(ensureArtifactLoaded(ref))
+    // If the rejection stayed memoized, this retry would replay it forever;
+    // eviction means the now-present cache file loads cleanly.
+    writeToCache(built.bytes, built.sha256)
+    const def = await ensureArtifactLoaded(ref)
+    assert.equal(def.id, FIXTURE_STRATEGY_ID)
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true })
+  }
+})
+
+test('STRATEGY_ARTIFACT_CACHE_DIR outside the repo root is rejected early', (t) => {
+  const prev = process.env.STRATEGY_ARTIFACT_CACHE_DIR
+  t.after(() => {
+    process.env.STRATEGY_ARTIFACT_CACHE_DIR = prev
+  })
+  process.env.STRATEGY_ARTIFACT_CACHE_DIR = '/tmp/definitely-outside-the-repo'
+  assert.throws(() => artifactCacheDir(), /must stay under the repo root/)
+})
+
 test('an invalid sha256 is rejected before any I/O', async () => {
   await assert.rejects(
     ensureArtifactLoaded({ sha256: 'not-a-sha', r2Url: 'r2://test-bucket/unused' }),
