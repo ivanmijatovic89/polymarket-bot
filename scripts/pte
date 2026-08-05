@@ -57,6 +57,10 @@ case "$1" in
   *)
     script="$1"
     shift
+    # Users trained on `npm run x -- args` will type `pte x -- args`; npm
+    # strips only OUR `--` below, so a user-supplied one would reach the
+    # underlying script literally. Swallow one.
+    [[ "$1" == "--" ]] && shift
     exec npm run "$script" -- "$@"
     ;;
 esac

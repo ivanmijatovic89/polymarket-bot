@@ -25,6 +25,15 @@
         worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
         worker_log_file: '{{ (backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers")) ~ "/" ~ (backtest_worker_session | default(backtest_worker_session_default)) ~ ".log" }}'
 
+    # Same task as pull-workers.yml: a worker maintained only via fleet:update
+    # must get the pte symlink too.
+    - name: Ensure pte symlink
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p "$HOME/.local/bin"
+          ln -sfn "{{ worker_repo_dir }}/scripts/pte" "$HOME/.local/bin/pte"
+      changed_when: false
+
     - name: Check repository exists
       ansible.builtin.stat:
         path: '{{ worker_repo_dir }}/.git'

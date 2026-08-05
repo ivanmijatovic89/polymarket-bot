@@ -133,7 +133,11 @@ The convenient form — point straight at the source file, publish happens autom
 npm run backtest -- --strategy-file /path/to/repo/strategies/my-strat.v1.ts --input-mode telonex-delta --read-from local --symbol btc --limit 20
 ```
 
-`--strategy-file` bundles + publishes on every launch (idempotent: unchanged code resolves the same sha with no re-upload), then runs exactly like `--strategy-artifact`. The repo root is the nearest ancestor `.git`; publish uses `--allow-dirty` + `--skip-checks` semantics — run `strategy:check` yourself before iterating. Use the explicit sha form for exact reproduction of previously published code:
+`--strategy-file` bundles + publishes on every launch (idempotent: unchanged code resolves the same sha with no re-upload), then runs exactly like `--strategy-artifact`. The repo root is the nearest ancestor `.git`; publish uses `--allow-dirty` + `--skip-checks` semantics — run `strategy:check` yourself before iterating.
+
+::: warning One sha per (repo root, entrypoint) pair
+The bundle's identity includes the entrypoint path relative to the repo root. `--strategy-file` anchors at the nearest `.git`, while a manual `strategy:publish --repo <subfolder>` anchors wherever you point it — the same code published through differently-anchored flows yields different shas (both valid, no dedup across them). Stick to one flow per repo.
+::: Use the explicit sha form for exact reproduction of previously published code:
 
 ```bash
 npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20
