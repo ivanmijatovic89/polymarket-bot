@@ -131,6 +131,15 @@ npm run worker:markets
 That is the whole onboarding. The sibling cannot trade with your keys, cannot
 write to your database, and can only read parquet from R2.
 
+If the machine will also host protocol sessions or Global Runtime missions
+(external workspaces that call engine commands), install the
+[`pte` CLI](/reference/pte-cli) once — `fleet:git:pull` keeps the symlink in
+place afterwards:
+
+```bash
+ln -sfn "$(pwd)/scripts/pte" ~/.local/bin/pte
+```
+
 ::: tip Keep sibling checkouts clean
 Self-update relies on `git pull --ff-only`. Keep each worker's checkout on the
 tracked branch with no local edits, so a pull always fast-forwards. Do
