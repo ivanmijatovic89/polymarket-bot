@@ -42,8 +42,7 @@ test('parseStrategyArgs: missing both selections is rejected', () => {
   assert.throws(
     () => parseStrategyArgs(['--param', 'size=2']),
     (err: unknown) =>
-      err instanceof CliArgsError &&
-      /--strategy <id> or --strategy-artifact/.test((err as Error).message),
+      err instanceof CliArgsError && /missing required --strategy/.test((err as Error).message),
   )
 })
 
@@ -55,6 +54,41 @@ test('parseStrategyArgs: malformed sha is rejected', () => {
         err instanceof CliArgsError && /invalid --strategy-artifact/.test((err as Error).message),
     )
   }
+})
+
+test('parseStrategyArgs: --strategy-file selection, both flag forms', () => {
+  const spaced = parseStrategyArgs(['--strategy-file', 'strategies/x.v1.ts', '--param', 'size=2'])
+  assert.equal(spaced.strategyFile, 'strategies/x.v1.ts')
+  assert.equal(spaced.strategyId, null)
+  assert.equal(spaced.artifactSha256, null)
+  assert.equal(parseStrategyArgs(['--strategy-file=./x.ts']).strategyFile, './x.ts')
+})
+
+test('parseStrategyArgs: --strategy-file is mutually exclusive with the other selectors', () => {
+  for (const argv of [
+    ['--strategy', 'x.v1', '--strategy-file', 'x.ts'],
+    ['--strategy-artifact', SHA, '--strategy-file', 'x.ts'],
+  ]) {
+    assert.throws(
+      () => parseStrategyArgs(argv),
+      (err: unknown) =>
+        err instanceof CliArgsError && /mutually exclusive/.test((err as Error).message),
+    )
+  }
+})
+
+test('backtest parseArgs: strategy-file value is not treated as a parquet path', () => {
+  const spaced = parseArgs(['--strategy-file', 'strategies/x.v1.ts', '--symbol', 'btc'])
+  assert.deepEqual(spaced.filePaths, [])
+  const inline = parseArgs(['--strategy-file=strategies/x.v1.ts', '--symbol', 'btc'])
+  assert.deepEqual(inline.filePaths, [])
+})
+
+test('backtest parseArgs: --extend rejects --strategy-file', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '42', '--strategy-file', 'x.ts']),
+    /--extend 42 cannot be combined with: --strategy-file/,
+  )
 })
 
 test('backtest parseArgs: artifact sha value is not treated as a parquet path', () => {

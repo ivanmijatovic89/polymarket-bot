@@ -127,15 +127,24 @@ Publishing is idempotent: unchanged code produces the identical sha and prints `
 
 ### 3. Run
 
+The convenient form — point straight at the source file, publish happens automatically:
+
+```bash
+npm run backtest -- --strategy-file /path/to/repo/strategies/my-strat.v1.ts --input-mode telonex-delta --read-from local --symbol btc --limit 20
+```
+
+`--strategy-file` bundles + publishes on every launch (idempotent: unchanged code resolves the same sha with no re-upload), then runs exactly like `--strategy-artifact`. The repo root is the nearest ancestor `.git`; publish uses `--allow-dirty` + `--skip-checks` semantics — run `strategy:check` yourself before iterating. Use the explicit sha form for exact reproduction of previously published code:
+
 ```bash
 npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20
 ```
 
 ```bash
+npm run trade:bot -- --strategy-file /path/to/repo/strategies/my-strat.v1.ts
 npm run trade:bot -- --strategy-artifact <sha256>
 ```
 
-`--strategy-artifact` replaces `--strategy` (they are mutually exclusive); `--param` works unchanged and is validated against the artifact's own Zod schema. Distributed market jobs carry only the small `{sha256, r2Url}` reference — each worker machine downloads the artifact at most once into `data/strategy-artifacts/<sha>.mjs`, verifies the hash, and memoizes the loaded module per process. `--extend <runId>` on an artifact run reloads the exact sha persisted on the run row.
+The three selectors (`--strategy`, `--strategy-artifact`, `--strategy-file`) are mutually exclusive; `--param` works unchanged and is validated against the artifact's own Zod schema. Distributed market jobs carry only the small `{sha256, r2Url}` reference — each worker machine downloads the artifact at most once into `data/strategy-artifacts/<sha>.mjs`, verifies the hash, and memoizes the loaded module per process. `--extend <runId>` on an artifact run reloads the exact sha persisted on the run row.
 
 ## Provenance
 
