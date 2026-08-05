@@ -1,6 +1,12 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { getStrategyArtifactBySha } from '../../db/strategyArtifacts.js'
 import type { Strategy } from '../../strategy/Strategy.js'
 import { ensureArtifactLoaded } from '../../strategy/artifacts/loader.js'
+import {
+  PublishError,
+  publishStrategyArtifactFromSource,
+} from '../../strategy/artifacts/publish.js'
 import type { StrategyArtifactMeta, StrategyArtifactRef } from '../../strategy/artifacts/types.js'
 import type { Plugin, PluginSet } from '../../strategy/plugins/PluginSet.js'
 import {
@@ -56,6 +62,7 @@ export function formatStrategyHelp(args: { script: string }): string {
   lines.push(`Usage:`)
   lines.push(`  ${args.script} --strategy <id> [--param key=value ...]`)
   lines.push(`  ${args.script} --strategy-artifact <sha256> [--param key=value ...]`)
+  lines.push(`  ${args.script} --strategy-file <path.ts> [--param key=value ...]`)
   lines.push(``)
   lines.push(`Available strategies:`)
   for (const d of defs) lines.push(`  - ${d.id}`)
@@ -87,30 +94,71 @@ export function buildStrategyFromCliArgs(args: {
   argv: string[]
   script: string
 }): BuildStrategyFromCliArgsResult {
-  const { strategyId, artifactSha256, rawParams } = parseStrategyArgs(args.argv)
-  if (artifactSha256) {
+  const { strategyId, artifactSha256, strategyFile, rawParams } = parseStrategyArgs(args.argv)
+  if (artifactSha256 || strategyFile) {
     // Artifact loading is async (dynamic import) — sync callers can't do it.
     throw new CliArgsError(
-      '--strategy-artifact is not supported by this entry point (use a runtime that resolves artifacts)',
+      '--strategy-artifact/--strategy-file are not supported by this entry point (use a runtime that resolves artifacts)',
     )
   }
   return buildStrategyFromConfig({ strategyId: strategyId!, rawParams })
 }
 
 /**
- * Resolve strategy selection from argv, supporting BOTH `--strategy <id>`
- * (registry, sync path unchanged) and `--strategy-artifact <sha256>`
- * (external artifact: DB row → hash-verified load → same schema.safeParse +
- * create() contract). Async because artifact loading dynamic-imports the
- * bundle.
+ * Resolve strategy selection from argv:
+ * - `--strategy <id>` — registry, sync path unchanged
+ * - `--strategy-artifact <sha256>` — already-published artifact (exact code)
+ * - `--strategy-file <path.ts>` — external source file: auto-published as an
+ *   artifact (idempotent — unchanged code re-resolves the same sha with no
+ *   re-upload), then resolved like `--strategy-artifact`
+ * All three end in the same schema.safeParse + create() contract. Async
+ * because artifact loading dynamic-imports the bundle.
  */
 export async function resolveStrategyFromCliArgs(args: {
   argv: string[]
   script: string
 }): Promise<ResolveStrategyResult> {
-  const { strategyId, artifactSha256, rawParams } = parseStrategyArgs(args.argv)
+  const { strategyId, artifactSha256, strategyFile, rawParams } = parseStrategyArgs(args.argv)
+  if (strategyFile) {
+    const { repoDir, entrypoint } = deriveStrategyFileSource(strategyFile)
+    // Iteration UX matches the old registry flow: no typecheck per launch
+    // (that gate is strategy:check), dirty tree fine (sha is the identity).
+    const published = await publishStrategyArtifactFromSource({
+      repoDir,
+      entrypoint,
+      allowDirty: true,
+      skipChecks: true,
+      log: (msg) => console.error(msg),
+    }).catch((err: unknown) => {
+      if (err instanceof PublishError) throw new CliArgsError(`--strategy-file: ${err.message}`)
+      throw err
+    })
+    return resolveStrategyFromArtifact({ sha256: published.sha256, rawParams })
+  }
   if (!artifactSha256) return buildStrategyFromConfig({ strategyId: strategyId!, rawParams })
   return resolveStrategyFromArtifact({ sha256: artifactSha256, rawParams })
+}
+
+/**
+ * Map a strategy source file to its repo root + relative entrypoint. The
+ * repo root is the nearest ancestor directory containing `.git` (publish
+ * records that repo's commit as provenance).
+ */
+function deriveStrategyFileSource(strategyFile: string): { repoDir: string; entrypoint: string } {
+  const abs = path.resolve(strategyFile)
+  if (!existsSync(abs)) throw new CliArgsError(`--strategy-file not found: ${abs}`)
+  let dir = path.dirname(abs)
+  for (;;) {
+    if (existsSync(path.join(dir, '.git'))) break
+    const parent = path.dirname(dir)
+    if (parent === dir) {
+      throw new CliArgsError(
+        `--strategy-file must live inside a git repository (searched upward from ${path.dirname(abs)})`,
+      )
+    }
+    dir = parent
+  }
+  return { repoDir: dir, entrypoint: path.relative(dir, abs).split(path.sep).join('/') }
 }
 
 /**

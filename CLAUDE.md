@@ -29,8 +29,9 @@ tsx src/cli/trading-bot.ts --strategy-artifact <sha256> [--param key=value ...] 
 # (idempotent, sha256 = identity); backtest/trade select with
 # --strategy-artifact <sha> (mutually exclusive with --strategy).
 npm run strategy:check   -- --repo /path/to/external-repo     # typecheck+lint with this repo's toolchain
-npm run strategy:publish -- --repo /path/to/external-repo --entrypoint strategies/my-strat.v1.ts
-npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20
+npm run backtest -- --strategy-file /path/to/repo/strategies/my.v1.ts --input-mode telonex-delta --read-from local --symbol btc --limit 20   # auto-publishes
+npm run strategy:publish -- --repo /path/to/external-repo --entrypoint strategies/my-strat.v1.ts   # explicit pre-publish (rarely needed)
+npm run backtest -- --strategy-artifact <sha256> --input-mode telonex-delta --read-from local --symbol btc --limit 20   # exact sha reproduction
 npm run artifacts:test                 # artifact bundler/loader/selection test suite
 
 # Backtesting — replays Parquet with same strategy code as live

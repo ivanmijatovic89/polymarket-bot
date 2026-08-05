@@ -35,10 +35,15 @@ export class CliArgsError extends Error {
 }
 
 export type ParsedStrategyArgs = {
-  /** Registry strategy id (`--strategy`). Null when an artifact was selected. */
+  /** Registry strategy id (`--strategy`). Null when an artifact/file was selected. */
   strategyId: string | null
-  /** External artifact sha256 (`--strategy-artifact`). Null when a registry id was selected. */
+  /** External artifact sha256 (`--strategy-artifact`). Null otherwise. */
   artifactSha256: string | null
+  /**
+   * Strategy source file (`--strategy-file`, external repo). Auto-published
+   * as an artifact by the resolver. Null otherwise.
+   */
+  strategyFile: string | null
   rawParams: Record<string, string>
 }
 
@@ -74,12 +79,14 @@ function validateArtifactSha(raw: string): string {
  * Parse strategy selection and repeated `--param key=value` pairs from argv.
  *
  * Strict behavior:
- * - exactly one of `--strategy <id>` / `--strategy-artifact <sha256>` is required
+ * - exactly one of `--strategy <id>` / `--strategy-artifact <sha256>` /
+ *   `--strategy-file <path.ts>` is required
  * - duplicate `--param` keys are rejected
  */
 export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
   let strategyId: string | null = null
   let artifactSha256: string | null = null
+  let strategyFile: string | null = null
   const rawParams: Record<string, string> = {}
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -110,6 +117,18 @@ export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
       continue
     }
 
+    if (a === '--strategy-file') {
+      strategyFile = mustGetNextValue(argv, i, '--strategy-file')
+      i += 1
+      continue
+    }
+    if (a.startsWith('--strategy-file=')) {
+      const v = a.slice('--strategy-file='.length)
+      if (!v) throw new CliArgsError('missing value for --strategy-file')
+      strategyFile = v
+      continue
+    }
+
     if (a === '--param') {
       const kv = mustGetNextValue(argv, i, '--param')
       const { key, value } = parseParamKv(kv)
@@ -131,11 +150,16 @@ export function parseStrategyArgs(argv: string[]): ParsedStrategyArgs {
     }
   }
 
-  if (strategyId && artifactSha256) {
-    throw new CliArgsError('--strategy and --strategy-artifact are mutually exclusive — pass one')
+  const selected = [strategyId, artifactSha256, strategyFile].filter((v) => v !== null)
+  if (selected.length > 1) {
+    throw new CliArgsError(
+      '--strategy, --strategy-artifact and --strategy-file are mutually exclusive — pass one',
+    )
   }
-  if (!strategyId && !artifactSha256) {
-    throw new CliArgsError('missing required --strategy <id> or --strategy-artifact <sha256>')
+  if (selected.length === 0) {
+    throw new CliArgsError(
+      'missing required --strategy <id>, --strategy-artifact <sha256> or --strategy-file <path.ts>',
+    )
   }
-  return { strategyId, artifactSha256, rawParams }
+  return { strategyId, artifactSha256, strategyFile, rawParams }
 }
