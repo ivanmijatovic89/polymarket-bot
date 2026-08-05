@@ -188,8 +188,10 @@ export async function buildStrategyArtifact(
     // Provenance guard: every bundled input must live inside the repo (its
     // commit is what the run row records) — a `../outside.ts` escape would
     // make the artifact silently irreproducible from source_commit.
-    // node_modules is exempt: package code may resolve through symlinks
-    // (e.g. a shared node_modules symlink) outside the repo path.
+    // Exempt: any resolved path with a node_modules segment (esbuild resolves
+    // symlinks, so a node_modules symlink works only when its TARGET also
+    // contains a node_modules segment — an `npm link` to a plain source
+    // checkout is deliberately rejected as irreproducible).
     const relToRepo = path.relative(repoDir, abs)
     const inNodeModules = abs.split(path.sep).includes('node_modules')
     if ((relToRepo.startsWith('..') || path.isAbsolute(relToRepo)) && !inNodeModules) {
