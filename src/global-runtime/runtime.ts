@@ -8,6 +8,7 @@ import {
   readFile,
   realpath,
   rename,
+  writeFile,
   stat,
   unlink,
   type FileHandle,
@@ -1012,8 +1013,14 @@ export class GlobalRuntime {
    */
   private async adoptPreAnchorRuns(): Promise<void> {
     const anchorsDir = path.join(this.logRoot, 'anchors')
+    // The SENTINEL, not the directory, marks adoption as complete: a crash or
+    // ENOSPC partway through the loop would otherwise leave the directory in
+    // place with some runs unanchored — and those runs permanently
+    // unresumable — while the daemon booted looking healthy. Without the
+    // sentinel the next start simply retries.
+    const sentinel = path.join(anchorsDir, '.adopted')
     try {
-      await stat(anchorsDir)
+      await stat(sentinel)
       return
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -1026,13 +1033,16 @@ export class GlobalRuntime {
         await this.writeLaunchAnchor(run.id, pinLaunchSpec(run))
         adopted += 1
       } catch (error) {
-        // An existing anchor (EEXIST) means someone got here first; anything
-        // else is worth reporting but must not stop the daemon booting.
+        // An existing anchor (EEXIST) is fine — a previous partial adoption
+        // already pinned this run. Anything else means adoption is incomplete,
+        // so leave the sentinel unwritten and let the next start finish it.
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
           this.reportBackgroundError(run.id, error)
+          return
         }
       }
     }
+    await writeFile(sentinel, `${new Date(0).toISOString()}\n`, { encoding: 'utf8', mode: 0o600 })
     if (adopted > 0) {
       console.log(
         `[global-runtime] pinned launch anchors for ${adopted} pre-existing run(s) in ${anchorsDir}`,

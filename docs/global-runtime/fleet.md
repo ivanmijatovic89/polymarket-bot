@@ -20,7 +20,7 @@ Pre-#213 daemons took one fleet-wide lease and recovered runs **without a machin
 1. Stop every existing Global Runtime daemon in the fleet.
 2. Apply the migration against the shared database: `npm run db:migrate`.
 3. Update every checkout that might start a daemon (`npm run fleet:git:pull`, and any laptop by hand).
-4. Start the per-machine daemons (below).
+4. Start the per-machine daemons (below). The first start pins a launch anchor for every existing run on that machine (`pinned launch anchors for N pre-existing run(s)` in the log) — a one-time step that must never be re-triggered by deleting `anchors/`.
 
 New daemons refuse to start while the legacy fleet-wide lease is held, so a forgotten old daemon produces a clear error instead of silent damage — but a stale checkout started *after* the new ones will still misbehave, which is why step 3 covers every machine.
 
@@ -49,7 +49,7 @@ A daemon bound to a tailnet address without a token would let any process on the
 :::
 
 ::: danger
-**Sandboxed missions must not be able to read the daemon's `.env`.** srt allows reads everywhere by default, so a settings file that does not deny the engine repo's `.env` hands the mission this token — plus `DATABASE_*` and any trading keys. Every sandbox settings file used on a daemon machine needs the engine `.env` under `filesystem.denyRead` — that is the actual control. (`chmod 600 .env` guards against *other* accounts on the box; it does nothing against a mission session, which runs as the same user as the daemon.)
+**Sandboxed missions must not be able to read the daemon's `.env`.** srt allows reads everywhere by default, so a settings file that does not deny the engine repo's `.env` hands the mission this token — plus `DATABASE_*` and any trading keys. Every sandbox settings file used on a daemon machine needs the engine `.env` under `filesystem.denyRead`, **and must not grant write access to the daemon's log root** (`logs/global-runtime/`, which holds the launch anchors) — those two are the actual controls. (`chmod 600 .env` guards against *other* accounts on the box; it does nothing against a mission session, which runs as the same user as the daemon.)
 :::
 
 ## 2. Register the machine in the catalog
@@ -164,5 +164,5 @@ A machine that goes offline keeps its runs: Mission Control still shows their hi
 ## Known operational behavior
 
 - **Laptop sleep ends a run.** The lease connection is reaped after five minutes of silence, so a daemon whose machine sleeps longer than that shuts itself down on wake and its active session ends in `error`. Resume it from Mission Control. Long unattended loops belong on an always-on machine.
-- **Logs are not rotated.** `logs/global-runtime/daemon.log`, `boot.log`, and the per-session `run-*/session-*.jsonl` files grow until removed; prune those periodically on always-on machines. Do **not** delete `logs/global-runtime/anchors/` — those files pin each run's immutable launch settings, and a run whose anchor is missing refuses to start rather than silently re-pinning.
+- **Logs are not rotated.** `logs/global-runtime/daemon.log`, `boot.log`, and the per-session `run-*/session-*.jsonl` files grow until removed; prune those periodically on always-on machines. Do **not** delete `logs/global-runtime/anchors/` — those files pin each run's immutable launch settings. Removing a single anchor makes that run refuse to start; removing the whole directory is worse, because the next daemon start treats it as a first upgrade and re-pins every run from whatever the database currently says, silently accepting any tampering. Back it up with the rest of the daemon state.
 - **Sandbox tunnels use ephemeral ports.** The daemon opens its own loopback forwarders per process and passes those ports to each sandboxed session, so it never collides with (or trusts) the fixed 13306/16379 forwarders a manual `run.sh` may hold.
