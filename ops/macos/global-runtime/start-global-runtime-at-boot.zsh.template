@@ -1,0 +1,100 @@
+#!/bin/zsh
+
+# Boot helper for the Global Runtime daemon (issue #213). Rendered by
+# install.zsh (__REPO_DIR__ is substituted). Waits for MySQL and — when the
+# daemon binds a tailnet address — for that address to exist, then starts the
+# daemon inside a tmux session so an operator can attach to it.
+
+set -u
+
+readonly repo_dir="__REPO_DIR__"
+readonly tmux_bin="/opt/homebrew/bin/tmux"
+readonly session_name="polymarket-global-runtime"
+readonly daemon_log="${repo_dir}/logs/global-runtime/daemon.log"
+readonly max_attempts=120
+readonly startup_check_delay=3
+readonly db_endpoint_marker="POLYMARKET_DATABASE_ENDPOINT"
+
+if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
+  print "$(date -Iseconds) ${session_name} is already running"
+  exit 0
+fi
+
+if ! resolver_output="$(
+  cd "${repo_dir}" &&
+    /bin/zsh -lic 'exec ./node_modules/.bin/tsx ./src/cli/resolveDatabaseEndpoint.ts'
+)"; then
+  print -u2 "$(date -Iseconds) could not resolve DATABASE_HOST through the application environment loader"
+  exit 75
+fi
+
+db_endpoint_line="${resolver_output##*$'\n'}"
+if [[ "${db_endpoint_line}" != "${db_endpoint_marker}"$'\t'*$'\t'* ]]; then
+  print -u2 "$(date -Iseconds) database endpoint resolver returned unexpected output"
+  exit 75
+fi
+
+db_endpoint="${db_endpoint_line#*$'\t'}"
+db_host="${db_endpoint%%$'\t'*}"
+db_port="${db_endpoint#*$'\t'}"
+
+attempt=1
+while (( attempt <= max_attempts )); do
+  if /usr/bin/nc -z "${db_host}" "${db_port}"; then
+    break
+  fi
+  if (( attempt == 1 || attempt % 12 == 0 )); then
+    print "$(date -Iseconds) waiting for MySQL at ${db_host}:${db_port} (attempt ${attempt}/${max_attempts})"
+  fi
+  /bin/sleep 5
+  (( attempt += 1 ))
+done
+if (( attempt > max_attempts )); then
+  print -u2 "$(date -Iseconds) MySQL did not become reachable"
+  exit 75
+fi
+
+# When the daemon binds a tailnet address (GLOBAL_RUNTIME_HOST in .env), that
+# address must exist before `listen()` — Tailscale can come up after boot.
+bind_host="$(/usr/bin/grep -E '^GLOBAL_RUNTIME_HOST=' "${repo_dir}/.env" 2>/dev/null | /usr/bin/tail -1 | /usr/bin/cut -d= -f2- | /usr/bin/tr -d '"' | /usr/bin/tr -d "'")"
+if [[ -n "${bind_host}" && "${bind_host}" != "127.0.0.1" && "${bind_host}" != "localhost" && "${bind_host}" != "::1" ]]; then
+  attempt=1
+  while (( attempt <= max_attempts )); do
+    if /sbin/ifconfig 2>/dev/null | /usr/bin/grep -q "inet ${bind_host} "; then
+      break
+    fi
+    if (( attempt == 1 || attempt % 12 == 0 )); then
+      print "$(date -Iseconds) waiting for interface address ${bind_host} (Tailscale up?) (attempt ${attempt}/${max_attempts})"
+    fi
+    /bin/sleep 5
+    (( attempt += 1 ))
+  done
+  if (( attempt > max_attempts )); then
+    print -u2 "$(date -Iseconds) bind address ${bind_host} never appeared on an interface"
+    exit 75
+  fi
+fi
+
+if ! /bin/mkdir -p "${repo_dir}/logs/global-runtime"; then
+  print -u2 "$(date -Iseconds) could not create the log directory"
+  exit 75
+fi
+
+readonly daemon_command="exec /bin/zsh -lic 'exec npm run global-runtime >> ${daemon_log} 2>&1'"
+start_result="started ${session_name}"
+if ! "${tmux_bin}" new-session -d -s "${session_name}" -c "${repo_dir}" "${daemon_command}"; then
+  if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
+    start_result="${session_name} was started by another launcher"
+  else
+    print -u2 "$(date -Iseconds) failed to create ${session_name}"
+    exit 75
+  fi
+fi
+
+/bin/sleep "${startup_check_delay}"
+if ! "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
+  print -u2 "$(date -Iseconds) ${session_name} exited during startup"
+  exit 75
+fi
+
+print "$(date -Iseconds) ${start_result}"

@@ -5,22 +5,22 @@ description: Terminal reference for creating and controlling Global Runtime loop
 
 # Mission CLI
 
-`npm run mission` is a thin terminal client for the Global Runtime daemon. It calls the same localhost API that Mission Control uses; it never manages provider processes itself, so the daemon remains the single owner of every loop.
+`npm run mission` is a thin terminal client for the fleet's Global Runtime daemons (one per machine — see the [overview](/global-runtime/overview#architecture)). It calls the same APIs Mission Control uses; it never manages provider processes itself, so each daemon remains the single owner of its loops.
 
-The daemon must already be running:
+`create` targets a machine: `--machine <name|id>` from `dashboard/src/data/machines.json`, defaulting to the machine the command runs on (which then must have a `runtimeUrl` there). Per-run commands look the run's owning machine up in the shared database and talk to that machine's daemon over the tailnet; `list` reads the database directly, so it works even while daemons are offline. When daemons require auth, set `GLOBAL_RUNTIME_TOKEN` in the shell or `.env`. If a catalog has no `runtimeUrl` entries at all, everything falls back to `GLOBAL_RUNTIME_URL` (default `http://127.0.0.1:3053`).
+
+The owning daemon must be running for commands (not for `list`):
 
 ```bash
 npm run global-runtime
 ```
 
-The daemon URL comes from `GLOBAL_RUNTIME_URL` (default `http://127.0.0.1:3053`). If the daemon is unreachable, every command fails with a hint to start it.
-
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `create` | Create a loop from flags. Prints the new id; add `--start` to launch immediately. |
-| `list` | All loops with status, provider, model, and session count. |
+| `create` | Create a loop from flags on the target machine. Prints the new id; add `--start` to launch immediately. |
+| `list` | All loops across all machines (from the database) with status, machine, provider, model, and session count. |
 | `show <id>` | One loop in detail, including its session table. |
 | `start <id>` | Start an idle loop. |
 | `pause <id>` | Let the active session finish, then hold before the next one. |
@@ -48,6 +48,8 @@ Required flags: `--name`, `--provider` (`claude` or `codex`), `--model`, `--work
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
+| `--machine <name|id>` | this machine | Which machine's daemon creates (and owns) the loop — a `machines.json` name (`worker-1`) or 12-hex id. |
+| `--sandbox-settings <path>` | none | Absolute path (on the owning machine) to an srt settings file; sessions then run inside the OS sandbox with DB/Redis tunneled — see the [overview](/global-runtime/overview#_1-global-runtime-contract). |
 | `--mission <path>` | `MISSION.md` | Mission file, relative to the workspace. |
 | `--effort <level>` | `high` | `low`–`max` plus `ultracode` (xhigh + workflow orchestration) for Claude; Codex accepts `low`–`ultra`. |
 | `--access <mode>` | `workspace-write` | `full-access` maps to the provider's unrestricted mode. |

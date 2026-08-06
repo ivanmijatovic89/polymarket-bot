@@ -5,21 +5,25 @@ description: Run durable file-based missions through fresh Claude Code or Codex 
 
 # Global Runtime and Mission Control
 
-Global Runtime is a small local daemon for long-running AI missions. A loop launches one fresh CLI session at a time, persists lifecycle metadata in MySQL, and relies on workspace files for mission memory and human communication. Mission Control is the dashboard UI for creating, observing, steering, pausing, resuming, and stopping those loops.
+Global Runtime is a small daemon for long-running AI missions. A loop launches one fresh CLI session at a time, persists lifecycle metadata in MySQL, and relies on workspace files for mission memory and human communication. Mission Control is the dashboard UI for creating, observing, steering, pausing, resuming, and stopping those loops — on every machine in the fleet, from one place.
 
 It uses the existing Claude Code and Codex CLI subscription logins. It does not call model APIs, coordinate models, choose research work, manage Git, or contain trading-specific behavior.
 
 ## Architecture
 
+One Global Runtime daemon runs **per machine**; all daemons share the fleet's MySQL. Every run is stamped with the `machineId` of the daemon that created it and is owned by that machine forever — a daemon never adopts, recovers, or signals another machine's runs.
+
 ```text
-Dashboard /mission-control
-          |
-          | local Next.js proxy
-          v
-Global Runtime :3053 ---- runtime_runs / runtime_sessions (MySQL)
-          |
-          +---- Claude Code CLI ---- workspace A
-          +---- Codex CLI --------- workspace B
+Dashboard /mission-control  (one instance, any machine)
+     |                    \
+     | reads: shared MySQL \ commands: HTTP over Tailscale (bearer token)
+     v                      v
+runtime_runs / runtime_sessions      Global Runtime :3053 on m1-ivan
+  (every machine's history)          Global Runtime :3053 on worker-1
+                                     ... one daemon per machines.json runtimeUrl
+                                          |
+                                          +---- Claude Code CLI ---- workspace A
+                                          +---- Codex CLI --------- workspace B
 
 Each workspace contains:
 MISSION.md     agent's assignment
@@ -29,7 +33,11 @@ INBOX.md       append-only user steering
 .global-runtime/session-result.json
 ```
 
-Different loops may run concurrently inside one daemon, but active loops cannot use equal or nested canonical workspace paths. A database advisory lease prevents a second daemon from starting against the same database. Sessions within one loop are always sequential and fresh; continuity comes from files, not CLI conversation history.
+Mission Control reads run history straight from the database, so lists and detail pages stay browsable while an owning machine is asleep; commands (create/start/stop/steer) and live workspace-file reads are forwarded to the owning machine's daemon and fail with a named 503 when it is offline. Machines are declared in `dashboard/src/data/machines.json` — an entry with a `runtimeUrl` (raw Tailscale IP, e.g. `http://100.107.149.100:3053`) is a Mission Control target.
+
+Different loops may run concurrently inside one daemon, but active loops on the **same machine** cannot use equal or nested canonical workspace paths (the same path on two different machines is two different filesystems and does not conflict). A per-machine database advisory lease prevents a second daemon from starting on the same machine; a silently dead holder (sleep, kernel panic) is reaped by the lease connection's five-minute session timeout, so a restarted daemon waits at most ~5.5 minutes (`GLOBAL_RUNTIME_LEASE_WAIT_SECONDS`). Sessions within one loop are always sequential and fresh; continuity comes from files, not CLI conversation history.
+
+Daemons that bind a tailnet address require a shared bearer token (`GLOBAL_RUNTIME_TOKEN`); the daemon refuses to bind a non-loopback host without one, and `/health` is the only unauthenticated route. The token lives in each machine's `.env` and on the dashboard host — it is never shipped to browsers.
 
 ## The contracts
 
@@ -57,6 +65,18 @@ operator choice.
 workspace, so a workspace nested inside a larger repository exposes the surrounding code to the
 mission. If the mission must not consult its surroundings, state that in the mission file (the
 shared-loop example's "Do not inspect the parent repository" line exists for this reason).
+
+For full read *and* write isolation, a run can set `sandboxSettingsPath` — the absolute path (on
+the owning machine) of an [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime)
+settings file. The daemon then launches every session wrapped in `srt --settings <path>`: the OS
+sandbox (macOS Seatbelt) is the isolation boundary, sibling directories are invisible, and network
+access follows the settings file's domain allowlist. Because sandboxed processes cannot open raw
+TCP, the daemon hosts localhost forwarders (`127.0.0.1:13306` → MySQL, `127.0.0.1:16379` → Redis)
+and rewrites the session's `DATABASE_HOST`/`DATABASE_PORT`/`REDIS_URL` to them. The provider CLIs'
+own sandboxes are disabled inside srt (Seatbelt does not nest): Claude runs with
+`--permission-mode bypassPermissions` and no inline seatbelt settings, Codex with
+`--sandbox danger-full-access` — srt is the boundary. The settings path is validated at run
+creation and must be a readable file on the owning machine.
 
 ### 2. Session completion contract
 
@@ -126,11 +146,11 @@ npm run global-runtime
 npm run dashboard
 ```
 
-Open `http://127.0.0.1:3051/mission-control`. Create a loop, verify the resolved workspace and mission file, then press **Start**.
+Open `http://127.0.0.1:3051/mission-control`. Pick a machine, create a loop, verify the resolved workspace and mission file, then press **Start**.
 
-Loops can also be created and controlled from the terminal with the [Mission CLI](/global-runtime/cli) (`npm run mission`), which talks to the same daemon API.
+Loops can also be created and controlled from the terminal with the [Mission CLI](/global-runtime/cli) (`npm run mission`), which resolves the same machine catalog and daemon APIs.
 
-The runtime binds to `127.0.0.1:3053` by default. The dashboard proxies requests server-side, so browsers never call the daemon directly.
+The daemon refuses to start on a machine that is not registered in `dashboard/src/data/machines.json`. It binds `127.0.0.1:3053` by default; set `GLOBAL_RUNTIME_HOST` to the machine's Tailscale IP (plus `GLOBAL_RUNTIME_TOKEN`) to make it reachable from Mission Control on another machine. The dashboard proxies requests server-side, so browsers never call daemons directly. See [Fleet installation](/global-runtime/fleet) for the multi-machine rollout runbook.
 
 ## Subscription profiles
 
@@ -194,9 +214,11 @@ The provider adapter waits for the child process `close` event before final pars
 | CLI binary not found or login expired | The loop becomes `error`. Repair the CLI installation/login and resume. |
 | Inbox path is rejected | Replace dangling symlinks or non-regular files with a regular inbox file inside the workspace. |
 | Result path cannot be prepared | Repair `.global-runtime/` and resume. No session number is consumed by the failed preparation. |
-| Dashboard says runtime unavailable | Start `npm run global-runtime` and verify `GLOBAL_RUNTIME_URL`. |
+| Dashboard says a machine is unreachable | Its daemon is down or the machine is offline/asleep. History stays browsable from the database; start the daemon on that machine (`npm run global-runtime`, or `npm run fleet:runtime:start`) to command it again. |
+| Command answered with 409 "run N belongs to …" | The run is owned by another machine's daemon — ownership is stamped at creation and never moves. Send the command to the owning machine (Mission Control and the CLI route this automatically; a 409 usually means a stale `machines.json` mapping). |
+| Command answered with 401 | The daemon requires `GLOBAL_RUNTIME_TOKEN` and the caller sent none or a wrong one. Set the same token on the dashboard host / CLI machine as in the daemon's `.env`. |
 | Session limit reached | The loop waits rather than extending itself. Press **Extend** in Mission Control (or `POST /runs/:id/extend` with a higher `maxSessions`), then resume; sessions continue in the same run. Extend raises the ceiling only — a run whose agent already returned `complete` is finished and cannot be extended. |
 
 ## Explicit V1 boundaries
 
-Global Runtime does not provide model cooperation, consensus, shared model memory, research scheduling, automatic synthesis, Git automation, direct API calls, actual subscription billing, multi-host execution, or a browser terminal. Those capabilities can be built as missions on top of these contracts without changing the runtime lifecycle.
+Global Runtime does not provide model cooperation, consensus, shared model memory, research scheduling, automatic synthesis, Git automation, direct API calls, actual subscription billing, or a browser terminal. There is also no cross-machine reconciler: if a machine dies permanently, its `running` rows stay `running` until an operator intervenes on that machine (visible in Mission Control through heartbeat staleness and the offline chip). Those capabilities can be built as missions on top of these contracts without changing the runtime lifecycle.

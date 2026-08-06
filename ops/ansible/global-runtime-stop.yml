@@ -1,0 +1,41 @@
+---
+- name: Stop Global Runtime daemons (SIGTERM, then kill session)
+  hosts: producer:backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    global_runtime_session_default: polymarket-global-runtime
+
+  tasks:
+    - name: Skip machines without a Global Runtime daemon
+      ansible.builtin.meta: end_host
+      when: not (global_runtime_enabled | default(false) | bool)
+
+    - name: Stop daemon
+      ansible.builtin.shell:
+        cmd: |
+          set -u
+          session={{ global_runtime_session | default(global_runtime_session_default) | quote }}
+          tmux_bin="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+          if ! "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            echo not-running
+            exit 0
+          fi
+          # SIGTERM lets the daemon stop sessions, close tunnels, and release
+          # its lease; the session ends when the process exits.
+          "$tmux_bin" send-keys -t "$session" C-c
+          for _ in $(seq 1 30); do
+            if ! "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+              echo stopped
+              exit 0
+            fi
+            sleep 1
+          done
+          "$tmux_bin" kill-session -t "$session" 2>/dev/null || true
+          echo killed-after-grace
+      register: stop_result
+      changed_when: "'not-running' not in (stop_result.stdout | default(''))"
+
+    - name: Report result
+      ansible.builtin.debug:
+        msg: '{{ inventory_hostname }}: {{ stop_result.stdout_lines | default([]) | first | default("?") }}'

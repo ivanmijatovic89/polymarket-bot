@@ -97,6 +97,7 @@ npm run fleet:git:pull [-- --branch X] # pull code (+switch branch), deps, drain
 npm run fleet:update                    # same, verbose per-step pre-flight — ~50s
 npm run fleet:data:sync -- btc:15m      # run data:sync:worker everywhere ('-e data_sync_extra=--dry-run' = verdict)
 npm run fleet:start | fleet:stop        # ensure workers running / drain them
+npm run fleet:runtime:status | fleet:runtime:start | fleet:runtime:stop   # Global Runtime daemons (hosts with global_runtime_enabled=true)
 # No command changes a machine's branch unless asked: fleet:update / fleet:start
 # take `--branch <name>`, all three take `--branch <name>`.
 # See docs/backtest/fleet/overview.md for the full command cheat sheet.

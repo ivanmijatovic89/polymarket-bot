@@ -1,0 +1,41 @@
+---
+- name: Start Global Runtime daemons
+  hosts: producer:backtest_workers
+  gather_facts: false
+  vars:
+    global_runtime_session_default: polymarket-global-runtime
+    global_runtime_shell_default: /bin/zsh
+
+  tasks:
+    - name: Skip machines without a Global Runtime daemon
+      ansible.builtin.meta: end_host
+      when: not (global_runtime_enabled | default(false) | bool)
+
+    - name: Start daemon in tmux (idempotent)
+      ansible.builtin.shell:
+        cmd: |
+          set -u
+          session={{ global_runtime_session | default(global_runtime_session_default) | quote }}
+          repo={{ backtest_repo_dir | mandatory | quote }}
+          tmux_bin="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+          if "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            echo already-running
+            exit 0
+          fi
+          mkdir -p "$repo/logs/global-runtime"
+          "$tmux_bin" new-session -d -s "$session" -c "$repo" \
+            "exec {{ global_runtime_shell | default(global_runtime_shell_default) }} -lic 'exec npm run global-runtime >> $repo/logs/global-runtime/daemon.log 2>&1'"
+          sleep 3
+          if "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            echo started
+          else
+            echo START_FAILED
+            tail -n 40 "$repo/logs/global-runtime/daemon.log" 2>/dev/null
+            exit 1
+          fi
+      register: start_result
+      changed_when: "'started' in (start_result.stdout | default(''))"
+
+    - name: Report result
+      ansible.builtin.debug:
+        msg: '{{ inventory_hostname }}: {{ start_result.stdout_lines | default([]) | first | default("?") }}'
