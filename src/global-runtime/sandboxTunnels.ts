@@ -100,6 +100,9 @@ export class SandboxTunnels implements SandboxTunnelController {
       this.listen(targets.mysql),
       this.listen(targets.redis),
     ])
+    // A close() that landed after both binds completed leaves these ports
+    // dead; never hand them to a session.
+    if (this.closing) throw new Error('sandbox tunnels closed while starting')
     return { mysqlPort, redisPort }
   }
 
@@ -140,10 +143,12 @@ export class SandboxTunnels implements SandboxTunnelController {
         settled = true
         const port = (server.address() as net.AddressInfo).port
         if (this.closing) {
-          // A close() that raced this bind already drained `servers`; this
-          // one would never be closed and would hold the event loop open.
+          // A close() that raced this bind already drained `servers`; this one
+          // would never be closed and would hold the event loop open. Reject
+          // rather than resolve — handing back a port that is being torn down
+          // would start a session pointed at a dead forwarder.
           server.close()
-          resolve(port)
+          reject(new Error('sandbox tunnels closed while starting'))
           return
         }
         this.servers.push(server)

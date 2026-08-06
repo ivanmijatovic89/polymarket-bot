@@ -1,27 +1,49 @@
+import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 /**
- * Same-origin guard for the Mission Control API (issue #213).
+ * Gate for the Mission Control API (issue #213).
  *
  * These routes forward commands to Global Runtime daemons with the fleet
- * bearer token attached server-side, and the dashboard itself has no login.
- * Binding to loopback keeps other hosts out, but not the operator's own
- * browser: any page they visit could POST to `http://127.0.0.1:3051/...`
- * (simple CSRF), and a DNS-rebinding page could become same-origin and drive
- * the whole fleet. So: require the request to be same-origin, and require the
- * Host header to be a loopback name — a rebound `attacker.test` resolving to
- * 127.0.0.1 arrives with its own Host and is rejected.
+ * bearer token attached server-side, so reaching them IS controlling the
+ * fleet. Two independent checks:
  *
- * Read-only page navigations are unaffected; this matcher covers the API only.
+ * 1. **A shared secret** (`MISSION_CONTROL_TOKEN`, falling back to
+ *    `GLOBAL_RUNTIME_TOKEN`) in the `mission_control_token` cookie or the
+ *    `x-mission-control-token` header. Binding to loopback is NOT sufficient:
+ *    a sandboxed mission session runs on the same host and can open loopback
+ *    ports (that is the premise of the DB forwarders), so without a secret it
+ *    could create an unsandboxed full-access run on any fleet machine — with
+ *    no credential of its own, because the proxy supplies the token. The
+ *    secret must therefore live somewhere sessions cannot read (see the
+ *    sandbox settings requirements in docs/global-runtime/fleet.md).
+ * 2. **Same-origin + loopback Host**, which stops the operator's own browser
+ *    being used as a confused deputy (plain CSRF and DNS rebinding).
+ *
+ * With no token configured the API stays open, matching the daemon's own
+ * behavior for single-machine loopback setups.
  */
 
 const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+export const MISSION_CONTROL_COOKIE = 'mission_control_token'
+export const MISSION_CONTROL_HEADER = 'x-mission-control-token'
 
 function hostnameOf(value: string): string {
   // Strip the port; keep bracketed IPv6 literals intact.
   const match = /^(\[[^\]]+\]|[^:]+)(?::\d+)?$/u.exec(value.trim())
   return match?.[1]?.toLowerCase() ?? ''
+}
+
+export function missionControlSecret(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env.MISSION_CONTROL_TOKEN?.trim() || env.GLOBAL_RUNTIME_TOKEN?.trim() || undefined
+}
+
+function matches(presented: string | undefined, secret: string): boolean {
+  if (!presented) return false
+  const a = Buffer.from(presented)
+  const b = Buffer.from(secret)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 export function proxy(request: NextRequest): NextResponse | undefined {
@@ -52,6 +74,23 @@ export function proxy(request: NextRequest): NextResponse | undefined {
     if (originHost.toLowerCase() !== host.toLowerCase()) {
       return NextResponse.json({ error: 'cross-site request rejected' }, { status: 403 })
     }
+  }
+
+  const secret = missionControlSecret()
+  if (!secret) return undefined
+  const presented =
+    request.cookies.get(MISSION_CONTROL_COOKIE)?.value ??
+    request.headers.get(MISSION_CONTROL_HEADER) ??
+    undefined
+  if (!matches(presented, secret)) {
+    return NextResponse.json(
+      {
+        error:
+          'Mission Control requires the shared token. In a browser, open /mission-control/unlock?token=… once; ' +
+          `for scripts, send the ${MISSION_CONTROL_HEADER} header.`,
+      },
+      { status: 401 },
+    )
   }
 
   return undefined

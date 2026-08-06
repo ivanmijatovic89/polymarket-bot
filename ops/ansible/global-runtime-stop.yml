@@ -45,8 +45,12 @@
           "$tmux_bin" kill-session -t "$session" 2>/dev/null || true
           echo killed-after-grace
       register: stop_result
-      changed_when: "'not-running' not in (stop_result.stdout | default(''))"
+      changed_when: >-
+        'not-running' not in (stop_result.stdout | default('')) or
+        'unloaded' in (stop_result.stdout | default(''))
 
     - name: Report result
       ansible.builtin.debug:
-        msg: '{{ inventory_hostname }}: {{ stop_result.stdout_lines | default([]) | first | default("?") }}'
+        # Join, not `first`: the launchd branch prints before the tmux
+        # outcome, and the operator needs to see both.
+        msg: '{{ inventory_hostname }}: {{ stop_result.stdout_lines | default([]) | join(" | ") | default("?", true) }}'

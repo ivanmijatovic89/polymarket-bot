@@ -123,7 +123,9 @@ curl http://100.107.149.100:3053/health
 
 ## 5. Verify from Mission Control
 
-The dashboard binds `127.0.0.1` by default and has **no login of its own**, while its proxy holds the fleet token — so anything that can reach it can command every daemon. Keep it on loopback and reach it remotely through `tailscale serve` or an SSH tunnel rather than setting `DASHBOARD_HOST` to a public interface.
+The dashboard's Mission Control API requires the shared token (`MISSION_CONTROL_TOKEN`, falling back to `GLOBAL_RUNTIME_TOKEN`), because loopback alone is not a boundary — a sandboxed mission session runs on the same host and can reach loopback ports. Unlock a browser once per machine by visiting `http://127.0.0.1:3051/mission-control/unlock?token=<the token>`; the token is then stored in an httpOnly cookie that page scripts and other local processes cannot read. Scripts can send the `x-mission-control-token` header instead.
+
+Keep the dashboard on loopback and reach it remotely through an **SSH tunnel** (`ssh -L 3051:127.0.0.1:3051 <host>`), which preserves the loopback `Host` the guard requires. `tailscale serve` forwards its own MagicDNS `Host` and is rejected by design.
 
 On the dashboard host (which also needs `GLOBAL_RUNTIME_TOKEN` in its `.env`), open `http://127.0.0.1:3051/mission-control`:
 
@@ -162,5 +164,5 @@ A machine that goes offline keeps its runs: Mission Control still shows their hi
 ## Known operational behavior
 
 - **Laptop sleep ends a run.** The lease connection is reaped after five minutes of silence, so a daemon whose machine sleeps longer than that shuts itself down on wake and its active session ends in `error`. Resume it from Mission Control. Long unattended loops belong on an always-on machine.
-- **Logs are not rotated.** `logs/global-runtime/daemon.log`, `boot.log`, and per-session provider JSONL grow until removed; prune them periodically on always-on machines.
+- **Logs are not rotated.** `logs/global-runtime/daemon.log`, `boot.log`, and the per-session `run-*/session-*.jsonl` files grow until removed; prune those periodically on always-on machines. Do **not** delete `logs/global-runtime/anchors/` — those files pin each run's immutable launch settings, and a run whose anchor is missing refuses to start rather than silently re-pinning.
 - **Sandbox tunnels use ephemeral ports.** The daemon opens its own loopback forwarders per process and passes those ports to each sandboxed session, so it never collides with (or trusts) the fixed 13306/16379 forwarders a manual `run.sh` may hold.

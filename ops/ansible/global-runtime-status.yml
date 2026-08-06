@@ -42,7 +42,7 @@
         msg: >-
           {{ inventory_hostname }}:
           session={{ (global_runtime_status.session.alive | default(false)) | ternary('alive', 'DOWN') }}
-          health={{ (global_runtime_status.health.ok | default(false)) | ternary('ok', 'UNREACHABLE') }}
+          health={{ (global_runtime_status.health.ok | default(false)) | ternary('ok', (global_runtime_status.health.reachable | default(false)) | ternary('initializing', 'UNREACHABLE')) }}
           branch={{ global_runtime_status.git.branch | default('?') }}@{{ global_runtime_status.git.sha | default('?') }}
       when: global_runtime_status is defined
 

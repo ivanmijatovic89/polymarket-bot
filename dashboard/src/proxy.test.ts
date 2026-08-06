@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { afterEach, test } from 'node:test'
 import { NextRequest } from 'next/server'
-import { proxy } from './proxy'
+import { MISSION_CONTROL_HEADER, proxy } from './proxy'
+
+const originalToken = process.env.GLOBAL_RUNTIME_TOKEN
+const originalMissionToken = process.env.MISSION_CONTROL_TOKEN
+
+afterEach(() => {
+  restore('GLOBAL_RUNTIME_TOKEN', originalToken)
+  restore('MISSION_CONTROL_TOKEN', originalMissionToken)
+})
+
+function restore(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name]
+  else process.env[name] = value
+}
 
 function request(headers: Record<string, string>): NextRequest {
   return new NextRequest('http://127.0.0.1:3051/api/mission-control/run/7/stop', {
@@ -60,4 +73,53 @@ test('loopback hosts are recognized in their usual spellings', () => {
   for (const host of ['127.0.0.1:3051', 'localhost:3051', 'LOCALHOST:3051', '[::1]:3051']) {
     assert.equal(proxy(request({ host })), undefined, host)
   }
+})
+
+test('with a token configured, an unauthenticated local request is rejected', async () => {
+  process.env.MISSION_CONTROL_TOKEN = 'fleet-secret'
+  // This is the sandboxed-session shape: local, no browser headers, no token.
+  const denied = proxy(request({ host: '127.0.0.1:3051' }))
+  assert.equal(denied?.status, 401)
+  assert.match(((await denied?.json()) as { error: string }).error, /shared token/u)
+
+  assert.equal(
+    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'wrong' }))?.status,
+    401,
+  )
+  assert.equal(
+    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'fleet-secret' })),
+    undefined,
+  )
+})
+
+test('the browser cookie satisfies the token check', () => {
+  process.env.MISSION_CONTROL_TOKEN = 'fleet-secret'
+  const authorized = new NextRequest('http://127.0.0.1:3051/api/mission-control/runs', {
+    headers: { host: '127.0.0.1:3051', cookie: 'mission_control_token=fleet-secret' },
+  })
+  assert.equal(proxy(authorized), undefined)
+
+  const wrong = new NextRequest('http://127.0.0.1:3051/api/mission-control/runs', {
+    headers: { host: '127.0.0.1:3051', cookie: 'mission_control_token=nope' },
+  })
+  assert.equal(proxy(wrong)?.status, 401)
+})
+
+test('MISSION_CONTROL_TOKEN overrides the fleet token, and no token keeps the API open', () => {
+  process.env.GLOBAL_RUNTIME_TOKEN = 'fleet-secret'
+  delete process.env.MISSION_CONTROL_TOKEN
+  assert.equal(
+    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'fleet-secret' })),
+    undefined,
+  )
+
+  process.env.MISSION_CONTROL_TOKEN = 'dashboard-secret'
+  assert.equal(
+    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'fleet-secret' }))?.status,
+    401,
+  )
+
+  delete process.env.GLOBAL_RUNTIME_TOKEN
+  delete process.env.MISSION_CONTROL_TOKEN
+  assert.equal(proxy(request({ host: '127.0.0.1:3051' })), undefined)
 })

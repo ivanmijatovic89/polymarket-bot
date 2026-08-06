@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { mkdir, open, readFile, type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 import {
   buildRuntimeProcessToken,
@@ -60,6 +61,7 @@ const RESUMABLE_STATUSES: RuntimeRunStatus[] = [
  */
 const PINNED_LAUNCH_FIELDS = [
   'provider',
+  'model',
   'accessMode',
   'authHome',
   'workspacePath',
@@ -89,9 +91,21 @@ function assertLaunchSpecUnchanged(run: RuntimeRun, pinned: LaunchSpec): void {
   }
 }
 
+/** Structural check: a falsy or partial anchor must not skip the comparison. */
+function isLaunchSpec(value: unknown): value is LaunchSpec {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  return PINNED_LAUNCH_FIELDS.every((field) => {
+    const entry = candidate[field]
+    const nullable = field === 'authHome' || field === 'sandboxSettingsPath'
+    return typeof entry === 'string' || (nullable && entry === null)
+  })
+}
+
 function pinLaunchSpec(run: RuntimeRun): LaunchSpec {
   return {
     provider: run.provider,
+    model: run.model,
     accessMode: run.accessMode,
     authHome: run.authHome,
     workspacePath: run.workspacePath,
@@ -489,12 +503,23 @@ export class GlobalRuntime {
       throw new RuntimeConflictError('run is already active')
     }
     this.launching.add(run.id)
-    const launchReady = createDeferred<void>()
     // The anchor lives on the daemon's disk, outside every workspace, so the
     // pin survives across resumes and daemon restarts. Re-pinning from the DB
     // row on each launch would let a tamper be laundered by parking the run
     // (`wait`/`error`) and having an operator resume it.
-    const launchSpec = await this.loadOrCreateLaunchAnchor(run)
+    //
+    // Guarded separately: a throw here (tamper detected, unreadable anchor)
+    // must release the launching slot, or the run is stuck reporting "already
+    // active" until the daemon restarts — which would also hide the tamper
+    // message behind a misleading one.
+    let launchSpec: LaunchSpec
+    try {
+      launchSpec = await this.loadOrCreateLaunchAnchor(run)
+    } catch (error) {
+      this.launching.delete(run.id)
+      throw error
+    }
+    const launchReady = createDeferred<void>()
     const control: ActiveRun = {
       workspacePath: run.workspacePath,
       launchSpec,
@@ -945,21 +970,48 @@ export class GlobalRuntime {
    * root is outside every workspace, so no session can write here.
    */
   private async loadOrCreateLaunchAnchor(run: RuntimeRun): Promise<LaunchSpec> {
-    const anchorPath = path.join(this.logRoot, `run-${run.id}`, 'launch-spec.json')
+    // Deliberately NOT under `run-<id>/` with the session logs: those are
+    // documented as prunable, and an `rm -rf logs/global-runtime/run-*` would
+    // silently disarm every pin.
+    // The anchor only means anything if the session cannot reach it. A log
+    // root inside (or containing) the workspace — e.g. a mission whose
+    // workspace IS this repo, or GLOBAL_RUNTIME_LOG_DIR pointed at one —
+    // would hand the session both the anchor and the DB row.
+    if (workspacesOverlap(this.logRoot, run.workspacePath)) {
+      throw new RuntimeValidationError(
+        `run ${run.id} workspace ${run.workspacePath} overlaps the runtime log root ${this.logRoot}; ` +
+          'sessions must not be able to write the daemon log root (set GLOBAL_RUNTIME_LOG_DIR elsewhere)',
+      )
+    }
+    const anchorPath = path.join(this.logRoot, 'anchors', `run-${run.id}.json`)
     const current = pinLaunchSpec(run)
+    const unreadable = (detail: string) =>
+      new Error(
+        `run ${run.id} launch anchor at ${anchorPath} is unreadable (${detail}). It records the ` +
+          'immutable launch settings; delete it only if you are certain the run configuration is ' +
+          'legitimate, then start the run again.',
+      )
+
     let recorded: LaunchSpec | null = null
+    let handle: FileHandle | null = null
     try {
-      recorded = JSON.parse(await readFile(anchorPath, 'utf8')) as LaunchSpec
+      // O_NOFOLLOW: a planted symlink here must not redirect the read (or the
+      // create below) somewhere else.
+      handle = await open(anchorPath, constants.O_RDONLY | constants.O_NOFOLLOW)
+      const parsed: unknown = JSON.parse(await handle.readFile('utf8'))
+      if (!isLaunchSpec(parsed)) throw unreadable('not a launch spec')
+      recorded = parsed
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (code !== 'ENOENT') {
-        throw new Error(
-          `run ${run.id} launch anchor at ${anchorPath} is unreadable: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        )
+        throw error instanceof Error && error.message.includes('launch anchor')
+          ? error
+          : unreadable(error instanceof Error ? error.message : String(error))
       }
+    } finally {
+      await handle?.close().catch(() => undefined)
     }
+
     if (recorded) {
       assertLaunchSpecUnchanged(run, recorded)
       // Re-validate rather than trusting the path still resolves the way it
@@ -967,8 +1019,25 @@ export class GlobalRuntime {
       await validateSandboxSettings(recorded.sandboxSettingsPath)
       return recorded
     }
+
+    // No anchor. For a run that has never started this is the first launch;
+    // for one that already has sessions the anchor was lost or removed, and
+    // re-pinning from the current row is exactly the laundering this guards
+    // against.
+    if (run.startedAt !== null || run.currentSession > 0) {
+      throw unreadable('missing for a run that has already started')
+    }
     await mkdir(path.dirname(anchorPath), { recursive: true, mode: 0o700 })
-    await writeFile(anchorPath, JSON.stringify(current, null, 2), { encoding: 'utf8', mode: 0o600 })
+    const created = await open(
+      anchorPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    )
+    try {
+      await created.writeFile(JSON.stringify(current, null, 2), 'utf8')
+    } finally {
+      await created.close()
+    }
     return current
   }
 
