@@ -6,8 +6,11 @@ import {
   renderSessionContract,
   RUNTIME_PROCESS_TOKEN_ENV,
 } from './contracts.js'
+import { machineLabel as catalogMachineLabel } from '../machines/catalog.js'
+import { getMachineId } from '../machines/identity.js'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
 import { CliProviderAdapter, type ProviderAdapter } from './providers.js'
+import { SandboxTunnels, type SandboxTunnelController } from './sandboxTunnels.js'
 import type { RuntimeStore } from './store.js'
 import {
   appendInboxSchema,
@@ -32,6 +35,7 @@ import {
   readSessionResultFile,
   readRuntimeFiles,
   validateRunWorkspace,
+  validateSandboxSettings,
 } from './workspaceFiles.js'
 
 const ACTIVE_STATUSES: RuntimeRunStatus[] = ['running', 'pause_requested', 'rate_limited']
@@ -68,6 +72,16 @@ export interface GlobalRuntimeOptions {
   verifyProcess?: (pid: number, expectedToken: string) => Promise<boolean>
   onBackgroundError?: (runId: number, error: unknown) => void
   onFatalError?: (error: unknown) => void
+  /**
+   * This daemon's machine identity (issue #213). Defaults to the hardware-
+   * derived id from src/machines/identity.ts. The daemon stamps it on every
+   * created run and recovers/controls ONLY runs it owns.
+   */
+  machineId?: string
+  /** Friendly-name resolver for error messages. Defaults to the machines.json catalog. */
+  machineLabel?: (machineId: string) => string
+  /** Localhost DB/Redis forwarders for sandboxed sessions. Injectable for tests. */
+  sandboxTunnels?: SandboxTunnelController
 }
 
 export class GlobalRuntime {
@@ -83,6 +97,9 @@ export class GlobalRuntime {
   private readonly verifyProcess: (pid: number, expectedToken: string) => Promise<boolean>
   private readonly onBackgroundError: (runId: number, error: unknown) => void
   private readonly onFatalError: ((error: unknown) => void) | null
+  private readonly machineId: string
+  private readonly machineLabel: (machineId: string) => string
+  private readonly sandboxTunnels: SandboxTunnelController
   private readonly runTransitions = new Map<number, Promise<void>>()
   private runtimeLeaseRelease: (() => Promise<void>) | null = null
   private runtimeLeasePending: Promise<void> | null = null
@@ -108,6 +125,28 @@ export class GlobalRuntime {
       options.onBackgroundError ??
       ((runId, error) => console.error(`[global-runtime] run ${runId} task failed:`, error))
     this.onFatalError = options.onFatalError ?? null
+    this.machineId = options.machineId ?? getMachineId()
+    this.machineLabel = options.machineLabel ?? catalogMachineLabel
+    this.sandboxTunnels = options.sandboxTunnels ?? new SandboxTunnels()
+  }
+
+  /** `label (id)`, or just the id when no friendly name is registered. */
+  private describeMachine(machineId: string): string {
+    const label = this.machineLabel(machineId)
+    return label === machineId ? machineId : `${label} (${machineId})`
+  }
+
+  /**
+   * Every lifecycle/filesystem operation is machine-scoped: this daemon may
+   * only touch runs it owns (issue #213). Cross-machine requests are routing
+   * mistakes — reject loudly, never adopt.
+   */
+  private assertOwnedRun(run: RuntimeRun): void {
+    if (run.machineId !== this.machineId) {
+      throw new RuntimeConflictError(
+        `run ${run.id} belongs to ${this.describeMachine(run.machineId)} — this runtime is ${this.describeMachine(this.machineId)}`,
+      )
+    }
   }
 
   async initialize(): Promise<void> {

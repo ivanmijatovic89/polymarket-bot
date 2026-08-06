@@ -63,6 +63,20 @@ export const createRuntimeRunSchema = z
     effort: z.enum(runtimeEfforts).default('high'),
     accessMode: z.enum(runtimeAccessModes).default('workspace-write'),
     authHome: z.string().trim().min(1).max(1024).nullable().default(null),
+    /**
+     * Absolute path (on the owning machine) to an srt sandbox settings file.
+     * Non-null ⇒ sessions launch wrapped in `srt --settings <path>` with
+     * DB/Redis routed through the daemon's localhost tunnels. File existence
+     * is validated at createRun (machine-local I/O — not a zod concern).
+     */
+    sandboxSettingsPath: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1024)
+      .refine((value) => value.startsWith('/') && !value.includes('\0'), 'must be an absolute path')
+      .nullable()
+      .default(null),
     workspacePath: z.string().trim().min(1).max(1024),
     missionPath: relativePathSchema,
     maxSessions: z.coerce.number().int().min(1).max(10_000),
@@ -149,6 +163,12 @@ export interface TokenUsage {
 
 export interface RuntimeRun extends CreateRuntimeRunInput {
   id: number
+  /**
+   * Owning machine (12-hex id from src/machines/identity.ts). Stamped by the
+   * daemon at createRun — clients never send it (`.strict()` rejects it) —
+   * and immutable for the run's lifetime.
+   */
+  machineId: string
   status: RuntimeRunStatus
   currentSession: number
   processId: number | null

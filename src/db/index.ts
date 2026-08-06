@@ -33,17 +33,41 @@ export function getDb(): ReturnType<typeof drizzle> {
 export async function acquireDbAdvisoryLock(
   name: string,
   onLost: (error: unknown) => void,
+  options: {
+    /**
+     * Server-side blocking wait for GET_LOCK (seconds). Default 0 =
+     * non-blocking try. A restarted daemon uses this to wait out its own
+     * dead predecessor's lease instead of failing instantly.
+     */
+    waitSeconds?: number
+    /**
+     * Session idle timeout applied to the LEASE connection after acquiring.
+     * A silently-dead holder (laptop sleep, network loss) is reaped by the
+     * server — and its lock freed — within this bound. The 60s keepalive
+     * ping keeps a live holder well inside it. Default 300 (≤5 min stale
+     * lease, documented).
+     */
+    sessionTimeoutSeconds?: number
+  } = {},
 ): Promise<(() => Promise<void>) | null> {
+  const waitSeconds = Math.max(0, Math.floor(options.waitSeconds ?? 0))
+  const sessionTimeoutSeconds = Math.max(120, Math.floor(options.sessionTimeoutSeconds ?? 300))
   const connection = await getPool().getConnection()
   try {
     const [rows] = await connection.query<Array<RowDataPacket & { acquired: number | null }>>(
-      "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256), 0) AS acquired",
-      [name],
+      "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256), ?) AS acquired",
+      [name, waitSeconds],
     )
     if (rows[0]?.acquired !== 1) {
-      connection.release()
+      connection.destroy()
       return null
     }
+    // Bounded stale-lease guarantee: the server reaps this connection (and
+    // frees the lock) if it goes silent longer than the session timeout.
+    await connection.query('SET SESSION wait_timeout = ?, interactive_timeout = ?', [
+      sessionTimeoutSeconds,
+      sessionTimeoutSeconds,
+    ])
 
     let released = false
     const handleLost = (error: unknown) => {
@@ -75,11 +99,14 @@ export async function acquireDbAdvisoryLock(
       try {
         await connection.query("SELECT RELEASE_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256))", [name])
       } finally {
-        connection.release()
+        // destroy, not release: this connection carries a shortened session
+        // timeout and must never return to the shared pool where it could
+        // die idle under a later borrower.
+        connection.destroy()
       }
     }
   } catch (error) {
-    connection.release()
+    connection.destroy()
     throw error
   }
 }
