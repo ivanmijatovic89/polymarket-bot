@@ -76,12 +76,11 @@ ports and rewrites each session's `DATABASE_HOST`/`DATABASE_PORT`/`REDIS_URL` to
 are daemon-owned rather than well-known so no other local process can claim them first and sit in
 the middle of a session's database traffic.
 
-::: warning
-Whether a session can actually use those forwarders depends on the settings file: the sandbox must
-permit loopback egress (`network.allowLocalBinding`). Verify it with your own settings before a
-mission relies on database access — a sandbox that denies loopback simply leaves the forwarders
-unused, and the session fails with `EPERM` when it tries to connect. Missions that only read and
-write workspace files are unaffected either way.
+::: tip
+The sandbox settings file must permit loopback egress (`network.allowLocalBinding`) for a session
+to use these forwarders; with it set, a session connects to MySQL and Redis normally. A settings
+file that denies loopback simply leaves the forwarders unused and the session fails with `EPERM`
+on connect — missions that only read and write workspace files are unaffected either way.
 :::
 
 The provider CLIs'
