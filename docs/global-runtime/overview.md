@@ -71,10 +71,18 @@ the owning machine) of an [`@anthropic-ai/sandbox-runtime`](https://github.com/a
 settings file. The daemon then launches every session wrapped in `srt --settings <path>`: the OS
 sandbox (macOS Seatbelt) is the isolation boundary, sibling directories are invisible, and network
 access follows the settings file's domain allowlist. Because sandboxed processes cannot open raw
-TCP, the daemon hosts its own loopback forwarders to MySQL and Redis on ephemeral ports and
-rewrites each session's `DATABASE_HOST`/`DATABASE_PORT`/`REDIS_URL` to them. The ports are
-daemon-owned rather than well-known so no other local process can claim them first and sit in the
-middle of a session's database traffic. The provider CLIs'
+TCP to remote hosts, the daemon hosts its own loopback forwarders to MySQL and Redis on ephemeral
+ports and rewrites each session's `DATABASE_HOST`/`DATABASE_PORT`/`REDIS_URL` to them. The ports
+are daemon-owned rather than well-known so no other local process can claim them first and sit in
+the middle of a session's database traffic.
+
+::: warning
+Whether a session can actually use those forwarders depends on the settings file: the sandbox must
+permit loopback egress (`network.allowLocalBinding`). Verify it with your own settings before a
+mission relies on database access — a sandbox that denies loopback simply leaves the forwarders
+unused, and the session fails with `EPERM` when it tries to connect. Missions that only read and
+write workspace files are unaffected either way.
+::: The provider CLIs'
 own sandboxes are disabled inside srt (Seatbelt does not nest): Claude runs with
 `--permission-mode bypassPermissions` and no inline seatbelt settings, Codex with
 `--sandbox danger-full-access` — srt is the boundary. The settings path is validated at run
