@@ -22,11 +22,18 @@
           # persistence and no StartInterval self-heal. Re-bootstrap first;
           # that alone starts the daemon via the boot helper.
           plist=/Library/LaunchDaemons/com.polymarket.global-runtime.plist
-          if [ -f "$plist" ] && ! sudo -n /bin/launchctl print system/com.polymarket.global-runtime >/dev/null 2>&1; then
-            if sudo -n /bin/launchctl bootstrap system "$plist" 2>/dev/null; then
-              echo "launchd service re-bootstrapped"
-            else
-              echo "WARNING: launchd service is installed but unloaded and could not be re-bootstrapped without a password (run: sudo launchctl bootstrap system $plist)"
+          # `launchctl print` needs root, so without passwordless sudo we
+          # cannot tell "unloaded" from "cannot ask" — say so once instead of
+          # warning on every start of a perfectly healthy machine.
+          if [ -f "$plist" ]; then
+            if ! sudo -n /usr/bin/true 2>/dev/null; then
+              echo "note: launchd state not checked (passwordless sudo unavailable)"
+            elif ! /usr/bin/sudo -n /bin/launchctl print system/com.polymarket.global-runtime >/dev/null 2>&1; then
+              if sudo -n /bin/launchctl bootstrap system "$plist" 2>/dev/null; then
+                echo "launchd service re-bootstrapped"
+              else
+                echo "WARNING: launchd service is installed but unloaded and could not be re-bootstrapped (run: sudo launchctl bootstrap system $plist)"
+              fi
             fi
           fi
           tmux_bin="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
@@ -50,4 +57,5 @@
 
     - name: Report result
       ansible.builtin.debug:
-        msg: '{{ inventory_hostname }}: {{ start_result.stdout_lines | default([]) | first | default("?") }}'
+        # Join, not `first`: the launchd branch prints before the tmux outcome.
+        msg: '{{ inventory_hostname }}: {{ start_result.stdout_lines | default([]) | join(" | ") | default("?", true) }}'

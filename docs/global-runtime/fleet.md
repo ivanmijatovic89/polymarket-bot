@@ -49,7 +49,7 @@ A daemon bound to a tailnet address without a token would let any process on the
 :::
 
 ::: danger
-**Sandboxed missions must not be able to read the daemon's `.env`.** srt allows reads everywhere by default, so a settings file that does not deny the engine repo's `.env` hands the mission this token — plus `DATABASE_*` and any trading keys. Every sandbox settings file used on a daemon machine needs the engine `.env` under `filesystem.denyRead`, and `chmod 600 .env` is a sensible second layer.
+**Sandboxed missions must not be able to read the daemon's `.env`.** srt allows reads everywhere by default, so a settings file that does not deny the engine repo's `.env` hands the mission this token — plus `DATABASE_*` and any trading keys. Every sandbox settings file used on a daemon machine needs the engine `.env` under `filesystem.denyRead` — that is the actual control. (`chmod 600 .env` guards against *other* accounts on the box; it does nothing against a mission session, which runs as the same user as the daemon.)
 :::
 
 ## 2. Register the machine in the catalog
@@ -123,7 +123,7 @@ curl http://100.107.149.100:3053/health
 
 ## 5. Verify from Mission Control
 
-The dashboard's Mission Control API requires the shared token (`MISSION_CONTROL_TOKEN`, falling back to `GLOBAL_RUNTIME_TOKEN`), because loopback alone is not a boundary — a sandboxed mission session runs on the same host and can reach loopback ports. Unlock a browser once per machine by visiting `http://127.0.0.1:3051/mission-control/unlock?token=<the token>`; the token is then stored in an httpOnly cookie that page scripts and other local processes cannot read. Scripts can send the `x-mission-control-token` header instead.
+The dashboard's Mission Control API requires the shared token (`MISSION_CONTROL_TOKEN`, falling back to `GLOBAL_RUNTIME_TOKEN`) **whenever one of them is set** — and with neither set it stays open, so set one on any machine that runs sandboxed missions. Loopback alone is not a boundary — a sandboxed mission session runs on the same host and can reach loopback ports. Unlock a browser once per machine by visiting `http://127.0.0.1:3051/mission-control/unlock?token=<the token>`; the token is then stored in an httpOnly cookie that page scripts and other local processes cannot read. Scripts can send the `x-mission-control-token` header instead.
 
 Keep the dashboard on loopback and reach it remotely through an **SSH tunnel** (`ssh -L 3051:127.0.0.1:3051 <host>`), which preserves the loopback `Host` the guard requires. `tailscale serve` forwards its own MagicDNS `Host` and is rejected by design.
 

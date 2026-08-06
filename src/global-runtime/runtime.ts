@@ -1,6 +1,17 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
-import { mkdir, open, readFile, type FileHandle } from 'node:fs/promises'
+import {
+  link,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  unlink,
+  type FileHandle,
+} from 'node:fs/promises'
 import path from 'node:path'
 import {
   buildRuntimeProcessToken,
@@ -68,7 +79,14 @@ const PINNED_LAUNCH_FIELDS = [
   'sandboxSettingsPath',
 ] as const
 
-type LaunchSpec = Pick<RuntimeRun, (typeof PINNED_LAUNCH_FIELDS)[number]>
+type LaunchSpec = Pick<RuntimeRun, (typeof PINNED_LAUNCH_FIELDS)[number]> & {
+  /**
+   * SHA-256 of the srt settings file at first launch (null when unsandboxed).
+   * Pinning only the PATH would leave the sandbox downgradable by rewriting
+   * the file it points at — `srt --settings <path>` re-reads it every session.
+   */
+  sandboxSettingsSha256?: string | null
+}
 
 interface ActiveRun {
   workspacePath: string
@@ -89,6 +107,14 @@ function assertLaunchSpecUnchanged(run: RuntimeRun, pinned: LaunchSpec): void {
       )
     }
   }
+}
+
+/** SHA-256 of the srt settings file, or null for an unsandboxed run. */
+async function hashSandboxSettings(settingsPath: string | null): Promise<string | null> {
+  if (!settingsPath) return null
+  return createHash('sha256')
+    .update(await readFile(settingsPath))
+    .digest('hex')
 }
 
 /** Structural check: a falsy or partial anchor must not skip the comparison. */
@@ -158,6 +184,7 @@ export class GlobalRuntime {
   private readonly machineLabel: (machineId: string) => string
   private readonly sandboxTunnels: SandboxTunnelController
   private readonly runTransitions = new Map<number, Promise<void>>()
+  private canonicalLogRootPath: string | null = null
   private runtimeLeaseRelease: (() => Promise<void>) | null = null
   private runtimeLeasePending: Promise<void> | null = null
   private shutdownPromise: Promise<void> | null = null
@@ -209,6 +236,7 @@ export class GlobalRuntime {
   async initialize(): Promise<void> {
     await this.ensureRuntimeLease()
     if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
+    await this.adoptPreAnchorRuns()
     const interrupted = await this.store.listRunsByStatuses(
       ['running', 'pause_requested'],
       this.machineId,
@@ -969,15 +997,115 @@ export class GlobalRuntime {
    * let a session downgrade itself and simply wait to be resumed. The log
    * root is outside every workspace, so no session can write here.
    */
+  /**
+   * One-time adoption for runs that predate launch anchors (issue #213).
+   *
+   * Without this, upgrading would brick every run that had already started:
+   * it has no anchor, and a missing anchor for a started run is (correctly)
+   * treated as loss or tampering. The anchors directory's existence is the
+   * "this daemon has been initialized" marker — it is created here, once,
+   * with anchors for every run this machine owns. Afterwards a missing
+   * anchor is a real anomaly.
+   *
+   * This is also why the docs tell operators never to delete `anchors/`:
+   * doing so would let the next startup re-adopt whatever the rows say.
+   */
+  private async adoptPreAnchorRuns(): Promise<void> {
+    const anchorsDir = path.join(this.logRoot, 'anchors')
+    try {
+      await stat(anchorsDir)
+      return
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    const runs = (await this.store.listRuns()).filter((run) => run.machineId === this.machineId)
+    await mkdir(anchorsDir, { recursive: true, mode: 0o700 })
+    let adopted = 0
+    for (const run of runs) {
+      try {
+        await this.writeLaunchAnchor(run.id, pinLaunchSpec(run))
+        adopted += 1
+      } catch (error) {
+        // An existing anchor (EEXIST) means someone got here first; anything
+        // else is worth reporting but must not stop the daemon booting.
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+          this.reportBackgroundError(run.id, error)
+        }
+      }
+    }
+    if (adopted > 0) {
+      console.log(
+        `[global-runtime] pinned launch anchors for ${adopted} pre-existing run(s) in ${anchorsDir}`,
+      )
+    }
+  }
+
+  private async writeLaunchAnchor(
+    runId: number,
+    spec: LaunchSpec,
+    options: { replace?: boolean } = {},
+  ): Promise<void> {
+    const anchorPath = path.join(this.logRoot, 'anchors', `run-${runId}.json`)
+    // Write-then-rename: a crash mid-write would otherwise leave a zero-byte
+    // anchor that blocks the run until an operator removes it by hand.
+    const temporaryPath = `${anchorPath}.${process.pid}.tmp`
+    const handle = await open(
+      temporaryPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    )
+    try {
+      await handle.writeFile(JSON.stringify(spec, null, 2), 'utf8')
+    } finally {
+      await handle.close()
+    }
+    try {
+      if (options.replace) await rename(temporaryPath, anchorPath)
+      // link() rather than rename(): it fails when the anchor already exists,
+      // so a concurrent writer can never be clobbered.
+      else await link(temporaryPath, anchorPath)
+    } finally {
+      await unlink(temporaryPath).catch(() => undefined)
+    }
+  }
+
+  /**
+   * `logRoot` resolved through symlinks so overlap comparisons line up with
+   * the canonical workspace paths (`/var` vs `/private/var` on macOS). The
+   * directory may not exist yet, so resolve the deepest ancestor that does
+   * and re-append the rest.
+   */
+  private async canonicalLogRoot(): Promise<string> {
+    if (this.canonicalLogRootPath) return this.canonicalLogRootPath
+    let existing = this.logRoot
+    const trailing: string[] = []
+    for (;;) {
+      try {
+        const resolved = await realpath(existing)
+        this.canonicalLogRootPath = path.join(resolved, ...trailing.reverse())
+        return this.canonicalLogRootPath
+      } catch {
+        const parent = path.dirname(existing)
+        if (parent === existing) {
+          this.canonicalLogRootPath = this.logRoot
+          return this.canonicalLogRootPath
+        }
+        trailing.push(path.basename(existing))
+        existing = parent
+      }
+    }
+  }
+
   private async loadOrCreateLaunchAnchor(run: RuntimeRun): Promise<LaunchSpec> {
-    // Deliberately NOT under `run-<id>/` with the session logs: those are
-    // documented as prunable, and an `rm -rf logs/global-runtime/run-*` would
-    // silently disarm every pin.
-    // The anchor only means anything if the session cannot reach it. A log
-    // root inside (or containing) the workspace — e.g. a mission whose
-    // workspace IS this repo, or GLOBAL_RUNTIME_LOG_DIR pointed at one —
-    // would hand the session both the anchor and the DB row.
-    if (workspacesOverlap(this.logRoot, run.workspacePath)) {
+    // The anchor lives under `<logRoot>/anchors/`, deliberately NOT beside the
+    // per-session logs: those are documented as prunable, and an
+    // `rm -rf logs/global-runtime/run-*` would otherwise disarm every pin.
+    //
+    // It only means anything if the session cannot reach it. A log root inside
+    // (or containing) the workspace — a mission whose workspace IS this repo,
+    // or GLOBAL_RUNTIME_LOG_DIR pointed at one — would hand the session both
+    // the anchor and the DB row.
+    if (workspacesOverlap(await this.canonicalLogRoot(), run.workspacePath)) {
       throw new RuntimeValidationError(
         `run ${run.id} workspace ${run.workspacePath} overlaps the runtime log root ${this.logRoot}; ` +
           'sessions must not be able to write the daemon log root (set GLOBAL_RUNTIME_LOG_DIR elsewhere)',
@@ -1017,6 +1145,21 @@ export class GlobalRuntime {
       // Re-validate rather than trusting the path still resolves the way it
       // did: the settings file could have been deleted or replaced since.
       await validateSandboxSettings(recorded.sandboxSettingsPath)
+      // Anchors written before content pinning have no hash; adopt one so the
+      // check applies from here on rather than failing an existing run.
+      if (recorded.sandboxSettingsSha256 === undefined) {
+        recorded.sandboxSettingsSha256 = await hashSandboxSettings(recorded.sandboxSettingsPath)
+        await this.writeLaunchAnchor(run.id, recorded, { replace: true })
+      } else {
+        const current = await hashSandboxSettings(recorded.sandboxSettingsPath)
+        if (current !== recorded.sandboxSettingsSha256) {
+          throw new Error(
+            `run ${run.id} sandbox settings file ${String(recorded.sandboxSettingsPath)} changed ` +
+              'since the run was first launched; refusing to launch another session with a ' +
+              'different sandbox policy',
+          )
+        }
+      }
       return recorded
     }
 
@@ -1027,17 +1170,9 @@ export class GlobalRuntime {
     if (run.startedAt !== null || run.currentSession > 0) {
       throw unreadable('missing for a run that has already started')
     }
+    current.sandboxSettingsSha256 = await hashSandboxSettings(current.sandboxSettingsPath)
     await mkdir(path.dirname(anchorPath), { recursive: true, mode: 0o700 })
-    const created = await open(
-      anchorPath,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-      0o600,
-    )
-    try {
-      await created.writeFile(JSON.stringify(current, null, 2), 'utf8')
-    } finally {
-      await created.close()
-    }
+    await this.writeLaunchAnchor(run.id, current)
     return current
   }
 

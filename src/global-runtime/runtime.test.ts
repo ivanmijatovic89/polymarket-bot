@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtempSync } from 'node:fs'
+import { readFile, realpath } from 'node:fs/promises'
 import { link, mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -1571,5 +1572,116 @@ test('a tunnel failure does not leave a heartbeat writing to the errored run', a
     'heartbeat kept running after the failure',
   )
 
+  await runtime.shutdown()
+})
+
+test('pre-anchor runs are adopted once at startup instead of becoming unresumable', async () => {
+  // Canonical form: runRecord goes straight to the store, bypassing the
+  // canonicalization createRun would do.
+  const workspace = await realpath(await createWorkspace())
+  const store = new MemoryRuntimeStore()
+  const logRoot = createLogRoot()
+  // A run that already started, exactly as an upgrade would find it.
+  const legacy = await store.createRun(runRecord(workspace, 'legacy'))
+  await store.updateRun(legacy.id, { status: 'paused', startedAt: new Date(), currentSession: 1 })
+
+  const runtime = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'ok', 1)]),
+    {
+      logRoot,
+    },
+  )
+  await runtime.initialize()
+  const anchor = JSON.parse(
+    await readFile(path.join(logRoot, 'anchors', `run-${legacy.id}.json`), 'utf8'),
+  ) as { workspacePath: string }
+  assert.equal(anchor.workspacePath, workspace)
+
+  // Resume must work rather than reporting a missing anchor.
+  await runtime.resume(legacy.id)
+  await waitFor(async () => (await store.getRun(legacy.id))?.status === 'completed')
+  await runtime.shutdown()
+
+  // After adoption the directory exists, so a later missing anchor is an anomaly.
+  const second = await store.createRun(runRecord(workspace, 'later'))
+  await store.updateRun(second.id, { status: 'paused', startedAt: new Date(), currentSession: 1 })
+  const restarted = createRuntime(store, new ScriptedProvider([]), { logRoot })
+  await restarted.initialize()
+  await assert.rejects(() => restarted.resume(second.id), /already started/u)
+  await restarted.shutdown()
+})
+
+test('a tamper reports itself on every retry rather than wedging the run', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  // Both attempts must name the tamper; the first must not leave the run
+  // stuck reporting "already active".
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  await runtime.shutdown()
+})
+
+test('rewriting the sandbox settings file is refused, not just clearing the column', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, JSON.stringify({ filesystem: { denyRead: ['/secrets'] } }), 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    sandboxTunnels: new FakeTunnels(),
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+
+  // The path is unchanged; only the policy behind it was weakened.
+  await writeFile(settingsPath, JSON.stringify({ filesystem: {} }), 'utf8')
+  await assert.rejects(() => runtime.resume(run.id), /sandbox settings file .* changed/u)
+  await runtime.shutdown()
+})
+
+test('a falsy or partial anchor is rejected instead of silently re-pinning', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const logRoot = createLogRoot()
+  const runtime = createRuntime(store, new ScriptedProvider([]), { logRoot })
+  const run = await runtime.createRun(runInput(workspace))
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+
+  const anchorPath = path.join(logRoot, 'anchors', `run-${run.id}.json`)
+  for (const body of ['null', '0', '""', '{"provider":"codex"}', '']) {
+    await writeFile(anchorPath, body, 'utf8')
+    await assert.rejects(() => runtime.resume(run.id), /launch anchor/u, `body: ${body}`)
+  }
+  await runtime.shutdown()
+})
+
+test('a workspace overlapping the daemon log root is refused', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  // Log root inside the workspace: a session could then reach its own anchor.
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    logRoot: path.join(workspace, 'logs'),
+  })
+  const run = await runtime.createRun(runInput(workspace))
+  await assert.rejects(() => runtime.start(run.id), /overlaps the runtime log root/u)
   await runtime.shutdown()
 })

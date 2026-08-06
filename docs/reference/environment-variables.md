@@ -122,7 +122,7 @@ All four variables are required when any command that reads from or writes to My
 | `GLOBAL_RUNTIME_TOKEN` | `string` | _(unset)_ | Shared bearer token. When set, every route except `/health` requires `Authorization: Bearer <token>`. Same value on all daemon machines, the dashboard host, and CLI machines (`openssl rand -hex 32`). Server-side only — never shipped to browsers. |
 | `GLOBAL_RUNTIME_LEASE_WAIT_SECONDS` | `integer` | `330` | How long daemon startup waits for a stale per-machine lease holder to be reaped (lease connections carry a 5-minute MySQL session timeout, so 330 s covers the worst case). |
 | `GLOBAL_RUNTIME_URL` | `URL` | `http://127.0.0.1:3053` | Fallback daemon target for the Mission CLI when `machines.json` has **no** `runtimeUrl` entries (fresh-clone dev). With a configured catalog, targets always come from it. |
-| `GLOBAL_RUNTIME_LOG_DIR` | `path` | `logs/global-runtime` | Raw provider JSONL and stderr root. |
+| `GLOBAL_RUNTIME_LOG_DIR` | `path` | `logs/global-runtime` | Raw provider JSONL and stderr root, **and** the `anchors/` directory pinning each run's immutable launch settings. Must not overlap any run's workspace (the daemon refuses such runs). Changing it after runs exist orphans their anchors — move `anchors/` along with it. |
 | `GLOBAL_RUNTIME_RATE_LIMIT_RETRY_SECONDS` | `integer` | `900` | Delay before retrying a quota-limited loop. |
 | `GLOBAL_RUNTIME_CLAUDE_BIN` | `path/name` | `claude` | Claude Code CLI override, primarily for testing. |
 | `GLOBAL_RUNTIME_CODEX_BIN` | `path/name` | `codex` | Codex CLI override, primarily for testing. |

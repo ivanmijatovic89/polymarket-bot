@@ -21,11 +21,13 @@ import type { NextRequest } from 'next/server'
  * 2. **Same-origin + loopback Host**, which stops the operator's own browser
  *    being used as a confused deputy (plain CSRF and DNS rebinding).
  *
- * With no token configured the API stays open, matching the daemon's own
- * behavior for single-machine loopback setups.
+ * With NO token configured the API stays open (matching the daemon's own
+ * behavior for single-machine loopback setups) — which is only safe on a
+ * machine that never runs sandboxed sessions. See docs/global-runtime/fleet.md.
  */
 
-const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+// Bare `::1` never appears here: hostnameOf() only unwraps the bracketed form.
+const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]'])
 export const MISSION_CONTROL_COOKIE = 'mission_control_token'
 export const MISSION_CONTROL_HEADER = 'x-mission-control-token'
 
@@ -78,9 +80,11 @@ export function proxy(request: NextRequest): NextResponse | undefined {
 
   const secret = missionControlSecret()
   if (!secret) return undefined
+  // `||` not `??`: an empty cookie value must fall through to the header
+  // rather than guaranteeing a 401 for a script that sent both.
   const presented =
-    request.cookies.get(MISSION_CONTROL_COOKIE)?.value ??
-    request.headers.get(MISSION_CONTROL_HEADER) ??
+    request.cookies.get(MISSION_CONTROL_COOKIE)?.value ||
+    request.headers.get(MISSION_CONTROL_HEADER) ||
     undefined
   if (!matches(presented, secret)) {
     return NextResponse.json(
