@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import { NextRequest } from 'next/server'
 import { runtimeAuthHeaders } from './runtimeMachines'
-import { forwardToDaemon } from './runtimeProxy'
+import { forwardToDaemon, sanitizeDaemonPath } from './runtimeProxy'
 
 const machine = { machineId: 'aaaabbbbcccc', name: 'worker-x', runtimeUrl: 'http://100.0.0.1:3053' }
 const originalFetch = globalThis.fetch
@@ -69,4 +69,35 @@ test('a connection failure becomes a named 503 for the machine', async () => {
   const payload = (await response.json()) as { error: string }
   assert.match(payload.error, /worker-x \(aaaabbbbcccc\) is unreachable/u)
   assert.match(payload.error, /ECONNREFUSED/u)
+})
+
+test('sanitizeDaemonPath rejects traversal and exotic segments', () => {
+  assert.equal(sanitizeDaemonPath(['start']), 'start')
+  assert.equal(sanitizeDaemonPath(['runs', '7', 'files']), 'runs/7/files')
+  assert.equal(sanitizeDaemonPath([]), null)
+  assert.equal(sanitizeDaemonPath(['..']), null)
+  assert.equal(sanitizeDaemonPath(['.']), null)
+  assert.equal(sanitizeDaemonPath(['runs', '..', '..', 'runs', '9', 'stop']), null)
+  assert.equal(sanitizeDaemonPath(['sta rt']), null)
+  assert.equal(sanitizeDaemonPath(['start/stop']), null)
+  assert.equal(sanitizeDaemonPath(['']), null)
+})
+
+test('commands carry an abort timeout, and an abort becomes the named 503', async () => {
+  // A blackholed machine (asleep, no RST) would otherwise hang the route for
+  // the OS TCP timeout, so the request must carry a deadline...
+  let sawSignal = false
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    sawSignal = init?.signal instanceof AbortSignal
+    // ...and when that deadline fires, fetch rejects like this.
+    throw Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' })
+  }) as typeof fetch
+
+  const request = new NextRequest('http://dashboard.local/api/mission-control/run/7/stop', {
+    method: 'POST',
+  })
+  const response = await forwardToDaemon(request, machine, 'runs/7/stop')
+  assert.equal(sawSignal, true)
+  assert.equal(response.status, 503)
+  assert.match(((await response.json()) as { error: string }).error, /worker-x .* is unreachable/u)
 })

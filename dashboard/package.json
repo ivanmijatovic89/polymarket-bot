@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname ${DASHBOARD_HOST:-0.0.0.0} --port ${DASHBOARD_PORT:-3051}",
+    "dev": "next dev --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}",
     "build": "next build",
-    "start": "next start --port ${DASHBOARD_PORT:-3051}",
+    "start": "next start --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

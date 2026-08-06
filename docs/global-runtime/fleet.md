@@ -12,7 +12,21 @@ This guide brings up Global Runtime daemons across the fleet: one daemon per mac
 - All machines joined to the same Tailscale tailnet, with reachable raw `100.x` IPs.
 - The shared MySQL reachable from every machine (`DATABASE_HOST` in each `.env`).
 - The repository cloned and `npm install` run on every machine.
-- Migrations applied once against the shared database: `npm run db:migrate`.
+
+## 0. Upgrade order from the single-daemon era
+
+Pre-#213 daemons took one fleet-wide lease and recovered runs **without a machine filter** — one still running against the migrated database would adopt and terminate other machines' runs. Do this once, in order:
+
+1. Stop every existing Global Runtime daemon in the fleet.
+2. Apply the migration against the shared database: `npm run db:migrate`.
+3. Update every checkout that might start a daemon (`npm run fleet:git:pull`, and any laptop by hand).
+4. Start the per-machine daemons (below).
+
+New daemons refuse to start while the legacy fleet-wide lease is held, so a forgotten old daemon produces a clear error instead of silent damage — but a stale checkout started *after* the new ones will still misbehave, which is why step 3 covers every machine.
+
+::: warning
+Old code inserts runs without `machine_id`; after the migration those inserts fail outright. That is intended — it is the loud half of the same version-skew problem.
+:::
 
 ## 1. Generate and distribute the token
 
@@ -32,6 +46,10 @@ Distribution is manual by design — the token never lives in Git or `machines.j
 
 ::: danger
 A daemon bound to a tailnet address without a token would let any process on the tailnet — including sandboxed mission sessions — control runs. The daemon refuses that bind, but do not work around it.
+:::
+
+::: danger
+**Sandboxed missions must not be able to read the daemon's `.env`.** srt allows reads everywhere by default, so a settings file that does not deny the engine repo's `.env` hands the mission this token — plus `DATABASE_*` and any trading keys. Every sandbox settings file used on a daemon machine needs the engine `.env` under `filesystem.denyRead`, and `chmod 600 .env` is a sensible second layer.
 :::
 
 ## 2. Register the machine in the catalog
@@ -105,6 +123,8 @@ curl http://100.107.149.100:3053/health
 
 ## 5. Verify from Mission Control
 
+The dashboard binds `127.0.0.1` by default and has **no login of its own**, while its proxy holds the fleet token — so anything that can reach it can command every daemon. Keep it on loopback and reach it remotely through `tailscale serve` or an SSH tunnel rather than setting `DASHBOARD_HOST` to a public interface.
+
 On the dashboard host (which also needs `GLOBAL_RUNTIME_TOKEN` in its `.env`), open `http://127.0.0.1:3051/mission-control`:
 
 1. The machine-health strip shows a green chip for the new machine.
@@ -138,3 +158,9 @@ The ansible plays only touch hosts with `global_runtime_enabled=true` in `ops/an
 ::: tip
 A machine that goes offline keeps its runs: Mission Control still shows their history from the database, marked with an offline chip. Commands resume working the moment the daemon is back — nothing needs re-registering.
 :::
+
+## Known operational behavior
+
+- **Laptop sleep ends a run.** The lease connection is reaped after five minutes of silence, so a daemon whose machine sleeps longer than that shuts itself down on wake and its active session ends in `error`. Resume it from Mission Control. Long unattended loops belong on an always-on machine.
+- **Logs are not rotated.** `logs/global-runtime/daemon.log`, `boot.log`, and per-session provider JSONL grow until removed; prune them periodically on always-on machines.
+- **Sandbox tunnels use ephemeral ports.** The daemon opens its own loopback forwarders per process and passes those ports to each sandboxed session, so it never collides with (or trusts) the fixed 13306/16379 forwarders a manual `run.sh` may hold.

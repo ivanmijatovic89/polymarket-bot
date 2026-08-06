@@ -12,7 +12,7 @@ import {
   SESSION_RESULT_JSON_SCHEMA,
 } from './contracts.js'
 import { estimateCodexApiCost, resolveCodexModel } from './pricing.js'
-import { SANDBOX_MYSQL_PORT, SANDBOX_REDIS_PORT } from './sandboxTunnels.js'
+import type { SandboxTunnelPorts } from './sandboxTunnels.js'
 import type { RuntimeRun, TokenUsage } from './types.js'
 
 export interface ProviderExecutionContext {
@@ -20,6 +20,12 @@ export interface ProviderExecutionContext {
   sessionNumber: number
   prompt: string
   logDirectory: string
+  /**
+   * Live loopback ports of the daemon's DB/Redis forwarders. Required for a
+   * run with `sandboxSettingsPath` (the session cannot open raw TCP), unused
+   * otherwise. Ports are ephemeral per daemon — see sandboxTunnels.ts.
+   */
+  sandboxTunnelPorts?: SandboxTunnelPorts | null
 }
 
 export interface ProviderExecutionCallbacks {
@@ -262,7 +268,7 @@ export async function prepareProviderCommand(
     context.run.provider === 'claude'
       ? prepareClaudeCommand(context, rawLogPath, stderrLogPath)
       : prepareCodexCommand(context, rawLogPath, stderrLogPath, schemaPath)
-  return wrapWithSandbox(prepared, context.run, process.env)
+  return wrapWithSandbox(prepared, context.run, process.env, context.sandboxTunnelPorts)
 }
 
 /**
@@ -277,12 +283,18 @@ export function wrapWithSandbox(
   prepared: PreparedCommand,
   run: Pick<RuntimeRun, 'sandboxSettingsPath'>,
   daemonEnv: NodeJS.ProcessEnv,
+  tunnelPorts: SandboxTunnelPorts | null | undefined,
 ): PreparedCommand {
   if (!run.sandboxSettingsPath) return prepared
+  if (!tunnelPorts) {
+    // Without the forwarders the session would have no DB/Redis path at all;
+    // failing here beats launching a session that cannot do its work.
+    throw new Error('sandboxed session requires the daemon DB/Redis tunnel ports')
+  }
   const env: NodeJS.ProcessEnv = {
     ...prepared.env,
     DATABASE_HOST: '127.0.0.1',
-    DATABASE_PORT: String(SANDBOX_MYSQL_PORT),
+    DATABASE_PORT: String(tunnelPorts.mysqlPort),
   }
   // BOT_ENV would make the engine's env loader OVERRIDE these tunnel values
   // with the real hosts (.env.$BOT_ENV loads with override=true).
@@ -292,7 +304,7 @@ export function wrapWithSandbox(
     try {
       const redisUrl = new URL(redisUrlRaw)
       redisUrl.hostname = '127.0.0.1'
-      redisUrl.port = String(SANDBOX_REDIS_PORT)
+      redisUrl.port = String(tunnelPorts.redisPort)
       env.REDIS_URL = redisUrl.toString()
     } catch {
       // Unparseable REDIS_URL — leave unset; a session that needs Redis

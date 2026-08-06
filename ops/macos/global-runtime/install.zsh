@@ -34,6 +34,18 @@ if [[ -z "${repo_dir}" ]]; then
   repo_dir="/Users/${user}/Sites/polymarket-bot"
 fi
 
+# Both values are substituted into an XML plist and into a zsh script that is
+# installed root-owned and executed at boot, so anything outside this set
+# (quotes, $(), &, <) could break the plist or inject into the boot helper.
+if [[ ! "${user}" =~ '^[A-Za-z0-9._-]+$' ]]; then
+  print -u2 "--user must match [A-Za-z0-9._-]+"
+  exit 64
+fi
+if [[ ! "${repo_dir}" =~ '^[A-Za-z0-9._/-]+$' ]]; then
+  print -u2 "--repo-dir must match [A-Za-z0-9._/-]+"
+  exit 64
+fi
+
 # --- Preflight ---------------------------------------------------------------
 if [[ ! -d "${repo_dir}" ]]; then
   print -u2 "repo directory ${repo_dir} does not exist"
@@ -47,13 +59,26 @@ if ! /usr/bin/grep -qE '^GLOBAL_RUNTIME_TOKEN=..+' "${repo_dir}/.env"; then
   print -u2 "GLOBAL_RUNTIME_TOKEN is not set in ${repo_dir}/.env — required for tailnet daemons (openssl rand -hex 32, same value fleet-wide)"
   exit 64
 fi
-if ! sudo -u "${user}" /bin/zsh -lic 'command -v claude || command -v codex' >/dev/null 2>&1; then
-  print -u2 "neither claude nor codex CLI is on ${user}'s PATH — install and log in before enabling the daemon"
+tmux_bin=""
+for candidate in /opt/homebrew/bin/tmux /usr/local/bin/tmux "$(command -v tmux 2>/dev/null)"; do
+  if [[ -n "${candidate}" && -x "${candidate}" ]]; then
+    tmux_bin="${candidate}"
+    break
+  fi
+done
+if [[ -z "${tmux_bin}" ]]; then
+  # Without tmux the boot helper exits 75 and launchd retries it forever.
+  print -u2 "tmux is required by the boot helper — install it first (brew install tmux)"
   exit 64
 fi
 
 print "Administrator access is required to install the boot service."
 sudo -v
+
+if ! sudo -u "${user}" /bin/zsh -lic 'command -v claude || command -v codex' >/dev/null 2>&1; then
+  print -u2 "neither claude nor codex CLI is on ${user}'s PATH — install and log in before enabling the daemon"
+  exit 64
+fi
 
 # --- Render + install --------------------------------------------------------
 tmp_dir="$(mktemp -d)"
@@ -61,7 +86,7 @@ trap '/bin/rm -rf "${tmp_dir}"' EXIT
 
 /usr/bin/sed -e "s|__USER__|${user}|g" -e "s|__REPO_DIR__|${repo_dir}|g" \
   "${artifact_dir}/com.polymarket.global-runtime.plist.template" > "${tmp_dir}/${plist_name}"
-/usr/bin/sed -e "s|__REPO_DIR__|${repo_dir}|g" \
+/usr/bin/sed -e "s|__REPO_DIR__|${repo_dir}|g" -e "s|__TMUX_BIN__|${tmux_bin}|g" \
   "${artifact_dir}/start-global-runtime-at-boot.zsh.template" > "${tmp_dir}/start-global-runtime-at-boot.zsh"
 
 sudo /usr/bin/pmset -a autorestart 1

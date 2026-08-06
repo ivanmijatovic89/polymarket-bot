@@ -555,7 +555,7 @@ test('wrapWithSandbox is a byte-identical no-op for unsandboxed runs', async () 
     prompt: 'mission',
     logDirectory: path.join(workspace, 'logs-nosandbox'),
   })
-  const wrapped = wrapWithSandbox(prepared, { sandboxSettingsPath: null }, process.env)
+  const wrapped = wrapWithSandbox(prepared, { sandboxSettingsPath: null }, process.env, null)
   assert.equal(wrapped, prepared)
 })
 
@@ -573,18 +573,20 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
     rawLogPath: '/logs/raw.jsonl',
     stderrLogPath: '/logs/raw.stderr.log',
   }
+  const ports = { mysqlPort: 51234, redisPort: 51235 }
   const wrapped = wrapWithSandbox(
     prepared,
     { sandboxSettingsPath: '/etc/srt.json' },
     {
       REDIS_URL: 'redis://:s3cret@100.107.149.100:6379/2',
     },
+    ports,
   )
   assert.equal(wrapped.command, 'srt')
   assert.deepEqual(wrapped.args, ['--settings', '/etc/srt.json', 'claude', '-p', '--model', 'test'])
   assert.equal(wrapped.env.DATABASE_HOST, '127.0.0.1')
-  assert.equal(wrapped.env.DATABASE_PORT, '13306')
-  assert.equal(wrapped.env.REDIS_URL, 'redis://:s3cret@127.0.0.1:16379/2')
+  assert.equal(wrapped.env.DATABASE_PORT, '51234')
+  assert.equal(wrapped.env.REDIS_URL, 'redis://:s3cret@127.0.0.1:51235/2')
   assert.equal(wrapped.env.BOT_ENV, undefined)
   assert.equal(wrapped.env.PATH, '/usr/bin')
   assert.equal(wrapped.cwd, '/workspace')
@@ -595,6 +597,7 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
     {
       GLOBAL_RUNTIME_SRT_BIN: '/opt/bin/srt-custom',
     },
+    ports,
   )
   assert.equal(customBin.command, '/opt/bin/srt-custom')
 
@@ -602,8 +605,16 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
     { ...prepared, env: { ...prepared.env, REDIS_URL: 'redis://old' } },
     { sandboxSettingsPath: '/etc/srt.json' },
     { REDIS_URL: 'not a url' },
+    ports,
   )
   assert.equal(badRedis.env.REDIS_URL, undefined)
+
+  // Without live tunnel ports a sandboxed session has no DB path at all —
+  // refuse rather than launch a session that cannot reach MySQL/Redis.
+  assert.throws(
+    () => wrapWithSandbox(prepared, { sandboxSettingsPath: '/etc/srt.json' }, {}, null),
+    /tunnel ports/u,
+  )
 })
 
 test('sandboxed runs disable the provider CLIs own sandboxes (srt is the boundary)', async () => {
@@ -616,6 +627,7 @@ test('sandboxed runs disable the provider CLIs own sandboxes (srt is the boundar
     sessionNumber: 1,
     prompt: 'mission',
     logDirectory: path.join(workspace, 'logs-sbx-claude'),
+    sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
   })
   assert.ok(claude.args.includes('bypassPermissions'))
   // The srt --settings pair is present; claude's inline seatbelt one is not.
@@ -631,6 +643,7 @@ test('sandboxed runs disable the provider CLIs own sandboxes (srt is the boundar
     sessionNumber: 2,
     prompt: 'mission',
     logDirectory: path.join(workspace, 'logs-sbx-codex'),
+    sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
   })
   assert.ok(codex.args.includes('danger-full-access'))
   assert.equal(codex.args.includes('workspace-write'), false)
@@ -667,6 +680,7 @@ child.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 1)))
         sessionNumber: 7,
         prompt: 'test prompt',
         logDirectory: path.join(workspace, 'logs-srt-e2e'),
+        sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
       },
       new AbortController().signal,
       { onStarted: () => undefined, onActivity: () => undefined },

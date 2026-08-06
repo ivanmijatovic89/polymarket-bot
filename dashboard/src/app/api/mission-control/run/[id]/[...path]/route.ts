@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRunMachineId } from '@/lib/queries/runtimeRuns'
 import { getRuntimeMachine } from '@/lib/server/runtimeMachines'
-import { forwardToDaemon } from '@/lib/server/runtimeProxy'
+import { forwardToDaemon, sanitizeDaemonPath } from '@/lib/server/runtimeProxy'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string; path: string[] }> }
+
+// Per-run daemon endpoints this route may reach, per method.
+const ALLOWED: Record<string, Set<string>> = {
+  GET: new Set(['files']),
+  POST: new Set(['start', 'pause', 'resume', 'stop', 'extend', 'inbox']),
+}
 
 // Run-addressed daemon proxy (issue #213): looks up the run's owning machine
 // in the DB and forwards `runs/<id>/<path>` to that machine's daemon
@@ -26,6 +32,10 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
   if (!Number.isSafeInteger(runId) || runId < 1) {
     return NextResponse.json({ error: 'invalid run id' }, { status: 400 })
   }
+  const suffix = sanitizeDaemonPath(path)
+  if (!suffix || !ALLOWED[request.method]?.has(suffix)) {
+    return NextResponse.json({ error: 'unsupported runtime path' }, { status: 400 })
+  }
   const machineId = await getRunMachineId(runId)
   if (!machineId) {
     return NextResponse.json({ error: `run ${runId} not found` }, { status: 404 })
@@ -39,6 +49,5 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
       { status: 503 },
     )
   }
-  const suffix = path.map(encodeURIComponent).join('/')
   return forwardToDaemon(request, machine, `runs/${runId}/${suffix}`)
 }

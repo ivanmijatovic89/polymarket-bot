@@ -32,6 +32,12 @@
     <key>SuccessfulExit</key>
     <false/>
   </dict>
+  <!-- KeepAlive only supervises the boot helper, which exits as soon as the
+       tmux session is up; if the daemon later dies inside tmux nothing would
+       restart it. The helper is idempotent (it no-ops when the session
+       exists), so re-running it periodically is the supervisor. -->
+  <key>StartInterval</key>
+  <integer>120</integer>
   <key>ThrottleInterval</key>
   <integer>30</integer>
   <key>ProcessType</key>

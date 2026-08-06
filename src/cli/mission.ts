@@ -331,13 +331,16 @@ function createTarget(machineArg: string | undefined): DaemonTarget {
 
 /** Owning machine's daemon for an existing run, looked up in the shared database. */
 async function ownerTarget(id: number): Promise<DaemonTarget> {
-  if (listRuntimeMachines().length === 0) return { url: FALLBACK_URL, label: FALLBACK_URL }
+  // The DB lookup comes first even in the catalog-empty fallback case, so an
+  // unknown run and a foreign-owned run get accurate errors rather than a
+  // confusing 409 from whichever daemon the fallback URL points at.
   const [row] = await getDb()
     .select({ machineId: runtimeRuns.machineId })
     .from(runtimeRuns)
     .where(eq(runtimeRuns.id, id))
     .limit(1)
   if (!row) throw new Error(`run ${id} not found`)
+  if (listRuntimeMachines().length === 0) return { url: FALLBACK_URL, label: FALLBACK_URL }
   const entry = getMachineCatalogEntry(row.machineId)
   if (!entry?.runtimeUrl) {
     throw new Error(

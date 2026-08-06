@@ -8,12 +8,13 @@
 set -u
 
 readonly repo_dir="__REPO_DIR__"
-readonly tmux_bin="/opt/homebrew/bin/tmux"
+readonly tmux_bin="__TMUX_BIN__"
 readonly session_name="polymarket-global-runtime"
 readonly daemon_log="${repo_dir}/logs/global-runtime/daemon.log"
 readonly max_attempts=120
 readonly startup_check_delay=3
 readonly db_endpoint_marker="POLYMARKET_DATABASE_ENDPOINT"
+readonly bind_marker="POLYMARKET_GLOBAL_RUNTIME_BIND"
 
 if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
   print "$(date -Iseconds) ${session_name} is already running"
@@ -28,7 +29,11 @@ if ! resolver_output="$(
   exit 75
 fi
 
+# The resolver prints the bind marker first, then the DB endpoint last, so a
+# chatty shell profile can only add noise BEFORE them.
 db_endpoint_line="${resolver_output##*$'\n'}"
+bind_line="$(print -r -- "${resolver_output}" | /usr/bin/grep "^${bind_marker}"$'\t' | /usr/bin/tail -1)"
+bind_host="${bind_line#*$'\t'}"
 if [[ "${db_endpoint_line}" != "${db_endpoint_marker}"$'\t'*$'\t'* ]]; then
   print -u2 "$(date -Iseconds) database endpoint resolver returned unexpected output"
   exit 75
@@ -56,7 +61,6 @@ fi
 
 # When the daemon binds a tailnet address (GLOBAL_RUNTIME_HOST in .env), that
 # address must exist before `listen()` — Tailscale can come up after boot.
-bind_host="$(/usr/bin/grep -E '^GLOBAL_RUNTIME_HOST=' "${repo_dir}/.env" 2>/dev/null | /usr/bin/tail -1 | /usr/bin/cut -d= -f2- | /usr/bin/tr -d '"' | /usr/bin/tr -d "'")"
 if [[ -n "${bind_host}" && "${bind_host}" != "127.0.0.1" && "${bind_host}" != "localhost" && "${bind_host}" != "::1" ]]; then
   attempt=1
   while (( attempt <= max_attempts )); do

@@ -13,9 +13,11 @@
       when: not (global_runtime_enabled | default(false) | bool)
 
     - name: Push status probe
+      # Into the repo's own gitignored scratch dir rather than a predictable
+      # /tmp path — sandboxed mission sessions can write /tmp.
       ansible.builtin.copy:
         src: '{{ playbook_dir }}/../../scripts/global-runtime-status-probe.mjs'
-        dest: /tmp/global-runtime-status-probe.mjs
+        dest: '{{ backtest_repo_dir | mandatory }}/logs/global-runtime-status-probe.mjs'
         mode: '0644'
 
     - name: Run status probe
@@ -24,7 +26,7 @@
         argv:
           - '{{ global_runtime_shell | default(global_runtime_shell_default) }}'
           - '-lic'
-          - 'cd {{ backtest_repo_dir | mandatory | quote }} && node /tmp/global-runtime-status-probe.mjs'
+          - 'cd {{ backtest_repo_dir | mandatory | quote }} && node logs/global-runtime-status-probe.mjs'
       register: probe
       failed_when: false
       changed_when: false

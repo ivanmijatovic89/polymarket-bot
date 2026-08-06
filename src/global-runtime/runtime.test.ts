@@ -1217,9 +1217,10 @@ class FakeTunnels {
   closeCalls = 0
   failNextStart = false
 
-  async ensureStarted(): Promise<void> {
+  async ensureStarted(): Promise<{ mysqlPort: number; redisPort: number }> {
     this.ensureStartedCalls += 1
     if (this.failNextStart) throw new Error('simulated tunnel bind failure')
+    return { mysqlPort: 51234, redisPort: 51235 }
   }
 
   async close(): Promise<void> {
@@ -1459,6 +1460,41 @@ test('a tunnel start failure fails the sandboxed session instead of running unsa
   await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
   assert.deepEqual(provider.sessionNumbers, [])
   assert.match((await store.getRun(run.id))?.lastError ?? '', /tunnel bind failure/u)
+
+  await runtime.shutdown()
+})
+
+test('a mid-run change to an immutable field stops the loop instead of downgrading it', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const provider = new ScriptedProvider([
+    successfulResult('continue', 'session one done', 1),
+    successfulResult('complete', 'must not run unsandboxed', 1),
+  ])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    // A delay between sessions gives the tamper a window, the way a real
+    // session would have while its successor waits.
+    delaySeconds: 1,
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.currentSession === 1)
+  // Simulates a session with DB write access clearing its own sandbox — the
+  // daemon must refuse rather than launch session 2 unsandboxed.
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.deepEqual(provider.sessionNumbers, [1])
+  assert.match((await store.getRun(run.id))?.lastError ?? '', /immutable sandboxSettingsPath/u)
 
   await runtime.shutdown()
 })

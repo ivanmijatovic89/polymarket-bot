@@ -47,13 +47,56 @@ const RESUMABLE_STATUSES: RuntimeRunStatus[] = [
   'error',
 ]
 
+/**
+ * Fields pinned when a run is launched and re-checked before every session.
+ *
+ * Sessions re-read their run row each iteration, so without this a process
+ * with write access to `runtime_runs` — including a sandboxed session, which
+ * the daemon deliberately gives a MySQL path — could clear
+ * `sandbox_settings_path` (or repoint the workspace/auth home) and have its
+ * OWN next session launch unsandboxed with permissions bypassed. These
+ * columns are immutable by design; a divergence is tampering, not a config
+ * change, so the run fails loudly instead of honoring it.
+ */
+const PINNED_LAUNCH_FIELDS = [
+  'provider',
+  'accessMode',
+  'authHome',
+  'workspacePath',
+  'sandboxSettingsPath',
+] as const
+
+type LaunchSpec = Pick<RuntimeRun, (typeof PINNED_LAUNCH_FIELDS)[number]>
+
 interface ActiveRun {
   workspacePath: string
+  launchSpec: LaunchSpec
   abortController: AbortController
   pauseRequested: boolean
   stopRequested: boolean
   wakeDelay: (() => void) | null
   task: Promise<void>
+}
+
+function assertLaunchSpecUnchanged(run: RuntimeRun, pinned: LaunchSpec): void {
+  for (const field of PINNED_LAUNCH_FIELDS) {
+    if (run[field] !== pinned[field]) {
+      throw new Error(
+        `run ${run.id} had its immutable ${field} changed while active ` +
+          `(${String(pinned[field])} → ${String(run[field])}); refusing to launch another session`,
+      )
+    }
+  }
+}
+
+function pinLaunchSpec(run: RuntimeRun): LaunchSpec {
+  return {
+    provider: run.provider,
+    accessMode: run.accessMode,
+    authHome: run.authHome,
+    workspacePath: run.workspacePath,
+    sandboxSettingsPath: run.sandboxSettingsPath,
+  }
 }
 
 interface Deferred<T> {
@@ -449,6 +492,7 @@ export class GlobalRuntime {
     const launchReady = createDeferred<void>()
     const control: ActiveRun = {
       workspacePath: run.workspacePath,
+      launchSpec: pinLaunchSpec(run),
       abortController: new AbortController(),
       pauseRequested: false,
       stopRequested: false,
@@ -571,6 +615,7 @@ export class GlobalRuntime {
       if (await this.applyPendingControl(runId, control)) return
 
       const run = await this.requireRun(runId)
+      assertLaunchSpecUnchanged(run, control.launchSpec)
       if (run.currentSession >= run.maxSessions) {
         await this.withRunTransition(runId, async () => {
           if (await this.applyPendingControlUnlocked(runId, control)) return
@@ -656,8 +701,11 @@ export class GlobalRuntime {
 
       // Sandboxed sessions reach DB/Redis only through the daemon's localhost
       // forwarders (srt blocks raw TCP) — they must be listening BEFORE the
-      // provider starts. A tunnel failure fails the session loudly.
-      if (run.sandboxSettingsPath) await this.sandboxTunnels.ensureStarted()
+      // provider starts, and their ephemeral ports go into the session env.
+      // A tunnel failure fails the session loudly.
+      const sandboxTunnelPorts = run.sandboxSettingsPath
+        ? await this.sandboxTunnels.ensureStarted()
+        : null
 
       const result = await this.providers[run.provider]
         .execute(
@@ -666,6 +714,7 @@ export class GlobalRuntime {
             sessionNumber,
             prompt,
             logDirectory: path.dirname(rawLogPath),
+            sandboxTunnelPorts,
           },
           control.abortController.signal,
           {

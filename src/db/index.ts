@@ -30,6 +30,15 @@ export function getDb(): ReturnType<typeof drizzle> {
   return dbInstance
 }
 
+/** True when some connection currently holds the named advisory lock. */
+export async function isDbAdvisoryLockHeld(name: string): Promise<boolean> {
+  const [rows] = await getPool().query<Array<RowDataPacket & { holder: number | null }>>(
+    "SELECT IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256)) AS holder",
+    [name],
+  )
+  return rows[0]?.holder != null
+}
+
 export async function acquireDbAdvisoryLock(
   name: string,
   onLost: (error: unknown) => void,
@@ -43,7 +52,7 @@ export async function acquireDbAdvisoryLock(
     /**
      * Session idle timeout applied to the LEASE connection after acquiring.
      * A silently-dead holder (laptop sleep, network loss) is reaped by the
-     * server — and its lock freed — within this bound. The 60s keepalive
+     * server — and its lock freed — within this bound. The 20s keepalive
      * ping keeps a live holder well inside it. Default 300 (≤5 min stale
      * lease, documented).
      */
@@ -86,9 +95,23 @@ export async function acquireDbAdvisoryLock(
     const handleEnd = () => handleLost(new Error('Global Runtime lease connection ended'))
     connection.once('error', handleLost)
     connection.once('end', handleEnd)
+    // A single failed ping is usually a blip (brief network loss, a MySQL
+    // restart the pool recovers from), and treating it as lease loss takes
+    // the whole daemon down with its active sessions. Only a sustained
+    // failure — still well inside the session timeout that would reap the
+    // lock server-side — counts as lost.
+    let consecutivePingFailures = 0
     const keepAlive = setInterval(() => {
-      void connection.ping().catch(handleLost)
-    }, 60_000)
+      void connection
+        .ping()
+        .then(() => {
+          consecutivePingFailures = 0
+        })
+        .catch((error: unknown) => {
+          consecutivePingFailures += 1
+          if (consecutivePingFailures >= 3) handleLost(error)
+        })
+    }, 20_000)
     keepAlive.unref()
     return async () => {
       if (released) return
