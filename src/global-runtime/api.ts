@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto'
+import net from 'node:net'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
 import type { GlobalRuntime } from './runtime.js'
@@ -8,6 +10,40 @@ interface RunParams {
 
 export interface RuntimeApiOptions {
   isReady?: () => boolean
+  /** When set, every route except /health requires `Authorization: Bearer <token>`. */
+  token?: string | undefined
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+
+function isLoopbackHost(host: string): boolean {
+  if (LOOPBACK_HOSTS.has(host)) return true
+  // Any 127.0.0.0/8 address is loopback too.
+  return net.isIPv4(host) && host.startsWith('127.')
+}
+
+/**
+ * Daemons on the tailnet share the network with sandboxed mission sessions —
+ * an unauthenticated non-loopback bind would let any tailnet process control
+ * runs. Refuse it up front (issue #213).
+ */
+export function assertSafeBind(host: string, token: string | undefined): void {
+  if (isLoopbackHost(host) || token) return
+  throw new Error(
+    `refusing to bind Global Runtime API to non-loopback host ${host} without GLOBAL_RUNTIME_TOKEN — ` +
+      'set the token or bind to 127.0.0.1',
+  )
+}
+
+function isAuthorized(
+  request: { headers: { authorization?: string | undefined } },
+  token: string,
+): boolean {
+  const header = request.headers.authorization
+  if (!header?.startsWith('Bearer ')) return false
+  const presented = Buffer.from(header.slice('Bearer '.length))
+  const expected = Buffer.from(token)
+  return presented.length === expected.length && timingSafeEqual(presented, expected)
 }
 
 export function buildRuntimeApi(
@@ -16,9 +52,14 @@ export function buildRuntimeApi(
 ): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 32 * 1024 })
   const isReady = options.isReady ?? (() => true)
+  const token = options.token
 
   app.addHook('onRequest', async (request, reply) => {
-    if (request.url === '/health' || isReady()) return
+    if (request.url === '/health') return
+    if (token && !isAuthorized(request, token)) {
+      return reply.code(401).send({ error: 'missing or invalid bearer token' })
+    }
+    if (isReady()) return
     return reply.code(503).header('retry-after', '1').send({ error: 'runtime is initializing' })
   })
   app.get('/health', async (_request, reply) =>

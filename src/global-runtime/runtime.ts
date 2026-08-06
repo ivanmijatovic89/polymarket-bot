@@ -152,7 +152,10 @@ export class GlobalRuntime {
   async initialize(): Promise<void> {
     await this.ensureRuntimeLease()
     if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
-    const interrupted = await this.store.listRunsByStatuses(['running', 'pause_requested'])
+    const interrupted = await this.store.listRunsByStatuses(
+      ['running', 'pause_requested'],
+      this.machineId,
+    )
     for (const run of interrupted) {
       let recoveryError = 'Runtime restarted. Review the last session and resume when ready.'
       if (run.processId !== null) {
@@ -187,7 +190,7 @@ export class GlobalRuntime {
       })
     }
 
-    const incompleteStops = await this.store.listRunsByStatuses(['stopped'])
+    const incompleteStops = await this.store.listRunsByStatuses(['stopped'], this.machineId)
     for (const run of incompleteStops) {
       const sessions = await this.store.listSessions(run.id)
       const runningSession = sessions.find((session) => session.status === 'running')
@@ -221,7 +224,7 @@ export class GlobalRuntime {
       })
     }
 
-    const rateLimited = await this.store.listRunsByStatuses(['rate_limited'])
+    const rateLimited = await this.store.listRunsByStatuses(['rate_limited'], this.machineId)
     for (const run of rateLimited) {
       const delayMs = Math.max(
         0,
@@ -255,9 +258,13 @@ export class GlobalRuntime {
     const input: CreateRuntimeRunInput = {
       ...parsed.data,
       workspacePath: await canonicalWorkspace(parsed.data.workspacePath),
+      sandboxSettingsPath: await validateSandboxSettings(parsed.data.sandboxSettingsPath),
     }
-    await validateRunWorkspace(asValidationRun(input))
-    return this.store.createRun(input)
+    await validateRunWorkspace(asValidationRun(input, this.machineId))
+    // Ownership is stamped HERE, by the daemon, from its own identity —
+    // whichever machine's daemon receives the create request owns the run
+    // for life (clients route the request; they never choose the id).
+    return this.store.createRun({ ...input, machineId: this.machineId })
   }
 
   async listRuns(): Promise<RuntimeRunSummary[]> {
@@ -281,7 +288,11 @@ export class GlobalRuntime {
   }
 
   async getFiles(id: number): Promise<RuntimeFilesResponse> {
-    return readRuntimeFiles(await this.requireRun(id))
+    const run = await this.requireRun(id)
+    // Workspace files live on the owning machine's disk — a foreign daemon
+    // would read the wrong (or no) filesystem.
+    this.assertOwnedRun(run)
+    return readRuntimeFiles(run)
   }
 
   async appendInbox(id: number, value: unknown): Promise<{ id: string; appendedAt: string }> {
@@ -289,7 +300,9 @@ export class GlobalRuntime {
     if (!parsed.success) {
       throw new RuntimeValidationError(parsed.error.issues[0]?.message ?? 'invalid inbox entry')
     }
-    return appendInboxEntry(await this.requireRun(id), parsed.data.message)
+    const run = await this.requireRun(id)
+    this.assertOwnedRun(run)
+    return appendInboxEntry(run, parsed.data.message)
   }
 
   async extendMaxSessions(id: number, value: unknown): Promise<RuntimeRun> {
@@ -299,6 +312,7 @@ export class GlobalRuntime {
     }
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be extended')
       }
@@ -314,6 +328,7 @@ export class GlobalRuntime {
   async start(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       return this.launch(run, ['idle'])
     })
   }
@@ -321,6 +336,7 @@ export class GlobalRuntime {
   async resume(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       return this.launch(run, RESUMABLE_STATUSES)
     })
   }
@@ -328,6 +344,7 @@ export class GlobalRuntime {
   async pause(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       const control = this.active.get(id)
       if (!control || !ACTIVE_STATUSES.includes(run.status)) {
         throw new RuntimeConflictError('run is not active')
@@ -347,6 +364,9 @@ export class GlobalRuntime {
     let task: Promise<void> | null = null
     const stopped = await this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      // MUST precede the inactive-run branch below: a foreign daemon would
+      // otherwise happily write `stopped` into another machine's run row.
+      this.assertOwnedRun(run)
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be stopped')
       }
@@ -394,6 +414,11 @@ export class GlobalRuntime {
     try {
       await Promise.allSettled(controls.map((control) => control.task))
     } finally {
+      try {
+        await this.sandboxTunnels.close()
+      } catch (error) {
+        this.reportBackgroundError(0, error)
+      }
       const release = this.runtimeLeaseRelease
       this.runtimeLeaseRelease = null
       if (release) {
@@ -460,7 +485,9 @@ export class GlobalRuntime {
     }
     this.workspaceOwners.set(run.workspacePath, run.id)
     try {
-      const conflict = (await this.store.listRunsByStatuses(ACTIVE_STATUSES)).find(
+      // Same path on ANOTHER machine is a different filesystem — only this
+      // machine's active runs can genuinely collide (issue #213).
+      const conflict = (await this.store.listRunsByStatuses(ACTIVE_STATUSES, this.machineId)).find(
         (candidate) =>
           candidate.id !== run.id && workspacesOverlap(candidate.workspacePath, run.workspacePath),
       )
@@ -626,6 +653,11 @@ export class GlobalRuntime {
           })
       }, this.heartbeatMs)
       heartbeat.unref()
+
+      // Sandboxed sessions reach DB/Redis only through the daemon's localhost
+      // forwarders (srt blocks raw TCP) — they must be listening BEFORE the
+      // provider starts. A tunnel failure fails the session loudly.
+      if (run.sandboxSettingsPath) await this.sandboxTunnels.ensureStarted()
 
       const result = await this.providers[run.provider]
         .execute(
@@ -855,7 +887,7 @@ export class GlobalRuntime {
     if (this.runtimeLeaseRelease) return
     if (!this.runtimeLeasePending) {
       this.runtimeLeasePending = (async () => {
-        const release = await this.store.acquireRuntimeLease((error) => {
+        const release = await this.store.acquireRuntimeLease(this.machineId, (error) => {
           const leaseError = new Error('Global Runtime database lease was lost', { cause: error })
           this.reportBackgroundError(0, leaseError)
           try {
@@ -874,7 +906,9 @@ export class GlobalRuntime {
           })
         })
         if (!release) {
-          throw new RuntimeConflictError('another Global Runtime instance already owns this store')
+          throw new RuntimeConflictError(
+            `another Global Runtime instance already holds the lease for ${this.describeMachine(this.machineId)}`,
+          )
         }
         this.runtimeLeaseRelease = release
       })().finally(() => {
@@ -961,11 +995,12 @@ function sumTokens(sessions: RuntimeSession[], key: keyof TokenUsage): number | 
   return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0)
 }
 
-function asValidationRun(input: CreateRuntimeRunInput): RuntimeRun {
+function asValidationRun(input: CreateRuntimeRunInput, machineId: string): RuntimeRun {
   const now = new Date(0)
   return {
     ...input,
     id: 0,
+    machineId,
     status: 'idle',
     currentSession: 0,
     processId: null,

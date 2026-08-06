@@ -116,12 +116,14 @@ function makeRun(workspacePath: string): RuntimeRun {
 
   return {
     id: 1,
+    machineId: 'workspace-machine',
     name: 'workspace files test',
     provider: 'codex',
     model: 'test-model',
     effort: 'high',
     accessMode: 'workspace-write',
     authHome: null,
+    sandboxSettingsPath: null,
     workspacePath,
     missionPath: 'MISSION.md',
     maxSessions: 1,

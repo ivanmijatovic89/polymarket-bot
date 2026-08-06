@@ -506,12 +506,14 @@ function makeRun(workspacePath: string, provider: 'claude' | 'codex'): RuntimeRu
   const now = new Date()
   return {
     id: provider === 'codex' ? 1 : 2,
+    machineId: 'provider-machine',
     name: `${provider} test`,
     provider,
     model: 'test-model',
     effort: 'high',
     accessMode: 'workspace-write',
     authHome: null,
+    sandboxSettingsPath: null,
     workspacePath,
     missionPath: 'MISSION.md',
     maxSessions: 5,

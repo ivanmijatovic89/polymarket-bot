@@ -430,7 +430,7 @@ test('the same run cannot be launched twice by simultaneous requests', async () 
 test('initialization reconciles an interrupted session to waiting', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
   await store.createSession({
@@ -470,7 +470,7 @@ test('initialization reconciles an interrupted session to waiting', async () => 
 test('does not terminate an interrupted PID when process identity cannot be verified', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
   await store.createSession({
@@ -505,7 +505,7 @@ test('does not terminate an interrupted PID when process identity cannot be veri
 test('initialization finishes a stopped run that still has a live session', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'stopped', currentSession: 1, processId: 43211 })
   await store.createSession({
@@ -613,7 +613,7 @@ test(
   async () => {
     const workspace = await createWorkspace()
     const store = new MemoryRuntimeStore()
-    const run = await store.createRun(runInput(workspace))
+    const run = await store.createRun(runRecord(workspace))
     const token = buildRuntimeProcessToken(run.id, 1)
     const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
       env: { ...process.env, [RUNTIME_PROCESS_TOKEN_ENV]: token },
@@ -997,12 +997,15 @@ class ConcurrentProvider implements ProviderAdapter {
   }
 }
 
+const TEST_MACHINE_ID = 'test-machine'
+
 function createRuntime(
   store: MemoryRuntimeStore,
   provider: ProviderAdapter,
   options: GlobalRuntimeOptions = {},
 ): GlobalRuntime {
   return new GlobalRuntime(store, {
+    machineId: TEST_MACHINE_ID,
     ...options,
     providers: { codex: provider },
     rateLimitRetryMs: options.rateLimitRetryMs ?? 10,
@@ -1116,19 +1119,19 @@ class DelayedLeaseStore extends MemoryRuntimeStore {
     this.releaseLease?.()
   }
 
-  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
+  override async acquireRuntimeLease(machineId: string, onLost: (error: unknown) => void) {
     this.leaseRequested?.()
     await this.released
-    return super.acquireRuntimeLease(onLost)
+    return super.acquireRuntimeLease(machineId, onLost)
   }
 }
 
 class ControllableLeaseStore extends MemoryRuntimeStore {
   private onLost: ((error: unknown) => void) | null = null
 
-  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
+  override async acquireRuntimeLease(machineId: string, onLost: (error: unknown) => void) {
     this.onLost = onLost
-    return super.acquireRuntimeLease(onLost)
+    return super.acquireRuntimeLease(machineId, onLost)
   }
 
   loseLease(): void {
@@ -1141,6 +1144,11 @@ async function createWorkspace(): Promise<string> {
   temporaryDirectories.push(workspace)
   await writeFile(path.join(workspace, 'MISSION.md'), '# Test mission\n', 'utf8')
   return workspace
+}
+
+/** Store-level record for tests that seed runs behind the runtime's back. */
+function runRecord(workspacePath: string, name = 'test run') {
+  return { ...runInput(workspacePath, name), machineId: TEST_MACHINE_ID, sandboxSettingsPath: null }
 }
 
 function runInput(workspacePath: string, name = 'test run') {

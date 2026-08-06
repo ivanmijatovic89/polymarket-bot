@@ -12,6 +12,7 @@ import {
   SESSION_RESULT_JSON_SCHEMA,
 } from './contracts.js'
 import { estimateCodexApiCost, resolveCodexModel } from './pricing.js'
+import { SANDBOX_MYSQL_PORT, SANDBOX_REDIS_PORT } from './sandboxTunnels.js'
 import type { RuntimeRun, TokenUsage } from './types.js'
 
 export interface ProviderExecutionContext {
@@ -257,9 +258,54 @@ export async function prepareProviderCommand(
     flag: 'wx',
   })
 
-  return context.run.provider === 'claude'
-    ? prepareClaudeCommand(context, rawLogPath, stderrLogPath)
-    : prepareCodexCommand(context, rawLogPath, stderrLogPath, schemaPath)
+  const prepared =
+    context.run.provider === 'claude'
+      ? prepareClaudeCommand(context, rawLogPath, stderrLogPath)
+      : prepareCodexCommand(context, rawLogPath, stderrLogPath, schemaPath)
+  return wrapWithSandbox(prepared, context.run, process.env)
+}
+
+/**
+ * Sandboxed runs (issue #213): wrap the provider command in
+ * `srt --settings <run.sandboxSettingsPath> <cmd> <args…>` and point the
+ * session's DB/Redis env at the daemon's localhost tunnels (srt blocks raw
+ * TCP; see sandboxTunnels.ts). srt is the OS-enforced boundary — the inner
+ * CLI runs with its own sandboxing off (see prepare*Command). No-op for
+ * unsandboxed runs: byte-identical PreparedCommand.
+ */
+export function wrapWithSandbox(
+  prepared: PreparedCommand,
+  run: Pick<RuntimeRun, 'sandboxSettingsPath'>,
+  daemonEnv: NodeJS.ProcessEnv,
+): PreparedCommand {
+  if (!run.sandboxSettingsPath) return prepared
+  const env: NodeJS.ProcessEnv = {
+    ...prepared.env,
+    DATABASE_HOST: '127.0.0.1',
+    DATABASE_PORT: String(SANDBOX_MYSQL_PORT),
+  }
+  // BOT_ENV would make the engine's env loader OVERRIDE these tunnel values
+  // with the real hosts (.env.$BOT_ENV loads with override=true).
+  delete env.BOT_ENV
+  const redisUrlRaw = daemonEnv.REDIS_URL?.trim()
+  if (redisUrlRaw) {
+    try {
+      const redisUrl = new URL(redisUrlRaw)
+      redisUrl.hostname = '127.0.0.1'
+      redisUrl.port = String(SANDBOX_REDIS_PORT)
+      env.REDIS_URL = redisUrl.toString()
+    } catch {
+      // Unparseable REDIS_URL — leave unset; a session that needs Redis
+      // fails loudly inside the sandbox instead of silently going direct.
+      delete env.REDIS_URL
+    }
+  }
+  return {
+    ...prepared,
+    command: daemonEnv.GLOBAL_RUNTIME_SRT_BIN?.trim() || 'srt',
+    args: ['--settings', run.sandboxSettingsPath, prepared.command, ...prepared.args],
+    env,
+  }
 }
 
 function prepareClaudeCommand(
@@ -267,8 +313,12 @@ function prepareClaudeCommand(
   rawLogPath: string,
   stderrLogPath: string,
 ): PreparedCommand {
+  // Under srt the OS sandbox is the boundary — the inner claude runs with
+  // permissions bypassed and WITHOUT its own seatbelt settings (macOS
+  // seatbelt does not nest; a workspace-write inner sandbox would fail).
+  const sandboxed = context.run.sandboxSettingsPath !== null
   const permissionMode =
-    context.run.accessMode === 'full-access' ? 'bypassPermissions' : 'acceptEdits'
+    sandboxed || context.run.accessMode === 'full-access' ? 'bypassPermissions' : 'acceptEdits'
   const env: NodeJS.ProcessEnv = {
     ...buildProviderEnvironment(),
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
@@ -287,7 +337,7 @@ function prepareClaudeCommand(
       context.run.effort,
       '--permission-mode',
       permissionMode,
-      ...(context.run.accessMode === 'workspace-write'
+      ...(!sandboxed && context.run.accessMode === 'workspace-write'
         ? ['--settings', CLAUDE_WORKSPACE_SANDBOX_SETTINGS]
         : []),
       '--output-format',
@@ -327,7 +377,10 @@ function prepareCodexCommand(
       '--model',
       context.run.model,
       '--sandbox',
-      context.run.accessMode === 'full-access' ? 'danger-full-access' : 'workspace-write',
+      // Under srt the OS sandbox is the boundary; codex's own sandbox off.
+      context.run.sandboxSettingsPath !== null || context.run.accessMode === 'full-access'
+        ? 'danger-full-access'
+        : 'workspace-write',
       '-C',
       context.run.workspacePath,
       '--output-schema',
