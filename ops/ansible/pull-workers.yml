@@ -89,7 +89,12 @@
 
           deps=skipped
           if [ "$lock_before" != "$lock_after" ]; then
-            if npm install >"$err" 2>&1; then
+            # Login shell: node/npm come from nvm, which is initialised in the
+            # user's shell profile, so a bare `npm` here is "command not found"
+            # (the shell ansible runs is not a login shell). update-workers.yml
+            # already installs deps this way. The `cd` is repeated because a
+            # login shell re-reads the profile, which may change directory.
+            if {{ worker_shell | quote }} -lic {{ ("cd " ~ (worker_repo_dir | quote) ~ " && npm install") | quote }} >"$err" 2>&1; then
               deps=installed
             else
               deps=FAILED
