@@ -1,6 +1,7 @@
 {
   "8955f8d87c59": {
     "name": "m1-ivan",
+    "runtimeUrl": "http://100.100.49.80:3053",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: MacBookPro18,1",
@@ -18,6 +19,7 @@
   },
   "527674ef4858": {
     "name": "worker-1",
+    "runtimeUrl": "http://100.107.149.100:3053",
     "hardware": [
       "Model Name: Mac mini",
       "Model Identifier: Mac16,10",
