@@ -9,9 +9,9 @@ import type { NextRequest } from 'next/server'
  * bearer token attached server-side, so reaching them IS controlling the
  * fleet. Two independent checks:
  *
- * 1. **A shared secret** (`MISSION_CONTROL_TOKEN`, falling back to
- *    `GLOBAL_RUNTIME_TOKEN`) in the `mission_control_token` cookie or the
- *    `x-mission-control-token` header. Binding to loopback is NOT sufficient:
+ * 1. **A shared secret** (`MISSION_CONTROL_TOKEN`) in the
+ *    `mission_control_token` cookie or the `x-mission-control-token` header,
+ *    when that variable is set. Binding to loopback is NOT sufficient:
  *    a sandboxed mission session runs on the same host and can open loopback
  *    ports (that is the premise of the DB forwarders), so without a secret it
  *    could create an unsandboxed full-access run on any fleet machine — with
@@ -38,7 +38,11 @@ function hostnameOf(value: string): string {
 }
 
 export function missionControlSecret(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  return env.MISSION_CONTROL_TOKEN?.trim() || env.GLOBAL_RUNTIME_TOKEN?.trim() || undefined
+  // Deliberately NOT falling back to GLOBAL_RUNTIME_TOKEN: that one is the
+  // daemon's own credential. Keeping them separate means an operator can run
+  // the multi-machine daemons (which require their token) while leaving the
+  // local dashboard open, which is the common single-user setup.
+  return env.MISSION_CONTROL_TOKEN?.trim() || undefined
 }
 
 function matches(presented: string | undefined, secret: string): boolean {

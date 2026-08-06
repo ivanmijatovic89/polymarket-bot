@@ -105,21 +105,17 @@ test('the browser cookie satisfies the token check', () => {
   assert.equal(proxy(wrong)?.status, 401)
 })
 
-test('MISSION_CONTROL_TOKEN overrides the fleet token, and no token keeps the API open', () => {
+test('the dashboard secret is independent of the daemon token', () => {
+  // The daemon's token must NOT gate the dashboard: the multi-machine setup
+  // requires GLOBAL_RUNTIME_TOKEN, but a local dashboard may stay open.
   process.env.GLOBAL_RUNTIME_TOKEN = 'fleet-secret'
   delete process.env.MISSION_CONTROL_TOKEN
-  assert.equal(
-    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'fleet-secret' })),
-    undefined,
-  )
+  assert.equal(proxy(request({ host: '127.0.0.1:3051' })), undefined)
 
   process.env.MISSION_CONTROL_TOKEN = 'dashboard-secret'
+  assert.equal(proxy(request({ host: '127.0.0.1:3051' }))?.status, 401)
   assert.equal(
-    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'fleet-secret' }))?.status,
-    401,
+    proxy(request({ host: '127.0.0.1:3051', [MISSION_CONTROL_HEADER]: 'dashboard-secret' })),
+    undefined,
   )
-
-  delete process.env.GLOBAL_RUNTIME_TOKEN
-  delete process.env.MISSION_CONTROL_TOKEN
-  assert.equal(proxy(request({ host: '127.0.0.1:3051' })), undefined)
 })

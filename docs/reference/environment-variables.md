@@ -126,7 +126,7 @@ All four variables are required when any command that reads from or writes to My
 | `GLOBAL_RUNTIME_RATE_LIMIT_RETRY_SECONDS` | `integer` | `900` | Delay before retrying a quota-limited loop. |
 | `GLOBAL_RUNTIME_CLAUDE_BIN` | `path/name` | `claude` | Claude Code CLI override, primarily for testing. |
 | `GLOBAL_RUNTIME_CODEX_BIN` | `path/name` | `codex` | Codex CLI override, primarily for testing. |
-| `MISSION_CONTROL_TOKEN` | `string` | falls back to `GLOBAL_RUNTIME_TOKEN` | Secret the dashboard's Mission Control API requires (cookie `mission_control_token` or `x-mission-control-token` header). Loopback is not a boundary — sandboxed sessions share the host. Unlock a browser via `/mission-control/unlock?token=…`. |
+| `MISSION_CONTROL_TOKEN` | `string` | _(unset — API open)_ | Optional secret locking the dashboard's Mission Control API (cookie `mission_control_token` or `x-mission-control-token` header). Independent of `GLOBAL_RUNTIME_TOKEN`. Unset, any local process — including a sandboxed mission — can command the fleet through the dashboard. Unlock a browser via `/mission-control/unlock?token=…`. |
 | `DASHBOARD_HOST` | `string` | `127.0.0.1` | Dashboard bind address. Leave on loopback; the Mission Control proxy holds fleet credentials. |
 | `GLOBAL_RUNTIME_SRT_BIN` | `path/name` | `srt` | `@anthropic-ai/sandbox-runtime` CLI override for runs with a `sandboxSettingsPath`. |
 
