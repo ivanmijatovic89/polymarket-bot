@@ -328,7 +328,10 @@ function prepareClaudeCommand(
   // Under srt the OS sandbox is the boundary — the inner claude runs with
   // permissions bypassed and WITHOUT its own seatbelt settings (macOS
   // seatbelt does not nest; a workspace-write inner sandbox would fail).
-  const sandboxed = context.run.sandboxSettingsPath !== null
+  // Falsy, not `!== null`: every sandbox predicate in this file must agree,
+  // or an empty path would mean "bypass permissions" here while
+  // wrapWithSandbox skipped the srt wrapper — the worst of both.
+  const sandboxed = Boolean(context.run.sandboxSettingsPath)
   const permissionMode =
     sandboxed || context.run.accessMode === 'full-access' ? 'bypassPermissions' : 'acceptEdits'
   const env: NodeJS.ProcessEnv = {
@@ -390,7 +393,7 @@ function prepareCodexCommand(
       context.run.model,
       '--sandbox',
       // Under srt the OS sandbox is the boundary; codex's own sandbox off.
-      context.run.sandboxSettingsPath !== null || context.run.accessMode === 'full-access'
+      Boolean(context.run.sandboxSettingsPath) || context.run.accessMode === 'full-access'
         ? 'danger-full-access'
         : 'workspace-write',
       '-C',

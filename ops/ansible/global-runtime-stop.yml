@@ -17,6 +17,17 @@
           set -u
           session={{ global_runtime_session | default(global_runtime_session_default) | quote }}
           tmux_bin="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+          # On launchd-installed machines the boot helper is re-run on a
+          # StartInterval, so killing only the tmux session lets the daemon
+          # come back within ~2 minutes. Unload the service first; the play
+          # reports when it does so, since restarting needs a bootstrap.
+          if [ -f /Library/LaunchDaemons/com.polymarket.global-runtime.plist ]; then
+            if sudo -n /bin/launchctl bootout system/com.polymarket.global-runtime 2>/dev/null; then
+              echo "launchd service unloaded (re-enable with: sudo launchctl bootstrap system /Library/LaunchDaemons/com.polymarket.global-runtime.plist)"
+            else
+              echo "WARNING: launchd service is installed but could not be unloaded without a password — it will restart the daemon within ~2 minutes"
+            fi
+          fi
           if ! "$tmux_bin" has-session -t "$session" 2>/dev/null; then
             echo not-running
             exit 0

@@ -65,7 +65,7 @@
     "dashboard:build": "npm --prefix dashboard run build",
     "dashboard:start": "npm --prefix dashboard run start",
     "dashboard:typecheck": "npm --prefix dashboard run typecheck",
-    "dashboard:test": "tsx --test dashboard/src/lib/server/*.test.ts dashboard/src/lib/queries/*.test.ts",
+    "dashboard:test": "tsx --test dashboard/src/lib/server/*.test.ts dashboard/src/lib/queries/*.test.ts dashboard/src/*.test.ts",
     "llm-usage": "tsx src/llm-usage/cli.ts",
     "global-runtime": "tsx src/cli/global-runtime.ts",
     "mission": "tsx src/cli/mission.ts",

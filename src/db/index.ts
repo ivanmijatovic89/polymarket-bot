@@ -95,21 +95,28 @@ export async function acquireDbAdvisoryLock(
     const handleEnd = () => handleLost(new Error('Global Runtime lease connection ended'))
     connection.once('error', handleLost)
     connection.once('end', handleEnd)
-    // A single failed ping is usually a blip (brief network loss, a MySQL
-    // restart the pool recovers from), and treating it as lease loss takes
-    // the whole daemon down with its active sessions. Only a sustained
-    // failure — still well inside the session timeout that would reap the
-    // lock server-side — counts as lost.
+    // A ping on a blackholed connection (sleeping peer, dropped VPN) never
+    // settles and emits no error, so without a deadline the daemon would keep
+    // launching sessions while the server quietly reaps its session — and its
+    // lock — at wait_timeout. Race every ping against a timer; three
+    // consecutive failures (~60s, far inside the 300s reap) count as lost.
     let consecutivePingFailures = 0
     const keepAlive = setInterval(() => {
-      void connection
-        .ping()
+      let deadline: NodeJS.Timeout | undefined
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(() => reject(new Error('lease keepalive ping timed out')), 10_000)
+        deadline.unref()
+      })
+      void Promise.race([connection.ping(), timedOut])
         .then(() => {
           consecutivePingFailures = 0
         })
         .catch((error: unknown) => {
           consecutivePingFailures += 1
           if (consecutivePingFailures >= 3) handleLost(error)
+        })
+        .finally(() => {
+          if (deadline) clearTimeout(deadline)
         })
     }, 20_000)
     keepAlive.unref()

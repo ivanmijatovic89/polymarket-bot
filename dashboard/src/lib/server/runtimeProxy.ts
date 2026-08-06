@@ -53,7 +53,12 @@ export async function forwardToDaemon(
     return new NextResponse(await response.arrayBuffer(), {
       status: response.status,
       headers: {
-        'content-type': response.headers.get('content-type') || 'application/json',
+        // The daemon URL is plain HTTP with no cert pinning, so echoing its
+        // content-type would let anything answering on that address serve
+        // HTML from the dashboard's own origin (stored XSS on the origin
+        // whose proxy holds the fleet token). The daemon API is JSON-only.
+        'content-type': 'application/json',
+        'x-content-type-options': 'nosniff',
         'cache-control': 'no-store',
       },
     })

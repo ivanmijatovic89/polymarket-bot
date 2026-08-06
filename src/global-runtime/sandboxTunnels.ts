@@ -67,6 +67,7 @@ export class SandboxTunnels implements SandboxTunnelController {
   private readonly servers: net.Server[] = []
   private readonly sockets = new Set<net.Socket>()
   private startPromise: Promise<SandboxTunnelPorts> | null = null
+  private closing = false
 
   constructor(
     private readonly env: NodeJS.ProcessEnv = process.env,
@@ -75,6 +76,9 @@ export class SandboxTunnels implements SandboxTunnelController {
   ) {}
 
   ensureStarted(): Promise<SandboxTunnelPorts> {
+    // close() re-arms this controller (a later session starts fresh
+    // forwarders) rather than latching it shut.
+    this.closing = false
     if (!this.startPromise) {
       this.startPromise = this.start().catch((error: unknown) => {
         // Failed start is retryable on the next sandboxed session.
@@ -118,17 +122,38 @@ export class SandboxTunnels implements SandboxTunnelController {
         client.on('close', drop)
         upstream.on('close', drop)
       })
-      server.on('error', reject)
+      let settled = false
+      server.on('error', (error) => {
+        // Pre-listen: the bind failed. Post-listen: the forwarder is dead, so
+        // drop it rather than keep handing out a port nothing serves.
+        if (!settled) {
+          settled = true
+          reject(error)
+          return
+        }
+        this.startPromise = null
+        server.close()
+      })
       // Port 0 + loopback: the OS assigns a free port that only this daemon
       // holds, so there is no squatter to trust and no fixed port to hijack.
       server.listen(0, '127.0.0.1', () => {
+        settled = true
+        const port = (server.address() as net.AddressInfo).port
+        if (this.closing) {
+          // A close() that raced this bind already drained `servers`; this
+          // one would never be closed and would hold the event loop open.
+          server.close()
+          resolve(port)
+          return
+        }
         this.servers.push(server)
-        resolve((server.address() as net.AddressInfo).port)
+        resolve(port)
       })
     })
   }
 
   async close(): Promise<void> {
+    this.closing = true
     const servers = this.servers.splice(0)
     this.startPromise = null
     // Live piped sockets would otherwise hold server.close() open forever.

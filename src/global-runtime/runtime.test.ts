@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdtempSync } from 'node:fs'
 import { link, mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -1006,11 +1007,21 @@ function createRuntime(
 ): GlobalRuntime {
   return new GlobalRuntime(store, {
     machineId: TEST_MACHINE_ID,
+    // Each runtime gets its own log root: run ids restart at 1 per
+    // MemoryRuntimeStore, and the launch anchor is keyed by run id, so a
+    // shared root would leak one test's anchor into another's run 1.
+    logRoot: createLogRoot(),
     ...options,
     providers: { codex: provider },
     rateLimitRetryMs: options.rateLimitRetryMs ?? 10,
     heartbeatMs: options.heartbeatMs ?? 10,
   })
+}
+
+function createLogRoot(): string {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'global-runtime-logs-'))
+  temporaryDirectories.push(root)
+  return root
 }
 
 class DelayedLaunchStore extends MemoryRuntimeStore {
@@ -1495,6 +1506,70 @@ test('a mid-run change to an immutable field stops the loop instead of downgradi
   await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
   assert.deepEqual(provider.sessionNumbers, [1])
   assert.match((await store.getRun(run.id))?.lastError ?? '', /immutable sandboxSettingsPath/u)
+
+  await runtime.shutdown()
+})
+
+test('a downgrade cannot be laundered by parking the run and resuming it', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const provider = new ScriptedProvider([
+    // Session 1 tampers, then parks the loop with an ordinary 'wait'.
+    successfulResult('wait', 'waiting for input', 1),
+    successfulResult('complete', 'must not run unsandboxed', 1),
+  ])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'waiting')
+  // The run is parked, so the in-memory pin is gone; only the on-disk anchor
+  // still knows this run was created sandboxed.
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  assert.deepEqual(provider.sessionNumbers, [1])
+
+  await runtime.shutdown()
+})
+
+test('a tunnel failure does not leave a heartbeat writing to the errored run', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  tunnels.failNextStart = true
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+    heartbeatMs: 5,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.equal((await store.getRun(run.id))?.heartbeatAt, null)
+
+  // An orphaned interval would resurrect heartbeatAt on a run that is done.
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  assert.equal(
+    (await store.getRun(run.id))?.heartbeatAt,
+    null,
+    'heartbeat kept running after the failure',
+  )
 
   await runtime.shutdown()
 })

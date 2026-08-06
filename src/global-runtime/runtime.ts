@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   buildRuntimeProcessToken,
@@ -82,7 +82,7 @@ function assertLaunchSpecUnchanged(run: RuntimeRun, pinned: LaunchSpec): void {
   for (const field of PINNED_LAUNCH_FIELDS) {
     if (run[field] !== pinned[field]) {
       throw new Error(
-        `run ${run.id} had its immutable ${field} changed while active ` +
+        `run ${run.id} had its immutable ${field} changed since it was first launched ` +
           `(${String(pinned[field])} → ${String(run[field])}); refusing to launch another session`,
       )
     }
@@ -490,9 +490,14 @@ export class GlobalRuntime {
     }
     this.launching.add(run.id)
     const launchReady = createDeferred<void>()
+    // The anchor lives on the daemon's disk, outside every workspace, so the
+    // pin survives across resumes and daemon restarts. Re-pinning from the DB
+    // row on each launch would let a tamper be laundered by parking the run
+    // (`wait`/`error`) and having an operator resume it.
+    const launchSpec = await this.loadOrCreateLaunchAnchor(run)
     const control: ActiveRun = {
       workspacePath: run.workspacePath,
-      launchSpec: pinLaunchSpec(run),
+      launchSpec,
       abortController: new AbortController(),
       pauseRequested: false,
       stopRequested: false,
@@ -680,6 +685,16 @@ export class GlobalRuntime {
         return
       }
 
+      // Sandboxed sessions reach DB/Redis only through the daemon's localhost
+      // forwarders (srt blocks raw TCP) — they must be listening BEFORE the
+      // provider starts, and their ephemeral ports go into the session env.
+      // A tunnel failure fails the session loudly. This runs BEFORE the
+      // heartbeat timer exists so a failure cannot orphan it (the timer is
+      // cleared only by the provider promise below).
+      const sandboxTunnelPorts = run.sandboxSettingsPath
+        ? await this.sandboxTunnels.ensureStarted()
+        : null
+
       let lastActivityWrite = 0
       let heartbeatWrite: Promise<void> | null = null
       const updateHeartbeat = async () => {
@@ -698,14 +713,6 @@ export class GlobalRuntime {
           })
       }, this.heartbeatMs)
       heartbeat.unref()
-
-      // Sandboxed sessions reach DB/Redis only through the daemon's localhost
-      // forwarders (srt blocks raw TCP) — they must be listening BEFORE the
-      // provider starts, and their ephemeral ports go into the session env.
-      // A tunnel failure fails the session loudly.
-      const sandboxTunnelPorts = run.sandboxSettingsPath
-        ? await this.sandboxTunnels.ensureStarted()
-        : null
 
       const result = await this.providers[run.provider]
         .execute(
@@ -924,6 +931,45 @@ export class GlobalRuntime {
       }
       control.wakeDelay = finish
     })
+  }
+
+  /**
+   * Read (or, on first launch, write) the run's launch anchor — the immutable
+   * fields as they were when the run first started, stored under the daemon's
+   * log root with private permissions.
+   *
+   * The anchor is deliberately NOT in the database: the daemon hands
+   * sandboxed sessions a MySQL path, so a DB row is reachable by the very
+   * thing this guards against, and a re-pin from the row on each launch would
+   * let a session downgrade itself and simply wait to be resumed. The log
+   * root is outside every workspace, so no session can write here.
+   */
+  private async loadOrCreateLaunchAnchor(run: RuntimeRun): Promise<LaunchSpec> {
+    const anchorPath = path.join(this.logRoot, `run-${run.id}`, 'launch-spec.json')
+    const current = pinLaunchSpec(run)
+    let recorded: LaunchSpec | null = null
+    try {
+      recorded = JSON.parse(await readFile(anchorPath, 'utf8')) as LaunchSpec
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT') {
+        throw new Error(
+          `run ${run.id} launch anchor at ${anchorPath} is unreadable: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
+      }
+    }
+    if (recorded) {
+      assertLaunchSpecUnchanged(run, recorded)
+      // Re-validate rather than trusting the path still resolves the way it
+      // did: the settings file could have been deleted or replaced since.
+      await validateSandboxSettings(recorded.sandboxSettingsPath)
+      return recorded
+    }
+    await mkdir(path.dirname(anchorPath), { recursive: true, mode: 0o700 })
+    await writeFile(anchorPath, JSON.stringify(current, null, 2), { encoding: 'utf8', mode: 0o600 })
+    return current
   }
 
   private async requireRun(id: number): Promise<RuntimeRun> {

@@ -32,18 +32,28 @@ const sessionAlive = run(tmuxBin, ['list-panes', '-t', sessionName, '-F', '#{pan
  */
 function candidateHosts() {
   const hosts = []
-  try {
-    const output = run('/bin/sh', [
-      '-c',
-      "grep -hE '^GLOBAL_RUNTIME_HOST=' .env .env.* 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\"'\\''' ",
-    ])
-    if (output) hosts.push(output.trim())
-  } catch {
-    // Fall through to the generic candidates.
+  // Only the repo's own .env (plus its BOT_ENV overlay) — NOT a `.env.*`
+  // glob, whose last match could be any file dropped in the repo root and
+  // would redirect the health probe.
+  const envFiles = ['.env', process.env.BOT_ENV ? `.env.${process.env.BOT_ENV}` : null].filter(
+    Boolean,
+  )
+  for (const file of envFiles.reverse()) {
+    const line = run('/usr/bin/grep', ['-hE', '^GLOBAL_RUNTIME_HOST=', file])
+    const value = line
+      ?.split('\n')
+      .pop()
+      ?.replace(/^GLOBAL_RUNTIME_HOST=/, '')
+      .replace(/^["']|["']$/g, '')
+      .trim()
+    if (value) {
+      hosts.push(value)
+      break
+    }
   }
   hosts.push('127.0.0.1')
   for (const tailscale of ['tailscale', '/Applications/Tailscale.app/Contents/MacOS/Tailscale']) {
-    const ip = run('/bin/sh', [`-c`, `${tailscale} ip -4 2>/dev/null | head -1`])
+    const ip = run('/bin/sh', ['-c', `${tailscale} ip -4 2>/dev/null | head -1`])
     if (ip) hosts.push(ip.trim())
   }
   return [...new Set(hosts.filter(Boolean))]
