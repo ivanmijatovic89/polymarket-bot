@@ -70,6 +70,32 @@ export async function canonicalWorkspace(workspacePath: string): Promise<string>
   }
 }
 
+/**
+ * Canonicalize + validate a run's srt sandbox settings file (issue #213).
+ * Null passes through (unsandboxed run). The path is machine-local — this
+ * runs on the daemon that will own the run, so local I/O is the right check.
+ */
+export async function validateSandboxSettings(
+  sandboxSettingsPath: string | null,
+): Promise<string | null> {
+  if (sandboxSettingsPath === null) return null
+  try {
+    const resolved = await realpath(path.resolve(sandboxSettingsPath))
+    const info = await stat(resolved)
+    if (!info.isFile()) {
+      throw new RuntimeValidationError('sandbox settings path must be a file')
+    }
+    return resolved
+  } catch (error) {
+    if (error instanceof RuntimeValidationError) throw error
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'EACCES') {
+      throw new RuntimeValidationError('sandbox settings path must be an accessible file')
+    }
+    throw error
+  }
+}
+
 export async function resolveWorkspaceFile(
   workspacePath: string,
   relativePath: string,

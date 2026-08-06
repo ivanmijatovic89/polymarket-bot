@@ -324,6 +324,7 @@ export default withMermaid(
             { text: 'Overview', link: '/global-runtime/overview' },
             { text: 'Writing Missions', link: '/global-runtime/writing-missions' },
             { text: 'Mission CLI', link: '/global-runtime/cli' },
+            { text: 'Fleet Installation', link: '/global-runtime/fleet' },
             { text: 'Loop Example', link: '/global-runtime/examples' },
           ],
         },

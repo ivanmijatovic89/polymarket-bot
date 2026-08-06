@@ -1,0 +1,61 @@
+---
+- name: Start Global Runtime daemons
+  hosts: producer:backtest_workers
+  gather_facts: false
+  vars:
+    global_runtime_session_default: polymarket-global-runtime
+    global_runtime_shell_default: /bin/zsh
+
+  tasks:
+    - name: Skip machines without a Global Runtime daemon
+      ansible.builtin.meta: end_host
+      when: not (global_runtime_enabled | default(false) | bool)
+
+    - name: Start daemon in tmux (idempotent)
+      ansible.builtin.shell:
+        cmd: |
+          set -u
+          session={{ global_runtime_session | default(global_runtime_session_default) | quote }}
+          repo={{ backtest_repo_dir | mandatory | quote }}
+          # fleet:runtime:stop unloads the launchd service, so a stop/start
+          # cycle would otherwise leave an always-on machine with no boot
+          # persistence and no StartInterval self-heal. Re-bootstrap first;
+          # that alone starts the daemon via the boot helper.
+          plist=/Library/LaunchDaemons/com.polymarket.global-runtime.plist
+          # `launchctl print` needs root, so without passwordless sudo we
+          # cannot tell "unloaded" from "cannot ask" — say so once instead of
+          # warning on every start of a perfectly healthy machine.
+          if [ -f "$plist" ]; then
+            if ! sudo -n /usr/bin/true 2>/dev/null; then
+              echo "note: launchd state not checked (passwordless sudo unavailable)"
+            elif ! /usr/bin/sudo -n /bin/launchctl print system/com.polymarket.global-runtime >/dev/null 2>&1; then
+              if sudo -n /bin/launchctl bootstrap system "$plist" 2>/dev/null; then
+                echo "launchd service re-bootstrapped"
+              else
+                echo "WARNING: launchd service is installed but unloaded and could not be re-bootstrapped (run: sudo launchctl bootstrap system $plist)"
+              fi
+            fi
+          fi
+          tmux_bin="$(command -v tmux || echo /opt/homebrew/bin/tmux)"
+          if "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            echo already-running
+            exit 0
+          fi
+          mkdir -p "$repo/logs/global-runtime"
+          "$tmux_bin" new-session -d -s "$session" -c "$repo" \
+            "exec {{ global_runtime_shell | default(global_runtime_shell_default) }} -lic 'exec npm run global-runtime >> $repo/logs/global-runtime/daemon.log 2>&1'"
+          sleep 3
+          if "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            echo started
+          else
+            echo START_FAILED
+            tail -n 40 "$repo/logs/global-runtime/daemon.log" 2>/dev/null
+            exit 1
+          fi
+      register: start_result
+      changed_when: "'started' in (start_result.stdout | default(''))"
+
+    - name: Report result
+      ansible.builtin.debug:
+        # Join, not `first`: the launchd branch prints before the tmux outcome.
+        msg: '{{ inventory_hostname }}: {{ start_result.stdout_lines | default([]) | join(" | ") | default("?", true) }}'

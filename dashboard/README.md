@@ -16,7 +16,7 @@ config is needed for local dev.
 
 ```bash
 # from repo root
-npm run dashboard            # next dev on 0.0.0.0:3051 (override: DASHBOARD_PORT=3055 npm run dashboard)
+npm run dashboard            # next dev on 127.0.0.1:3051 (override: DASHBOARD_PORT=3055 npm run dashboard)
 npm run dashboard:build
 npm run dashboard:start      # next start on :3051
 npm run dashboard:typecheck
@@ -30,8 +30,15 @@ not parsed correctly, run the Next.js dev server directly:
 
 ```bash
 cd dashboard
-npx next dev --hostname 0.0.0.0 --port 3051
+npx next dev --hostname 127.0.0.1 --port 3051
 ```
+
+The dashboard binds loopback by default and deliberately stays there: it has
+no login of its own, while its Mission Control proxy holds `GLOBAL_RUNTIME_TOKEN`
+and can command every Global Runtime daemon in the fleet. Reach it remotely
+through `tailscale serve` or an SSH tunnel rather than binding a public
+interface. If you do set `DASHBOARD_HOST`, understand that anyone who can
+reach the port controls the fleet.
 
 For remote dev access over Tailscale/LAN, allow the browser origin that will
 open the dashboard:

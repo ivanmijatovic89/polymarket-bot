@@ -11,12 +11,16 @@ export type RuntimeRunStatus =
 
 export type RuntimeRun = {
   id: number
+  /** Owning machine (12-hex id); commands must reach this machine's daemon. */
+  machineId: string
   name: string
   provider: 'claude' | 'codex'
   model: string
   effort: string
   accessMode: 'workspace-write' | 'full-access'
   authHome: string | null
+  /** srt sandbox settings path on the owning machine; null = unsandboxed. */
+  sandboxSettingsPath: string | null
   workspacePath: string
   missionPath: string
   maxSessions: number
@@ -83,6 +87,15 @@ export type RuntimeRunDetail = {
 export type RuntimeRunSummary = RuntimeRun & {
   resolvedModel: string | null
   totals: RuntimeRunDetail['totals']
+}
+
+export type MachineHealth = {
+  machineId: string
+  name: string
+  online: boolean
+  /** Daemon replied but is still initializing (503 from /health). */
+  ready: boolean
+  error: string | null
 }
 
 export type RuntimeFile = {

@@ -30,20 +30,53 @@ export function getDb(): ReturnType<typeof drizzle> {
   return dbInstance
 }
 
+/** True when some connection currently holds the named advisory lock. */
+export async function isDbAdvisoryLockHeld(name: string): Promise<boolean> {
+  const [rows] = await getPool().query<Array<RowDataPacket & { holder: number | null }>>(
+    "SELECT IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256)) AS holder",
+    [name],
+  )
+  return rows[0]?.holder != null
+}
+
 export async function acquireDbAdvisoryLock(
   name: string,
   onLost: (error: unknown) => void,
+  options: {
+    /**
+     * Server-side blocking wait for GET_LOCK (seconds). Default 0 =
+     * non-blocking try. A restarted daemon uses this to wait out its own
+     * dead predecessor's lease instead of failing instantly.
+     */
+    waitSeconds?: number
+    /**
+     * Session idle timeout applied to the LEASE connection after acquiring.
+     * A silently-dead holder (laptop sleep, network loss) is reaped by the
+     * server — and its lock freed — within this bound. The 20s keepalive
+     * ping keeps a live holder well inside it. Default 300 (≤5 min stale
+     * lease, documented).
+     */
+    sessionTimeoutSeconds?: number
+  } = {},
 ): Promise<(() => Promise<void>) | null> {
+  const waitSeconds = Math.max(0, Math.floor(options.waitSeconds ?? 0))
+  const sessionTimeoutSeconds = Math.max(120, Math.floor(options.sessionTimeoutSeconds ?? 300))
   const connection = await getPool().getConnection()
   try {
     const [rows] = await connection.query<Array<RowDataPacket & { acquired: number | null }>>(
-      "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256), 0) AS acquired",
-      [name],
+      "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256), ?) AS acquired",
+      [name, waitSeconds],
     )
     if (rows[0]?.acquired !== 1) {
-      connection.release()
+      connection.destroy()
       return null
     }
+    // Bounded stale-lease guarantee: the server reaps this connection (and
+    // frees the lock) if it goes silent longer than the session timeout.
+    await connection.query('SET SESSION wait_timeout = ?, interactive_timeout = ?', [
+      sessionTimeoutSeconds,
+      sessionTimeoutSeconds,
+    ])
 
     let released = false
     const handleLost = (error: unknown) => {
@@ -62,9 +95,30 @@ export async function acquireDbAdvisoryLock(
     const handleEnd = () => handleLost(new Error('Global Runtime lease connection ended'))
     connection.once('error', handleLost)
     connection.once('end', handleEnd)
+    // A ping on a blackholed connection (sleeping peer, dropped VPN) never
+    // settles and emits no error, so without a deadline the daemon would keep
+    // launching sessions while the server quietly reaps its session — and its
+    // lock — at wait_timeout. Race every ping against a timer; three
+    // consecutive failures (~60s, far inside the 300s reap) count as lost.
+    let consecutivePingFailures = 0
     const keepAlive = setInterval(() => {
-      void connection.ping().catch(handleLost)
-    }, 60_000)
+      let deadline: NodeJS.Timeout | undefined
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(() => reject(new Error('lease keepalive ping timed out')), 10_000)
+        deadline.unref()
+      })
+      void Promise.race([connection.ping(), timedOut])
+        .then(() => {
+          consecutivePingFailures = 0
+        })
+        .catch((error: unknown) => {
+          consecutivePingFailures += 1
+          if (consecutivePingFailures >= 3) handleLost(error)
+        })
+        .finally(() => {
+          if (deadline) clearTimeout(deadline)
+        })
+    }, 20_000)
     keepAlive.unref()
     return async () => {
       if (released) return
@@ -75,11 +129,14 @@ export async function acquireDbAdvisoryLock(
       try {
         await connection.query("SELECT RELEASE_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256))", [name])
       } finally {
-        connection.release()
+        // destroy, not release: this connection carries a shortened session
+        // timeout and must never return to the shared pool where it could
+        // die idle under a later borrower.
+        connection.destroy()
       }
     }
   } catch (error) {
-    connection.release()
+    connection.destroy()
     throw error
   }
 }

@@ -14,6 +14,7 @@ import {
   CliProviderAdapter,
   createBackpressureWriter,
   prepareProviderCommand,
+  wrapWithSandbox,
 } from './providers.js'
 import type { RuntimeRun } from './types.js'
 
@@ -506,12 +507,14 @@ function makeRun(workspacePath: string, provider: 'claude' | 'codex'): RuntimeRu
   const now = new Date()
   return {
     id: provider === 'codex' ? 1 : 2,
+    machineId: 'provider-machine',
     name: `${provider} test`,
     provider,
     model: 'test-model',
     effort: 'high',
     accessMode: 'workspace-write',
     authHome: null,
+    sandboxSettingsPath: null,
     workspacePath,
     missionPath: 'MISSION.md',
     maxSessions: 5,
@@ -539,3 +542,152 @@ function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name]
   else process.env[name] = value
 }
+
+// ---------------------------------------------------------------------------
+// srt sandbox wrapping (issue #213)
+// ---------------------------------------------------------------------------
+
+test('wrapWithSandbox is a byte-identical no-op for unsandboxed runs', async () => {
+  const workspace = await createDirectory()
+  const prepared = await prepareProviderCommand({
+    run: makeRun(workspace, 'claude'),
+    sessionNumber: 1,
+    prompt: 'mission',
+    logDirectory: path.join(workspace, 'logs-nosandbox'),
+  })
+  const wrapped = wrapWithSandbox(prepared, { sandboxSettingsPath: null }, process.env, null)
+  assert.equal(wrapped, prepared)
+})
+
+test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunnels', () => {
+  const prepared = {
+    command: 'claude',
+    args: ['-p', '--model', 'test'],
+    cwd: '/workspace',
+    env: {
+      PATH: '/usr/bin',
+      BOT_ENV: 'bot1',
+      DATABASE_HOST: '100.107.149.100',
+      DATABASE_PORT: '3306',
+    } as NodeJS.ProcessEnv,
+    rawLogPath: '/logs/raw.jsonl',
+    stderrLogPath: '/logs/raw.stderr.log',
+  }
+  const ports = { mysqlPort: 51234, redisPort: 51235 }
+  const wrapped = wrapWithSandbox(
+    prepared,
+    { sandboxSettingsPath: '/etc/srt.json' },
+    {
+      REDIS_URL: 'redis://:s3cret@100.107.149.100:6379/2',
+    },
+    ports,
+  )
+  assert.equal(wrapped.command, 'srt')
+  assert.deepEqual(wrapped.args, ['--settings', '/etc/srt.json', 'claude', '-p', '--model', 'test'])
+  assert.equal(wrapped.env.DATABASE_HOST, '127.0.0.1')
+  assert.equal(wrapped.env.DATABASE_PORT, '51234')
+  assert.equal(wrapped.env.REDIS_URL, 'redis://:s3cret@127.0.0.1:51235/2')
+  assert.equal(wrapped.env.BOT_ENV, undefined)
+  assert.equal(wrapped.env.PATH, '/usr/bin')
+  assert.equal(wrapped.cwd, '/workspace')
+
+  const customBin = wrapWithSandbox(
+    prepared,
+    { sandboxSettingsPath: '/etc/srt.json' },
+    {
+      GLOBAL_RUNTIME_SRT_BIN: '/opt/bin/srt-custom',
+    },
+    ports,
+  )
+  assert.equal(customBin.command, '/opt/bin/srt-custom')
+
+  const badRedis = wrapWithSandbox(
+    { ...prepared, env: { ...prepared.env, REDIS_URL: 'redis://old' } },
+    { sandboxSettingsPath: '/etc/srt.json' },
+    { REDIS_URL: 'not a url' },
+    ports,
+  )
+  assert.equal(badRedis.env.REDIS_URL, undefined)
+
+  // Without live tunnel ports a sandboxed session has no DB path at all —
+  // refuse rather than launch a session that cannot reach MySQL/Redis.
+  assert.throws(
+    () => wrapWithSandbox(prepared, { sandboxSettingsPath: '/etc/srt.json' }, {}, null),
+    /tunnel ports/u,
+  )
+})
+
+test('sandboxed runs disable the provider CLIs own sandboxes (srt is the boundary)', async () => {
+  const workspace = await createDirectory()
+  const settingsPath = path.join(workspace, 'srt.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+
+  const claude = await prepareProviderCommand({
+    run: { ...makeRun(workspace, 'claude'), sandboxSettingsPath: settingsPath },
+    sessionNumber: 1,
+    prompt: 'mission',
+    logDirectory: path.join(workspace, 'logs-sbx-claude'),
+    sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
+  })
+  assert.ok(claude.args.includes('bypassPermissions'))
+  // The srt --settings pair is present; claude's inline seatbelt one is not.
+  assert.deepEqual(claude.args.slice(0, 2), ['--settings', settingsPath])
+  assert.equal(
+    claude.args.filter((value) => value === '--settings').length,
+    1,
+    'the inner claude must not carry its own seatbelt settings under srt',
+  )
+
+  const codex = await prepareProviderCommand({
+    run: { ...makeRun(workspace, 'codex'), sandboxSettingsPath: settingsPath },
+    sessionNumber: 2,
+    prompt: 'mission',
+    logDirectory: path.join(workspace, 'logs-sbx-codex'),
+    sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
+  })
+  assert.ok(codex.args.includes('danger-full-access'))
+  assert.equal(codex.args.includes('workspace-write'), false)
+})
+
+test('fake-srt end-to-end: the adapter executes through the wrapper transparently', async () => {
+  const workspace = await createDirectory()
+  const settingsPath = path.join(workspace, 'srt.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const fakeSrt = path.join(workspace, 'fake-srt.mjs')
+  await writeFile(
+    fakeSrt,
+    `#!/usr/bin/env node
+import { spawn } from 'node:child_process'
+const args = process.argv.slice(2)
+if (args[0] !== '--settings') {
+  console.error('fake srt: expected --settings first, got ' + args[0])
+  process.exit(64)
+}
+const child = spawn(args[2], args.slice(3), { stdio: 'inherit', env: process.env })
+child.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 1)))
+`,
+    'utf8',
+  )
+  await chmod(fakeSrt, 0o700)
+  const previousSrtBin = process.env.GLOBAL_RUNTIME_SRT_BIN
+  process.env.GLOBAL_RUNTIME_SRT_BIN = fakeSrt
+  process.env.GLOBAL_RUNTIME_CLAUDE_BIN = await createFakeCli(workspace)
+  try {
+    const adapter = new CliProviderAdapter()
+    const result = await adapter.execute(
+      {
+        run: { ...makeRun(workspace, 'claude'), sandboxSettingsPath: settingsPath },
+        sessionNumber: 7,
+        prompt: 'test prompt',
+        logDirectory: path.join(workspace, 'logs-srt-e2e'),
+        sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
+      },
+      new AbortController().signal,
+      { onStarted: () => undefined, onActivity: () => undefined },
+    )
+    assert.equal(result.exitCode, 0)
+    assert.deepEqual(result.finalResult, { action: 'complete', summary: 'claude finished' })
+  } finally {
+    restoreEnv('GLOBAL_RUNTIME_SRT_BIN', previousSrtBin)
+  }
+})

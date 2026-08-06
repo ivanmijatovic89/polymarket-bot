@@ -1,7 +1,6 @@
 import { RuntimeNotFoundError } from './errors.js'
-import type { CreateSessionInput, RuntimeStore } from './store.js'
+import type { CreateRunRecord, CreateSessionInput, RuntimeStore } from './store.js'
 import type {
-  CreateRuntimeRunInput,
   RuntimeRun,
   RuntimeRunPatch,
   RuntimeSession,
@@ -14,25 +13,27 @@ export class MemoryRuntimeStore implements RuntimeStore {
   private readonly sessions = new Map<number, RuntimeSession>()
   private nextRunId = 1
   private nextSessionId = 1
-  private runtimeLeaseHeld = false
+  // Per-machine leases: one store can back several simulated machines.
+  private readonly leases = new Set<string>()
 
   async acquireRuntimeLease(
+    machineId: string,
     onLost: (error: unknown) => void,
   ): Promise<(() => Promise<void>) | null> {
     void onLost
-    if (this.runtimeLeaseHeld) return null
-    this.runtimeLeaseHeld = true
+    if (this.leases.has(machineId)) return null
+    this.leases.add(machineId)
     let released = false
     return () => {
       if (!released) {
         released = true
-        this.runtimeLeaseHeld = false
+        this.leases.delete(machineId)
       }
       return Promise.resolve()
     }
   }
 
-  async createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun> {
+  async createRun(input: CreateRunRecord): Promise<RuntimeRun> {
     const now = new Date()
     const run: RuntimeRun = {
       ...input,
@@ -74,9 +75,15 @@ export class MemoryRuntimeStore implements RuntimeStore {
     return cloneRun(updated)
   }
 
-  async listRunsByStatuses(statuses: RuntimeRun['status'][]): Promise<RuntimeRun[]> {
+  async listRunsByStatuses(
+    statuses: RuntimeRun['status'][],
+    machineId?: string,
+  ): Promise<RuntimeRun[]> {
     const wanted = new Set(statuses)
-    return [...this.runs.values()].filter((run) => wanted.has(run.status)).map(cloneRun)
+    return [...this.runs.values()]
+      .filter((run) => wanted.has(run.status))
+      .filter((run) => machineId === undefined || run.machineId === machineId)
+      .map(cloneRun)
   }
 
   async createSession(input: CreateSessionInput): Promise<RuntimeSession> {

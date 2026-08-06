@@ -130,6 +130,9 @@ jobs:
       - name: Dashboard typecheck
         run: npm run dashboard:typecheck
 
+      - name: Dashboard tests
+        run: npm run dashboard:test
+
       - name: Dashboard build
         run: npm run dashboard:build
         env:

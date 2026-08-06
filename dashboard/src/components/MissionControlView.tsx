@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Pause, Play, Plus, RefreshCw, Sparkles, Square, X } from 'lucide-react'
+import { MachineHealthStrip, useMachineHealth } from '@/components/MachineHealthStrip'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { runtimeFetch } from '@/lib/runtimeClient'
+import { machineLabel, listRuntimeMachines } from '@/lib/machineNames'
+import { fetchRuntimeRuns, machineFetch, runFetch } from '@/lib/runtimeClient'
 import {
   formatAccount,
   formatCompact,
@@ -64,12 +66,21 @@ const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
 const selectClass = 'rounded-md border bg-background px-2.5 py-2 text-sm text-foreground'
 
+// Machines that can host missions (have a Global Runtime daemon configured).
+const RUNTIME_MACHINES = listRuntimeMachines().map(([machineId, info]) => ({
+  machineId,
+  name: info.name,
+}))
+
 export function MissionControlView({
   examplesRoot,
+  localMachineId = null,
   limit,
   embedded = false,
 }: {
   examplesRoot: string
+  /** Dashboard host's machine id — the example card is pinned to it (its filesystem holds examplesRoot). */
+  localMachineId?: string | null
   limit?: number
   embedded?: boolean
 }) {
@@ -92,9 +103,21 @@ export function MissionControlView({
     refetch,
   } = useQuery({
     queryKey: ['runtime-runs'],
-    queryFn: () => runtimeFetch<RunsResponse>('/runs'),
+    queryFn: () => fetchRuntimeRuns<RunsResponse>(),
     refetchInterval: 5000,
   })
+  const machineHealthQuery = useMachineHealth()
+  const machineHealth = useMemo(
+    () => machineHealthQuery.data?.machines ?? [],
+    [machineHealthQuery.data],
+  )
+  const offlineMachineIds = useMemo(
+    () => new Set(machineHealth.filter((machine) => !machine.online).map((m) => m.machineId)),
+    [machineHealth],
+  )
+  const localRuntimeMachine = RUNTIME_MACHINES.find(
+    (machine) => machine.machineId === localMachineId,
+  )
 
   const runs = useMemo(() => data?.runs ?? [], [data])
   const visibleRuns = limit === undefined ? runs : runs.slice(0, limit)
@@ -112,8 +135,10 @@ export function MissionControlView({
     setSubmitting(true)
     setError(null)
     const values = new FormData(event.currentTarget)
+    const machineId = String(values.get('machineId') || '')
     try {
-      await runtimeFetch('/runs', {
+      if (!machineId) throw new Error('pick a machine to run this loop on')
+      await machineFetch(machineId, '/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -123,6 +148,7 @@ export function MissionControlView({
           effort: values.get('effort'),
           accessMode: values.get('accessMode'),
           authHome: String(values.get('authHome') || '').trim() || null,
+          sandboxSettingsPath: String(values.get('sandboxSettingsPath') || '').trim() || null,
           workspacePath: values.get('workspacePath'),
           missionPath: values.get('missionPath'),
           maxSessions: Number(values.get('maxSessions')),
@@ -148,7 +174,7 @@ export function MissionControlView({
     setActionRunId(runId)
     setError(null)
     try {
-      await runtimeFetch(`/runs/${runId}/${action}`, { method: 'POST' })
+      await runFetch(runId, `/${action}`, { method: 'POST' })
       await queryClient.invalidateQueries({ queryKey: ['runtime-runs'] })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
@@ -167,7 +193,15 @@ export function MissionControlView({
     const isClaude = provider === 'claude'
     const profileLabel = claudeProfile === 'balsa' ? 'Balsa' : 'default account'
     try {
-      const created = await runtimeFetch<{ run: RuntimeRun }>('/runs', {
+      // The example workspace lives on the dashboard host's filesystem, so
+      // the run is pinned to that machine's daemon.
+      if (!localRuntimeMachine) {
+        throw new Error('the dashboard host is not a configured Global Runtime machine')
+      }
+      const created = await machineFetch<{ run: RuntimeRun }>(
+        localRuntimeMachine.machineId,
+        '/runs',
+        {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -186,8 +220,9 @@ export function MissionControlView({
           isolatedStateFiles: true,
           readOnlyFiles: ['RESULT.md'],
         }),
-      })
-      await runtimeFetch(`/runs/${created.run.id}/start`, { method: 'POST' })
+        },
+      )
+      await runFetch(created.run.id, '/start', { method: 'POST' })
       await queryClient.invalidateQueries({ queryKey: ['runtime-runs'] })
       router.push(`/mission-control/${created.run.id}`)
     } catch (caught) {
@@ -238,14 +273,25 @@ export function MissionControlView({
         </div>
       )}
 
-      {!embedded && (
+      {!embedded && !localRuntimeMachine && (
+        <p className="rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
+          The shared loop example is hidden because this dashboard host
+          {localMachineId ? ` (${machineLabel(localMachineId)})` : ''} is not a configured Global
+          Runtime machine — add a <span className="font-mono">runtimeUrl</span> for it in{' '}
+          <span className="font-mono">machines.json</span> to enable it.
+        </p>
+      )}
+
+      {!embedded && localRuntimeMachine && (
         <Card>
           <CardContent className="py-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles className="h-4 w-4" /> Shared loop example
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Three fresh sessions — continue, continue, complete — over the same mission.
+            Three fresh sessions — continue, continue, complete — over the same mission. Runs on{' '}
+            <span className="font-medium text-foreground">{localRuntimeMachine.name}</span> (this
+            dashboard&apos;s host — the example workspace lives on its filesystem).
           </p>
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -338,6 +384,21 @@ export function MissionControlView({
               <Field label="Name">
                 <input name="name" required className={fieldClass} />
               </Field>
+              <Field label="Machine">
+                <select
+                  name="machineId"
+                  required
+                  defaultValue={localRuntimeMachine?.machineId ?? RUNTIME_MACHINES[0]?.machineId}
+                  className={fieldClass}
+                >
+                  {RUNTIME_MACHINES.map((machine) => (
+                    <option key={machine.machineId} value={machine.machineId}>
+                      {machine.name}
+                      {offlineMachineIds.has(machine.machineId) ? ' (offline)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Provider">
                 <select name="provider" defaultValue="codex" className={fieldClass}>
                   <option value="codex">Codex</option>
@@ -362,6 +423,13 @@ export function MissionControlView({
               </Field>
               <Field label="Auth home (optional)">
                 <input name="authHome" placeholder="~/.codex-account" className={fieldClass} />
+              </Field>
+              <Field label="Sandbox settings path (optional)">
+                <input
+                  name="sandboxSettingsPath"
+                  placeholder="/path/to/srt-settings.json on the machine"
+                  className={fieldClass}
+                />
               </Field>
               <Field label="Workspace path" wide>
                 <input
@@ -415,6 +483,8 @@ export function MissionControlView({
         </Card>
       )}
 
+      {!embedded && <MachineHealthStrip machines={machineHealth} />}
+
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b px-3 py-2.5 text-xs text-muted-foreground">
@@ -440,6 +510,7 @@ export function MissionControlView({
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Loop</TableHead>
+                <TableHead>Machine</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Model</TableHead>
                 <TableHead>Account</TableHead>
@@ -466,6 +537,15 @@ export function MissionControlView({
                     >
                       #{run.id} · {shortenPath(run.workspacePath)} · {run.missionPath}
                     </div>
+                  </TableCell>
+
+                  <TableCell className="whitespace-nowrap">
+                    <div className="text-xs" title={run.machineId}>
+                      {machineLabel(run.machineId)}
+                    </div>
+                    {offlineMachineIds.has(run.machineId) && (
+                      <div className="mt-0.5 text-[11px] text-destructive">offline</div>
+                    )}
                   </TableCell>
 
                   <TableCell className="max-w-[16rem]">

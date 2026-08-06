@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdtempSync } from 'node:fs'
+import { readFile, realpath } from 'node:fs/promises'
 import { link, mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -430,7 +432,7 @@ test('the same run cannot be launched twice by simultaneous requests', async () 
 test('initialization reconciles an interrupted session to waiting', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
   await store.createSession({
@@ -470,7 +472,7 @@ test('initialization reconciles an interrupted session to waiting', async () => 
 test('does not terminate an interrupted PID when process identity cannot be verified', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
   await store.createSession({
@@ -505,7 +507,7 @@ test('does not terminate an interrupted PID when process identity cannot be veri
 test('initialization finishes a stopped run that still has a live session', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
-  const run = await store.createRun(runInput(workspace))
+  const run = await store.createRun(runRecord(workspace))
   const startedAt = new Date()
   await store.updateRun(run.id, { status: 'stopped', currentSession: 1, processId: 43211 })
   await store.createSession({
@@ -613,7 +615,7 @@ test(
   async () => {
     const workspace = await createWorkspace()
     const store = new MemoryRuntimeStore()
-    const run = await store.createRun(runInput(workspace))
+    const run = await store.createRun(runRecord(workspace))
     const token = buildRuntimeProcessToken(run.id, 1)
     const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
       env: { ...process.env, [RUNTIME_PROCESS_TOKEN_ENV]: token },
@@ -997,17 +999,30 @@ class ConcurrentProvider implements ProviderAdapter {
   }
 }
 
+const TEST_MACHINE_ID = 'test-machine'
+
 function createRuntime(
   store: MemoryRuntimeStore,
   provider: ProviderAdapter,
   options: GlobalRuntimeOptions = {},
 ): GlobalRuntime {
   return new GlobalRuntime(store, {
+    machineId: TEST_MACHINE_ID,
+    // Each runtime gets its own log root: run ids restart at 1 per
+    // MemoryRuntimeStore, and the launch anchor is keyed by run id, so a
+    // shared root would leak one test's anchor into another's run 1.
+    logRoot: createLogRoot(),
     ...options,
     providers: { codex: provider },
     rateLimitRetryMs: options.rateLimitRetryMs ?? 10,
     heartbeatMs: options.heartbeatMs ?? 10,
   })
+}
+
+function createLogRoot(): string {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'global-runtime-logs-'))
+  temporaryDirectories.push(root)
+  return root
 }
 
 class DelayedLaunchStore extends MemoryRuntimeStore {
@@ -1116,19 +1131,19 @@ class DelayedLeaseStore extends MemoryRuntimeStore {
     this.releaseLease?.()
   }
 
-  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
+  override async acquireRuntimeLease(machineId: string, onLost: (error: unknown) => void) {
     this.leaseRequested?.()
     await this.released
-    return super.acquireRuntimeLease(onLost)
+    return super.acquireRuntimeLease(machineId, onLost)
   }
 }
 
 class ControllableLeaseStore extends MemoryRuntimeStore {
   private onLost: ((error: unknown) => void) | null = null
 
-  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
+  override async acquireRuntimeLease(machineId: string, onLost: (error: unknown) => void) {
     this.onLost = onLost
-    return super.acquireRuntimeLease(onLost)
+    return super.acquireRuntimeLease(machineId, onLost)
   }
 
   loseLease(): void {
@@ -1141,6 +1156,11 @@ async function createWorkspace(): Promise<string> {
   temporaryDirectories.push(workspace)
   await writeFile(path.join(workspace, 'MISSION.md'), '# Test mission\n', 'utf8')
   return workspace
+}
+
+/** Store-level record for tests that seed runs behind the runtime's back. */
+function runRecord(workspacePath: string, name = 'test run') {
+  return { ...runInput(workspacePath, name), machineId: TEST_MACHINE_ID, sandboxSettingsPath: null }
 }
 
 function runInput(workspacePath: string, name = 'test run') {
@@ -1199,3 +1219,469 @@ async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 2000): Pro
   }
   throw new Error('timed out waiting for condition')
 }
+
+// ---------------------------------------------------------------------------
+// Multi-machine ownership (issue #213)
+// ---------------------------------------------------------------------------
+
+class FakeTunnels {
+  ensureStartedCalls = 0
+  closeCalls = 0
+  failNextStart = false
+
+  async ensureStarted(): Promise<{ mysqlPort: number; redisPort: number }> {
+    this.ensureStartedCalls += 1
+    if (this.failNextStart) throw new Error('simulated tunnel bind failure')
+    return { mysqlPort: 51234, redisPort: 51235 }
+  }
+
+  async close(): Promise<void> {
+    this.closeCalls += 1
+  }
+}
+
+test('createRun stamps the daemon machine id; clients cannot supply one', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun(runInput(workspace))
+  assert.equal(run.machineId, TEST_MACHINE_ID)
+  await assert.rejects(
+    () => runtime.createRun({ ...runInput(workspace), machineId: 'attacker' }),
+    RuntimeValidationError,
+  )
+  await runtime.shutdown()
+})
+
+test('two machines hold independent leases on the same store', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtimeA = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'a', 1)]),
+  )
+  const runtimeB = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'b', 1)]),
+    {
+      machineId: 'machine-b',
+    },
+  )
+  const nestedWorkspace = await createWorkspace()
+
+  const runA = await runtimeA.createRun(runInput(workspace, 'machine A run'))
+  const runB = await runtimeB.createRun(runInput(nestedWorkspace, 'machine B run'))
+
+  // Both daemons acquire their machine's lease and run concurrently.
+  await runtimeA.start(runA.id)
+  await runtimeB.start(runB.id)
+  await waitFor(async () => (await store.getRun(runA.id))?.status === 'completed')
+  await waitFor(async () => (await store.getRun(runB.id))?.status === 'completed')
+
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('the same workspace path on two machines does not conflict', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const providerA = new BlockingProvider()
+  const runtimeA = createRuntime(store, providerA)
+  const runtimeB = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'b', 1)]),
+    {
+      machineId: 'machine-b',
+    },
+  )
+
+  const runA = await runtimeA.createRun(runInput(workspace, 'machine A run'))
+  const runB = await runtimeB.createRun(runInput(workspace, 'machine B run'))
+
+  await runtimeA.start(runA.id)
+  await waitFor(async () => providerA.started)
+  // Same canonical path, different machine — different filesystem, no conflict.
+  await runtimeB.start(runB.id)
+  await waitFor(async () => (await store.getRun(runB.id))?.status === 'completed')
+
+  await runtimeA.stop(runA.id)
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('control, steering, and file endpoints reject runs owned by another machine', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtimeA = createRuntime(store, new BlockingProvider())
+  const runtimeB = createRuntime(store, new BlockingProvider(), {
+    machineId: 'machine-b',
+    machineLabel: (id) => (id === TEST_MACHINE_ID ? 'alpha' : id),
+  })
+  const run = await runtimeA.createRun(runInput(workspace))
+
+  const foreign = /belongs to alpha \(test-machine\)/u
+  await assert.rejects(() => runtimeB.start(run.id), foreign)
+  await assert.rejects(() => runtimeB.pause(run.id), foreign)
+  await assert.rejects(() => runtimeB.resume(run.id), foreign)
+  await assert.rejects(() => runtimeB.stop(run.id), foreign)
+  await assert.rejects(() => runtimeB.extendMaxSessions(run.id, { maxSessions: 99 }), foreign)
+  await assert.rejects(() => runtimeB.appendInbox(run.id, { message: 'hi' }), foreign)
+  await assert.rejects(() => runtimeB.getFiles(run.id), foreign)
+
+  // The foreign stop above must not have rewritten the run's end state.
+  const persisted = await store.getRun(run.id)
+  assert.equal(persisted?.status, 'idle')
+  assert.equal(persisted?.maxSessions, run.maxSessions)
+
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('recovery passes ignore runs owned by other machines', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+
+  const foreign = (name: string) => ({
+    ...runInput(workspace, name),
+    machineId: 'machine-elsewhere',
+    sandboxSettingsPath: null,
+  })
+  // Pass 1 target: an interrupted active run with a recorded process.
+  const interrupted = await store.createRun(foreign('foreign interrupted'))
+  await store.updateRun(interrupted.id, { status: 'running', currentSession: 1, processId: 4242 })
+  // Pass 2 target: a stop that never finished (stopped but with a PID).
+  const incompleteStop = await store.createRun(foreign('foreign incomplete stop'))
+  await store.updateRun(incompleteStop.id, { status: 'stopped', processId: 4243 })
+  // Pass 3 target: a rate-limited run whose retry timer died with the daemon.
+  const rateLimited = await store.createRun(foreign('foreign rate limited'))
+  await store.updateRun(rateLimited.id, {
+    status: 'rate_limited',
+    nextStartAt: new Date(Date.now() - 60_000),
+  })
+
+  const terminated: number[] = []
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    terminateProcess: async (pid) => {
+      terminated.push(pid)
+    },
+    verifyProcess: async () => true,
+  })
+  await runtime.initialize()
+
+  assert.deepEqual(terminated, [])
+  assert.equal((await store.getRun(interrupted.id))?.status, 'running')
+  assert.equal((await store.getRun(interrupted.id))?.processId, 4242)
+  assert.equal((await store.getRun(incompleteStop.id))?.processId, 4243)
+  assert.equal((await store.getRun(rateLimited.id))?.status, 'rate_limited')
+
+  await runtime.shutdown()
+})
+
+test('createRun validates the sandbox settings path and stores its real path', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+
+  const sandboxed = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  assert.ok(sandboxed.sandboxSettingsPath?.endsWith('srt-settings.json'))
+
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'missing settings'),
+        sandboxSettingsPath: path.join(workspace, 'nope.json'),
+      }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'relative settings'),
+        sandboxSettingsPath: 'relative/path.json',
+      }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'directory settings'),
+        sandboxSettingsPath: workspace,
+      }),
+    RuntimeValidationError,
+  )
+  await runtime.shutdown()
+})
+
+test('sandboxed runs start the tunnels before executing; unsandboxed runs never do', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const runtime = createRuntime(
+    store,
+    new ScriptedProvider([
+      successfulResult('complete', 'plain done', 1),
+      successfulResult('complete', 'sandboxed done', 1),
+    ]),
+    { sandboxTunnels: tunnels },
+  )
+
+  const plain = await runtime.createRun(runInput(workspace, 'plain'))
+  await runtime.start(plain.id)
+  await waitFor(async () => (await store.getRun(plain.id))?.status === 'completed')
+  assert.equal(tunnels.ensureStartedCalls, 0)
+
+  const nested = await createWorkspace()
+  await writeFile(path.join(nested, 'srt-settings.json'), '{}\n', 'utf8')
+  const sandboxed = await runtime.createRun({
+    ...runInput(nested, 'sandboxed'),
+    sandboxSettingsPath: path.join(nested, 'srt-settings.json'),
+  })
+  await runtime.start(sandboxed.id)
+  await waitFor(async () => (await store.getRun(sandboxed.id))?.status === 'completed')
+  assert.ok(tunnels.ensureStartedCalls >= 1)
+
+  await runtime.shutdown()
+  assert.ok(tunnels.closeCalls >= 1)
+})
+
+test('a tunnel start failure fails the sandboxed session instead of running unsandboxed', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  tunnels.failNextStart = true
+  const provider = new ScriptedProvider([successfulResult('complete', 'must not run', 1)])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.deepEqual(provider.sessionNumbers, [])
+  assert.match((await store.getRun(run.id))?.lastError ?? '', /tunnel bind failure/u)
+
+  await runtime.shutdown()
+})
+
+test('a mid-run change to an immutable field stops the loop instead of downgrading it', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const provider = new ScriptedProvider([
+    successfulResult('continue', 'session one done', 1),
+    successfulResult('complete', 'must not run unsandboxed', 1),
+  ])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    // A delay between sessions gives the tamper a window, the way a real
+    // session would have while its successor waits.
+    delaySeconds: 1,
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.currentSession === 1)
+  // Simulates a session with DB write access clearing its own sandbox — the
+  // daemon must refuse rather than launch session 2 unsandboxed.
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.deepEqual(provider.sessionNumbers, [1])
+  assert.match((await store.getRun(run.id))?.lastError ?? '', /immutable sandboxSettingsPath/u)
+
+  await runtime.shutdown()
+})
+
+test('a downgrade cannot be laundered by parking the run and resuming it', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const provider = new ScriptedProvider([
+    // Session 1 tampers, then parks the loop with an ordinary 'wait'.
+    successfulResult('wait', 'waiting for input', 1),
+    successfulResult('complete', 'must not run unsandboxed', 1),
+  ])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'waiting')
+  // The run is parked, so the in-memory pin is gone; only the on-disk anchor
+  // still knows this run was created sandboxed.
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  assert.deepEqual(provider.sessionNumbers, [1])
+
+  await runtime.shutdown()
+})
+
+test('a tunnel failure does not leave a heartbeat writing to the errored run', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  tunnels.failNextStart = true
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+    heartbeatMs: 5,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.equal((await store.getRun(run.id))?.heartbeatAt, null)
+
+  // An orphaned interval would resurrect heartbeatAt on a run that is done.
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  assert.equal(
+    (await store.getRun(run.id))?.heartbeatAt,
+    null,
+    'heartbeat kept running after the failure',
+  )
+
+  await runtime.shutdown()
+})
+
+test('pre-anchor runs are adopted once at startup instead of becoming unresumable', async () => {
+  // Canonical form: runRecord goes straight to the store, bypassing the
+  // canonicalization createRun would do.
+  const workspace = await realpath(await createWorkspace())
+  const store = new MemoryRuntimeStore()
+  const logRoot = createLogRoot()
+  // A run that already started, exactly as an upgrade would find it.
+  const legacy = await store.createRun(runRecord(workspace, 'legacy'))
+  await store.updateRun(legacy.id, { status: 'paused', startedAt: new Date(), currentSession: 1 })
+
+  const runtime = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'ok', 1)]),
+    {
+      logRoot,
+    },
+  )
+  await runtime.initialize()
+  const anchor = JSON.parse(
+    await readFile(path.join(logRoot, 'anchors', `run-${legacy.id}.json`), 'utf8'),
+  ) as { workspacePath: string }
+  assert.equal(anchor.workspacePath, workspace)
+
+  // Resume must work rather than reporting a missing anchor.
+  await runtime.resume(legacy.id)
+  await waitFor(async () => (await store.getRun(legacy.id))?.status === 'completed')
+  await runtime.shutdown()
+
+  // After adoption the directory exists, so a later missing anchor is an anomaly.
+  const second = await store.createRun(runRecord(workspace, 'later'))
+  await store.updateRun(second.id, { status: 'paused', startedAt: new Date(), currentSession: 1 })
+  const restarted = createRuntime(store, new ScriptedProvider([]), { logRoot })
+  await restarted.initialize()
+  await assert.rejects(() => restarted.resume(second.id), /already started/u)
+  await restarted.shutdown()
+})
+
+test('a tamper reports itself on every retry rather than wedging the run', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+  await store.updateRun(run.id, { sandboxSettingsPath: null } as RuntimeRunPatch)
+
+  // Both attempts must name the tamper; the first must not leave the run
+  // stuck reporting "already active".
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  await assert.rejects(() => runtime.resume(run.id), /immutable sandboxSettingsPath/u)
+  await runtime.shutdown()
+})
+
+test('rewriting the sandbox settings file is refused, not just clearing the column', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, JSON.stringify({ filesystem: { denyRead: ['/secrets'] } }), 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    sandboxTunnels: new FakeTunnels(),
+    onBackgroundError: () => undefined,
+  })
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+
+  // The path is unchanged; only the policy behind it was weakened.
+  await writeFile(settingsPath, JSON.stringify({ filesystem: {} }), 'utf8')
+  await assert.rejects(() => runtime.resume(run.id), /sandbox settings file .* changed/u)
+  await runtime.shutdown()
+})
+
+test('a falsy or partial anchor is rejected instead of silently re-pinning', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const logRoot = createLogRoot()
+  const runtime = createRuntime(store, new ScriptedProvider([]), { logRoot })
+  const run = await runtime.createRun(runInput(workspace))
+  await runtime.start(run.id)
+  await runtime.stop(run.id)
+
+  const anchorPath = path.join(logRoot, 'anchors', `run-${run.id}.json`)
+  for (const body of ['null', '0', '""', '{"provider":"codex"}', '']) {
+    await writeFile(anchorPath, body, 'utf8')
+    await assert.rejects(() => runtime.resume(run.id), /launch anchor/u, `body: ${body}`)
+  }
+  await runtime.shutdown()
+})
+
+test('a workspace overlapping the daemon log root is refused', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  // Log root inside the workspace: a session could then reach its own anchor.
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    logRoot: path.join(workspace, 'logs'),
+  })
+  const run = await runtime.createRun(runInput(workspace))
+  await assert.rejects(() => runtime.start(run.id), /overlaps the runtime log root/u)
+  await runtime.shutdown()
+})

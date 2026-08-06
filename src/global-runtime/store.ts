@@ -20,14 +20,29 @@ export interface CreateSessionInput {
   startedAt: Date
 }
 
-export interface RuntimeStore {
-  acquireRuntimeLease(onLost: (error: unknown) => void): Promise<(() => Promise<void>) | null>
+/** Run insert record: the validated create input plus the daemon-stamped owner. */
+export interface CreateRunRecord extends CreateRuntimeRunInput {
+  machineId: string
+}
 
-  createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun>
+export interface RuntimeStore {
+  /**
+   * Acquire the per-MACHINE runtime lease. machineId is a parameter (not
+   * store state) so one store instance can serve multiple simulated machines
+   * in tests; two daemons for the same machineId must exclude each other,
+   * daemons for different machines must not.
+   */
+  acquireRuntimeLease(
+    machineId: string,
+    onLost: (error: unknown) => void,
+  ): Promise<(() => Promise<void>) | null>
+
+  createRun(input: CreateRunRecord): Promise<RuntimeRun>
   getRun(id: number): Promise<RuntimeRun | null>
   listRuns(): Promise<RuntimeRun[]>
   updateRun(id: number, patch: RuntimeRunPatch): Promise<RuntimeRun>
-  listRunsByStatuses(statuses: RuntimeRun['status'][]): Promise<RuntimeRun[]>
+  /** When machineId is given, only that machine's runs are returned. */
+  listRunsByStatuses(statuses: RuntimeRun['status'][], machineId?: string): Promise<RuntimeRun[]>
 
   createSession(input: CreateSessionInput): Promise<RuntimeSession>
   startSession(input: CreateSessionInput, runPatch: RuntimeRunPatch): Promise<RuntimeSession>

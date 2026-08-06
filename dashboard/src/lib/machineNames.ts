@@ -1,4 +1,5 @@
-import machines from '@/data/machines.json'
+// Relative import (not `@/`) so plain-node test runners can load this module.
+import machines from '../data/machines.json'
 
 /**
  * Per-machine metadata, keyed by `machineId` (first 12 hex chars of the
@@ -17,6 +18,11 @@ import machines from '@/data/machines.json'
  * - `name`     — human-readable alias shown in the UI.
  * - `hardware` — `system_profiler` lines (free-form), reference only. Join
  *                with `\n` to render as a block.
+ * - `runtimeUrl` — base URL of this machine's Global Runtime daemon on the
+ *                  tailnet (raw 100.x IP, e.g. `http://100.107.149.100:3053`).
+ *                  Present ⇒ the machine is a Mission Control target. The
+ *                  bearer token is NEVER stored here — it lives in server-side
+ *                  env only (`GLOBAL_RUNTIME_TOKEN`).
  * - `cores`, `geekbench6Multi`, `geekbench6Source`, `priceUsd`,
  *   `parallelThroughput` — optional benchmark/cost metadata consumed by the
  *   Workers Calculator page. `parallelThroughput` is a cores × single-core
@@ -25,6 +31,8 @@ import machines from '@/data/machines.json'
 export type MachineInfo = {
   name: string
   hardware: string[]
+  /** Global Runtime daemon base URL on the tailnet; absent ⇒ not a Mission Control target. */
+  runtimeUrl?: string
   cores?: number | null
   /** Default `--market-concurrency` for backtest workers on this box (see scripts/run-worker.sh). */
   cores_for_backtest?: number | null
@@ -49,4 +57,9 @@ export function machineLabel(machineId: string): string {
 /** True when a friendly name is registered for this id. */
 export function hasMachineName(machineId: string): boolean {
   return machineId in MACHINES
+}
+
+/** Machines that run a Global Runtime daemon (have `runtimeUrl`), as [id, info] pairs. */
+export function listRuntimeMachines(): Array<[string, MachineInfo]> {
+  return Object.entries(MACHINES).filter(([, info]) => Boolean(info.runtimeUrl))
 }

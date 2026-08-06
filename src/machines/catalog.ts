@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url'
 export type MachineCatalogEntry = {
   name: string
   hardware: string[]
+  /** Global Runtime daemon base URL on the tailnet; absent ⇒ not a Mission Control target. */
+  runtimeUrl?: string
   cores?: number | null
   /** Default `--market-concurrency` for backtest workers on this box (see scripts/run-worker.sh). */
   cores_for_backtest?: number | null
@@ -55,4 +57,44 @@ export function getMachineCatalogEntry(machineId: string): MachineCatalogEntry |
 /** Friendly name for a machine id, or the raw id when unknown. */
 export function machineLabel(machineId: string): string {
   return getMachineCatalogEntry(machineId)?.name ?? machineId
+}
+
+/** Machines that run a Global Runtime daemon (have `runtimeUrl`), as [id, entry] pairs. */
+export function listRuntimeMachines(): Array<[string, MachineCatalogEntry]> {
+  return Object.entries(loadMachineCatalog()).filter(([, entry]) => Boolean(entry.runtimeUrl))
+}
+
+export type ResolvedRuntimeMachine = {
+  machineId: string
+  name: string
+  runtimeUrl: string
+}
+
+/**
+ * Resolve a machine reference (friendly name or 12-hex id) to a Global
+ * Runtime target. Throws with the available options when the machine is
+ * unknown or has no `runtimeUrl`.
+ */
+export function resolveRuntimeMachine(nameOrId: string): ResolvedRuntimeMachine {
+  const catalog = loadMachineCatalog()
+  const wanted = nameOrId.trim()
+  const match = Object.entries(catalog).find(
+    ([machineId, entry]) => machineId === wanted || entry.name === wanted,
+  )
+  const available = listRuntimeMachines()
+    .map(([machineId, entry]) => `${entry.name} (${machineId})`)
+    .join(', ')
+  if (!match) {
+    throw new Error(
+      `unknown machine "${wanted}" — Global Runtime machines: ${available || '(none configured)'}`,
+    )
+  }
+  const [machineId, entry] = match
+  if (!entry.runtimeUrl) {
+    throw new Error(
+      `machine ${entry.name} (${machineId}) has no runtimeUrl in machines.json — ` +
+        `Global Runtime machines: ${available || '(none configured)'}`,
+    )
+  }
+  return { machineId, name: entry.name, runtimeUrl: entry.runtimeUrl }
 }

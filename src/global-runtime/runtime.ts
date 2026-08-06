@@ -1,13 +1,29 @@
 import { execFile } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { constants } from 'node:fs'
+import {
+  link,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  rename,
+  writeFile,
+  stat,
+  unlink,
+  type FileHandle,
+} from 'node:fs/promises'
 import path from 'node:path'
 import {
   buildRuntimeProcessToken,
   renderSessionContract,
   RUNTIME_PROCESS_TOKEN_ENV,
 } from './contracts.js'
+import { machineLabel as catalogMachineLabel } from '../machines/catalog.js'
+import { getMachineId } from '../machines/identity.js'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
 import { CliProviderAdapter, type ProviderAdapter } from './providers.js'
+import { SandboxTunnels, type SandboxTunnelController } from './sandboxTunnels.js'
 import type { RuntimeStore } from './store.js'
 import {
   appendInboxSchema,
@@ -32,6 +48,7 @@ import {
   readSessionResultFile,
   readRuntimeFiles,
   validateRunWorkspace,
+  validateSandboxSettings,
 } from './workspaceFiles.js'
 
 const ACTIVE_STATUSES: RuntimeRunStatus[] = ['running', 'pause_requested', 'rate_limited']
@@ -43,13 +60,84 @@ const RESUMABLE_STATUSES: RuntimeRunStatus[] = [
   'error',
 ]
 
+/**
+ * Fields pinned when a run is launched and re-checked before every session.
+ *
+ * Sessions re-read their run row each iteration, so without this a process
+ * with write access to `runtime_runs` — including a sandboxed session, which
+ * the daemon deliberately gives a MySQL path — could clear
+ * `sandbox_settings_path` (or repoint the workspace/auth home) and have its
+ * OWN next session launch unsandboxed with permissions bypassed. These
+ * columns are immutable by design; a divergence is tampering, not a config
+ * change, so the run fails loudly instead of honoring it.
+ */
+const PINNED_LAUNCH_FIELDS = [
+  'provider',
+  'model',
+  'accessMode',
+  'authHome',
+  'workspacePath',
+  'sandboxSettingsPath',
+] as const
+
+type LaunchSpec = Pick<RuntimeRun, (typeof PINNED_LAUNCH_FIELDS)[number]> & {
+  /**
+   * SHA-256 of the srt settings file at first launch (null when unsandboxed).
+   * Pinning only the PATH would leave the sandbox downgradable by rewriting
+   * the file it points at — `srt --settings <path>` re-reads it every session.
+   */
+  sandboxSettingsSha256?: string | null
+}
+
 interface ActiveRun {
   workspacePath: string
+  launchSpec: LaunchSpec
   abortController: AbortController
   pauseRequested: boolean
   stopRequested: boolean
   wakeDelay: (() => void) | null
   task: Promise<void>
+}
+
+function assertLaunchSpecUnchanged(run: RuntimeRun, pinned: LaunchSpec): void {
+  for (const field of PINNED_LAUNCH_FIELDS) {
+    if (run[field] !== pinned[field]) {
+      throw new Error(
+        `run ${run.id} had its immutable ${field} changed since it was first launched ` +
+          `(${String(pinned[field])} → ${String(run[field])}); refusing to launch another session`,
+      )
+    }
+  }
+}
+
+/** SHA-256 of the srt settings file, or null for an unsandboxed run. */
+async function hashSandboxSettings(settingsPath: string | null): Promise<string | null> {
+  if (!settingsPath) return null
+  return createHash('sha256')
+    .update(await readFile(settingsPath))
+    .digest('hex')
+}
+
+/** Structural check: a falsy or partial anchor must not skip the comparison. */
+function isLaunchSpec(value: unknown): value is LaunchSpec {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  return PINNED_LAUNCH_FIELDS.every((field) => {
+    const entry = candidate[field]
+    const nullable = field === 'authHome' || field === 'sandboxSettingsPath'
+    return typeof entry === 'string' || (nullable && entry === null)
+  })
+}
+
+function pinLaunchSpec(run: RuntimeRun): LaunchSpec {
+  return {
+    provider: run.provider,
+    model: run.model,
+    accessMode: run.accessMode,
+    authHome: run.authHome,
+    workspacePath: run.workspacePath,
+    sandboxSettingsPath: run.sandboxSettingsPath,
+  }
 }
 
 interface Deferred<T> {
@@ -68,6 +156,16 @@ export interface GlobalRuntimeOptions {
   verifyProcess?: (pid: number, expectedToken: string) => Promise<boolean>
   onBackgroundError?: (runId: number, error: unknown) => void
   onFatalError?: (error: unknown) => void
+  /**
+   * This daemon's machine identity (issue #213). Defaults to the hardware-
+   * derived id from src/machines/identity.ts. The daemon stamps it on every
+   * created run and recovers/controls ONLY runs it owns.
+   */
+  machineId?: string
+  /** Friendly-name resolver for error messages. Defaults to the machines.json catalog. */
+  machineLabel?: (machineId: string) => string
+  /** Localhost DB/Redis forwarders for sandboxed sessions. Injectable for tests. */
+  sandboxTunnels?: SandboxTunnelController
 }
 
 export class GlobalRuntime {
@@ -83,7 +181,11 @@ export class GlobalRuntime {
   private readonly verifyProcess: (pid: number, expectedToken: string) => Promise<boolean>
   private readonly onBackgroundError: (runId: number, error: unknown) => void
   private readonly onFatalError: ((error: unknown) => void) | null
+  private readonly machineId: string
+  private readonly machineLabel: (machineId: string) => string
+  private readonly sandboxTunnels: SandboxTunnelController
   private readonly runTransitions = new Map<number, Promise<void>>()
+  private canonicalLogRootPath: string | null = null
   private runtimeLeaseRelease: (() => Promise<void>) | null = null
   private runtimeLeasePending: Promise<void> | null = null
   private shutdownPromise: Promise<void> | null = null
@@ -108,12 +210,38 @@ export class GlobalRuntime {
       options.onBackgroundError ??
       ((runId, error) => console.error(`[global-runtime] run ${runId} task failed:`, error))
     this.onFatalError = options.onFatalError ?? null
+    this.machineId = options.machineId ?? getMachineId()
+    this.machineLabel = options.machineLabel ?? catalogMachineLabel
+    this.sandboxTunnels = options.sandboxTunnels ?? new SandboxTunnels()
+  }
+
+  /** `label (id)`, or just the id when no friendly name is registered. */
+  private describeMachine(machineId: string): string {
+    const label = this.machineLabel(machineId)
+    return label === machineId ? machineId : `${label} (${machineId})`
+  }
+
+  /**
+   * Every lifecycle/filesystem operation is machine-scoped: this daemon may
+   * only touch runs it owns (issue #213). Cross-machine requests are routing
+   * mistakes — reject loudly, never adopt.
+   */
+  private assertOwnedRun(run: RuntimeRun): void {
+    if (run.machineId !== this.machineId) {
+      throw new RuntimeConflictError(
+        `run ${run.id} belongs to ${this.describeMachine(run.machineId)} — this runtime is ${this.describeMachine(this.machineId)}`,
+      )
+    }
   }
 
   async initialize(): Promise<void> {
     await this.ensureRuntimeLease()
     if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
-    const interrupted = await this.store.listRunsByStatuses(['running', 'pause_requested'])
+    await this.adoptPreAnchorRuns()
+    const interrupted = await this.store.listRunsByStatuses(
+      ['running', 'pause_requested'],
+      this.machineId,
+    )
     for (const run of interrupted) {
       let recoveryError = 'Runtime restarted. Review the last session and resume when ready.'
       if (run.processId !== null) {
@@ -148,7 +276,7 @@ export class GlobalRuntime {
       })
     }
 
-    const incompleteStops = await this.store.listRunsByStatuses(['stopped'])
+    const incompleteStops = await this.store.listRunsByStatuses(['stopped'], this.machineId)
     for (const run of incompleteStops) {
       const sessions = await this.store.listSessions(run.id)
       const runningSession = sessions.find((session) => session.status === 'running')
@@ -182,7 +310,7 @@ export class GlobalRuntime {
       })
     }
 
-    const rateLimited = await this.store.listRunsByStatuses(['rate_limited'])
+    const rateLimited = await this.store.listRunsByStatuses(['rate_limited'], this.machineId)
     for (const run of rateLimited) {
       const delayMs = Math.max(
         0,
@@ -216,9 +344,13 @@ export class GlobalRuntime {
     const input: CreateRuntimeRunInput = {
       ...parsed.data,
       workspacePath: await canonicalWorkspace(parsed.data.workspacePath),
+      sandboxSettingsPath: await validateSandboxSettings(parsed.data.sandboxSettingsPath),
     }
-    await validateRunWorkspace(asValidationRun(input))
-    return this.store.createRun(input)
+    await validateRunWorkspace(asValidationRun(input, this.machineId))
+    // Ownership is stamped HERE, by the daemon, from its own identity —
+    // whichever machine's daemon receives the create request owns the run
+    // for life (clients route the request; they never choose the id).
+    return this.store.createRun({ ...input, machineId: this.machineId })
   }
 
   async listRuns(): Promise<RuntimeRunSummary[]> {
@@ -242,7 +374,11 @@ export class GlobalRuntime {
   }
 
   async getFiles(id: number): Promise<RuntimeFilesResponse> {
-    return readRuntimeFiles(await this.requireRun(id))
+    const run = await this.requireRun(id)
+    // Workspace files live on the owning machine's disk — a foreign daemon
+    // would read the wrong (or no) filesystem.
+    this.assertOwnedRun(run)
+    return readRuntimeFiles(run)
   }
 
   async appendInbox(id: number, value: unknown): Promise<{ id: string; appendedAt: string }> {
@@ -250,7 +386,9 @@ export class GlobalRuntime {
     if (!parsed.success) {
       throw new RuntimeValidationError(parsed.error.issues[0]?.message ?? 'invalid inbox entry')
     }
-    return appendInboxEntry(await this.requireRun(id), parsed.data.message)
+    const run = await this.requireRun(id)
+    this.assertOwnedRun(run)
+    return appendInboxEntry(run, parsed.data.message)
   }
 
   async extendMaxSessions(id: number, value: unknown): Promise<RuntimeRun> {
@@ -260,6 +398,7 @@ export class GlobalRuntime {
     }
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be extended')
       }
@@ -275,6 +414,7 @@ export class GlobalRuntime {
   async start(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       return this.launch(run, ['idle'])
     })
   }
@@ -282,6 +422,7 @@ export class GlobalRuntime {
   async resume(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       return this.launch(run, RESUMABLE_STATUSES)
     })
   }
@@ -289,6 +430,7 @@ export class GlobalRuntime {
   async pause(id: number): Promise<RuntimeRun> {
     return this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      this.assertOwnedRun(run)
       const control = this.active.get(id)
       if (!control || !ACTIVE_STATUSES.includes(run.status)) {
         throw new RuntimeConflictError('run is not active')
@@ -308,6 +450,9 @@ export class GlobalRuntime {
     let task: Promise<void> | null = null
     const stopped = await this.withRunTransition(id, async () => {
       const run = await this.requireRun(id)
+      // MUST precede the inactive-run branch below: a foreign daemon would
+      // otherwise happily write `stopped` into another machine's run row.
+      this.assertOwnedRun(run)
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be stopped')
       }
@@ -355,6 +500,11 @@ export class GlobalRuntime {
     try {
       await Promise.allSettled(controls.map((control) => control.task))
     } finally {
+      try {
+        await this.sandboxTunnels.close()
+      } catch (error) {
+        this.reportBackgroundError(0, error)
+      }
       const release = this.runtimeLeaseRelease
       this.runtimeLeaseRelease = null
       if (release) {
@@ -382,9 +532,26 @@ export class GlobalRuntime {
       throw new RuntimeConflictError('run is already active')
     }
     this.launching.add(run.id)
+    // The anchor lives on the daemon's disk, outside every workspace, so the
+    // pin survives across resumes and daemon restarts. Re-pinning from the DB
+    // row on each launch would let a tamper be laundered by parking the run
+    // (`wait`/`error`) and having an operator resume it.
+    //
+    // Guarded separately: a throw here (tamper detected, unreadable anchor)
+    // must release the launching slot, or the run is stuck reporting "already
+    // active" until the daemon restarts — which would also hide the tamper
+    // message behind a misleading one.
+    let launchSpec: LaunchSpec
+    try {
+      launchSpec = await this.loadOrCreateLaunchAnchor(run)
+    } catch (error) {
+      this.launching.delete(run.id)
+      throw error
+    }
     const launchReady = createDeferred<void>()
     const control: ActiveRun = {
       workspacePath: run.workspacePath,
+      launchSpec,
       abortController: new AbortController(),
       pauseRequested: false,
       stopRequested: false,
@@ -421,7 +588,9 @@ export class GlobalRuntime {
     }
     this.workspaceOwners.set(run.workspacePath, run.id)
     try {
-      const conflict = (await this.store.listRunsByStatuses(ACTIVE_STATUSES)).find(
+      // Same path on ANOTHER machine is a different filesystem — only this
+      // machine's active runs can genuinely collide (issue #213).
+      const conflict = (await this.store.listRunsByStatuses(ACTIVE_STATUSES, this.machineId)).find(
         (candidate) =>
           candidate.id !== run.id && workspacesOverlap(candidate.workspacePath, run.workspacePath),
       )
@@ -505,6 +674,7 @@ export class GlobalRuntime {
       if (await this.applyPendingControl(runId, control)) return
 
       const run = await this.requireRun(runId)
+      assertLaunchSpecUnchanged(run, control.launchSpec)
       if (run.currentSession >= run.maxSessions) {
         await this.withRunTransition(runId, async () => {
           if (await this.applyPendingControlUnlocked(runId, control)) return
@@ -569,6 +739,16 @@ export class GlobalRuntime {
         return
       }
 
+      // Sandboxed sessions reach DB/Redis only through the daemon's localhost
+      // forwarders (srt blocks raw TCP) — they must be listening BEFORE the
+      // provider starts, and their ephemeral ports go into the session env.
+      // A tunnel failure fails the session loudly. This runs BEFORE the
+      // heartbeat timer exists so a failure cannot orphan it (the timer is
+      // cleared only by the provider promise below).
+      const sandboxTunnelPorts = run.sandboxSettingsPath
+        ? await this.sandboxTunnels.ensureStarted()
+        : null
+
       let lastActivityWrite = 0
       let heartbeatWrite: Promise<void> | null = null
       const updateHeartbeat = async () => {
@@ -595,6 +775,7 @@ export class GlobalRuntime {
             sessionNumber,
             prompt,
             logDirectory: path.dirname(rawLogPath),
+            sandboxTunnelPorts,
           },
           control.abortController.signal,
           {
@@ -806,6 +987,205 @@ export class GlobalRuntime {
     })
   }
 
+  /**
+   * Read (or, on first launch, write) the run's launch anchor — the immutable
+   * fields as they were when the run first started, stored under the daemon's
+   * log root with private permissions.
+   *
+   * The anchor is deliberately NOT in the database: the daemon hands
+   * sandboxed sessions a MySQL path, so a DB row is reachable by the very
+   * thing this guards against, and a re-pin from the row on each launch would
+   * let a session downgrade itself and simply wait to be resumed. The log
+   * root is outside every workspace, so no session can write here.
+   */
+  /**
+   * One-time adoption for runs that predate launch anchors (issue #213).
+   *
+   * Without this, upgrading would brick every run that had already started:
+   * it has no anchor, and a missing anchor for a started run is (correctly)
+   * treated as loss or tampering. The anchors directory's existence is the
+   * "this daemon has been initialized" marker — it is created here, once,
+   * with anchors for every run this machine owns. Afterwards a missing
+   * anchor is a real anomaly.
+   *
+   * This is also why the docs tell operators never to delete `anchors/`:
+   * doing so would let the next startup re-adopt whatever the rows say.
+   */
+  private async adoptPreAnchorRuns(): Promise<void> {
+    const anchorsDir = path.join(this.logRoot, 'anchors')
+    // The SENTINEL, not the directory, marks adoption as complete: a crash or
+    // ENOSPC partway through the loop would otherwise leave the directory in
+    // place with some runs unanchored — and those runs permanently
+    // unresumable — while the daemon booted looking healthy. Without the
+    // sentinel the next start simply retries.
+    const sentinel = path.join(anchorsDir, '.adopted')
+    try {
+      await stat(sentinel)
+      return
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    const runs = (await this.store.listRuns()).filter((run) => run.machineId === this.machineId)
+    await mkdir(anchorsDir, { recursive: true, mode: 0o700 })
+    let adopted = 0
+    for (const run of runs) {
+      try {
+        await this.writeLaunchAnchor(run.id, pinLaunchSpec(run))
+        adopted += 1
+      } catch (error) {
+        // An existing anchor (EEXIST) is fine — a previous partial adoption
+        // already pinned this run. Anything else means adoption is incomplete,
+        // so leave the sentinel unwritten and let the next start finish it.
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+          this.reportBackgroundError(run.id, error)
+          return
+        }
+      }
+    }
+    await writeFile(sentinel, `${new Date(0).toISOString()}\n`, { encoding: 'utf8', mode: 0o600 })
+    if (adopted > 0) {
+      console.log(
+        `[global-runtime] pinned launch anchors for ${adopted} pre-existing run(s) in ${anchorsDir}`,
+      )
+    }
+  }
+
+  private async writeLaunchAnchor(
+    runId: number,
+    spec: LaunchSpec,
+    options: { replace?: boolean } = {},
+  ): Promise<void> {
+    const anchorPath = path.join(this.logRoot, 'anchors', `run-${runId}.json`)
+    // Write-then-rename: a crash mid-write would otherwise leave a zero-byte
+    // anchor that blocks the run until an operator removes it by hand.
+    const temporaryPath = `${anchorPath}.${process.pid}.tmp`
+    const handle = await open(
+      temporaryPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    )
+    try {
+      await handle.writeFile(JSON.stringify(spec, null, 2), 'utf8')
+    } finally {
+      await handle.close()
+    }
+    try {
+      if (options.replace) await rename(temporaryPath, anchorPath)
+      // link() rather than rename(): it fails when the anchor already exists,
+      // so a concurrent writer can never be clobbered.
+      else await link(temporaryPath, anchorPath)
+    } finally {
+      await unlink(temporaryPath).catch(() => undefined)
+    }
+  }
+
+  /**
+   * `logRoot` resolved through symlinks so overlap comparisons line up with
+   * the canonical workspace paths (`/var` vs `/private/var` on macOS). The
+   * directory may not exist yet, so resolve the deepest ancestor that does
+   * and re-append the rest.
+   */
+  private async canonicalLogRoot(): Promise<string> {
+    if (this.canonicalLogRootPath) return this.canonicalLogRootPath
+    let existing = this.logRoot
+    const trailing: string[] = []
+    for (;;) {
+      try {
+        const resolved = await realpath(existing)
+        this.canonicalLogRootPath = path.join(resolved, ...trailing.reverse())
+        return this.canonicalLogRootPath
+      } catch {
+        const parent = path.dirname(existing)
+        if (parent === existing) {
+          this.canonicalLogRootPath = this.logRoot
+          return this.canonicalLogRootPath
+        }
+        trailing.push(path.basename(existing))
+        existing = parent
+      }
+    }
+  }
+
+  private async loadOrCreateLaunchAnchor(run: RuntimeRun): Promise<LaunchSpec> {
+    // The anchor lives under `<logRoot>/anchors/`, deliberately NOT beside the
+    // per-session logs: those are documented as prunable, and an
+    // `rm -rf logs/global-runtime/run-*` would otherwise disarm every pin.
+    //
+    // It only means anything if the session cannot reach it. A log root inside
+    // (or containing) the workspace — a mission whose workspace IS this repo,
+    // or GLOBAL_RUNTIME_LOG_DIR pointed at one — would hand the session both
+    // the anchor and the DB row.
+    if (workspacesOverlap(await this.canonicalLogRoot(), run.workspacePath)) {
+      throw new RuntimeValidationError(
+        `run ${run.id} workspace ${run.workspacePath} overlaps the runtime log root ${this.logRoot}; ` +
+          'sessions must not be able to write the daemon log root (set GLOBAL_RUNTIME_LOG_DIR elsewhere)',
+      )
+    }
+    const anchorPath = path.join(this.logRoot, 'anchors', `run-${run.id}.json`)
+    const current = pinLaunchSpec(run)
+    const unreadable = (detail: string) =>
+      new Error(
+        `run ${run.id} launch anchor at ${anchorPath} is unreadable (${detail}). It records the ` +
+          'immutable launch settings; delete it only if you are certain the run configuration is ' +
+          'legitimate, then start the run again.',
+      )
+
+    let recorded: LaunchSpec | null = null
+    let handle: FileHandle | null = null
+    try {
+      // O_NOFOLLOW: a planted symlink here must not redirect the read (or the
+      // create below) somewhere else.
+      handle = await open(anchorPath, constants.O_RDONLY | constants.O_NOFOLLOW)
+      const parsed: unknown = JSON.parse(await handle.readFile('utf8'))
+      if (!isLaunchSpec(parsed)) throw unreadable('not a launch spec')
+      recorded = parsed
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT') {
+        throw error instanceof Error && error.message.includes('launch anchor')
+          ? error
+          : unreadable(error instanceof Error ? error.message : String(error))
+      }
+    } finally {
+      await handle?.close().catch(() => undefined)
+    }
+
+    if (recorded) {
+      assertLaunchSpecUnchanged(run, recorded)
+      // Re-validate rather than trusting the path still resolves the way it
+      // did: the settings file could have been deleted or replaced since.
+      await validateSandboxSettings(recorded.sandboxSettingsPath)
+      // Anchors written before content pinning have no hash; adopt one so the
+      // check applies from here on rather than failing an existing run.
+      if (recorded.sandboxSettingsSha256 === undefined) {
+        recorded.sandboxSettingsSha256 = await hashSandboxSettings(recorded.sandboxSettingsPath)
+        await this.writeLaunchAnchor(run.id, recorded, { replace: true })
+      } else {
+        const current = await hashSandboxSettings(recorded.sandboxSettingsPath)
+        if (current !== recorded.sandboxSettingsSha256) {
+          throw new Error(
+            `run ${run.id} sandbox settings file ${String(recorded.sandboxSettingsPath)} changed ` +
+              'since the run was first launched; refusing to launch another session with a ' +
+              'different sandbox policy',
+          )
+        }
+      }
+      return recorded
+    }
+
+    // No anchor. For a run that has never started this is the first launch;
+    // for one that already has sessions the anchor was lost or removed, and
+    // re-pinning from the current row is exactly the laundering this guards
+    // against.
+    if (run.startedAt !== null || run.currentSession > 0) {
+      throw unreadable('missing for a run that has already started')
+    }
+    current.sandboxSettingsSha256 = await hashSandboxSettings(current.sandboxSettingsPath)
+    await mkdir(path.dirname(anchorPath), { recursive: true, mode: 0o700 })
+    await this.writeLaunchAnchor(run.id, current)
+    return current
+  }
+
   private async requireRun(id: number): Promise<RuntimeRun> {
     const run = await this.store.getRun(id)
     if (!run) throw new RuntimeNotFoundError(`runtime run ${id} was not found`)
@@ -816,7 +1196,7 @@ export class GlobalRuntime {
     if (this.runtimeLeaseRelease) return
     if (!this.runtimeLeasePending) {
       this.runtimeLeasePending = (async () => {
-        const release = await this.store.acquireRuntimeLease((error) => {
+        const release = await this.store.acquireRuntimeLease(this.machineId, (error) => {
           const leaseError = new Error('Global Runtime database lease was lost', { cause: error })
           this.reportBackgroundError(0, leaseError)
           try {
@@ -835,7 +1215,9 @@ export class GlobalRuntime {
           })
         })
         if (!release) {
-          throw new RuntimeConflictError('another Global Runtime instance already owns this store')
+          throw new RuntimeConflictError(
+            `another Global Runtime instance already holds the lease for ${this.describeMachine(this.machineId)}`,
+          )
         }
         this.runtimeLeaseRelease = release
       })().finally(() => {
@@ -922,11 +1304,12 @@ function sumTokens(sessions: RuntimeSession[], key: keyof TokenUsage): number | 
   return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0)
 }
 
-function asValidationRun(input: CreateRuntimeRunInput): RuntimeRun {
+function asValidationRun(input: CreateRuntimeRunInput, machineId: string): RuntimeRun {
   const now = new Date(0)
   return {
     ...input,
     id: 0,
+    machineId,
     status: 'idle',
     currentSession: 0,
     processId: null,

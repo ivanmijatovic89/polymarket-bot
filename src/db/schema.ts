@@ -519,6 +519,11 @@ export const runtimeRuns = mysqlTable(
   {
     id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
     name: varchar('name', { length: 255 }).notNull(),
+    // Owning machine (12-hex id from src/machines/identity.ts). Stamped by
+    // the daemon at createRun and immutable for the run's lifetime — a
+    // daemon recovers/controls ONLY runs whose machine_id matches its own
+    // (issue #213).
+    machineId: varchar('machine_id', { length: 32 }).notNull(),
     provider: mysqlEnum('provider', ['claude', 'codex']).notNull(),
     model: varchar('model', { length: 255 }).notNull(),
     effort: mysqlEnum('effort', [
@@ -534,6 +539,10 @@ export const runtimeRuns = mysqlTable(
       .notNull()
       .default('workspace-write'),
     authHome: varchar('auth_home', { length: 1024 }),
+    // Absolute path (on the OWNING machine) to an srt sandbox settings file.
+    // Non-null ⇒ provider sessions launch wrapped in `srt --settings <path>`
+    // with DB/Redis routed through the daemon's localhost tunnels. Immutable.
+    sandboxSettingsPath: varchar('sandbox_settings_path', { length: 1024 }),
     workspacePath: varchar('workspace_path', { length: 1024 }).notNull(),
     missionPath: varchar('mission_path', { length: 1024 }).notNull(),
     maxSessions: int('max_sessions').notNull(),
@@ -570,6 +579,7 @@ export const runtimeRuns = mysqlTable(
   (t) => ({
     statusIdx: index('idx_runtime_runs_status').on(t.status),
     updatedAtIdx: index('idx_runtime_runs_updated_at').on(t.updatedAt),
+    machineStatusIdx: index('idx_runtime_runs_machine_status').on(t.machineId, t.status),
   }),
 )
 

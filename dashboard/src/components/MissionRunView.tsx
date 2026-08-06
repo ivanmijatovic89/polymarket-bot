@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square, Target } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useMachineHealth } from '@/components/MachineHealthStrip'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { runtimeFetch } from '@/lib/runtimeClient'
+import { machineLabel } from '@/lib/machineNames'
+import { fetchRuntimeRunDetail, runFetch } from '@/lib/runtimeClient'
 import {
   formatAccount,
   formatCompact,
@@ -69,16 +71,19 @@ export function MissionRunView({ runId }: { runId: string }) {
   const [extendTarget, setExtendTarget] = useState<string | null>(null)
   const [promptSession, setPromptSession] = useState<number | null>(null)
   const [renderMarkdown, setRenderMarkdown] = useState(true)
+  // History comes from the DB (browsable while the owning machine is
+  // offline); live files and commands go to the owning daemon via runFetch.
   const detailQuery = useQuery({
     queryKey: ['runtime-run', runId],
-    queryFn: () => runtimeFetch<RuntimeRunDetail>(`/runs/${runId}`),
+    queryFn: () => fetchRuntimeRunDetail<RuntimeRunDetail>(runId),
     refetchInterval: 3000,
   })
   const filesQuery = useQuery({
     queryKey: ['runtime-files', runId],
-    queryFn: () => runtimeFetch<FilesResponse>(`/runs/${runId}/files`),
+    queryFn: () => runFetch<FilesResponse>(runId, '/files'),
     refetchInterval: 5000,
   })
+  const machineHealthQuery = useMachineHealth()
   const files = filesQuery.data?.files ?? []
   const visibleFile = files.find((file) => file.path === selectedFile) ?? files[0]
 
@@ -90,7 +95,7 @@ export function MissionRunView({ runId }: { runId: string }) {
     setBusy(true)
     setError(null)
     try {
-      await runtimeFetch(`/runs/${runId}/${name}`, { method: 'POST' })
+      await runFetch(runId, `/${name}`, { method: 'POST' })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runtime-run', runId] }),
         queryClient.invalidateQueries({ queryKey: ['runtime-runs'] }),
@@ -107,7 +112,7 @@ export function MissionRunView({ runId }: { runId: string }) {
     setBusy(true)
     setError(null)
     try {
-      await runtimeFetch(`/runs/${runId}/extend`, {
+      await runFetch(runId, '/extend', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ maxSessions }),
@@ -129,7 +134,7 @@ export function MissionRunView({ runId }: { runId: string }) {
     setBusy(true)
     setError(null)
     try {
-      await runtimeFetch(`/runs/${runId}/inbox`, {
+      await runFetch(runId, '/inbox', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message }),
@@ -154,6 +159,10 @@ export function MissionRunView({ runId }: { runId: string }) {
     )
   }
   const { run, sessions, totals } = detail
+  const machineOffline =
+    machineHealthQuery.data?.machines.some(
+      (machine) => machine.machineId === run.machineId && !machine.online,
+    ) ?? false
   const active = ['running', 'pause_requested', 'rate_limited'].includes(run.status)
   const resumable = ['paused', 'waiting', 'stopped', 'error'].includes(run.status)
   // Stopping an already-stopped or errored loop would only rewrite its
@@ -179,7 +188,8 @@ export function MissionRunView({ runId }: { runId: string }) {
               {run.accessMode === 'full-access' && <Badge variant="warning">full access</Badge>}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              #{run.id} · {run.provider === 'claude' ? 'Claude Code' : 'Codex'} ·{' '}
+              #{run.id} · <span title={run.machineId}>{machineLabel(run.machineId)}</span> ·{' '}
+              {run.provider === 'claude' ? 'Claude Code' : 'Codex'} ·{' '}
               <span className="font-mono">{resolvedModel ?? run.model}</span> · {run.effort} effort ·{' '}
               {formatAccount(run)}
             </p>
@@ -258,6 +268,14 @@ export function MissionRunView({ runId }: { runId: string }) {
         </div>
       </div>
 
+      {machineOffline && (
+        <div className="rounded-lg border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-3 py-2.5 text-sm text-[color:var(--warning)]">
+          {machineLabel(run.machineId)} is offline. History below comes from the database; live
+          workspace files, steering, and commands are unavailable until its Global Runtime daemon
+          is back.
+        </div>
+      )}
+
       {(error || run.lastError) && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           {error || run.lastError}
@@ -316,6 +334,10 @@ export function MissionRunView({ runId }: { runId: string }) {
           </Spec>
 
           <Spec title="Workspace">
+            <SpecRow label="Machine" value={`${machineLabel(run.machineId)} (${run.machineId})`} />
+            {run.sandboxSettingsPath && (
+              <SpecRow label="Sandbox" value={run.sandboxSettingsPath} mono />
+            )}
             <SpecRow label="Path" value={run.workspacePath} mono />
             <SpecRow label="Mission" value={run.missionPath} mono />
             <SpecRow label="Status" value={run.statusFile} mono />
@@ -462,12 +484,12 @@ export function MissionRunView({ runId }: { runId: string }) {
             />
             <button
               type="button"
-              disabled={busy || !message.trim()}
+              disabled={busy || !message.trim() || machineOffline}
               onClick={() => void sendMessage()}
               className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
-              Send to inbox
+              {machineOffline ? 'Machine offline' : 'Send to inbox'}
             </button>
             <p className="mt-3 text-xs text-muted-foreground">
               The runtime appends this message. The current or next fresh session reads it and

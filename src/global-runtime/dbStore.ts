@@ -1,9 +1,8 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { acquireDbAdvisoryLock, getDb, runtimeRuns, runtimeSessions } from '../db/index.js'
 import { RuntimeNotFoundError } from './errors.js'
-import type { CreateSessionInput, RuntimeStore } from './store.js'
+import type { CreateRunRecord, CreateSessionInput, RuntimeStore } from './store.js'
 import type {
-  CreateRuntimeRunInput,
   RuntimeRun,
   RuntimeRunPatch,
   RuntimeSession,
@@ -12,11 +11,20 @@ import type {
 } from './types.js'
 
 export class DrizzleRuntimeStore implements RuntimeStore {
-  acquireRuntimeLease(onLost: (error: unknown) => void): Promise<(() => Promise<void>) | null> {
-    return acquireDbAdvisoryLock('polymarket-bot:global-runtime', onLost)
+  constructor(private readonly options: { leaseWaitSeconds?: number } = {}) {}
+
+  acquireRuntimeLease(
+    machineId: string,
+    onLost: (error: unknown) => void,
+  ): Promise<(() => Promise<void>) | null> {
+    // One lease per MACHINE: excludes a second daemon on the same box
+    // without blocking daemons on other machines (issue #213).
+    return acquireDbAdvisoryLock(`polymarket-bot:global-runtime:${machineId}`, onLost, {
+      waitSeconds: this.options.leaseWaitSeconds ?? 0,
+    })
   }
 
-  async createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun> {
+  async createRun(input: CreateRunRecord): Promise<RuntimeRun> {
     const db = getDb()
     const ids = await db.insert(runtimeRuns).values(input).$returningId()
     const id = ids[0]?.id
@@ -42,12 +50,20 @@ export class DrizzleRuntimeStore implements RuntimeStore {
     return this.requireRun(id)
   }
 
-  async listRunsByStatuses(statuses: RuntimeRun['status'][]): Promise<RuntimeRun[]> {
+  async listRunsByStatuses(
+    statuses: RuntimeRun['status'][],
+    machineId?: string,
+  ): Promise<RuntimeRun[]> {
     if (statuses.length === 0) return []
     const rows = await getDb()
       .select()
       .from(runtimeRuns)
-      .where(inArray(runtimeRuns.status, statuses))
+      .where(
+        and(
+          inArray(runtimeRuns.status, statuses),
+          ...(machineId !== undefined ? [eq(runtimeRuns.machineId, machineId)] : []),
+        ),
+      )
     return rows.map(mapRun)
   }
 

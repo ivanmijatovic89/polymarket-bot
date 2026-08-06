@@ -8,12 +8,14 @@ function exampleRun(overrides: Partial<RuntimeRun> = {}): RuntimeRun {
   const now = new Date(0)
   return {
     id: 1,
+    machineId: 'contract-machine',
     name: 'Contract test loop',
     provider: 'codex',
     model: 'test-model',
     effort: 'high',
     accessMode: 'workspace-write',
     authHome: null,
+    sandboxSettingsPath: null,
     workspacePath: '/tmp/workspace',
     missionPath: 'MISSION.md',
     maxSessions: 5,
