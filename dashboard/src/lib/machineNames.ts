@@ -1,4 +1,5 @@
-import machines from '@/data/machines.json'
+// Relative import (not `@/`) so plain-node test runners can load this module.
+import machines from '../data/machines.json'
 
 /**
  * Per-machine metadata, keyed by `machineId` (first 12 hex chars of the

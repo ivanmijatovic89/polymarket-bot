@@ -1,4 +1,5 @@
-import { listRuntimeMachines, type MachineInfo } from '@/lib/machineNames'
+// Relative import (not `@/`) so plain-node test runners can load this module.
+import { listRuntimeMachines, type MachineInfo } from '../machineNames'
 
 /**
  * Server-side view of Global Runtime machines (issue #213). `runtimeUrl`

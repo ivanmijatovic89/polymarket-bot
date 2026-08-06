@@ -1,4 +1,5 @@
-import { listRuntimeRunSummaries } from '@/lib/queries/runtimeRuns'
+// Relative imports (not `@/`) so plain-node test runners can load this module.
+import { listRuntimeRunSummaries } from '../queries/runtimeRuns'
 import { createTtlCache } from './ttlCache'
 import { getRuntimeMachines, runtimeAuthHeaders, type RuntimeMachine } from './runtimeMachines'
 

@@ -1207,3 +1207,258 @@ async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 2000): Pro
   }
   throw new Error('timed out waiting for condition')
 }
+
+// ---------------------------------------------------------------------------
+// Multi-machine ownership (issue #213)
+// ---------------------------------------------------------------------------
+
+class FakeTunnels {
+  ensureStartedCalls = 0
+  closeCalls = 0
+  failNextStart = false
+
+  async ensureStarted(): Promise<void> {
+    this.ensureStartedCalls += 1
+    if (this.failNextStart) throw new Error('simulated tunnel bind failure')
+  }
+
+  async close(): Promise<void> {
+    this.closeCalls += 1
+  }
+}
+
+test('createRun stamps the daemon machine id; clients cannot supply one', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun(runInput(workspace))
+  assert.equal(run.machineId, TEST_MACHINE_ID)
+  await assert.rejects(
+    () => runtime.createRun({ ...runInput(workspace), machineId: 'attacker' }),
+    RuntimeValidationError,
+  )
+  await runtime.shutdown()
+})
+
+test('two machines hold independent leases on the same store', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtimeA = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'a', 1)]),
+  )
+  const runtimeB = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'b', 1)]),
+    {
+      machineId: 'machine-b',
+    },
+  )
+  const nestedWorkspace = await createWorkspace()
+
+  const runA = await runtimeA.createRun(runInput(workspace, 'machine A run'))
+  const runB = await runtimeB.createRun(runInput(nestedWorkspace, 'machine B run'))
+
+  // Both daemons acquire their machine's lease and run concurrently.
+  await runtimeA.start(runA.id)
+  await runtimeB.start(runB.id)
+  await waitFor(async () => (await store.getRun(runA.id))?.status === 'completed')
+  await waitFor(async () => (await store.getRun(runB.id))?.status === 'completed')
+
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('the same workspace path on two machines does not conflict', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const providerA = new BlockingProvider()
+  const runtimeA = createRuntime(store, providerA)
+  const runtimeB = createRuntime(
+    store,
+    new ScriptedProvider([successfulResult('complete', 'b', 1)]),
+    {
+      machineId: 'machine-b',
+    },
+  )
+
+  const runA = await runtimeA.createRun(runInput(workspace, 'machine A run'))
+  const runB = await runtimeB.createRun(runInput(workspace, 'machine B run'))
+
+  await runtimeA.start(runA.id)
+  await waitFor(async () => providerA.started)
+  // Same canonical path, different machine — different filesystem, no conflict.
+  await runtimeB.start(runB.id)
+  await waitFor(async () => (await store.getRun(runB.id))?.status === 'completed')
+
+  await runtimeA.stop(runA.id)
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('control, steering, and file endpoints reject runs owned by another machine', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtimeA = createRuntime(store, new BlockingProvider())
+  const runtimeB = createRuntime(store, new BlockingProvider(), {
+    machineId: 'machine-b',
+    machineLabel: (id) => (id === TEST_MACHINE_ID ? 'alpha' : id),
+  })
+  const run = await runtimeA.createRun(runInput(workspace))
+
+  const foreign = /belongs to alpha \(test-machine\)/u
+  await assert.rejects(() => runtimeB.start(run.id), foreign)
+  await assert.rejects(() => runtimeB.pause(run.id), foreign)
+  await assert.rejects(() => runtimeB.resume(run.id), foreign)
+  await assert.rejects(() => runtimeB.stop(run.id), foreign)
+  await assert.rejects(() => runtimeB.extendMaxSessions(run.id, { maxSessions: 99 }), foreign)
+  await assert.rejects(() => runtimeB.appendInbox(run.id, { message: 'hi' }), foreign)
+  await assert.rejects(() => runtimeB.getFiles(run.id), foreign)
+
+  // The foreign stop above must not have rewritten the run's end state.
+  const persisted = await store.getRun(run.id)
+  assert.equal(persisted?.status, 'idle')
+  assert.equal(persisted?.maxSessions, run.maxSessions)
+
+  await runtimeA.shutdown()
+  await runtimeB.shutdown()
+})
+
+test('recovery passes ignore runs owned by other machines', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+
+  const foreign = (name: string) => ({
+    ...runInput(workspace, name),
+    machineId: 'machine-elsewhere',
+    sandboxSettingsPath: null,
+  })
+  // Pass 1 target: an interrupted active run with a recorded process.
+  const interrupted = await store.createRun(foreign('foreign interrupted'))
+  await store.updateRun(interrupted.id, { status: 'running', currentSession: 1, processId: 4242 })
+  // Pass 2 target: a stop that never finished (stopped but with a PID).
+  const incompleteStop = await store.createRun(foreign('foreign incomplete stop'))
+  await store.updateRun(incompleteStop.id, { status: 'stopped', processId: 4243 })
+  // Pass 3 target: a rate-limited run whose retry timer died with the daemon.
+  const rateLimited = await store.createRun(foreign('foreign rate limited'))
+  await store.updateRun(rateLimited.id, {
+    status: 'rate_limited',
+    nextStartAt: new Date(Date.now() - 60_000),
+  })
+
+  const terminated: number[] = []
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    terminateProcess: async (pid) => {
+      terminated.push(pid)
+    },
+    verifyProcess: async () => true,
+  })
+  await runtime.initialize()
+
+  assert.deepEqual(terminated, [])
+  assert.equal((await store.getRun(interrupted.id))?.status, 'running')
+  assert.equal((await store.getRun(interrupted.id))?.processId, 4242)
+  assert.equal((await store.getRun(incompleteStop.id))?.processId, 4243)
+  assert.equal((await store.getRun(rateLimited.id))?.status, 'rate_limited')
+
+  await runtime.shutdown()
+})
+
+test('createRun validates the sandbox settings path and stores its real path', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+
+  const sandboxed = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  assert.ok(sandboxed.sandboxSettingsPath?.endsWith('srt-settings.json'))
+
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'missing settings'),
+        sandboxSettingsPath: path.join(workspace, 'nope.json'),
+      }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'relative settings'),
+        sandboxSettingsPath: 'relative/path.json',
+      }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace, 'directory settings'),
+        sandboxSettingsPath: workspace,
+      }),
+    RuntimeValidationError,
+  )
+  await runtime.shutdown()
+})
+
+test('sandboxed runs start the tunnels before executing; unsandboxed runs never do', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  const runtime = createRuntime(
+    store,
+    new ScriptedProvider([
+      successfulResult('complete', 'plain done', 1),
+      successfulResult('complete', 'sandboxed done', 1),
+    ]),
+    { sandboxTunnels: tunnels },
+  )
+
+  const plain = await runtime.createRun(runInput(workspace, 'plain'))
+  await runtime.start(plain.id)
+  await waitFor(async () => (await store.getRun(plain.id))?.status === 'completed')
+  assert.equal(tunnels.ensureStartedCalls, 0)
+
+  const nested = await createWorkspace()
+  await writeFile(path.join(nested, 'srt-settings.json'), '{}\n', 'utf8')
+  const sandboxed = await runtime.createRun({
+    ...runInput(nested, 'sandboxed'),
+    sandboxSettingsPath: path.join(nested, 'srt-settings.json'),
+  })
+  await runtime.start(sandboxed.id)
+  await waitFor(async () => (await store.getRun(sandboxed.id))?.status === 'completed')
+  assert.ok(tunnels.ensureStartedCalls >= 1)
+
+  await runtime.shutdown()
+  assert.ok(tunnels.closeCalls >= 1)
+})
+
+test('a tunnel start failure fails the sandboxed session instead of running unsandboxed', async () => {
+  const workspace = await createWorkspace()
+  const settingsPath = path.join(workspace, 'srt-settings.json')
+  await writeFile(settingsPath, '{}\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const tunnels = new FakeTunnels()
+  tunnels.failNextStart = true
+  const provider = new ScriptedProvider([successfulResult('complete', 'must not run', 1)])
+  const runtime = createRuntime(store, provider, {
+    sandboxTunnels: tunnels,
+    onBackgroundError: () => undefined,
+  })
+
+  const run = await runtime.createRun({
+    ...runInput(workspace, 'sandboxed'),
+    sandboxSettingsPath: settingsPath,
+  })
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+  assert.deepEqual(provider.sessionNumbers, [])
+  assert.match((await store.getRun(run.id))?.lastError ?? '', /tunnel bind failure/u)
+
+  await runtime.shutdown()
+})

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { buildRuntimeApi } from './api.js'
+import { assertSafeBind, buildRuntimeApi } from './api.js'
 import { MemoryRuntimeStore } from './memoryStore.js'
 import { GlobalRuntime } from './runtime.js'
 
@@ -181,6 +181,121 @@ test('local API rejects control requests until runtime initialization completes'
   } finally {
     await app.close()
     await runtime.shutdown()
+  }
+})
+
+test('bearer auth guards every route except /health when a token is configured', async () => {
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  const app = buildRuntimeApi(runtime, { token: 'fleet-secret' })
+  try {
+    const missing = await app.inject({ method: 'GET', url: '/runs' })
+    assert.equal(missing.statusCode, 401)
+
+    const wrong = await app.inject({
+      method: 'GET',
+      url: '/runs',
+      headers: { authorization: 'Bearer wrong' },
+    })
+    assert.equal(wrong.statusCode, 401)
+
+    const malformedScheme = await app.inject({
+      method: 'GET',
+      url: '/runs',
+      headers: { authorization: 'fleet-secret' },
+    })
+    assert.equal(malformedScheme.statusCode, 401)
+
+    const health = await app.inject({ method: 'GET', url: '/health' })
+    assert.equal(health.statusCode, 200)
+
+    const authorized = await app.inject({
+      method: 'GET',
+      url: '/runs',
+      headers: { authorization: 'Bearer fleet-secret' },
+    })
+    assert.equal(authorized.statusCode, 200)
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+  }
+})
+
+test('auth is checked before readiness so an initializing daemon still 401s strangers', async () => {
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  const app = buildRuntimeApi(runtime, { token: 'fleet-secret', isReady: () => false })
+  try {
+    const unauthenticated = await app.inject({ method: 'GET', url: '/runs' })
+    assert.equal(unauthenticated.statusCode, 401)
+    const authenticated = await app.inject({
+      method: 'GET',
+      url: '/runs',
+      headers: { authorization: 'Bearer fleet-secret' },
+    })
+    assert.equal(authenticated.statusCode, 503)
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+  }
+})
+
+test('without a configured token the API stays open (loopback-only deployments)', async () => {
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  const app = buildRuntimeApi(runtime)
+  try {
+    const open = await app.inject({ method: 'GET', url: '/runs' })
+    assert.equal(open.statusCode, 200)
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+  }
+})
+
+test('assertSafeBind refuses a non-loopback bind without a token', () => {
+  assertSafeBind('127.0.0.1', undefined)
+  assertSafeBind('localhost', undefined)
+  assertSafeBind('::1', undefined)
+  assertSafeBind('127.0.0.53', undefined)
+  assertSafeBind('100.107.149.100', 'token')
+  assert.throws(() => assertSafeBind('100.107.149.100', undefined), /GLOBAL_RUNTIME_TOKEN/u)
+  assert.throws(() => assertSafeBind('0.0.0.0', undefined), /GLOBAL_RUNTIME_TOKEN/u)
+})
+
+test('clients cannot choose a run machineId — ownership is stamped by the daemon', async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), 'runtime-api-machine-test-'))
+  await writeFile(path.join(workspace, 'MISSION.md'), '# Machine test\n', 'utf8')
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore(), { machineId: 'daemon-machine' })
+  const app = buildRuntimeApi(runtime)
+  const payload = {
+    name: 'Machine loop',
+    provider: 'codex',
+    model: 'test-model',
+    effort: 'high',
+    accessMode: 'workspace-write',
+    authHome: null,
+    workspacePath: workspace,
+    missionPath: 'MISSION.md',
+    maxSessions: 3,
+    delaySeconds: 0,
+    statusFile: 'STATUS.md',
+    journalFile: 'JOURNAL.md',
+    inboxFile: 'INBOX.md',
+    readOnlyFiles: [],
+  }
+  try {
+    const spoofed = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { ...payload, machineId: 'attacker-machine' },
+    })
+    assert.equal(spoofed.statusCode, 400)
+
+    const created = await app.inject({ method: 'POST', url: '/runs', payload })
+    assert.equal(created.statusCode, 201)
+    assert.equal(created.json<{ run: { machineId: string } }>().run.machineId, 'daemon-machine')
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+    await rm(workspace, { recursive: true })
   }
 })
 

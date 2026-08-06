@@ -65,7 +65,11 @@ export class SandboxTunnels implements SandboxTunnelController {
   private readonly sockets = new Set<net.Socket>()
   private startPromise: Promise<void> | null = null
 
-  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
+  constructor(
+    private readonly env: NodeJS.ProcessEnv = process.env,
+    /** Test hook: explicit specs instead of env-derived fixed ports. */
+    private readonly specsOverride?: TunnelSpec[],
+  ) {}
 
   ensureStarted(): Promise<void> {
     if (!this.startPromise) {
@@ -79,7 +83,7 @@ export class SandboxTunnels implements SandboxTunnelController {
   }
 
   private async start(): Promise<void> {
-    const specs = deriveTunnelSpecs(this.env)
+    const specs = this.specsOverride ?? deriveTunnelSpecs(this.env)
     if (!specs) {
       throw new Error(
         'sandboxed runs need DATABASE_HOST and a parseable REDIS_URL in the daemon environment (tunnel targets)',
