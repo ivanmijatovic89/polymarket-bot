@@ -272,4 +272,10 @@ export interface RuntimeFileView {
 
 export interface RuntimeFilesResponse {
   files: RuntimeFileView[]
+  /**
+   * Contents of the workspace's OWNER file (protocol durability,
+   * polymarket-bot#227): the fleet machine that owns this protocol folder.
+   * Null when the workspace is not a protocol folder.
+   */
+  protocolOwner: string | null
 }
