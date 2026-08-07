@@ -1,6 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { constants as fsConstants, type BigIntStats } from 'node:fs'
-import { lstat, mkdir, open, realpath, stat, unlink, type FileHandle } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  stat,
+  unlink,
+  type FileHandle,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { SESSION_RESULT_FILE } from './contracts.js'
 import { RuntimeValidationError } from './errors.js'
@@ -243,7 +252,23 @@ export async function readRuntimeFiles(run: RuntimeRun): Promise<RuntimeFilesRes
     readWorkspaceFile(run, 'mission', run.missionPath),
     ...run.readOnlyFiles.map((file) => readWorkspaceFile(run, 'read_only', file)),
   ])
-  return { files }
+  return { files, protocolOwner: await readProtocolOwner(run.workspacePath) }
+}
+
+/**
+ * The OWNER file marks a protocol workspace's owning fleet machine
+ * (protocol durability, polymarket-bot#227). Absent file — or any read
+ * error — simply means "not a protocol workspace": the field is display
+ * metadata, never a gate, so this must not fail the files endpoint.
+ */
+async function readProtocolOwner(workspacePath: string): Promise<string | null> {
+  try {
+    const raw = await readFile(path.join(workspacePath, 'OWNER'), 'utf8')
+    const owner = raw.split('\n', 1)[0]?.trim() ?? ''
+    return owner.length > 0 && owner.length <= 64 ? owner : null
+  } catch {
+    return null
+  }
 }
 
 export async function appendInboxEntry(

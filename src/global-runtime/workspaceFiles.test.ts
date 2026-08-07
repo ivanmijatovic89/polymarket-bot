@@ -75,6 +75,23 @@ test('rejects configured file reads through links outside the workspace', async 
   )
 })
 
+test('reports the protocol OWNER when the workspace has one, null otherwise', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'runtime-owner-test-'))
+  temporaryDirectories.push(root)
+  const workspace = path.join(root, 'workspace')
+  await mkdir(workspace)
+  await writeFile(path.join(workspace, 'MISSION.md'), '# Test mission\n', 'utf8')
+
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
+
+  await writeFile(path.join(workspace, 'OWNER'), 'worker-1\n', 'utf8')
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, 'worker-1')
+
+  // Garbage (oversized) owner values are treated as absent, not surfaced.
+  await writeFile(path.join(workspace, 'OWNER'), 'x'.repeat(65), 'utf8')
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
+})
+
 test(
   'rejects state files that alias each other only by casing on case-insensitive filesystems',
   { skip: process.platform !== 'darwin' && process.platform !== 'win32' },

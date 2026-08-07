@@ -33,7 +33,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { RuntimeFile, RuntimeRunDetail, RuntimeSession } from '@/lib/runtimeTypes'
 
-type FilesResponse = { files: RuntimeFile[] }
+type FilesResponse = { files: RuntimeFile[]; protocolOwner?: string | null }
 
 // #, Status, Model, Started, Duration, Tokens, Est. cost, Summary, Details
 const SESSION_COLUMNS = 9
@@ -335,6 +335,9 @@ export function MissionRunView({ runId }: { runId: string }) {
 
           <Spec title="Workspace">
             <SpecRow label="Machine" value={`${machineLabel(run.machineId)} (${run.machineId})`} />
+            {filesQuery.data?.protocolOwner && (
+              <SpecRow label="Owner" value={filesQuery.data.protocolOwner} />
+            )}
             {run.sandboxSettingsPath && (
               <SpecRow label="Sandbox" value={run.sandboxSettingsPath} mono />
             )}
