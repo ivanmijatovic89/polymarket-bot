@@ -161,6 +161,17 @@ The ansible plays only touch hosts with `global_runtime_enabled=true` in `ops/an
 A machine that goes offline keeps its runs: Mission Control still shows their history from the database, marked with an offline chip. Commands resume working the moment the daemon is back — nothing needs re-registering.
 :::
 
+## Protocol durability (polymarket-protocols)
+
+Machines that run protocol missions also carry a clone of the private [`polymarket-protocols`](https://github.com/ivanmijatovic89/polymarket-protocols) repo. Missions commit **and push** their own protocol folder straight to `main` — every session's output is durable on GitHub within seconds, and `git log` on `main` is the fleet-wide activity feed. The design, ownership rules (`OWNER` file + pre-commit hook) and the mission-facing contract live in that repo (`README.md` and `_shared/GIT.md`); this page only covers the per-machine install:
+
+```bash
+git clone --filter=blob:none --sparse https://github.com/ivanmijatovic89/polymarket-protocols.git
+cd polymarket-protocols && ./setup.sh --name <machine-name> --pat <token>
+```
+
+The token is a fine-grained PAT (contents read/write, **only** this repo) — SSH deploy keys do not work because the srt sandbox blocks raw TCP; git pushes go over HTTPS through the sandbox proxy. Protocols attach to a machine on first `./run.sh <name>` (auto-adopt) and migrate with `./run.sh --force-adopt <name>` on the new owner. See [issue #227](https://github.com/ivanmijatovic89/polymarket-bot/issues/227) for the design record.
+
 ## Known operational behavior
 
 - **Laptop sleep ends a run.** The lease connection is reaped after five minutes of silence, so a daemon whose machine sleeps longer than that shuts itself down on wake and its active session ends in `error`. Resume it from Mission Control. Long unattended loops belong on an always-on machine.
