@@ -8,6 +8,7 @@ import {
   rm,
   stat,
   symlink,
+  unlink,
   writeFile,
 } from 'node:fs/promises'
 import os from 'node:os'
@@ -89,6 +90,33 @@ test('reports the protocol OWNER when the workspace has one, null otherwise', as
 
   // Garbage (oversized) owner values are treated as absent, not surfaced.
   await writeFile(path.join(workspace, 'OWNER'), 'x'.repeat(65), 'utf8')
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
+
+  // Only the first line is read; CRLF endings are tolerated.
+  await writeFile(path.join(workspace, 'OWNER'), 'worker-2\r\nsecond line\n', 'utf8')
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, 'worker-2')
+
+  // Control/escape characters never reach clients.
+  await writeFile(path.join(workspace, 'OWNER'), 'worker[31m-1\n', 'utf8')
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
+})
+
+test('never dereferences a hostile OWNER (symlink out of the workspace, directory)', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'runtime-owner-hostile-test-'))
+  temporaryDirectories.push(root)
+  const workspace = path.join(root, 'workspace')
+  const secret = path.join(root, 'secret.txt')
+  await mkdir(workspace)
+  await writeFile(path.join(workspace, 'MISSION.md'), '# Test mission\n', 'utf8')
+  await writeFile(secret, 'machine host login user password hunter2\n', 'utf8')
+
+  // A sandboxed mission can write its own OWNER file; a symlink pointing at a
+  // host file must not leak that file's first line through the endpoint.
+  await symlink(secret, path.join(workspace, 'OWNER'))
+  assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
+
+  await unlink(path.join(workspace, 'OWNER'))
+  await mkdir(path.join(workspace, 'OWNER'))
   assert.equal((await readRuntimeFiles(makeRun(workspace))).protocolOwner, null)
 })
 
