@@ -296,6 +296,13 @@ export function wrapWithSandbox(
     DATABASE_HOST: '127.0.0.1',
     DATABASE_PORT: String(tunnelPorts.mysqlPort),
   }
+  // The engine's .env file is sandbox-DENIED (36e6b3e), so the credentials
+  // must travel as env vars alongside the tunnel coordinates — otherwise a
+  // sandboxed session reaches MySQL as user '' and every DB call dies.
+  for (const key of ['DATABASE_USERNAME', 'DATABASE_PASSWORD', 'DATABASE_NAME'] as const) {
+    const value = daemonEnv[key]
+    if (value !== undefined) env[key] = value
+  }
   // BOT_ENV would make the engine's env loader OVERRIDE these tunnel values
   // with the real hosts (.env.$BOT_ENV loads with override=true).
   delete env.BOT_ENV
