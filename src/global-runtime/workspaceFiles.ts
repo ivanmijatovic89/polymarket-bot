@@ -1,15 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { constants as fsConstants, type BigIntStats } from 'node:fs'
-import {
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  realpath,
-  stat,
-  unlink,
-  type FileHandle,
-} from 'node:fs/promises'
+import { lstat, mkdir, open, realpath, stat, unlink, type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 import { SESSION_RESULT_FILE } from './contracts.js'
 import { RuntimeValidationError } from './errors.js'
@@ -257,17 +248,40 @@ export async function readRuntimeFiles(run: RuntimeRun): Promise<RuntimeFilesRes
 
 /**
  * The OWNER file marks a protocol workspace's owning fleet machine
- * (protocol durability, polymarket-bot#227). Absent file — or any read
- * error — simply means "not a protocol workspace": the field is display
- * metadata, never a gate, so this must not fail the files endpoint.
+ * (protocol durability, polymarket-bot#227). Absent file — or anything
+ * suspicious — simply means "not a protocol workspace": the field is
+ * display metadata, never a gate, so this must not fail the files endpoint.
+ *
+ * The file lives inside the workspace, which a sandboxed mission can write,
+ * so it gets the same hostile-workspace treatment as the other reads here:
+ * O_NOFOLLOW (a symlinked OWNER must not leak host files through the
+ * endpoint), O_NONBLOCK (a planted FIFO would otherwise block the open —
+ * and this endpoint — forever), isFile + nlink checks (devices, hard-link
+ * substitution), a bounded read (never the whole file), and a printable
+ * ASCII whitelist (no control/bidi characters reach clients or logs).
  */
+const OWNER_MAX_READ_BYTES = 256
+const OWNER_PATTERN = /^[\x21-\x7E]{1,64}$/
+
 async function readProtocolOwner(workspacePath: string): Promise<string | null> {
+  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0)
+  let handle: FileHandle
   try {
-    const raw = await readFile(path.join(workspacePath, 'OWNER'), 'utf8')
-    const owner = raw.split('\n', 1)[0]?.trim() ?? ''
-    return owner.length > 0 && owner.length <= 64 ? owner : null
+    handle = await open(path.join(workspacePath, 'OWNER'), flags)
   } catch {
     return null
+  }
+  try {
+    const info = await handle.stat({ bigint: true })
+    if (!info.isFile() || info.nlink !== 1n) return null
+    const buffer = Buffer.alloc(OWNER_MAX_READ_BYTES)
+    const { bytesRead } = await handle.read(buffer, 0, OWNER_MAX_READ_BYTES, 0)
+    const owner = buffer.toString('utf8', 0, bytesRead).split('\n', 1)[0]?.trim() ?? ''
+    return OWNER_PATTERN.test(owner) ? owner : null
+  } catch {
+    return null
+  } finally {
+    await handle.close().catch(() => undefined)
   }
 }
 
