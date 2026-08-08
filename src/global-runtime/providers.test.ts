@@ -579,6 +579,9 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
     { sandboxSettingsPath: '/etc/srt.json' },
     {
       REDIS_URL: 'redis://:s3cret@100.107.149.100:6379/2',
+      DATABASE_USERNAME: 'fleet',
+      DATABASE_PASSWORD: 'pw',
+      DATABASE_NAME: 'polymarket',
     },
     ports,
   )
@@ -587,6 +590,10 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
   assert.equal(wrapped.env.DATABASE_HOST, '127.0.0.1')
   assert.equal(wrapped.env.DATABASE_PORT, '51234')
   assert.equal(wrapped.env.REDIS_URL, 'redis://:s3cret@127.0.0.1:51235/2')
+  // The sandbox denies the .env file, so credentials must ride the env.
+  assert.equal(wrapped.env.DATABASE_USERNAME, 'fleet')
+  assert.equal(wrapped.env.DATABASE_PASSWORD, 'pw')
+  assert.equal(wrapped.env.DATABASE_NAME, 'polymarket')
   assert.equal(wrapped.env.BOT_ENV, undefined)
   assert.equal(wrapped.env.PATH, '/usr/bin')
   assert.equal(wrapped.cwd, '/workspace')
