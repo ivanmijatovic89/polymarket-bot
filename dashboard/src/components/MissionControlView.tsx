@@ -506,15 +506,70 @@ export function MissionControlView({
             </span>
           </div>
 
-          <Table containerClassName="max-w-full" className="min-w-[1180px]">
+          <div className="divide-y md:hidden">
+            {visibleRuns.map((run) => (
+              <div key={run.id} className="px-3 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <RuntimeStatusBadge status={run.status} />
+                  {run.accessMode === 'full-access' && <Badge variant="warning">full access</Badge>}
+                  <Link
+                    href={`/mission-control/${run.id}`}
+                    className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+                  >
+                    {run.name}
+                  </Link>
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="shrink-0 tabular-nums">
+                    session {run.currentSession} / {run.maxSessions}
+                  </span>
+                  <div className="h-1 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{
+                        width: `${Math.min(100, Math.round((run.currentSession / Math.max(1, run.maxSessions)) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="min-w-0 truncate">
+                    {machineLabel(run.machineId)}
+                    {offlineMachineIds.has(run.machineId) ? ' · offline' : ''}
+                  </span>
+                </div>
+                <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                  {run.resolvedModel ?? run.model} ·{' '}
+                  {run.lastActivityAt ? `active ${formatRelative(run.lastActivityAt)}` : 'no activity'}{' '}
+                  · {formatUsd(run.totals.estimatedApiCostUsd)}
+                </div>
+                {statusDetail(run) && (
+                  <div
+                    className={cn(
+                      'mt-1 line-clamp-2 text-[11px]',
+                      run.status === 'error' ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    {statusDetail(run)}
+                  </div>
+                )}
+                <RunActions
+                  run={run}
+                  busy={actionRunId === run.id}
+                  onAction={controlRun}
+                  className="mt-2.5"
+                />
+              </div>
+            ))}
+          </div>
+
+          <Table containerClassName="hidden max-w-full md:block" className="min-w-[1180px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Loop</TableHead>
-                <TableHead>Machine</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Sessions</TableHead>
+                <TableHead>Machine</TableHead>
                 <TableHead>Model</TableHead>
                 <TableHead>Account</TableHead>
-                <TableHead className="text-right">Sessions</TableHead>
                 <TableHead className="text-right">Duration</TableHead>
                 <TableHead className="text-right">Tokens</TableHead>
                 <TableHead className="text-right">Est. cost</TableHead>
@@ -539,15 +594,6 @@ export function MissionControlView({
                     </div>
                   </TableCell>
 
-                  <TableCell className="whitespace-nowrap">
-                    <div className="text-xs" title={run.machineId}>
-                      {machineLabel(run.machineId)}
-                    </div>
-                    {offlineMachineIds.has(run.machineId) && (
-                      <div className="mt-0.5 text-[11px] text-destructive">offline</div>
-                    )}
-                  </TableCell>
-
                   <TableCell className="max-w-[16rem]">
                     <div className="flex flex-wrap items-center gap-1">
                       <RuntimeStatusBadge status={run.status} />
@@ -568,20 +614,6 @@ export function MissionControlView({
                     )}
                   </TableCell>
 
-                  <TableCell>
-                    <div className="font-mono text-xs whitespace-nowrap">
-                      {run.resolvedModel ?? run.model}
-                    </div>
-                    <div className="mt-0.5 text-[11px] whitespace-nowrap text-muted-foreground">
-                      {run.provider === 'claude' ? 'Claude Code' : 'Codex'} · {run.effort}
-                      {run.resolvedModel && run.resolvedModel !== run.model
-                        ? ` · asked ${run.model}`
-                        : ''}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-xs whitespace-nowrap">{formatAccount(run)}</TableCell>
-
                   <TableCell className="text-right">
                     <div className="text-xs tabular-nums">
                       {run.currentSession} / {run.maxSessions}
@@ -595,6 +627,29 @@ export function MissionControlView({
                       />
                     </div>
                   </TableCell>
+
+                  <TableCell className="whitespace-nowrap">
+                    <div className="text-xs" title={run.machineId}>
+                      {machineLabel(run.machineId)}
+                    </div>
+                    {offlineMachineIds.has(run.machineId) && (
+                      <div className="mt-0.5 text-[11px] text-destructive">offline</div>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="font-mono text-xs whitespace-nowrap">
+                      {run.resolvedModel ?? run.model}
+                    </div>
+                    <div className="mt-0.5 text-[11px] whitespace-nowrap text-muted-foreground">
+                      {run.provider === 'claude' ? 'Claude Code' : 'Codex'} · {run.effort}
+                      {run.resolvedModel && run.resolvedModel !== run.model
+                        ? ` · asked ${run.model}`
+                        : ''}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-xs whitespace-nowrap">{formatAccount(run)}</TableCell>
 
                   <TableCell className="text-right whitespace-nowrap">
                     <div className="text-xs tabular-nums">
@@ -621,47 +676,12 @@ export function MissionControlView({
                   </TableCell>
 
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {run.status === 'idle' && (
-                        <RunButton
-                          label="Start"
-                          icon={Play}
-                          onClick={() => controlRun(run.id, 'start')}
-                          disabled={actionRunId === run.id}
-                        />
-                      )}
-                      {ACTIVE_STATUSES.includes(run.status) && (
-                        <RunButton
-                          label="Pause"
-                          icon={Pause}
-                          onClick={() => controlRun(run.id, 'pause')}
-                          disabled={actionRunId === run.id || run.status === 'pause_requested'}
-                        />
-                      )}
-                      {RESUMABLE_STATUSES.includes(run.status) && (
-                        <RunButton
-                          label="Resume"
-                          icon={Play}
-                          onClick={() => controlRun(run.id, 'resume')}
-                          disabled={actionRunId === run.id}
-                        />
-                      )}
-                      {STOPPABLE_STATUSES.includes(run.status) && (
-                        <RunButton
-                          label="Stop"
-                          icon={Square}
-                          onClick={() => controlRun(run.id, 'stop')}
-                          disabled={actionRunId === run.id}
-                        />
-                      )}
-                      <Link
-                        href={`/mission-control/${run.id}`}
-                        aria-label={`Open ${run.name}`}
-                        className="group ml-1 rounded-md border p-2 hover:bg-accent"
-                      >
-                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                      </Link>
-                    </div>
+                    <RunActions
+                      run={run}
+                      busy={actionRunId === run.id}
+                      onAction={controlRun}
+                      className="justify-end"
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -676,6 +696,62 @@ export function MissionControlView({
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function RunActions({
+  run,
+  busy,
+  onAction,
+  className,
+}: {
+  run: RuntimeRunSummary
+  busy: boolean
+  onAction: (runId: number, action: 'start' | 'pause' | 'resume' | 'stop') => void
+  className?: string
+}) {
+  return (
+    <div className={cn('flex items-center gap-1', className)}>
+      {run.status === 'idle' && (
+        <RunButton
+          label="Start"
+          icon={Play}
+          onClick={() => onAction(run.id, 'start')}
+          disabled={busy}
+        />
+      )}
+      {ACTIVE_STATUSES.includes(run.status) && (
+        <RunButton
+          label="Pause"
+          icon={Pause}
+          onClick={() => onAction(run.id, 'pause')}
+          disabled={busy || run.status === 'pause_requested'}
+        />
+      )}
+      {RESUMABLE_STATUSES.includes(run.status) && (
+        <RunButton
+          label="Resume"
+          icon={Play}
+          onClick={() => onAction(run.id, 'resume')}
+          disabled={busy}
+        />
+      )}
+      {STOPPABLE_STATUSES.includes(run.status) && (
+        <RunButton
+          label="Stop"
+          icon={Square}
+          onClick={() => onAction(run.id, 'stop')}
+          disabled={busy}
+        />
+      )}
+      <Link
+        href={`/mission-control/${run.id}`}
+        aria-label={`Open ${run.name}`}
+        className="group ml-auto rounded-md border p-2 hover:bg-accent md:ml-1"
+      >
+        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      </Link>
     </div>
   )
 }
