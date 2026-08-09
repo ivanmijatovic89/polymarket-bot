@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}",
+    "dev": "sh -c 'set -a; eval \"$(grep -E \"^DASHBOARD_(HOST|PORT)=\" ../.env 2>/dev/null)\"; set +a; exec next dev --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}'",
     "build": "next build",
-    "start": "next start --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}",
+    "start": "sh -c 'set -a; eval \"$(grep -E \"^DASHBOARD_(HOST|PORT)=\" ../.env 2>/dev/null)\"; set +a; exec next start --hostname ${DASHBOARD_HOST:-127.0.0.1} --port ${DASHBOARD_PORT:-3051}'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

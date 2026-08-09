@@ -27,7 +27,7 @@ import type { NextRequest } from 'next/server'
  */
 
 // Bare `::1` never appears here: hostnameOf() only unwraps the bracketed form.
-const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]'])
+const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '192.168.0.12'])
 export const MISSION_CONTROL_COOKIE = 'mission_control_token'
 export const MISSION_CONTROL_HEADER = 'x-mission-control-token'
 
