@@ -299,7 +299,20 @@ export function wrapWithSandbox(
   // The engine's .env file is sandbox-DENIED (36e6b3e), so the credentials
   // must travel as env vars alongside the tunnel coordinates — otherwise a
   // sandboxed session reaches MySQL as user '' and every DB call dies.
-  for (const key of ['DATABASE_USERNAME', 'DATABASE_PASSWORD', 'DATABASE_NAME'] as const) {
+  // R2_* travels for the same reason (owner decision, 2026-08-10): without it
+  // a mission session cannot publish its strategy artifact, so --queue (fleet)
+  // runs are impossible from inside the sandbox. This hands sessions the R2
+  // write credential — publish ability is already treated as a production
+  // credential (README trust note); the fleet exists to run their code.
+  for (const key of [
+    'DATABASE_USERNAME',
+    'DATABASE_PASSWORD',
+    'DATABASE_NAME',
+    'R2_BUCKET',
+    'R2_ENDPOINT',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+  ] as const) {
     const value = daemonEnv[key]
     if (value !== undefined) env[key] = value
   }
