@@ -4,8 +4,8 @@
  * Source value in accounts.json is one of:
  *   - "keychain"        — the account logged in to the Claude Code CLI on this Mac
  *   - "~/.claude-main"  — a config dir created with a one-time
- *                         `CLAUDE_CONFIG_DIR=~/.claude-main claude` login;
- *                         its token is auto-refreshed and saved back
+ *                         `CLAUDE_CONFIG_DIR=~/.claude-main claude` login
+ * Keychain and config-dir tokens are auto-refreshed and saved back.
  *   - "sk-ant-oat01-…"  — a raw OAuth access token (must have the
  *                         user:profile scope; `claude setup-token` tokens do
  *                         NOT — they are inference-only and get HTTP 403)
@@ -32,15 +32,6 @@ const LIMIT_LABELS = {
   weekly_scoped: 'weekly (Fable/Opus)',
 } as const
 
-function keychainToken(): string {
-  const raw = execFileSync(
-    'security',
-    ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
-    { encoding: 'utf8' },
-  )
-  return JSON.parse(raw).claudeAiOauth.accessToken
-}
-
 interface StoredCredentials {
   claudeAiOauth: {
     accessToken: string
@@ -48,6 +39,75 @@ interface StoredCredentials {
     expiresAt: number // ms epoch
     [key: string]: unknown
   }
+}
+
+/** Read a Keychain credentials entry plus a writer that saves it back in place. */
+function keychainCreds(service: string): {
+  creds: StoredCredentials
+  save: (updated: StoredCredentials) => void
+} {
+  const raw = execFileSync('security', ['find-generic-password', '-s', service, '-w'], {
+    encoding: 'utf8',
+  })
+  const creds: StoredCredentials = JSON.parse(raw)
+  const attrs = execFileSync('security', ['find-generic-password', '-s', service], {
+    encoding: 'utf8',
+  })
+  const account = /"acct"<blob>="([^"]*)"/.exec(attrs)?.[1] ?? os.userInfo().username
+  const save = (updated: StoredCredentials) =>
+    execFileSync('security', [
+      'add-generic-password',
+      '-U',
+      '-a',
+      account,
+      '-s',
+      service,
+      '-w',
+      JSON.stringify(updated),
+    ])
+  return { creds, save }
+}
+
+/**
+ * Return a valid access token, exchanging the refresh token for a new pair
+ * (and saving it back) when the stored one is expired or about to expire.
+ */
+async function freshToken(
+  creds: StoredCredentials,
+  save: (updated: StoredCredentials) => void,
+  reloginCmd: string,
+): Promise<string> {
+  const oauth = creds.claudeAiOauth
+  if (Date.now() < oauth.expiresAt - 60_000) return oauth.accessToken
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: oauth.refreshToken,
+      client_id: CLIENT_ID,
+    }),
+  })
+  if (!res.ok) {
+    throw new Error(`token refresh failed (HTTP ${res.status}) — log in again with: ${reloginCmd}`)
+  }
+  const fresh = (await res.json()) as {
+    access_token: string
+    refresh_token?: string
+    expires_in: number
+  }
+  oauth.accessToken = fresh.access_token
+  if (fresh.refresh_token) oauth.refreshToken = fresh.refresh_token
+  oauth.expiresAt = Date.now() + fresh.expires_in * 1000
+  save(creds)
+  return oauth.accessToken
+}
+
+/** Token for the CLI's default login on this Mac, refreshing it if expired. */
+async function keychainToken(): Promise<string> {
+  const { creds, save } = keychainCreds('Claude Code-credentials')
+  return freshToken(creds, save, 'claude')
 }
 
 /**
@@ -67,61 +127,16 @@ async function configDirToken(configDir: string): Promise<string> {
     creds = JSON.parse(readFileSync(credsFile, 'utf8'))
     save = (updated) => writeFileSync(credsFile, JSON.stringify(updated))
   } else {
-    let raw: string
     try {
-      raw = execFileSync('security', ['find-generic-password', '-s', service, '-w'], {
-        encoding: 'utf8',
-      })
+      ;({ creds, save } = keychainCreds(service))
     } catch {
       throw new Error(
         `no credentials for ${configDir} — log in once with: CLAUDE_CONFIG_DIR=${configDir} claude`,
       )
     }
-    creds = JSON.parse(raw)
-    const attrs = execFileSync('security', ['find-generic-password', '-s', service], {
-      encoding: 'utf8',
-    })
-    const account = /"acct"<blob>="([^"]*)"/.exec(attrs)?.[1] ?? os.userInfo().username
-    save = (updated) =>
-      execFileSync('security', [
-        'add-generic-password',
-        '-U',
-        '-a',
-        account,
-        '-s',
-        service,
-        '-w',
-        JSON.stringify(updated),
-      ])
   }
 
-  const oauth = creds.claudeAiOauth
-  if (Date.now() < oauth.expiresAt - 60_000) return oauth.accessToken
-
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'refresh_token',
-      refresh_token: oauth.refreshToken,
-      client_id: CLIENT_ID,
-    }),
-  })
-  if (!res.ok) {
-    throw new Error(
-      `token refresh failed (HTTP ${res.status}) — log in again with: CLAUDE_CONFIG_DIR=${configDir} claude`,
-    )
-  }
-  const fresh = (await res.json()) as {
-    access_token: string
-    refresh_token?: string
-    expires_in: number
-  }
-  oauth.accessToken = fresh.access_token
-  if (fresh.refresh_token) oauth.refreshToken = fresh.refresh_token
-  oauth.expiresAt = Date.now() + fresh.expires_in * 1000
-  save(creds)
-  return oauth.accessToken
+  return freshToken(creds, save, `CLAUDE_CONFIG_DIR=${configDir} claude`)
 }
 
 export async function claudeAccountUsage(name: string, source: string): Promise<AccountUsage> {
@@ -129,7 +144,7 @@ export async function claudeAccountUsage(name: string, source: string): Promise<
   try {
     token =
       source === 'keychain'
-        ? keychainToken()
+        ? await keychainToken()
         : source.startsWith('~') || source.startsWith('/')
           ? await configDirToken(source)
           : source
