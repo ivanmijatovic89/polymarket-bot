@@ -25,6 +25,27 @@ export interface CreateRunRecord extends CreateRuntimeRunInput {
   machineId: string
 }
 
+/** Statuses whose `updatedAt` moves on its own (heartbeats). */
+const LIVE_STATUSES = new Set<RuntimeRun['status']>(['running', 'pause_requested', 'rate_limited'])
+
+/**
+ * listRuns() order: active runs first, then newest activity. Live rows are
+ * ordered by id, NOT updatedAt — a running loop bumps updatedAt on every
+ * heartbeat, which made the dashboard table reshuffle between polls. Keep in
+ * sync with `dashboard/src/lib/queries/runtimeRuns.ts`.
+ */
+export function compareRunsForList(
+  a: Pick<RuntimeRun, 'id' | 'status' | 'updatedAt'>,
+  b: Pick<RuntimeRun, 'id' | 'status' | 'updatedAt'>,
+): number {
+  const aLive = LIVE_STATUSES.has(a.status)
+  const bLive = LIVE_STATUSES.has(b.status)
+  if (aLive !== bLive) return aLive ? -1 : 1
+  if (aLive) return b.id - a.id
+  const byUpdated = b.updatedAt.getTime() - a.updatedAt.getTime()
+  return byUpdated !== 0 ? byUpdated : b.id - a.id
+}
+
 export interface RuntimeStore {
   /**
    * Acquire the per-MACHINE runtime lease. machineId is a parameter (not

@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { acquireDbAdvisoryLock, getDb, runtimeRuns, runtimeSessions } from '../db/index.js'
 import { RuntimeNotFoundError } from './errors.js'
+import { compareRunsForList } from './store.js'
 import type { CreateRunRecord, CreateSessionInput, RuntimeStore } from './store.js'
 import type {
   RuntimeRun,
@@ -38,8 +39,8 @@ export class DrizzleRuntimeStore implements RuntimeStore {
   }
 
   async listRuns(): Promise<RuntimeRun[]> {
-    const rows = await getDb().select().from(runtimeRuns).orderBy(desc(runtimeRuns.updatedAt))
-    return rows.map(mapRun)
+    const rows = await getDb().select().from(runtimeRuns)
+    return rows.map(mapRun).sort(compareRunsForList)
   }
 
   async updateRun(id: number, patch: RuntimeRunPatch): Promise<RuntimeRun> {

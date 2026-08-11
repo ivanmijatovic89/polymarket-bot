@@ -19,6 +19,27 @@ import { runtimeRuns, runtimeSessions } from '../schema'
 type RunRow = typeof runtimeRuns.$inferSelect
 type SessionRow = typeof runtimeSessions.$inferSelect
 
+/** Statuses whose `updatedAt` moves on its own (heartbeats). */
+const LIVE_STATUSES = new Set(['running', 'pause_requested', 'rate_limited'])
+
+/**
+ * List order: active runs first, then newest activity. Keep in sync with
+ * `src/global-runtime/dbStore.ts` / `memoryStore.ts`.
+ */
+export function compareRunsForList(
+  a: { id: number; status: string; updatedAt: Date },
+  b: { id: number; status: string; updatedAt: Date },
+): number {
+  const aLive = LIVE_STATUSES.has(a.status)
+  const bLive = LIVE_STATUSES.has(b.status)
+  if (aLive !== bLive) return aLive ? -1 : 1
+  // Live rows: id only — their updatedAt ticks every heartbeat and would make
+  // the table reshuffle between polls.
+  if (aLive) return b.id - a.id
+  const byUpdated = b.updatedAt.getTime() - a.updatedAt.getTime()
+  return byUpdated !== 0 ? byUpdated : b.id - a.id
+}
+
 export type RuntimeUsageTotals = {
   inputTokens: number | null
   cachedInputTokens: number | null
@@ -135,10 +156,16 @@ export type RuntimeRunDetailRecord = {
   totals: RuntimeUsageTotals
 }
 
-/** All runs across all machines, newest activity first — mirrors GlobalRuntime.listRuns(). */
+/**
+ * All runs across all machines, active first then newest activity — mirrors
+ * GlobalRuntime.listRuns(). Active rows are NOT ordered by updatedAt among
+ * themselves: a running loop bumps updatedAt on every heartbeat, so that made
+ * them swap places on each 5s poll. Within the active group the order is by id
+ * (stable while running); idle rows keep updatedAt order, which no longer moves.
+ */
 export async function listRuntimeRunSummaries(): Promise<RuntimeRunSummaryRecord[]> {
   const db = getDb()
-  const runs = await db.select().from(runtimeRuns).orderBy(desc(runtimeRuns.updatedAt))
+  const runs = (await db.select().from(runtimeRuns)).sort(compareRunsForList)
   const sessions = await db
     .select({
       runId: runtimeSessions.runId,
