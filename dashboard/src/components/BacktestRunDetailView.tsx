@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -99,6 +99,42 @@ type RunDetail = {
 }
 
 type RunResponse = { batch: RunDetail } | { error: string }
+
+type MarketStat = NonNullable<RunDetail['marketStats']>[number]
+
+type MarketSortColumn =
+  | 'slug'
+  | 'outcome'
+  | 'pnl'
+  | 'fees'
+  | 'cost'
+  | 'trades'
+  | 'duration'
+  | 'events'
+
+type MarketSort = { column: MarketSortColumn; direction: 'asc' | 'desc' }
+
+/** Sort key for a per-market row; null = no value for this column (sorts last). */
+function marketSortValue(m: MarketStat, column: MarketSortColumn): number | string | null {
+  switch (column) {
+    case 'slug':
+      return m.slug
+    case 'outcome':
+      return m.finalOutcome === null || m.finalOutcome === undefined ? null : String(m.finalOutcome)
+    case 'pnl':
+      return m.pnl
+    case 'fees':
+      return m.feesPaid
+    case 'cost':
+      return m.cost
+    case 'trades':
+      return m.tradeCount
+    case 'duration':
+      return m.execution?.durationMs ?? null
+    case 'events':
+      return m.execution?.eventsProcessed ?? null
+  }
+}
 
 async function fetchRun(id: number): Promise<RunResponse> {
   const r = await fetch(`/api/backtests/${id}`, { cache: 'no-store' })
@@ -239,10 +275,42 @@ function StatusBadge({ status }: { status: RunDetail['status'] }) {
 
 export function BacktestRunDetailView({ id }: { id: number }) {
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [marketSort, setMarketSort] = useState<MarketSort | null>(null)
   const { data, isLoading } = useQuery({
     queryKey: ['backtests', id],
     queryFn: () => fetchRun(id),
   })
+
+  const marketStats = useMemo(
+    () => (data && !('error' in data) ? (data.batch.marketStats ?? []) : []),
+    [data],
+  )
+
+  // Rows carry their original run index so the # column survives sorting.
+  const sortedMarketRows = useMemo(() => {
+    const rows = marketStats.map((m, idx) => ({ m, idx }))
+    if (!marketSort) return rows
+    const dir = marketSort.direction === 'desc' ? -1 : 1
+    rows.sort((a, b) => {
+      const va = marketSortValue(a.m, marketSort.column)
+      const vb = marketSortValue(b.m, marketSort.column)
+      if (va === null && vb === null) return a.idx - b.idx
+      if (va === null) return 1
+      if (vb === null) return -1
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+      return String(va).localeCompare(String(vb)) * dir
+    })
+    return rows
+  }, [marketStats, marketSort])
+
+  // desc → asc → original order.
+  const toggleMarketSort = (column: MarketSortColumn) => {
+    setMarketSort((prev) => {
+      if (!prev || prev.column !== column) return { column, direction: 'desc' }
+      if (prev.direction === 'desc') return { column, direction: 'asc' }
+      return null
+    })
+  }
 
   if (isLoading) {
     return (
@@ -286,7 +354,6 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       ? Math.round((b.tradesMaker / (b.tradesMaker + b.tradesTaker)) * 100)
       : null
 
-  const marketStats = b.marketStats ?? []
   const failed = b.failedMarkets ?? []
   // `inputMarketsTotal` is the original `--limit` and is NOT updated by
   // `--extend`, so on extended runs it's stale (smaller than the real total).
@@ -641,21 +708,51 @@ export function BacktestRunDetailView({ id }: { id: number }) {
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">PnL</TableHead>
-                  <TableHead className="text-right">Fees</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Trades</TableHead>
+                  {(
+                    [
+                      { column: 'slug', label: 'Slug' },
+                      { column: 'outcome', label: 'Outcome' },
+                      { column: 'pnl', label: 'PnL', numeric: true },
+                      { column: 'fees', label: 'Fees', numeric: true },
+                      { column: 'cost', label: 'Cost', numeric: true },
+                      { column: 'trades', label: 'Trades', numeric: true },
+                    ] as Array<{ column: MarketSortColumn; label: string; numeric?: boolean }>
+                  ).map(({ column, label, numeric }) => (
+                    <TableHead
+                      key={column}
+                      className={cn('cursor-pointer select-none', numeric && 'text-right')}
+                      onClick={() => toggleMarketSort(column)}
+                    >
+                      {label}
+                      {marketSort?.column === column && (
+                        <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+                      )}
+                    </TableHead>
+                  ))}
                   <TableHead className="text-right">UP pos</TableHead>
                   <TableHead className="text-right">DOWN pos</TableHead>
                   <TableHead>Machine</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead className="text-right">Events</TableHead>
+                  {(
+                    [
+                      { column: 'duration', label: 'Duration' },
+                      { column: 'events', label: 'Events' },
+                    ] as Array<{ column: MarketSortColumn; label: string }>
+                  ).map(({ column, label }) => (
+                    <TableHead
+                      key={column}
+                      className="cursor-pointer select-none text-right"
+                      onClick={() => toggleMarketSort(column)}
+                    >
+                      {label}
+                      {marketSort?.column === column && (
+                        <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+                      )}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {marketStats.map((m, i) => {
+                {sortedMarketRows.map(({ m, idx }) => {
                   const exec = m.execution
                   const slow = exec && exec.durationMs > 10_000
                   const pnlClass =
@@ -667,9 +764,9 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                   const upPos = renderPosition(m.upShares, m.avgEntryPriceUp, m.mergableShares)
                   const downPos = renderPosition(m.downShares, m.avgEntryPriceDown, 0)
                   return (
-                    <TableRow key={i}>
+                    <TableRow key={idx}>
                       <TableCell className="text-muted-foreground tabular-nums text-xs">
-                        {i}
+                        {idx}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
