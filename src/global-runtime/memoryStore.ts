@@ -1,4 +1,5 @@
 import { RuntimeNotFoundError } from './errors.js'
+import { compareRunsForList } from './store.js'
 import type { CreateRunRecord, CreateSessionInput, RuntimeStore } from './store.js'
 import type {
   RuntimeRun,
@@ -62,9 +63,7 @@ export class MemoryRuntimeStore implements RuntimeStore {
   }
 
   async listRuns(): Promise<RuntimeRun[]> {
-    return [...this.runs.values()]
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      .map(cloneRun)
+    return [...this.runs.values()].sort(compareRunsForList).map(cloneRun)
   }
 
   async updateRun(id: number, patch: RuntimeRunPatch): Promise<RuntimeRun> {
