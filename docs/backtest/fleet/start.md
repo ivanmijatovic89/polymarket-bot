@@ -29,6 +29,14 @@ start-worker-fleet.sh
 If the update phase fails, the start phase is skipped. That prevents starting a
 worker on a dirty, diverged, or otherwise unsafe checkout.
 
+An **unreachable** host is not such a failure. Ansible drops the offline machine
+from the play and finishes the reachable ones, so the start phase still runs —
+the wrapper prints a warning naming the PLAY RECAP and continues. Only a real
+per-host failure (dirty tree, no fast-forward, missing repo) skips it. The
+offline host stays visible in the final exit code: `ansible-playbook` exit codes
+are bit flags (`2` = failed hosts, `4` = unreachable hosts), and the wrapper
+combines both phases, so a clean start with one machine offline exits `4`.
+
 ## Normal Use
 
 Dry run:
