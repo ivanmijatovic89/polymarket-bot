@@ -172,10 +172,10 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
             {isFooter ? null : c.render(b, i)}
           </TableCell>
         ))}
-        <TableCell>{isFooter ? footerLeading : renderLeading(b, i)}</TableCell>
         <TableCell className="text-sm">
           <ParamsTooltip strategy={b.strategy ?? '—'} params={b.params} />
         </TableCell>
+        <TableCell>{isFooter ? footerLeading : renderLeading(b, i)}</TableCell>
         {/* Markets → Total / Played / Skip sub-columns (grouped header) */}
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {selectedMarketsTotal}
@@ -315,11 +315,11 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                   {c.header}
                 </TableHead>
               ))}
-              <TableHead rowSpan={2} className="min-w-[180px] border-r border-foreground/20">
-                {leadingHeader}
-              </TableHead>
               <TableHead rowSpan={2} className="border-r border-foreground/20">
                 Strategy
+              </TableHead>
+              <TableHead rowSpan={2} className="min-w-[180px] border-r border-foreground/20">
+                {leadingHeader}
               </TableHead>
               <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Markets

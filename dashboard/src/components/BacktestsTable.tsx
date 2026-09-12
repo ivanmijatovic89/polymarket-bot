@@ -146,7 +146,7 @@ export function BacktestsTable({
         ]}
         renderLeading={(b) => (
           <div className="flex items-start">
-            <div className="min-w-0">
+            <div className="min-w-0 max-w-[380px]">
               {b.batchUid ? (
                 <Link
                   href={`/batches/${encodeURIComponent(b.batchUid)}`}
