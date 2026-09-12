@@ -335,7 +335,10 @@ export function wrapWithSandbox(
   return {
     ...prepared,
     command: daemonEnv.GLOBAL_RUNTIME_SRT_BIN?.trim() || 'srt',
-    args: ['--settings', run.sandboxSettingsPath, prepared.command, ...prepared.args],
+    // Stop srt option parsing before provider flags: Codex's -c otherwise
+    // becomes srt's shell-command option and can exit successfully without
+    // ever starting the provider.
+    args: ['--settings', run.sandboxSettingsPath, '--', prepared.command, ...prepared.args],
     env,
   }
 }
