@@ -586,7 +586,15 @@ test('wrapWithSandbox wraps the command in srt and reroutes DB/Redis at the tunn
     ports,
   )
   assert.equal(wrapped.command, 'srt')
-  assert.deepEqual(wrapped.args, ['--settings', '/etc/srt.json', 'claude', '-p', '--model', 'test'])
+  assert.deepEqual(wrapped.args, [
+    '--settings',
+    '/etc/srt.json',
+    '--',
+    'claude',
+    '-p',
+    '--model',
+    'test',
+  ])
   assert.equal(wrapped.env.DATABASE_HOST, '127.0.0.1')
   assert.equal(wrapped.env.DATABASE_PORT, '51234')
   assert.equal(wrapped.env.REDIS_URL, 'redis://:s3cret@127.0.0.1:51235/2')
@@ -670,7 +678,11 @@ if (args[0] !== '--settings') {
   console.error('fake srt: expected --settings first, got ' + args[0])
   process.exit(64)
 }
-const child = spawn(args[2], args.slice(3), { stdio: 'inherit', env: process.env })
+if (args[2] !== '--') {
+  console.error('fake srt: missing provider option separator')
+  process.exit(2)
+}
+const child = spawn(args[3], args.slice(4), { stdio: 'inherit', env: process.env })
 child.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 1)))
 `,
     'utf8',
@@ -679,21 +691,24 @@ child.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 1)))
   const previousSrtBin = process.env.GLOBAL_RUNTIME_SRT_BIN
   process.env.GLOBAL_RUNTIME_SRT_BIN = fakeSrt
   process.env.GLOBAL_RUNTIME_CLAUDE_BIN = await createFakeCli(workspace)
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = process.env.GLOBAL_RUNTIME_CLAUDE_BIN
   try {
     const adapter = new CliProviderAdapter()
-    const result = await adapter.execute(
-      {
-        run: { ...makeRun(workspace, 'claude'), sandboxSettingsPath: settingsPath },
-        sessionNumber: 7,
-        prompt: 'test prompt',
-        logDirectory: path.join(workspace, 'logs-srt-e2e'),
-        sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
-      },
-      new AbortController().signal,
-      { onStarted: () => undefined, onActivity: () => undefined },
-    )
-    assert.equal(result.exitCode, 0)
-    assert.deepEqual(result.finalResult, { action: 'complete', summary: 'claude finished' })
+    for (const provider of ['claude', 'codex'] as const) {
+      const result = await adapter.execute(
+        {
+          run: { ...makeRun(workspace, provider), sandboxSettingsPath: settingsPath },
+          sessionNumber: 7,
+          prompt: 'test prompt',
+          logDirectory: path.join(workspace, `logs-srt-e2e-${provider}`),
+          sandboxTunnelPorts: { mysqlPort: 51234, redisPort: 51235 },
+        },
+        new AbortController().signal,
+        { onStarted: () => undefined, onActivity: () => undefined },
+      )
+      assert.equal(result.exitCode, 0)
+      assert.deepEqual(result.finalResult, { action: 'complete', summary: `${provider} finished` })
+    }
   } finally {
     restoreEnv('GLOBAL_RUNTIME_SRT_BIN', previousSrtBin)
   }
