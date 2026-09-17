@@ -105,6 +105,95 @@ function runConcurrentTmuxStart(bootScript, sessionSurvives) {
   return { ...result, calls }
 }
 
+function runWorkerLauncher(platform, selfUpdate = false) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'worker-launcher-test-'))
+  const bin = path.join(dir, 'node_modules', '.bin')
+  const script = path.join(dir, 'scripts', 'run-worker.sh')
+  mkdirSync(bin, { recursive: true })
+  mkdirSync(path.dirname(script))
+  const executable = (name, source) => {
+    writeFileSync(path.join(bin, name), source, { mode: 0o755 })
+  }
+  executable('uname', `#!/bin/bash\necho ${platform}\n`)
+  executable('git', `#!/bin/bash\nif [ "$1" = rev-parse ]; then cat revision; fi\n`)
+  executable(
+    'taskpolicy',
+    '#!/bin/bash\n[ "$1" = -a ] || exit 99\nshift\nexport TEST_POLICY=application\nexec "$@"\n',
+  )
+  executable(
+    'tsx',
+    `#!${process.execPath}
+const fs = require('node:fs')
+fs.appendFileSync('calls.jsonl', JSON.stringify({ args: process.argv.slice(2), policy: process.env.TEST_POLICY ?? null }) + '\\n')
+if (process.env.TEST_SELF_UPDATE === '1' && fs.readFileSync('revision', 'utf8') === 'before') {
+  fs.writeFileSync('revision', 'after')
+  process.exit(75)
+}
+process.exit(17)
+`,
+  )
+  writeFileSync(path.join(dir, 'revision'), 'before')
+  writeFileSync(
+    script,
+    readFileSync(path.join(repo, 'scripts', 'run-worker.sh'), 'utf8').replace(
+      '/usr/sbin/taskpolicy',
+      'taskpolicy',
+    ),
+  )
+  const env = {
+    ...process.env,
+    PATH: `${bin}:${process.env.PATH}`,
+    TEST_SELF_UPDATE: selfUpdate ? '1' : '0',
+  }
+  delete env.TEST_POLICY
+  try {
+    const result = spawnSync(
+      '/bin/bash',
+      [script, '--queues', 'markets,aggregate', '--market-concurrency', '8'],
+      {
+        env,
+        encoding: 'utf8',
+        timeout: 10000,
+      },
+    )
+    const calls = readFileSync(path.join(dir, 'calls.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map(JSON.parse)
+    return { ...result, calls }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+test('worker launcher preserves arguments and exit status with platform-specific scheduling', () => {
+  for (const platform of ['Darwin', 'Linux']) {
+    const result = runWorkerLauncher(platform)
+    assert.equal(result.status, 17, result.stderr)
+    assert.deepEqual(result.calls, [
+      {
+        args: [
+          'src/cli/backtestWorker.ts',
+          '--queues',
+          'markets,aggregate',
+          '--market-concurrency',
+          '8',
+        ],
+        policy: platform === 'Darwin' ? 'application' : null,
+      },
+    ])
+  }
+})
+
+test('worker self-update reapplies the macOS scheduling policy on relaunch', () => {
+  const result = runWorkerLauncher('Darwin', true)
+  assert.equal(result.status, 17, result.stderr)
+  assert.equal(result.calls.length, 2)
+  assert.deepEqual(result.calls[0], result.calls[1])
+  assert.equal(result.calls[1].policy, 'application')
+  assert.match(result.stdout, /relaunching worker on after/)
+})
+
 test('Redis endpoint resolver uses the worker dotenv parsing semantics', () => {
   const result = runRedisEndpointResolver({
     envFile: [
