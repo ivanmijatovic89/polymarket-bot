@@ -2,7 +2,7 @@ import {
   symbolFromSlug,
   timeframeFromSlug,
   windowFromSlug,
-} from '../../../../src/polymarket/upDownSlugWindow.js'
+} from '../../../../src/polymarket/upDownSlugWindow'
 
 type Scope = { symbol: string; timeframe: string }
 
