@@ -10,6 +10,7 @@ import {
   telonexMarkets,
 } from '../schema'
 import { computeCoverage, type CoverageReport } from '@polymarket-bot/stats/coverage'
+import { resolveCoverageScope } from './backtestCoverageScope'
 
 const DEFAULT_ELIGIBLE_FROM_ISO = '2025-12-01T00:00:00Z'
 
@@ -38,9 +39,8 @@ export type BacktestCoverageResponse = {
 }
 
 /**
- * Returns null for non-telonex runs (recorded mode) and for runs missing the
- * coverage metadata columns (legacy rows). The UI hides the section in either
- * case.
+ * Slug-selected runs can recover their display scope from the complete saved
+ * selection. Recorded runs and runs with an unknown scope remain unavailable.
  */
 export async function getBacktestCoverage(
   backtestId: number,
@@ -52,6 +52,7 @@ export async function getBacktestCoverage(
       id: backtestRuns.id,
       symbol: backtestRuns.symbol,
       timeframe: backtestRuns.timeframe,
+      slugs: backtestRuns.slugs,
       inputMode: backtestRuns.inputMode,
       converter: backtestRuns.converter,
       readFrom: backtestRuns.readFrom,
@@ -64,13 +65,14 @@ export async function getBacktestCoverage(
   if (
     run.inputMode === null ||
     run.inputMode === 'recorded' ||
-    run.symbol === null ||
-    run.timeframe === null ||
     run.converter === null ||
     run.readFrom === null
   ) {
     return null
   }
+
+  const scope = resolveCoverageScope(run)
+  if (scope === null) return null
 
   const converter = run.converter as 'delta-typed' | 'paired'
   const readFrom = run.readFrom as 'local' | 'r2'
@@ -105,8 +107,8 @@ export async function getBacktestCoverage(
           {
             converter,
             readFrom,
-            symbol: run.symbol,
-            timeframe: run.timeframe,
+            symbol: scope.symbol,
+            timeframe: scope.timeframe,
             fromMs: eligibleFromMs,
           },
         ),
@@ -120,18 +122,23 @@ export async function getBacktestCoverage(
   const coveredRows = (await db
     .select({ slug: backtestRunMarkets.slug })
     .from(backtestRunMarkets)
-    .where(eq(backtestRunMarkets.runId, backtestId))) as Array<{ slug: string }>
+    .where(eq(backtestRunMarkets.runId, backtestId))) as Array<{
+    slug: string
+  }>
 
   const coveredSet = new Set(coveredRows.map((r) => r.slug))
   const report = computeCoverage(
-    eligibleRows.map((r) => ({ slug: r.slug, marketStartMs: Number(r.marketStartMs) })),
+    eligibleRows.map((r) => ({
+      slug: r.slug,
+      marketStartMs: Number(r.marketStartMs),
+    })),
     coveredSet,
   )
 
   return {
     meta: {
-      symbol: run.symbol,
-      timeframe: run.timeframe,
+      symbol: scope.symbol,
+      timeframe: scope.timeframe,
       converter,
       readFrom,
       inputMode: run.inputMode,
