@@ -49,6 +49,15 @@ case " $* " in
     ;;
 esac
 
+# launchd Background jobs can leave the shared tmux server QoS-clamped.
+# Give the worker process the application resource policy on macOS so all
+# forked market children can use normal CPU scheduling, regardless of the
+# tmux server's launch context. Keep other platforms on the existing path.
+WORKER_COMMAND=("$TSX")
+if [ "$(uname -s)" = "Darwin" ]; then
+  WORKER_COMMAND=(/usr/sbin/taskpolicy -a "$TSX")
+fi
+
 WORKER_PID=""
 forward_signal() {
   # Ctrl-C / SIGTERM: forward to the worker so it drains, then stop looping.
@@ -67,7 +76,7 @@ while true; do
 
   # Run the worker directly under tsx so its exit code reaches us verbatim
   # (npm would rewrite it).
-  "$TSX" src/cli/backtestWorker.ts "${ARGS[@]}" &
+  "${WORKER_COMMAND[@]}" src/cli/backtestWorker.ts "${ARGS[@]}" &
   WORKER_PID=$!
   wait "$WORKER_PID"
   code=$?

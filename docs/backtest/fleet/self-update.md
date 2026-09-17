@@ -121,6 +121,13 @@ this and **stops with a clear, non-zero error** instead of looping:
 
 ## Running workers
 
+On macOS, the launcher applies `/usr/sbin/taskpolicy -a` to every worker launch,
+including self-update relaunches. This removes an inherited background QoS clamp
+when a boot service created the shared tmux server with `ProcessType Background`.
+Without it, equally configured machines can have very different replay throughput
+even with every market child busy. Other platforms launch `tsx` directly.
+This does not require changing launchd services or restarting the tmux server.
+
 Launch every long-lived worker through the wrapper — locally and on remote
 machines, with the same flags you would pass to `npm run backtest:worker`:
 
