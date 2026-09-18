@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, lte, max, sql, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, lt, lte, max, sql, type SQL } from 'drizzle-orm'
 import type { Job } from 'bullmq'
 import { getDb } from '../db'
 import {
@@ -9,7 +9,12 @@ import {
 } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
 import { unionBusyMs } from '@polymarket-bot/stats/wallClock'
-import { backtestPageBounds, type BacktestSort } from '../backtestBrowse'
+import {
+  backtestPageBounds,
+  type BacktestMetric,
+  type BacktestNumericFilter,
+  type BacktestSort,
+} from '../backtestBrowse'
 
 const ACTIVE_AGGREGATE_STATES = ['waiting-children', 'waiting', 'active', 'delayed'] as const
 
@@ -321,6 +326,7 @@ export async function listBacktestFilterOptions(
 }
 
 export type HistoricalBatchFilters = {
+  numericFilters?: BacktestNumericFilter[]
   protocol?: string
   model?: string
   strategy?: string
@@ -359,38 +365,54 @@ export async function listHistoricalBatches(
   if (filters.status) {
     conditions.push(eq(backtestRuns.status, filters.status))
   }
+  // Use the same values as the summary table, including selected but unpersisted markets.
+  const metrics = {
+    'markets-total': sql`greatest(coalesce(${backtestRuns.inputMarketsTotal}, 0), coalesce(${backtestRunSegments.marketsTotal}, 0))`,
+    'markets-played': sql`coalesce(${backtestRunSegments.marketsPlayed}, 0)`,
+    'ev-played': sql`coalesce(${backtestRunSegments.evPerMarketPlayed}, 0)`,
+    'ev-total': sql`coalesce(${backtestRunSegments.evPerMarketTotal}, 0)`,
+    pnl: sql`coalesce(${backtestRunSegments.pnlTotal}, 0)`,
+  } satisfies Record<BacktestMetric, SQL>
+  for (const filter of filters.numericFilters ?? []) {
+    const compare = filter.operator === 'gt' ? gt : lt
+    conditions.push(compare(metrics[filter.metric], filter.value))
+  }
+  const allSegmentJoin = and(
+    eq(backtestRunSegments.runId, backtestRuns.id),
+    eq(backtestRunSegments.segmentKind, 'all'),
+    eq(backtestRunSegments.segmentKey, 'all'),
+  )
   // Carry this bound between pages so newly inserted runs cannot shift offsets.
   const snapshot =
     options.snapshot ??
     Number((await db.select({ id: max(backtestRuns.id) }).from(backtestRuns))[0]?.id ?? 0)
   conditions.push(lte(backtestRuns.id, snapshot))
   const where = and(...conditions)
-  const [{ total }] = await db.select({ total: count() }).from(backtestRuns).where(where)
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(backtestRuns)
+    .leftJoin(backtestRunSegments, allSegmentJoin)
+    .where(where)
   const { page, pageCount, offset } = backtestPageBounds(total, limit, options.page ?? 1)
   // Missing all-segment stats are rendered as zero for runs with no persisted markets.
   const sorts = {
     newest: desc(backtestRuns.createdAt),
     oldest: asc(backtestRuns.createdAt),
-    'pnl-desc': desc(sql`coalesce(${backtestRunSegments.pnlTotal}, 0)`),
-    'pnl-asc': asc(sql`coalesce(${backtestRunSegments.pnlTotal}, 0)`),
-    'ev-desc': desc(sql`coalesce(${backtestRunSegments.evPerMarketPlayed}, 0)`),
-    'ev-asc': asc(sql`coalesce(${backtestRunSegments.evPerMarketPlayed}, 0)`),
-    'ev-total-desc': desc(sql`coalesce(${backtestRunSegments.evPerMarketTotal}, 0)`),
-    'ev-total-asc': asc(sql`coalesce(${backtestRunSegments.evPerMarketTotal}, 0)`),
+    'markets-total-desc': desc(metrics['markets-total']),
+    'markets-total-asc': asc(metrics['markets-total']),
+    'pnl-desc': desc(metrics.pnl),
+    'pnl-asc': asc(metrics.pnl),
+    'ev-desc': desc(metrics['ev-played']),
+    'ev-asc': asc(metrics['ev-played']),
+    'ev-total-desc': desc(metrics['ev-total']),
+    'ev-total-asc': asc(metrics['ev-total']),
     'win-rate-desc': desc(sql`coalesce(${backtestRunSegments.winRatePct}, 0)`),
     'win-rate-asc': asc(sql`coalesce(${backtestRunSegments.winRatePct}, 0)`),
   } satisfies Record<BacktestSort, SQL>
   const rows = await db
     .select({ run: backtestRuns, allSegment: backtestRunSegments })
     .from(backtestRuns)
-    .leftJoin(
-      backtestRunSegments,
-      and(
-        eq(backtestRunSegments.runId, backtestRuns.id),
-        eq(backtestRunSegments.segmentKind, 'all'),
-        eq(backtestRunSegments.segmentKey, 'all'),
-      ),
-    )
+    .leftJoin(backtestRunSegments, allSegmentJoin)
     .where(where)
     .orderBy(sorts[options.sort ?? 'newest'], desc(backtestRuns.id))
     .limit(limit)

@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { SearchableSelect } from './ui/searchable-select'
+import { BacktestsNumericFilters } from './BacktestsNumericFilters'
 import {
   BACKTEST_SORT_OPTIONS,
   EMPTY_BACKTEST_FILTERS,
@@ -57,7 +58,12 @@ export function BacktestsFilters({
     ...items.map((item) => ({ value: item, label: uppercase ? item.toUpperCase() : item })),
   ]
   const hasActiveFilters =
-    value.protocol || value.model || value.strategy || value.symbol || value.status
+    value.protocol ||
+    value.model ||
+    value.strategy ||
+    value.symbol ||
+    value.status ||
+    value.numericFilters.length > 0
   const limits = [...new Set([25, 50, 100, 200, 500, value.limit])].sort((a, b) => a - b)
 
   return (
@@ -111,7 +117,13 @@ export function BacktestsFilters({
           <button
             type="button"
             onClick={() =>
-              onChange({ ...value, ...EMPTY_BACKTEST_FILTERS, page: 1, snapshot: undefined })
+              onChange({
+                ...value,
+                ...EMPTY_BACKTEST_FILTERS,
+                numericFilters: [],
+                page: 1,
+                snapshot: undefined,
+              })
             }
             className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
           >
@@ -141,6 +153,12 @@ export function BacktestsFilters({
           />
         </div>
       </div>
+      <BacktestsNumericFilters
+        value={value.numericFilters}
+        onChange={(numericFilters) =>
+          onChange({ ...value, numericFilters, page: 1, snapshot: undefined })
+        }
+      />
       {isError && (
         <p role="alert" className="text-xs text-destructive">
           Could not load filter options.{' '}

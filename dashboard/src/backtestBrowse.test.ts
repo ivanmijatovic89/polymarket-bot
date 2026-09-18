@@ -52,6 +52,60 @@ test('malformed URL controls cannot produce unsafe offsets or arbitrary SQL orde
   assert.equal(readBacktestBrowseState(new URLSearchParams('snapshot=0')).snapshot, 0)
 })
 
+test('numeric conditions round trip signed decimals, zero and bounds on the same metric', () => {
+  const sp = new URLSearchParams({ sort: 'markets-total-desc' })
+  for (const condition of [
+    'markets-total:gt:150',
+    'markets-total:lt:300',
+    'markets-played:gt:100',
+    'ev-played:gt:-0.25',
+    'ev-total:lt:20.5',
+    'pnl:gt:0',
+  ])
+    sp.append('condition', condition)
+  const state = readBacktestBrowseState(sp)
+  assert.deepEqual(state.numericFilters, [
+    { metric: 'markets-total', operator: 'gt', value: 150 },
+    { metric: 'markets-total', operator: 'lt', value: 300 },
+    { metric: 'markets-played', operator: 'gt', value: 100 },
+    { metric: 'ev-played', operator: 'gt', value: -0.25 },
+    { metric: 'ev-total', operator: 'lt', value: 20.5 },
+    { metric: 'pnl', operator: 'gt', value: 0 },
+  ])
+  assert.equal(state.sort, 'markets-total-desc')
+  assert.deepEqual(readBacktestBrowseState(backtestBrowseParams(state)), state)
+  assert.equal(changeBacktestFilter(state, 'protocol', 'p2').numericFilters, state.numericFilters)
+  assert.equal(
+    readBacktestBrowseState(new URLSearchParams('sort=markets-total-asc')).sort,
+    'markets-total-asc',
+  )
+})
+
+test('numeric conditions reject unknown metrics, operators and missing or nonfinite values', () => {
+  const sp = new URLSearchParams()
+  for (const condition of [
+    '',
+    'pnl',
+    'pnl:gt',
+    'pnl:gt:',
+    'pnl:gt: ',
+    'pnl:gt:NaN',
+    'pnl:gt:Infinity',
+    'pnl:lt:-Infinity',
+    'pnl:gt:1e309',
+    'pnl:gt:10:extra',
+    'pnl:eq:10',
+    'pnl:>=:10',
+    'untrusted-column:gt:10',
+    'pnl:gt:0; drop table',
+  ])
+    sp.append('condition', condition)
+  sp.append('condition', 'pnl:lt:-100.25')
+  const state = readBacktestBrowseState(sp)
+  assert.deepEqual(state.numericFilters, [{ metric: 'pnl', operator: 'lt', value: -100.25 }])
+  assert.deepEqual(backtestBrowseParams(state).getAll('condition'), ['pnl:lt:-100.25'])
+})
+
 test('switching protocol or model removes stale dependent selections and resets pagination', () => {
   const original = readBacktestBrowseState(
     new URLSearchParams(

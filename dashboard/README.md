@@ -90,9 +90,17 @@ Changing protocol clears model and strategy, and changing model clears strategy.
 Strategy versions use natural ordering (v2 before v10). Filter options come from
 recorded run metadata across all pages.
 
+Use **Filter by value** to choose Markets total, Markets played, EV / played,
+EV / total, or PnL, then `>` or `<` and a number. Press **Add condition** or Enter;
+click an active condition to remove it. Conditions combine with AND, so
+`Markets total > 150` and `PnL < 100` must both match. Negative and decimal values
+are supported. Comparisons are strict and use stored precision before display
+rounding. Markets total matches the displayed total, including selected markets
+that were not persisted. Clear filters also removes all numeric conditions.
+
 Pagination shows the matching count, Previous/Next, and page numbers above and
 below the table. Choose 25, 50, 100, 200, or 500 rows per page. Sorting supports
-creation time, PnL, EV per played/total market, and win rate in either direction.
+creation time, Markets total, PnL, EV per played/total market, and win rate in either direction.
 Filtering and sorting apply in the database before pagination, with run ID as a
 stable tiebreaker. Invalid page numbers are clamped to the available range.
 

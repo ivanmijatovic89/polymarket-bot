@@ -12,7 +12,11 @@ import { BacktestSummaryTable } from './BacktestSummaryTable'
 import { CmdModal } from './CmdModal'
 import type { HistoricalBatch, HistoricalBatchPage } from '@/lib/queries/batches'
 import { BacktestsPagination } from './BacktestsPagination'
-import { backtestBrowseParams, type BacktestSort } from '@/lib/backtestBrowse'
+import {
+  backtestBrowseParams,
+  type BacktestNumericFilter,
+  type BacktestSort,
+} from '@/lib/backtestBrowse'
 
 export type BacktestsTableProps = {
   limit?: number
@@ -25,6 +29,7 @@ export type BacktestsTableProps = {
   strategy?: string
   symbol?: string
   status?: HistoricalBatch['status']
+  numericFilters?: BacktestNumericFilter[]
   emptyHint?: string
   /** Viewport-pinned header that follows page scroll. Only the full /backtests
    * page wants this; embeds keep a static header. */
@@ -41,6 +46,7 @@ async function fetchHistory(
     strategy: params.strategy ?? '',
     symbol: params.symbol ?? '',
     status: params.status ?? '',
+    numericFilters: params.numericFilters ?? [],
     limit: params.limit,
     page: params.page ?? 1,
     sort: params.sort ?? 'newest',
@@ -86,10 +92,22 @@ export function BacktestsTable({
   strategy,
   symbol,
   status,
+  numericFilters,
   emptyHint,
   stickyHeader,
 }: BacktestsTableProps = {}) {
-  const params = { limit, page, sort, snapshot, protocol, model, strategy, symbol, status }
+  const params = {
+    limit,
+    page,
+    sort,
+    snapshot,
+    protocol,
+    model,
+    strategy,
+    symbol,
+    status,
+    numericFilters,
+  }
   const { data, isLoading, isFetching, isPlaceholderData, isError, refetch } = useQuery({
     queryKey: ['batches', 'history', params],
     queryFn: ({ signal }) => fetchHistory(params, signal),
