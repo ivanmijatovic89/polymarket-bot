@@ -272,15 +272,24 @@ function mapRunSummary(run: typeof backtestRuns.$inferSelect, allSegment: AllSeg
   }
 }
 
-/** Distinct strategy / symbol values across all backtests — used to populate
- * filter dropdowns on the /backtests page. Cheap because both columns are
- * varchar(10/255) with relatively few unique values. */
+/** Distinct recorded values across all backtests, used to populate filter
+ * dropdowns on the /backtests page independently of the current result limit. */
 export async function listBacktestFilterOptions(): Promise<{
+  protocols: string[]
+  models: string[]
   strategies: string[]
   symbols: string[]
 }> {
   const db = getDb()
-  const [strategyRows, symbolRows] = await Promise.all([
+  const [protocolRows, modelRows, strategyRows, symbolRows] = await Promise.all([
+    db
+      .selectDistinct({ value: backtestRuns.protocol })
+      .from(backtestRuns)
+      .orderBy(asc(backtestRuns.protocol)),
+    db
+      .selectDistinct({ value: backtestRuns.model })
+      .from(backtestRuns)
+      .orderBy(asc(backtestRuns.model)),
     db
       .selectDistinct({ value: backtestRuns.strategy })
       .from(backtestRuns)
@@ -291,12 +300,16 @@ export async function listBacktestFilterOptions(): Promise<{
       .orderBy(asc(backtestRuns.symbol)),
   ])
   return {
+    protocols: protocolRows.map((r) => r.value).filter((s): s is string => !!s),
+    models: modelRows.map((r) => r.value).filter((s): s is string => !!s),
     strategies: strategyRows.map((r) => r.value).filter((s): s is string => !!s),
     symbols: symbolRows.map((r) => r.value).filter((s): s is string => !!s),
   }
 }
 
 export type HistoricalBatchFilters = {
+  protocol?: string
+  model?: string
   strategy?: string
   symbol?: string
   status?: 'completed' | 'partial' | 'failed'
@@ -308,6 +321,12 @@ export async function listHistoricalBatches(
 ): Promise<HistoricalBatch[]> {
   const db = getDb()
   const conditions = []
+  if (filters.protocol) {
+    conditions.push(eq(backtestRuns.protocol, filters.protocol))
+  }
+  if (filters.model) {
+    conditions.push(eq(backtestRuns.model, filters.model))
+  }
   if (filters.strategy) {
     conditions.push(eq(backtestRuns.strategy, filters.strategy))
   }

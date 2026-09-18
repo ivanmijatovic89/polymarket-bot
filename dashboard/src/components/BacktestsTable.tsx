@@ -14,6 +14,8 @@ import type { HistoricalBatch } from '@/lib/queries/batches'
 
 export type BacktestsTableProps = {
   limit?: number
+  protocol?: string
+  model?: string
   strategy?: string
   symbol?: string
   status?: HistoricalBatch['status']
@@ -25,12 +27,16 @@ export type BacktestsTableProps = {
 
 async function fetchHistory(params: {
   limit: number
+  protocol?: string
+  model?: string
   strategy?: string
   symbol?: string
   status?: string
 }): Promise<{ batches: HistoricalBatch[] }> {
   const sp = new URLSearchParams()
   sp.set('limit', String(params.limit))
+  if (params.protocol) sp.set('protocol', params.protocol)
+  if (params.model) sp.set('model', params.model)
   if (params.strategy) sp.set('strategy', params.strategy)
   if (params.symbol) sp.set('symbol', params.symbol)
   if (params.status) sp.set('status', params.status)
@@ -64,6 +70,8 @@ function StatusChip({ status }: { status: HistoricalBatch['status'] }) {
  */
 export function BacktestsTable({
   limit = 20,
+  protocol,
+  model,
   strategy,
   symbol,
   status,
@@ -71,8 +79,8 @@ export function BacktestsTable({
   stickyHeader,
 }: BacktestsTableProps = {}) {
   const { data, isLoading } = useQuery({
-    queryKey: ['batches', 'history', { limit, strategy, symbol, status }],
-    queryFn: () => fetchHistory({ limit, strategy, symbol, status }),
+    queryKey: ['batches', 'history', { limit, protocol, model, strategy, symbol, status }],
+    queryFn: () => fetchHistory({ limit, protocol, model, strategy, symbol, status }),
     refetchInterval: 10000,
   })
   const [cmdBatch, setCmdBatch] = useState<HistoricalBatch | null>(null)

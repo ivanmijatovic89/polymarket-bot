@@ -5,6 +5,8 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type BacktestsFilterValues = {
+  protocol: string
+  model: string
   strategy: string
   symbol: string
   status: string
@@ -25,7 +27,12 @@ const STATUS_OPTIONS = [
 
 const LIMIT_OPTIONS = [50, 100, 200, 500]
 
-async function fetchFilterOptions(): Promise<{ strategies: string[]; symbols: string[] }> {
+async function fetchFilterOptions(): Promise<{
+  protocols: string[]
+  models: string[]
+  strategies: string[]
+  symbols: string[]
+}> {
   const r = await fetch('/api/batches/filter-options', { cache: 'no-store' })
   if (!r.ok) throw new Error('failed to fetch /api/batches/filter-options')
   return r.json()
@@ -38,16 +45,47 @@ export function BacktestsFilters({ value, onChange }: BacktestsFiltersProps) {
     queryFn: fetchFilterOptions,
     staleTime: 60_000,
   })
+  const protocols = data?.protocols ?? []
+  const models = data?.models ?? []
   const strategies = data?.strategies ?? []
   const symbols = data?.symbols ?? []
 
-  const hasActiveFilters = value.strategy || value.symbol || value.status
+  const hasActiveFilters =
+    value.protocol || value.model || value.strategy || value.symbol || value.status
 
   const select =
     'h-8 rounded-md border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <select
+        className={select}
+        value={value.protocol}
+        onChange={(e) => onChange({ ...value, protocol: e.target.value })}
+        aria-label="Protocol filter"
+      >
+        <option value="">Any protocol</option>
+        {protocols.map((protocol) => (
+          <option key={protocol} value={protocol}>
+            {protocol}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className={select}
+        value={value.model}
+        onChange={(e) => onChange({ ...value, model: e.target.value })}
+        aria-label="Model filter"
+      >
+        <option value="">Any model</option>
+        {models.map((model) => (
+          <option key={model} value={model}>
+            {model}
+          </option>
+        ))}
+      </select>
+
       <select
         className={select}
         value={value.strategy}
@@ -108,7 +146,16 @@ export function BacktestsFilters({ value, onChange }: BacktestsFiltersProps) {
       {hasActiveFilters && (
         <button
           type="button"
-          onClick={() => onChange({ strategy: '', symbol: '', status: '', limit: value.limit })}
+          onClick={() =>
+            onChange({
+              protocol: '',
+              model: '',
+              strategy: '',
+              symbol: '',
+              status: '',
+              limit: value.limit,
+            })
+          }
           className={cn(
             'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground',
             'hover:text-foreground hover:bg-accent transition-colors',

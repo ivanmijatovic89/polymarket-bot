@@ -13,9 +13,13 @@ export async function GET(req: NextRequest) {
   const raw = sp.get('limit')
   const limit = Math.max(1, Math.min(500, Number(raw ?? 50) || 50))
   const filters: HistoricalBatchFilters = {}
+  const protocol = sp.get('protocol')
+  const model = sp.get('model')
   const strategy = sp.get('strategy')
   const symbol = sp.get('symbol')
   const status = parseStatus(sp.get('status'))
+  if (protocol) filters.protocol = protocol
+  if (model) filters.model = model
   if (strategy) filters.strategy = strategy
   if (symbol) filters.symbol = symbol
   if (status) filters.status = status

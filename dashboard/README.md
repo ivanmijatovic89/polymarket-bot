@@ -76,6 +76,16 @@ dashboard/
 └── package.json
 ```
 
+## Backtest filters
+
+The `/backtests` page filters finalized runs by protocol, model, strategy,
+symbol, and status. Filters combine and apply before the result limit. Protocol
+and model options come from recorded run metadata; runs without that metadata
+remain visible when the corresponding filter is set to Any.
+
+Selections are saved in the URL, so filtered views can be bookmarked or shared.
+Clear resets every filter while preserving the result limit.
+
 ## Adding a page
 
 1. Create `src/app/<route>/page.tsx` (server component).
