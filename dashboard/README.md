@@ -79,12 +79,32 @@ dashboard/
 ## Backtest filters
 
 The `/backtests` page filters finalized runs by protocol, model, strategy,
-symbol, and status. Filters combine and apply before the result limit. Protocol
-and model options come from recorded run metadata; runs without that metadata
-remain visible when the corresponding filter is set to Any.
+symbol, and status. Every dropdown supports typing to find an option, arrow-key
+navigation, Enter to select, and Escape to dismiss. Individual filters have a
+clear button; Clear filters resets all filters while preserving sorting and
+rows per page. Runs without metadata remain visible with the corresponding
+filter set to Any.
 
-Selections are saved in the URL, so filtered views can be bookmarked or shared.
-Clear resets every filter while preserving the result limit.
+Protocol narrows the available models; protocol and model narrow strategies.
+Changing protocol clears model and strategy, and changing model clears strategy.
+Strategy versions use natural ordering (v2 before v10). Filter options come from
+recorded run metadata across all pages.
+
+Pagination shows the matching count, Previous/Next, and page numbers above and
+below the table. Choose 25, 50, 100, 200, or 500 rows per page. Sorting supports
+creation time, PnL, EV per played/total market, and win rate in either direction.
+Filtering and sorting apply in the database before pagination, with run ID as a
+stable tiebreaker. Invalid page numbers are clamped to the available range.
+
+Filters, sort, page size, and page are saved in the URL and browser history.
+Changing a filter, sort, or page size returns to page 1. Navigating pages carries
+the highest run ID seen as a `snapshot` parameter, so newly completed runs do
+not shift the pages being browsed. Refresh results returns to page 1 and includes
+new runs. Existing run statistics can still change if a run is extended.
+
+`GET /api/batches/history` accepts these URL parameters and returns `batches`,
+`total`, `page`, `pageCount`, `limit`, and `snapshot`. Overview and Fleet retain
+their compact recent-run tables without pagination controls.
 
 ## Adding a page
 

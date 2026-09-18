@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq, lte, max, sql, type SQL } from 'drizzle-orm'
 import type { Job } from 'bullmq'
 import { getDb } from '../db'
 import {
@@ -9,6 +9,7 @@ import {
 } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
 import { unionBusyMs } from '@polymarket-bot/stats/wallClock'
+import { backtestPageBounds, type BacktestSort } from '../backtestBrowse'
 
 const ACTIVE_AGGREGATE_STATES = ['waiting-children', 'waiting', 'active', 'delayed'] as const
 
@@ -274,7 +275,9 @@ function mapRunSummary(run: typeof backtestRuns.$inferSelect, allSegment: AllSeg
 
 /** Distinct recorded values across all backtests, used to populate filter
  * dropdowns on the /backtests page independently of the current result limit. */
-export async function listBacktestFilterOptions(): Promise<{
+export async function listBacktestFilterOptions(
+  filters: Pick<HistoricalBatchFilters, 'protocol' | 'model'> = {},
+): Promise<{
   protocols: string[]
   models: string[]
   strategies: string[]
@@ -289,10 +292,17 @@ export async function listBacktestFilterOptions(): Promise<{
     db
       .selectDistinct({ value: backtestRuns.model })
       .from(backtestRuns)
+      .where(filters.protocol ? eq(backtestRuns.protocol, filters.protocol) : undefined)
       .orderBy(asc(backtestRuns.model)),
     db
       .selectDistinct({ value: backtestRuns.strategy })
       .from(backtestRuns)
+      .where(
+        and(
+          filters.protocol ? eq(backtestRuns.protocol, filters.protocol) : undefined,
+          filters.model ? eq(backtestRuns.model, filters.model) : undefined,
+        ),
+      )
       .orderBy(asc(backtestRuns.strategy)),
     db
       .selectDistinct({ value: backtestRuns.symbol })
@@ -302,7 +312,10 @@ export async function listBacktestFilterOptions(): Promise<{
   return {
     protocols: protocolRows.map((r) => r.value).filter((s): s is string => !!s),
     models: modelRows.map((r) => r.value).filter((s): s is string => !!s),
-    strategies: strategyRows.map((r) => r.value).filter((s): s is string => !!s),
+    strategies: strategyRows
+      .map((r) => r.value)
+      .filter((s): s is string => !!s)
+      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true })),
     symbols: symbolRows.map((r) => r.value).filter((s): s is string => !!s),
   }
 }
@@ -315,10 +328,20 @@ export type HistoricalBatchFilters = {
   status?: 'completed' | 'partial' | 'failed'
 }
 
+export type HistoricalBatchPage = {
+  batches: HistoricalBatch[]
+  total: number
+  page: number
+  pageCount: number
+  limit: number
+  snapshot: number
+}
+
 export async function listHistoricalBatches(
   limit: number,
   filters: HistoricalBatchFilters = {},
-): Promise<HistoricalBatch[]> {
+  options: { page?: number; sort?: BacktestSort; snapshot?: number } = {},
+): Promise<HistoricalBatchPage> {
   const db = getDb()
   const conditions = []
   if (filters.protocol) {
@@ -336,6 +359,27 @@ export async function listHistoricalBatches(
   if (filters.status) {
     conditions.push(eq(backtestRuns.status, filters.status))
   }
+  // Carry this bound between pages so newly inserted runs cannot shift offsets.
+  const snapshot =
+    options.snapshot ??
+    Number((await db.select({ id: max(backtestRuns.id) }).from(backtestRuns))[0]?.id ?? 0)
+  conditions.push(lte(backtestRuns.id, snapshot))
+  const where = and(...conditions)
+  const [{ total }] = await db.select({ total: count() }).from(backtestRuns).where(where)
+  const { page, pageCount, offset } = backtestPageBounds(total, limit, options.page ?? 1)
+  // Missing all-segment stats are rendered as zero for runs with no persisted markets.
+  const sorts = {
+    newest: desc(backtestRuns.createdAt),
+    oldest: asc(backtestRuns.createdAt),
+    'pnl-desc': desc(sql`coalesce(${backtestRunSegments.pnlTotal}, 0)`),
+    'pnl-asc': asc(sql`coalesce(${backtestRunSegments.pnlTotal}, 0)`),
+    'ev-desc': desc(sql`coalesce(${backtestRunSegments.evPerMarketPlayed}, 0)`),
+    'ev-asc': asc(sql`coalesce(${backtestRunSegments.evPerMarketPlayed}, 0)`),
+    'ev-total-desc': desc(sql`coalesce(${backtestRunSegments.evPerMarketTotal}, 0)`),
+    'ev-total-asc': asc(sql`coalesce(${backtestRunSegments.evPerMarketTotal}, 0)`),
+    'win-rate-desc': desc(sql`coalesce(${backtestRunSegments.winRatePct}, 0)`),
+    'win-rate-asc': asc(sql`coalesce(${backtestRunSegments.winRatePct}, 0)`),
+  } satisfies Record<BacktestSort, SQL>
   const rows = await db
     .select({ run: backtestRuns, allSegment: backtestRunSegments })
     .from(backtestRuns)
@@ -347,10 +391,11 @@ export async function listHistoricalBatches(
         eq(backtestRunSegments.segmentKey, 'all'),
       ),
     )
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(backtestRuns.createdAt))
+    .where(where)
+    .orderBy(sorts[options.sort ?? 'newest'], desc(backtestRuns.id))
     .limit(limit)
-  return rows.map(({ run, allSegment }) => {
+    .offset(offset)
+  const batches = rows.map(({ run, allSegment }) => {
     const summary = mapRunSummary(run, allSegment)
     return {
       id: summary.id,
@@ -391,6 +436,7 @@ export async function listHistoricalBatches(
       createdAt: summary.createdAt,
     }
   })
+  return { batches, total, page, pageCount, limit, snapshot }
 }
 
 /**
