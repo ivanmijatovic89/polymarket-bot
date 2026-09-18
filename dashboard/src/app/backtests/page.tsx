@@ -18,7 +18,8 @@ export default function BacktestsPage() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Backtests</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          Browse finalized batches. Use the filters to narrow by strategy, symbol, or status.
+          Browse finalized batches. Use the filters to narrow by protocol, model, strategy,
+          symbol, or status.
         </p>
       </div>
       <Suspense fallback={null}>
