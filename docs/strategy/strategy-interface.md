@@ -112,7 +112,7 @@ type PlaceBatchIntent = {
 ```
 
 ::: warning Batch size limit
-Polymarket's CLOB accepts a maximum of 15 orders per batch request. `OrderManager` will reject batches that exceed this limit.
+The live execution adapter enforces a maximum of 15 orders per batch request. This limit is not currently enforced by `OrderManager` or the backtest adapter.
 :::
 
 ### Post-only orders
@@ -124,6 +124,8 @@ A BUY at or above the available best ask, or a SELL at or below the available be
 Live execution forwards the flag to the exchange. Backtests check the book when the existing execution queue dispatches the order, after any simulated latency, and emit `order_rejected` with reason `post_only_would_cross`. A missing book or empty opposing side has no available opposing price and does not trigger this rejection. Once accepted, the order follows the existing maker-fill, cancellation, and GTD-expiry behavior; the initial crossing check is not repeated.
 
 The requested flag is retained in `order_submitted.order`, `portfolio.openOrdersByClientId`, and `portfolio.ordersByClientId`, including order history after rejection or completion. It is also included in live submission logs. This is a per-order choice; no CLI option or strategy-wide default is needed.
+
+The WebUI shows the requested flag in open orders and order history. Dry-run bypasses execution and synthesizes acceptance; it does not test post-only crossing rejection. See the [dry-run gate](../engine/order-manager.md#the-dry-run-gate). Production live trading remains blocked by the [legacy SDK migration](../engine/live-execution.md); passing post-only backtests or SDK tests does not establish production readiness.
 
 ### `cancel_order`
 

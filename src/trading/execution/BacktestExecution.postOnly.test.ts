@@ -304,6 +304,47 @@ for (const path of paths) {
     assert.equal(events[0]?.kind, 'order_submitted')
     assertRejected(events.slice(1), 'order-1', startMs + 1)
   })
+
+  test(`${path}: dry-run validates post-only types but bypasses crossing simulation`, async (t) => {
+    const execution = new BacktestExecution()
+    const place = t.mock.method(execution, path === 'single' ? 'placeLimit' : 'placeBatch')
+    const manager = new OrderManager({ execution, dryRun: true })
+    const intents: PlaceLimitIntent[] = [
+      order({ price: 0.6 }),
+      order({ clientOrderId: 'invalid', orderType: 'FOK' }),
+    ]
+    const events = await manager.handleIntents(
+      path === 'single' ? intents : [{ kind: 'place_batch', orders: intents }],
+      context(),
+      { mode: 'immediate' },
+    )
+    assert.equal(place.mock.callCount(), 0)
+    assert.deepEqual(
+      events.filter((event) => event.kind === 'order_rejected'),
+      [
+        {
+          kind: 'order_rejected',
+          clientOrderId: 'invalid',
+          tsMs: startMs,
+          reason: 'post_only_requires_gtc_or_gtd',
+        },
+      ],
+    )
+    assert.deepEqual(
+      events.filter((event) => event.kind === 'order_accepted'),
+      [
+        {
+          kind: 'order_accepted',
+          clientOrderId: 'order-1',
+          tsMs: startMs,
+        },
+      ],
+    )
+    assert.equal(
+      events.some((event) => event.kind === 'fill'),
+      false,
+    )
+  })
 }
 
 test('mixed batch independently accepts, rejects, and fills orders, and releases only rejected IDs', async () => {

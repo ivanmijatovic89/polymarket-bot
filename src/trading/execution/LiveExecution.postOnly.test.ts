@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test, { type TestContext } from 'node:test'
+import { createServer } from 'node:http'
 import {
   ClobClient,
   OrderSide,
@@ -29,7 +30,7 @@ const signed: SignedOrder = {
   signature: 'test-signature',
 }
 
-function setup(t: TestContext) {
+function setup(t: TestContext, host = 'https://clob.invalid') {
   t.mock.method(console, 'log', () => {})
   const create = t.mock.method(ClobClient.prototype, 'createOrder', async () => signed)
   const single = t.mock.method(ClobClient.prototype, 'postOrder', async () => ({
@@ -47,7 +48,7 @@ function setup(t: TestContext) {
     config: {
       privateKey: `0x${'1'.repeat(64)}`,
       creds: { apiKey: 'test-key', secret: 'test-secret', passphrase: 'test-passphrase' },
-      clob: { host: 'https://clob.invalid', chainId: 137, pollIntervalMs: 1000, signatureType: 0 },
+      clob: { host, chainId: 137, pollIntervalMs: 1000, signatureType: 0 },
       ws: { marketUrl: 'wss://market.invalid', userUrl: 'wss://user.invalid' },
       gamma: { baseUrl: 'https://gamma.invalid' },
     },
@@ -235,3 +236,73 @@ test('live single: shared validation blocks post-only FOK before signing or subm
   assert.equal(h.create.mock.callCount(), 0)
   assert.equal(h.single.mock.callCount(), 0)
 })
+
+test(
+  'installed SDK serializes postOnly independently from deferExec for single and batch HTTP requests',
+  { timeout: 10_000 },
+  async (t) => {
+    const requests: Array<{ path: string | undefined; body: string }> = []
+    const server = createServer((request, response) => {
+      let body = ''
+      request.setEncoding('utf8')
+      request.on('data', (chunk: string) => {
+        body += chunk
+      })
+      request.on('end', () => {
+        requests.push({ path: request.url, body })
+        response.setHeader('Content-Type', 'application/json')
+        const accepted = { success: true, orderID: 'local-test-order' }
+        response.end(JSON.stringify(request.url === '/orders' ? Array(4).fill(accepted) : accepted))
+      })
+    })
+    t.after(async () => {
+      server.closeAllConnections()
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      )
+    })
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', resolve)
+    })
+    const address = server.address()
+    assert.ok(address && typeof address !== 'string')
+    const h = setup(t, `http://127.0.0.1:${address.port}`)
+    // Exercise the real installed SDK through HTTP, with only order signing stubbed.
+    h.single.mock.restore()
+    h.batch.mock.restore()
+    const intents = [
+      order({ postOnly: true }),
+      order({ postOnly: true, orderType: 'GTD', expireAtMs: 120_000 }),
+      order({ postOnly: false }),
+      order(),
+    ]
+    for (const intent of intents) {
+      const result = await h.execution.placeLimit(intent, { nowMs: 1000 })
+      assert.equal(result.events[0]?.kind, 'order_accepted')
+    }
+    const batch = await h.execution.placeBatch(
+      { kind: 'place_batch', orders: intents },
+      { nowMs: 1000 },
+    )
+    assert.equal(batch.events.filter((event) => event.kind === 'order_accepted').length, 4)
+    assert.deepEqual(
+      requests.map((request) => request.path),
+      ['/order', '/order', '/order', '/order', '/orders'],
+    )
+    type Payload = { postOnly: boolean; deferExec: boolean; orderType: string }
+    const singles = requests.slice(0, 4).map((request) => JSON.parse(request.body) as Payload)
+    const batched = JSON.parse(requests[4]!.body) as Payload[]
+    for (const payloads of [singles, batched]) {
+      assert.deepEqual(
+        payloads.map(({ postOnly, deferExec, orderType }) => ({ postOnly, deferExec, orderType })),
+        [
+          { postOnly: true, deferExec: false, orderType: 'GTC' },
+          { postOnly: true, deferExec: false, orderType: 'GTD' },
+          { postOnly: false, deferExec: false, orderType: 'GTC' },
+          { postOnly: false, deferExec: false, orderType: 'GTC' },
+        ],
+      )
+    }
+  },
+)

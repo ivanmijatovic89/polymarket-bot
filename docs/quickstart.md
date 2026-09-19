@@ -84,26 +84,31 @@ This replays the 5 most recent BTC recordings with the `basicFak.v1` strategy an
 
 ## Step 4 — Run the live trading bot
 
+::: danger Production migration is required
+The current bot uses the legacy CLOB SDK. Polymarket no longer supports V1-signed orders in production; signing and collateral migration remains open in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249). Keep live execution disabled until that work is complete and verified. See [Live Execution](./engine/live-execution.md) for details.
+:::
+
 By default, `DRY_RUN=true`. The bot connects to live markets, runs strategy logic, and logs what it _would_ do — but places no real orders.
 
 ```bash
 TRADING_SYMBOL=BTC npm run trade:bot:btc -- --strategy basicFak.v1
 ```
 
-To place real orders, set `DRY_RUN=false`:
+After production compatibility is restored and verified, real execution is enabled with `DRY_RUN=false`:
 
 ```bash
 TRADING_SYMBOL=BTC DRY_RUN=false npm run trade:bot:btc -- --strategy basicFak.v1
 ```
 
 ::: danger
-Real orders move real money. Verify your strategy in backtest and dry-run first.
+Real orders move real money. Backtests verify behavior within the simulator; dry-run only synthesizes accepted/open orders and does not test fills or post-only crossing rejection. Neither establishes production exchange compatibility.
 :::
 
 ## Validation checklist
 
 Before going live, confirm:
 
+- [ ] The CLOB V2/signing and collateral migration in #249 is complete and verified
 - [ ] `npm run code:eslint` passes
 - [ ] `npm run record:live:btc` writes valid `.parquet` files
 - [ ] `npm run backtest` runs at least one file end-to-end without errors

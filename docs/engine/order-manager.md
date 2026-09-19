@@ -62,15 +62,18 @@ Before submitting a `place_limit` or `place_batch` order, the manager validates 
 | `price <= 0` or non-finite | `invalid_price`                            |
 | `size <= 0` or non-finite  | `invalid_size`                             |
 | `assetId` absent           | `missing_assetId`                          |
+| `postOnly: true` with a type other than GTC/GTD | `post_only_requires_gtc_or_gtd` |
 | GTD without `expireAtMs`   | `gtd_requires_expireAtMs`                  |
 | `expireAtMs` non-finite    | `invalid_expireAtMs`                       |
 | GTD expiry too soon        | `gtd_expireAtMs_too_soon(min_offset_ms=N)` |
 
 For batch orders, all orders in the batch are validated before any are submitted. Orders that fail validation emit individual `order_rejected` events; the remaining valid orders proceed normally.
 
+The optional `postOnly` flag is retained in submitted order data. Shared validation checks its order-type combination, while execution checks marketability: the live exchange rejects crossing orders, and `BacktestExecution` evaluates the book when its queue dispatches the order. Immediate and delayed execution rejections release the active client ID. See [post-only orders](../strategy/strategy-interface.md#post-only-orders).
+
 ## GTD Minimum Expiry Enforcement
 
-Polymarket requires GTD (Good-Till-Date) orders to expire at least 60 seconds in the future. The `OrderManager` enforces this with `minGtdOffsetMs` (default `60_000` ms):
+The repository's GTD (Good-Till-Date) validation enforces a minimum expiry offset through `minGtdOffsetMs` (default `60_000` ms):
 
 ```typescript
 if (intent.expireAtMs < nowMs + this.minGtdOffsetMs)
@@ -78,6 +81,8 @@ if (intent.expireAtMs < nowMs + this.minGtdOffsetMs)
 ```
 
 `nowMs` comes from the `OrderManagerContext`, which is populated from `tick.snapshot.timestamp` in `StrategyRunner`. In backtests, this is the exchange timestamp of the event being replayed, ensuring that GTD validation behaves the same way against historical data as it would in live trading.
+
+This describes the existing engine model, not a guarantee of current exchange acceptance. Current exchange compatibility is tracked separately in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249).
 
 ## The Dry-Run Gate
 
@@ -95,8 +100,10 @@ For `merge_positions`, dry-run synthesizes a `positions_merged` event so that st
 
 For `cancel_order` in dry-run, the client order ID is removed from `activeClientOrders` and an `order_done` event is emitted with reason `canceled`.
 
-::: danger
-The `OrderManager` default is `dryRun: false`, and `trading-bot.ts` parses `DRY_RUN` with a default of `false` — set `DRY_RUN` to any value other than `false` to enable the dry-run gate. Without it, the bot will place real orders.
+Dry-run still validates `postOnly` against the order type, but it bypasses the execution adapter and synthesizes acceptance even if the order crosses. It does not simulate fills or prove exchange acceptance. Use `BacktestExecution` to test post-only crossing rejection and maker-fill behavior.
+
+::: warning
+The `OrderManager` constructor defaults to `dryRun: false`, but `trading-bot.ts` explicitly passes the parsed environment setting, which defaults to `true`. Real execution requires `DRY_RUN=false` (case-insensitive). See [Running the Live Trading Bot](../live-trading/live-trading-bot.md) for the current production compatibility blocker.
 :::
 
 ## Risk Limits

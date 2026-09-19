@@ -7,6 +7,10 @@ description: Step-by-step guide to launching the Polymarket live trading bot, co
 
 The trading bot connects to the Polymarket market WebSocket, resolves the current 15-minute UP/DOWN market for the selected symbol, and runs your chosen strategy against a live order book. Dry-run is the default — set `DRY_RUN=false` explicitly to place real orders.
 
+::: danger Live execution requires migration
+The current implementation still uses the legacy CLOB SDK. Polymarket's [CLOB V2 migration guide](https://docs.polymarket.com/v2-migration) states that V1-signed orders are no longer supported in production. Keep live trading disabled until the signing and collateral migration in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249) is complete and verified. Post-only support does not resolve this compatibility blocker.
+:::
+
 ## Prerequisites
 
 Before starting, ensure your `.env` file is populated with the required credentials:
@@ -27,6 +31,8 @@ TRADING_SYMBOL=BTC
 ::: tip Dry-run is the default
 `DRY_RUN` defaults to `true` — the bot resolves markets, processes the order book, and calls strategy logic normally without sending any orders. Set `DRY_RUN=false` explicitly to place real orders; startup then logs a loud LIVE MODE warning.
 :::
+
+Dry-run synthesizes accepted/open order events after shared validation. It does not simulate fills or post-only crossing rejection. Use backtests for those checks; neither mode establishes current production exchange compatibility.
 
 ## Quick-start commands
 

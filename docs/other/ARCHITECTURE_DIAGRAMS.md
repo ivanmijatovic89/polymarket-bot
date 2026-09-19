@@ -299,7 +299,12 @@ flowchart TD
     RiskCheck --> SimPlaceOrder[Simulate Order Placement<br/>BacktestExecution.placeLimit]
 
     SimPlaceOrder -->|FOK| ImmediateFill[Immediate Fill<br/>Match Against Book]
-    SimPlaceOrder -->|GTC/GTD| RestOrder[Rest Order<br/>Track in openByClientId]
+    SimPlaceOrder -->|GTC/GTD| PostOnlyCheck{Post-only and crossing<br/>at execution time?}
+    PostOnlyCheck -->|Yes| RejectPostOnly[Reject Entire Order<br/>No acceptance or fill]
+    RejectPostOnly --> UpdatePortfolio
+    PostOnlyCheck -->|No| GtcPlacement[Ordinary orders may take liquidity<br/>Non-crossing post-only orders rest]
+    GtcPlacement -->|Immediate taker fills if any| EmitFill
+    GtcPlacement -->|Unfilled remainder| RestOrder[Rest Order<br/>Track in openByClientId]
 
     ImmediateFill --> EmitFill[Emit Fill Events<br/>AccountEvent.fill]
     RestOrder --> CheckMakerFill[Check Maker Fill<br/>onMarketTick: Touch Cross]
