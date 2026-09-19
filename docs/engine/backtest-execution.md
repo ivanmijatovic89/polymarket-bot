@@ -95,7 +95,7 @@ order_accepted → ws_order_update(status=MATCHED) → fill(s) → order_done(re
 
 ## GTC / GTD Order Handling
 
-On placement, a GTC or GTD order first attempts an immediate taker fill against the current book. Any unfilled remainder becomes a resting order stored in `openByClientId`.
+On placement, an ordinary GTC or GTD order first attempts an immediate taker fill against the current book. Any unfilled remainder becomes a resting order stored in `openByClientId`.
 
 If the order fills completely on placement:
 
@@ -110,6 +110,12 @@ order_accepted → ws_order_update(status=MATCHED) → fill(s, if any) → order
 ```
 
 The resting order is then subject to maker fill checks on each subsequent tick.
+
+### Post-only GTC / GTD
+
+With `postOnly: true`, placement first checks the opposing best price at execution time (including any queued latency). A BUY with `price >= bestAsk` or SELL with `price <= bestBid` emits only `order_rejected(reason=post_only_would_cross)` from the execution adapter. There is no acceptance, simulated MATCHED update, fill, or resting remainder. `OrderManager` has already emitted `order_submitted` and releases the rejected order's active client ID.
+
+Non-crossing orders rest normally, including when the opposing side or book is absent. The initial rejection check is never applied again to an already resting order: later ticks use the existing maker-fill model, cancellation, and GTD expiry. Each batch entry is checked independently. Omitted or false flags preserve the ordinary taker/resting behavior.
 
 ## GTD Expiry
 

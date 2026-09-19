@@ -81,6 +81,7 @@ type PlaceLimitIntent = {
   price: number // Probability price in [0, 1].
   size: number // Order size in shares (1 share == $1 face value).
   orderType: 'FOK' | 'GTC' | 'GTD'
+  postOnly?: boolean // GTC/GTD only; reject if immediately marketable.
   expireAtMs?: number // Required for GTD. Epoch milliseconds. OrderManager enforces the minimum threshold.
   meta?: Record<string, unknown> // Arbitrary metadata attached to this order for tracking.
   reason?: string // Free-text label logged with the order.
@@ -101,6 +102,7 @@ type PlaceBatchIntent = {
     price: number
     size: number
     orderType: 'FOK' | 'GTC' | 'GTD'
+    postOnly?: boolean // Per order; GTC/GTD only.
     expireAtMs?: number
     meta?: Record<string, unknown>
     reason?: string
@@ -112,6 +114,16 @@ type PlaceBatchIntent = {
 ::: warning Batch size limit
 Polymarket's CLOB accepts a maximum of 15 orders per batch request. `OrderManager` will reject batches that exceed this limit.
 :::
+
+### Post-only orders
+
+Set `postOnly: true` on a `place_limit` intent or an individual `place_batch.orders` entry to request a maker-only GTC/GTD order. Omitted or `false` retains ordinary order behavior. Shared validation rejects `postOnly: true` with FOK using `post_only_requires_gtc_or_gtd`.
+
+A BUY at or above the available best ask, or a SELL at or below the available best bid, is crossing. Equality counts. A crossing post-only order is rejected entirely: no acceptance, fill, or resting remainder. Batch entries are evaluated independently.
+
+Live execution forwards the flag to the exchange. Backtests check the book when the existing execution queue dispatches the order, after any simulated latency, and emit `order_rejected` with reason `post_only_would_cross`. A missing book or empty opposing side has no available opposing price and does not trigger this rejection. Once accepted, the order follows the existing maker-fill, cancellation, and GTD-expiry behavior; the initial crossing check is not repeated.
+
+The requested flag is retained in `order_submitted.order`, `portfolio.openOrdersByClientId`, and `portfolio.ordersByClientId`, including order history after rejection or completion. It is also included in live submission logs. This is a per-order choice; no CLI option or strategy-wide default is needed.
 
 ### `cancel_order`
 
@@ -265,6 +277,7 @@ type OpenOrder = {
   remaining: number
   filled: number
   orderType: OrderType
+  postOnly?: boolean
   meta?: Record<string, unknown>
   expireAtMs?: number
   state: OrderLifecycleState
@@ -298,6 +311,7 @@ type OrderSnapshot = {
   orderId?: string
   assetId: string
   side: OrderSide
+  postOnly?: boolean
   price?: number
   originalSize?: number
   sizeMatched?: number

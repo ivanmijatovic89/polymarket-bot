@@ -18,6 +18,7 @@
   "scripts": {
     "prepare": "husky",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "trading:test": "tsx --test src/trading/*.test.ts src/trading/execution/*.test.ts",
     "data:sync:main": "tsx src/cli/data-sync.ts --role main",
     "data:sync:worker": "tsx src/cli/data-sync.ts --role worker",
     "fleet:status": "./scripts/fleet-status.sh",

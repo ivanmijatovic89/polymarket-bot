@@ -337,6 +337,7 @@ export class Portfolio {
                 ...(typeof bot?.filled === 'number' ? { sizeMatched: bot.filled } : {}),
                 ...(typeof bot?.remaining === 'number' ? { remaining: bot.remaining } : {}),
                 ...(bot?.state ? { lifecycleState: bot.state } : {}),
+                ...(bot?.postOnly !== undefined ? { postOnly: bot.postOnly } : {}),
                 tradeStatusRank: 0,
                 updatedAtMs: this.nowMs,
               } as OrderSnapshot)
@@ -414,6 +415,7 @@ export class Portfolio {
           sizeMatched: o.filled,
           remaining: o.remaining,
           lifecycleState: o.state,
+          ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
           ...(o.meta ? { meta: o.meta } : {}),
           tradeStatusRank: 0,
           updatedAtMs: this.nowMs,
@@ -440,6 +442,7 @@ export class Portfolio {
           sizeMatched: o.filled,
           remaining: o.remaining,
           lifecycleState: o.state,
+          ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
           ...(o.meta ? { meta: o.meta } : {}),
           ...this.tradeStatusRawField(
             this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw,
@@ -473,6 +476,7 @@ export class Portfolio {
           sizeMatched: o.filled,
           remaining: o.remaining,
           lifecycleState: o.state,
+          ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
           ...(o.meta ? { meta: o.meta } : {}),
           ...this.tradeStatusRawField(
             this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw,
@@ -504,6 +508,7 @@ export class Portfolio {
           sizeMatched: o.filled,
           remaining: 0,
           lifecycleState: 'rejected',
+          ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
           ...(o.meta ? { meta: o.meta } : {}),
           ...this.tradeStatusRawField(
             this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRaw,
@@ -545,6 +550,7 @@ export class Portfolio {
           sizeMatched: o.filled,
           remaining: 0,
           lifecycleState: next,
+          ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
           ...(o.meta ? { meta: o.meta } : {}),
           ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(clientId)?.tradeStatusRaw),
           tradeStatusRank: this.ordersByClientIdSnapshot.get(clientId)?.tradeStatusRank ?? 0,

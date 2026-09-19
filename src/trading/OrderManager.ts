@@ -300,6 +300,7 @@ export class OrderManager {
       remaining: intent.size,
       filled: 0,
       orderType: intent.orderType,
+      ...(intent.postOnly !== undefined ? { postOnly: intent.postOnly } : {}),
       ...(intent.meta ? { meta: intent.meta } : {}),
       ...(intent.orderType === 'GTD' ? { expireAtMs: intent.expireAtMs } : {}),
       state: 'requested',
@@ -426,6 +427,7 @@ export class OrderManager {
         remaining: order.size,
         filled: 0,
         orderType: order.orderType,
+        ...(order.postOnly !== undefined ? { postOnly: order.postOnly } : {}),
         ...(order.meta ? { meta: order.meta } : {}),
         ...(order.orderType === 'GTD' ? { expireAtMs: order.expireAtMs } : {}),
         state: 'requested',
@@ -492,6 +494,9 @@ export class OrderManager {
     if (!Number.isFinite(intent.price) || intent.price <= 0) return 'invalid_price'
     if (!Number.isFinite(intent.size) || intent.size <= 0) return 'invalid_size'
     if (!intent.assetId) return 'missing_assetId'
+    if (intent.postOnly === true && intent.orderType !== 'GTC' && intent.orderType !== 'GTD') {
+      return 'post_only_requires_gtc_or_gtd'
+    }
 
     if (intent.orderType === 'GTD') {
       if (intent.expireAtMs === undefined) return 'gtd_requires_expireAtMs'
