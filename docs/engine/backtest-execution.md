@@ -36,6 +36,8 @@ The following operations are subject to latency:
 | `placeLimit`     | Yes                              |
 | `placeBatch`     | Yes                              |
 | `cancelOrder`    | Yes (when `cancelLatency: true`) |
+| `cancelBatch` | Yes (when `cancelLatency: true`) |
+| `cancelMarket` | Yes (when `cancelLatency: true`) |
 | `cancelAll`      | Yes (when `cancelLatency: true`) |
 | `mergePositions` | No (applied immediately)         |
 | `splitPositions` | No (applied immediately)         |
@@ -49,6 +51,14 @@ When latency is non-zero, a cancel can arrive "after" a fill. If the market move
 :::
 
 The pending queue is sorted by `executeAtMs` and then by insertion `seq` (monotonic integer) to ensure deterministic ordering when multiple operations share the same effective timestamp.
+
+## Selected and Scoped Cancellation
+
+`cancel_batch` cancels only the selected simulated open remainders. `cancel_market` selects by condition ID and/or outcome token at execution time, so it includes matching orders that became open during the delay. Both filters must match when supplied. Unknown or already completed simulator orders are no-ops, and repeated requests do not emit duplicate terminal events.
+
+The existing queue order remains unchanged: due actions execute by time and sequence before that tick's maker-fill checks. Fills on earlier ticks, including partially filled taker orders, remain in positions, costs, fees, and PnL. Cancellation removes only the remainder. With `cancelLatency: false`, cancellation skips adapter latency but still respects the manager's queued/immediate mode.
+
+Shared validation rejects missing exchange acknowledgements for client-targeted batch cancellation before dispatch. A strategy can wait for `order_accepted` and retry, or use a scoped cancellation whose selection happens at execution time.
 
 ## Fill Simulation Models
 

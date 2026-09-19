@@ -96,6 +96,12 @@ Bot orders retain the requested optional `postOnly` flag in both collections, in
 
 In addition to bot-placed orders, the portfolio tracks all orders observed on the user WS channel in `wsOpenOrdersByOrderId`. This includes orders placed outside the bot (e.g., manually via the Polymarket UI or another process). An order is removed from this map when it is observed as fully filled or canceled. This collection is primarily informational and is included in the portfolio snapshot for the web UI.
 
+## Confirmed Cancellation
+
+`order_done` removes the matching bot order and its WS entry; exchange-only IDs also remove external WS orders. Cancellation does not reverse fills or change positions, cost basis, fees, or realized PnL. A `cancel_failed` event leaves order state unchanged.
+
+A bounded set of terminal exchange IDs prevents delayed WS placement/update messages from reopening confirmed canceled orders. Late trade-status updates may still advance history, and late fills continue through normal fill idempotency. Events carrying an old exchange ID cannot close a newer order that reused the same client ID.
+
 ## Position Split and Merge Accounting
 
 `positions_split` mints equal quantities of both YES and NO shares (one collateral unit per share pair). The minted shares are added to `positionsByAssetId` with `avgEntryPrice: null` and `costBasis: 0`. This means subsequent sells of split-minted shares are treated as pure proceeds unless the strategy explicitly models the split cost.
@@ -111,6 +117,7 @@ The portfolio is designed to run continuously across many market windows. Key ca
 | `seenFillIds`                    | 50,000             | Oldest 10% dropped     |
 | `ordersByClientIdSnapshot`       | 10,000             | Oldest 10% dropped     |
 | `clientOrderIdByOrderIdSnapshot` | 50,000             | Oldest 10% dropped     |
+| `terminalOrderIds` | 50,000 | Oldest entry dropped |
 | `pendingTradeStatusByOrderId`    | 10,000             | Oldest 10% dropped     |
 | `recentFills`                    | 500 (configurable) | Oldest entries spliced |
 | `recentSplits`                   | 500                | Oldest entries spliced |

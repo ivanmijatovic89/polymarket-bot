@@ -421,6 +421,17 @@ export class StrategyRunner {
             ...(i.reason ? { reason: i.reason } : {}),
           }
         }
+        if (i.kind === 'cancel_batch') {
+          return { kind: i.kind, orders: i.orders, ...(i.reason ? { reason: i.reason } : {}) }
+        }
+        if (i.kind === 'cancel_market') {
+          return {
+            kind: i.kind,
+            market: i.market,
+            assetId: i.assetId,
+            ...(i.reason ? { reason: i.reason } : {}),
+          }
+        }
         if (i.kind === 'cancel_all') {
           return { kind: i.kind, ...(i.reason ? { reason: i.reason } : {}) }
         }
@@ -520,7 +531,9 @@ export class StrategyRunner {
       })()
       this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta, feePaid })
     }
+    if (ev.kind === 'cancel_failed') this.log?.('[cancel_failed]', ev)
     this.portfolio.apply(ev)
+    this.orderManager.reconcileActiveOrders(this.portfolio.snapshot())
 
     // Pass the latest cached plugin snapshot.
     // Note: Plugin snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.

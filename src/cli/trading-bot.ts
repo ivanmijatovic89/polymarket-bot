@@ -526,6 +526,8 @@ async function main(): Promise<void> {
         placeBatch: async () => ({ events: [] }),
         cancelOrder: async () => ({ events: [] }),
         cancelAll: async () => ({ events: [] }),
+        cancelBatch: async () => ({ events: [] }),
+        cancelMarket: async () => ({ events: [] }),
         mergePositions: async () => ({ events: [] }),
         splitPositions: async () => ({ events: [] }),
         onMarketTick: async () => ({ events: [] }),

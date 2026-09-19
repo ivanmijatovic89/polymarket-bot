@@ -45,10 +45,29 @@ export type PlaceLimitIntent = {
   reason?: string
 }
 
-export type CancelOrderIntent = {
-  kind: 'cancel_order'
+export type OrderReference = {
   clientOrderId?: ClientOrderId
   orderId?: ExchangeOrderId
+}
+
+export type CancelOrderIntent = OrderReference & {
+  kind: 'cancel_order'
+  reason?: string
+}
+
+export type CancelBatchIntent = {
+  kind: 'cancel_batch'
+  /** Selected orders only. Client IDs are resolved before dispatch; duplicates are ignored. */
+  orders: OrderReference[]
+  reason?: string
+}
+
+export type CancelMarketIntent = {
+  kind: 'cancel_market'
+  /** Market condition ID, not a slug. At least one filter is required. */
+  market?: string
+  /** One outcome token ID, across BUY and SELL. Both filters, when supplied, must match. */
+  assetId?: string
   reason?: string
 }
 
@@ -123,6 +142,8 @@ export type Intent =
   | PlaceLimitIntent
   | PlaceBatchIntent
   | CancelOrderIntent
+  | CancelBatchIntent
+  | CancelMarketIntent
   | CancelAllIntent
   | MergePositionsIntent
   | SplitPositionsIntent
@@ -345,6 +366,17 @@ export type PortfolioSnapshot = {
 }
 
 export type AccountEvent =
+  | {
+      /** Cancellation failed or could not be submitted. The order remains active. */
+      kind: 'cancel_failed'
+      tsMs: number
+      operation: 'cancel_order' | 'cancel_batch' | 'cancel_market' | 'cancel_all'
+      clientOrderId?: ClientOrderId
+      orderId?: ExchangeOrderId
+      market?: string
+      assetId?: string
+      reason: string
+    }
   | {
       kind: 'order_submitted'
       tsMs: number

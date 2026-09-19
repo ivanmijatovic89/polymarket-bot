@@ -2,6 +2,8 @@ import type { OrderBookSnapshot } from '../../market/orderbook/index.js'
 import type {
   AccountEvent,
   CancelAllIntent,
+  CancelBatchIntent,
+  CancelMarketIntent,
   CancelOrderIntent,
   Fill,
   MergePositionsIntent,
@@ -11,6 +13,7 @@ import type {
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
+import { cancelFailed, matchesCancelScope, validateCancelScope } from '../cancellation.js'
 import { POLYMARKET_CRYPTO_TAKER_FEE_BPS } from '../fees.js'
 
 type SimOrder = {
@@ -201,6 +204,8 @@ export class BacktestExecution implements ExecutionAdapter {
     | { kind: 'place_batch'; executeAtMs: number; seq: number; intent: PlaceBatchIntent }
     | { kind: 'cancel_order'; executeAtMs: number; seq: number; intent: CancelOrderIntent }
     | { kind: 'cancel_all'; executeAtMs: number; seq: number; intent: CancelAllIntent }
+    | { kind: 'cancel_batch'; executeAtMs: number; seq: number; intent: CancelBatchIntent }
+    | { kind: 'cancel_market'; executeAtMs: number; seq: number; intent: CancelMarketIntent }
   > = []
 
   constructor(opts?: {
@@ -595,10 +600,11 @@ export class BacktestExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const cid = intent.clientOrderId
-    if (!cid) return { events: [] }
-    const o = this.openByClientId.get(cid)
-    if (!o) {
+    const o = intent.clientOrderId
+      ? this.openByClientId.get(intent.clientOrderId)
+      : [...this.openByClientId.values()].find((order) => order.orderId === intent.orderId)
+    const cid = o?.clientOrderId
+    if (!o || !cid || (intent.orderId && intent.orderId !== o.orderId)) {
       // Nothing to cancel; treat as no-op.
       return { events: [] }
     }
@@ -660,6 +666,48 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events: [] }
   }
 
+  private async cancelBatchNow(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const events: AccountEvent[] = []
+    for (const ref of intent.orders) {
+      events.push(...(await this.cancelOrderNow({ kind: 'cancel_order', ...ref }, ctx)).events)
+    }
+    return { events }
+  }
+
+  async cancelBatch(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const executeAtMs = this.cancelLatency ? this.computeExecuteAtMs(ctx.nowMs) : ctx.nowMs
+    if (executeAtMs <= ctx.nowMs) return this.cancelBatchNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_batch', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
+  private async cancelMarketNow(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    // Resolve scope when cancellation takes effect, including orders opened during latency.
+    const orders = [...this.openByClientId.values()].filter((o) => matchesCancelScope(o, intent))
+    return this.cancelBatchNow({ kind: 'cancel_batch', orders }, ctx)
+  }
+
+  async cancelMarket(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const error = validateCancelScope(intent)
+    if (error) return { events: [cancelFailed(intent.kind, ctx.nowMs, error)] }
+    const executeAtMs = this.cancelLatency ? this.computeExecuteAtMs(ctx.nowMs) : ctx.nowMs
+    if (executeAtMs <= ctx.nowMs) return this.cancelMarketNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_market', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
   async onMarketTick(ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const snap = ctx.lastMarket
@@ -685,6 +733,10 @@ export class BacktestExecution implements ExecutionAdapter {
           events.push(...(await this.placeBatchNow(p.intent, ctx)).events)
         } else if (p.kind === 'cancel_order') {
           events.push(...(await this.cancelOrderNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_batch') {
+          events.push(...(await this.cancelBatchNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_market') {
+          events.push(...(await this.cancelMarketNow(p.intent, ctx)).events)
         } else if (p.kind === 'cancel_all') {
           events.push(...(await this.cancelAllNow(p.intent, ctx)).events)
         } else {
