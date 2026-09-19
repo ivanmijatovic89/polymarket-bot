@@ -692,3 +692,18 @@ test('explicit client/exchange pairs still support single cancellation without a
     },
   ])
 })
+
+for (const batch of [false, true]) {
+  test(`delayed placement keeps its original market across a switch (batch=${batch})`, async () => {
+    const h = harness(new BacktestExecution({ latencyMs: 100 }))
+    await h.send(
+      [batch ? { kind: 'place_batch', orders: [order()] } : order()],
+      context(1000, marketA),
+    )
+    await h.send([{ kind: 'cancel_market', market: marketA }], context(1001, marketA))
+    await h.tick(context(1100, marketB))
+    assert.deepEqual(h.remaining(), ['buy-up'])
+    assert.deepEqual(doneIds(await h.tick(context(1101, marketB))), ['buy-up'])
+    assert.deepEqual(h.remaining(), [])
+  })
+}

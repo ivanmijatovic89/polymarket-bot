@@ -200,8 +200,20 @@ export class BacktestExecution implements ExecutionAdapter {
   private seq = 0
 
   private readonly pending: Array<
-    | { kind: 'place_limit'; executeAtMs: number; seq: number; intent: PlaceLimitIntent }
-    | { kind: 'place_batch'; executeAtMs: number; seq: number; intent: PlaceBatchIntent }
+    | {
+        kind: 'place_limit'
+        executeAtMs: number
+        seq: number
+        intent: PlaceLimitIntent
+        market?: string
+      }
+    | {
+        kind: 'place_batch'
+        executeAtMs: number
+        seq: number
+        intent: PlaceBatchIntent
+        market?: string
+      }
     | { kind: 'cancel_order'; executeAtMs: number; seq: number; intent: CancelOrderIntent }
     | { kind: 'cancel_all'; executeAtMs: number; seq: number; intent: CancelAllIntent }
     | { kind: 'cancel_batch'; executeAtMs: number; seq: number; intent: CancelBatchIntent }
@@ -313,6 +325,7 @@ export class BacktestExecution implements ExecutionAdapter {
   private async placeBatchNow(
     intent: PlaceBatchIntent,
     ctx: OrderManagerContext,
+    market = ctx.lastMarket?.market,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const events: AccountEvent[] = []
@@ -332,7 +345,7 @@ export class BacktestExecution implements ExecutionAdapter {
       const o: SimOrder = {
         clientOrderId: orderIntent.clientOrderId,
         orderId,
-        ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+        ...(market ? { market } : {}),
         assetId: orderIntent.assetId,
         side: orderIntent.side,
         limitPrice: orderIntent.price,
@@ -456,13 +469,20 @@ export class BacktestExecution implements ExecutionAdapter {
     const nowMs = ctx.nowMs
     const executeAtMs = this.computeExecuteAtMs(nowMs)
     if (executeAtMs <= nowMs) return await this.placeBatchNow(intent, ctx)
-    this.pending.push({ kind: 'place_batch', executeAtMs, seq: this.seq++, intent })
+    this.pending.push({
+      kind: 'place_batch',
+      executeAtMs,
+      seq: this.seq++,
+      intent,
+      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+    })
     return { events: [] }
   }
 
   private async placeLimitNow(
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
+    market = ctx.lastMarket?.market,
   ): Promise<{ events: AccountEvent[] }> {
     const rejection = postOnlyRejection(intent, ctx)
     if (rejection) return { events: [rejection] }
@@ -471,7 +491,7 @@ export class BacktestExecution implements ExecutionAdapter {
     const o: SimOrder = {
       clientOrderId: intent.clientOrderId,
       orderId,
-      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+      ...(market ? { market } : {}),
       assetId: intent.assetId,
       side: intent.side,
       limitPrice: intent.price,
@@ -591,7 +611,13 @@ export class BacktestExecution implements ExecutionAdapter {
     const nowMs = ctx.nowMs
     const executeAtMs = this.computeExecuteAtMs(nowMs)
     if (executeAtMs <= nowMs) return await this.placeLimitNow(intent, ctx)
-    this.pending.push({ kind: 'place_limit', executeAtMs, seq: this.seq++, intent })
+    this.pending.push({
+      kind: 'place_limit',
+      executeAtMs,
+      seq: this.seq++,
+      intent,
+      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+    })
     return { events: [] }
   }
 
@@ -728,9 +754,9 @@ export class BacktestExecution implements ExecutionAdapter {
 
       for (const p of due) {
         if (p.kind === 'place_limit') {
-          events.push(...(await this.placeLimitNow(p.intent, ctx)).events)
+          events.push(...(await this.placeLimitNow(p.intent, ctx, p.market)).events)
         } else if (p.kind === 'place_batch') {
-          events.push(...(await this.placeBatchNow(p.intent, ctx)).events)
+          events.push(...(await this.placeBatchNow(p.intent, ctx, p.market)).events)
         } else if (p.kind === 'cancel_order') {
           events.push(...(await this.cancelOrderNow(p.intent, ctx)).events)
         } else if (p.kind === 'cancel_batch') {

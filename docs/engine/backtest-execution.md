@@ -56,6 +56,8 @@ The pending queue is sorted by `executeAtMs` and then by insertion `seq` (monoto
 
 `cancel_batch` cancels only the selected simulated open remainders. `cancel_market` selects by condition ID and/or outcome token at execution time, so it includes matching orders that became open during the delay. Both filters must match when supplied. Unknown or already completed simulator orders are no-ops, and repeated requests do not emit duplicate terminal events.
 
+Delayed placements retain the market condition ID from submission, even if the current snapshot switches markets before execution. Scoped cancellation therefore continues to target the original market.
+
 The existing queue order remains unchanged: due actions execute by time and sequence before that tick's maker-fill checks. Fills on earlier ticks, including partially filled taker orders, remain in positions, costs, fees, and PnL. Cancellation removes only the remainder. With `cancelLatency: false`, cancellation skips adapter latency but still respects the manager's queued/immediate mode.
 
 Shared validation rejects missing exchange acknowledgements for client-targeted batch cancellation before dispatch. A strategy can wait for `order_accepted` and retry, or use a scoped cancellation whose selection happens at execution time.
