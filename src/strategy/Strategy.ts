@@ -34,6 +34,8 @@ export type PlaceLimitIntent = {
   price: number
   size: number
   orderType: OrderType
+  /** Reject if immediately marketable. Only valid for GTC/GTD. */
+  postOnly?: boolean
   meta?: IntentMeta
   /**
    * Required for GTD. Epoch ms.
@@ -104,6 +106,8 @@ export type PlaceBatchIntent = {
     price: number
     size: number
     orderType: OrderType
+    /** Reject if immediately marketable. Only valid for GTC/GTD. */
+    postOnly?: boolean
     meta?: IntentMeta
     /**
      * Required for GTD. Epoch ms.
@@ -144,6 +148,7 @@ export type OpenOrder = {
   remaining: number
   filled: number
   orderType: OrderType
+  postOnly?: boolean
   meta?: IntentMeta
   expireAtMs?: number
   state: OrderLifecycleState
@@ -247,6 +252,7 @@ export type OrderSnapshot = {
   orderId?: ExchangeOrderId
   assetId: string
   side: OrderSide
+  postOnly?: boolean
   price?: number
   originalSize?: number
   sizeMatched?: number

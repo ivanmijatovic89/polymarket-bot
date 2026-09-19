@@ -401,6 +401,7 @@ export class StrategyRunner {
             price: i.price,
             size: i.size,
             orderType: i.orderType,
+            ...(i.postOnly !== undefined ? { postOnly: i.postOnly } : {}),
             ...(i.reason ? { reason: i.reason } : {}),
           }
         }
@@ -408,6 +409,7 @@ export class StrategyRunner {
           return {
             kind: i.kind,
             orderCount: i.orders.length,
+            postOnlyCount: i.orders.filter((order) => order.postOnly === true).length,
             ...(i.reason ? { reason: i.reason } : {}),
           }
         }

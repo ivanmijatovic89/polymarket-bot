@@ -30,6 +30,25 @@ type SimOrder = {
 
 type MakerFillMode = 'touch_or_better' | 'worst_queue'
 
+function postOnlyRejection(
+  intent: PlaceBatchIntent['orders'][number],
+  ctx: OrderManagerContext,
+): AccountEvent | null {
+  if (intent.postOnly !== true) return null
+  const book = ctx.lastMarket?.byAssetId[intent.assetId]
+  const opposingBest = intent.side === 'BUY' ? book?.bestAsk : book?.bestBid
+  if (opposingBest == null || !Number.isFinite(opposingBest)) return null
+  const crosses =
+    intent.side === 'BUY' ? intent.price >= opposingBest : intent.price <= opposingBest
+  if (!crosses) return null
+  return {
+    kind: 'order_rejected',
+    tsMs: ctx.nowMs,
+    clientOrderId: intent.clientOrderId,
+    reason: 'post_only_would_cross',
+  }
+}
+
 function sumFillableSize(o: SimOrder, book: OrderBookSnapshot | undefined): number {
   if (!book) return 0
   let sum = 0
@@ -299,6 +318,11 @@ export class BacktestExecution implements ExecutionAdapter {
 
     // Process each order in the batch
     for (const orderIntent of intent.orders) {
+      const rejection = postOnlyRejection(orderIntent, ctx)
+      if (rejection) {
+        events.push(rejection)
+        continue
+      }
       const orderId = `bt-${orderIntent.clientOrderId}`
       const o: SimOrder = {
         clientOrderId: orderIntent.clientOrderId,
@@ -435,6 +459,8 @@ export class BacktestExecution implements ExecutionAdapter {
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
+    const rejection = postOnlyRejection(intent, ctx)
+    if (rejection) return { events: [rejection] }
     const nowMs = ctx.nowMs
     const orderId = `bt-${intent.clientOrderId}`
     const o: SimOrder = {

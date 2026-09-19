@@ -49,6 +49,9 @@ jobs:
       - name: Strategy artifact tests
         run: npm run artifacts:test
 
+      - name: Trading tests
+        run: npm run trading:test
+
       - name: Research protocol check
         run: npm run research:check
 

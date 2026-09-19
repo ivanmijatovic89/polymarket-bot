@@ -145,6 +145,7 @@ export class LiveExecution implements ExecutionAdapter {
         price: o.price,
         size: o.size,
         orderType: o.orderType,
+        ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
       })),
     })
 
@@ -182,6 +183,7 @@ export class LiveExecution implements ExecutionAdapter {
           return {
             order: signed,
             orderType: toPolyOrderType(order.orderType),
+            ...(order.postOnly !== undefined ? { postOnly: order.postOnly } : {}),
           }
         }),
       )
@@ -295,6 +297,7 @@ export class LiveExecution implements ExecutionAdapter {
       size: intent.size,
       side: intent.side,
       orderType: intent.orderType,
+      ...(intent.postOnly !== undefined ? { postOnly: intent.postOnly } : {}),
     })
     try {
       const signed = await this.client.createOrder({
@@ -307,7 +310,12 @@ export class LiveExecution implements ExecutionAdapter {
           : {}),
       })
 
-      const resp = await this.client.postOrder(signed, toPolyOrderType(intent.orderType))
+      const resp = await this.client.postOrder(
+        signed,
+        toPolyOrderType(intent.orderType),
+        false, // Preserve the SDK's existing deferExec default.
+        intent.postOnly ?? false,
+      )
       // Resp shape varies; docs show {success, orderId, orderHashes, errorMsg}.
       console.log('[live-execution][⚡️] API response ', resp)
 
