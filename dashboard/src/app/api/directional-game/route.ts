@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { NextResponse } from 'next/server'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
+import { protocolStatePath } from './state-path'
 
 /**
  * TEMPORARY page (issue: watch the `directional-game-opus` protocol while it
@@ -43,9 +44,9 @@ async function refreshRemote(): Promise<string | null> {
   }
 }
 
-async function readStateFile(name: string): Promise<string | null> {
+async function readStateFile(statePath: string, name: string): Promise<string | null> {
   try {
-    return await git(['show', `${REF}:${PROTOCOL}/state/${name}`])
+    return await git(['show', `${REF}:${statePath}/${name}`])
   } catch {
     return null
   }
@@ -256,12 +257,13 @@ async function readRuntime() {
 export async function GET() {
   try {
     const gitError = await refreshRemote()
+    const statePath = await protocolStatePath(git, REF, PROTOCOL)
     const [status, champion, journal, proposals, inbox] = await Promise.all([
-      readStateFile('STATUS.md'),
-      readStateFile('CHAMPION.md'),
-      readStateFile('JOURNAL.md'),
-      readStateFile('PROPOSALS.md'),
-      readStateFile('INBOX.md'),
+      readStateFile(statePath, 'STATUS.md'),
+      readStateFile(statePath, 'CHAMPION.md'),
+      readStateFile(statePath, 'JOURNAL.md'),
+      readStateFile(statePath, 'PROPOSALS.md'),
+      readStateFile(statePath, 'INBOX.md'),
     ])
     const [levels, runtime] = await Promise.all([readLevels(), readRuntime()])
     const prefix = await readPrefix(levels)
