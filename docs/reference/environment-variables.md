@@ -127,7 +127,8 @@ All four variables are required when any command that reads from or writes to My
 | `GLOBAL_RUNTIME_CLAUDE_BIN` | `path/name` | `claude` | Claude Code CLI override, primarily for testing. |
 | `GLOBAL_RUNTIME_CODEX_BIN` | `path/name` | `codex` | Codex CLI override, primarily for testing. |
 | `MISSION_CONTROL_TOKEN` | `string` | _(unset — API open)_ | Optional secret locking the dashboard's Mission Control API (cookie `mission_control_token` or `x-mission-control-token` header). Independent of `GLOBAL_RUNTIME_TOKEN`. Unset, any local process — including a sandboxed mission — can command the fleet through the dashboard. Unlock a browser via `/mission-control/unlock?token=…`. |
-| `DASHBOARD_HOST` | `string` | `127.0.0.1` | Dashboard bind address. Leave on loopback; the Mission Control proxy holds fleet credentials. |
+| `DASHBOARD_HOST` | `string` | `127.0.0.1` | Dashboard bind address. Defaults to loopback; direct remote access also requires the browser hostname in `ALLOWED_HOSTS`. |
+| `ALLOWED_HOSTS` | `string` | unset | Comma-separated exact dashboard hostnames/IPs shared by Next.js dev access and Mission Control. Loopback is always allowed. Replaces `DASHBOARD_ALLOWED_DEV_ORIGINS`; restart after changes. Same-origin and token checks remain active. |
 | `GLOBAL_RUNTIME_SRT_BIN` | `path/name` | `srt` | `@anthropic-ai/sandbox-runtime` CLI override for runs with a `sandboxSettingsPath`. |
 
 ---

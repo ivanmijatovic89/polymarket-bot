@@ -125,7 +125,7 @@ curl http://100.107.149.100:3053/health
 
 The dashboard's Mission Control API is **open by default**. Set `MISSION_CONTROL_TOKEN` to lock it — worth doing on a machine that runs sandboxed missions, because loopback alone is not a boundary — a sandboxed mission session runs on the same host and can reach loopback ports. With it set, unlock a browser once per machine by visiting `http://127.0.0.1:3051/mission-control/unlock?token=<the token>`; the token is then stored in an httpOnly cookie that page scripts and other local processes cannot read. Scripts send the `x-mission-control-token` header instead. Without it set, a sandboxed mission on that machine can drive the fleet through the dashboard — the daemons' own `GLOBAL_RUNTIME_TOKEN` does not gate the dashboard proxy.
 
-Keep the dashboard on loopback and reach it remotely through an **SSH tunnel** (`ssh -L 3051:127.0.0.1:3051 <host>`), which preserves the loopback `Host` the guard requires. `tailscale serve` forwards its own MagicDNS `Host` and is rejected by design.
+The dashboard allows loopback hosts by default. An **SSH tunnel** (`ssh -L 3051:127.0.0.1:3051 <host>`) works with those defaults. For direct Tailscale/LAN access, set `DASHBOARD_HOST` to a reachable bind address and configure `ALLOWED_HOSTS=100.100.49.80,192.168.0.12`. This single comma-separated list controls both Next.js development access and Mission Control hostname checks; loopback remains allowed. For `tailscale serve`, add its MagicDNS hostname to `ALLOWED_HOSTS`. Restart after changing the list. Same-origin and configured `MISSION_CONTROL_TOKEN` checks still apply.
 
 On the dashboard host (which also needs `GLOBAL_RUNTIME_TOKEN` in its `.env`), open `http://127.0.0.1:3051/mission-control`:
 

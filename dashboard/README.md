@@ -33,19 +33,26 @@ cd dashboard
 npx next dev --hostname 127.0.0.1 --port 3051
 ```
 
-The dashboard binds loopback by default and deliberately stays there: it has
-no login of its own, while its Mission Control proxy holds `GLOBAL_RUNTIME_TOKEN`
-and can command every Global Runtime daemon in the fleet. Reach it remotely
-through `tailscale serve` or an SSH tunnel rather than binding a public
-interface. If you do set `DASHBOARD_HOST`, understand that anyone who can
-reach the port controls the fleet.
-
-For remote dev access over Tailscale/LAN, allow the browser origin that will
-open the dashboard:
+The dashboard binds loopback by default. For direct Tailscale/LAN access, bind
+it to a reachable interface with `DASHBOARD_HOST` and list the addresses you
+will open in your browser in `ALLOWED_HOSTS`:
 
 ```bash
-DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80 npm run dashboard
+DASHBOARD_HOST=0.0.0.0 ALLOWED_HOSTS=100.100.49.80,192.168.0.12 npm run dashboard
 ```
+
+`ALLOWED_HOSTS` is a comma-separated list shared by Next.js development access
+and the Mission Control API's Host check. It replaces
+`DASHBOARD_ALLOWED_DEV_ORIGINS`. Loopback hosts (`localhost`, `127.0.0.1`, `[::1]`)
+are always allowed; additional hosts must be exact names or IP addresses (no
+wildcards). HTTP(S) URLs and ports are normalized to hostnames. Set it inline
+or in the root `.env`, and restart the dashboard after changing it.
+
+Mission Control retains its same-origin and optional `MISSION_CONTROL_TOKEN`
+checks. Its proxy holds fleet credentials, so only list trusted dashboard
+addresses and use the token to require authentication. An SSH tunnel works
+with the default loopback hosts; for `tailscale serve`, add the public-facing
+MagicDNS hostname to `ALLOWED_HOSTS`.
 
 ## Layout
 
