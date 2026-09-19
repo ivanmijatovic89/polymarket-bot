@@ -140,6 +140,13 @@ export class Portfolio {
     if (o.orderId) this.clientOrderIdByOrderId.delete(o.orderId)
   }
 
+  private belongsToEarlierOrder(o: OpenOrder, orderId: string | undefined): boolean {
+    if (!orderId || o.orderId === orderId) return false
+    // A pending replacement has no exchange ID yet. An already indexed ID belongs
+    // to a previous submission, even when both submissions use the same client ID.
+    return o.orderId !== undefined || this.clientOrderIdByOrderIdSnapshot.has(orderId)
+  }
+
   private tradeStatusRankFromRaw(raw?: string): TradeStatusRank {
     if (raw === 'MATCHED') return 1
     if (raw === 'MINED') return 2
@@ -334,7 +341,7 @@ export class Portfolio {
         if (clientOrderId) {
           const prevSnap = this.ordersByClientIdSnapshot.get(clientOrderId)
           const bot = this.openOrdersByClientId.get(clientOrderId)
-          if ((prevSnap || bot) && (!prevSnap?.orderId || prevSnap.orderId === orderId)) {
+          if ((prevSnap || bot) && (bot?.orderId ?? prevSnap?.orderId) === orderId) {
             const base: OrderSnapshot =
               prevSnap ??
               ({
@@ -439,7 +446,7 @@ export class Portfolio {
       }
       case 'order_accepted': {
         const o = this.openOrdersByClientId.get(ev.clientOrderId)
-        if (!o) return
+        if (!o || this.belongsToEarlierOrder(o, ev.orderId)) return
         if (ev.orderId !== undefined) o.orderId = ev.orderId
         this.indexOrder(o)
         o.state = o.state === 'requested' ? 'open' : o.state
@@ -473,7 +480,7 @@ export class Portfolio {
           ev.clientOrderId ?? (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
         if (!clientId) return
         const o = this.openOrdersByClientId.get(clientId)
-        if (!o) return
+        if (!o || this.belongsToEarlierOrder(o, ev.orderId)) return
         o.state = 'open'
         if (ev.orderId !== undefined) o.orderId = ev.orderId
         this.indexOrder(o)
@@ -565,7 +572,7 @@ export class Portfolio {
           }
           return
         }
-        if (ev.orderId && o.orderId && ev.orderId !== o.orderId) return
+        if (this.belongsToEarlierOrder(o, ev.orderId)) return
         if (o.orderId) this.markOrderTerminal(o.orderId)
         const next = ev.reason
         o.state = next
@@ -656,7 +663,9 @@ export class Portfolio {
   private applyFillToOrders(f: Fill): boolean {
     const cid =
       f.clientOrderId ?? (f.orderId ? this.clientOrderIdByOrderId.get(f.orderId) : undefined)
-    if (!cid) {
+    const o = cid ? this.openOrdersByClientId.get(cid) : undefined
+    if (o && this.belongsToEarlierOrder(o, f.orderId)) return false
+    if (!cid || (o && !o.orderId && f.orderId)) {
       // Out-of-order: we got a fill before we know/mapped the order. Buffer by orderId.
       if (f.orderId) {
         const size = Math.max(0, clampFinite(f.size, 0))
@@ -667,7 +676,6 @@ export class Portfolio {
       }
       return false
     }
-    const o = this.openOrdersByClientId.get(cid)
     if (!o) return false
     const size = Math.max(0, clampFinite(f.size, 0))
     const prevFilled = o.filled

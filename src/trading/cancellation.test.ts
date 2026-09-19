@@ -11,6 +11,7 @@ import type {
 } from '../strategy/Strategy.js'
 import { OrderManager, type OrderManagerContext, type ExecutionAdapter } from './OrderManager.js'
 import { Portfolio } from './Portfolio.js'
+import { StrategyRunner } from './StrategyRunner.js'
 import { BacktestExecution } from './execution/BacktestExecution.js'
 import { LiveExecution } from './execution/LiveExecution.js'
 import { enforceRiskLimits } from './riskLimits.js'
@@ -61,7 +62,7 @@ function harness(execution: ExecutionAdapter, dryRun = false) {
   function apply(events: AccountEvent[]) {
     for (const event of events) {
       portfolio.apply(event)
-      manager.reconcileActiveOrders(portfolio.snapshot())
+      manager.reconcileActiveOrders(portfolio.snapshot(), event)
     }
     return events
   }
@@ -665,7 +666,15 @@ test('partial fill before a selected batch cancel retains its accounting and clo
   await h.send([order()])
   await h.tick(context(1100, marketA, 0.5))
   const before = h.portfolio.snapshot()
-  await h.send([{ kind: 'cancel_batch', orders: [{ orderId: 'bt-buy-up' }] }], context(1101))
+  await h.send(
+    [
+      {
+        kind: 'cancel_batch',
+        orders: [{ orderId: before.openOrdersByClientId['buy-up']!.orderId! }],
+      },
+    ],
+    context(1101),
+  )
   assert.deepEqual(await h.tick(context(1200, marketA, 0.5)), [])
   assert.deepEqual(doneIds(await h.tick(context(1201, marketA, 0.5))), ['buy-up'])
   const after = h.portfolio.snapshot()
@@ -704,6 +713,283 @@ for (const batch of [false, true]) {
     await h.tick(context(1100, marketB))
     assert.deepEqual(h.remaining(), ['buy-up'])
     assert.deepEqual(doneIds(await h.tick(context(1101, marketB))), ['buy-up'])
+    assert.deepEqual(h.remaining(), [])
+  })
+}
+
+test('cancel-and-replace keeps the replacement deduped while earlier events are drained', async (t) => {
+  const h = live(t)
+  await h.send([order()])
+  const replacement = t.mock.method(
+    h.execution,
+    'placeLimit',
+    async (intent: PlaceLimitIntent, ctx: OrderManagerContext) => ({
+      events: [
+        {
+          kind: 'order_accepted',
+          tsMs: ctx.nowMs,
+          clientOrderId: intent.clientOrderId,
+          orderId: 'replacement-id',
+        },
+      ] as AccountEvent[],
+    }),
+  )
+  await h.send(
+    [{ kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] }, order()],
+    context(1100),
+  )
+  assert.deepEqual(h.remaining(), ['buy-up'])
+  assert.deepEqual(await h.send([order()], context(1101)), [])
+  assert.equal(replacement.mock.callCount(), 1)
+})
+
+for (const batch of [false, true]) {
+  test(`failed cancellation plus duplicate placement cannot reject the still-live order (batch=${batch})`, async (t) => {
+    const h = live(t)
+    await h.send(Array.from({ length: 20 }, (_, i) => order(i === 0 ? 'buy-up' : `other-${i}`)))
+    h.batch.mock.mockImplementation(async () => ({
+      canceled: [],
+      not_canceled: { 'ex-buy-up': 'try again' },
+    }))
+    await h.send([
+      { kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] },
+      batch ? { kind: 'place_batch', orders: [order()] } : order(),
+    ])
+    assert.equal(h.remaining().length, 20)
+    assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId, 'ex-buy-up')
+  })
+}
+
+test('late fill of a canceled order does not reduce a replacement sharing its client ID', async (t) => {
+  const h = live(t)
+  await h.send([order()])
+  await h.send([{ kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] }])
+  t.mock.method(
+    h.execution,
+    'placeLimit',
+    async (intent: PlaceLimitIntent, ctx: OrderManagerContext) => ({
+      events: [
+        {
+          kind: 'order_accepted',
+          tsMs: ctx.nowMs,
+          clientOrderId: intent.clientOrderId,
+          orderId: 'replacement-id',
+        },
+      ] as AccountEvent[],
+    }),
+  )
+  await h.send([order()], context(1100))
+  h.apply([
+    {
+      kind: 'fill',
+      fill: {
+        id: 'old-fill',
+        tsMs: 1001,
+        clientOrderId: 'buy-up',
+        orderId: 'ex-buy-up',
+        assetId: up,
+        side: 'BUY',
+        price: 0.5,
+        size: 2,
+      },
+    },
+  ])
+  assert.equal(h.portfolio.snapshot().positionsByAssetId[up]?.qty, 2)
+  assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.remaining, 10)
+})
+
+test('backtest client ID reuse creates distinct exchange identities and counts both generations of fills', async () => {
+  const h = harness(new BacktestExecution())
+  await h.send([order()])
+  const firstId = h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId
+  await h.tick(context(1100, marketA, 0.4))
+  await h.send([order()], context(1200))
+  const secondId = h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId
+  assert.notEqual(firstId, secondId)
+  await h.tick(context(1300, marketA, 0.4))
+  assert.equal(h.portfolio.snapshot().positionsByAssetId[up]?.qty, 20)
+})
+
+for (const acknowledged of [false, true]) {
+  test(`old exchange events cannot change a replacement (acknowledged=${acknowledged})`, async (t) => {
+    const h = live(t)
+    await h.send([order()])
+    await h.send([{ kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] }])
+    t.mock.method(h.execution, 'placeLimit', async () => ({ events: [] }))
+    await h.send([order()], context(1100))
+    if (acknowledged) {
+      h.apply([
+        { kind: 'order_accepted', tsMs: 1101, clientOrderId: 'buy-up', orderId: 'replacement-id' },
+      ])
+    }
+    const before = structuredClone(h.portfolio.snapshot().openOrdersByClientId['buy-up'])
+    const history = structuredClone(h.portfolio.snapshot().ordersByClientId['buy-up'])
+    const lateEvents: AccountEvent[] = [
+      { kind: 'order_accepted', tsMs: 1102, clientOrderId: 'buy-up', orderId: 'ex-buy-up' },
+      { kind: 'order_open', tsMs: 1103, clientOrderId: 'buy-up', orderId: 'ex-buy-up' },
+      {
+        kind: 'ws_order_update',
+        tsMs: 1104,
+        order: {
+          orderId: 'ex-buy-up',
+          event: 'UPDATE',
+          status: 'MINED',
+          originalSize: 10,
+          sizeMatched: 2,
+        },
+      },
+      { kind: 'order_done', tsMs: 1105, orderId: 'ex-buy-up', reason: 'canceled' },
+      {
+        kind: 'fill',
+        fill: {
+          id: 'late-fill',
+          tsMs: 1106,
+          clientOrderId: 'buy-up',
+          orderId: 'ex-buy-up',
+          assetId: up,
+          side: 'BUY',
+          price: 0.5,
+          size: 2,
+        },
+      },
+    ]
+    for (const event of lateEvents) {
+      h.apply([event])
+      assert.deepEqual(h.portfolio.snapshot().openOrdersByClientId['buy-up'], before, event.kind)
+      assert.deepEqual(h.portfolio.snapshot().ordersByClientId['buy-up'], history, event.kind)
+    }
+    h.apply([lateEvents.at(-1)!])
+    assert.equal(h.portfolio.snapshot().positionsByAssetId[up]?.qty, 2)
+    assert.deepEqual(await h.send([order()], context(1200)), [])
+  })
+}
+
+test('a replacement fill arriving before acknowledgement is attached once its exchange ID is known', async (t) => {
+  const h = live(t)
+  await h.send([order()])
+  await h.send([{ kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] }])
+  t.mock.method(h.execution, 'placeLimit', async () => ({ events: [] }))
+  await h.send([order()], context(1100))
+  const fill: AccountEvent = {
+    kind: 'fill',
+    fill: {
+      id: 'replacement-fill',
+      tsMs: 1101,
+      clientOrderId: 'buy-up',
+      orderId: 'replacement-id',
+      assetId: up,
+      side: 'BUY',
+      price: 0.5,
+      size: 2,
+    },
+  }
+  h.apply([fill, fill])
+  assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.remaining, 10)
+  h.apply([
+    { kind: 'order_accepted', tsMs: 1102, clientOrderId: 'buy-up', orderId: 'replacement-id' },
+  ])
+  assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.remaining, 8)
+  assert.equal(h.portfolio.snapshot().positionsByAssetId[up]?.qty, 2)
+})
+
+for (const mode of ['immediate', 'queued'] as const) {
+  test(`duplicate batch placement after failed cancellation preserves the active order (${mode})`, async (t) => {
+    const h = live(t)
+    await h.send([order()])
+    h.batch.mock.mockImplementation(async () => ({
+      canceled: [],
+      not_canceled: { 'ex-buy-up': 'try again' },
+    }))
+    const batch = t.mock.method(h.execution, 'placeBatch', async () => ({ events: [] }))
+    await h.send(
+      [
+        { kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] },
+        { kind: 'place_batch', orders: [order(), order()] },
+      ],
+      context(1100),
+      mode,
+    )
+    if (mode === 'queued') await h.tick(context(1200))
+    assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId, 'ex-buy-up')
+    assert.equal(batch.mock.callCount(), 0)
+    assert.deepEqual(await h.send([order()]), [])
+  })
+
+  test(`runner account callbacks cannot resubmit a replacement waiting in its event queue (${mode})`, async () => {
+    const h = harness(new BacktestExecution())
+    let ticks = 0
+    let submissions = 0
+    const runner = new StrategyRunner({
+      portfolio: h.portfolio,
+      orderManager: h.manager,
+      intentExecutionMode: mode,
+      strategy: {
+        name: 'cancel-replace-test',
+        onMarketTick: () => {
+          ticks++
+          if (ticks === 1) return [order()]
+          if (ticks === 2)
+            return [{ kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] }, order()]
+          return []
+        },
+        onAccountEvent: (event) => {
+          if (event.kind === 'order_submitted') submissions++
+          return event.kind === 'order_done' ? [order()] : []
+        },
+      },
+    })
+    for (const tsMs of [1000, 1100, 1200, 1300]) {
+      await runner.onMarketTick({
+        source: { kind: 'live', attempt: 1 },
+        msg: { event_type: 'price_change' } as Parameters<typeof runner.onMarketTick>[0]['msg'],
+        snapshot: context(tsMs).lastMarket!,
+      })
+    }
+    assert.equal(submissions, 2)
+    assert.deepEqual(h.remaining(), ['buy-up'])
+  })
+}
+
+for (const kind of ['cancel_order', 'cancel_batch'] as const) {
+  test(`delayed ${kind} cannot cancel a new submission with a reused client ID`, async (t) => {
+    const random = t.mock.method(Math, 'random', () => 0)
+    const h = harness(new BacktestExecution({ latencyMs: 100, jitterMs: 100 }))
+    await h.send([order()])
+    const firstId = h.portfolio.snapshot().openOrdersByClientId['buy-up']!.orderId
+    random.mock.mockImplementation(() => 0.999)
+    await h.send(
+      [
+        kind === 'cancel_order'
+          ? { kind, clientOrderId: 'buy-up' }
+          : { kind, orders: [{ clientOrderId: 'buy-up' }] },
+      ],
+      context(1100),
+    )
+    await h.tick(context(1101, marketA, 0.4))
+    random.mock.mockImplementation(() => 0)
+    await h.send([order()], context(1102))
+    const secondId = h.portfolio.snapshot().openOrdersByClientId['buy-up']!.orderId
+    assert.notEqual(firstId, secondId)
+    assert.deepEqual(doneIds(await h.tick(context(1300))), [])
+    assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId, secondId)
+  })
+}
+
+for (const batch of [false, true]) {
+  test(`repeated immediate taker fills retain unique IDs and accounting (batch=${batch})`, async () => {
+    const h = harness(new BacktestExecution())
+    const intent = { ...order(), orderType: 'FOK' as const, size: 2 }
+    for (const tsMs of [1000, 1100]) {
+      await h.send(
+        [batch ? { kind: 'place_batch', orders: [intent] } : intent],
+        context(tsMs, marketA, 0.4),
+      )
+    }
+    const fills = h.portfolio.snapshot().recentFills
+    assert.equal(fills.length, 2)
+    assert.notEqual(fills[0]?.id, fills[1]?.id)
+    assert.notEqual(fills[0]?.orderId, fills[1]?.orderId)
+    assert.equal(h.portfolio.snapshot().positionsByAssetId[up]?.qty, 4)
     assert.deepEqual(h.remaining(), [])
   })
 }

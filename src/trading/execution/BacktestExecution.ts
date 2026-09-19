@@ -91,7 +91,7 @@ function buildMakerFillTouchCross(
     o.fillSeq += 1
     const market = o.market
     const f: Fill = {
-      id: `${o.clientOrderId}:${o.fillSeq}`,
+      id: `${o.orderId}:${o.fillSeq}`,
       tsMs,
       ...(market ? { market } : {}),
       assetId: o.assetId,
@@ -119,7 +119,7 @@ function buildMakerFillTouchCross(
   o.fillSeq += 1
   const market = o.market
   const f: Fill = {
-    id: `${o.clientOrderId}:${o.fillSeq}`,
+    id: `${o.orderId}:${o.fillSeq}`,
     tsMs,
     ...(market ? { market } : {}),
     assetId: o.assetId,
@@ -152,7 +152,7 @@ function buildFillsFromBook(
     o.fillSeq += 1
     const market = o.market
     fills.push({
-      id: `${o.clientOrderId}:${o.fillSeq}`,
+      id: `${o.orderId}:${o.fillSeq}`,
       tsMs,
       ...(market ? { market } : {}),
       assetId: o.assetId,
@@ -198,6 +198,7 @@ export class BacktestExecution implements ExecutionAdapter {
   private readonly feeRateBps: number
 
   private seq = 0
+  private orderSeq = 0
 
   private readonly pending: Array<
     | {
@@ -341,7 +342,7 @@ export class BacktestExecution implements ExecutionAdapter {
         events.push(rejection)
         continue
       }
-      const orderId = `bt-${orderIntent.clientOrderId}`
+      const orderId = `bt-${this.orderSeq++}-${orderIntent.clientOrderId}`
       const o: SimOrder = {
         clientOrderId: orderIntent.clientOrderId,
         orderId,
@@ -487,7 +488,7 @@ export class BacktestExecution implements ExecutionAdapter {
     const rejection = postOnlyRejection(intent, ctx)
     if (rejection) return { events: [rejection] }
     const nowMs = ctx.nowMs
-    const orderId = `bt-${intent.clientOrderId}`
+    const orderId = `bt-${this.orderSeq++}-${intent.clientOrderId}`
     const o: SimOrder = {
       clientOrderId: intent.clientOrderId,
       orderId,
@@ -653,6 +654,9 @@ export class BacktestExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
+    // Bind a selected cancellation to the current submission before adding latency.
+    const current = intent.clientOrderId ? this.openByClientId.get(intent.clientOrderId) : undefined
+    if (!intent.orderId && current) intent = { ...intent, orderId: current.orderId }
     if (!this.cancelLatency) return await this.cancelOrderNow(intent, ctx)
     const executeAtMs = this.computeExecuteAtMs(nowMs)
     if (executeAtMs <= nowMs) return await this.cancelOrderNow(intent, ctx)

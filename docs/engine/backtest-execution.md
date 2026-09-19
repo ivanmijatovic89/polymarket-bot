@@ -62,6 +62,8 @@ The existing queue order remains unchanged: due actions execute by time and sequ
 
 Shared validation rejects missing exchange acknowledgements for client-targeted batch cancellation before dispatch. A strategy can wait for `order_accepted` and retry, or use a scoped cancellation whose selection happens at execution time.
 
+Each simulated submission has a distinct exchange order ID, and fill IDs include that submission's identity. Reusing a client ID after completion therefore does not deduplicate genuine fills from its replacement. These IDs are opaque and deterministic for the same execution sequence; read them from account events or the portfolio rather than constructing them from client IDs. Selected cancellation binds to the acknowledged submission before adapter latency, so a delayed request for an earlier order cannot cancel its replacement.
+
 ## Fill Simulation Models
 
 ### Taker Fills (FOK and immediate GTC/GTD)

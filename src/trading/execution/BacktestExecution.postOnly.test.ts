@@ -53,7 +53,10 @@ function harness(opts?: ConstructorParameters<typeof BacktestExecution>[0]) {
   const manager = new OrderManager({ execution })
   const portfolio = new Portfolio()
   function apply(events: AccountEvent[]): AccountEvent[] {
-    for (const event of events) portfolio.apply(event)
+    for (const event of events) {
+      portfolio.apply(event)
+      manager.reconcileActiveOrders(portfolio.snapshot(), event)
+    }
     return events
   }
   async function submit(
@@ -202,6 +205,7 @@ for (const path of paths) {
     test(`${path}: ${side} cancellation and GTD expiration retain existing semantics`, async () => {
       const h = harness()
       await h.submit([order({ side })], path)
+      const firstId = h.portfolio.snapshot().openOrdersByClientId['order-1']?.orderId
       const canceled = h.apply(
         await h.manager.handleIntents(
           [{ kind: 'cancel_order', clientOrderId: 'order-1' }],
@@ -213,7 +217,7 @@ for (const path of paths) {
         {
           kind: 'order_done',
           clientOrderId: 'order-1',
-          orderId: 'bt-order-1',
+          orderId: firstId,
           tsMs: startMs + 1,
           reason: 'canceled',
         },
@@ -221,13 +225,14 @@ for (const path of paths) {
       assert.equal(h.portfolio.snapshot().ordersByClientId['order-1']?.postOnly, true)
       assert.deepEqual(await h.tick(context(startMs + 2, 0.8, 0.2)), [])
       await h.submit([order({ side, orderType: 'GTD', expireAtMs })], path)
+      const secondId = h.portfolio.snapshot().openOrdersByClientId['order-1']?.orderId
       assert.deepEqual(await h.tick(context(expireAtMs - 1)), [])
       // Expiry wins over a potential maker fill on the expiry tick.
       assert.deepEqual(await h.tick(context(expireAtMs, 0.8, 0.2)), [
         {
           kind: 'order_done',
           clientOrderId: 'order-1',
-          orderId: 'bt-order-1',
+          orderId: secondId,
           tsMs: expireAtMs,
           reason: 'expired',
         },

@@ -49,6 +49,8 @@ An ID is removed from the set when:
 
 This mechanism protects against the common strategy pattern of emitting the same intent on every tick while an order is resting on the book. Without deduplication, the same order would be submitted repeatedly.
 
+Duplicate IDs are ignored for both single and batch placement. A risk-blocked retry of an active ID is logged without emitting a terminal `order_rejected` for the existing order. The original order stays active until its own lifecycle confirms completion.
+
 ::: warning
 Deduplication operates by `clientOrderId`, not by price/size/side. Two intents with different client IDs but identical parameters will both be submitted. Strategies are responsible for constructing deterministic, stable client IDs for resting orders.
 :::
@@ -76,6 +78,8 @@ The optional `postOnly` flag is retained in submitted order data. Shared validat
 `cancel_batch` and `cancel_market` share validation across live and backtest execution. Client references resolve from the portfolio; repeated references are deduplicated. Missing acknowledgements and invalid references produce nonterminal `cancel_failed` events. Scope requires a condition ID, a token ID, or both; malformed filters never become account-wide cancellation. See the [strategy contract](../strategy/strategy-interface.md#cancel-batch).
 
 Sending a cancellation no longer releases an active client ID. Only terminal events do. `StrategyRunner` also reconciles the dedupe set after applying asynchronous account events, including fills. Failed and unrelated orders remain active. Risk capacity remains reserved until the portfolio reflects confirmation, so a replacement in the same intent batch can still be rejected at a risk limit; submit it after confirmation instead.
+
+The manager retains submissions whose `order_submitted` events are still waiting in the runner's queue. When a confirmed cancellation and a replacement reuse one client ID, draining the old cancellation cannot release the replacement's deduplication entry. Account-event callbacks therefore cannot submit another copy while the replacement is awaiting event delivery. Custom runners must call `reconcileActiveOrders(portfolio.snapshot(), event)` after applying each account event, before invoking the strategy.
 
 ## GTD Minimum Expiry Enforcement
 
