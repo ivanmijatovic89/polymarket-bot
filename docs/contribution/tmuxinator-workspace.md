@@ -28,7 +28,7 @@ The `SERVICES` window starts:
 
 | Pane | Command |
 | --- | --- |
-| `DASHBOARD` | `DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80,192.168.0.12 npm run dashboard` |
+| `DASHBOARD` | `ALLOWED_HOSTS=100.100.49.80,192.168.0.12 npm run dashboard` |
 | `DOCUMENTATION` | `cd docs && npm run dev` |
 | `BACKTEST WORKER` | `./scripts/run-worker.sh --queues markets` |
 | `GLOBAL RUNTIME` | `npm run global-runtime` |
