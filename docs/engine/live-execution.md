@@ -7,6 +7,10 @@ description: Reference for LiveExecution — market warmup, order submission, ba
 
 `LiveExecution` implements the `ExecutionAdapter` interface for live trading. It wraps the `@polymarket/clob-client` for CLOB operations and invokes on-chain helpers for ConditionalTokens split/merge. Unlike `BacktestExecution`, it contacts the Polymarket API and Polygon blockchain for every operation.
 
+::: danger Production compatibility
+This repository still uses the legacy CLOB SDK and collateral integration. Polymarket's [CLOB V2 migration guide](https://docs.polymarket.com/v2-migration) states that V1 SDKs and V1-signed orders are no longer supported in production after April 28, 2026. Migration is tracked in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249). The post-only implementation and local SDK tests do not resolve that blocker or establish readiness for real-money trading.
+:::
+
 ## Construction
 
 ```typescript
@@ -63,7 +67,9 @@ In backtests, `ctx.warmup` is absent and `isWarmed` always returns `true`. Warmu
 Submits a single limit order to the Polymarket CLOB.
 
 1. `client.createOrder()` — builds and signs the order (EIP-712 or SAFE signature, depending on `signatureType`).
-2. `client.postOrder(signed, orderType)` — submits to the REST API.
+2. `client.postOrder(signed, orderType, false, intent.postOnly ?? false)` — submits to the REST API. The third argument is `deferExec`, kept at its existing `false` default; the fourth is `postOnly`.
+
+`postOnly: true` is allowed only for GTC/GTD by shared `OrderManager` validation. The exchange checks whether the order would immediately take liquidity and rejects a crossing order entirely. The bot does not pre-check the live book, which could change before the exchange receives the order. Omitted/false flags preserve ordinary submission behavior. Submission logs include the flag when supplied.
 
 The response is checked for two failure modes:
 
@@ -87,10 +93,12 @@ Orders beyond 15 are all rejected with `reason: 'batch_too_large(max_15_orders)'
 The flow:
 
 1. All orders are signed in parallel via `client.createOrder()`.
-2. The batch is submitted via `client.postOrders(batchOrders)`.
+2. The batch is submitted via `client.postOrders(batchOrders)`. Each entry carries its own `{ order: signed, orderType, postOnly? }`; no batch-wide default is set and `deferExec` retains the SDK default.
 3. The response array is iterated in index order. Each entry may indicate success (emits `order_accepted`) or failure (emits `order_rejected`).
 4. If the response array is shorter than the orders array, remaining orders are rejected with `reason: 'missing_batch_response'`.
 5. If the response is not an array, all orders are rejected with `reason: 'invalid_batch_response'`.
+
+A post-only rejection uses the same per-entry error handling, leaving unrelated accepted entries intact. See the [strategy interface](../strategy/strategy-interface.md#post-only-orders) for authoring and [backtest execution](./backtest-execution.md#post-only-gtc-gtd) for replay behavior.
 
 ## cancelOrder
 

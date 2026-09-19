@@ -82,9 +82,11 @@ If instead you place a buy limit order at $0.52 -- below the best ask -- your or
 
 Every trade on Polymarket has two sides: a maker and a taker. Understanding which role you play determines whether you pay fees.
 
-A **maker** is someone whose order rests on the book and adds liquidity. When you place a limit order below the best ask (for buys) or above the best bid (for sells), your order sits on the book waiting to be matched. You are providing liquidity to the market. Maker orders (GTC and GTD, described below) are never charged fees on Polymarket.
+A **maker** is someone whose order rests on the book and adds liquidity. When you place a limit order below the best ask (for buys) or above the best bid (for sells), your order sits on the book waiting to be matched. You are providing liquidity to the market. GTC/GTD describes how long an order can remain active; it does not guarantee that every fill is a maker fill.
 
-A **taker** is someone whose order matches immediately against resting orders and removes liquidity. When you place an order that crosses the spread -- a buy at or above the best ask, or a sell at or below the best bid -- you are taking liquidity from the book. Taker orders (FOK and FAK) demand immediate execution and pay fees.
+A **taker** is someone whose order matches immediately against resting orders and removes liquidity. When you place an order that crosses the spread -- a buy at or above the best ask, or a sell at or below the best bid -- you are taking liquidity from the book. FOK/FAK and immediately marketable GTC/GTD orders can produce taker fills, which are subject to the market's taker fees.
+
+To request maker-only GTC/GTD placement, set `postOnly: true`. If the order would immediately take liquidity, it is rejected entirely. See the bot's [post-only contract](../strategy/strategy-interface.md#post-only-orders) and Polymarket's [order documentation](https://docs.polymarket.com/trading/place-orders#post-only-orders).
 
 The taker fee is calculated using the formula:
 
@@ -195,10 +197,12 @@ Polymarket supports four order types:
 
 | Type | Behavior | Rests on book | Role | Minimum size |
 |------|----------|---------------|------|--------------|
-| GTC | Limit order; sits until filled or cancelled | Yes | Maker | 5 shares |
-| GTD | GTC with an auto-cancel deadline | Yes | Maker | 5 shares |
+| GTC | May take immediately; rests the remainder until filled or cancelled | Unfilled remainder | Maker or taker | 5 shares |
+| GTD | GTC with an auto-cancel deadline | Unfilled remainder | Maker or taker | 5 shares |
 | FOK | Fill entirely and immediately, or kill | No | Taker | $1 notional |
 | FAK | Fill what's available immediately, kill the rest | No | Taker | $1 notional |
+
+The bot currently exposes FOK/GTC/GTD, with optional `postOnly` on individual GTC/GTD orders, including batch entries. FAK support and production CLOB V2 compatibility remain separate work in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249).
 
 GTC/GTD rest on the public book, so Polymarket enforces a **5-share minimum** to keep the book free of dust. FOK and FAK never rest, so that minimum doesn't apply -- only the much smaller per-market `min_order_size`.
 

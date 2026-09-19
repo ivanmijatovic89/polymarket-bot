@@ -54,6 +54,8 @@ An **Intent** is a typed instruction returned by a strategy. Available kinds:
 
 The `OrderManager` validates, deduplicates, and forwards intents to the execution layer.
 
+Single and batch GTC/GTD orders can request `postOnly: true`: reject the order if it would immediately take liquidity; otherwise let it rest. This is a per-order flag, not a new order type. See [post-only orders](./strategy/strategy-interface.md#post-only-orders).
+
 ## Plugin
 
 A **plugin** is an optional per-tick computation registered in a `PluginSet`. Strategies access plugin data through `ctx.plugins`. Plugins are evaluated lazily and cached for the duration of a tick — including all cascaded `onAccountEvent` calls.
@@ -99,3 +101,5 @@ The bot supports two execution modes:
 ## Dry-run mode
 
 When `DRY_RUN=true` (the default), the bot processes ticks and generates intents normally, but `OrderManager` blocks all execution — no orders are placed, no transactions sent. Logs show what _would_ have happened. Safe for testing strategy logic in a live environment.
+
+Dry-run synthesizes acceptance after validation; it does not simulate fills or post-only crossing rejection. Use backtests for execution-model checks. Real trading also requires resolving the [current SDK compatibility blocker](./engine/live-execution.md).

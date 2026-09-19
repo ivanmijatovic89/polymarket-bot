@@ -90,6 +90,8 @@ The portfolio maintains two separate collections for orders:
 
 The `ordersByClientIdSnapshot` map also retains the persistent `orderId → clientOrderId` index (`clientOrderIdByOrderIdSnapshot`) for up to 50,000 entries, allowing late-arriving WS trade-status progressions to be correctly associated with the right order even after it has been removed from `openOrdersByClientId`.
 
+Bot orders retain the requested optional `postOnly` flag in both collections, including history after rejection or completion. It records the request, not exchange acceptance or proof of a maker fill. The WebUI displays it in open orders and order history; orders observed only through the user WebSocket have an unknown flag because this feed adapter does not supply it.
+
 ## WS Open Orders (External Orders)
 
 In addition to bot-placed orders, the portfolio tracks all orders observed on the user WS channel in `wsOpenOrdersByOrderId`. This includes orders placed outside the bot (e.g., manually via the Polymarket UI or another process). An order is removed from this map when it is observed as fully filled or canceled. This collection is primarily informational and is included in the portfolio snapshot for the web UI.

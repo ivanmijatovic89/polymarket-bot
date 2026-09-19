@@ -22,6 +22,8 @@ createClobClient(opts?: CreateClobClientOptions): ClobClient
 
 Creates and returns a configured `ClobClient` instance from `@polymarket/clob-client`. Configuration is loaded from environment variables by default and can be overridden per-instance.
 
+This is the legacy SDK, whose V1-signed orders are no longer supported by production. See the [live-execution compatibility notice](../engine/live-execution.md) and [migration issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249). For post-only submission, the installed SDK takes `postOrder(signed, orderType, deferExec, postOnly)` and a per-entry `postOnly` field in `postOrders()`; the bot preserves `deferExec: false`.
+
 ```typescript
 type CreateClobClientOptions = {
   config?: PolymarketConfig

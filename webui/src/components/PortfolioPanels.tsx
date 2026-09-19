@@ -74,6 +74,7 @@ type OpenOrder = {
   remaining: number
   filled: number
   orderType: 'FOK' | 'GTC' | 'GTD'
+  postOnly?: boolean
   expireAtMs?: number
   state:
     | 'requested'
@@ -109,6 +110,7 @@ type OrderSnapshot = {
   orderId?: string
   assetId: string
   side: 'BUY' | 'SELL'
+  postOnly?: boolean
   price?: number
   originalSize?: number
   sizeMatched?: number
@@ -487,6 +489,7 @@ export function OpenOrdersTablePanel(props: {
     filled?: number
     remaining?: number
     orderType?: string
+    postOnly?: boolean
     expireAtMs?: number
     state?: string
     createdAtMs?: number
@@ -508,6 +511,7 @@ export function OpenOrdersTablePanel(props: {
       filled: o?.filled,
       remaining: o?.remaining,
       orderType: o?.orderType,
+      postOnly: o?.postOnly,
       createdAtMs: o?.createdAtMs,
       updatedAtMs: o?.updatedAtMs,
     }
@@ -629,6 +633,7 @@ export function OpenOrdersTablePanel(props: {
                   <th className={thNum}>filled</th>
                   <th className={thNum}>remaining</th>
                   <th className={thBase}>orderType</th>
+                  <th className={thBase}>post-only</th>
                   <th className={thBase}>actions</th>
                   <th className={thBase}>state</th>
                   <th className={thBase}>source</th>
@@ -656,6 +661,9 @@ export function OpenOrdersTablePanel(props: {
                     <td className={tdNum}>{fmtNum(r?.filled)}</td>
                     <td className={tdNum}>{fmtNum(r?.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r?.orderType)}</td>
+                    <td className={tdBase}>
+                      {r.source === 'bot' ? (r.postOnly === true ? 'yes' : 'no') : 'unknown'}
+                    </td>
                     <td className={tdBase}>
                       <button
                         className="rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ring-1 ring-red-500/30 bg-red-600/70 text-white hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -810,6 +818,7 @@ export function OrdersByClientIdTablePanel(props: {
     sizeMatched?: number
     remaining?: number
     lifecycleState?: string
+    postOnly?: boolean
     tradeStatusRaw?: string
     tradeStatusRank?: number
     updatedAtMs?: number
@@ -829,6 +838,7 @@ export function OrdersByClientIdTablePanel(props: {
     if (typeof o?.sizeMatched === 'number') r.sizeMatched = o.sizeMatched
     if (typeof o?.remaining === 'number') r.remaining = o.remaining
     if (typeof o?.lifecycleState === 'string') r.lifecycleState = o.lifecycleState
+    if (typeof o?.postOnly === 'boolean') r.postOnly = o.postOnly
     if (typeof o?.tradeStatusRaw === 'string') r.tradeStatusRaw = o.tradeStatusRaw
     if (typeof o?.tradeStatusRank === 'number') r.tradeStatusRank = o.tradeStatusRank
     rows.push(r)
@@ -860,6 +870,7 @@ export function OrdersByClientIdTablePanel(props: {
                   <th className={thNum}>matched</th>
                   <th className={thNum}>rem</th>
                   <th className={thBase}>lifecycle</th>
+                  <th className={thBase}>post-only</th>
                   <th className={thBase}>tradeStatus</th>
                   <th className={thBase}>orderId</th>
                   <th className={thBase}>clientOrderId</th>
@@ -880,6 +891,7 @@ export function OrdersByClientIdTablePanel(props: {
                     <td className={tdNum}>{fmtNum(r.sizeMatched)}</td>
                     <td className={tdNum}>{fmtNum(r.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r.lifecycleState)}</td>
+                    <td className={tdBase}>{r.postOnly === true ? 'yes' : 'no'}</td>
                     <td className={tdBase}>
                       {fmtTradeStatus(r.tradeStatusRaw, r.tradeStatusRank)}
                     </td>
