@@ -77,6 +77,8 @@ enforceRiskLimits(params: {
 
 `cancel_order`, `cancel_batch`, `cancel_market`, and `cancel_all` are never blocked by risk limits (cancellation input validation still applies). Requests can fail or take effect after a delay, so they do not reduce running exposure or order counts. Capacity is released only when confirmed terminal events reach the portfolio. At a risk limit, wait for confirmation before submitting replacement orders.
 
+If a blocked placement reuses an active client ID, the manager logs the blocked retry without emitting `order_rejected` for the existing order. This prevents a failed cancellation followed by a retry from removing an order that remains live at the exchange. Risk checks and exposure reservations still apply to the attempted replacement.
+
 ### Loss Stop (`maxLossStop`)
 
 Evaluated once per intent batch from `portfolio.realizedPnlTotal`. When:

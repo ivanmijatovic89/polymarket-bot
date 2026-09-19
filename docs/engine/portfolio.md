@@ -102,6 +102,8 @@ In addition to bot-placed orders, the portfolio tracks all orders observed on th
 
 A bounded set of terminal exchange IDs prevents delayed WS placement/update messages from reopening confirmed canceled orders. Late trade-status updates may still advance history, and late fills continue through normal fill idempotency. Events carrying an old exchange ID cannot close a newer order that reused the same client ID.
 
+The exchange-ID check also protects replacements that have been submitted but not yet acknowledged. Old acknowledgements, open events, and WS updates cannot overwrite the replacement's identity or history. A late fill from the old order still updates positions exactly once, but does not reduce the replacement's remaining quantity. A fill for a new, unacknowledged exchange ID is buffered for order reconciliation until that ID is linked to the replacement.
+
 ## Position Split and Merge Accounting
 
 `positions_split` mints equal quantities of both YES and NO shares (one collateral unit per share pair). The minted shares are added to `positionsByAssetId` with `avgEntryPrice: null` and `costBasis: 0`. This means subsequent sells of split-minted shares are treated as pure proceeds unless the strategy explicitly models the split cost.

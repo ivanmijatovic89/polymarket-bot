@@ -533,7 +533,7 @@ export class StrategyRunner {
     }
     if (ev.kind === 'cancel_failed') this.log?.('[cancel_failed]', ev)
     this.portfolio.apply(ev)
-    this.orderManager.reconcileActiveOrders(this.portfolio.snapshot())
+    this.orderManager.reconcileActiveOrders(this.portfolio.snapshot(), ev)
 
     // Pass the latest cached plugin snapshot.
     // Note: Plugin snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.

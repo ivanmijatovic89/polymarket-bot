@@ -102,17 +102,39 @@ export class OrderManager {
 
   // Internal dedupe of clientOrderId to avoid spamming the same intent every tick.
   private readonly activeClientOrders = new Set<ClientOrderId>()
+  // Emitted submissions may still be waiting behind an earlier order's terminal event.
+  private readonly unappliedSubmissions = new Map<ClientOrderId, OpenOrder>()
 
   // Optional 1-tick latency mode: intents submitted on tick N execute on tick N+1.
   private pendingIntents: Intent[] = []
 
   /** Reconcile asynchronous WS/fill events after Portfolio has applied them. */
-  reconcileActiveOrders(portfolio: PortfolioSnapshot): void {
+  reconcileActiveOrders(portfolio: PortfolioSnapshot, event: AccountEvent): void {
+    if (
+      event.kind === 'order_submitted' &&
+      this.unappliedSubmissions.get(event.order.clientOrderId) === event.order
+    ) {
+      this.unappliedSubmissions.delete(event.order.clientOrderId)
+    }
     for (const cid of this.activeClientOrders) {
-      if (portfolio.ordersByClientId[cid] && !portfolio.openOrdersByClientId[cid]) {
+      if (
+        !this.unappliedSubmissions.has(cid) &&
+        portfolio.ordersByClientId[cid] &&
+        !portfolio.openOrdersByClientId[cid]
+      ) {
         this.activeClientOrders.delete(cid)
       }
     }
+  }
+
+  private placementRejections(events: AccountEvent[]): AccountEvent[] {
+    // A blocked retry is not a terminal rejection of the order already at the exchange.
+    return events.filter((event) => {
+      if (event.kind !== 'order_rejected' || !this.activeClientOrders.has(event.clientOrderId))
+        return true
+      this.log?.('[risk] ignored blocked retry of active order', event)
+      return false
+    })
   }
 
   constructor(opts: OrderManagerOptions) {
@@ -150,7 +172,7 @@ export class OrderManager {
     }
 
     const out: AccountEvent[] = []
-    out.push(...rejectedEvents)
+    out.push(...this.placementRejections(rejectedEvents))
     out.push(...(await this.executeIntentsNow(allowed, ctx)))
     return out
   }
@@ -176,7 +198,7 @@ export class OrderManager {
         })
       }
 
-      out.push(...rejectedEvents)
+      out.push(...this.placementRejections(rejectedEvents))
       out.push(...(await this.executeIntentsNow(allowed, ctx)))
     }
 
@@ -186,15 +208,7 @@ export class OrderManager {
       out.push(...res.events)
     }
 
-    // 3) Maintain clientOrderId dedupe: if an order is done/rejected, allow re-use.
-    for (const ev of out) {
-      if (ev.kind === 'order_submitted') this.activeClientOrders.add(ev.order.clientOrderId)
-      if (ev.kind === 'order_rejected' && ev.reason !== 'duplicate_clientOrderId')
-        this.activeClientOrders.delete(ev.clientOrderId)
-      if (ev.kind === 'order_done' && ev.clientOrderId)
-        this.activeClientOrders.delete(ev.clientOrderId)
-    }
-
+    // Reconcile asynchronous terminal events only after Portfolio applies their exchange IDs.
     return out
   }
 
@@ -393,6 +407,7 @@ export class OrderManager {
     }
 
     const events: AccountEvent[] = [{ kind: 'order_submitted', tsMs: nowMs, order: submitted }]
+    this.unappliedSubmissions.set(intent.clientOrderId, submitted)
 
     if (this.dryRun) {
       // In dry-run, we simulate acceptance so strategies can observe lifecycle without sending orders.
@@ -549,15 +564,7 @@ export class OrderManager {
 
     for (const order of intent.orders) {
       // Dedupe by clientOrderId
-      if (this.activeClientOrders.has(order.clientOrderId)) {
-        events.push({
-          kind: 'order_rejected',
-          tsMs: nowMs,
-          clientOrderId: order.clientOrderId,
-          reason: 'duplicate_clientOrderId',
-        })
-        continue
-      }
+      if (this.activeClientOrders.has(order.clientOrderId)) continue
 
       const err = this.validatePlaceLimitOrder(order, nowMs)
       if (err) {
@@ -591,6 +598,7 @@ export class OrderManager {
       }
 
       events.push({ kind: 'order_submitted', tsMs: nowMs, order: submitted })
+      this.unappliedSubmissions.set(order.clientOrderId, submitted)
       validOrders.push({ order, submitted })
     }
 
