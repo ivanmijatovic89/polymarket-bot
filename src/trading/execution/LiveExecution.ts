@@ -4,6 +4,9 @@ import type { ClobClient } from '@polymarket/clob-client'
 import type {
   AccountEvent,
   CancelAllIntent,
+  CancelBatchIntent,
+  CancelMarketIntent,
+  OrderReference,
   CancelOrderIntent,
   MergePositionsIntent,
   PlaceBatchIntent,
@@ -19,6 +22,13 @@ import {
   splitBinaryOutcomePositions as splitViaCtf,
 } from '../../blockchain/conditionalTokens.js'
 import { mergeViaRelayer, splitViaRelayer } from '../../polymarket/relayerClient.js'
+
+import {
+  cancelFailed,
+  matchesCancelScope,
+  resolveCancelBatch,
+  validateCancelScope,
+} from '../cancellation.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -389,47 +399,153 @@ export class LiveExecution implements ExecutionAdapter {
     }
   }
 
+  private async cancelRequest(
+    intent: CancelOrderIntent | CancelBatchIntent | CancelMarketIntent | CancelAllIntent,
+    ctx: OrderManagerContext,
+    request: () => Promise<unknown>,
+    targets?: OrderReference[],
+  ): Promise<{ events: AccountEvent[] }> {
+    const open = Object.values(ctx.portfolio?.openOrdersByClientId ?? {})
+    const history = Object.values(ctx.portfolio?.ordersByClientId ?? {})
+    const reference = (orderId: string): OrderReference => {
+      const known =
+        targets?.find((o) => o.orderId === orderId) ?? open.find((o) => o.orderId === orderId)
+      return { orderId, ...(known?.clientOrderId ? { clientOrderId: known.clientOrderId } : {}) }
+    }
+    const failure = (reason: string, ref?: OrderReference): AccountEvent =>
+      cancelFailed(
+        intent.kind,
+        ctx.nowMs,
+        reason,
+        ref ??
+          (intent.kind === 'cancel_market'
+            ? {
+                ...(intent.market ? { market: intent.market } : {}),
+                ...(intent.assetId ? { assetId: intent.assetId } : {}),
+              }
+            : {}),
+      )
+    const failRequest = (reason: string): { events: AccountEvent[] } => ({
+      events: targets?.length ? targets.map((ref) => failure(reason, ref)) : [failure(reason)],
+    })
+    try {
+      const response = await request()
+      if (!response || typeof response !== 'object') return failRequest('invalid_cancel_response')
+      const result = response as Record<string, unknown>
+      if (
+        result.error ||
+        !Array.isArray(result.canceled) ||
+        !result.canceled.every((id) => typeof id === 'string' && id.length > 0) ||
+        !result.not_canceled ||
+        typeof result.not_canceled !== 'object' ||
+        Array.isArray(result.not_canceled)
+      ) {
+        return failRequest(
+          typeof result.error === 'string' ? result.error : 'invalid_cancel_response',
+        )
+      }
+      const canceled = new Set<string>(result.canceled)
+      const failed = result.not_canceled as Record<string, unknown>
+      const requested = targets ? new Set(targets.map((ref) => ref.orderId!)) : null
+      const ids = requested ?? new Set([...canceled, ...Object.keys(failed)])
+      const events: AccountEvent[] = []
+      for (const orderId of ids) {
+        const ref = reference(orderId)
+        // Do not attach a response for another scope to a locally known order.
+        const known =
+          open.find((o) => o.orderId === orderId) ?? ctx.portfolio?.wsOpenOrdersByOrderId?.[orderId]
+        if (
+          intent.kind === 'cancel_market' &&
+          known &&
+          !matchesCancelScope(known, {
+            ...(known.market && intent.market ? { market: intent.market } : {}),
+            ...(known.assetId && intent.assetId ? { assetId: intent.assetId } : {}),
+          })
+        ) {
+          events.push(failure('cancel_response_outside_scope', ref))
+          continue
+        }
+        if (Object.hasOwn(failed, orderId) || !canceled.has(orderId)) {
+          events.push(
+            failure(
+              typeof failed[orderId] === 'string' ? failed[orderId] : 'cancel_not_confirmed',
+              ref,
+            ),
+          )
+          continue
+        }
+        const previous = history.find((o) => o.orderId === orderId)
+        if (
+          !open.some((o) => o.orderId === orderId) &&
+          previous?.lifecycleState &&
+          ['filled', 'canceled', 'expired', 'killed', 'rejected'].includes(previous.lifecycleState)
+        )
+          continue
+        events.push({ kind: 'order_done', tsMs: ctx.nowMs, ...ref, reason: 'canceled' })
+      }
+      return { events }
+    } catch (error) {
+      return failRequest(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async cancelBatch(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const { orders, events } = resolveCancelBatch(intent, ctx.portfolio, ctx.nowMs)
+    if (orders.length === 0) return { events }
+    const result = await this.cancelRequest(
+      intent,
+      ctx,
+      () => this.client.cancelOrders(orders.map((o) => o.orderId!)),
+      orders,
+    )
+    return { events: [...events, ...result.events] }
+  }
+
+  async cancelMarket(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const error = validateCancelScope(intent)
+    if (error) return { events: [cancelFailed(intent.kind, ctx.nowMs, error)] }
+    return this.cancelRequest(intent, ctx, () =>
+      this.client.cancelMarketOrders({
+        ...(intent.market !== undefined ? { market: intent.market } : {}),
+        ...(intent.assetId !== undefined ? { asset_id: intent.assetId } : {}),
+      }),
+    )
+  }
+
   async cancelOrder(
     intent: CancelOrderIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
-    const nowMs = ctx.nowMs
-    console.log('[live-execution] cancelOrder', {
-      orderId: intent.orderId,
-      clientOrderId: intent.clientOrderId,
-    })
-    if (intent.orderId) {
-      await this.client.cancelOrder({ orderID: intent.orderId }).catch(() => undefined)
-      return {
-        events: intent.clientOrderId
-          ? [
-              {
-                kind: 'order_done',
-                tsMs: nowMs,
-                clientOrderId: intent.clientOrderId,
-                orderId: intent.orderId,
-                reason: 'canceled',
-              },
-            ]
-          : [],
-      }
-    }
-    if (intent.clientOrderId) {
-      // Without orderId we can't cancel directly; rely on OrderManager + Portfolio mapping in future.
-      return { events: [] }
-    }
-    return { events: [] }
+    const { orders, events } = resolveCancelBatch(
+      { kind: 'cancel_batch', orders: [intent] },
+      ctx.portfolio,
+      ctx.nowMs,
+    )
+    const failures = events.map((ev) =>
+      ev.kind === 'cancel_failed' ? { ...ev, operation: intent.kind } : ev,
+    )
+    const target = orders[0]
+    if (!target) return { events: failures }
+    const result = await this.cancelRequest(
+      intent,
+      ctx,
+      () => this.client.cancelOrder({ orderID: target.orderId! }),
+      [target],
+    )
+    return { events: [...failures, ...result.events] }
   }
 
   async cancelAll(
     intent: CancelAllIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
-    void intent
-    void ctx
-    console.log('[live-execution] cancelAll')
-    await this.client.cancelAll().catch(() => undefined)
-    return { events: [] }
+    return this.cancelRequest(intent, ctx, () => this.client.cancelAll())
   }
 
   async onMarketTick(ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {

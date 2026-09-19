@@ -157,21 +157,8 @@ export function enforceRiskLimits(params: {
 
     if (intent.kind !== 'place_limit') {
       allowed.push(intent)
-      // Best-effort reduce open order count/exposure when we see cancels for existing open orders.
-      if (intent.kind === 'cancel_order' && intent.clientOrderId) {
-        const o = p.openOrdersByClientId[intent.clientOrderId]
-        if (o) {
-          openOrdersCount = Math.max(0, openOrdersCount - 1)
-          const size = Number.isFinite(o.remaining) ? Math.max(0, o.remaining) : 0
-          const m = o.side === 'BUY' ? openBuysByAssetId : openSellsByAssetId
-          m.set(o.assetId, Math.max(0, (m.get(o.assetId) ?? 0) - size))
-        }
-      }
-      if (intent.kind === 'cancel_all') {
-        openOrdersCount = 0
-        openBuysByAssetId.clear()
-        openSellsByAssetId.clear()
-      }
+      // A cancel request may fail or be delayed. Release exposure only after
+      // confirmed events have removed orders from the portfolio.
       continue
     }
 

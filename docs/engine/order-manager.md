@@ -71,6 +71,12 @@ For batch orders, all orders in the batch are validated before any are submitted
 
 The optional `postOnly` flag is retained in submitted order data. Shared validation checks its order-type combination, while execution checks marketability: the live exchange rejects crossing orders, and `BacktestExecution` evaluates the book when its queue dispatches the order. Immediate and delayed execution rejections release the active client ID. See [post-only orders](../strategy/strategy-interface.md#post-only-orders).
 
+## Cancellation Validation and Tracking
+
+`cancel_batch` and `cancel_market` share validation across live and backtest execution. Client references resolve from the portfolio; repeated references are deduplicated. Missing acknowledgements and invalid references produce nonterminal `cancel_failed` events. Scope requires a condition ID, a token ID, or both; malformed filters never become account-wide cancellation. See the [strategy contract](../strategy/strategy-interface.md#cancel-batch).
+
+Sending a cancellation no longer releases an active client ID. Only terminal events do. `StrategyRunner` also reconciles the dedupe set after applying asynchronous account events, including fills. Failed and unrelated orders remain active. Risk capacity remains reserved until the portfolio reflects confirmation, so a replacement in the same intent batch can still be rejected at a risk limit; submit it after confirmation instead.
+
 ## GTD Minimum Expiry Enforcement
 
 The repository's GTD (Good-Till-Date) validation enforces a minimum expiry offset through `minGtdOffsetMs` (default `60_000` ms):
@@ -98,7 +104,7 @@ return events
 
 For `merge_positions`, dry-run synthesizes a `positions_merged` event so that strategies wired to merge after selling can be tested end-to-end without touching the blockchain.
 
-For `cancel_order` in dry-run, the client order ID is removed from `activeClientOrders` and an `order_done` event is emitted with reason `canceled`.
+Dry-run cancellation emits `order_done(reason='canceled')` for matching locally known orders. `cancel_batch` resolves and deduplicates selected references, `cancel_market` applies validated filters, and `cancel_all` closes all known open account orders. No cancellation adapter is called. Unknown exchange-only batch references produce `cancel_failed` because dry-run cannot confirm their state.
 
 Dry-run still validates `postOnly` against the order type, but it bypasses the execution adapter and synthesizes acceptance even if the order crosses. It does not simulate fills or prove exchange acceptance. Use `BacktestExecution` to test post-only crossing rejection and maker-fill behavior.
 
@@ -121,6 +127,7 @@ The full set of `AccountEvent` kinds that flow through the manager and into the 
 | `order_open`      | `ExecutionAdapter` or WS   | Order is now resting on the book                          |
 | `order_rejected`  | `OrderManager` or exchange | Order will not be filled                                  |
 | `order_done`      | `ExecutionAdapter` or WS   | Terminal state: `filled`, `canceled`, `expired`, `killed` |
+| `cancel_failed` | Manager or execution adapter | Cancellation did not succeed; order remains active |
 | `fill`            | `ExecutionAdapter` or WS   | A partial or complete fill occurred                       |
 
 In live mode, `order_open` and `order_done` typically arrive via the user WebSocket channel rather than from `LiveExecution` directly. `LiveExecution.placeLimit` emits only `order_accepted` (to link `clientOrderId` to `orderId`) and relies on the WS stream for subsequent lifecycle events.

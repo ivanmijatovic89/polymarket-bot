@@ -2,6 +2,8 @@ import type { OrderBookSnapshot } from '../../market/orderbook/index.js'
 import type {
   AccountEvent,
   CancelAllIntent,
+  CancelBatchIntent,
+  CancelMarketIntent,
   CancelOrderIntent,
   Fill,
   MergePositionsIntent,
@@ -11,6 +13,7 @@ import type {
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
+import { cancelFailed, matchesCancelScope, validateCancelScope } from '../cancellation.js'
 import { POLYMARKET_CRYPTO_TAKER_FEE_BPS } from '../fees.js'
 
 type SimOrder = {
@@ -197,10 +200,24 @@ export class BacktestExecution implements ExecutionAdapter {
   private seq = 0
 
   private readonly pending: Array<
-    | { kind: 'place_limit'; executeAtMs: number; seq: number; intent: PlaceLimitIntent }
-    | { kind: 'place_batch'; executeAtMs: number; seq: number; intent: PlaceBatchIntent }
+    | {
+        kind: 'place_limit'
+        executeAtMs: number
+        seq: number
+        intent: PlaceLimitIntent
+        market?: string
+      }
+    | {
+        kind: 'place_batch'
+        executeAtMs: number
+        seq: number
+        intent: PlaceBatchIntent
+        market?: string
+      }
     | { kind: 'cancel_order'; executeAtMs: number; seq: number; intent: CancelOrderIntent }
     | { kind: 'cancel_all'; executeAtMs: number; seq: number; intent: CancelAllIntent }
+    | { kind: 'cancel_batch'; executeAtMs: number; seq: number; intent: CancelBatchIntent }
+    | { kind: 'cancel_market'; executeAtMs: number; seq: number; intent: CancelMarketIntent }
   > = []
 
   constructor(opts?: {
@@ -308,6 +325,7 @@ export class BacktestExecution implements ExecutionAdapter {
   private async placeBatchNow(
     intent: PlaceBatchIntent,
     ctx: OrderManagerContext,
+    market = ctx.lastMarket?.market,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const events: AccountEvent[] = []
@@ -327,7 +345,7 @@ export class BacktestExecution implements ExecutionAdapter {
       const o: SimOrder = {
         clientOrderId: orderIntent.clientOrderId,
         orderId,
-        ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+        ...(market ? { market } : {}),
         assetId: orderIntent.assetId,
         side: orderIntent.side,
         limitPrice: orderIntent.price,
@@ -451,13 +469,20 @@ export class BacktestExecution implements ExecutionAdapter {
     const nowMs = ctx.nowMs
     const executeAtMs = this.computeExecuteAtMs(nowMs)
     if (executeAtMs <= nowMs) return await this.placeBatchNow(intent, ctx)
-    this.pending.push({ kind: 'place_batch', executeAtMs, seq: this.seq++, intent })
+    this.pending.push({
+      kind: 'place_batch',
+      executeAtMs,
+      seq: this.seq++,
+      intent,
+      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+    })
     return { events: [] }
   }
 
   private async placeLimitNow(
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
+    market = ctx.lastMarket?.market,
   ): Promise<{ events: AccountEvent[] }> {
     const rejection = postOnlyRejection(intent, ctx)
     if (rejection) return { events: [rejection] }
@@ -466,7 +491,7 @@ export class BacktestExecution implements ExecutionAdapter {
     const o: SimOrder = {
       clientOrderId: intent.clientOrderId,
       orderId,
-      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+      ...(market ? { market } : {}),
       assetId: intent.assetId,
       side: intent.side,
       limitPrice: intent.price,
@@ -586,7 +611,13 @@ export class BacktestExecution implements ExecutionAdapter {
     const nowMs = ctx.nowMs
     const executeAtMs = this.computeExecuteAtMs(nowMs)
     if (executeAtMs <= nowMs) return await this.placeLimitNow(intent, ctx)
-    this.pending.push({ kind: 'place_limit', executeAtMs, seq: this.seq++, intent })
+    this.pending.push({
+      kind: 'place_limit',
+      executeAtMs,
+      seq: this.seq++,
+      intent,
+      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+    })
     return { events: [] }
   }
 
@@ -595,10 +626,11 @@ export class BacktestExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const cid = intent.clientOrderId
-    if (!cid) return { events: [] }
-    const o = this.openByClientId.get(cid)
-    if (!o) {
+    const o = intent.clientOrderId
+      ? this.openByClientId.get(intent.clientOrderId)
+      : [...this.openByClientId.values()].find((order) => order.orderId === intent.orderId)
+    const cid = o?.clientOrderId
+    if (!o || !cid || (intent.orderId && intent.orderId !== o.orderId)) {
       // Nothing to cancel; treat as no-op.
       return { events: [] }
     }
@@ -660,6 +692,48 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events: [] }
   }
 
+  private async cancelBatchNow(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const events: AccountEvent[] = []
+    for (const ref of intent.orders) {
+      events.push(...(await this.cancelOrderNow({ kind: 'cancel_order', ...ref }, ctx)).events)
+    }
+    return { events }
+  }
+
+  async cancelBatch(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const executeAtMs = this.cancelLatency ? this.computeExecuteAtMs(ctx.nowMs) : ctx.nowMs
+    if (executeAtMs <= ctx.nowMs) return this.cancelBatchNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_batch', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
+  private async cancelMarketNow(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    // Resolve scope when cancellation takes effect, including orders opened during latency.
+    const orders = [...this.openByClientId.values()].filter((o) => matchesCancelScope(o, intent))
+    return this.cancelBatchNow({ kind: 'cancel_batch', orders }, ctx)
+  }
+
+  async cancelMarket(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const error = validateCancelScope(intent)
+    if (error) return { events: [cancelFailed(intent.kind, ctx.nowMs, error)] }
+    const executeAtMs = this.cancelLatency ? this.computeExecuteAtMs(ctx.nowMs) : ctx.nowMs
+    if (executeAtMs <= ctx.nowMs) return this.cancelMarketNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_market', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
   async onMarketTick(ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const snap = ctx.lastMarket
@@ -680,11 +754,15 @@ export class BacktestExecution implements ExecutionAdapter {
 
       for (const p of due) {
         if (p.kind === 'place_limit') {
-          events.push(...(await this.placeLimitNow(p.intent, ctx)).events)
+          events.push(...(await this.placeLimitNow(p.intent, ctx, p.market)).events)
         } else if (p.kind === 'place_batch') {
-          events.push(...(await this.placeBatchNow(p.intent, ctx)).events)
+          events.push(...(await this.placeBatchNow(p.intent, ctx, p.market)).events)
         } else if (p.kind === 'cancel_order') {
           events.push(...(await this.cancelOrderNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_batch') {
+          events.push(...(await this.cancelBatchNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_market') {
+          events.push(...(await this.cancelMarketNow(p.intent, ctx)).events)
         } else if (p.kind === 'cancel_all') {
           events.push(...(await this.cancelAllNow(p.intent, ctx)).events)
         } else {

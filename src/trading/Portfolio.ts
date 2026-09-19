@@ -45,6 +45,16 @@ export class Portfolio {
   // This allows late ws trade-status progression (MINED/CONFIRMED) to still attach to the correct OrderSnapshot.
   private readonly clientOrderIdByOrderIdSnapshot = new Map<string, string>()
   private readonly maxClientOrderIdByOrderIdSnapshot = 50_000
+  // Terminal exchange IDs must not reappear as open after a delayed WS placement/update.
+  private readonly terminalOrderIds = new Set<string>()
+
+  private markOrderTerminal(orderId: string): void {
+    this.terminalOrderIds.add(orderId)
+    this.wsOpenOrdersByOrderId.delete(orderId)
+    if (this.terminalOrderIds.size > this.maxClientOrderIdByOrderIdSnapshot) {
+      this.terminalOrderIds.delete(this.terminalOrderIds.values().next().value!)
+    }
+  }
 
   // WS can deliver fills before our local order lifecycle events are applied.
   // Buffer unmatched fill sizes by exchange orderId, then apply once the order appears/index is known.
@@ -286,8 +296,8 @@ export class Portfolio {
           sizeMatched >= originalSize
         const canceled = o.event === 'CANCELLATION' || o.status === 'CANCELED'
 
-        if (filled || canceled) {
-          this.wsOpenOrdersByOrderId.delete(orderId)
+        if (filled || canceled || this.terminalOrderIds.has(orderId)) {
+          this.markOrderTerminal(orderId)
         } else {
           this.wsOpenOrdersByOrderId.set(orderId, next)
         }
@@ -324,7 +334,7 @@ export class Portfolio {
         if (clientOrderId) {
           const prevSnap = this.ordersByClientIdSnapshot.get(clientOrderId)
           const bot = this.openOrdersByClientId.get(clientOrderId)
-          if (prevSnap || bot) {
+          if ((prevSnap || bot) && (!prevSnap?.orderId || prevSnap.orderId === orderId)) {
             const base: OrderSnapshot =
               prevSnap ??
               ({
@@ -359,6 +369,9 @@ export class Portfolio {
               tradeStatusRank: Math.max(base.tradeStatusRank, rank) as TradeStatusRank,
               updatedAtMs: this.nowMs,
             }
+            // A late nonterminal update can advance trade status, but cannot reopen an order.
+            nextSnap.sizeMatched = Math.max(base.sizeMatched ?? 0, o.sizeMatched ?? 0)
+            if (this.terminalOrderIds.has(orderId)) nextSnap.remaining = 0
             this.upsertOrderSnapshot(clientOrderId, nextSnap)
           }
         }
@@ -522,19 +535,39 @@ export class Portfolio {
         return
       }
       case 'order_done': {
+        if (ev.orderId) this.markOrderTerminal(ev.orderId)
         const clientId =
-          ev.clientOrderId ?? (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
+          ev.clientOrderId ??
+          (ev.orderId
+            ? (this.clientOrderIdByOrderId.get(ev.orderId) ??
+              this.clientOrderIdByOrderIdSnapshot.get(ev.orderId))
+            : undefined)
         if (!clientId) return
         const o = this.openOrdersByClientId.get(clientId)
-        if (!o) return
-        const next =
-          ev.reason === 'filled'
-            ? 'filled'
-            : ev.reason === 'canceled'
-              ? 'canceled'
-              : ev.reason === 'expired'
-                ? 'expired'
-                : 'killed'
+        const previous = this.ordersByClientIdSnapshot.get(clientId)
+        if (!o) {
+          // A full fill can remove the open order before its terminal event arrives.
+          if (
+            previous &&
+            (!ev.orderId || previous.orderId === ev.orderId) &&
+            (!previous.lifecycleState ||
+              ['requested', 'open', 'partially_filled'].includes(previous.lifecycleState))
+          ) {
+            this.upsertOrderSnapshot(clientId, {
+              ...previous,
+              lifecycleState: ev.reason,
+              remaining: 0,
+              ...(ev.reason === 'filled' && previous.originalSize !== undefined
+                ? { sizeMatched: previous.originalSize }
+                : {}),
+              updatedAtMs: this.nowMs,
+            })
+          }
+          return
+        }
+        if (ev.orderId && o.orderId && ev.orderId !== o.orderId) return
+        if (o.orderId) this.markOrderTerminal(o.orderId)
+        const next = ev.reason
         o.state = next
         o.remaining = 0
         o.updatedAtMs = this.nowMs
@@ -547,7 +580,7 @@ export class Portfolio {
           side: o.side,
           price: o.price,
           originalSize: o.size,
-          sizeMatched: o.filled,
+          sizeMatched: Math.max(o.filled, previous?.sizeMatched ?? 0),
           remaining: 0,
           lifecycleState: next,
           ...(o.postOnly !== undefined ? { postOnly: o.postOnly } : {}),
@@ -603,6 +636,7 @@ export class Portfolio {
         return
       }
       case 'account_stream_status':
+      case 'cancel_failed':
         return
       default: {
         const _exhaustive: never = ev

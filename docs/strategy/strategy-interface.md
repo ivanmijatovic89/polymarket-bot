@@ -140,9 +140,43 @@ type CancelOrderIntent = {
 }
 ```
 
+### `cancel_batch`
+
+Cancel selected orders in one request:
+
+```typescript
+{
+  kind: 'cancel_batch',
+  orders: [{ clientOrderId: 'quote-up-1' }, { orderId: 'exchange-order-id' }],
+  reason: 'replace selected quotes',
+}
+```
+
+`orders` accepts up to 3,000 references, each with `clientOrderId`, `orderId`, or both. Client IDs resolve through the current portfolio, including orders acknowledged earlier in the same intent list. Both identifiers must agree when both are known. Duplicate targets are submitted once; an empty list and known terminal orders are no-ops.
+
+Unknown client-only IDs, conflicting references, and tracked client orders without an acknowledged exchange ID produce `cancel_failed` and are not submitted. Retry an unacknowledged order after `order_accepted`. An explicit client/exchange pair can also target an order absent from local history, provided it does not conflict with a known mapping. An exchange ID alone can target an external order: live execution asks the exchange; backtests cancel it only if it exists in the simulator (otherwise a no-op).
+
+### `cancel_market`
+
+Cancel open orders matching a market condition, an outcome token, or both:
+
+```typescript
+{ kind: 'cancel_market', market: conditionId }
+{ kind: 'cancel_market', assetId: upTokenId }
+{ kind: 'cancel_market', market: conditionId, assetId: upTokenId }
+```
+
+`market` is a condition ID (`0x` followed by 64 hexadecimal characters), not a slug. `assetId` is a decimal token ID string. At least one valid filter is required; a supplied empty or malformed filter rejects the whole request. There is no fallback to `cancel_all`.
+
+Market scope covers all outcomes in that condition. Outcome scope covers BUY and SELL orders for that specific token; an UP token identifies UP in one particular market. Supplying both filters applies their intersection. Live scope covers account orders, including those placed outside this bot.
+
+Both new intents accept an optional `reason`. Backtests use the existing cancellation latency queue and evaluate scope when cancellation takes effect. Prior fills, position cost basis, fees, and PnL remain intact. Only confirmed open remainders close. A partial exchange failure emits `order_done(reason='canceled')` for successful orders and nonterminal `cancel_failed` events for failures; failed orders remain tracked. Wait for confirmation before treating canceled exposure as released.
+
+Dry-run applies the same validation but only closes matching locally known orders, without calling execution adapters. It does not verify exchange acceptance.
+
 ### `cancel_all`
 
-Cancel all open orders for the current market.
+Cancel all open orders on the account, across every market and outcome. Use `cancel_market` to limit cancellation to a condition or token.
 
 ```typescript
 type CancelAllIntent = {
@@ -409,6 +443,7 @@ Computed for 2-outcome UP/DOWN markets.
 | `order_accepted`        | The exchange accepted the order (pre-open confirmation).                                                                                                   |
 | `order_rejected`        | The exchange rejected the order. `reason` is provided.                                                                                                     |
 | `order_open`            | The order is now resting on the book.                                                                                                                      |
+| `cancel_failed` | A cancellation failed validation, submission, or exchange confirmation. Includes `operation`, `reason`, and available identifiers; does not reject or close the order. |
 | `order_done`            | The order lifecycle is complete. `reason` is one of `filled`, `canceled`, `expired`, `killed`.                                                             |
 | `fill`                  | A trade fill occurred. Contains a `Fill` record.                                                                                                           |
 | `positions_split`       | A CTF split completed. Contains a `PositionsSplit` record.                                                                                                 |
@@ -422,6 +457,16 @@ Computed for 2-outcome UP/DOWN markets.
 
 ```typescript
 type AccountEvent =
+  | {
+      kind: 'cancel_failed'
+      tsMs: number
+      operation: 'cancel_order' | 'cancel_batch' | 'cancel_market' | 'cancel_all'
+      clientOrderId?: string
+      orderId?: string
+      market?: string
+      assetId?: string
+      reason: string
+    }
   | { kind: 'order_submitted'; tsMs: number; order: OpenOrder }
   | { kind: 'order_accepted'; tsMs: number; clientOrderId: string; orderId?: string }
   | { kind: 'order_rejected'; tsMs: number; clientOrderId: string; reason: string }

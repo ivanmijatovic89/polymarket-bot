@@ -75,7 +75,7 @@ enforceRiskLimits(params: {
 
 ### Cancel Intents — Always Allowed
 
-`cancel_order` and `cancel_all` intents are never blocked. When the enforcer sees a cancel for a known open order, it speculatively decrements the open-order counter and removes that order's exposure from the running totals so that subsequent intents in the same batch see the reduced exposure.
+`cancel_order`, `cancel_batch`, `cancel_market`, and `cancel_all` are never blocked by risk limits (cancellation input validation still applies). Requests can fail or take effect after a delay, so they do not reduce running exposure or order counts. Capacity is released only when confirmed terminal events reach the portfolio. At a risk limit, wait for confirmation before submitting replacement orders.
 
 ### Loss Stop (`maxLossStop`)
 
@@ -145,7 +145,9 @@ Rejection reasons are included verbatim in the `order_rejected` `AccountEvent` a
 | ----------------- | ------------ | ---------------------------------------------------------- |
 | `place_limit`     | Yes          | All four limits applied.                                   |
 | `place_batch`     | Yes          | Each constituent order checked; partial batches forwarded. |
-| `cancel_order`    | No           | Always allowed; updates running counters.                  |
-| `cancel_all`      | No           | Always allowed; resets all running counters to zero.       |
+| `cancel_order`    | No           | Always allowed; retains exposure until confirmed.                  |
+| `cancel_batch` | No | Always allowed; retains exposure until confirmed. |
+| `cancel_market` | No | Always allowed; retains exposure until confirmed. |
+| `cancel_all`      | No           | Always allowed; retains exposure until confirmed.       |
 | `split_positions` | No           | Always allowed.                                            |
 | `merge_positions` | No           | Always allowed.                                            |

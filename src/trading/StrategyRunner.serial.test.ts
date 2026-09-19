@@ -32,6 +32,7 @@ const statusEvent: AccountEvent = {
 const noopOrderManager = {
   onMarketTick: async () => [],
   handleIntents: async () => [],
+  reconcileActiveOrders: () => {},
 } as unknown as OrderManager
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {

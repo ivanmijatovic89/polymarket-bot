@@ -48,7 +48,9 @@ An **Intent** is a typed instruction returned by a strategy. Available kinds:
 | `place_limit`     | Place a single GTC/GTD/FOK limit order      |
 | `place_batch`     | Place up to 15 orders in one API call       |
 | `cancel_order`    | Cancel a specific open order                |
-| `cancel_all`      | Cancel all open orders for an asset         |
+| `cancel_batch` | Cancel a selected list of orders |
+| `cancel_market` | Cancel orders for a condition, outcome token, or both |
+| `cancel_all` | Cancel all open orders across the account |
 | `split_positions` | Split USDC collateral into YES + NO shares  |
 | `merge_positions` | Merge equal YES + NO positions back to USDC |
 

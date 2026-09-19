@@ -100,21 +100,22 @@ The flow:
 
 A post-only rejection uses the same per-entry error handling, leaving unrelated accepted entries intact. See the [strategy interface](../strategy/strategy-interface.md#post-only-orders) for authoring and [backtest execution](./backtest-execution.md#post-only-gtc-gtd) for replay behavior.
 
-## cancelOrder
+## Cancellation
 
-```typescript
-async cancelOrder(intent: CancelOrderIntent, ctx: OrderManagerContext): Promise<...>
-```
+| Adapter method | SDK call | Scope |
+| --- | --- | --- |
+| `cancelOrder` | `client.cancelOrder({ orderID })` | One order |
+| `cancelBatch` | `client.cancelOrders(orderIds)` | Selected, deduplicated exchange IDs |
+| `cancelMarket` | `client.cancelMarketOrders({ market?, asset_id? })` | Condition ID, outcome token ID, or their intersection |
+| `cancelAll` | `client.cancelAll()` | All open account orders |
 
-Requires `intent.orderId` (the exchange order ID). If `orderId` is present, calls `client.cancelOrder({ orderID })` and emits `order_done(reason='canceled')` if `clientOrderId` is also known.
+Client IDs resolve from `ctx.portfolio`; missing exchange IDs and conflicting references produce `cancel_failed`. Market cancellation validates filters before contacting the SDK and never substitutes account-wide cancellation for an invalid scope.
 
-If only `clientOrderId` is available (no `orderId`), the method is a no-op — the CLOB API requires an exchange order ID to cancel. This case is handled upstream by the portfolio's `orderId → clientOrderId` mapping.
+Every cancellation method checks the SDK's `canceled` and `not_canceled` response. Only confirmed IDs produce `order_done(reason='canceled')`. Partial failures, omitted selected IDs, malformed responses, returned error objects, and thrown errors produce nonterminal `cancel_failed` events. Neither active-order tracking nor risk limits assume success when the request is sent. A known terminal order does not emit a second terminal event.
 
-Cancel errors from the API are silently swallowed (`catch(() => undefined)`). The intent is that the cancel reaches the exchange on a best-effort basis; the actual order state is eventually reconciled via the user WS channel.
+A confirmed exchange-only ID also removes its external WS order entry. Late WS updates cannot reopen a confirmed terminal order, and fills that arrive after cancellation still update positions idempotently. See [cancellation intents](../strategy/strategy-interface.md#cancel-batch) and [Portfolio](./portfolio.md).
 
-## cancelAll
-
-Calls `client.cancelAll()` with error silently swallowed. Returns no events — the actual cancellations are reflected via the user WS channel.
+These controls use the installed legacy SDK. They do not complete the V2/pUSD production compatibility migration in #249.
 
 ## onMarketTick
 

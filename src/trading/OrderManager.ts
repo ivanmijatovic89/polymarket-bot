@@ -2,18 +2,29 @@ import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type {
   AccountEvent,
   CancelAllIntent,
+  CancelBatchIntent,
+  CancelMarketIntent,
   CancelOrderIntent,
   ClientOrderId,
   Intent,
   MergePositionsIntent,
   OpenOrder,
   OrderType,
+  OrderReference,
+  OrderSnapshot,
+  WsOpenOrder,
   PlaceBatchIntent,
   PlaceLimitIntent,
   PortfolioSnapshot,
   SplitPositionsIntent,
 } from '../strategy/Strategy.js'
 import { enforceRiskLimits } from './riskLimits.js'
+import {
+  cancelFailed,
+  matchesCancelScope,
+  resolveCancelBatch,
+  validateCancelScope,
+} from './cancellation.js'
 
 export type OrderManagerContext = {
   nowMs: number
@@ -41,6 +52,14 @@ export type ExecutionAdapter = {
     ctx: OrderManagerContext,
   ) => Promise<ExecutionCancelResult>
   cancelAll: (intent: CancelAllIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
+  cancelBatch: (
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ) => Promise<ExecutionCancelResult>
+  cancelMarket: (
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ) => Promise<ExecutionCancelResult>
   mergePositions: (
     intent: MergePositionsIntent,
     ctx: OrderManagerContext,
@@ -86,6 +105,15 @@ export class OrderManager {
 
   // Optional 1-tick latency mode: intents submitted on tick N execute on tick N+1.
   private pendingIntents: Intent[] = []
+
+  /** Reconcile asynchronous WS/fill events after Portfolio has applied them. */
+  reconcileActiveOrders(portfolio: PortfolioSnapshot): void {
+    for (const cid of this.activeClientOrders) {
+      if (portfolio.ordersByClientId[cid] && !portfolio.openOrdersByClientId[cid]) {
+        this.activeClientOrders.delete(cid)
+      }
+    }
+  }
 
   constructor(opts: OrderManagerOptions) {
     this.execution = opts.execution
@@ -160,7 +188,9 @@ export class OrderManager {
 
     // 3) Maintain clientOrderId dedupe: if an order is done/rejected, allow re-use.
     for (const ev of out) {
-      if (ev.kind === 'order_rejected') this.activeClientOrders.delete(ev.clientOrderId)
+      if (ev.kind === 'order_submitted') this.activeClientOrders.add(ev.order.clientOrderId)
+      if (ev.kind === 'order_rejected' && ev.reason !== 'duplicate_clientOrderId')
+        this.activeClientOrders.delete(ev.clientOrderId)
       if (ev.kind === 'order_done' && ev.clientOrderId)
         this.activeClientOrders.delete(ev.clientOrderId)
     }
@@ -173,15 +203,37 @@ export class OrderManager {
     ctx: OrderManagerContext,
   ): Promise<AccountEvent[]> {
     const out: AccountEvent[] = []
+    // Account events are applied by the runner after this call. Keep order references
+    // current within this intent list too (e.g. place, then cancel the acknowledged order).
+    const trackReferences = intents.some((intent) => intent.kind.startsWith('cancel_'))
+    const portfolio: PortfolioSnapshot = {
+      nowMs: ctx.nowMs,
+      positionsByAssetId: {},
+      recentFills: [],
+      marketByAssetId: {},
+      ...ctx.portfolio,
+      openOrdersByClientId: { ...(trackReferences ? ctx.portfolio?.openOrdersByClientId : {}) },
+      ordersByClientId: { ...(trackReferences ? ctx.portfolio?.ordersByClientId : {}) },
+      wsOpenOrdersByOrderId: { ...(trackReferences ? ctx.portfolio?.wsOpenOrdersByOrderId : {}) },
+    }
+    const open = portfolio.openOrdersByClientId as Record<string, OpenOrder>
+    const history = portfolio.ordersByClientId as Record<string, OrderSnapshot>
+    const wsOpen = portfolio.wsOpenOrdersByOrderId as Record<string, WsOpenOrder>
     for (const intent of intents) {
+      const start = out.length
+      const cancelCtx = { ...ctx, portfolio }
       if (intent.kind === 'place_limit') {
         out.push(...(await this.handlePlaceLimit(intent, ctx)))
       } else if (intent.kind === 'place_batch') {
         out.push(...(await this.handlePlaceBatch(intent, ctx)))
       } else if (intent.kind === 'cancel_order') {
-        out.push(...(await this.handleCancelOrder(intent, ctx)))
+        out.push(...(await this.handleCancelOrder(intent, cancelCtx)))
       } else if (intent.kind === 'cancel_all') {
-        out.push(...(await this.handleCancelAll(intent, ctx)))
+        out.push(...(await this.handleCancelAll(intent, cancelCtx)))
+      } else if (intent.kind === 'cancel_batch') {
+        out.push(...(await this.handleCancelBatch(intent, cancelCtx)))
+      } else if (intent.kind === 'cancel_market') {
+        out.push(...(await this.handleCancelMarket(intent, cancelCtx)))
       } else if (intent.kind === 'merge_positions') {
         out.push(...(await this.handleMergePositions(intent, ctx)))
       } else if (intent.kind === 'split_positions') {
@@ -189,6 +241,38 @@ export class OrderManager {
       } else {
         const _exhaustive: never = intent
         void _exhaustive
+      }
+      if (!trackReferences) continue
+      for (const ev of out.slice(start)) {
+        if (ev.kind === 'order_submitted') open[ev.order.clientOrderId] = { ...ev.order }
+        if (ev.kind === 'order_accepted' && open[ev.clientOrderId] && ev.orderId) {
+          open[ev.clientOrderId] = { ...open[ev.clientOrderId]!, orderId: ev.orderId }
+        }
+        if (ev.kind === 'order_done' || ev.kind === 'order_rejected') {
+          if (ev.kind === 'order_rejected' && ev.reason === 'duplicate_clientOrderId') continue
+          const oid = ev.kind === 'order_done' ? ev.orderId : undefined
+          const cid =
+            ev.clientOrderId ??
+            Object.values(open).find((o) => oid && o.orderId === oid)?.clientOrderId
+          if (oid) delete wsOpen[oid]
+          if (cid) {
+            const order = open[cid]
+            if (order) {
+              history[cid] = {
+                clientOrderId: cid,
+                ...(order.orderId ? { orderId: order.orderId } : {}),
+                assetId: order.assetId,
+                side: order.side,
+                lifecycleState: ev.kind === 'order_done' ? ev.reason : 'rejected',
+                tradeStatusRank: 0,
+                updatedAtMs: ev.tsMs,
+              }
+            }
+
+            delete open[cid]
+            this.activeClientOrders.delete(cid)
+          }
+        }
       }
     }
     return out
@@ -345,22 +429,25 @@ export class OrderManager {
     ctx: OrderManagerContext,
   ): Promise<AccountEvent[]> {
     if (this.dryRun) {
-      if (!intent.clientOrderId) return []
-      this.activeClientOrders.delete(intent.clientOrderId)
-      return [
-        {
-          kind: 'order_done',
-          tsMs: ctx.nowMs,
-          clientOrderId: intent.clientOrderId,
-          ...(intent.orderId ? { orderId: intent.orderId } : {}),
-          reason: 'canceled',
-        },
-      ]
+      const result = resolveCancelBatch(
+        { kind: 'cancel_batch', orders: [intent] },
+        ctx.portfolio,
+        ctx.nowMs,
+        true,
+      )
+      const events: AccountEvent[] = result.events.map((ev) =>
+        ev.kind === 'cancel_failed' ? { ...ev, operation: intent.kind } : ev,
+      )
+      for (const target of result.orders) {
+        events.push(
+          ...(this.isKnownCancelTarget(target, ctx)
+            ? this.dryRunCancel([target], ctx)
+            : [cancelFailed(intent.kind, ctx.nowMs, 'unknown_order', target)]),
+        )
+      }
+      return events
     }
-    const res = await this.execution.cancelOrder(intent, ctx)
-    // Best-effort: if we know the clientOrderId, mark it inactive once cancel requested.
-    if (intent.clientOrderId) this.activeClientOrders.delete(intent.clientOrderId)
-    return res.events
+    return (await this.execution.cancelOrder(intent, ctx)).events
   }
 
   private async handleCancelAll(
@@ -368,13 +455,81 @@ export class OrderManager {
     ctx: OrderManagerContext,
   ): Promise<AccountEvent[]> {
     if (this.dryRun) {
-      // We don't have the list of orders here; the Portfolio will still reflect whatever was simulated.
-      this.activeClientOrders.clear()
-      return []
+      const orders = Object.values(ctx.portfolio?.openOrdersByClientId ?? {})
+      const ids = new Set(orders.map((o) => o.orderId))
+      const external = Object.values(ctx.portfolio?.wsOpenOrdersByOrderId ?? {}).filter(
+        (o) => !ids.has(o.orderId),
+      )
+      return this.dryRunCancel([...orders, ...external], ctx)
     }
     const res = await this.execution.cancelAll(intent, ctx)
-    this.activeClientOrders.clear()
     return res.events
+  }
+
+  private dryRunCancel(orders: OrderReference[], ctx: OrderManagerContext): AccountEvent[] {
+    return orders.map(({ clientOrderId, orderId }) => ({
+      kind: 'order_done',
+      tsMs: ctx.nowMs,
+      ...(clientOrderId ? { clientOrderId } : {}),
+      ...(orderId ? { orderId } : {}),
+      reason: 'canceled',
+    }))
+  }
+
+  private isKnownCancelTarget(ref: OrderReference, ctx: OrderManagerContext): boolean {
+    return Boolean(
+      (ref.clientOrderId && ctx.portfolio?.openOrdersByClientId[ref.clientOrderId]) ||
+      (ref.orderId && ctx.portfolio?.wsOpenOrdersByOrderId?.[ref.orderId]),
+    )
+  }
+
+  private async handleCancelBatch(
+    intent: CancelBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
+    const { orders, events } = resolveCancelBatch(intent, ctx.portfolio, ctx.nowMs, this.dryRun)
+    if (orders.length === 0) return events
+    if (this.dryRun) {
+      // Unknown exchange IDs cannot be confirmed by a simulation.
+      for (const ref of orders) {
+        const known = this.isKnownCancelTarget(ref, ctx)
+        events.push(
+          ...(known
+            ? this.dryRunCancel([ref], ctx)
+            : [cancelFailed(intent.kind, ctx.nowMs, 'unknown_order', ref)]),
+        )
+      }
+      return events
+    }
+    return [...events, ...(await this.execution.cancelBatch({ ...intent, orders }, ctx)).events]
+  }
+
+  private async handleCancelMarket(
+    intent: CancelMarketIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
+    const error = validateCancelScope(intent)
+    if (error) return [cancelFailed(intent.kind, ctx.nowMs, error)]
+    if (this.dryRun) {
+      const orders = Object.values(ctx.portfolio?.openOrdersByClientId ?? {}).filter((o) =>
+        matchesCancelScope(o, intent),
+      )
+      const ids = new Set(orders.map((o) => o.orderId))
+      const external = Object.values(ctx.portfolio?.wsOpenOrdersByOrderId ?? {}).filter(
+        (o) => !ids.has(o.orderId) && matchesCancelScope(o, intent),
+      )
+      return this.dryRunCancel(
+        [
+          ...orders.map(({ clientOrderId, orderId }) => ({
+            clientOrderId,
+            ...(orderId ? { orderId } : {}),
+          })),
+          ...external.map(({ orderId }) => ({ orderId })),
+        ],
+        ctx,
+      )
+    }
+    return (await this.execution.cancelMarket(intent, ctx)).events
   }
 
   private async handlePlaceBatch(
