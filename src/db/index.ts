@@ -1,6 +1,8 @@
 import { drizzle } from 'drizzle-orm/mysql2'
-import mysql, { type RowDataPacket } from 'mysql2/promise'
+import type mysql from 'mysql2/promise'
+import type { RowDataPacket } from 'mysql2/promise'
 import { loadDatabaseConfigFromEnv } from './config.js'
+import { createDatabasePool } from './pool.js'
 import * as schema from './schema.js'
 
 let dbInstance: ReturnType<typeof drizzle> | undefined
@@ -18,7 +20,7 @@ function getPool(): ReturnType<typeof mysql.createPool> {
   if (config.password !== undefined) {
     poolConfig.password = config.password
   }
-  poolInstance = mysql.createPool(poolConfig)
+  poolInstance = createDatabasePool(poolConfig)
   return poolInstance
 }
 
