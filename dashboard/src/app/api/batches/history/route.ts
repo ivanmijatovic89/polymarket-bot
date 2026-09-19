@@ -1,28 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { listHistoricalBatches, type HistoricalBatchFilters } from '@/lib/queries/batches'
+import { listHistoricalBatches } from '@/lib/queries/batches'
+import { readBacktestBrowseState } from '@/lib/backtestBrowse'
 
 export const dynamic = 'force-dynamic'
 
-function parseStatus(value: string | null): HistoricalBatchFilters['status'] | undefined {
-  if (value === 'completed' || value === 'partial' || value === 'failed') return value
-  return undefined
-}
-
 export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams
-  const raw = sp.get('limit')
-  const limit = Math.max(1, Math.min(500, Number(raw ?? 50) || 50))
-  const filters: HistoricalBatchFilters = {}
-  const protocol = sp.get('protocol')
-  const model = sp.get('model')
-  const strategy = sp.get('strategy')
-  const symbol = sp.get('symbol')
-  const status = parseStatus(sp.get('status'))
-  if (protocol) filters.protocol = protocol
-  if (model) filters.model = model
-  if (strategy) filters.strategy = strategy
-  if (symbol) filters.symbol = symbol
-  if (status) filters.status = status
-  const batches = await listHistoricalBatches(limit, filters)
-  return NextResponse.json({ batches })
+  const { limit, page, sort, snapshot, status, ...filters } = readBacktestBrowseState(
+    req.nextUrl.searchParams,
+    50,
+  )
+  const result = await listHistoricalBatches(
+    limit,
+    { ...filters, status: status || undefined },
+    { page, sort, snapshot },
+  )
+  return NextResponse.json(result)
 }

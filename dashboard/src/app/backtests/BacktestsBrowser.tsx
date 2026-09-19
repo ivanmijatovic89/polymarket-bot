@@ -3,89 +3,49 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BacktestsTable } from '@/components/BacktestsTable'
+import { BacktestsFilters } from '@/components/BacktestsFilters'
 import {
-  BacktestsFilters,
-  type BacktestsFilterValues,
-} from '@/components/BacktestsFilters'
-import type { HistoricalBatch } from '@/lib/queries/batches'
+  backtestBrowseParams,
+  readBacktestBrowseState,
+  type BacktestBrowseState,
+} from '@/lib/backtestBrowse'
 
-const DEFAULT_LIMIT = 100
-
-function readState(sp: URLSearchParams): BacktestsFilterValues {
-  const limitRaw = Number(sp.get('limit'))
-  return {
-    protocol: sp.get('protocol') ?? '',
-    model: sp.get('model') ?? '',
-    strategy: sp.get('strategy') ?? '',
-    symbol: sp.get('symbol') ?? '',
-    status: sp.get('status') ?? '',
-    limit:
-      Number.isFinite(limitRaw) && limitRaw > 0
-        ? Math.min(500, Math.max(1, Math.floor(limitRaw)))
-        : DEFAULT_LIMIT,
-  }
-}
-
-function statePassedToTable(v: BacktestsFilterValues): {
-  limit: number
-  protocol?: string
-  model?: string
-  strategy?: string
-  symbol?: string
-  status?: HistoricalBatch['status']
-} {
-  const next: ReturnType<typeof statePassedToTable> = { limit: v.limit }
-  if (v.protocol) next.protocol = v.protocol
-  if (v.model) next.model = v.model
-  if (v.strategy) next.strategy = v.strategy
-  if (v.symbol) next.symbol = v.symbol
-  if (v.status === 'completed' || v.status === 'partial' || v.status === 'failed') {
-    next.status = v.status
-  }
-  return next
-}
-
-/**
- * /backtests browser: filter bar + full table. State is reflected in the URL
- * (`?protocol=…&model=…&strategy=…&symbol=…&status=…&limit=…`) so links and back/forward work.
- */
+/** URL-backed controls keep filtered pages bookmarkable and support browser history. */
 export function BacktestsBrowser() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [filters, setFilters] = useState<BacktestsFilterValues>(() =>
-    readState(new URLSearchParams(searchParams?.toString() ?? '')),
-  )
+  const query = searchParams.toString()
+  const [state, setState] = useState(() => readBacktestBrowseState(new URLSearchParams(query)))
 
-  // Keep state in sync if the URL changes externally (e.g. browser back).
   useEffect(() => {
-    setFilters(readState(new URLSearchParams(searchParams?.toString() ?? '')))
-    // We intentionally re-read whenever the searchParams object changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams?.toString()])
+    setState(readBacktestBrowseState(new URLSearchParams(query)))
+  }, [query])
 
   const update = useCallback(
-    (next: BacktestsFilterValues) => {
-      setFilters(next)
-      const sp = new URLSearchParams()
-      if (next.protocol) sp.set('protocol', next.protocol)
-      if (next.model) sp.set('model', next.model)
-      if (next.strategy) sp.set('strategy', next.strategy)
-      if (next.symbol) sp.set('symbol', next.symbol)
-      if (next.status) sp.set('status', next.status)
-      if (next.limit !== DEFAULT_LIMIT) sp.set('limit', String(next.limit))
-      const query = sp.toString()
-      router.replace(query ? `/backtests?${query}` : '/backtests', { scroll: false })
+    (next: BacktestBrowseState, replace = false) => {
+      setState(next)
+      const params = backtestBrowseParams(next).toString()
+      const url = params ? `/backtests?${params}` : '/backtests'
+      if (replace) router.replace(url, { scroll: false })
+      else router.push(url, { scroll: false })
     },
     [router],
   )
 
-  const tableProps = statePassedToTable(filters)
+  const changePage = useCallback(
+    (page: number, snapshot?: number, replace = false) => {
+      update({ ...state, page, snapshot }, replace)
+    },
+    [state, update],
+  )
 
   return (
     <div className="space-y-4">
-      <BacktestsFilters value={filters} onChange={update} />
+      <BacktestsFilters value={state} onChange={update} />
       <BacktestsTable
-        {...tableProps}
+        {...state}
+        status={state.status || undefined}
+        onPageChange={changePage}
         stickyHeader
         emptyHint="Try widening or clearing the filters."
       />
