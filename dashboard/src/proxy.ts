@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { dashboardAllowedHosts } from './allowedHosts'
 
 /**
  * Gate for the Mission Control API (issue #213).
@@ -18,7 +19,7 @@ import type { NextRequest } from 'next/server'
  *    no credential of its own, because the proxy supplies the token. The
  *    secret must therefore live somewhere sessions cannot read (see the
  *    sandbox settings requirements in docs/global-runtime/fleet.md).
- * 2. **Same-origin + loopback Host**, which stops the operator's own browser
+ * 2. **Same-origin + allowed Host**, which stops the operator's own browser
  *    being used as a confused deputy (plain CSRF and DNS rebinding).
  *
  * With NO token configured the API stays open (matching the daemon's own
@@ -26,8 +27,6 @@ import type { NextRequest } from 'next/server'
  * machine that never runs sandboxed sessions. See docs/global-runtime/fleet.md.
  */
 
-// Bare `::1` never appears here: hostnameOf() only unwraps the bracketed form.
-const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '192.168.0.12'])
 export const MISSION_CONTROL_COOKIE = 'mission_control_token'
 export const MISSION_CONTROL_HEADER = 'x-mission-control-token'
 
@@ -54,9 +53,11 @@ function matches(presented: string | undefined, secret: string): boolean {
 
 export function proxy(request: NextRequest): NextResponse | undefined {
   const host = request.headers.get('host')
-  if (!host || !ALLOWED_HOSTNAMES.has(hostnameOf(host))) {
+  if (!host || !dashboardAllowedHosts().includes(hostnameOf(host))) {
     return NextResponse.json(
-      { error: 'Mission Control is only reachable over loopback' },
+      {
+        error: 'Mission Control host is not allowed. Add the dashboard hostname to ALLOWED_HOSTS.',
+      },
       { status: 403 },
     )
   }
