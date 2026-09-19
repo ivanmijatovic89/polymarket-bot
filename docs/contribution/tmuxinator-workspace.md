@@ -28,10 +28,13 @@ The `SERVICES` window starts:
 
 | Pane | Command |
 | --- | --- |
-| `DASHBOARD` | `ALLOWED_HOSTS=100.100.49.80,192.168.0.12 npm run dashboard` |
+| `DASHBOARD` | `npm run dashboard` |
 | `DOCUMENTATION` | `cd docs && npm run dev` |
 | `BACKTEST WORKER` | `./scripts/run-worker.sh --queues markets` |
 | `GLOBAL RUNTIME` | `npm run global-runtime` |
+
+The dashboard loads `ALLOWED_HOSTS` from the repository root `.env`. Configure
+the allowed dashboard addresses there; the launcher does not override them.
 
 ## Stop the Workspace
 
