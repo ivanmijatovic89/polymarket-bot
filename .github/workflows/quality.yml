@@ -52,6 +52,9 @@ jobs:
       - name: Trading tests
         run: npm run trading:test
 
+      - name: Pair strategy mechanics
+        run: npx tsx --test src/strategies/pair/pair.test.ts
+
       - name: Research protocol check
         run: npm run research:check
 
