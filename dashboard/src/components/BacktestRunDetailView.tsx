@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from './ui/card'
+import { SearchableSelect } from './ui/searchable-select'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
@@ -119,6 +120,38 @@ type MarketSortColumn =
   | 'events'
 
 type MarketSort = { column: MarketSortColumn; direction: 'asc' | 'desc' }
+
+const MARKET_SORT_COLUMNS: Array<{ column: MarketSortColumn; label: string }> = [
+  { column: 'pnl', label: 'PnL' },
+  { column: 'unpaired', label: 'Unpaired shares' },
+  { column: 'pairs', label: 'Pairs' },
+  { column: 'pairCost', label: 'Avg pair cost' },
+  { column: 'upShares', label: 'UP shares' },
+  { column: 'downShares', label: 'DOWN shares' },
+  { column: 'cost', label: 'Cost' },
+  { column: 'fees', label: 'Fees' },
+  { column: 'trades', label: 'Trades' },
+  { column: 'duration', label: 'Duration' },
+  { column: 'events', label: 'Events' },
+  { column: 'slug', label: 'Slug' },
+  { column: 'outcome', label: 'Outcome' },
+]
+const MARKET_SORT_OPTIONS = MARKET_SORT_COLUMNS.flatMap(({ column, label }) =>
+  (['desc', 'asc'] as const).map((direction) => ({
+    value: `${column}-${direction}`,
+    label: `${label}: ${
+      column === 'slug' || column === 'outcome'
+        ? direction === 'asc'
+          ? 'A to Z'
+          : 'Z to A'
+        : direction === 'asc'
+          ? 'low to high'
+          : 'high to low'
+    }`,
+    column,
+    direction,
+  })),
+)
 
 /** Sort key for a per-market row; null = no value for this column (sorts last). */
 function marketSortValue(m: MarketStat, column: MarketSortColumn): number | string | null {
@@ -292,6 +325,8 @@ function StatusBadge({ status }: { status: RunDetail['status'] }) {
 export function BacktestRunDetailView({ id }: { id: number }) {
   const marketTableRef = useRef<HTMLDivElement>(null)
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [marketResult, setMarketResult] = useState('')
+  const [marketOutcome, setMarketOutcome] = useState('')
   const [marketSort, setMarketSort] = useState<MarketSort | null>(null)
   const { data, isLoading } = useQuery({
     queryKey: ['backtests', id],
@@ -307,7 +342,16 @@ export function BacktestRunDetailView({ id }: { id: number }) {
 
   // Rows carry their original run index so the # column survives sorting.
   const sortedMarketRows = useMemo(() => {
-    const rows = marketStats.map((m, idx) => ({ m, idx }))
+    const rows = marketStats
+      .map((m, idx) => ({ m, idx }))
+      .filter(({ m }) => {
+        if (marketOutcome && m.finalOutcome !== marketOutcome) return false
+        if (marketResult === 'win') return m.pnl > 0
+        if (marketResult === 'loss') return m.pnl < 0
+        if (marketResult === 'flat') return m.pnl === 0 && m.tradeCount > 0
+        if (marketResult === 'no-trades') return m.tradeCount === 0
+        return true
+      })
     if (!marketSort) return rows
     const dir = marketSort.direction === 'desc' ? -1 : 1
     rows.sort((a, b) => {
@@ -320,7 +364,7 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       return String(va).localeCompare(String(vb)) * dir
     })
     return rows
-  }, [marketStats, marketSort])
+  }, [marketStats, marketSort, marketResult, marketOutcome])
 
   // desc → asc → original order.
   const toggleMarketSort = (column: MarketSortColumn) => {
@@ -705,9 +749,64 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       <section>
         <SectionHeading
           title="Per-market"
-          subtitle={`${marketStats.length} markets. Pairs are available UP + DOWN pairs, not executed merges. Red durations exceed 10s.`}
+          subtitle={`${sortedMarketRows.length} of ${marketStats.length} markets. Pairs are available UP + DOWN pairs, not executed merges. Red durations exceed 10s.`}
           icon={Cpu}
         />
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <SearchableSelect
+            label="Market result filter"
+            value={marketResult}
+            clearable
+            options={[
+              { value: '', label: 'All results' },
+              { value: 'win', label: 'Wins (PnL > 0)' },
+              { value: 'loss', label: 'Losses (PnL < 0)' },
+              { value: 'flat', label: 'Break-even (traded)' },
+              { value: 'no-trades', label: 'No trades' },
+            ]}
+            onChange={setMarketResult}
+            className="w-[195px] max-w-full"
+          />
+          <SearchableSelect
+            label="Market outcome filter"
+            value={marketOutcome}
+            clearable
+            options={[
+              { value: '', label: 'All outcomes' },
+              { value: 'UP', label: 'UP won' },
+              { value: 'DOWN', label: 'DOWN won' },
+            ]}
+            onChange={setMarketOutcome}
+            className="w-[155px] max-w-full"
+          />
+          {(marketResult || marketOutcome) && (
+            <button
+              type="button"
+              onClick={() => {
+                setMarketResult('')
+                setMarketOutcome('')
+              }}
+              className="h-8 rounded-md border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              Clear filters
+            </button>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Sort</span>
+            <SearchableSelect
+              label="Market sort order"
+              value={marketSort ? `${marketSort.column}-${marketSort.direction}` : ''}
+              options={[{ value: '', label: 'Original order' }, ...MARKET_SORT_OPTIONS]}
+              onChange={(value) => {
+                const option = MARKET_SORT_OPTIONS.find((option) => option.value === value)
+                setMarketSort(
+                  option ? { column: option.column, direction: option.direction } : null,
+                )
+              }}
+              className="w-[245px] max-w-full"
+            />
+          </div>
+        </div>
         <Card className="overflow-hidden">
           <Table containerRef={marketTableRef} className="min-w-[1500px]">
             <TableHeader className="bg-card">
@@ -760,6 +859,16 @@ export function BacktestRunDetailView({ id }: { id: number }) {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {sortedMarketRows.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={15}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
+                    No markets match these filters.
+                  </TableCell>
+                </TableRow>
+              )}
               {sortedMarketRows.map(({ m, idx }) => {
                 const exec = m.execution
                 const slow = exec && exec.durationMs > 10_000
