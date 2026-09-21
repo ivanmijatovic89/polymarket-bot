@@ -14,7 +14,7 @@ import { Portfolio } from './Portfolio.js'
 import { StrategyRunner } from './StrategyRunner.js'
 import { BacktestExecution } from './execution/BacktestExecution.js'
 import { LiveExecution } from './execution/LiveExecution.js'
-import { enforceRiskLimits } from './riskLimits.js'
+import { DEFAULT_RISK_LIMITS, enforceRiskLimits } from './riskLimits.js'
 
 const marketA = `0x${'a'.repeat(64)}`
 const marketB = `0x${'b'.repeat(64)}`
@@ -746,7 +746,11 @@ test('cancel-and-replace keeps the replacement deduped while earlier events are 
 for (const batch of [false, true]) {
   test(`failed cancellation plus duplicate placement cannot reject the still-live order (batch=${batch})`, async (t) => {
     const h = live(t)
-    await h.send(Array.from({ length: 20 }, (_, i) => order(i === 0 ? 'buy-up' : `other-${i}`)))
+    await h.send(
+      Array.from({ length: DEFAULT_RISK_LIMITS.maxOpenOrders }, (_, i) =>
+        order(i === 0 ? 'buy-up' : `other-${i}`),
+      ),
+    )
     h.batch.mock.mockImplementation(async () => ({
       canceled: [],
       not_canceled: { 'ex-buy-up': 'try again' },
@@ -755,7 +759,7 @@ for (const batch of [false, true]) {
       { kind: 'cancel_batch', orders: [{ clientOrderId: 'buy-up' }] },
       batch ? { kind: 'place_batch', orders: [order()] } : order(),
     ])
-    assert.equal(h.remaining().length, 20)
+    assert.equal(h.remaining().length, DEFAULT_RISK_LIMITS.maxOpenOrders)
     assert.equal(h.portfolio.snapshot().openOrdersByClientId['buy-up']?.orderId, 'ex-buy-up')
   })
 }

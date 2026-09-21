@@ -10,6 +10,7 @@ import type {
 import type { StrategyContext, WarmupSnapshot } from '../strategy/StrategyContext.js'
 import type { PluginsSnapshot, PluginSet } from '../strategy/plugins/PluginSet.js'
 import { Portfolio } from './Portfolio.js'
+import { resolveMaxEventsPerDrain } from './runnerConfig.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
@@ -69,7 +70,7 @@ export type StrategyRunnerOptions = {
   intentExecutionMode?: IntentExecutionMode
   /**
    * Prevent infinite feedback loops (account-event triggers more intents triggers more account events).
-   * Default 100.
+   * Uses MAX_EVENTS_PER_DRAIN (default 4200) unless explicitly overridden.
    */
   maxEventsPerDrain?: number
   /**
@@ -129,7 +130,7 @@ export class StrategyRunner {
     this.getBalance = opts.getBalance
     this.getWarmup = opts.getWarmup
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
-    this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
+    this.maxEventsPerDrain = resolveMaxEventsPerDrain(opts.maxEventsPerDrain)
     this.intentLog = opts.intentLog
     this.log = opts.log
     this.skipLateStartAfterMs = Math.max(0, Math.trunc(opts.skipLateStartAfterMs ?? 0))

@@ -132,7 +132,7 @@ If the startup balance/approval check fails in relayer mode, the bot exits with 
 | `USER_WS_FILL_AT_STATUS`                   | —                         | `MATCHED`, `MINED`, or `CONFIRMED` — controls when fills trigger `onAccountEvent` |
 | `SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS` | `15`                      | Skip the current window if the bot started this many seconds after the boundary   |
 | `INTENT_EXECUTION_MODE`                    | `immediate`               | `immediate` or `queued`                                                           |
-| `MAX_EVENTS_PER_DRAIN`                     | `100`                     | Max account events processed per drain cycle in queued mode                       |
+| `MAX_EVENTS_PER_DRAIN` | `4200` | Account-event limit per drain cycle in both execution modes; shared with backtests |
 | `BALANCE_REFRESH_COOLDOWN_MS`              | `5000`                    | Minimum interval between on-chain balance polls                                   |
 | `POLYGON_RPC_URL`                          | `https://polygon-rpc.com` | RPC endpoint for balance and approval checks                                      |
 

@@ -9,6 +9,7 @@ import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
+import { resolveMaxEventsPerDrain } from '../trading/runnerConfig.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
@@ -157,12 +158,7 @@ async function main(): Promise<void> {
     intentExecutionModeEnv === 'queued' || intentExecutionModeEnv === 'immediate'
       ? (intentExecutionModeEnv as 'queued' | 'immediate')
       : 'immediate'
-  const maxEventsPerDrainRaw = process.env.MAX_EVENTS_PER_DRAIN
-  const maxEventsPerDrainParsed = maxEventsPerDrainRaw ? Number(maxEventsPerDrainRaw) : NaN
-  const maxEventsPerDrain =
-    Number.isFinite(maxEventsPerDrainParsed) && Number.isInteger(maxEventsPerDrainParsed)
-      ? Math.max(1, maxEventsPerDrainParsed)
-      : 100
+  const maxEventsPerDrain = resolveMaxEventsPerDrain()
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined

@@ -32,7 +32,7 @@ sequenceDiagram
     SR->>SR: drainAccountEvents (cascade loop)
 ```
 
-The `drainAccountEvents` loop at the end is what enables reactive strategies: when a fill event arrives, the strategy's `onAccountEvent` can return new intents (e.g., place a sell order after a buy fills), which in turn may produce more fills, and so on. The loop continues until the queue is empty or the `maxEventsPerDrain` ceiling (default 100) is reached.
+The `drainAccountEvents` loop at the end is what enables reactive strategies: when a fill event arrives, the strategy's `onAccountEvent` can return new intents (e.g., place a sell order after a buy fills), which in turn may produce more fills, and so on. The loop continues until the queue is empty or the `maxEventsPerDrain` ceiling (`MAX_EVENTS_PER_DRAIN`, default 4200) is reached.
 
 ## Plugin Snapshot Caching
 
@@ -71,7 +71,11 @@ In `queued` mode, `OrderManager.handleIntents` simply pushes the intents onto a 
 The cascade mechanism prevents infinite feedback loops via two safeguards:
 
 1. The `draining` boolean prevents re-entrant drain calls. If `drainAccountEvents` is already running (which cannot happen in single-threaded JS, but is a defensive guard), a nested call is a no-op.
-2. `maxEventsPerDrain` (default 100) caps the total number of account events processed in one drain cycle. If the limit is exceeded, the remaining queue is dropped and a warning is logged.
+2. `maxEventsPerDrain` (`MAX_EVENTS_PER_DRAIN`, default 4200) caps the total number of account events processed in one drain cycle. If the limit is exceeded, the remaining queue is dropped and a warning is logged.
+
+Live trading and backtests resolve this limit through the same shared configuration. Unset or blank `MAX_EVENTS_PER_DRAIN` uses 4200; otherwise it must be a positive safe integer. Invalid values fail configuration validation. A programmatic `maxEventsPerDrain` option takes precedence over the environment. This limit is independent of the global 100-open-order risk limit.
+
+Fleet market workers load their own environment and pass it to child processes. Set the same value on each worker and restart workers after changing it; the producer's local `.env` is not distributed by fleet update commands. Leaving the variable unset everywhere uses the shared default once workers load the updated code. The overflow guard still discards excess events, so choose a budget that covers legitimate order-update bursts.
 
 The runner also maintains a `recentDrainEvents` ring buffer of the last 10 processed events, which is included in the warning log when the cap is hit to aid debugging.
 
