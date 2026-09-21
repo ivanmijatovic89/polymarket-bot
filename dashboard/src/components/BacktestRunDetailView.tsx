@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -24,6 +24,7 @@ import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
 import { CoverageSection } from './coverage/CoverageSection'
 import { MachineName } from './MachineName'
 import { ExecutionSummary } from './ExecutionSummary'
+import { useStickyTableHeader } from '@/lib/useStickyTableHeader'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
 import type { ExecutionSummary as ExecutionSummaryData } from '@/lib/queries/batches'
 
@@ -109,6 +110,11 @@ type MarketSortColumn =
   | 'fees'
   | 'cost'
   | 'trades'
+  | 'upShares'
+  | 'downShares'
+  | 'pairs'
+  | 'unpaired'
+  | 'pairCost'
   | 'duration'
   | 'events'
 
@@ -129,6 +135,18 @@ function marketSortValue(m: MarketStat, column: MarketSortColumn): number | stri
       return m.cost
     case 'trades':
       return m.tradeCount
+    case 'upShares':
+      return m.upShares
+    case 'downShares':
+      return m.downShares
+    case 'pairs':
+      return m.mergableShares
+    case 'unpaired':
+      return Math.abs(m.upShares - m.downShares)
+    case 'pairCost':
+      return m.avgEntryPriceUp !== null && m.avgEntryPriceDown !== null
+        ? m.avgEntryPriceUp + m.avgEntryPriceDown
+        : null
     case 'duration':
       return m.execution?.durationMs ?? null
     case 'events':
@@ -230,21 +248,19 @@ function ParamsChips({ params }: { params: Record<string, unknown> }) {
   )
 }
 
-/** Per-market position cell: `<shares> @ <avg>` with optional `· <mrg> mrg` suffix. */
-function renderPosition(
-  shares: number,
-  avgPrice: number | null,
-  mergable: number,
-): React.ReactNode {
+function formatShares(shares: number): string {
+  return shares.toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+function renderPosition(shares: number, avgPrice: number | null): React.ReactNode {
   if (shares <= 0) return '—'
-  const left = avgPrice !== null ? `${shares.toFixed(0)} @ ${avgPrice.toFixed(3)}` : `${shares.toFixed(0)}`
   return (
-    <span>
-      {left}
-      {mergable > 0 && (
-        <span className="ml-1 text-[11px]">· {mergable.toFixed(0)} mrg</span>
-      )}
-    </span>
+    <div>
+      <div className="font-medium text-foreground">{formatShares(shares)}</div>
+      <div className="mt-0.5 text-[11px] text-muted-foreground">
+        {avgPrice !== null ? `avg $${avgPrice.toFixed(4)}` : 'avg —'}
+      </div>
+    </div>
   )
 }
 
@@ -274,12 +290,15 @@ function StatusBadge({ status }: { status: RunDetail['status'] }) {
 }
 
 export function BacktestRunDetailView({ id }: { id: number }) {
+  const marketTableRef = useRef<HTMLDivElement>(null)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [marketSort, setMarketSort] = useState<MarketSort | null>(null)
   const { data, isLoading } = useQuery({
     queryKey: ['backtests', id],
     queryFn: () => fetchRun(id),
   })
+
+  useStickyTableHeader(marketTableRef, { enabled: !isLoading && !!data && !('error' in data) })
 
   const marketStats = useMemo(
     () => (data && !('error' in data) ? (data.batch.marketStats ?? []) : []),
@@ -337,17 +356,11 @@ export function BacktestRunDetailView({ id }: { id: number }) {
   const PnlIcon = b.pnlTotal === 0 ? Coins : b.pnlTotal > 0 ? TrendingUp : TrendingDown
 
   const roiPct =
-    b.capitalInitial > 0
-      ? ((b.capitalFinal - b.capitalInitial) / b.capitalInitial) * 100
-      : null
+    b.capitalInitial > 0 ? ((b.capitalFinal - b.capitalInitial) / b.capitalInitial) * 100 : null
   const roiTone = roiPct === null ? 'default' : roiPct >= 0 ? 'success' : 'destructive'
 
   const evTone =
-    b.evPerMarketTotal === 0
-      ? 'default'
-      : b.evPerMarketTotal > 0
-        ? 'success'
-        : 'destructive'
+    b.evPerMarketTotal === 0 ? 'default' : b.evPerMarketTotal > 0 ? 'success' : 'destructive'
 
   const makerPct =
     b.tradesMaker + b.tradesTaker > 0
@@ -438,10 +451,7 @@ export function BacktestRunDetailView({ id }: { id: number }) {
               <span className="text-foreground/80">#{b.id}</span>
             </span>
             <span className="text-muted-foreground/40">·</span>
-            <span
-              className="max-w-[260px] truncate text-foreground/80"
-              title={b.batchUid}
-            >
+            <span className="max-w-[260px] truncate text-foreground/80" title={b.batchUid}>
               {b.batchUid}
             </span>
             <span className="text-muted-foreground/40">·</span>
@@ -604,16 +614,12 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                   label="Skipped"
                   value={formatNumber(b.marketsSkipped)}
                   tone="muted"
-                  hint={
-                    b.streakMaxSkipped > 0 ? `streak ${b.streakMaxSkipped}` : undefined
-                  }
+                  hint={b.streakMaxSkipped > 0 ? `streak ${b.streakMaxSkipped}` : undefined}
                 />
                 <Metric
                   label="Trades"
                   value={formatNumber(b.tradesTotal)}
-                  hint={
-                    makerPct === null ? undefined : `${makerPct}%m / ${100 - makerPct}%t`
-                  }
+                  hint={makerPct === null ? undefined : `${makerPct}%m / ${100 - makerPct}%t`}
                 />
               </div>
             </div>
@@ -699,138 +705,169 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       <section>
         <SectionHeading
           title="Per-market"
-          subtitle={`${marketStats.length} markets. Rows highlighted red ran > 10s.`}
+          subtitle={`${marketStats.length} markets. Pairs are available UP + DOWN pairs, not executed merges. Red durations exceed 10s.`}
           icon={Cpu}
         />
         <Card className="overflow-hidden">
-          <div className="max-h-[600px] overflow-auto">
-            <Table className="min-w-[1100px]">
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  {(
-                    [
-                      { column: 'slug', label: 'Slug' },
-                      { column: 'outcome', label: 'Outcome' },
-                      { column: 'pnl', label: 'PnL', numeric: true },
-                      { column: 'fees', label: 'Fees', numeric: true },
-                      { column: 'cost', label: 'Cost', numeric: true },
-                      { column: 'trades', label: 'Trades', numeric: true },
-                    ] as Array<{ column: MarketSortColumn; label: string; numeric?: boolean }>
-                  ).map(({ column, label, numeric }) => (
-                    <TableHead
-                      key={column}
-                      className={cn('cursor-pointer select-none', numeric && 'text-right')}
-                      onClick={() => toggleMarketSort(column)}
-                    >
-                      {label}
-                      {marketSort?.column === column && (
-                        <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+          <Table containerRef={marketTableRef} className="min-w-[1500px]">
+            <TableHeader className="bg-card">
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                {(
+                  [
+                    { column: 'slug', label: 'Slug' },
+                    { column: 'outcome', label: 'Outcome' },
+                    { column: 'pnl', label: 'PnL', numeric: true },
+                    { column: 'fees', label: 'Fees', numeric: true },
+                    { column: 'cost', label: 'Cost', numeric: true },
+                    { column: 'trades', label: 'Trades', numeric: true },
+                    { column: 'upShares', label: 'UP shares', numeric: true },
+                    { column: 'downShares', label: 'DOWN shares', numeric: true },
+                    { column: 'pairs', label: 'Pairs', numeric: true },
+                    { column: 'unpaired', label: 'Unpaired', numeric: true },
+                    { column: 'pairCost', label: 'Avg pair cost', numeric: true },
+                  ] as Array<{ column: MarketSortColumn; label: string; numeric?: boolean }>
+                ).map(({ column, label, numeric }) => (
+                  <TableHead
+                    key={column}
+                    className={cn('cursor-pointer select-none', numeric && 'text-right')}
+                    onClick={() => toggleMarketSort(column)}
+                  >
+                    {label}
+                    {marketSort?.column === column && (
+                      <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+                    )}
+                  </TableHead>
+                ))}
+                <TableHead>Machine</TableHead>
+                {(
+                  [
+                    { column: 'duration', label: 'Duration' },
+                    { column: 'events', label: 'Events' },
+                  ] as Array<{ column: MarketSortColumn; label: string }>
+                ).map(({ column, label }) => (
+                  <TableHead
+                    key={column}
+                    className="cursor-pointer select-none text-right"
+                    onClick={() => toggleMarketSort(column)}
+                  >
+                    {label}
+                    {marketSort?.column === column && (
+                      <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+                    )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedMarketRows.map(({ m, idx }) => {
+                const exec = m.execution
+                const slow = exec && exec.durationMs > 10_000
+                const pnlClass =
+                  m.pnl > 0 ? 'text-[color:var(--success)]' : m.pnl < 0 ? 'text-destructive' : ''
+                const upPos = renderPosition(m.upShares, m.avgEntryPriceUp)
+                const downPos = renderPosition(m.downShares, m.avgEntryPriceDown)
+                const totalShares = m.upShares + m.downShares
+                const pairedPct = totalShares > 0 ? (200 * m.mergableShares) / totalShares : null
+                const imbalance = m.upShares - m.downShares
+                const pairCost = marketSortValue(m, 'pairCost') as number | null
+                return (
+                  <TableRow key={idx}>
+                    <TableCell className="text-muted-foreground tabular-nums text-xs">
+                      {idx}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {m.skipReason ? (
+                        <span className="text-muted-foreground italic">
+                          {m.skipReason.replace(/_/g, ' ')}
+                        </span>
+                      ) : (
+                        String(m.finalOutcome ?? '—')
                       )}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-right">UP pos</TableHead>
-                  <TableHead className="text-right">DOWN pos</TableHead>
-                  <TableHead>Machine</TableHead>
-                  {(
-                    [
-                      { column: 'duration', label: 'Duration' },
-                      { column: 'events', label: 'Events' },
-                    ] as Array<{ column: MarketSortColumn; label: string }>
-                  ).map(({ column, label }) => (
-                    <TableHead
-                      key={column}
-                      className="cursor-pointer select-none text-right"
-                      onClick={() => toggleMarketSort(column)}
-                    >
-                      {label}
-                      {marketSort?.column === column && (
-                        <span className="ml-1">{marketSort.direction === 'desc' ? '▼' : '▲'}</span>
+                    </TableCell>
+                    <TableCell className={cn('text-right tabular-nums', pnlClass)}>
+                      {formatPnl(m.pnl)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                      {m.feesPaid > 0 ? m.feesPaid.toFixed(2) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                      {m.cost > 0 ? m.cost.toFixed(2) : '—'}
+                      {m.splitCost > 0 && (
+                        <span className="ml-1 text-[11px]">· {m.splitCost.toFixed(2)} split</span>
                       )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedMarketRows.map(({ m, idx }) => {
-                  const exec = m.execution
-                  const slow = exec && exec.durationMs > 10_000
-                  const pnlClass =
-                    m.pnl > 0
-                      ? 'text-[color:var(--success)]'
-                      : m.pnl < 0
-                        ? 'text-destructive'
-                        : ''
-                  const upPos = renderPosition(m.upShares, m.avgEntryPriceUp, m.mergableShares)
-                  const downPos = renderPosition(m.downShares, m.avgEntryPriceDown, 0)
-                  return (
-                    <TableRow key={idx}>
-                      <TableCell className="text-muted-foreground tabular-nums text-xs">
-                        {idx}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {m.skipReason ? (
-                          <span className="text-muted-foreground italic">
-                            {m.skipReason.replace(/_/g, ' ')}
-                          </span>
-                        ) : (
-                          String(m.finalOutcome ?? '—')
-                        )}
-                      </TableCell>
-                      <TableCell className={cn('text-right tabular-nums', pnlClass)}>
-                        {formatPnl(m.pnl)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                        {m.feesPaid > 0 ? m.feesPaid.toFixed(2) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-                        {m.cost > 0 ? m.cost.toFixed(2) : '—'}
-                        {m.splitCost > 0 && (
-                          <span className="ml-1 text-[11px]">· {m.splitCost.toFixed(2)} split</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
-                        {m.tradeCount}
-                        {m.tradeCount > 0 && (
-                          <span className="ml-1 text-[11px] text-muted-foreground">
-                            · {m.tradeAsMaker}m/{m.tradeAsTaker}t
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-                        {upPos}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-                        {downPos}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {exec ? <MachineName machineId={exec.machineId} /> : '—'}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right tabular-nums text-xs',
-                          slow ? 'text-destructive font-medium' : 'text-muted-foreground',
-                        )}
-                      >
-                        {exec ? (
-                          <span className="inline-flex items-center justify-end gap-1">
-                            {slow && <Clock className="h-3 w-3" />}
-                            {exec.durationMs} ms
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                        {exec ? exec.eventsProcessed.toLocaleString() : '—'}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
+                      {m.tradeCount}
+                      {m.tradeCount > 0 && (
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          · {m.tradeAsMaker}m/{m.tradeAsTaker}t
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                      {upPos}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                      {downPos}
+                    </TableCell>
+                    <TableCell
+                      className="text-right tabular-nums text-xs whitespace-nowrap"
+                      title="One UP share + one DOWN share. Percentage of all held shares covered by pairs."
+                    >
+                      {pairedPct === null ? (
+                        '—'
+                      ) : (
+                        <div>
+                          <div className="font-medium">{formatShares(m.mergableShares)}</div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            {pairedPct.toFixed(1)}% paired
+                          </div>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
+                      {totalShares <= 0 ? (
+                        '—'
+                      ) : imbalance === 0 ? (
+                        <span className="text-muted-foreground">Balanced</span>
+                      ) : (
+                        `${formatShares(Math.abs(imbalance))} ${imbalance > 0 ? 'UP' : 'DOWN'}`
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className="text-right tabular-nums text-xs whitespace-nowrap"
+                      title="UP average purchase price + DOWN average purchase price, excluding fees. This does not include the risk of unpaired shares."
+                    >
+                      {pairCost === null ? '—' : `$${pairCost.toFixed(4)}`}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {exec ? <MachineName machineId={exec.machineId} /> : '—'}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right tabular-nums text-xs',
+                        slow ? 'text-destructive font-medium' : 'text-muted-foreground',
+                      )}
+                    >
+                      {exec ? (
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {slow && <Clock className="h-3 w-3" />}
+                          {exec.durationMs} ms
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                      {exec ? exec.eventsProcessed.toLocaleString() : '—'}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         </Card>
       </section>
 
