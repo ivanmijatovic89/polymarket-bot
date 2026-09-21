@@ -28,7 +28,7 @@ export type RiskLimits = {
 
 | Limit            | Default | Description                                                                                  |
 | ---------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `maxOpenOrders`  | `20`    | Maximum number of open orders (across all assets) allowed at any one time.                   |
+| `maxOpenOrders`  | `100`    | Maximum number of open orders (across all assets) allowed at any one time.                   |
 | `maxOrderSize`   | `2000`  | Maximum size (shares) of any single order.                                                   |
 | `maxAbsPosition` | `2000`  | Maximum absolute position (shares) per asset, including open order exposure.                 |
 | `maxLossStop`    | `500`   | Maximum realised PnL loss (price units × shares) before new risk-taking intents are blocked. |

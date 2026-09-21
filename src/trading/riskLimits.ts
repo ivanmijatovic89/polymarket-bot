@@ -22,7 +22,7 @@ export type RiskLimits = {
 
 // Hardcoded defaults for now (per plan). Keep these conservative.
 export const DEFAULT_RISK_LIMITS: RiskLimits = {
-  maxOpenOrders: 20,
+  maxOpenOrders: 100,
   maxOrderSize: 2000,
   maxAbsPosition: 2000,
   maxLossStop: 500,
