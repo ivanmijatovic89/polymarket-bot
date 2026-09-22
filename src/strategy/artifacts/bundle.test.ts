@@ -1,8 +1,50 @@
 import assert from 'node:assert/strict'
-import { rmSync } from 'node:fs'
+import { rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 import { buildStrategyArtifact } from './bundle.js'
-import { makeFixtureRepo } from './testFixture.js'
+import { ENGINE_ROOT, makeFixtureRepo } from './testFixture.js'
+
+for (const specifier of ['../engine/src/trading/fees.js', '#pmb/trading/fees.ts']) {
+  test(`shared fees stay external through ${specifier}`, async () => {
+    const { repoDir } = makeFixtureRepo()
+    try {
+      symlinkSync(ENGINE_ROOT, path.join(repoDir, 'engine'))
+      writeFileSync(
+        path.join(repoDir, 'strategies/fees.ts'),
+        `import { computePolymarketTakerFee, POLYMARKET_CRYPTO_TAKER_FEE_BPS } from '${specifier}'
+export const definition = {
+  fee: computePolymarketTakerFee({ price: 0.7, size: 10, feeRateBps: POLYMARKET_CRYPTO_TAKER_FEE_BPS }),
+}
+`,
+      )
+      const built = await buildStrategyArtifact({ repoDir, entrypoint: 'strategies/fees.ts' })
+      const text = built.bytes.toString('utf8')
+      assert.match(text, /from\s*["']#pmb\/trading\/fees\.ts["']/)
+      assert.doesNotMatch(text, /function computePolymarketTakerFee/)
+    } finally {
+      rmSync(repoDir, { recursive: true, force: true })
+    }
+  })
+}
+
+test('allowing fees does not expose other trading modules or fee-prefixed paths', async () => {
+  const { repoDir } = makeFixtureRepo()
+  try {
+    for (const module of ['trading/Portfolio', 'trading/fees-extra', 'trading/fees/private']) {
+      writeFileSync(
+        path.join(repoDir, 'strategies/blocked.ts'),
+        `import * as blocked from '#pmb/${module}.ts'\nexport const definition = blocked\n`,
+      )
+      await assert.rejects(
+        buildStrategyArtifact({ repoDir, entrypoint: 'strategies/blocked.ts' }),
+        /engine import not allowed/,
+      )
+    }
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true })
+  }
+})
 
 test('bundles the external repo with engine imports rewritten to #pmb externals', async () => {
   const { repoDir, entrypoint } = makeFixtureRepo()

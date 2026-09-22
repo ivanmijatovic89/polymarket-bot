@@ -27,7 +27,7 @@ The bundler follows every import of your entrypoint and decides by location:
 | The entrypoint itself | ✅ in |
 | Other files in your repo (helpers, signals, …) | ✅ in |
 | npm packages installed in your repo | ✅ in |
-| Engine modules (`src/strategy/**`, `src/trading/feeds/**`, `src/market/**`) | ❌ external — rewritten to `#pmb/*`, filled by the **running machine's** engine |
+| Engine modules (`src/strategy/**`, `src/trading/feeds/**`, `src/market/**`, `src/trading/fees.ts`) | ❌ external — rewritten to `#pmb/*`, filled by the **running machine's** engine |
 | `zod` | ❌ external — the host's instance is used |
 | Anything else under the engine's `src/` (e.g. `src/db/`) | 🚫 publish fails with an allowlist error |
 
@@ -168,8 +168,9 @@ External strategies may import only these engine surfaces:
 - `src/strategy/**` — the strategy contract, toolkit, and plugins
 - `src/trading/feeds/**` — external feed types
 - `src/market/**` — orderbook and tick types
+- `src/trading/fees.ts` — shared fee calculation and fee constants (this module only)
 
-Any other engine import (for example `src/db/`) fails the build at publish time with the offending import and importer in the message. These directories are a **semi-stable SDK surface**: if the engine later moves one of these modules, previously published artifacts fail loudly at import time and must be republished.
+Any other engine import (for example `src/db/`) fails the build at publish time with the offending import and importer in the message. These modules form a **semi-stable SDK surface**: if the engine later moves one of them, previously published artifacts fail loudly at import time and must be republished.
 
 ## Failure modes
 
