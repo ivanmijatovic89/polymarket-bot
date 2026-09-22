@@ -18,7 +18,13 @@ import { ARTIFACT_FORMAT_VERSION, type ArtifactBanner } from './types.js'
  * The engine surface an external strategy may import is allowlisted; anything
  * else (src/db, src/cli, ...) fails the build loudly at publish time.
  */
-export const ENGINE_IMPORT_ALLOWLIST = ['strategy/', 'trading/feeds/', 'market/'] as const
+// Trailing slash permits a directory; other entries permit one exact module.
+export const ENGINE_IMPORT_ALLOWLIST = [
+  'strategy/',
+  'trading/feeds/',
+  'market/',
+  'trading/fees',
+] as const
 
 const DEFAULT_ENGINE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -88,13 +94,17 @@ export async function buildStrategyArtifact(
         ],
       }
     }
-    if (!ENGINE_IMPORT_ALLOWLIST.some((prefix) => relPosix.startsWith(prefix))) {
+    if (
+      !ENGINE_IMPORT_ALLOWLIST.some((entry) =>
+        entry.endsWith('/') ? relPosix.startsWith(entry) : relPosix === entry,
+      )
+    ) {
       return {
         errors: [
           {
             text:
               `engine import not allowed for external strategies: src/${relPosix} ` +
-              `(imported by ${importer}). Allowed: ${ENGINE_IMPORT_ALLOWLIST.map((p) => `src/${p}**`).join(', ')}`,
+              `(imported by ${importer}). Allowed: ${ENGINE_IMPORT_ALLOWLIST.map((p) => `src/${p}${p.endsWith('/') ? '**' : '.ts'}`).join(', ')}`,
           },
         ],
       }
