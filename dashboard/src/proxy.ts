@@ -4,7 +4,8 @@ import type { NextRequest } from 'next/server'
 import { dashboardAllowedHosts } from './allowedHosts'
 
 /**
- * Gate for the Mission Control API (issue #213).
+ * Gate for Mission Control and simulator preparation/trace APIs.
+ * Simulator requests also execute saved strategy code on this host.
  *
  * These routes forward commands to Global Runtime daemons with the fleet
  * bearer token attached server-side, so reaching them IS controlling the
@@ -106,5 +107,9 @@ export function proxy(request: NextRequest): NextResponse | undefined {
 }
 
 export const config = {
-  matcher: '/api/mission-control/:path*',
+  matcher: [
+    '/api/mission-control/:path*',
+    '/api/simulator/:path*',
+    '/api/backtests/:id/markets/:slug/simulator',
+  ],
 }

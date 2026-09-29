@@ -605,7 +605,18 @@ export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
   delayMs?: number
   jitterMs?: number
 } {
-  if (!cmd) return {}
+  const parsed = parseRecordedBacktestArgs(cmd)
+  return parsed
+    ? {
+        ...(parsed.latencyDelayMs !== undefined ? { delayMs: parsed.latencyDelayMs } : {}),
+        ...(parsed.latencyJitterMs !== undefined ? { jitterMs: parsed.latencyJitterMs } : {}),
+      }
+    : {}
+}
+
+/** Parse provenance as data. Never execute a saved shell command. */
+export function parseRecordedBacktestArgs(cmd: string | null | undefined): BacktestArgs | null {
+  if (!cmd) return null
   const tokens = tokenizeRecordedCmd(cmd)
   // buildBacktestCmdInline emits either `npm run <script> -- <argv…>` or
   // `node <script> <argv…>`.
@@ -616,15 +627,11 @@ export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
   } else {
     argv = tokens.slice(2)
   }
-  if (argv.length === 0) return {}
+  if (argv.length === 0) return null
   try {
-    const parsed = parseArgs(argv)
-    return {
-      ...(parsed.latencyDelayMs !== undefined ? { delayMs: parsed.latencyDelayMs } : {}),
-      ...(parsed.latencyJitterMs !== undefined ? { jitterMs: parsed.latencyJitterMs } : {}),
-    }
+    return parseArgs(argv)
   } catch {
-    return {}
+    return null
   }
 }
 

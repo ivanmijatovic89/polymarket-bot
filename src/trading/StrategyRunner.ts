@@ -2,6 +2,7 @@ import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { isSyntheticFeedTick } from '../market/syntheticTick.js'
 import type {
   AccountEvent,
+  CapitalSnapshot,
   Intent,
   MarketTick,
   PortfolioSnapshot,
@@ -41,6 +42,8 @@ export type StrategyRunnerMeta = {
 }
 
 export type StrategyRunnerOptions = {
+  /** Diagnostic hooks only. Observers must copy data and must never mutate engine state. */
+  observer?: StrategyRunnerObserver
   strategyId?: string
   strategyParams?: Record<string, unknown>
   externalFeedsEnabled?: StrategyExternalFeedsEnabled
@@ -92,7 +95,15 @@ export type StrategyRunnerOptions = {
   skipLateStartAfterMs?: number
 }
 
+export type StrategyRunnerObserver = {
+  onCapital?: (capital: Readonly<CapitalSnapshot> | undefined) => void
+  onContext?: (context: StrategyContext | undefined) => void
+  onDecision?: (origin: 'market' | 'account', intents: readonly Intent[]) => void
+  onAccountEvent?: (event: AccountEvent, portfolio: PortfolioSnapshot) => void
+}
+
 export class StrategyRunner {
+  private readonly observer: StrategyRunnerObserver | undefined
   private readonly strategyId: string | undefined
   private readonly strategyParams: Record<string, unknown> | undefined
   private readonly externalFeedsEnabled: StrategyExternalFeedsEnabled | undefined
@@ -131,6 +142,7 @@ export class StrategyRunner {
   private serialDepthWarnedAt = 0
 
   constructor(opts: StrategyRunnerOptions) {
+    this.observer = opts.observer
     this.strategyId = opts.strategyId
     this.strategyParams = opts.strategyParams
     this.externalFeedsEnabled = opts.externalFeedsEnabled
@@ -234,7 +246,14 @@ export class StrategyRunner {
   }
 
   onMarketTick(tick: MarketTick): Promise<void> {
-    return this.runSerial('tick', () => this.processMarketTick(tick))
+    return this.runSerial('tick', async () => {
+      await this.processMarketTick(tick)
+      if (this.observer?.onCapital) {
+        this.observer.onCapital(
+          this.orderManager.withPendingCapital(this.portfolio.snapshot()).capital,
+        )
+      }
+    })
   }
 
   private async processMarketTick(tick: MarketTick): Promise<void> {
@@ -426,11 +445,11 @@ export class StrategyRunner {
           }
         : undefined
 
-    const intents = await this.strategy.onMarketTick(
-      tick,
-      this.orderManager.withPendingCapital(portfolio),
-      ctx,
-    )
+    this.observer?.onContext?.(ctx)
+    const decisionPortfolio = this.orderManager.withPendingCapital(portfolio)
+    this.observer?.onCapital?.(decisionPortfolio.capital)
+    const intents = await this.strategy.onMarketTick(tick, decisionPortfolio, ctx)
+    this.observer?.onDecision?.('market', intents)
     await this.applyIntents(intents, {
       portfolioSnapshot: portfolio,
       nowMs: tick.snapshot.timestamp || Date.now(),
@@ -644,12 +663,15 @@ export class StrategyRunner {
           }
         : undefined
 
+    const decisionPortfolio = this.orderManager.withPendingCapital(portfolio)
+    this.observer?.onAccountEvent?.(ev, decisionPortfolio)
     const nextIntents = await this.strategy.onAccountEvent(
       ev,
-      this.orderManager.withPendingCapital(portfolio),
+      decisionPortfolio,
       this.lastMarket,
       ctx,
     )
+    this.observer?.onDecision?.('account', nextIntents)
     if (!nextIntents || nextIntents.length === 0) return
 
     const nowMs = this.lastMarket?.timestamp || portfolio.nowMs || Date.now()
