@@ -270,6 +270,64 @@ test('filled status before fills and duplicate/late events preserve committed ca
   assert.equal(p.snapshot().capital!.reservedCash, 0)
 })
 
+test('rejected replacements retain the REST-canceled order commitment until reconciliation', async (t) => {
+  for (const batch of [false, true]) {
+    await t.test(batch ? 'batch' : 'single', async (t) => {
+      const live = mockedLive(t)
+      t.mock.method(ClobClient.prototype, 'cancelOrder', async () => ({
+        canceled: ['ex-a'],
+        not_canceled: {},
+      }))
+      const s = stack(live.execution)
+      await s.send([buy('a')])
+      await s.send([{ kind: 'cancel_order', clientOrderId: 'a' }], tick(1100))
+      assert.equal(s.cash().reservedCash, 493.44)
+      assert.equal(s.runner.getPortfolio().getOpenOrderByClientId('a'), undefined)
+
+      const replacement = buy('a')
+      await s.send(batch ? [{ kind: 'place_batch', orders: [replacement] }] : [replacement])
+      assert.ok(s.events.some((e) => e.kind === 'order_rejected' && e.clientOrderId === 'a'))
+      assert.equal(s.cash().reservedCash, 493.44)
+      await s.send([buy('another')])
+      assert.equal(live.post.mock.callCount(), 1)
+
+      await s.runner.onAccountEvent({
+        kind: 'ws_order_update',
+        tsMs: 1200,
+        order: { orderId: 'ex-a', event: 'CANCELLATION', sizeMatched: 800 },
+      })
+      await s.runner.onAccountEvent(fill('late-original', 800))
+      await s.runner.onAccountEvent(fill('late-original', 800))
+      assert.deepEqual(s.cash(), {
+        startingCapital: 500,
+        cash: 6.56,
+        reservedCash: 0,
+        availableCash: 6.56,
+      })
+    })
+  }
+})
+
+test('adapter rejection releases only the submitted replacement, preserving the older hold', async (t) => {
+  const live = mockedLive(t)
+  const s = stack(live.execution, 1000)
+  await s.send([buy('a')])
+  await s.runner.onAccountEvent({
+    kind: 'order_done',
+    tsMs: 1100,
+    orderId: 'ex-a',
+    reason: 'canceled',
+  })
+  live.post.mock.mockImplementation(async () => ({ success: false, error: 'exchange_rejection' }))
+  await s.send([buy('a', 100)], tick(1200))
+  assert.equal(live.post.mock.callCount(), 2)
+  assert.ok(s.events.some((e) => e.kind === 'order_rejected' && e.reason === 'exchange_rejection'))
+  assert.equal(s.cash().reservedCash, 493.44)
+  await s.runner.onAccountEvent(fill('late-original', 800))
+  assert.equal(s.cash().cash, 506.56)
+  assert.equal(s.cash().reservedCash, 0)
+})
+
 test('fill before acknowledgement and client ID reuse keep separate obligations', () => {
   const p = new Portfolio()
   submit(p)
