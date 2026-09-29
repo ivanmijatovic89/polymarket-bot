@@ -8,7 +8,9 @@ import type {
   Strategy,
 } from '../strategy/Strategy.js'
 import type { StrategyContext, WarmupSnapshot } from '../strategy/StrategyContext.js'
-import type { PluginsSnapshot, PluginSet } from '../strategy/plugins/PluginSet.js'
+import { PluginSet, type PluginsSnapshot } from '../strategy/plugins/PluginSet.js'
+import type { BuiltStrategy } from '../strategy/strategyDefinition.js'
+import { DEFAULT_STARTING_CAPITAL, validateStartingCapital } from './capital.js'
 import { Portfolio } from './Portfolio.js'
 import { resolveMaxEventsPerDrain } from './runnerConfig.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
@@ -43,6 +45,10 @@ export type StrategyRunnerOptions = {
   strategyParams?: Record<string, unknown>
   externalFeedsEnabled?: StrategyExternalFeedsEnabled
   strategy: Strategy
+  /** Required for runners spanning multiple markets; creates fresh player state. */
+  createStrategy?: () => BuiltStrategy
+  /** USDC per market. Defaults to 500; unrelated to actual wallet balances. */
+  startingCapital?: number
   orderManager: OrderManager
   portfolio?: Portfolio
   /**
@@ -90,10 +96,16 @@ export class StrategyRunner {
   private readonly strategyId: string | undefined
   private readonly strategyParams: Record<string, unknown> | undefined
   private readonly externalFeedsEnabled: StrategyExternalFeedsEnabled | undefined
-  private readonly strategy: Strategy
+  private strategy: Strategy
+  private readonly createStrategy: (() => BuiltStrategy) | undefined
+  private readonly startingCapital: number
   private readonly orderManager: OrderManager
-  private readonly portfolio: Portfolio
-  private readonly pluginSet: PluginSet | undefined
+  private portfolio: Portfolio
+  private pluginSet: PluginSet | undefined
+  private readonly portfoliosByMarket = new Map<string, Portfolio>()
+  private readonly accountMarketByAssetId = new Map<string, string>()
+  private readonly accountMarketByOrderId = new Map<string, string>()
+  private readonly accountMarketByClientId = new Map<string, string>()
   private readonly getMarket: (() => GammaMarketMeta | undefined) | undefined
   private readonly getBalance: (() => BalanceSnapshot | undefined) | undefined
   private readonly getWarmup: (() => WarmupSnapshot | undefined) | undefined
@@ -123,8 +135,14 @@ export class StrategyRunner {
     this.strategyParams = opts.strategyParams
     this.externalFeedsEnabled = opts.externalFeedsEnabled
     this.strategy = opts.strategy
+    this.createStrategy = opts.createStrategy
+    this.startingCapital = validateStartingCapital(
+      opts.startingCapital ??
+        opts.portfolio?.snapshot().capital?.startingCapital ??
+        DEFAULT_STARTING_CAPITAL,
+    )
     this.orderManager = opts.orderManager
-    this.portfolio = opts.portfolio ?? new Portfolio()
+    this.portfolio = opts.portfolio ?? new Portfolio({ startingCapital: this.startingCapital })
     this.pluginSet = opts.pluginSet
     this.getMarket = opts.getMarket
     this.getBalance = opts.getBalance
@@ -220,7 +238,6 @@ export class StrategyRunner {
   }
 
   private async processMarketTick(tick: MarketTick): Promise<void> {
-    this.lastMarket = tick.snapshot
     const market = this.getMarket?.()
     const balance = this.getBalance?.()
     const warmup = this.getWarmup?.()
@@ -228,13 +245,52 @@ export class StrategyRunner {
     // Reset per-episode plugin state on market change (align with strategy reset semantics).
     const marketKey = tick.snapshot.market ?? null
     if (marketKey && this.lastMarketKey && marketKey !== this.lastMarketKey) {
+      if (!this.createStrategy)
+        throw new Error(
+          'A multi-market StrategyRunner requires createStrategy to reset player state',
+        )
+      // Cancel old resting orders, accounting for the response in their original
+      // portfolio without asking the old strategy to generate more decisions.
+      const orders = Object.values(this.portfolio.snapshot().openOrdersByClientId)
+      if (orders.length > 0) {
+        const events = await this.orderManager.handleIntents(
+          [{ kind: 'cancel_batch', orders }],
+          {
+            nowMs: tick.snapshot.timestamp,
+            ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+            portfolio: this.portfolio.snapshot(),
+          },
+          { mode: 'immediate' },
+        )
+        for (const event of events) {
+          this.portfolio.apply(event)
+          this.orderManager.reconcileActiveOrders(this.portfolio.snapshot(), event)
+        }
+      }
+      this.orderManager.beginMarket()
+      this.portfolio =
+        this.portfoliosByMarket.get(marketKey) ??
+        new Portfolio({ startingCapital: this.startingCapital })
+      const built = this.createStrategy()
+      this.strategy = built.strategy
       this.pluginSet?.reset()
+      this.pluginSet = built.pluginSet
+      if (!this.pluginSet && built.plugins?.length) {
+        this.pluginSet = new PluginSet()
+        for (const plugin of built.plugins) this.pluginSet.register(plugin)
+      }
       this.cachedPlugins = undefined
       this.waitedTechIndicatorsMarketKey = null
       this.lateStartCheckedMarketKey = null
       this.lateStartBlockedMarketKey = null
     }
-    if (marketKey) this.lastMarketKey = marketKey
+    if (marketKey) {
+      this.lastMarketKey = marketKey
+      this.portfoliosByMarket.set(marketKey, this.portfolio)
+      for (const assetId of Object.keys(tick.snapshot.byAssetId))
+        this.accountMarketByAssetId.set(assetId, marketKey)
+    }
+    this.lastMarket = tick.snapshot
 
     // Allow execution layer to emit fills/state updates that happen "because the market moved"
     // (only used in backtests; live fills arrive via user WS / polling).
@@ -370,7 +426,11 @@ export class StrategyRunner {
           }
         : undefined
 
-    const intents = await this.strategy.onMarketTick(tick, portfolio, ctx)
+    const intents = await this.strategy.onMarketTick(
+      tick,
+      this.orderManager.withPendingCapital(portfolio),
+      ctx,
+    )
     await this.applyIntents(intents, {
       portfolioSnapshot: portfolio,
       nowMs: tick.snapshot.timestamp || Date.now(),
@@ -514,6 +574,17 @@ export class StrategyRunner {
   }
 
   private async processAccountEvent(ev: AccountEvent): Promise<void> {
+    const eventMarket = this.accountEventMarket(ev)
+    if (eventMarket && this.lastMarketKey && eventMarket !== this.lastMarketKey) {
+      let original = this.portfoliosByMarket.get(eventMarket)
+      if (!original) {
+        original = new Portfolio({ startingCapital: this.startingCapital })
+        this.portfoliosByMarket.set(eventMarket, original)
+      }
+      original.apply(ev)
+      // No old-market event is delivered to the new player or new allowance.
+      return
+    }
     if (ev.kind === 'fill') {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
       const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
@@ -573,7 +644,12 @@ export class StrategyRunner {
           }
         : undefined
 
-    const nextIntents = await this.strategy.onAccountEvent(ev, portfolio, this.lastMarket, ctx)
+    const nextIntents = await this.strategy.onAccountEvent(
+      ev,
+      this.orderManager.withPendingCapital(portfolio),
+      this.lastMarket,
+      ctx,
+    )
     if (!nextIntents || nextIntents.length === 0) return
 
     const nowMs = this.lastMarket?.timestamp || portfolio.nowMs || Date.now()
@@ -587,5 +663,35 @@ export class StrategyRunner {
       { mode: this.intentExecutionMode },
     )
     for (const e of nextEvents) this.enqueueAccountEvent(e)
+  }
+
+  private accountEventMarket(ev: AccountEvent): string | undefined {
+    const detail =
+      ev.kind === 'fill'
+        ? ev.fill
+        : ev.kind === 'positions_split'
+          ? ev.split
+          : ev.kind === 'order_submitted' || ev.kind === 'ws_order_update'
+            ? ev.order
+            : ev
+    const orderId = 'orderId' in detail ? detail.orderId : undefined
+    const clientId = 'clientOrderId' in detail ? detail.clientOrderId : undefined
+    const assetId =
+      'assetId' in detail ? detail.assetId : 'assetIdA' in detail ? detail.assetIdA : undefined
+    const market =
+      ('market' in detail ? detail.market : undefined) ??
+      (orderId ? this.accountMarketByOrderId.get(orderId) : undefined) ??
+      (assetId ? this.accountMarketByAssetId.get(assetId) : undefined) ??
+      (clientId ? this.accountMarketByClientId.get(clientId) : undefined) ??
+      this.lastMarketKey ??
+      undefined
+    if (market) {
+      if (orderId) this.accountMarketByOrderId.set(orderId, market)
+      if (clientId && ev.kind === 'order_submitted')
+        this.accountMarketByClientId.set(clientId, market)
+      if (assetId) this.accountMarketByAssetId.set(assetId, market)
+      if ('assetIdB' in detail) this.accountMarketByAssetId.set(detail.assetIdB, market)
+    }
+    return market
   }
 }

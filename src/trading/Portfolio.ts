@@ -8,8 +8,25 @@ import type {
   Position,
   TradeStatusRank,
 } from '../strategy/Strategy.js'
-import { round2 } from './utils/rounding.js'
+import { round2, round8 } from './utils/rounding.js'
 import { computePolymarketTakerFee } from './fees.js'
+import {
+  buyCommitment,
+  DEFAULT_STARTING_CAPITAL,
+  fillCashDelta,
+  validateStartingCapital,
+} from './capital.js'
+
+type CashOrder = {
+  side: 'BUY' | 'SELL'
+  price: number
+  size: number
+  postOnly: boolean
+  filled: number
+  matched: number
+  /** Undefined until a terminal event supplies the final executed quantity. */
+  finalFilled?: number
+}
 
 function clampFinite(n: number, fallback = 0): number {
   if (!Number.isFinite(n)) return fallback
@@ -98,6 +115,14 @@ export class Portfolio {
   private readonly maxRecentSplits = 500
   private readonly marketByAssetId = new Map<string, string>()
   private realizedPnlTotal = 0
+  private readonly startingCapital: number
+  private cash: number
+  // Order status can precede fills. Preserve obligations independently of whether
+  // the order is still open, using the same submission/exchange identities.
+  private readonly cashOrders = new Set<CashOrder>()
+  private readonly cashOrderByClientId = new Map<string, CashOrder>()
+  private readonly cashOrderByOrderId = new Map<string, CashOrder>()
+  private readonly unlinkedCashFills = new Map<string, number>()
 
   // Cached, frozen snapshot reused across calls until the next state change.
   // StrategyRunner calls snapshot() on every market tick (172k+ ticks/market in
@@ -107,13 +132,30 @@ export class Portfolio {
   // per-tick cost O(1) between account events. Invalidated in apply().
   private cachedSnapshot: PortfolioSnapshot | null = null
 
-  constructor(opts?: { maxRecentFills?: number }) {
+  constructor(opts?: { maxRecentFills?: number; startingCapital?: number }) {
     this.maxRecentFills = Math.max(0, opts?.maxRecentFills ?? 500)
+    this.startingCapital = validateStartingCapital(
+      opts?.startingCapital ?? DEFAULT_STARTING_CAPITAL,
+    )
+    this.cash = this.startingCapital
   }
 
   snapshot(): PortfolioSnapshot {
     if (this.cachedSnapshot) return this.cachedSnapshot
+    let reservedCash = 0
+    for (const order of this.cashOrders) {
+      if (order.side !== 'BUY') continue
+      const outstanding = Math.max(0, (order.finalFilled ?? order.size) - order.filled)
+      reservedCash += buyCommitment(order.price, outstanding, order.postOnly)
+    }
+    reservedCash = round8(reservedCash)
     const snap: PortfolioSnapshot = {
+      capital: Object.freeze({
+        startingCapital: this.startingCapital,
+        cash: this.cash,
+        reservedCash,
+        availableCash: round8(this.cash - reservedCash),
+      }),
       nowMs: this.nowMs,
       realizedPnlTotal: this.realizedPnlTotal,
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
@@ -130,6 +172,107 @@ export class Portfolio {
 
   getOpenOrderByClientId(clientOrderId: string): OpenOrder | undefined {
     return this.openOrdersByClientId.get(clientOrderId)
+  }
+
+  private linkCashOrder(clientOrderId: string, orderId: string): void {
+    const open = this.openOrdersByClientId.get(clientOrderId)
+    if (open && this.belongsToEarlierOrder(open, orderId)) return
+    const local = this.cashOrderByClientId.get(clientOrderId)
+    if (!local) return
+    const exchange = this.cashOrderByOrderId.get(orderId)
+    if (exchange && exchange !== local) {
+      local.filled = Math.max(local.filled, exchange.filled)
+      local.matched = Math.max(local.matched, exchange.matched)
+      if (exchange.finalFilled !== undefined) local.finalFilled = exchange.finalFilled
+      this.cashOrders.delete(exchange)
+    }
+    local.filled = round8(local.filled + (this.unlinkedCashFills.get(orderId) ?? 0))
+    this.unlinkedCashFills.delete(orderId)
+    this.cashOrderByOrderId.set(orderId, local)
+  }
+
+  private applyCashOrderEvent(ev: AccountEvent): void {
+    if (ev.kind === 'order_submitted') {
+      const o = ev.order
+      const order: CashOrder = {
+        side: o.side,
+        price: o.price,
+        size: o.size,
+        postOnly: o.postOnly === true,
+        filled: o.filled,
+        matched: o.filled,
+      }
+      this.cashOrders.add(order)
+      this.cashOrderByClientId.set(o.clientOrderId, order)
+      if (o.orderId) this.linkCashOrder(o.clientOrderId, o.orderId)
+    } else if (ev.kind === 'order_accepted' || ev.kind === 'order_open') {
+      if (ev.clientOrderId && ev.orderId) this.linkCashOrder(ev.clientOrderId, ev.orderId)
+    } else if (ev.kind === 'ws_order_update') {
+      const o = ev.order
+      // Trade-status updates carry an individual trade size, not an order's
+      // cumulative size_matched. Only real order updates establish final sizes.
+      if (['MATCHED', 'MINED', 'CONFIRMED', 'RETRYING', 'FAILED'].includes(o.status ?? '')) return
+      let order = this.cashOrderByOrderId.get(o.orderId)
+      if (!order && o.side && Number.isFinite(o.price) && Number.isFinite(o.originalSize)) {
+        order = {
+          side: o.side,
+          price: o.price!,
+          size: o.originalSize!,
+          postOnly: false,
+          filled: this.unlinkedCashFills.get(o.orderId) ?? 0,
+          matched: 0,
+        }
+        this.unlinkedCashFills.delete(o.orderId)
+        this.cashOrders.add(order)
+        this.cashOrderByOrderId.set(o.orderId, order)
+      }
+      if (!order) return
+      if (Number.isFinite(o.sizeMatched)) order.matched = Math.max(order.matched, o.sizeMatched!)
+      const terminal =
+        o.event === 'CANCELLATION' ||
+        ['CANCELED', 'CANCELLED', 'EXPIRED'].includes(o.status ?? '') ||
+        order.matched >= order.size
+      if (terminal && Number.isFinite(o.sizeMatched)) {
+        order.finalFilled = Math.max(order.finalFilled ?? 0, order.matched, order.filled)
+      }
+    } else if (ev.kind === 'order_done' || ev.kind === 'order_rejected') {
+      const order =
+        ev.kind === 'order_done' && ev.orderId
+          ? this.cashOrderByOrderId.get(ev.orderId)
+          : ev.clientOrderId
+            ? this.cashOrderByClientId.get(ev.clientOrderId)
+            : undefined
+      if (!order) return
+      const filled =
+        ev.kind === 'order_rejected' || ev.reason === 'killed'
+          ? 0
+          : ev.reason === 'filled'
+            ? order.size
+            : ev.filledSize
+      if (filled !== undefined && Number.isFinite(filled)) {
+        order.finalFilled = Math.max(filled, order.matched, order.filled, order.finalFilled ?? 0)
+      }
+      // Without a final quantity (e.g. REST cancel acknowledgement), retain the
+      // unresolved obligation until the terminal WS order update arrives.
+    }
+  }
+
+  private applyCashFill(fill: Fill): void {
+    this.cash = round8(this.cash + fillCashDelta(fill))
+    if (fill.orderId && fill.clientOrderId && !this.cashOrderByOrderId.has(fill.orderId)) {
+      this.linkCashOrder(fill.clientOrderId, fill.orderId)
+    }
+    const order = fill.orderId
+      ? this.cashOrderByOrderId.get(fill.orderId)
+      : fill.clientOrderId
+        ? this.cashOrderByClientId.get(fill.clientOrderId)
+        : undefined
+    if (order) order.filled = round8(order.filled + fill.size)
+    else if (fill.orderId)
+      this.unlinkedCashFills.set(
+        fill.orderId,
+        round8((this.unlinkedCashFills.get(fill.orderId) ?? 0) + fill.size),
+      )
   }
 
   private indexOrder(o: OpenOrder): void {
@@ -270,6 +413,7 @@ export class Portfolio {
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else if (ev.kind === 'positions_split') this.nowMs = Math.max(this.nowMs, ev.split.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
+    this.applyCashOrderEvent(ev)
     // console.log(`[portfolio][${ev.kind}]`,  ev )
     switch (ev.kind) {
       case 'ws_order_update': {
@@ -385,11 +529,15 @@ export class Portfolio {
         return
       }
       case 'positions_merged': {
+        if (!this.fillSeenOnce(`merge:${ev.id}`, ev.tsMs)) return
         const a = ev.assetIdA
         const b = ev.assetIdB
         const requested = clampFinite(ev.size, 0)
         if (!a || !b || a === b) return
         if (!Number.isFinite(requested) || requested <= 0) return
+        // The event reports confirmed collateral proceeds, regardless of whether
+        // all position-producing events have arrived yet.
+        this.cash = round8(this.cash + requested)
 
         const posA = this.positionsByAssetId.get(positionKey(a))
         const posB = this.positionsByAssetId.get(positionKey(b))
@@ -601,7 +749,15 @@ export class Portfolio {
         return
       }
       case 'fill': {
+        if (
+          !Number.isFinite(ev.fill.size) ||
+          ev.fill.size <= 0 ||
+          !Number.isFinite(ev.fill.price) ||
+          ev.fill.price < 0
+        )
+          return
         if (!this.fillSeenOnce(ev.fill.id, ev.fill.tsMs)) return
+        this.applyCashFill(ev.fill)
         this.pushFill(ev.fill)
         const orderChanged = this.applyFillToOrders(ev.fill)
         this.applyFillToPosition(ev.fill)
@@ -614,6 +770,9 @@ export class Portfolio {
         const size = Math.max(0, clampFinite(s.size, 0))
         if (!s.assetIdA || !s.assetIdB || s.assetIdA === s.assetIdB) return
         if (!Number.isFinite(size) || size <= 0) return
+        if (!Number.isFinite(s.splitCost) || s.splitCost < 0) return
+        if (!this.fillSeenOnce(`split:${s.id}`, s.tsMs)) return
+        this.cash = round8(this.cash - s.splitCost)
 
         // Mint shares on both sides. This is NOT a trade fill and should not affect realizedPnlTotal.
         // We intentionally keep costBasis at 0 so later sells are treated as pure proceeds unless

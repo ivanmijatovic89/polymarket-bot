@@ -23,6 +23,7 @@ type SimOrder = {
   assetId: string
   side: 'BUY' | 'SELL'
   limitPrice: number
+  size: number
   remaining: number
   orderType: 'FOK' | 'GTC' | 'GTD'
   expireAtMs?: number
@@ -199,6 +200,7 @@ export class BacktestExecution implements ExecutionAdapter {
 
   private seq = 0
   private orderSeq = 0
+  private operationSeq = 0
 
   private readonly pending: Array<
     | {
@@ -283,7 +285,7 @@ export class BacktestExecution implements ExecutionAdapter {
         {
           kind: 'positions_split',
           split: {
-            id: `bt-split:${nowMs}:${intent.assetIdA}:${intent.assetIdB}`,
+            id: `bt-split:${++this.operationSeq}:${nowMs}:${intent.assetIdA}:${intent.assetIdB}`,
             tsMs: nowMs,
             ...(market ? { market } : {}),
             assetIdA: intent.assetIdA,
@@ -313,6 +315,8 @@ export class BacktestExecution implements ExecutionAdapter {
       events: [
         {
           kind: 'positions_merged',
+          id: `bt-merge:${++this.operationSeq}:${nowMs}`,
+          ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
           tsMs: nowMs,
           assetIdA: intent.assetIdA,
           assetIdB: intent.assetIdB,
@@ -339,6 +343,7 @@ export class BacktestExecution implements ExecutionAdapter {
     for (const orderIntent of intent.orders) {
       const rejection = postOnlyRejection(orderIntent, ctx)
       if (rejection) {
+        if (rejection.kind === 'order_rejected' && market) rejection.market = market
         events.push(rejection)
         continue
       }
@@ -351,6 +356,7 @@ export class BacktestExecution implements ExecutionAdapter {
         side: orderIntent.side,
         limitPrice: orderIntent.price,
         remaining: orderIntent.size,
+        size: orderIntent.size,
         orderType: orderIntent.orderType,
         ...(orderIntent.orderType === 'GTD' ? { expireAtMs: orderIntent.expireAtMs } : {}),
         createdAtMs: nowMs,
@@ -362,7 +368,13 @@ export class BacktestExecution implements ExecutionAdapter {
       const fillable = sumFillableSize(o, book)
 
       const orderEvents: AccountEvent[] = [
-        { kind: 'order_accepted', tsMs: nowMs, clientOrderId: orderIntent.clientOrderId, orderId },
+        {
+          kind: 'order_accepted',
+          tsMs: nowMs,
+          clientOrderId: orderIntent.clientOrderId,
+          orderId,
+          ...(market ? { market } : {}),
+        },
         {
           kind: 'ws_order_update',
           tsMs: nowMs,
@@ -486,7 +498,10 @@ export class BacktestExecution implements ExecutionAdapter {
     market = ctx.lastMarket?.market,
   ): Promise<{ events: AccountEvent[] }> {
     const rejection = postOnlyRejection(intent, ctx)
-    if (rejection) return { events: [rejection] }
+    if (rejection) {
+      if (rejection.kind === 'order_rejected' && market) rejection.market = market
+      return { events: [rejection] }
+    }
     const nowMs = ctx.nowMs
     const orderId = `bt-${this.orderSeq++}-${intent.clientOrderId}`
     const o: SimOrder = {
@@ -497,6 +512,7 @@ export class BacktestExecution implements ExecutionAdapter {
       side: intent.side,
       limitPrice: intent.price,
       remaining: intent.size,
+      size: intent.size,
       orderType: intent.orderType,
       ...(intent.orderType === 'GTD' ? { expireAtMs: intent.expireAtMs } : {}),
       createdAtMs: nowMs,
@@ -508,7 +524,13 @@ export class BacktestExecution implements ExecutionAdapter {
     const fillable = sumFillableSize(o, book)
 
     const events: AccountEvent[] = [
-      { kind: 'order_accepted', tsMs: nowMs, clientOrderId: intent.clientOrderId, orderId },
+      {
+        kind: 'order_accepted',
+        tsMs: nowMs,
+        clientOrderId: intent.clientOrderId,
+        orderId,
+        ...(market ? { market } : {}),
+      },
       // Backtest-only: emit status progression so strategies can gate on MATCHED/MINED/CONFIRMED
       // using the same Portfolio/strategy logic as live (user ws emits these).
       {
@@ -644,6 +666,7 @@ export class BacktestExecution implements ExecutionAdapter {
           clientOrderId: cid,
           orderId: o.orderId,
           reason: 'canceled',
+          filledSize: o.size - o.remaining,
         },
       ],
     }
@@ -677,6 +700,7 @@ export class BacktestExecution implements ExecutionAdapter {
         clientOrderId: cid,
         orderId: o.orderId,
         reason: 'canceled',
+        filledSize: o.size - o.remaining,
       })
     }
     this.openByClientId.clear()
@@ -786,6 +810,7 @@ export class BacktestExecution implements ExecutionAdapter {
           clientOrderId: cid,
           orderId: o.orderId,
           reason: 'expired',
+          filledSize: o.size - o.remaining,
         })
         continue
       }

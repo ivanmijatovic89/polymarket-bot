@@ -57,17 +57,31 @@ Deduplication operates by `clientOrderId`, not by price/size/side. Two intents w
 
 ## Validation
 
+### Funding
+
+The manager checks funding immediately before sending a BUY or split to either execution adapter, including in queued and dry-run modes. The engine's default allowance is 500 USDC per market; configure it with `--starting-capital` or `STARTING_CAPITAL`.
+
+BUY obligations include remaining quantity at the limit price plus the existing taker-fee allowance (zero for post-only orders). Each admitted order reserves cash before the next order in the same decision or batch is checked. Still-unapplied submissions remain tracked by submission identity, so reused client IDs and account callbacks cannot hide commitments. Successful splits awaiting account-event application are also reserved. Underfunded BUYs emit `order_rejected` with `insufficient_capital(required=...,available=...)`; underfunded splits emit `split_failed`. Batches may partially succeed, in their original order.
+
+For example, 1,000 shares at 0.60 require 616.80 USDC with the current taker fee and are rejected under a 500-USDC allowance. An 800-share BUY at that price requires 493.44 USDC and fits. Two individually affordable orders cannot both dispatch if their combined obligations exceed the allowance.
+
+Proceeds become reusable after their account events are applied. Cancel requests and failed cancels do not release cash. A terminal order can still reserve cash for missing fills; see [Portfolio release semantics](./portfolio.md#execution-capital). Pending merges also reserve their pairs until application so repeated merge intents cannot credit the same collateral twice.
+
+Custom runners must supply a Portfolio snapshot to enforcement, call `reconcileActiveOrders` after applying each event, and pass `withPendingCapital(portfolio.snapshot())` to strategy callbacks. Pass the **raw** Portfolio snapshot to execution; the manager adds pending commitments itself.
+
+### Order Parameters
+
 Before submitting a `place_limit` or `place_batch` order, the manager validates the intent and returns an `order_rejected` event if any check fails:
 
-| Check                      | Rejection reason                           |
-| -------------------------- | ------------------------------------------ |
-| `price <= 0` or non-finite | `invalid_price`                            |
-| `size <= 0` or non-finite  | `invalid_size`                             |
-| `assetId` absent           | `missing_assetId`                          |
-| `postOnly: true` with a type other than GTC/GTD | `post_only_requires_gtc_or_gtd` |
-| GTD without `expireAtMs`   | `gtd_requires_expireAtMs`                  |
-| `expireAtMs` non-finite    | `invalid_expireAtMs`                       |
-| GTD expiry too soon        | `gtd_expireAtMs_too_soon(min_offset_ms=N)` |
+| Check                                           | Rejection reason                           |
+| ----------------------------------------------- | ------------------------------------------ |
+| `price <= 0` or non-finite                      | `invalid_price`                            |
+| `size <= 0` or non-finite                       | `invalid_size`                             |
+| `assetId` absent                                | `missing_assetId`                          |
+| `postOnly: true` with a type other than GTC/GTD | `post_only_requires_gtc_or_gtd`            |
+| GTD without `expireAtMs`                        | `gtd_requires_expireAtMs`                  |
+| `expireAtMs` non-finite                         | `invalid_expireAtMs`                       |
+| GTD expiry too soon                             | `gtd_expireAtMs_too_soon(min_offset_ms=N)` |
 
 For batch orders, all orders in the batch are validated before any are submitted. Orders that fail validation emit individual `order_rejected` events; the remaining valid orders proceed normally.
 
@@ -124,14 +138,14 @@ Before execution, all intents pass through `enforceRiskLimits` (in `src/trading/
 
 The full set of `AccountEvent` kinds that flow through the manager and into the portfolio:
 
-| Event             | Emitter                    | Meaning                                                   |
-| ----------------- | -------------------------- | --------------------------------------------------------- |
-| `order_submitted` | `OrderManager`             | Intent accepted locally, before exchange confirmation     |
-| `order_accepted`  | `ExecutionAdapter`         | Exchange assigned an `orderId`                            |
-| `order_open`      | `ExecutionAdapter` or WS   | Order is now resting on the book                          |
-| `order_rejected`  | `OrderManager` or exchange | Order will not be filled                                  |
-| `order_done`      | `ExecutionAdapter` or WS   | Terminal state: `filled`, `canceled`, `expired`, `killed` |
-| `cancel_failed` | Manager or execution adapter | Cancellation did not succeed; order remains active |
-| `fill`            | `ExecutionAdapter` or WS   | A partial or complete fill occurred                       |
+| Event             | Emitter                      | Meaning                                                   |
+| ----------------- | ---------------------------- | --------------------------------------------------------- |
+| `order_submitted` | `OrderManager`               | Intent accepted locally, before exchange confirmation     |
+| `order_accepted`  | `ExecutionAdapter`           | Exchange assigned an `orderId`                            |
+| `order_open`      | `ExecutionAdapter` or WS     | Order is now resting on the book                          |
+| `order_rejected`  | `OrderManager` or exchange   | Order will not be filled                                  |
+| `order_done`      | `ExecutionAdapter` or WS     | Terminal state: `filled`, `canceled`, `expired`, `killed` |
+| `cancel_failed`   | Manager or execution adapter | Cancellation did not succeed; order remains active        |
+| `fill`            | `ExecutionAdapter` or WS     | A partial or complete fill occurred                       |
 
 In live mode, `order_open` and `order_done` typically arrive via the user WebSocket channel rather than from `LiveExecution` directly. `LiveExecution.placeLimit` emits only `order_accepted` (to link `clientOrderId` to `orderId`) and relies on the WS stream for subsequent lifecycle events.

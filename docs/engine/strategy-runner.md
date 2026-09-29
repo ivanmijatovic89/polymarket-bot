@@ -66,7 +66,17 @@ The runner supports two intent execution modes, controlled by `intentExecutionMo
 
 In `queued` mode, `OrderManager.handleIntents` simply pushes the intents onto a pending list and returns no events. These are then flushed at the top of the next `onMarketTick` call before the new market data is applied to the strategy.
 
-## Account Event Cascading
+## Market Capital and Player Resets
+
+`startingCapital` configures the allowance in USDC (default 500). Every backtest market already gets a fresh runner, strategy, order manager, and execution adapter. The sequential and queued worker paths pass the same producer-resolved value.
+
+A runner spanning multiple markets must supply `createStrategy: () => BuiltStrategy`. The live CLI supplies the selected registry/artifact factory with the validated parameters and reconnects the fresh plugins to the external feed store. On rotation the runner requests cancellation of old resting orders, discards undispatched old decisions, and starts a fresh Portfolio and strategy/plugin state. Old portfolios and exchange/asset identity mappings remain available for late account events. Old-market events update their original portfolio without reaching the new player or changing its allowance. Client order IDs should include the market identity.
+
+Each new market begins with the configured allowance and no inherited positions, open orders, PnL, or strategy state. A failed/delayed cancellation remains an obligation of the old market. In live trading, the new allowance does not deposit money in the wallet or guarantee exchange funding: `ctx.balance` remains the actual live balance feed.
+
+Strategies receive `portfolio.capital` after each account event is applied and after still-unapplied commitments are included. Raw Portfolio snapshots remain cached between account events; cash is not recomputed by scanning trade history on every tick.
+
+## Account Event Cascade Limits
 
 The cascade mechanism prevents infinite feedback loops via two safeguards:
 

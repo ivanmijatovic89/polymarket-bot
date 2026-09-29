@@ -396,7 +396,13 @@ function parseUserChannelEvent(
     const out: AccountEvent[] = [{ kind: 'ws_order_update', tsMs, order: wsOrder }]
 
     if (type === 'CANCELLATION') {
-      out.push({ kind: 'order_done', tsMs, orderId, reason: 'canceled' })
+      out.push({
+        kind: 'order_done',
+        tsMs,
+        orderId,
+        reason: 'canceled',
+        ...(Number.isFinite(sizeMatched) ? { filledSize: sizeMatched } : {}),
+      })
       return out
     }
 

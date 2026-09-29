@@ -1,3 +1,5 @@
+import { parseStartingCapital } from './capitalArgs.js'
+
 function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' {
   if (raw === 'recorded' || raw === 'exchange_time') return raw
   return 'recorded'
@@ -31,6 +33,7 @@ function parseReadFrom(raw: string | undefined): ReadFrom {
 }
 
 export type BacktestArgs = {
+  startingCapital?: number
   filePaths: string[]
   dirs?: string[]
   // recorded:
@@ -149,6 +152,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let model: string | undefined
   let latencyDelayMs: number | undefined
   let latencyJitterMs: number | undefined
+  let startingCapital: number | undefined
   let sequential = false
   let detach = false
   let extend: number | undefined
@@ -292,6 +296,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--starting-capital':
+        startingCapital = parseStartingCapital(argv[i + 1])
+        i += 1
+        break
+
       case '--latency-jitter-ms':
         latencyJitterMs = parseNonNegativeMs(argv[i + 1], '--latency-jitter-ms')
         i += 1
@@ -331,6 +340,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         break
 
       default:
+        if (arg.startsWith('--starting-capital=')) {
+          startingCapital = parseStartingCapital(arg.slice('--starting-capital='.length))
+          break
+        }
         if (arg.startsWith('--comment=')) {
           comment = arg.slice('--comment='.length)
           break
@@ -497,6 +510,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     // mix latencies inside one run.
     if (latencyDelayMs !== undefined) conflicting.push('--latency-delay-ms')
     if (latencyJitterMs !== undefined) conflicting.push('--latency-jitter-ms')
+    if (startingCapital !== undefined) conflicting.push('--starting-capital')
     // --comment is a launch-time label for the original run. An extension
     // doesn't get its own comment because we intentionally don't write
     // per-extend audit metadata (cmd, comment) to backtest_runs — the
@@ -544,6 +558,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   }
 
   return {
+    ...(startingCapital !== undefined ? { startingCapital } : {}),
     filePaths,
     ...(dirs.length > 0 ? { dirs } : {}),
     inputMode,

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { StrategyRunner } from './StrategyRunner.js'
 import type { OrderManager } from './OrderManager.js'
-import type { AccountEvent, MarketTick, Strategy } from '../strategy/Strategy.js'
+import type { AccountEvent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 
 /**
  * The serial dispatch funnel is the live/backtest parity guarantee: entry
@@ -33,6 +33,7 @@ const noopOrderManager = {
   onMarketTick: async () => [],
   handleIntents: async () => [],
   reconcileActiveOrders: () => {},
+  withPendingCapital: (portfolio: PortfolioSnapshot) => portfolio,
 } as unknown as OrderManager
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {

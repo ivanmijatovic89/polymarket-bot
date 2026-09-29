@@ -334,7 +334,19 @@ export type Metrics = {
   orderbook?: OrderbookMetrics
 }
 
+export type CapitalSnapshot = {
+  /** All values are USDC for this market's execution allowance, not wallet balances. */
+  startingCapital: number
+  cash: number
+  /** Unspent BUY commitments, pending splits, and matched BUYs awaiting fill events. */
+  reservedCash: number
+  /** cash - reservedCash; excludes unrealized PnL and settlement payouts. */
+  availableCash: number
+}
+
 export type PortfolioSnapshot = {
+  /** Present on engine-produced snapshots. */
+  capital?: Readonly<CapitalSnapshot>
   nowMs: number
   /**
    * Cumulative realized PnL across all assets, including positions that are now closed.
@@ -384,12 +396,14 @@ export type AccountEvent =
     }
   | {
       kind: 'order_accepted'
+      market?: string
       tsMs: number
       clientOrderId: ClientOrderId
       orderId?: ExchangeOrderId
     }
   | {
       kind: 'order_rejected'
+      market?: string
       tsMs: number
       clientOrderId: ClientOrderId
       reason: string
@@ -406,6 +420,8 @@ export type AccountEvent =
       clientOrderId?: ClientOrderId
       orderId?: ExchangeOrderId
       reason: 'filled' | 'canceled' | 'expired' | 'killed'
+      /** Authoritative cumulative executed shares at closure; absent means still unresolved. */
+      filledSize?: number
     }
   | {
       kind: 'fill'
@@ -435,6 +451,9 @@ export type AccountEvent =
        * Portfolio should treat this as authoritative but still clamp for safety.
        */
       kind: 'positions_merged'
+      /** Stable operation identity for cash/position deduplication. */
+      id: string
+      market?: string
       tsMs: number
       assetIdA: string
       assetIdB: string

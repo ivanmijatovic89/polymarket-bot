@@ -256,8 +256,18 @@ type MarketTick = EngineTick & {
 
 `PortfolioSnapshot` is the read-only view of portfolio state passed into both strategy hooks on every call.
 
+Engine-produced snapshots include `portfolio.capital` in **both** callbacks. All four fields are USDC for the current market's allowance (default 500). `cash` includes applied BUY/SELL cash flows, fees, and successful splits/merges. `reservedCash` includes pending/open BUY commitments and pending splits, including submissions still awaiting Portfolio application. `availableCash = cash - reservedCash`; unrealized gains and future settlement proceeds are excluded. Strategies can use this value to size decisions, while OrderManager enforces funding independently. See [cash accounting and release rules](../engine/portfolio.md#execution-capital).
+
+Capital and player state reset per market. Live wallet balances remain separate in `ctx.balance`. A custom multi-market runner must provide a fresh strategy factory; see [runner resets](../engine/strategy-runner.md#market-capital-and-player-resets).
+
 ```typescript
 type PortfolioSnapshot = {
+  capital?: Readonly<{
+    startingCapital: number
+    cash: number
+    reservedCash: number
+    availableCash: number
+  }>
   nowMs: number
   realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
@@ -437,21 +447,21 @@ Computed for 2-outcome UP/DOWN markets.
 
 `AccountEvent` is a discriminated union. Each variant carries a `kind` field.
 
-| `kind`                  | Description                                                                                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `order_submitted`       | An order intent was accepted by `OrderManager` and submitted to the exchange.                                                                              |
-| `order_accepted`        | The exchange accepted the order (pre-open confirmation).                                                                                                   |
-| `order_rejected`        | The exchange rejected the order. `reason` is provided.                                                                                                     |
-| `order_open`            | The order is now resting on the book.                                                                                                                      |
-| `cancel_failed` | A cancellation failed validation, submission, or exchange confirmation. Includes `operation`, `reason`, and available identifiers; does not reject or close the order. |
-| `order_done`            | The order lifecycle is complete. `reason` is one of `filled`, `canceled`, `expired`, `killed`.                                                             |
-| `fill`                  | A trade fill occurred. Contains a `Fill` record.                                                                                                           |
-| `positions_split`       | A CTF split completed. Contains a `PositionsSplit` record.                                                                                                 |
-| `positions_merged`      | A CTF merge completed. `size` is the number of pairs actually merged (may be less than requested).                                                         |
-| `merge_failed`          | A merge intent failed.                                                                                                                                     |
-| `split_failed`          | A split intent failed.                                                                                                                                     |
-| `ws_order_update`       | A raw, normalized order update from the Polymarket USER websocket channel. Useful for tracking all account orders, including those not placed by this bot. |
-| `account_stream_status` | The account event stream connected or disconnected. `source` is `user_ws` or `rest_poll`.                                                                  |
+| `kind`                  | Description                                                                                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order_submitted`       | An order intent was accepted by `OrderManager` and submitted to the exchange.                                                                                          |
+| `order_accepted`        | The exchange accepted the order (pre-open confirmation).                                                                                                               |
+| `order_rejected`        | The exchange rejected the order. `reason` is provided.                                                                                                                 |
+| `order_open`            | The order is now resting on the book.                                                                                                                                  |
+| `cancel_failed`         | A cancellation failed validation, submission, or exchange confirmation. Includes `operation`, `reason`, and available identifiers; does not reject or close the order. |
+| `order_done`            | The order lifecycle is complete. `reason` is one of `filled`, `canceled`, `expired`, `killed`.                                                                         |
+| `fill`                  | A trade fill occurred. Contains a `Fill` record.                                                                                                                       |
+| `positions_split`       | A CTF split completed. Contains a `PositionsSplit` record.                                                                                                             |
+| `positions_merged`      | A CTF merge completed. `size` is the number of pairs actually merged (may be less than requested).                                                                     |
+| `merge_failed`          | A merge intent failed.                                                                                                                                                 |
+| `split_failed`          | A split intent failed.                                                                                                                                                 |
+| `ws_order_update`       | A raw, normalized order update from the Polymarket USER websocket channel. Useful for tracking all account orders, including those not placed by this bot.             |
+| `account_stream_status` | The account event stream connected or disconnected. `source` is `user_ws` or `rest_poll`.                                                                              |
 
 ### Full `AccountEvent` type
 
@@ -477,11 +487,14 @@ type AccountEvent =
       clientOrderId?: string
       orderId?: string
       reason: 'filled' | 'canceled' | 'expired' | 'killed'
+      filledSize?: number // Final cumulative executed shares; missing means unresolved.
     }
   | { kind: 'fill'; fill: Fill }
   | { kind: 'positions_split'; split: PositionsSplit }
   | {
       kind: 'positions_merged'
+      id: string // Stable operation identity; duplicate deliveries apply once.
+      market?: string
       tsMs: number
       assetIdA: string
       assetIdB: string

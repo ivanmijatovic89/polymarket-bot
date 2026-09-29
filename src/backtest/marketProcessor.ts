@@ -13,7 +13,12 @@ import { WORKER_LAUNCH_SHA, STALE_JOB_RELEASE_DELAY_MS, canRunJobCommit } from '
  * to the queue (no attempt consumed) and asks its supervisor to pull + restart,
  * rather than running with a stale strategy registry.
  */
-export function makeMarketProcessor(args: { machineId: string; workerChildId?: number | null }) {
+export function makeMarketProcessor(args: {
+  machineId: string
+  workerChildId?: number | null
+  /** Dependency injection for an in-process worker wiring test. */
+  runMarket?: typeof runSingleMarket
+}) {
   return async function marketProcessor(
     job: Job<MarketJobData>,
     token?: string,
@@ -57,7 +62,8 @@ export function makeMarketProcessor(args: { machineId: string; workerChildId?: n
       }
     }
 
-    return runSingleMarket({
+    return (args.runMarket ?? runSingleMarket)({
+      ...(data.startingCapital !== undefined ? { startingCapital: data.startingCapital } : {}),
       idx: data.idx,
       filePath: data.filePath,
       ...(data.r2Fallback ? { r2Fallback: data.r2Fallback } : {}),

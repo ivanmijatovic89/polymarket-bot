@@ -23,6 +23,7 @@ import {
   resolveBacktestProvenance,
 } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
+import { inheritedStartingCapital, resolveStartingCapital } from './helpers/capitalArgs.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import { computeBacktestSegments, slugTs } from '../backtest/stats/backtestSegments.js'
@@ -303,7 +304,11 @@ async function main(): Promise<void> {
   // the whole uid always fits varchar(255).
   const submissionUid = chosenLabel ? `${chosenLabel.slice(0, 180)}--${randomUUID()}` : randomUUID()
   const batchUid = chosenLabel ?? submissionUid
-  const cmd = buildBacktestCmdWithBatchUid(args, batchUid)
+  const startingCapital = isExtend
+    ? inheritedStartingCapital(planOk!.parent.cmd)
+    : resolveStartingCapital(args)
+  // Persist the resolved allowance even when it came from an environment variable or default.
+  const cmd = `${buildBacktestCmdWithBatchUid(args, batchUid)} --starting-capital ${startingCapital}`
   const built: ResolveStrategyResult = isExtend
     ? await (async () => {
         try {
@@ -976,6 +981,7 @@ async function main(): Promise<void> {
         let result: Awaited<ReturnType<typeof runSingleMarket>>
         try {
           result = await runSingleMarket({
+            startingCapital,
             idx: ctx.idx,
             filePath: ctx.filePath,
             slug: ctx.slug,
@@ -1239,6 +1245,7 @@ async function main(): Promise<void> {
 
   const children = marketContexts.map((ctx) => {
     const data: MarketJobData = {
+      startingCapital,
       submissionUid,
       batchUid,
       idx: ctx.idx,

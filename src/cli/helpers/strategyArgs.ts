@@ -63,6 +63,9 @@ export function formatStrategyHelp(args: { script: string }): string {
   lines.push(`  ${args.script} --strategy <id> [--param key=value ...]`)
   lines.push(`  ${args.script} --strategy-artifact <sha256> [--param key=value ...]`)
   lines.push(`  ${args.script} --strategy-file <path.ts> [--param key=value ...]`)
+  lines.push(
+    `  --starting-capital <USDC>  Per-market execution allowance (default 500; overrides STARTING_CAPITAL)`,
+  )
   lines.push(``)
   lines.push(`Available strategies:`)
   for (const d of defs) lines.push(`  - ${d.id}`)
