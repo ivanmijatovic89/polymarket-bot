@@ -305,6 +305,35 @@ test('rejection, FOK kill, and expiry release unused capital', async () => {
   assert.equal(s.cash().availableCash, 500)
 })
 
+test('late acknowledgement cannot merge a closed replacement with an older unaccounted fill', () => {
+  const p = new Portfolio({ startingCapital: 1000 })
+  submit(p, 'a', 500)
+  p.apply({ kind: 'order_done', tsMs: 1100, orderId: 'ex-a', reason: 'filled' })
+  p.apply({
+    kind: 'order_submitted',
+    tsMs: 1200,
+    order: {
+      ...buy('a', 100),
+      remaining: 100,
+      filled: 0,
+      state: 'requested',
+      createdAtMs: 1200,
+      updatedAtMs: 1200,
+    },
+  })
+  p.apply({ kind: 'order_accepted', tsMs: 1200, clientOrderId: 'a', orderId: 'ex-new' })
+  p.apply(fill('replacement', 100, { orderId: 'ex-new' }))
+  p.apply({ kind: 'order_done', tsMs: 1201, orderId: 'ex-new', reason: 'filled' })
+  const expected = p.snapshot().capital
+  assert.equal(expected!.reservedCash, 308.4)
+  p.apply({ kind: 'order_accepted', tsMs: 1300, clientOrderId: 'a', orderId: 'ex-a' })
+  p.apply({ kind: 'order_open', tsMs: 1301, clientOrderId: 'a', orderId: 'ex-a' })
+  assert.deepEqual(p.snapshot().capital, expected)
+  p.apply(fill('original', 500))
+  assert.equal(p.snapshot().capital!.reservedCash, 0)
+  assert.equal(p.snapshot().capital!.cash, 629.92)
+})
+
 test('confirmed sale proceeds can be reused; turnover may exceed initial capital', async () => {
   const s = stack()
   await s.send([buy('a')])

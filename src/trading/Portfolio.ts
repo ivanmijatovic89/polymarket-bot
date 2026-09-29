@@ -18,6 +18,7 @@ import {
 } from './capital.js'
 
 type CashOrder = {
+  orderId?: string
   side: 'BUY' | 'SELL'
   price: number
   size: number
@@ -179,6 +180,10 @@ export class Portfolio {
     if (open && this.belongsToEarlierOrder(open, orderId)) return
     const local = this.cashOrderByClientId.get(clientOrderId)
     if (!local) return
+    // Closed replacements still own their exchange identity. A late acknowledgement
+    // for an older generation must not merge two independent cash obligations.
+    if (local.orderId && local.orderId !== orderId) return
+    local.orderId = orderId
     const exchange = this.cashOrderByOrderId.get(orderId)
     if (exchange && exchange !== local) {
       local.filled = Math.max(local.filled, exchange.filled)
@@ -215,6 +220,7 @@ export class Portfolio {
       let order = this.cashOrderByOrderId.get(o.orderId)
       if (!order && o.side && Number.isFinite(o.price) && Number.isFinite(o.originalSize)) {
         order = {
+          orderId: o.orderId,
           side: o.side,
           price: o.price!,
           size: o.originalSize!,
