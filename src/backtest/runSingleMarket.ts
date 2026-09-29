@@ -9,7 +9,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 import { isR2Url } from '../r2/parseR2Url.js'
 import { downloadR2ToLocal, fileExists } from '../telonex/fetchConvertedToLocal.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
-import { StrategyRunner } from '../trading/StrategyRunner.js'
+import { StrategyRunner, type StrategyRunnerObserver } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { PluginSet } from '../strategy/plugins/PluginSet.js'
@@ -40,6 +40,11 @@ export type RunSingleMarketLatency = {
 
 export type RunSingleMarketInput = {
   startingCapital?: number
+  /** Optional trace capture; the default replay path is unchanged. */
+  observer?: StrategyRunnerObserver & {
+    onTickStart: (tick: MarketTick) => void
+    onTickEnd: () => void
+  }
   /** Position in the original input list. Used by aggregator to restore order. */
   idx: number
   /** Path to the parquet file (local or fetched). */
@@ -129,6 +134,7 @@ export type RunSingleMarketOutput = {
  */
 export function buildRunnerForMarket(args: {
   startingCapital?: number
+  observer?: StrategyRunnerObserver
   strategyId: string
   strategyParams: Record<string, unknown>
   strategyDefinition?: StrategyDefinition<unknown>
@@ -161,6 +167,7 @@ export function buildRunnerForMarket(args: {
   })
   const runner = new StrategyRunner({
     ...(args.startingCapital !== undefined ? { startingCapital: args.startingCapital } : {}),
+    ...(args.observer ? { observer: args.observer } : {}),
     strategyId: args.strategyId,
     strategyParams: args.strategyParams,
     strategy,
@@ -221,6 +228,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
 
   const { runner, pluginSet } = buildRunnerForMarket({
     ...(input.startingCapital !== undefined ? { startingCapital: input.startingCapital } : {}),
+    ...(input.observer ? { observer: input.observer } : {}),
     strategyId: input.strategyId,
     strategyParams: input.strategyParams,
     ...(input.strategyDefinition ? { strategyDefinition: input.strategyDefinition } : {}),
@@ -268,7 +276,9 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       }
     }
 
+    input.observer?.onTickStart(tick)
     await runner.onMarketTick(tick)
+    input.observer?.onTickEnd()
 
     if (!currentMarketId) return
     const portfolio = runner.getPortfolio().snapshot()

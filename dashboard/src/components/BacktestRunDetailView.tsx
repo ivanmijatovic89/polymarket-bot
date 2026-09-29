@@ -885,7 +885,17 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                     <TableCell className="text-muted-foreground tabular-nums text-xs">
                       {idx}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {m.slug ?? '—'}
+                      {m.slug && (
+                        <Link
+                          href={`/backtests/${id}/markets/${encodeURIComponent(m.slug)}/simulator`}
+                          className="ml-3 text-primary underline underline-offset-4"
+                        >
+                          Simulator
+                        </Link>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
                       {m.skipReason ? (
                         <span className="text-muted-foreground italic">
