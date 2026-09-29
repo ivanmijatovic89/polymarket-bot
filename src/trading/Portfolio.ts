@@ -242,6 +242,10 @@ export class Portfolio {
         order.finalFilled = Math.max(order.finalFilled ?? 0, order.matched, order.filled)
       }
     } else if (ev.kind === 'order_done' || ev.kind === 'order_rejected') {
+      // Validation/funding can reject a reused client ID before a new submission.
+      // Only a currently submitted order can be released by that rejection;
+      // an earlier closed order may still have fills awaiting reconciliation.
+      if (ev.kind === 'order_rejected' && !this.openOrdersByClientId.has(ev.clientOrderId)) return
       const order =
         ev.kind === 'order_done' && ev.orderId
           ? this.cashOrderByOrderId.get(ev.orderId)

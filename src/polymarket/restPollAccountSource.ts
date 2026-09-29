@@ -1,4 +1,4 @@
-import type { ClobClient } from '@polymarket/clob-client'
+import type { ClobClient, Trade } from '@polymarket/clob-client'
 import { Wallet } from 'ethers'
 
 import type { AccountEvent, Fill } from '../strategy/Strategy.js'
@@ -42,18 +42,57 @@ function asMsFromSecString(raw: unknown): number | null {
   return null
 }
 
+function tradeFills(trade: Trade, tsMs: number, ownerId: string | undefined): Fill[] {
+  // Match the USER WebSocket's perspective and fill IDs so either source can
+  // arrive first without changing the cash debit or double-counting a fill.
+  const matches =
+    trade.trader_side === 'MAKER'
+      ? (trade.maker_orders ?? [])
+          .filter((order) => ownerId !== undefined && order.owner === ownerId)
+          .map((order) => ({
+            ...order,
+            id: `${trade.id}:${order.order_id}`,
+            size: order.matched_amount,
+          }))
+      : [{ ...trade, order_id: trade.taker_order_id }]
+  const fills: Fill[] = []
+  for (const match of matches) {
+    const price = Number(match.price)
+    const size = Number(match.size)
+    const feeRateBps = Number(match.fee_rate_bps)
+    if (!match.order_id || !match.asset_id || (match.side !== 'BUY' && match.side !== 'SELL'))
+      continue
+    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(size) || size <= 0) continue
+    fills.push({
+      id: match.id,
+      tsMs,
+      market: trade.market,
+      assetId: match.asset_id,
+      side: match.side,
+      price,
+      size,
+      ...(Number.isFinite(feeRateBps) ? { feeRateBps } : {}),
+      orderId: match.order_id,
+      liquidity: trade.trader_side === 'MAKER' ? 'MAKER' : 'TAKER',
+    })
+  }
+  return fills
+}
+
 export function createRestPollAccountSource(
   opts: RestPollAccountSourceOptions = {},
 ): RestPollAccountSource {
   // Lazy initialization: only create ClobClient when we actually need it (when enabled)
   let client: ClobClient | undefined = undefined
   let wallet: Wallet | undefined = undefined
+  let ownerId: string | undefined
 
   const getClient = (): ClobClient => {
     if (!client) {
+      const config = opts.config ?? loadPolymarketConfigFromEnv()
+      ownerId = (opts.overrides?.creds ?? config.creds)?.apiKey
       // Get wallet address for logging (create wallet temporarily if needed)
       if (!wallet) {
-        const config = opts.config ?? loadPolymarketConfigFromEnv()
         const privateKey = opts.overrides?.privateKey ?? config.privateKey
         if (!privateKey) {
           throw new Error('[rest-poll] Missing privateKey')
@@ -67,7 +106,7 @@ export function createRestPollAccountSource(
 
       try {
         client = createClobClient({
-          ...(opts.config !== undefined ? { config: opts.config } : {}),
+          config,
           ...(opts.overrides !== undefined ? { overrides: opts.overrides } : {}),
         })
         console.log('[rest-poll] ClobClient initialized successfully')
@@ -125,26 +164,9 @@ export function createRestPollAccountSource(
           asMsFromSecString(t?.timestamp) ??
           nowMs
 
-        const assetId = typeof t?.asset_id === 'string' ? t.asset_id : undefined
-        const market = typeof t?.market === 'string' ? t.market : undefined
-        const side = t?.side === 'BUY' || t?.side === 'SELL' ? t.side : undefined
-        const price = Number(t?.price)
-        const size = Number(t?.size)
-
-        if (!assetId || !side || !Number.isFinite(price) || !Number.isFinite(size)) continue
-
-        const fill: Fill = {
-          id,
-          tsMs,
-          market,
-          assetId,
-          side,
-          price,
-          size,
-          orderId: typeof t?.taker_order_id === 'string' ? t.taker_order_id : undefined,
-          liquidity: 'TAKER',
-        }
-        emit({ kind: 'fill', fill })
+        const fills = tradeFills(t, tsMs, ownerId)
+        if (fills.length === 0) continue
+        for (const fill of fills) emit({ kind: 'fill', fill })
 
         const sec = Math.floor(tsMs / 1000)
         if (lastAfterSec === undefined || sec > lastAfterSec) lastAfterSec = sec
