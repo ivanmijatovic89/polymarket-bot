@@ -575,7 +575,7 @@ export class StrategyRunner {
 
   private async processAccountEvent(ev: AccountEvent): Promise<void> {
     const eventMarket = this.accountEventMarket(ev)
-    if (eventMarket && this.lastMarketKey && eventMarket !== this.lastMarketKey) {
+    if (eventMarket && eventMarket !== this.lastMarketKey) {
       let original = this.portfoliosByMarket.get(eventMarket)
       if (!original) {
         original = new Portfolio({ startingCapital: this.startingCapital })

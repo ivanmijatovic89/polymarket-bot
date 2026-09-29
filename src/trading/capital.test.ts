@@ -470,6 +470,20 @@ test('rotation discards undispatched decisions from the previous market', async 
   assert.equal(runner.getPortfolio().snapshot().capital!.cash, 438.32)
 })
 
+test('old-market events arriving before the first book cannot fund the new allowance', async () => {
+  const s = stack()
+  await s.runner.onAccountEvent(
+    fill('startup-old-sale', 100, { market: nextMarket, side: 'SELL', assetId: 'old-up' }),
+  )
+  await s.send([])
+  assert.equal(s.cash().cash, 500)
+  assert.deepEqual(s.runner.getPortfolio().snapshot().positionsByAssetId, {})
+  assert.equal(
+    s.events.some((e) => e.kind === 'fill'),
+    false,
+  )
+})
+
 test('new market recreates strategy and allowance, ignoring old-market sale/split/merge callbacks', async () => {
   let created = 0
   let oldCallbacks = 0
