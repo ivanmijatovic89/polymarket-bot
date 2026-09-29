@@ -31,18 +31,25 @@ panel retains the top ten book levels per side; execution still uses the full de
 Paired shares are `min(UP quantity, DOWN quantity)`. The surplus on either side is
 unpaired inventory. Remaining cost basis comes from the shared Portfolio.
 
-Simulated cash is a reference ledger starting at the run's initial capital: buys and
-fees subtract cash, sells add proceeds, splits consume collateral, and completed merges
-return collateral. This balance is **not an execution-enforced wallet**. Open BUY
-notional excludes possible future fees and is shown separately. Conditional settlement
-PnL is net cash flow plus the shares of the hypothetical winning outcome. It can differ
-slightly from the engine's saved PnL because Portfolio rounds accounting entries.
+The **Market capital** panel shows the engine's starting capital, cash, reserved cash
+and available cash at the selected tick or event. It captures the same snapshot seen
+by the strategy, including unapplied BUY/split commitments, applicable fee reserves
+and holds awaiting final fill reconciliation. Seeking restores the captured amounts;
+the browser does not estimate reservations from visible orders. Older cached traces
+without these snapshots show unavailable values and offer **New replay**.
 
-The engine separately enforces the per-market `startingCapital` allowance. Replay
+Capital rejections retain the engine's exact required and available amounts at the
+funding check. Selecting one explains the shortfall alongside the raw event. These
+amounts can differ from the later account-event state if other actions intervened.
+
+The engine enforces the per-market `startingCapital` allowance. Replay
 uses the recorded `--starting-capital` value; if absent, it reports that the current
 environment/default allowance is being substituted. This can change results for
 older runs that predate capital enforcement. The allowance is shown in replay
-settings and is independent of the aggregate initial capital used by the cash display.
+settings and is independent of both the run's aggregate initial capital and the live
+wallet balance. Conditional settlement PnL remains net fill/split/merge cash flow plus
+the winning shares; it can differ slightly from saved PnL because Portfolio rounds
+accounting entries.
 
 The verification section compares PnL, costs, fees, holdings, pairs, maker/taker fills
 and processed-event count with the saved market row. A mismatch remains visible and

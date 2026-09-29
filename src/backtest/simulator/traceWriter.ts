@@ -74,6 +74,19 @@ export class TraceWriter {
   }
 
   readonly observer: NonNullable<RunSingleMarketInput['observer']> = {
+    onCapital: (capital) => {
+      const previous = this.state.capital
+      if (!capital) return
+      if (
+        previous?.startingCapital === capital.startingCapital &&
+        previous.cash === capital.cash &&
+        previous.reservedCash === capital.reservedCash &&
+        previous.availableCash === capital.availableCash
+      )
+        return
+      this.state = { ...this.state, capital: { ...capital } }
+      this.stateId = this.chunk.states.push(this.state) - 1
+    },
     onTickStart: (tick: MarketTick) => {
       if (this.ticks >= 2_000_000)
         throw new Error('Simulator limit: two million strategy ticks per market.')
@@ -234,6 +247,7 @@ export class TraceWriter {
     for (const id of this.pendingCancels)
       if (!open.some((o) => o.clientOrderId === id)) this.pendingCancels.delete(id)
     this.state = {
+      capital: portfolio.capital ? { ...portfolio.capital } : null,
       up: position(this.tokens.UP),
       down: position(this.tokens.DOWN),
       cashDelta,

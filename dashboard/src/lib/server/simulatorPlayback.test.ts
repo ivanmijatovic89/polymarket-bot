@@ -34,7 +34,16 @@ test('chunk seek restores action state and feed context, with a bounded cache', 
             actions: [{ seq: 10 + i, state: 0, context: 0 }],
           },
         ],
-        states: [{ fills: i }, { fills: i + 1 }],
+        states: [
+          {
+            fills: i,
+            capital: { startingCapital: 20, cash: 20 - i, reservedCash: 3, availableCash: 17 - i },
+          },
+          {
+            fills: i + 1,
+            capital: { startingCapital: 20, cash: 19 - i, reservedCash: 0, availableCash: 19 - i },
+          },
+        ],
         contexts: ['before', 'after'],
       }) as unknown as TraceChunk,
   )
@@ -58,8 +67,15 @@ test('chunk seek restores action state and feed context, with a bounded cache', 
     const next = await cache.at({ tick: 4, actionSeq: 14 })
     assert.equal(next.state.fills, 4)
     assert.equal(next.context, 'before')
+    assert.deepEqual(next.state.capital, {
+      startingCapital: 20,
+      cash: 16,
+      reservedCash: 3,
+      availableCash: 13,
+    })
+    assert.equal((await cache.at({ tick: 4, actionSeq: null })).state.capital!.cash, 15)
     assert.equal(requests.length, 5)
-    await cache.at({ tick: 0, actionSeq: null })
+    assert.equal((await cache.at({ tick: 0, actionSeq: null })).state.capital!.cash, 19)
     assert.equal(requests.length, 6)
     assert.equal(await cache.atTime(2500), 2)
   } finally {

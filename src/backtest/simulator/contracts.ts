@@ -1,4 +1,6 @@
 /** JSON-only display data. Nothing in this module runs or restores a strategy. */
+import type { CapitalSnapshot } from '../../strategy/Strategy.js'
+
 export type Outcome = 'UP' | 'DOWN'
 export type DisplayBook = {
   timestamp: number
@@ -26,6 +28,8 @@ export type DisplayOrder = {
 }
 export type DisplayPosition = { qty: number; cost: number; average: number | null }
 export type DisplayState = {
+  /** Absent in older traces. Never substitute aggregate run capital. */
+  capital?: Readonly<CapitalSnapshot> | null
   up: DisplayPosition
   down: DisplayPosition
   orders: DisplayOrder[]
@@ -143,6 +147,7 @@ export type SimulatorStatus = {
 
 export function emptyDisplayState(): DisplayState {
   return {
+    capital: null,
     up: { qty: 0, cost: 0, average: null },
     down: { qty: 0, cost: 0, average: null },
     orders: [],
@@ -153,19 +158,29 @@ export function emptyDisplayState(): DisplayState {
   }
 }
 
-/** Display cash is fill cash flow; it is not an execution-enforced wallet. */
-export function displayMetrics(state: DisplayState, capital: number) {
+/** Capital comes from the engine; conditional PnL remains a separate cash-flow calculation. */
+export function displayMetrics(state: DisplayState) {
   const pairs = Math.min(state.up.qty, state.down.qty)
-  const reserved = state.orders
-    .filter((o) => o.side === 'BUY')
-    .reduce((sum, o) => sum + o.price * o.remaining, 0)
   return {
     pairs,
     unpairedUp: state.up.qty - pairs,
     unpairedDown: state.down.qty - pairs,
-    cash: capital + state.cashDelta,
-    reserved,
+    capital: state.capital ?? null,
     pnlIfUp: state.cashDelta + state.up.qty,
     pnlIfDown: state.cashDelta + state.down.qty,
   }
+}
+
+/** The amounts in the engine's rejection reason describe the funding check itself. */
+export function capitalRejection(detail: unknown) {
+  if (!detail || typeof detail !== 'object' || !('reason' in detail)) return null
+  if (typeof detail.reason !== 'string') return null
+  const match = /^insufficient_capital\(required=([\d.eE+-]+),available=([\d.eE+-]+)\)$/.exec(
+    detail.reason,
+  )
+  if (!match) return null
+  const required = Number(match[1]),
+    available = Number(match[2])
+  if (!Number.isFinite(required) || !Number.isFinite(available) || required < 0) return null
+  return { required, available, shortfall: Math.max(0, required - available) }
 }

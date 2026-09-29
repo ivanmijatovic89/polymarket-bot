@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import {
   displayMetrics,
+  capitalRejection,
   type TraceManifest,
   type SimulatorStatus,
   type DisplayBook,
@@ -214,8 +215,9 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
   }
 
   const state = display?.state
-  const metrics =
-    state && manifest ? displayMetrics(state, manifest.provenance.initialCapital) : null
+  const metrics = state ? displayMetrics(state) : null
+  const capital = metrics?.capital
+  const fundingFailure = capitalRejection(detail)
   const visibleActions =
     manifest && display
       ? manifest.actions
@@ -376,7 +378,37 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+          <section aria-label="Market capital" className="space-y-3">
+            <h2 className="text-sm font-medium">Market capital</h2>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Metric
+                label="Starting capital"
+                value={capital ? money(capital.startingCapital) : '—'}
+                sub="Budget for this market"
+              />
+              <Metric
+                label="Cash"
+                value={capital ? money(capital.cash) : '—'}
+                sub="After trades, fees, splits and merges"
+              />
+              <Metric
+                label="Reserved cash"
+                value={capital ? money(capital.reservedCash) : '—'}
+                sub="Orders and pending commitments, including fee reserves"
+              />
+              <Metric
+                label="Available cash"
+                value={capital ? money(capital.availableCash) : '—'}
+                sub="Cash minus reservations · available to spend"
+              />
+            </div>
+            {!capital && (
+              <p className="text-xs text-amber-300">
+                This trace has no engine capital snapshot. Start a New replay to capture it.
+              </p>
+            )}
+          </section>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             <Metric
               label="Paired shares"
               value={metrics.pairs.toFixed(2)}
@@ -397,11 +429,6 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
               label="Remaining cost basis"
               value={money(state.up.cost + state.down.cost)}
               sub={`Fees paid ${money(state.fees)}`}
-            />
-            <Metric
-              label="Simulated cash"
-              value={money(metrics.cash)}
-              sub={`Open BUY notional ${money(metrics.reserved)}`}
             />
             <Metric
               label="PnL if UP wins"
@@ -602,6 +629,14 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
                   Close
                 </button>
               </div>
+              {fundingFailure && (
+                <p className="mt-3 rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-300">
+                  Insufficient capital: this action required {money(fundingFailure.required)}, but
+                  only {money(fundingFailure.available)} was available at the funding check. Short
+                  by {money(fundingFailure.shortfall)}. Required funds include any applicable fee
+                  reserve.
+                </p>
+              )}
               <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">
                 {JSON.stringify(detail, null, 2)}
               </pre>
@@ -624,10 +659,12 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
               ))}
             </ul>
             <p className="text-muted-foreground">
-              Simulated cash starts at the run’s reference capital (
-              {money(manifest.provenance.initialCapital)}). It is not a wallet enforced by the
-              execution engine. Pending BUY notional excludes possible fees. Conditional PnL uses
-              exact fill cash flows; saved PnL uses the engine’s rounded portfolio accounting.
+              Market capital is the engine’s per-market allowance at the selected tick or event.
+              Reserved cash includes pending commitments and applicable fee reserves. This is
+              separate from the run’s aggregate reference capital (
+              {money(manifest.provenance.initialCapital)}) and your live wallet balance. Conditional
+              PnL uses exact fill cash flows; saved PnL uses the engine’s rounded portfolio
+              accounting.
             </p>
             <button className={control} onClick={() => setShowOutcome((v) => !v)}>
               {showOutcome
