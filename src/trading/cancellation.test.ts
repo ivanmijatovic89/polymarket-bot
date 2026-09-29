@@ -57,7 +57,8 @@ function context(nowMs = 1000, market = marketA, ask = 0.6): OrderManagerContext
 }
 
 function harness(execution: ExecutionAdapter, dryRun = false) {
-  const portfolio = new Portfolio()
+  // Isolate cancellation/order-count limits; fee-inclusive capital is tested separately.
+  const portfolio = new Portfolio({ startingCapital: 1000 })
   const manager = new OrderManager({ execution, dryRun })
   function apply(events: AccountEvent[]) {
     for (const event of events) {

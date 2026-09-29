@@ -789,6 +789,8 @@ export class LiveExecution implements ExecutionAdapter {
           events: [
             {
               kind: 'positions_merged',
+              id: `live-merge:${res.txHash}:${intent.assetIdA}:${intent.assetIdB}`,
+              market: conditionId,
               tsMs: nowMs,
               assetIdA: intent.assetIdA,
               assetIdB: intent.assetIdB,

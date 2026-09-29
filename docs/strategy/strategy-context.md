@@ -13,6 +13,8 @@ All top-level fields on `StrategyContext` are optional. Code defensively — `ct
 
 ## Type Definition
 
+Spendable execution capital is exposed through **`portfolio.capital`**, available to both strategy callbacks in live trading and backtests. It defaults to 500 USDC per market and includes outstanding commitments. `ctx.balance` remains live wallet data; a new market allowance is a spending limit, not a deposit. See [capital semantics](../engine/portfolio.md#execution-capital).
+
 ```typescript
 type StrategyContext = {
   plugins?: PluginsSnapshot

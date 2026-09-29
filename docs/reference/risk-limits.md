@@ -5,6 +5,8 @@ description: Reference for the risk-limit system that gates order placement in t
 
 # Risk Limits
 
+Execution funding is also enforced by OrderManager before adapter dispatch, using `portfolio.capital` and pending commitments. The default per-market allowance is 500 USDC, configured by `--starting-capital` / `STARTING_CAPITAL`. **`maxLossStop = 500` is a realized-loss threshold, not a bankroll.** See [funding checks](../engine/order-manager.md#funding).
+
 The risk-limit system is a deterministic, stateless gate applied to every batch of intents produced by a strategy before they reach the `OrderManager`. It operates solely on the current `PortfolioSnapshot` and the intent batch — it does not perform I/O or maintain its own state across ticks.
 
 The enforcer is exported from `src/trading/riskLimits.ts`.
@@ -28,7 +30,7 @@ export type RiskLimits = {
 
 | Limit            | Default | Description                                                                                  |
 | ---------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `maxOpenOrders`  | `100`    | Maximum number of open orders (across all assets) allowed at any one time.                   |
+| `maxOpenOrders`  | `100`   | Maximum number of open orders (across all assets) allowed at any one time.                   |
 | `maxOrderSize`   | `2000`  | Maximum size (shares) of any single order.                                                   |
 | `maxAbsPosition` | `2000`  | Maximum absolute position (shares) per asset, including open order exposure.                 |
 | `maxLossStop`    | `500`   | Maximum realised PnL loss (price units × shares) before new risk-taking intents are blocked. |
@@ -147,9 +149,9 @@ Rejection reasons are included verbatim in the `order_rejected` `AccountEvent` a
 | ----------------- | ------------ | ---------------------------------------------------------- |
 | `place_limit`     | Yes          | All four limits applied.                                   |
 | `place_batch`     | Yes          | Each constituent order checked; partial batches forwarded. |
-| `cancel_order`    | No           | Always allowed; retains exposure until confirmed.                  |
-| `cancel_batch` | No | Always allowed; retains exposure until confirmed. |
-| `cancel_market` | No | Always allowed; retains exposure until confirmed. |
-| `cancel_all`      | No           | Always allowed; retains exposure until confirmed.       |
+| `cancel_order`    | No           | Always allowed; retains exposure until confirmed.          |
+| `cancel_batch`    | No           | Always allowed; retains exposure until confirmed.          |
+| `cancel_market`   | No           | Always allowed; retains exposure until confirmed.          |
+| `cancel_all`      | No           | Always allowed; retains exposure until confirmed.          |
 | `split_positions` | No           | Always allowed.                                            |
 | `merge_positions` | No           | Always allowed.                                            |

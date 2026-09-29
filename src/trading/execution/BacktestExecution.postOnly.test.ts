@@ -82,7 +82,13 @@ function kinds(events: AccountEvent[]): string[] {
 
 function assertRejected(events: AccountEvent[], clientOrderId = 'order-1', tsMs = startMs) {
   assert.deepEqual(events, [
-    { kind: 'order_rejected', clientOrderId, tsMs, reason: 'post_only_would_cross' },
+    {
+      kind: 'order_rejected',
+      clientOrderId,
+      tsMs,
+      market: 'market-1',
+      reason: 'post_only_would_cross',
+    },
   ])
 }
 
@@ -220,6 +226,7 @@ for (const path of paths) {
           orderId: firstId,
           tsMs: startMs + 1,
           reason: 'canceled',
+          filledSize: 0,
         },
       ])
       assert.equal(h.portfolio.snapshot().ordersByClientId['order-1']?.postOnly, true)
@@ -235,6 +242,7 @@ for (const path of paths) {
           orderId: secondId,
           tsMs: expireAtMs,
           reason: 'expired',
+          filledSize: 0,
         },
       ])
       assert.equal(h.portfolio.snapshot().ordersByClientId['order-1']?.postOnly, true)

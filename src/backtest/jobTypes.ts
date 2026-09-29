@@ -14,6 +14,8 @@ import type {
  * to runSingleMarket along with their own worker identity.
  */
 export type MarketJobData = {
+  /** USDC execution allowance per market, resolved by the producer. */
+  startingCapital?: number
   /** Internal per-submission identity (auto-UUID). Keys the flow's job ids. */
   submissionUid: string
   /** Human-facing group label persisted on the run row (display only here). */

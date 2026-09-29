@@ -39,6 +39,7 @@ export type RunSingleMarketLatency = {
 }
 
 export type RunSingleMarketInput = {
+  startingCapital?: number
   /** Position in the original input list. Used by aggregator to restore order. */
   idx: number
   /** Path to the parquet file (local or fetched). */
@@ -126,7 +127,8 @@ export type RunSingleMarketOutput = {
  *
  * Each call returns a brand-new isolated set of state — no sharing between markets.
  */
-function buildRunnerForMarket(args: {
+export function buildRunnerForMarket(args: {
+  startingCapital?: number
   strategyId: string
   strategyParams: Record<string, unknown>
   strategyDefinition?: StrategyDefinition<unknown>
@@ -158,6 +160,7 @@ function buildRunnerForMarket(args: {
     log: (msg, extra) => console.log(msg, extra ?? ''),
   })
   const runner = new StrategyRunner({
+    ...(args.startingCapital !== undefined ? { startingCapital: args.startingCapital } : {}),
     strategyId: args.strategyId,
     strategyParams: args.strategyParams,
     strategy,
@@ -217,6 +220,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   }
 
   const { runner, pluginSet } = buildRunnerForMarket({
+    ...(input.startingCapital !== undefined ? { startingCapital: input.startingCapital } : {}),
     strategyId: input.strategyId,
     strategyParams: input.strategyParams,
     ...(input.strategyDefinition ? { strategyDefinition: input.strategyDefinition } : {}),

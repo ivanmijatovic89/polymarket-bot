@@ -7,7 +7,28 @@ description: How the Portfolio tracks positions and orders — including fill id
 
 The `Portfolio` class is the in-memory state machine that owns all position and order state. It is the single source of truth for what the bot believes about its current holdings and open orders. Every `AccountEvent` produced by the `OrderManager`, `ExecutionAdapter`, WebSocket feeds, and REST polling flows through `Portfolio.apply()`.
 
-## Position Tracking
+## Execution Capital
+
+`new Portfolio({ startingCapital: 500 })` initializes a market allowance in USDC. The default is **500 USDC**; zero is valid, and negative or non-finite amounts are rejected. Every engine-produced snapshot exposes `capital`:
+
+| Field             | Meaning (USDC)                                                               |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `startingCapital` | Configured starting allowance for this market                                |
+| `cash`            | Starting allowance plus actual cash flows applied so far                     |
+| `reservedCash`    | Remaining BUY obligations, including matched quantities awaiting fill events |
+| `availableCash`   | `cash - reservedCash`                                                        |
+
+BUY fills debit notional plus taker fees; SELL fills credit notional minus taker fees. Maker fills have no fee. Accounting uses the existing fee function and eight-decimal cash arithmetic, independently of the two-decimal cost-basis/PnL presentation. Successful splits debit `splitCost`; successful merges credit the confirmed number of full sets. Failed operations change no cash. Fill IDs and stable split/merge operation IDs prevent duplicate cash movements and duplicate positions.
+
+Reservations use the unexecuted quantity at the BUY limit price plus the current fee allowance. Post-only orders reserve no taker fee. A fill converts that part of the reservation into actual expenditure; it does not charge twice. Ordinary order-status updates never debit cash. A fully matched order remains reserved until its fill events have been applied.
+
+A cancellation request or `cancel_failed` releases nothing. Confirmed closure with a final executed quantity releases only the unused portion; reported matches whose fill events are still missing stay reserved. `order_done.filledSize` provides this cumulative quantity for cancellation/expiry. A live REST cancellation acknowledgement without that quantity closes the order but keeps its unresolved cash reserved until the terminal WebSocket update arrives. If that update is lost, the engine conservatively retains the hold for the market. Late fills still debit exactly once, including after closure or reuse of a client order ID.
+
+`StrategyRunner` adds OrderManager's still-unapplied submissions and successful splits to the cash snapshot passed to **both** strategy callbacks. Thus strategies see all current obligations, including events still queued for delivery. Custom runners must perform the same enrichment and reconcile each applied event; a bare Portfolio snapshot contains only applied account events.
+
+Confirmed sales and merges make cash reusable in the same market, so turnover may exceed starting capital. Unrealized PnL, unfilled sales, and future settlement payouts provide no spendable cash. This is an engine allowance, distinct from live wallet data in `ctx.balance`, aggregate statistics' `INITIAL_CAPITAL`, and the realized-loss threshold `maxLossStop`. See [configuration](../backtest/running-backtests.md#per-market-execution-capital) and [market resets](./strategy-runner.md#market-capital-and-player-resets).
+
+## Positions
 
 Positions are stored in `positionsByAssetId`, a `Map<string, Position>` keyed by CLOB token ID. Each position carries:
 
@@ -18,8 +39,8 @@ Positions are stored in `positionsByAssetId`, a `Map<string, Position>` keyed by
 On a BUY fill, the new quantity and average entry price are computed using running-average accounting:
 
 ```
-newQty       = prev.qty + netSize          (after subtracting base-asset maker fees)
-newCostBasis = prev.costBasis + price × size
+newQty       = prev.qty + size
+newCostBasis = prev.costBasis + price × size + takerFeeUsdc
 avgEntry     = newCostBasis / newQty
 ```
 
@@ -108,7 +129,7 @@ The exchange-ID check also protects replacements that have been submitted but no
 
 `positions_split` mints equal quantities of both YES and NO shares (one collateral unit per share pair). The minted shares are added to `positionsByAssetId` with `avgEntryPrice: null` and `costBasis: 0`. This means subsequent sells of split-minted shares are treated as pure proceeds unless the strategy explicitly models the split cost.
 
-`positions_merged` reduces both positions by the merged quantity (capped at the minimum of the two holdings). Realized PnL is not updated on merge — the cost basis of whatever was sold earlier already captured the P&L.
+`positions_merged` reduces both positions by the merged quantity (capped at the minimum of the two holdings). The existing realized-PnL presentation is not updated on merge. Cash accounting separately credits confirmed collateral proceeds. Consequently, neither split nor merge cash can be reconstructed reliably from `realizedPnlTotal` and remaining cost basis.
 
 ## Memory Bounds
 
@@ -119,7 +140,7 @@ The portfolio is designed to run continuously across many market windows. Key ca
 | `seenFillIds`                    | 50,000             | Oldest 10% dropped     |
 | `ordersByClientIdSnapshot`       | 10,000             | Oldest 10% dropped     |
 | `clientOrderIdByOrderIdSnapshot` | 50,000             | Oldest 10% dropped     |
-| `terminalOrderIds` | 50,000 | Oldest entry dropped |
+| `terminalOrderIds`               | 50,000             | Oldest entry dropped   |
 | `pendingTradeStatusByOrderId`    | 10,000             | Oldest 10% dropped     |
 | `recentFills`                    | 500 (configurable) | Oldest entries spliced |
 | `recentSplits`                   | 500                | Oldest entries spliced |

@@ -26,11 +26,11 @@ stats (`backtest_run_segments`) are written to the database automatically.
 
 `--input-mode` picks both the replayer and the database source:
 
-| Input mode       | Data source                                                                 | Reference                                |
-| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------- |
-| `recorded`       | `markets` table + WS-recorded parquet under `data/events/<symbol>/`         | This page                                |
+| Input mode       | Data source                                                                  | Reference                                      |
+| ---------------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
+| `recorded`       | `markets` table + WS-recorded parquet under `data/events/<symbol>/`          | This page                                      |
 | `telonex-delta`  | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='delta-typed'`) | [Telonex backtest](/datasets/telonex/backtest) |
-| `telonex-paired` | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)     | [Telonex backtest](/datasets/telonex/backtest) |
+| `telonex-paired` | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)      | [Telonex backtest](/datasets/telonex/backtest) |
 
 This page focuses on the default `recorded` mode. For telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — the file-selection flags (`--symbol`, `--slug`, `--dir`, `--limit`, `--random`, `--latest`) work identically; telonex modes additionally require `--read-from local|r2|local-or-download-from-r2-to-local`.
 
@@ -107,7 +107,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 
 | Flag                | Description                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `--strategy <id>`   | **Required.** Strategy identifier (the `definition.id` auto-discovered into `strategyRegistry`).       |
+| `--strategy <id>`   | **Required.** Strategy identifier (the `definition.id` auto-discovered into `strategyRegistry`).      |
 | `--param key=value` | Override a strategy parameter. Repeatable. JSON strings are accepted: `--param assetIds='["a","b"]'`. |
 
 ### File / market selection
@@ -123,11 +123,11 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 
 ### Input-mode / data-source (telonex)
 
-| Flag                            | Description                                                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `--input-mode <mode>`           | `recorded` (default), `telonex-delta`, or `telonex-paired`. See [Telonex backtest](/datasets/telonex/backtest).   |
-| `--read-from <mode>`            | **Required** for telonex modes. `local` (read `local_path`), `r2` (stream `r2_url`), or `local-or-download-from-r2-to-local` (read local if present, else download `r2_url` to the canonical local path then read local). Rejected with `recorded`. |
-| `--timeframe <value>`           | Symbol-filter timeframe segment (e.g. `15m`, `5m`). Default `15m`. Only valid with `--symbol`.                    |
+| Flag                  | Description                                                                                                                                                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--input-mode <mode>` | `recorded` (default), `telonex-delta`, or `telonex-paired`. See [Telonex backtest](/datasets/telonex/backtest).                                                                                                                                     |
+| `--read-from <mode>`  | **Required** for telonex modes. `local` (read `local_path`), `r2` (stream `r2_url`), or `local-or-download-from-r2-to-local` (read local if present, else download `r2_url` to the canonical local path then read local). Rejected with `recorded`. |
+| `--timeframe <value>` | Symbol-filter timeframe segment (e.g. `15m`, `5m`). Default `15m`. Only valid with `--symbol`.                                                                                                                                                      |
 
 ### Replay options
 
@@ -138,20 +138,20 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 
 ### Metadata / tracking
 
-| Flag                | Description                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| `--comment <text>`  | Free-text annotation stored with the run record in the database.                                 |
+| Flag                 | Description                                                                                                                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--comment <text>`   | Free-text annotation stored with the run record in the database.                                                                                                                                                                                         |
 | `--batchUid <label>` | Group label for the run. **Non-unique by design** — give several runs the same label to group them (e.g. every cell of one param sweep), then view them together at `/batches/<label>` in the dashboard. Defaults to the run's internal submission UUID. |
-| `--baselineId <id>` | Reference a prior run for comparison purposes.                                                   |
-| `--protocol <name>` | Research protocol that launched the run. Stored as immutable provenance; launcher environment is usually preferred. |
-| `--model <id>`       | Model id or alias requested by the launcher. Stored as immutable provenance.                    |
+| `--baselineId <id>`  | Reference a prior run for comparison purposes.                                                                                                                                                                                                           |
+| `--protocol <name>`  | Research protocol that launched the run. Stored as immutable provenance; launcher environment is usually preferred.                                                                                                                                      |
+| `--model <id>`       | Model id or alias requested by the launcher. Stored as immutable provenance.                                                                                                                                                                             |
 
 ### Execution mode
 
-| Flag            | Description                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--sequential`  | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).                                                                                                                                                                              |
-| `--detach`      | (BullMQ default only.) Enqueue the flow, print the `batchUid` label + internal `submissionUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch label in the dashboard.                                                                                                                                                                                 |
+| Flag           | Description                                                                                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--sequential` | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).                                     |
+| `--detach`     | (BullMQ default only.) Enqueue the flow, print the `batchUid` label + internal `submissionUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch label in the dashboard. |
 
 ## Execution modes
 
@@ -193,20 +193,37 @@ Runs the per-market loop in-process. No Redis, no worker daemon, no
 parallelism. Useful for quick smoke tests, baseline runs, or
 bit-identical verification against the BullMQ path.
 
+## Per-Market Execution Capital
+
+Every market starts with **500 USDC**, no positions or open orders, and a fresh strategy. Override the allowance with `--starting-capital <USDC>` (also accepts `--starting-capital=<USDC>`), or `STARTING_CAPITAL`. The CLI flag wins over the environment. Values must be finite and non-negative; zero allows no funded BUY or split until actual proceeds exist.
+
+```bash
+npm run backtest -- --strategy winnerLimit.v1 --symbol btc --limit 10 --starting-capital 500 --sequential
+npm run backtest -- --strategy winnerLimit.v1 --symbol btc --limit 10 --starting-capital 500
+```
+
+The producer resolves the amount once and sends it to every market worker; worker environment variables cannot change it. Sequential replay uses the same setting and shared Portfolio/OrderManager enforcement. The recorded command always ends with the resolved `--starting-capital` value, even when the default or environment supplied it. `--extend` inherits this value and rejects overrides. Runs without a recorded capital setting cannot be extended under the funded engine; launch a new run to avoid mixing unbounded and funded results.
+
+The allowance resets independently for each market; PnL and settlement proceeds never carry into the next market. Confirmed sales and merges can fund further trades inside the same market, so turnover is not capped at 500. Pending/open BUYs, fees, and splits consume available funding. Underfunded actions are rejected before adapter dispatch; see [Portfolio cash semantics](../engine/portfolio.md#execution-capital).
+
+`INITIAL_CAPITAL` remains the aggregate statistics baseline (default 1000), and `maxLossStop` remains the realized-loss threshold. Neither configures execution funding.
+
 ## Environment Variables
 
-| Variable                                 | Default                  | Description                                                                                                                     |
-| ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `BACKTEST_LATENCY_DELAY`                 | `0`                      | Simulated round-trip latency in milliseconds applied to every order action (place, cancel).                                     |
-| `BACKTEST_LATENCY_JITTER`                | `20`                     | Symmetric random jitter in milliseconds added to each latency delay. Only applied when `BACKTEST_LATENCY_DELAY > 0`.            |
-| `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
-| `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
-| `BACKTEST_ALLOW_DIRTY`                    | —                        | Set to `1` to let the BullMQ producer enqueue with uncommitted changes in the working tree. Off by default (a dirty tree is blocked) because workers gate on the commit SHA. Only safe for a local `--sequential` run. |
-| `BACKTEST_PROTOCOL`                       | —                        | Research protocol provenance. Used when `--protocol` is absent. Autonomous launchers set this automatically. |
-| `BACKTEST_MODEL`                          | —                        | Requested launch-model id or alias. Used when `--model` is absent. Autonomous launchers set this automatically. |
-| `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
-| `DASHBOARD_PORT`                         | `3051`                   | Port for `npm run dashboard` (Next.js). 3001 is reserved for the live WebUI.                                                    |
-| `BULL_BOARD_PORT`                        | `3052`                   | Port for `npm run bull-board` (raw queue inspector). Dashboard nav reads this server-side and links to it.                      |
+`STARTING_CAPITAL` defaults to `500` USDC per market and is overridden by `--starting-capital`.
+
+| Variable                                 | Default                  | Description                                                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BACKTEST_LATENCY_DELAY`                 | `0`                      | Simulated round-trip latency in milliseconds applied to every order action (place, cancel).                                                                                                                            |
+| `BACKTEST_LATENCY_JITTER`                | `20`                     | Symmetric random jitter in milliseconds added to each latency delay. Only applied when `BACKTEST_LATENCY_DELAY > 0`.                                                                                                   |
+| `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts.                                                                                        |
+| `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                                                                                                        |
+| `BACKTEST_ALLOW_DIRTY`                   | —                        | Set to `1` to let the BullMQ producer enqueue with uncommitted changes in the working tree. Off by default (a dirty tree is blocked) because workers gate on the commit SHA. Only safe for a local `--sequential` run. |
+| `BACKTEST_PROTOCOL`                      | —                        | Research protocol provenance. Used when `--protocol` is absent. Autonomous launchers set this automatically.                                                                                                           |
+| `BACKTEST_MODEL`                         | —                        | Requested launch-model id or alias. Used when `--model` is absent. Autonomous launchers set this automatically.                                                                                                        |
+| `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                                                                                                            |
+| `DASHBOARD_PORT`                         | `3051`                   | Port for `npm run dashboard` (Next.js). 3001 is reserved for the live WebUI.                                                                                                                                           |
+| `BULL_BOARD_PORT`                        | `3052`                   | Port for `npm run bull-board` (raw queue inspector). Dashboard nav reads this server-side and links to it.                                                                                                             |
 
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.
@@ -287,7 +304,7 @@ to the backtest result tables:
 2. **Batch stats** — aggregated metrics printed at the end and stored in the
    `backtest_run_segments` `all` row.
 3. **Per-segment stats** — `all`, `last_n` tails (default `[500, 1000, 3000,
-   6000]`), and `daily` / `weekly` / `monthly` calendar buckets, stored as one
+6000]`), and `daily` / `weekly` / `monthly` calendar buckets, stored as one
    row each in `backtest_run_segments`.
 
 The row also carries:

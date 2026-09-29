@@ -15,6 +15,8 @@ import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 import { printCliArgsError, resolveStrategyFromCliArgs } from './helpers/strategyArgs.js'
+import { resolveStartingCapital } from './helpers/capitalArgs.js'
+import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { createBalanceTracker } from '../blockchain/balanceTracker.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
@@ -151,6 +153,7 @@ async function main(): Promise<void> {
   // Safe by default: an UNSET DRY_RUN means dry-run — real orders require an
   // explicit DRY_RUN=false in the environment (matches CLAUDE.md / docs).
   const dryRun = (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
+  const startingCapital = resolveStartingCapital(process.argv.slice(2))
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
@@ -544,6 +547,19 @@ async function main(): Promise<void> {
     Math.trunc(Number(process.env.SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS ?? '15') || 0) * 1000,
   )
   const runner = new StrategyRunner({
+    startingCapital,
+    createStrategy: () => {
+      const definition = built.definition ?? getStrategyDefinition(built.strategyId)
+      const fresh = definition.create(built.params)
+      pluginSet = fresh.pluginSet ?? new PluginSet()
+      if (!fresh.pluginSet) for (const plugin of fresh.plugins ?? []) pluginSet.register(plugin)
+      if (feedsStore) {
+        const request = pluginSet.list().find(isExternalFeedsRequestPlugin)
+        if (request) request.fulfill(() => feedsStore.snapshot())
+        else pluginSet.register(new ExternalFeedsPlugin(() => feedsStore.snapshot()))
+      }
+      return { strategy: fresh.strategy, pluginSet }
+    },
     strategyId: built.strategyId,
     strategyParams: built.params,
     externalFeedsEnabled: {

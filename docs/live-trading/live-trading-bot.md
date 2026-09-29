@@ -112,29 +112,41 @@ When `POLYMARKET_TX_MODE_SPLIT=relayer` is set, the bot checks EOA and SAFE bala
 If the startup balance/approval check fails in relayer mode, the bot exits with code 1. Fix EOA and SAFE approvals (using the `eoa:approve` and `relayer:approve` scripts) before restarting.
 :::
 
+## Per-Market Execution Allowance
+
+The shared engine starts each market with a 500-USDC spending allowance. Set `--starting-capital <USDC>` or `STARTING_CAPITAL`; the CLI flag takes precedence. Amounts must be finite and non-negative.
+
+```bash
+DRY_RUN=true npm run trade:bot:btc -- --strategy winnerLimit.v1 --starting-capital 500
+```
+
+Live rotation creates fresh strategy/plugin state and a fresh Portfolio, requests cancellation of old resting orders, and drops undispatched old decisions. Delayed fills and operation results stay with their original market. A new allowance does not deposit funds: actual wallet balances remain in `ctx.balance`, and the exchange can reject an engine-affordable order if the wallet is underfunded. See [reservation and cancellation rules](../engine/portfolio.md#execution-capital).
+
 ## Environment variable reference
 
-| Variable                                   | Default                   | Description                                                                       |
-| ------------------------------------------ | ------------------------- | --------------------------------------------------------------------------------- |
-| `DRY_RUN`                                  | `true`                    | Real orders ONLY when set to exactly `false`; anything else (incl. unset) = dry-run     |
-| `TRADING_SYMBOL`                           | —                         | Required. `BTC`, `ETH`, `SOL`, or `XRP`                                           |
-| `RECORD_SYMBOL`                            | —                         | Fallback if `TRADING_SYMBOL` is unset                                             |
-| `BOT_ENV`                                  | —                         | If set, loads `.env.<BOT_ENV>` with override priority over `.env`                 |
-| `LOG_LEVEL`                                | `info`                    | `debug`, `info`, `warn`, or `error`                                               |
-| `LOG_TRADES`                               | `false`                   | Log every intent dispatch to the console                                          |
-| `LOG_TO_FILE`                              | `false`                   | Write structured JSONL logs to `logs/trading-bot/`                                |
-| `ENABLE_WEB_UI`                            | `false`                   | Enable the built-in browser dashboard                                             |
-| `WEB_UI_HOST`                              | `0.0.0.0`                 | Interface the web UI listens on                                                   |
-| `WEB_UI_PORT`                              | —                         | Required when `ENABLE_WEB_UI=true`                                                |
-| `WEB_UI_REFRESH_MS`                        | `250`                     | UI polling interval in ms (minimum 50)                                            |
-| `WEB_UI_ORDERBOOK_LEVELS`                  | `8`                       | Order book depth levels shown in the UI                                           |
-| `BOT_INSTANCE_ID`                          | —                         | Arbitrary label shown in the web UI title bar                                     |
-| `USER_WS_FILL_AT_STATUS`                   | —                         | `MATCHED`, `MINED`, or `CONFIRMED` — controls when fills trigger `onAccountEvent` |
-| `SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS` | `15`                      | Skip the current window if the bot started this many seconds after the boundary   |
-| `INTENT_EXECUTION_MODE`                    | `immediate`               | `immediate` or `queued`                                                           |
-| `MAX_EVENTS_PER_DRAIN` | `4200` | Account-event limit per drain cycle in both execution modes; shared with backtests |
-| `BALANCE_REFRESH_COOLDOWN_MS`              | `5000`                    | Minimum interval between on-chain balance polls                                   |
-| `POLYGON_RPC_URL`                          | `https://polygon-rpc.com` | RPC endpoint for balance and approval checks                                      |
+`STARTING_CAPITAL` defaults to `500` USDC per market; `--starting-capital` overrides it.
+
+| Variable                                   | Default                   | Description                                                                         |
+| ------------------------------------------ | ------------------------- | ----------------------------------------------------------------------------------- |
+| `DRY_RUN`                                  | `true`                    | Real orders ONLY when set to exactly `false`; anything else (incl. unset) = dry-run |
+| `TRADING_SYMBOL`                           | —                         | Required. `BTC`, `ETH`, `SOL`, or `XRP`                                             |
+| `RECORD_SYMBOL`                            | —                         | Fallback if `TRADING_SYMBOL` is unset                                               |
+| `BOT_ENV`                                  | —                         | If set, loads `.env.<BOT_ENV>` with override priority over `.env`                   |
+| `LOG_LEVEL`                                | `info`                    | `debug`, `info`, `warn`, or `error`                                                 |
+| `LOG_TRADES`                               | `false`                   | Log every intent dispatch to the console                                            |
+| `LOG_TO_FILE`                              | `false`                   | Write structured JSONL logs to `logs/trading-bot/`                                  |
+| `ENABLE_WEB_UI`                            | `false`                   | Enable the built-in browser dashboard                                               |
+| `WEB_UI_HOST`                              | `0.0.0.0`                 | Interface the web UI listens on                                                     |
+| `WEB_UI_PORT`                              | —                         | Required when `ENABLE_WEB_UI=true`                                                  |
+| `WEB_UI_REFRESH_MS`                        | `250`                     | UI polling interval in ms (minimum 50)                                              |
+| `WEB_UI_ORDERBOOK_LEVELS`                  | `8`                       | Order book depth levels shown in the UI                                             |
+| `BOT_INSTANCE_ID`                          | —                         | Arbitrary label shown in the web UI title bar                                       |
+| `USER_WS_FILL_AT_STATUS`                   | —                         | `MATCHED`, `MINED`, or `CONFIRMED` — controls when fills trigger `onAccountEvent`   |
+| `SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS` | `15`                      | Skip the current window if the bot started this many seconds after the boundary     |
+| `INTENT_EXECUTION_MODE`                    | `immediate`               | `immediate` or `queued`                                                             |
+| `MAX_EVENTS_PER_DRAIN`                     | `4200`                    | Account-event limit per drain cycle in both execution modes; shared with backtests  |
+| `BALANCE_REFRESH_COOLDOWN_MS`              | `5000`                    | Minimum interval between on-chain balance polls                                     |
+| `POLYGON_RPC_URL`                          | `https://polygon-rpc.com` | RPC endpoint for balance and approval checks                                        |
 
 ## Enabling the web UI
 

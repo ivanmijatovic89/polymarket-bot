@@ -19,6 +19,8 @@ import type {
   SplitPositionsIntent,
 } from '../strategy/Strategy.js'
 import { enforceRiskLimits } from './riskLimits.js'
+import { buyCommitment } from './capital.js'
+import { round8 } from './utils/rounding.js'
 import {
   cancelFailed,
   matchesCancelScope,
@@ -103,22 +105,66 @@ export class OrderManager {
   // Internal dedupe of clientOrderId to avoid spamming the same intent every tick.
   private readonly activeClientOrders = new Set<ClientOrderId>()
   // Emitted submissions may still be waiting behind an earlier order's terminal event.
-  private readonly unappliedSubmissions = new Map<ClientOrderId, OpenOrder>()
+  private readonly unappliedSubmissions = new Set<OpenOrder>()
+  private readonly unappliedSplits = new Map<AccountEvent, number>()
+  private readonly unappliedMerges = new Map<
+    AccountEvent,
+    { assetIdA: string; assetIdB: string; size: number }
+  >()
+  private operationSeq = 0
+
+  private hasUnappliedSubmission(clientOrderId: string): boolean {
+    return [...this.unappliedSubmissions].some((order) => order.clientOrderId === clientOrderId)
+  }
+
+  /** Add obligations emitted by this manager but not yet applied by Portfolio. */
+  withPendingCapital(portfolio: PortfolioSnapshot): PortfolioSnapshot {
+    if (!portfolio.capital) return portfolio
+    let pending = 0
+    for (const order of this.unappliedSubmissions.values()) {
+      if (order.side === 'BUY')
+        pending += buyCommitment(order.price, order.remaining, order.postOnly)
+    }
+    for (const cost of this.unappliedSplits.values()) pending += cost
+    if (pending === 0) return portfolio
+    const capital = portfolio.capital
+    const reservedCash = round8(capital.reservedCash + pending)
+    return {
+      ...portfolio,
+      capital: Object.freeze({
+        ...capital,
+        reservedCash,
+        availableCash: round8(capital.cash - reservedCash),
+      }),
+    }
+  }
+
+  /** Undispatched decisions belong to the old episode, never to the next market. */
+  beginMarket(): void {
+    this.pendingIntents = []
+    this.activeClientOrders.clear()
+    this.unappliedSubmissions.clear()
+    this.unappliedSplits.clear()
+    this.unappliedMerges.clear()
+  }
+
+  private fundingError(cost: number, ctx: OrderManagerContext): string | null {
+    const capital = ctx.portfolio && this.withPendingCapital(ctx.portfolio).capital
+    if (!capital || cost <= capital.availableCash + 1e-8) return null
+    return `insufficient_capital(required=${cost},available=${capital.availableCash})`
+  }
 
   // Optional 1-tick latency mode: intents submitted on tick N execute on tick N+1.
   private pendingIntents: Intent[] = []
 
   /** Reconcile asynchronous WS/fill events after Portfolio has applied them. */
   reconcileActiveOrders(portfolio: PortfolioSnapshot, event: AccountEvent): void {
-    if (
-      event.kind === 'order_submitted' &&
-      this.unappliedSubmissions.get(event.order.clientOrderId) === event.order
-    ) {
-      this.unappliedSubmissions.delete(event.order.clientOrderId)
-    }
+    this.unappliedSplits.delete(event)
+    this.unappliedMerges.delete(event)
+    if (event.kind === 'order_submitted') this.unappliedSubmissions.delete(event.order)
     for (const cid of this.activeClientOrders) {
       if (
-        !this.unappliedSubmissions.has(cid) &&
+        !this.hasUnappliedSubmission(cid) &&
         portfolio.ordersByClientId[cid] &&
         !portfolio.openOrdersByClientId[cid]
       ) {
@@ -323,8 +369,24 @@ export class OrderManager {
       ]
     }
 
+    const fundingError = this.fundingError(size, ctx)
+    if (fundingError)
+      return [
+        {
+          kind: 'split_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: size,
+          reason: fundingError,
+        },
+      ]
+
     // Split is not an order and should not be deduped by clientOrderId. Delegate to execution.
     const res = await this.execution.splitPositions(intent, ctx)
+    for (const event of res.events) {
+      if (event.kind === 'positions_split') this.unappliedSplits.set(event, event.split.splitCost)
+    }
     return res.events
   }
 
@@ -333,7 +395,7 @@ export class OrderManager {
     ctx: OrderManagerContext,
   ): Promise<AccountEvent[]> {
     const nowMs = ctx.nowMs
-    const size = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    let size = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
       return [
         {
@@ -347,22 +409,52 @@ export class OrderManager {
       ]
     }
     if (size <= 0) return []
+    if (ctx.portfolio) {
+      const available = (assetId: string) => {
+        let qty = ctx.portfolio!.positionsByAssetId[assetId]?.qty ?? 0
+        for (const pending of this.unappliedMerges.values()) {
+          if (pending.assetIdA === assetId || pending.assetIdB === assetId) qty -= pending.size
+        }
+        return Math.max(0, qty)
+      }
+      size = Math.min(size, available(intent.assetIdA), available(intent.assetIdB))
+      if (size <= 0)
+        return [
+          {
+            kind: 'merge_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: intent.size,
+            reason: 'insufficient_uncommitted_positions',
+          },
+        ]
+    }
 
     if (this.dryRun) {
       // Dry-run: treat as successful merge for strategy wiring tests.
-      return [
-        {
-          kind: 'positions_merged',
-          tsMs: nowMs,
-          assetIdA: intent.assetIdA,
-          assetIdB: intent.assetIdB,
-          size,
-          ...(intent.reason ? { reason: intent.reason } : {}),
-        },
-      ]
+      const event: AccountEvent = {
+        kind: 'positions_merged',
+        id: `dry-merge:${++this.operationSeq}`,
+        ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+        tsMs: nowMs,
+        assetIdA: intent.assetIdA,
+        assetIdB: intent.assetIdB,
+        size,
+        ...(intent.reason ? { reason: intent.reason } : {}),
+      }
+      this.unappliedMerges.set(event, {
+        assetIdA: intent.assetIdA,
+        assetIdB: intent.assetIdB,
+        size,
+      })
+      return [event]
     }
 
-    const res = await this.execution.mergePositions(intent, ctx)
+    const res = await this.execution.mergePositions({ ...intent, size }, ctx)
+    for (const event of res.events) {
+      if (event.kind === 'positions_merged') this.unappliedMerges.set(event, event)
+    }
     return res.events
   }
 
@@ -375,7 +467,11 @@ export class OrderManager {
     this.activeClientOrders.add(intent.clientOrderId)
 
     const nowMs = ctx.nowMs
-    const err = this.validatePlaceLimit(intent, nowMs)
+    const err =
+      this.validatePlaceLimit(intent, nowMs) ??
+      (intent.side === 'BUY'
+        ? this.fundingError(buyCommitment(intent.price, intent.size, intent.postOnly), ctx)
+        : null)
     if (err) {
       this.activeClientOrders.delete(intent.clientOrderId)
       return [
@@ -407,7 +503,7 @@ export class OrderManager {
     }
 
     const events: AccountEvent[] = [{ kind: 'order_submitted', tsMs: nowMs, order: submitted }]
-    this.unappliedSubmissions.set(intent.clientOrderId, submitted)
+    this.unappliedSubmissions.add(submitted)
 
     if (this.dryRun) {
       // In dry-run, we simulate acceptance so strategies can observe lifecycle without sending orders.
@@ -488,6 +584,9 @@ export class OrderManager {
       ...(clientOrderId ? { clientOrderId } : {}),
       ...(orderId ? { orderId } : {}),
       reason: 'canceled',
+      filledSize: clientOrderId
+        ? (ctx.portfolio?.openOrdersByClientId[clientOrderId]?.filled ?? 0)
+        : 0,
     }))
   }
 
@@ -566,7 +665,11 @@ export class OrderManager {
       // Dedupe by clientOrderId
       if (this.activeClientOrders.has(order.clientOrderId)) continue
 
-      const err = this.validatePlaceLimitOrder(order, nowMs)
+      const err =
+        this.validatePlaceLimitOrder(order, nowMs) ??
+        (order.side === 'BUY'
+          ? this.fundingError(buyCommitment(order.price, order.size, order.postOnly), ctx)
+          : null)
       if (err) {
         events.push({
           kind: 'order_rejected',
@@ -598,7 +701,7 @@ export class OrderManager {
       }
 
       events.push({ kind: 'order_submitted', tsMs: nowMs, order: submitted })
-      this.unappliedSubmissions.set(order.clientOrderId, submitted)
+      this.unappliedSubmissions.add(submitted)
       validOrders.push({ order, submitted })
     }
 
