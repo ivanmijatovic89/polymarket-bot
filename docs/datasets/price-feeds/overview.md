@@ -111,6 +111,9 @@ public dumps are free and identical.
 
 ## Status
 
+For standalone measurements before choosing market gap limits, see
+[Feed gap trials](./coverage-checks.md).
+
 All three feeds are **IMPLEMENTED** and strategy-driven (declared via
 `ExternalFeedsRequestPlugin`; backtests fulfill them automatically, like
 live). The details below live on the per-feed pages:
