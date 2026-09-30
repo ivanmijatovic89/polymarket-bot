@@ -54,6 +54,11 @@ export function CoverageSection({ id }: { id: number }) {
         subtitle={`Run targeted ${meta.symbol}/${meta.timeframe} via ${meta.converter} (${meta.readFrom}). Compared against all eligible markets since ${new Date(meta.eligibleFromMs).toISOString().slice(0, 10)}.`}
         icon={Layers}
       />
+      {!meta.feedRequirementsRecorded && (
+        <p className="text-sm text-muted-foreground">
+          This older run did not record its feed requirements. Coverage shows orderbook availability only.
+        </p>
+      )}
       <Card className="space-y-4 p-4">
         <CoverageSummary summary={report.summary} meta={meta} />
         <CoverageHeatmap

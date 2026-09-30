@@ -14,6 +14,9 @@ const columns = {
     marketStartMs: telonexMarkets.marketStartMs,
     telonexStatus: telonexMarkets.telonexStatus,
     resultId: telonexMarkets.resultId,
+    binanceUsable: telonexMarkets.binanceUsable,
+    chainlinkUsable: telonexMarkets.chainlinkUsable,
+    priceToBeat: telonexMarkets.priceToBeat,
   },
   conversions: {
     converter: telonexMarketConversions.converter,

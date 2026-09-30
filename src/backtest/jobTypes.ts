@@ -1,3 +1,4 @@
+import type { TelonexFeedEligibility } from '../db/telonexEligibility.js'
 import type { MarketStats } from './stats/marketStats.js'
 import type { MarketResolution } from './stats/marketResolution.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
@@ -66,6 +67,7 @@ export type AggregateJobData = {
   expectedMarkets: Array<{ idx: number; slug: string | null }>
   initialCapital: number
   insertMeta: {
+    feedEligibility?: TelonexFeedEligibility | null
     baselineId: string | null
     cmd: string
     comment: string | null

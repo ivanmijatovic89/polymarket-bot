@@ -1,3 +1,4 @@
+import type { TelonexFeedEligibility } from './telonexEligibility.js'
 import {
   mysqlTable,
   text,
@@ -101,6 +102,7 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    feedEligibility: json('feed_eligibility').$type<TelonexFeedEligibility | null>(),
     // External strategy artifact provenance (issue #211). Null for registry
     // strategies. The sha is what `--extend` needs to reload the exact code;
     // the meta json (r2Url, sourceRepo, sourceCommit, sourceDirty,
@@ -426,6 +428,11 @@ export const telonexMarkets = mysqlTable(
     priceToBeat: double('price_to_beat'),
     finalPrice: double('final_price'),
     gammaMetadataSyncedAt: timestamp('gamma_metadata_synced_at'),
+
+    // Per-market gap checks for the market's own feeds, using the fixed 10s rule.
+    // NULL = not checked; true/false = last successful check. No price-to-beat flag.
+    binanceUsable: boolean('binance_usable'),
+    chainlinkUsable: boolean('chainlink_usable'),
 
     // Local pipeline state (Step 1)
     uploadStatus: mysqlEnum('upload_status', ['pending', 'processing', 'done', 'partial', 'failed'])

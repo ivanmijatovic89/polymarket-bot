@@ -52,6 +52,14 @@ per distinct symbol regardless of how many timeframes are requested.
 `data:sync` adds no sync logic of its own — it only sequences the commands
 above and reports. Each underlying command stays independently runnable.
 
+The Binance and Chainlink **upload commands** also verify the ten-second feed
+coverage rule and save their respective market flags after successful mirroring.
+They do this even when no upload was needed, for every eligible timeframe of the
+symbol. Main sync therefore needs no separate checker steps. `--dry-run` checks
+without saving. Fleet and single-worker pulls do not update these flags. See
+[Feed coverage checks](/datasets/price-feeds/coverage-checks) for repair commands,
+unknown-file handling, and selection rules.
+
 ## One mechanism for every situation
 
 Because every underlying command is idempotent and incremental (self-healing

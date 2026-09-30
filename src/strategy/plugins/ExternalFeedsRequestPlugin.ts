@@ -95,3 +95,14 @@ export function isExternalFeedsRequestPlugin(p: Plugin): p is ExternalFeedsReque
     dup.config !== null
   )
 }
+
+/** Match the plugin precedence used when constructing a strategy runner. */
+export function externalFeedsRequest(built: {
+  pluginSet?: { list(): Plugin[] }
+  plugins?: Plugin[]
+}): ExternalFeedsRequestConfig {
+  return (
+    (built.pluginSet?.list() ?? built.plugins ?? []).find(isExternalFeedsRequestPlugin)?.config ??
+    {}
+  )
+}

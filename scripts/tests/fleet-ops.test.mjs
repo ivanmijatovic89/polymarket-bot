@@ -430,3 +430,55 @@ test('fleet lock safely reclaims a lock owned by a dead process', () => {
   assert.equal(existsSync(lockDir), false, 'the exit trap should release the reclaimed lock')
   rmSync(dir, { recursive: true, force: true })
 })
+
+test('feed verification preserves pending uploads and does not count known gaps as sync backlog', () => {
+  const report = (finding) =>
+    runFormatter(dataFormatter, [
+      {
+        host: 'producer',
+        role: 'producer',
+        dryRun: true,
+        rc: 0,
+        stdoutLines: ['[data:sync] summary:', `  OK binance-upload-btc 1.0s — ${finding}`],
+      },
+    ])
+  const pending = report('to-upload=2; usable=95 unusable=4 unverified=1 total=100 flags-to-save=5')
+  assert.equal(pending.status, 1)
+  assert.match(pending.stdout, /BEHIND \(8\)/)
+  const checked = report('to-upload=0; usable=95 unusable=5 unverified=0 total=100')
+  assert.equal(checked.status, 0)
+  assert.match(checked.stdout, /FLEET SYNCED/)
+})
+
+test('main sync calls each feed upload once across timeframes; worker sync only pulls', () => {
+  const plan = (role) =>
+    spawnSync(
+      tsx,
+      [
+        path.join(repo, 'src/cli/data-sync.ts'),
+        '--role',
+        role,
+        '--market',
+        'btc:5m',
+        '--market',
+        'btc:15m',
+        '--dry-run',
+        '--plan',
+      ],
+      { encoding: 'utf8' },
+    )
+  const main = plan('main')
+  assert.equal(main.status, 0, main.stderr)
+  assert.equal(main.stdout.match(/src\/binance\/upload-aggtrades-r2.ts/g)?.length, 1)
+  assert.equal(
+    main.stdout.match(/src\/telonex\/cryptoPrices\/upload-crypto-prices-r2.ts/g)?.length,
+    1,
+  )
+  assert.doesNotMatch(main.stdout, /check-coverage.ts/)
+  assert.match(main.stdout, /upload-aggtrades-r2.ts --symbol btc --dry-run/)
+  const worker = plan('worker')
+  assert.equal(worker.status, 0, worker.stderr)
+  assert.doesNotMatch(worker.stdout, /upload-|check-coverage/)
+  assert.match(worker.stdout, /download-aggtrades-r2-to-local.ts/)
+  assert.match(worker.stdout, /download-crypto-prices-r2-to-local.ts/)
+})

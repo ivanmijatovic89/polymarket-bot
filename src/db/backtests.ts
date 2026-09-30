@@ -1,3 +1,4 @@
+import type { TelonexFeedEligibility } from './telonexEligibility.js'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchStats, BatchStatsFields } from '../backtest/stats/batchStats.js'
 import {
@@ -98,6 +99,7 @@ export type BacktestRunSummary = {
 }
 
 type InsertBacktestRunRow = {
+  feedEligibility?: TelonexFeedEligibility | null
   batchUid: string
   submissionUid: string
   baselineId: string | null
@@ -410,6 +412,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         model: row.model,
         strategy: row.strategy,
         params: row.params,
+        feedEligibility: row.feedEligibility ?? null,
         strategyArtifactSha256: row.strategyArtifactSha256 ?? null,
         strategyArtifactMeta: row.strategyArtifactMeta ?? null,
         symbol: row.symbol,
@@ -667,6 +670,7 @@ export async function getCoveredRangeForRun(
 
 /** Subset of `backtest_runs` columns needed to plan an extension. */
 export type ExtensibleRun = {
+  feedEligibility: TelonexFeedEligibility | null
   id: number
   batchUid: string
   protocol: string | null
@@ -714,6 +718,7 @@ export async function getRunForExtension(
       cmd: backtestRuns.cmd,
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
+      feedEligibility: backtestRuns.feedEligibility,
       strategyArtifactSha256: backtestRuns.strategyArtifactSha256,
       strategyArtifactMeta: backtestRuns.strategyArtifactMeta,
       symbol: backtestRuns.symbol,
@@ -750,6 +755,7 @@ export async function getRunForExtension(
       cmd: row.cmd,
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
+      feedEligibility: row.feedEligibility ?? null,
       strategyArtifactSha256: row.strategyArtifactSha256,
       strategyArtifactMeta: row.strategyArtifactMeta ?? null,
       symbol: row.symbol!,

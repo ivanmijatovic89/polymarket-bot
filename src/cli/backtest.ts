@@ -1,11 +1,10 @@
+import type { TelonexFeedEligibility } from '../db/telonexEligibility.js'
 import '../config/env.js'
 import { getCurrentGitSha, getMachineId, isWorkingTreeDirty } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
 import {
-  buildStrategyFromConfig,
   printCliArgsError,
-  resolveStrategyFromArtifact,
   resolveStrategyFromCliArgs,
   type ResolveStrategyResult,
 } from './helpers/strategyArgs.js'
@@ -65,7 +64,9 @@ import {
   getMarketsBySlugs as getTelonexMarketsBySlugs,
   getMarketBySlug as getTelonexMarketBySlug,
   getGammaMetadataBySlugs,
-  listEligibleTelonexMarkets,
+  selectEligibleTelonexMarkets,
+  summarizeTelonexEligibility,
+  requireTelonexSelectionSize,
   type Market as TelonexMarket,
   type Converter,
   type ReadFrom,
@@ -89,7 +90,7 @@ import {
   CRYPTO_PRICES_COVERAGE_FROM,
   CRYPTO_PRICES_COVERAGE_FROM_MS,
 } from '../telonex/cryptoPrices/paths.js'
-import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { externalFeedsRequest } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import {
   aggTradesDayPath,
   defaultBinanceFeedSymbol,
@@ -280,6 +281,7 @@ async function main(): Promise<void> {
       `[backtest] Direction: ${plan.direction}${plan.direction === 'backward' ? ' (just before covered)' : plan.direction === 'forward' ? ' (just after covered)' : ''}`,
     )
     console.log(`[backtest] Extending by ${plan.candidates.length} markets${limitTag}`)
+    console.log('[backtest] feed eligibility:', JSON.stringify(plan.feedEligibility.summary))
     const firstMs = plan.candidates[0]?.marketStartMs
     const lastMs = plan.candidates[plan.candidates.length - 1]?.marketStartMs
     if (firstMs !== undefined && lastMs !== undefined) {
@@ -310,27 +312,7 @@ async function main(): Promise<void> {
   // Persist the resolved allowance even when it came from an environment variable or default.
   const cmd = `${buildBacktestCmdWithBatchUid(args, batchUid)} --starting-capital ${startingCapital}`
   const built: ResolveStrategyResult = isExtend
-    ? await (async () => {
-        try {
-          const parent = planOk!.parent
-          // Artifact runs rehydrate the exact published code from the sha
-          // persisted on the parent row; registry runs stay sync as before.
-          return parent.strategyArtifactSha256
-            ? await resolveStrategyFromArtifact({
-                sha256: parent.strategyArtifactSha256,
-                rawParams: parent.params,
-                allowRegistryIdCollision: true,
-                fallbackMeta: parent.strategyArtifactMeta,
-              })
-            : buildStrategyFromConfig({
-                strategyId: parent.strategy,
-                rawParams: parent.params,
-              })
-        } catch (err) {
-          printCliArgsError({ script: 'backtest', err })
-          process.exit(2)
-        }
-      })()
+    ? planOk!.built
     : await (async () => {
         try {
           return await resolveStrategyFromCliArgs({ argv: args, script: 'backtest' })
@@ -339,6 +321,9 @@ async function main(): Promise<void> {
           process.exit(2)
         }
       })()
+
+  const requiredFeeds = externalFeedsRequest(built)
+  let feedEligibility: TelonexFeedEligibility | null = planOk?.feedEligibility ?? null
 
   // Override the effective input shape for extend so downstream code (logging,
   // per-market loop, marketContexts builder) sees what the parent run is.
@@ -452,9 +437,20 @@ async function main(): Promise<void> {
     if (parsed.slugs && parsed.slugs.length > 0) {
       try {
         const uniqueSlugs = Array.from(new Set(parsed.slugs))
+        const summary = await summarizeTelonexEligibility({
+          converter: conv,
+          readFrom: rf,
+          requiredFeeds,
+          slugs: uniqueSlugs,
+          fromMs: 0,
+          resolvedOnly: false,
+        })
+        feedEligibility = { version: 1, maxGapMs: 10000, requiredFeeds, summary }
+        console.log('[backtest] feed eligibility:', JSON.stringify(summary))
         const results = await getTelonexMarketsBySlugs(uniqueSlugs, {
           converter: conv,
           readFrom: rf,
+          requiredFeeds,
         })
         const marketMap = new Map(results.map((m) => [m.slug, m] as const))
         const found = uniqueSlugs
@@ -464,7 +460,7 @@ async function main(): Promise<void> {
         const missing = uniqueSlugs.filter((slug) => !marketMap.has(slug))
         if (missing.length > 0) {
           console.warn(
-            `[backtest] no ${conv} conversion for slug(s): ${missing.join(', ')}, skipping`,
+            `[backtest] Ineligible slug(s) for ${conv} and requested feeds: ${missing.join(', ')}, skipping`,
           )
         }
         filePaths = found
@@ -485,11 +481,12 @@ async function main(): Promise<void> {
       }
     } else if (parsed.symbol) {
       try {
-        const results = await listEligibleTelonexMarkets({
+        const selection = await selectEligibleTelonexMarkets({
           symbol: parsed.symbol,
           timeframe: parsed.timeframe,
           converter: conv,
           readFrom: rf,
+          requiredFeeds,
           // No --limit means the FULL eligible universe. The module's legacy
           // 1000-row default must never silently truncate a "full" run
           // (P-008); same explicit-ceiling contract as the extension planner.
@@ -502,6 +499,10 @@ async function main(): Promise<void> {
           ...(parsed.fromMs !== undefined && { fromMs: parsed.fromMs }),
           ...(parsed.toMs !== undefined && { toMs: parsed.toMs }),
         })
+        feedEligibility = { version: 1, maxGapMs: 10000, requiredFeeds, summary: selection.summary }
+        console.log('[backtest] feed eligibility:', JSON.stringify(selection.summary))
+        requireTelonexSelectionSize(parsed.limit, selection.summary.eligible)
+        const results = selection.markets
         const withDataset = results.filter((m) => m.dataset !== null && m.dataset.trim() !== '')
         const missingDataset = results.length - withDataset.length
         if (missingDataset > 0) {
@@ -626,14 +627,10 @@ async function main(): Promise<void> {
   // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed
   // fulfilled per market inside runSingleMarket. The producer only needs the
   // requested symbol here for the missing-day-files preflight.
-  const feedsRequestPlugin = (built.plugins ?? built.pluginSet?.list() ?? []).find(
-    isExternalFeedsRequestPlugin,
-  )
-  const feedsBinanceRequested = Boolean(feedsRequestPlugin?.config.binanceWsSpotPrice)
+  const feedsBinanceRequested = Boolean(requiredFeeds.binanceWsSpotPrice)
   // Explicit strategy symbol, or null when the pair follows each market's slug
   // (the wiring in runSingleMarket derives it the same way).
-  const feedsBinanceSymbol =
-    feedsRequestPlugin?.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase() || null
+  const feedsBinanceSymbol = requiredFeeds.binanceWsSpotPrice?.symbol?.trim().toLowerCase() || null
   if (feedsBinanceRequested) {
     console.log(
       `[backtest] external feeds: binanceWsSpotPrice symbol=${feedsBinanceSymbol ?? '(derived per market slug)'}`,
@@ -642,8 +639,7 @@ async function main(): Promise<void> {
   // priceToBeat feed: the producer resolves the Gamma-backfilled strike per
   // market (workers stay DB-free). Catalog-wide lookup (no conversion join),
   // so recorded-mode backtests get it too.
-  const feedsPriceToBeatRequested =
-    feedsRequestPlugin?.config.polymarketPriceToBeat?.enabled === true
+  const feedsPriceToBeatRequested = requiredFeeds.polymarketPriceToBeat?.enabled === true
   if (feedsPriceToBeatRequested) {
     console.log(
       '[backtest] external feeds: polymarketPriceToBeat (from telonex_markets.price_to_beat)',
@@ -651,7 +647,7 @@ async function main(): Promise<void> {
   }
   // rtds chainlink feed (Telonex crypto_prices): explicit symbol, or null when
   // it follows each market's slug (the wiring derives it the same way).
-  const feedsRtdsReq = feedsRequestPlugin?.config.rtdsCryptoPrices
+  const feedsRtdsReq = requiredFeeds.rtdsCryptoPrices
   const feedsChainlinkSymbol = feedsRtdsReq?.chainlinkSymbols?.[0]?.trim().toLowerCase() || null
   if (feedsRtdsReq) {
     console.log(
@@ -1121,6 +1117,7 @@ async function main(): Promise<void> {
         model: provenance.model,
         strategy: built.strategyId,
         params: built.params as Record<string, unknown>,
+        feedEligibility,
         strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
         strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
         symbol: parsed.symbol ?? null,
@@ -1228,6 +1225,7 @@ async function main(): Promise<void> {
       model: provenance.model,
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
+      feedEligibility,
       strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
       strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
       symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),

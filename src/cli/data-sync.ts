@@ -373,7 +373,7 @@ function runChild(
 
 /** Lines worth surfacing in the final summary — the children's own counts. */
 const FINDING_RE =
-  /queue size=|queue=\d|to-download=|to-upload=|to download:|matched \d+ market|pending=\d/
+  /queue size=|queue=\d|to-download=|to-upload=|to download:|matched \d+ market|pending=\d|unverified=\d/
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
@@ -436,7 +436,12 @@ async function main(): Promise<void> {
     const startedAt = Date.now()
     const onLine = (line: string): void => {
       if (FINDING_RE.test(line)) {
-        findings.set(step.id, line.replace(/^\[[^\]]+\]\s*/, '').trim())
+        const finding = line.replace(/^\[[^\]]+\]\s*/, '').trim()
+        const previous = findings.get(step.id)
+        findings.set(
+          step.id,
+          previous && line.includes('unverified=') ? `${previous}; ${finding}` : finding,
+        )
       }
     }
     let exitCodes: number[]

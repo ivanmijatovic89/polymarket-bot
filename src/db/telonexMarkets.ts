@@ -1,3 +1,4 @@
+import { buildTelonexFeedConditions, type TelonexEligibilitySummary } from './telonexEligibility.js'
 // -----------------------------------------------------------------------------
 // SOURCE OF TRUTH for queries against `telonex_markets` /
 // `telonex_market_conversions`. Do NOT write inline SQL against these tables
@@ -99,6 +100,7 @@ export type Market = {
  * field comments. Pass through unchanged from CLI flags / API params.
  */
 export type EligibleMarketsQuery = {
+  requiredFeeds?: import('../strategy/plugins/ExternalFeedsRequestPlugin.js').ExternalFeedsRequestConfig
   symbol?: string
   /** e.g. '15m', '5m'. When omitted, all timeframes are returned. */
   timeframe?: string
@@ -220,30 +222,32 @@ function baseSelect() {
  * Build the WHERE clause shared by all eligibility queries. Kept private so
  * the eligibility definition has exactly one implementation.
  */
+const eligibilityColumns = {
+  markets: {
+    slug: telonexMarkets.slug,
+    symbol: telonexMarkets.symbol,
+    timeframe: telonexMarkets.timeframe,
+    marketStartMs: telonexMarkets.marketStartMs,
+    telonexStatus: telonexMarkets.telonexStatus,
+    resultId: telonexMarkets.resultId,
+    binanceUsable: telonexMarkets.binanceUsable,
+    chainlinkUsable: telonexMarkets.chainlinkUsable,
+    priceToBeat: telonexMarkets.priceToBeat,
+  },
+  conversions: {
+    converter: telonexMarketConversions.converter,
+    status: telonexMarketConversions.status,
+    localPath: telonexMarketConversions.localPath,
+    r2Url: telonexMarketConversions.r2Url,
+  },
+}
+
 function buildEligibleWhere(opts: EligibleMarketsQuery): SQL {
   return and(
-    ...buildTelonexEligibilityConditions(
-      {
-        markets: {
-          slug: telonexMarkets.slug,
-          symbol: telonexMarkets.symbol,
-          timeframe: telonexMarkets.timeframe,
-          marketStartMs: telonexMarkets.marketStartMs,
-          telonexStatus: telonexMarkets.telonexStatus,
-          resultId: telonexMarkets.resultId,
-        },
-        conversions: {
-          converter: telonexMarketConversions.converter,
-          status: telonexMarketConversions.status,
-          localPath: telonexMarketConversions.localPath,
-          r2Url: telonexMarketConversions.r2Url,
-        },
-      },
-      {
-        ...opts,
-        fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS,
-      },
-    ),
+    ...buildTelonexEligibilityConditions(eligibilityColumns, {
+      ...opts,
+      fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS,
+    }),
   )!
 }
 
@@ -272,7 +276,7 @@ export async function listEligibleTelonexMarkets(opts: EligibleMarketsQuery): Pr
 
   const queryBuilder = baseSelect()
     .where(where)
-    .orderBy(orderBy)
+    .orderBy(orderBy, asc(telonexMarkets.slug))
     .limit(opts.limit ?? 1000)
 
   const results = (
@@ -310,7 +314,7 @@ export async function listEligibleTelonexSlugs(opts: EligibleMarketsQuery): Prom
     .from(telonexMarkets)
     .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
     .where(where)
-    .orderBy(orderBy)
+    .orderBy(orderBy, asc(telonexMarkets.slug))
   const limited = opts.limit !== undefined ? baseQ.limit(opts.limit) : baseQ
 
   const rows = (offset !== undefined ? await limited.offset(offset) : await limited) as Array<{
@@ -340,11 +344,10 @@ export async function countEligibleTelonexMarkets(opts: EligibleMarketsQuery): P
  */
 export async function getMarketBySlug(
   slug: string,
-  opts: { converter: Converter; readFrom: ReadFrom },
+  opts: Pick<EligibleMarketsQuery, 'converter' | 'readFrom' | 'requiredFeeds'>,
 ): Promise<Market | null> {
   const results = await listEligibleTelonexMarkets({
-    converter: opts.converter,
-    readFrom: opts.readFrom,
+    ...opts,
     slugs: [slug],
     // Skip the default eligibility-from floor: callers who hold a slug already
     // know they want this specific market regardless of date.
@@ -361,16 +364,60 @@ export async function getMarketBySlug(
  */
 export async function getMarketsBySlugs(
   slugs: string[],
-  opts: { converter: Converter; readFrom: ReadFrom },
+  opts: Pick<EligibleMarketsQuery, 'converter' | 'readFrom' | 'requiredFeeds'>,
 ): Promise<Market[]> {
   if (slugs.length === 0) return []
   return listEligibleTelonexMarkets({
-    converter: opts.converter,
-    readFrom: opts.readFrom,
+    ...opts,
     slugs,
     fromMs: 0,
     resolvedOnly: false,
     limit: slugs.length,
+  })
+}
+
+/**
+ * Persist a producer check for one feed. The caller supplies only verified
+ * results under the fixed gap rule; unverified local files are omitted.
+ * Each invocation updates only its own column and verifies writes in the same
+ * transaction. Symbol scoping prevents results for another feed asset leaking
+ * onto a market. Repeating the same check is idempotent.
+ */
+export async function saveTelonexFeedUsability(args: {
+  feed: 'binance' | 'chainlink'
+  symbol: string
+  results: Array<{ slug: string; usable: boolean }>
+}): Promise<number> {
+  if (args.results.length === 0) return 0
+  const unique = new Set(args.results.map((result) => result.slug))
+  if (unique.size !== args.results.length) throw new Error('duplicate feed usability result')
+  const column =
+    args.feed === 'binance' ? telonexMarkets.binanceUsable : telonexMarkets.chainlinkUsable
+  const db = mustGetDb()
+  return db.transaction(async (tx) => {
+    let saved = 0
+    for (const usable of [true, false]) {
+      const slugs = args.results
+        .filter((result) => result.usable === usable)
+        .map((result) => result.slug)
+      for (let offset = 0; offset < slugs.length; offset += 500) {
+        const batch = slugs.slice(offset, offset + 500)
+        const where = and(
+          eq(telonexMarkets.symbol, args.symbol.toLowerCase()),
+          inArray(telonexMarkets.slug, batch),
+        )
+        await tx
+          .update(telonexMarkets)
+          .set(args.feed === 'binance' ? { binanceUsable: usable } : { chainlinkUsable: usable })
+          .where(where)
+        const stored = await tx.select({ usable: column }).from(telonexMarkets).where(where)
+        if (stored.length !== batch.length || stored.some((row) => row.usable !== usable)) {
+          throw new Error('feed usability write verification failed; transaction rolled back')
+        }
+        saved += stored.length
+      }
+    }
+    return saved
   })
 }
 
@@ -564,4 +611,100 @@ export async function listResolvedMarketsForChainlinkCheck(opts: {
     priceToBeat: r.priceToBeat,
     finalPrice: r.finalPrice,
   }))
+}
+
+/** Counts are independent and can overlap; unknown is never reported as a source gap. */
+export async function summarizeTelonexEligibility(
+  opts: EligibleMarketsQuery,
+): Promise<TelonexEligibilitySummary> {
+  // Validate explicit symbols against the same request used for the selected query.
+  buildEligibleWhere(opts)
+  const base = { ...opts }
+  delete base.requiredFeeds
+  const feedWhere = and(...buildTelonexFeedConditions(eligibilityColumns, opts)) ?? sql`TRUE`
+  const sum = (condition: SQL) =>
+    sql<number>`COALESCE(SUM(CASE WHEN ${condition} THEN 1 ELSE 0 END), 0)`.mapWith(Number)
+  const [summary] = await mustGetDb()
+    .select({
+      total: count(),
+      eligible: sum(feedWhere),
+      binanceUnusable: sum(
+        opts.requiredFeeds?.binanceWsSpotPrice
+          ? sql`${telonexMarkets.binanceUsable} = FALSE`
+          : sql`FALSE`,
+      ),
+      binanceUnverified: sum(
+        opts.requiredFeeds?.binanceWsSpotPrice
+          ? sql`${telonexMarkets.binanceUsable} IS NULL`
+          : sql`FALSE`,
+      ),
+      chainlinkUnusable: sum(
+        opts.requiredFeeds?.rtdsCryptoPrices
+          ? sql`${telonexMarkets.chainlinkUsable} = FALSE`
+          : sql`FALSE`,
+      ),
+      chainlinkUnverified: sum(
+        opts.requiredFeeds?.rtdsCryptoPrices
+          ? sql`${telonexMarkets.chainlinkUsable} IS NULL`
+          : sql`FALSE`,
+      ),
+      priceToBeatMissing: sum(
+        opts.requiredFeeds?.polymarketPriceToBeat?.enabled === true
+          ? sql`${telonexMarkets.priceToBeat} IS NULL`
+          : sql`FALSE`,
+      ),
+    })
+    .from(telonexMarkets)
+    .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
+    .where(buildEligibleWhere(base))
+  return summary!
+}
+
+/** Selection plus an explicit availability/shortfall report for CLI and API callers. */
+export async function selectEligibleTelonexMarkets(opts: EligibleMarketsQuery) {
+  const [markets, summary] = await Promise.all([
+    listEligibleTelonexMarkets(opts),
+    summarizeTelonexEligibility(opts),
+  ])
+  const requested = opts.limit ?? 1000
+  return { markets, summary, shortfall: Math.max(0, requested - markets.length) }
+}
+
+export function requireTelonexSelectionSize(
+  requested: number | undefined,
+  available: number,
+): void {
+  if (requested !== undefined && available < requested) {
+    throw new Error(
+      `[telonex] Requested ${requested} markets, but only ${available} are eligible (shortfall ${requested - available}). Sync/check required feeds or widen the date range.`,
+    )
+  }
+}
+
+/** Dry-run backlog: verified results that would change a saved flag (including NULL). */
+export async function countTelonexFeedUsabilityChanges(args: {
+  feed: 'binance' | 'chainlink'
+  symbol: string
+  results: Array<{ slug: string; usable: boolean }>
+}): Promise<number> {
+  const column =
+    args.feed === 'binance' ? telonexMarkets.binanceUsable : telonexMarkets.chainlinkUsable
+  let pending = 0
+  for (const usable of [true, false]) {
+    const slugs = args.results.filter((r) => r.usable === usable).map((r) => r.slug)
+    for (let offset = 0; offset < slugs.length; offset += 500) {
+      const [row] = await mustGetDb()
+        .select({ count: count() })
+        .from(telonexMarkets)
+        .where(
+          and(
+            eq(telonexMarkets.symbol, args.symbol),
+            inArray(telonexMarkets.slug, slugs.slice(offset, offset + 500)),
+            sql`(${column} IS NULL OR ${column} <> ${usable})`,
+          ),
+        )
+      pending += row?.count ?? 0
+    }
+  }
+  return pending
 }
