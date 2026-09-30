@@ -427,6 +427,11 @@ export const telonexMarkets = mysqlTable(
     finalPrice: double('final_price'),
     gammaMetadataSyncedAt: timestamp('gamma_metadata_synced_at'),
 
+    // Per-market gap checks for the market's own feeds, using the fixed 10s rule.
+    // NULL = not checked; true/false = last successful check. No price-to-beat flag.
+    binanceUsable: boolean('binance_usable'),
+    chainlinkUsable: boolean('chainlink_usable'),
+
     // Local pipeline state (Step 1)
     uploadStatus: mysqlEnum('upload_status', ['pending', 'processing', 'done', 'partial', 'failed'])
       .notNull()

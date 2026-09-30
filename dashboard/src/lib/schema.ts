@@ -127,6 +127,8 @@ export const telonexMarkets = mysqlTable('telonex_markets', {
   marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
   resultId: varchar('result_id', { length: 10 }),
   telonexStatus: varchar('telonex_status', { length: 20 }),
+  binanceUsable: boolean('binance_usable'),
+  chainlinkUsable: boolean('chainlink_usable'),
 })
 
 export const telonexMarketConversions = mysqlTable('telonex_market_conversions', {

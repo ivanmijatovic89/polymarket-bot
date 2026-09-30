@@ -374,6 +374,51 @@ export async function getMarketsBySlugs(
   })
 }
 
+/**
+ * Persist a producer check for one feed. The caller supplies only verified
+ * results under the fixed gap rule; unverified local files are omitted.
+ * Each invocation updates only its own column and verifies writes in the same
+ * transaction. Symbol scoping prevents results for another feed asset leaking
+ * onto a market. Repeating the same check is idempotent.
+ */
+export async function saveTelonexFeedUsability(args: {
+  feed: 'binance' | 'chainlink'
+  symbol: string
+  results: Array<{ slug: string; usable: boolean }>
+}): Promise<number> {
+  if (args.results.length === 0) return 0
+  const unique = new Set(args.results.map((result) => result.slug))
+  if (unique.size !== args.results.length) throw new Error('duplicate feed usability result')
+  const column =
+    args.feed === 'binance' ? telonexMarkets.binanceUsable : telonexMarkets.chainlinkUsable
+  const db = mustGetDb()
+  return db.transaction(async (tx) => {
+    let saved = 0
+    for (const usable of [true, false]) {
+      const slugs = args.results
+        .filter((result) => result.usable === usable)
+        .map((result) => result.slug)
+      for (let offset = 0; offset < slugs.length; offset += 500) {
+        const batch = slugs.slice(offset, offset + 500)
+        const where = and(
+          eq(telonexMarkets.symbol, args.symbol.toLowerCase()),
+          inArray(telonexMarkets.slug, batch),
+        )
+        await tx
+          .update(telonexMarkets)
+          .set(args.feed === 'binance' ? { binanceUsable: usable } : { chainlinkUsable: usable })
+          .where(where)
+        const stored = await tx.select({ usable: column }).from(telonexMarkets).where(where)
+        if (stored.length !== batch.length || stored.some((row) => row.usable !== usable)) {
+          throw new Error('feed usability write verification failed; transaction rolled back')
+        }
+        saved += stored.length
+      }
+    }
+    return saved
+  })
+}
+
 // -----------------------------------------------------------------------------
 // Gamma eventMetadata backfill (price_to_beat / final_price)
 // -----------------------------------------------------------------------------

@@ -7,7 +7,12 @@ import { aggTradesDayPath } from '../../binance/paths.js'
 import { cryptoPricesDayPath } from '../../telonex/cryptoPrices/paths.js'
 import { getInMemoryDuckDb, sqlQuote } from '../../utils/duckdb.js'
 import { parseFeedCoverageArgs } from '../../cli/helpers/feedCoverageCheck.js'
-import { coverageStatus, measureFeedCoverage, summarizeFeedCoverage } from './feedCoverageCheck.js'
+import {
+  coverageStatus,
+  feedUsabilityUpdates,
+  measureFeedCoverage,
+  summarizeFeedCoverage,
+} from './feedCoverageCheck.js'
 
 const DATE = '2026-06-01'
 const START = Date.parse(`${DATE}T00:00:00Z`)
@@ -182,6 +187,14 @@ test('CLI dates and thresholds are explicit and invalid inputs are rejected', ()
   assert.equal(parsed.allowedGapMs, 10_000)
   assert.equal(parsed.toMs, START + 2 * DAY_MS - 1)
   assert.equal(parsed.readFrom, 'r2')
+  assert.equal(parsed.save, false)
+  assert.equal(parseFeedCoverageArgs(['--save', ...args]).save, true)
+  assert.equal(parseFeedCoverageArgs([...args, '--save', '--max-gap-seconds', '10']).save, true)
+  assert.throws(
+    () => parseFeedCoverageArgs([...args, '--save', '--max-gap-seconds', '15']),
+    /report-only/,
+  )
+  assert.throws(() => parseFeedCoverageArgs([...args, '--save', '--save']), /duplicate/)
   for (const value of ['0', '-1', 'NaN', 'Infinity']) {
     assert.throws(() => parseFeedCoverageArgs([...args, '--max-gap-seconds', value]))
   }
@@ -190,4 +203,29 @@ test('CLI dates and thresholds are explicit and invalid inputs are rejected', ()
   )
   assert.throws(() => parseFeedCoverageArgs([...args, '--limit', '100']))
   assert.throws(() => parseFeedCoverageArgs([...args, '--symbol', 'eth']))
+})
+
+test('saved results use ten seconds and omit unverified rows so old flags survive cache misses', () => {
+  const base = {
+    ...window(START, START + 60_000),
+    rows: 10,
+    invalidRows: 0,
+    issues: [] as string[],
+  }
+  const results = [
+    { ...base, slug: 'at-limit', maxGapMs: 10_000 },
+    { ...base, slug: 'over-limit', maxGapMs: 10_001 },
+    { ...base, slug: 'invalid-price', maxGapMs: 1000, invalidRows: 1 },
+    { ...base, slug: 'empty', maxGapMs: 1000, rows: 0 },
+    { ...base, slug: 'missing-file', maxGapMs: null, issues: ['missing local file'] },
+  ]
+  assert.deepEqual(feedUsabilityUpdates(results), [
+    { slug: 'at-limit', usable: true },
+    { slug: 'over-limit', usable: false },
+    { slug: 'invalid-price', usable: false },
+    { slug: 'empty', usable: false },
+  ])
+  // Trying a looser report does not change the persisted policy.
+  assert.equal(coverageStatus(results[1]!, 15_000), 'usable')
+  assert.equal(feedUsabilityUpdates(results)[1]!.usable, false)
 })

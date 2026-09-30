@@ -1,24 +1,33 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { closeDb } from '../../db/index.js'
-import { listEligibleTelonexSlugs, type ReadFrom } from '../../db/telonexMarkets.js'
+import {
+  listEligibleTelonexSlugs,
+  saveTelonexFeedUsability,
+  type ReadFrom,
+} from '../../db/telonexMarkets.js'
 import { windowFromSlug } from '../../polymarket/upDownSlugWindow.js'
 import {
   coverageStatus,
+  FEED_USABILITY_MAX_GAP_MS,
+  feedUsabilityUpdates,
   measureFeedCoverage,
   summarizeFeedCoverage,
   type CoverageFeed,
 } from '../../backtest/feeds/feedCoverageCheck.js'
 
 const USAGE = `--symbol btc --timeframe 15m --from YYYY-MM-DD --to YYYY-MM-DD
-  [--max-gap-seconds 10] [--read-from r2|local] [--output report.json]
+  [--max-gap-seconds 10] [--read-from r2|local] [--output report.json] [--save]
 Dates are inclusive UTC dates of market starts. Checks all eligible delta-typed
-markets in that range (no market limit). Reads local feed files; does not download,
-run backtests, or update the database. --read-from selects the orderbook eligibility
-filter only (default r2). A gap equal to the allowed maximum passes.`
+markets in that range (no market limit). Reads local feed files; does not download
+or run backtests. Read-only unless --save is supplied. Producer-only --save writes
+this feed's verified results at the fixed 10s rule; unverified results are skipped.
+--read-from selects the orderbook eligibility filter only (default r2).
+A gap equal to the allowed maximum passes.`
 
 export function parseFeedCoverageArgs(argv: string[]) {
   const options = new Map<string, string>()
+  let save = false
   const allowed = new Set([
     '--symbol',
     '--timeframe',
@@ -28,9 +37,14 @@ export function parseFeedCoverageArgs(argv: string[]) {
     '--read-from',
     '--output',
   ])
-  for (let i = 0; i < argv.length; i += 2) {
+  for (let i = 0; i < argv.length; i++) {
     const key = argv[i]!
-    const value = argv[i + 1]
+    if (key === '--save') {
+      if (save) throw new Error('duplicate --save argument')
+      save = true
+      continue
+    }
+    const value = argv[++i]
     if (!allowed.has(key) || !value || value.startsWith('--') || options.has(key)) {
       throw new Error(`invalid, missing, or duplicate argument: ${key}\n${USAGE}`)
     }
@@ -56,9 +70,14 @@ export function parseFeedCoverageArgs(argv: string[]) {
   const fromMs = date('--from')
   const toMs = date('--to') + 86_400_000 - 1
   if (toMs < fromMs) throw new Error('--to must not precede --from')
-  const allowedGapMs = Number(options.get('--max-gap-seconds') ?? '10') * 1000
+  const allowedGapMs = options.has('--max-gap-seconds')
+    ? Number(options.get('--max-gap-seconds')) * 1000
+    : FEED_USABILITY_MAX_GAP_MS
   if (!Number.isSafeInteger(allowedGapMs) || allowedGapMs <= 0) {
     throw new Error('--max-gap-seconds must be positive with at most millisecond precision')
+  }
+  if (save && allowedGapMs !== FEED_USABILITY_MAX_GAP_MS) {
+    throw new Error('--save requires --max-gap-seconds 10; alternate thresholds are report-only')
   }
   const readFrom = options.get('--read-from') ?? 'r2'
   if (readFrom !== 'r2' && readFrom !== 'local') throw new Error('--read-from must be r2 or local')
@@ -68,6 +87,7 @@ export function parseFeedCoverageArgs(argv: string[]) {
     fromMs,
     toMs,
     allowedGapMs,
+    save,
     readFrom: readFrom as ReadFrom,
     output: options.get('--output'),
   }
@@ -121,6 +141,18 @@ export async function runFeedCoverageCheck(feed: CoverageFeed, argv: string[]): 
         unverified,
       })),
     )
+    const persisted = options.save
+      ? await saveTelonexFeedUsability({
+          feed,
+          symbol: options.symbol,
+          results: feedUsabilityUpdates(results),
+        })
+      : null
+    if (persisted !== null) {
+      console.log(
+        `[${feed}:coverage] saved ${persisted} verified results; left ${summary.unverified} unverified results unchanged`,
+      )
+    }
     if (options.output) {
       const reportPath = path.resolve(options.output)
       await mkdir(path.dirname(reportPath), { recursive: true })
@@ -139,6 +171,7 @@ export async function runFeedCoverageCheck(feed: CoverageFeed, argv: string[]): 
             gapClock: feed === 'binance' ? 'trade timestamp' : 'round timestamp',
             rule: 'unusable when maxGapMs > allowedGapMs, no rows, or invalid rows; missing/unreadable files are unverified',
             summary,
+            persisted,
             comparisons,
             markets: results.map((result) => ({
               ...result,

@@ -1,9 +1,10 @@
-# Feed gap trials
+# Feed coverage checks
 
-Two standalone commands measure historical feed gaps before choosing the rules
-for saved market-usability flags. They read the existing eligible market catalog
-and local feed files. They do not run strategies or backtests, download files,
-write database flags, change selection, or join the sync pipeline.
+Two standalone commands measure historical feed gaps using the existing eligible
+market catalog and local feed files. They are read-only by default. The approved
+saved rule is **ten seconds for both feeds**; `--save` persists the results in the
+existing market table. They do not run strategies or backtests, download files,
+change selection, or join the sync pipeline yet.
 
 ```bash
 npm run binance:check-coverage -- --symbol btc --timeframe 15m \
@@ -53,9 +54,33 @@ Exit status is zero for a completed trial, including known unusable windows;
 unverified files or command failures produce a nonzero status. Run focused tests
 with `npm run feeds:coverage:test`.
 
+## Saving results
+
+Apply migration `0037_telonex_market_feed_usability` with the existing migration
+workflow before saving. It adds only two nullable columns to `telonex_markets`:
+
+| Column | Meaning |
+|---|---|
+| `binance_usable` | Result for the market symbol's Binance spot feed |
+| `chainlink_usable` | Result for the market symbol's Chainlink feed |
+
+`NULL` means not checked; `1` means usable; `0` means checked and unusable.
+Price-to-beat continues to use its existing value and needs no extra flag.
+
+On the producer, append `--save` to either command. Each checker updates only its
+own column, verifies the updates inside a transaction, and leaves other markets
+and the other feed unchanged. Missing or unreadable files are skipped: they leave
+a prior result unchanged, or keep `NULL` when none exists. No partial result is
+committed if the database update fails. Repeated successful checks are idempotent.
+
+Saving requires `--max-gap-seconds 10` (the default); other thresholds remain
+available for read-only comparisons. After repairing feed files, rerun the
+corresponding checker with `--save` to refresh the affected range. Worker cache
+checks should remain read-only.
+
 The backtest loader's existing five-minute Chainlink check is unchanged in this
-phase. After reviewing these counts, choose the limits, then add persisted flags
-and connect the checkers to sync and market selection.
+phase. Automatic sync integration and filtering selection by these flags are
+the next phase.
 
 ## Initial Bitcoin trial
 
@@ -78,5 +103,11 @@ are **zero unverified markets** and no invalid rows in either feed. Chainlink ha
 Binance in-window gap is 13.511 seconds.
 
 Increasing both limits from ten to fifteen seconds recovers 106 markets that
-pass both feeds. These are measurements for a threshold decision, not an approved
-change to the existing loader or selection policy.
+pass both feeds. The chosen policy remains **ten seconds for both feeds**.
+Of the 15,511 markets passing both checks, 15,219 also have price-to-beat;
+292 have no price-to-beat value. The total set has 15,784 present and 307 missing.
+
+On September 30, the two-column migration was applied to the configured database
+and both checkers were rerun with `--save` for this range. All 16,091 results per
+feed were read back and matched the reports. Flags outside this market set remain
+`NULL`; no price-to-beat values were changed.

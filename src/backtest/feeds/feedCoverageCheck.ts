@@ -8,6 +8,8 @@ import { assetIdForSymbol, cryptoPricesDayPath } from '../../telonex/cryptoPrice
 import { getInMemoryDuckDb, sqlQuote } from '../../utils/duckdb.js'
 
 export type CoverageFeed = 'binance' | 'chainlink'
+/** Persisted flags always use this rule; alternate thresholds are report-only. */
+export const FEED_USABILITY_MAX_GAP_MS = 10_000
 export type CoverageWindow = { slug: string; startMs: number; endMs: number }
 export type FeedCoverageMeasurement = CoverageWindow & {
   /** Largest timestamp gap clipped to the market window; null if any file could not be checked. */
@@ -35,6 +37,14 @@ export function summarizeFeedCoverage(results: FeedCoverageMeasurement[], allowe
   const counts = { usable: 0, unusable: 0, unverified: 0 }
   for (const result of results) counts[coverageStatus(result, allowedGapMs)]++
   return { allowedGapMs, total: results.length, ...counts }
+}
+
+export function feedUsabilityUpdates(results: FeedCoverageMeasurement[]) {
+  return results.flatMap((result) => {
+    const status = coverageStatus(result, FEED_USABILITY_MAX_GAP_MS)
+    // A local cache miss/read error must not erase a previous shared result.
+    return status === 'unverified' ? [] : [{ slug: result.slug, usable: status === 'usable' }]
+  })
 }
 
 /**
