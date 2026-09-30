@@ -49,7 +49,7 @@
     "binance:record-aggtrades": "tsx src/binance/record-aggtrades.ts",
     "binance:verify-aggtrades": "tsx src/binance/verify-aggtrades.ts",
     "binance:check-coverage": "tsx src/binance/check-coverage.ts",
-    "feeds:coverage:test": "tsx --test src/backtest/feeds/feedCoverageCheck.test.ts",
+    "feeds:coverage:test": "tsx --test src/backtest/feeds/feedCoverageCheck.test.ts src/db/telonexEligibility.test.ts src/db/telonexFeedEligibility.test.ts",
     "trade:bot": "tsx src/cli/trading-bot.ts",
     "trade:bot:btc": "cross-env TRADING_SYMBOL=BTC tsx src/cli/trading-bot.ts",
     "trade:bot:eth": "cross-env TRADING_SYMBOL=ETH tsx src/cli/trading-bot.ts",

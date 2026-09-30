@@ -31,6 +31,7 @@ export type BacktestCoverageMeta = {
   readFrom: 'local' | 'r2'
   inputMode: string
   eligibleFromMs: number
+  feedRequirementsRecorded: boolean
 }
 
 export type BacktestCoverageResponse = {
@@ -50,6 +51,7 @@ export async function getBacktestCoverage(
   const [run] = await db
     .select({
       id: backtestRuns.id,
+      feedEligibility: backtestRuns.feedEligibility,
       symbol: backtestRuns.symbol,
       timeframe: backtestRuns.timeframe,
       slugs: backtestRuns.slugs,
@@ -96,6 +98,9 @@ export async function getBacktestCoverage(
               marketStartMs: telonexMarkets.marketStartMs,
               telonexStatus: telonexMarkets.telonexStatus,
               resultId: telonexMarkets.resultId,
+              binanceUsable: telonexMarkets.binanceUsable,
+              chainlinkUsable: telonexMarkets.chainlinkUsable,
+              priceToBeat: telonexMarkets.priceToBeat,
             },
             conversions: {
               converter: telonexMarketConversions.converter,
@@ -107,6 +112,7 @@ export async function getBacktestCoverage(
           {
             converter,
             readFrom,
+            requiredFeeds: run.feedEligibility?.requiredFeeds ?? {},
             symbol: scope.symbol,
             timeframe: scope.timeframe,
             fromMs: eligibleFromMs,
@@ -143,6 +149,7 @@ export async function getBacktestCoverage(
       readFrom,
       inputMode: run.inputMode,
       eligibleFromMs,
+      feedRequirementsRecorded: run.feedEligibility !== null,
     },
     report,
   }

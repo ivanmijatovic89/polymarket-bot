@@ -1,3 +1,11 @@
+import { isDeepStrictEqual } from 'node:util'
+import type { TelonexFeedEligibility } from '../db/telonexEligibility.js'
+import {
+  buildStrategyFromConfig,
+  resolveStrategyFromArtifact,
+  type ResolveStrategyResult,
+} from '../cli/helpers/strategyArgs.js'
+import { externalFeedsRequest } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 /**
  * Plans a `backtest --extend <runId>` invocation.
  *
@@ -33,7 +41,8 @@
 
 import {
   countEligibleTelonexMarkets,
-  listEligibleTelonexMarkets,
+  selectEligibleTelonexMarkets,
+  requireTelonexSelectionSize,
   type Converter,
   type Market as TelonexMarket,
   type ReadFrom,
@@ -62,10 +71,12 @@ export type ExtensionPlanOptions = {
 export type ExtensionDirection = 'backward' | 'forward' | 'explicit-range' | 'random'
 
 export type ExtensionPlan = {
+  feedEligibility: TelonexFeedEligibility
+  built: ResolveStrategyResult
   parent: ExtensibleRun
   /** Markets to run, sorted by `market_start_ms` ASC for chronological replay. */
   candidates: TelonexMarket[]
-  /** Number of slugs the parent currently covers (== `marketsTotal` modulo failures). */
+  /** Number of covered parent slugs that remain eligible for the requested feeds. */
   parentCoveredCount: number
   /**
    * Total eligible markets matching `(symbol, timeframe, converter, readFrom)`
@@ -101,6 +112,24 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
     return { kind: 'extend-in-progress', since: parent.extendingAt }
   }
 
+  const built = parent.strategyArtifactSha256
+    ? await resolveStrategyFromArtifact({
+        sha256: parent.strategyArtifactSha256,
+        rawParams: parent.params,
+        allowRegistryIdCollision: true,
+        fallbackMeta: parent.strategyArtifactMeta,
+      })
+    : buildStrategyFromConfig({ strategyId: parent.strategy, rawParams: parent.params })
+  const requiredFeeds = externalFeedsRequest(built)
+  if (
+    parent.feedEligibility &&
+    !isDeepStrictEqual(parent.feedEligibility.requiredFeeds, requiredFeeds)
+  ) {
+    throw new Error(
+      'The strategy feed requirements changed since this run. Start a new run instead of extending a different eligible universe.',
+    )
+  }
+
   const coveredSet = await getCoveredSlugsForRun(parent.id)
   const excludeSlugs = coveredSet.size > 0 ? Array.from(coveredSet) : undefined
 
@@ -132,6 +161,7 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   }
 
   const baseQueryOpts = {
+    requiredFeeds,
     symbol: parent.symbol,
     timeframe: parent.timeframe,
     converter: parent.converter as Converter,
@@ -160,7 +190,7 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   // the top of planExtension: "Without --limit, all matching uncovered
   // markets are included."
   const effectiveLimit = opts.limit ?? Number.MAX_SAFE_INTEGER
-  const candidates = await listEligibleTelonexMarkets({
+  const selection = await selectEligibleTelonexMarkets({
     ...baseQueryOpts,
     ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
     ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
@@ -169,6 +199,14 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
     ...pickFromEnd,
   })
 
+  requireTelonexSelectionSize(opts.limit, selection.summary.eligible)
+  const candidates = selection.markets
+  const feedEligibility: TelonexFeedEligibility = {
+    version: 1,
+    maxGapMs: 10000,
+    requiredFeeds,
+    summary: selection.summary,
+  }
   const withDataset = candidates.filter((m) => m.dataset !== null && m.dataset.trim() !== '')
 
   if (withDataset.length === 0) {
@@ -185,27 +223,24 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   // Denominators for the pre-flight log. Use the COUNT(*) helper per the
   // CLAUDE.md single-source-of-truth contract for telonex eligibility, and
   // avoid hydrating the full Market rows just to call .length on them.
-  // Both counts are independent — run in parallel.
-  const [eligibleTotal, availableCount] = await Promise.all([
+  // Count the eligible universe and its intersection with the covered set.
+  const [eligibleTotal, parentEligibleCoveredCount] = await Promise.all([
     countEligibleTelonexMarkets(baseQueryOpts),
-    opts.limit !== undefined
-      ? countEligibleTelonexMarkets({
-          ...baseQueryOpts,
-          ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
-          ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
-          ...(excludeSlugs !== undefined && { excludeSlugs }),
-        })
-      : Promise.resolve(withDataset.length),
+    coveredSet.size > 0
+      ? countEligibleTelonexMarkets({ ...baseQueryOpts, slugs: [...coveredSet] })
+      : Promise.resolve(0),
   ])
 
   return {
     kind: 'ok',
     plan: {
+      built,
+      feedEligibility,
       parent,
       candidates: withDataset,
-      parentCoveredCount: coveredSet.size,
+      parentCoveredCount: parentEligibleCoveredCount,
       eligibleTotal,
-      availableCount,
+      availableCount: selection.summary.eligible,
       direction,
     },
   }

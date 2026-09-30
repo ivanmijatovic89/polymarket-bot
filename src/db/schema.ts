@@ -1,3 +1,4 @@
+import type { TelonexFeedEligibility } from './telonexEligibility.js'
 import {
   mysqlTable,
   text,
@@ -101,6 +102,7 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    feedEligibility: json('feed_eligibility').$type<TelonexFeedEligibility | null>(),
     // External strategy artifact provenance (issue #211). Null for registry
     // strategies. The sha is what `--extend` needs to reload the exact code;
     // the meta json (r2Url, sourceRepo, sourceCommit, sourceDirty,

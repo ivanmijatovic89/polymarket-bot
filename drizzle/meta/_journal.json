@@ -267,6 +267,13 @@
       "when": 1790763071000,
       "tag": "0037_telonex_market_feed_usability",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "5",
+      "when": 1790764018946,
+      "tag": "0038_backtest_feed_eligibility",
+      "breakpoints": true
     }
   ]
 }

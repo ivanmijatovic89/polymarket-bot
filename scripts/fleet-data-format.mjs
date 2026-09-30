@@ -52,7 +52,11 @@ function countOf(finding) {
     finding.match(/to[ -]upload[:=]\s*(\d+)/) ??
     finding.match(/queue(?: size)?=(\d+)/) ??
     finding.match(/pending=(\d+)/)
-  return m ? Number(m[1]) : null
+  const unverified = finding.match(/unverified=(\d+)/)
+  const flagsToSave = finding.match(/flags-to-save=(\d+)/)
+  return m || unverified || flagsToSave
+    ? Number(m?.[1] ?? 0) + Number(unverified?.[1] ?? 0) + Number(flagsToSave?.[1] ?? 0)
+    : null
 }
 
 /** Last "run elapsed X" occurrence = the machine's total data:sync time. */

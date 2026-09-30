@@ -1,4 +1,5 @@
 import '../../config/env.js'
+import { checkUploadedFeedCoverage } from '../../cli/helpers/feedCoverageCheck.js'
 import { promises as fs } from 'node:fs'
 import crypto from 'node:crypto'
 import { installSignalHandlers, installProcessCrashHandlers } from '../../utils/runtime.js'
@@ -97,7 +98,10 @@ async function main(): Promise<void> {
       (args.force ? ' force' : '') +
       (args.dryRun ? ' DRY-RUN' : ''),
   )
-  if (args.dryRun || toUpload.length === 0) return
+  if (args.dryRun || toUpload.length === 0) {
+    await checkUploadedFeedCoverage('chainlink', args.assetId, args.dryRun)
+    return
+  }
 
   let aborted = false
   installSignalHandlers({
@@ -136,6 +140,7 @@ async function main(): Promise<void> {
       (aborted ? ' (aborted early)' : ''),
   )
   if (aborted) process.exit(130)
+  await checkUploadedFeedCoverage('chainlink', args.assetId, false, () => aborted)
 }
 
 main().catch((err) => {

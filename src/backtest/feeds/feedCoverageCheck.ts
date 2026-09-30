@@ -4,7 +4,11 @@ import {
   defaultBinancePairForSymbol,
   utcDatesCovering,
 } from '../../binance/paths.js'
-import { assetIdForSymbol, cryptoPricesDayPath } from '../../telonex/cryptoPrices/paths.js'
+import {
+  assetIdForSymbol,
+  cryptoPricesDayPath,
+  CRYPTO_PRICES_COVERAGE_FROM_MS,
+} from '../../telonex/cryptoPrices/paths.js'
 import { getInMemoryDuckDb, sqlQuote } from '../../utils/duckdb.js'
 
 export type CoverageFeed = 'binance' | 'chainlink'
@@ -79,6 +83,8 @@ export async function measureFeedCoverage(args: {
       throw new Error(`invalid or duplicate market window: ${window.slug}`)
     }
     slugs.add(window.slug)
+    // Documented source epoch: this is known unavailable, not a local cache miss.
+    if (args.feed === 'chainlink' && window.startMs < CRYPTO_PRICES_COVERAGE_FROM_MS) continue
     for (const date of utcDatesCovering(window.startMs, window.endMs)) {
       const indices = byDay.get(date) ?? []
       indices.push(index)

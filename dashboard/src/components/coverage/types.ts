@@ -14,6 +14,7 @@ export type CoverageMeta = {
   converter: 'delta-typed' | 'paired'
   readFrom: 'local' | 'r2'
   inputMode: string
+  feedRequirementsRecorded: boolean
   eligibleFromMs: number
 }
 

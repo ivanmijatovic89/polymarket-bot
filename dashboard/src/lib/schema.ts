@@ -1,7 +1,9 @@
+import type { TelonexFeedEligibility } from '@bot/db/telonexEligibility'
 import {
   bigint,
   boolean,
   decimal,
+  double,
   index,
   int,
   json,
@@ -30,6 +32,7 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    feedEligibility: json('feed_eligibility').$type<TelonexFeedEligibility | null>(),
     // External strategy artifact provenance (issue #211). Null for registry
     // strategies. Mirrors src/db/schema.ts.
     strategyArtifactSha256: varchar('strategy_artifact_sha256', { length: 64 }),
@@ -129,6 +132,7 @@ export const telonexMarkets = mysqlTable('telonex_markets', {
   telonexStatus: varchar('telonex_status', { length: 20 }),
   binanceUsable: boolean('binance_usable'),
   chainlinkUsable: boolean('chainlink_usable'),
+  priceToBeat: double('price_to_beat'),
 })
 
 export const telonexMarketConversions = mysqlTable('telonex_market_conversions', {

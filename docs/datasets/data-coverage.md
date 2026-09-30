@@ -163,3 +163,11 @@ Official ([telonex.io/docs/exchanges/polymarket](https://telonex.io/docs/exchang
 - Exact `eventMetadata` epochs for the 1h/4h/1d series (measure by backfill
   once those series enter the catalog).
 - Whether Telonex records the 1h/4h/1d series (needs `TELONEX_API_KEY`).
+
+## Verified feed eligibility
+
+Catalog and orderbook availability are only the base filter. Strategies requesting
+Binance or Chainlink now require their saved ten-second usability flags; requested
+price-to-beat must be present. Upload commands refresh these flags, and selection
+filters before applying limits. See [Feed coverage checks](/datasets/price-feeds/coverage-checks)
+for the exact rules, backfill, cache behavior, and shared API.

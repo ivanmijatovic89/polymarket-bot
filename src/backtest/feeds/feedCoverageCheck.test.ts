@@ -6,7 +6,10 @@ import test from 'node:test'
 import { aggTradesDayPath } from '../../binance/paths.js'
 import { cryptoPricesDayPath } from '../../telonex/cryptoPrices/paths.js'
 import { getInMemoryDuckDb, sqlQuote } from '../../utils/duckdb.js'
-import { parseFeedCoverageArgs } from '../../cli/helpers/feedCoverageCheck.js'
+import {
+  parseFeedCoverageArgs,
+  marketSymbolForUploadedFeed,
+} from '../../cli/helpers/feedCoverageCheck.js'
 import {
   coverageStatus,
   feedUsabilityUpdates,
@@ -228,4 +231,51 @@ test('saved results use ten seconds and omit unverified rows so old flags surviv
   // Trying a looser report does not change the persisted policy.
   assert.equal(coverageStatus(results[1]!, 15_000), 'usable')
   assert.equal(feedUsabilityUpdates(results)[1]!.usable, false)
+})
+
+test('upload check arguments support every timeframe, dry-run, and source-symbol mapping', () => {
+  const args = parseFeedCoverageArgs([
+    '--symbol',
+    'btc',
+    '--timeframe',
+    'all',
+    '--sync',
+    '--save',
+    '--dry-run',
+  ])
+  assert.equal(args.timeframe, 'all')
+  assert.equal(args.dryRun, true)
+  assert.ok(args.fromMs < args.toMs)
+  assert.throws(
+    () => parseFeedCoverageArgs(['--symbol', 'btc', '--sync', '--from', '2026-06-01']),
+    /cannot be combined/,
+  )
+  assert.equal(marketSymbolForUploadedFeed('binance', 'BTCUSDT'), 'btc')
+  assert.equal(marketSymbolForUploadedFeed('chainlink', 'btcusd'), 'btc')
+  assert.equal(marketSymbolForUploadedFeed('binance', 'BTCUSDC'), null)
+})
+
+test('Chainlink before its source epoch is known unusable, not an unverified cache miss', async () => {
+  const startMs = Date.parse('2026-04-01T12:00:00Z')
+  const [result] = await measureFeedCoverage({
+    feed: 'chainlink',
+    symbol: 'btc',
+    windows: [window(startMs, startMs + 900000)],
+  })
+  assert.equal(coverageStatus(result!, 10000), 'unusable')
+  assert.deepEqual(result!.issues, [])
+})
+
+test('interrupted verification stops without returning results to save', async () => {
+  await assert.rejects(
+    measureFeedCoverage({
+      feed: 'binance',
+      symbol: 'btc',
+      windows: [window(START, START + 900000)],
+      onDay: () => {
+        throw new Error('aborted')
+      },
+    }),
+    /aborted/,
+  )
 })
