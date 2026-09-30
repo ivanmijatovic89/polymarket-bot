@@ -84,7 +84,7 @@
     "geekbench6Multi": 9700,
     "geekbench6Source": "estimated",
     "cores": 8,
-    "cores_for_backtest": 6
+    "cores_for_backtest": 4
   },
   "a5288c4cae5f": {
     "name": "PC",
