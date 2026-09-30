@@ -19,9 +19,10 @@ const nextConfig: NextConfig = {
     root: resolve(__dirname, '..'),
     // Root NodeNext source uses emitted-JS specifiers (`*.js`) while the
     // dashboard consumes that source directly as TypeScript. Turbopack does
-    // not remap this cross-package specifier to the sibling `.ts` source.
+    // not remap these cross-package specifiers to their sibling `.ts` sources.
     resolveAlias: {
       '../config/telonex.js': '../src/config/telonex.ts',
+      '../polymarket/upDownSlugWindow.js': '../src/polymarket/upDownSlugWindow.ts',
     },
   },
   // `@polymarket-bot/stats` is a sibling workspace package shipped as TS

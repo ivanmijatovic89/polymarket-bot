@@ -200,9 +200,19 @@ Of the 15,511 markets passing both checks, 15,219 also have price-to-beat;
 
 On September 30, the two-column migration was applied to the configured database
 and both checkers were rerun with `--save` for this range. All 16,091 results per
-feed were read back and matched the reports. Flags outside this market set remain
-`NULL`; no price-to-beat values were changed.
+feed were read back and matched the reports. No price-to-beat values were changed.
 
+The subsequent full Bitcoin backfill used the configured sync range, starting
+November 30, 2025, and included **27,679 eligible markets** across all timeframes:
+
+| Feed | Usable | Unusable | Unverified |
+|---|---:|---:|---:|
+| Binance | 27,625 | 54 | 0 |
+| Chainlink | 15,559 | 12,120 | 0 |
+
+The Chainlink failures include 11,588 windows before its source coverage began.
+Both saved columns were read back with zero mismatches. Requiring both feeds and
+price-to-beat still leaves **15,219 markets**. Other symbols were not backfilled.
 
 ## Integration verification
 
