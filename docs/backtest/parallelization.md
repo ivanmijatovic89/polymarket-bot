@@ -224,6 +224,21 @@ npm run bull-board        # http://127.0.0.1:3052/admin/queues
 Both procs are read-only relative to MySQL; you can run them on the same
 machine as the producer or anywhere with network access to Redis + MySQL.
 
+### Profitability over time
+
+Each `/backtests/<id>` detail page includes cumulative net PnL and a rolling
+average over the previous 100, 500, or 1,000 markets. The default window is 500.
+Hover either chart, or focus it and use the arrow keys, to inspect the same
+market on both charts. Summary cards show total net PnL, the last 500 and 1,000
+market averages, and the maximum peak-to-trough drawdown in USDC.
+
+Charts sort saved results by market start time and include zero-PnL markets.
+Rolling values appear only after a full window is available. Fees are already
+included in market PnL. Cumulative PnL starts at zero and is not a compounded
+account balance: execution capital resets for each market. Missing results in
+partial runs are identified, not filled with zeros. If any market date is
+unavailable, the charts explicitly fall back to saved market order.
+
 ## Invariants & guarantees
 
 1. **Per-market isolation** — each child job calls `runSingleMarket` with a

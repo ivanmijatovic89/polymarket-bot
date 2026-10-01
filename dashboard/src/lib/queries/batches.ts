@@ -645,6 +645,7 @@ async function hydrateBacktestRunDetail(
     executionSummary: buildExecutionSummary(marketRows),
     marketStats: marketRows.map((m) => ({
       marketId: m.marketId,
+      marketStartMs: m.marketStartMs,
       slug: m.slug,
       finalOutcome: m.finalOutcome,
       pnl: toNumber(m.pnl),
