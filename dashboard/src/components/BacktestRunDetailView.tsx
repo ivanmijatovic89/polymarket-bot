@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SectionHeading } from './SectionHeading'
 import { CmdModal } from './CmdModal'
 import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
+import { BacktestPerformanceCharts } from './BacktestPerformanceCharts'
 import { CoverageSection } from './coverage/CoverageSection'
 import { MachineName } from './MachineName'
 import { ExecutionSummary } from './ExecutionSummary'
@@ -74,6 +75,7 @@ type RunDetail = {
   qualityTrade: number | null
   failuresCount: number
   marketStats: Array<{
+    marketStartMs?: number | null
     slug: string | null
     finalOutcome: string | number | null
     skipReason?: string | null
@@ -691,6 +693,8 @@ export function BacktestRunDetailView({ id }: { id: number }) {
           )}
         </Card>
       </section>
+
+      <BacktestPerformanceCharts markets={marketStats} selectedMarketsTotal={selectedMarketsTotal} />
 
       {/* Failures inline warning */}
       {(b.failuresCount > 0 || missingAuditCount > 0) && (
