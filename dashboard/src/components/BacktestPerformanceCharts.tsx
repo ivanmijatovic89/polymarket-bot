@@ -30,6 +30,15 @@ const pointLabel = (point: PerformancePoint, hasDates: boolean) =>
   hasDates
     ? `${new Date(point.timestamp!).toISOString().slice(0, 16).replace('T', ' ')} UTC`
     : `Market ${point.marketNumber.toLocaleString('en-US')}`
+const durationLabel = (ms: number) => {
+  const minutes = Math.floor(ms / 60_000)
+  const hours = Math.floor(minutes / 60)
+  return hours >= 24
+    ? `${Math.floor(hours / 24)}d ${hours % 24}h`
+    : hours > 0
+      ? `${hours}h ${minutes % 60}m`
+      : `${minutes}m`
+}
 
 type ChartMarker = { index: number; value: number; label: string; from?: number }
 
@@ -41,7 +50,9 @@ function PerformanceChart({
   hasDates,
   selected,
   onSelect,
-  cumulative = false,
+  startAtZero = false,
+  ceilingAtZero = false,
+  unit = 'USDC / market',
   markers = [],
 }: {
   title: string
@@ -51,7 +62,9 @@ function PerformanceChart({
   hasDates: boolean
   selected: number | null
   onSelect: (index: number | null) => void
-  cumulative?: boolean
+  startAtZero?: boolean
+  ceilingAtZero?: boolean
+  unit?: string
   markers?: ChartMarker[]
 }) {
   const id = useId().replace(/:/g, '')
@@ -86,13 +99,13 @@ function PerformanceChart({
     }
     const padding = (max - min || 1) * 0.1
     min -= padding
-    max += padding
+    max = ceilingAtZero ? 0 : max + padding
     const y = (value: number) => bottom - ((value - min) / (max - min)) * (bottom - top)
     const plotX = (value: number) =>
       lastX === firstX
         ? (left + right) / 2
         : left + ((value - firstX) / (lastX - firstX)) * (right - left)
-    let line = cumulative ? `M${plotX(firstX)},${y(0)}` : ''
+    let line = startAtZero ? `M${plotX(firstX)},${y(0)}` : ''
     let first: number | null = null
     let last: number | null = null
     for (let i = 0; i < points.length; i++) {
@@ -107,7 +120,7 @@ function PerformanceChart({
         ? ''
         : `${line}L${plotX(points[last].x)},${y(0)}L${plotX(points[first].x)},${y(0)}Z`
     return { min, max, y, line, area, hasValues: first !== null }
-  }, [values, points, cumulative, firstX, lastX, right])
+  }, [values, points, startAtZero, ceilingAtZero, firstX, lastX, right])
 
   const inspectIndex = selected ?? points.length - 1
   const current = values[inspectIndex]
@@ -129,9 +142,7 @@ function PerformanceChart({
           >
             {current === null ? '—' : signed(current)}
           </div>
-          <div className="text-[10px] text-muted-foreground">
-            {cumulative ? 'USDC' : 'USDC / market'}
-          </div>
+          <div className="text-[10px] text-muted-foreground">{unit}</div>
         </div>
       </div>
       <div
@@ -325,12 +336,20 @@ export function BacktestPerformanceCharts({
   const [selected, setSelected] = useState<number | null>(null)
   const series = useMemo(() => buildPerformanceSeries(markets), [markets])
   const cumulative = useMemo(() => series.points.map((point) => point.cumulative), [series])
+  const drawdown = useMemo(
+    () => series.points.map((point) => (point.drawdown === 0 ? 0 : -point.drawdown)),
+    [series],
+  )
   const rolling = useMemo(() => rollingMarketAverages(series.points, window), [series, window])
   const last500 = trailingMarketSummary(series.points, 500)
   const last1000 = trailingMarketSummary(series.points, 1000)
   if (series.points.length === 0) return null
   const cursor = selected !== null && selected < series.points.length ? selected : null
   const point = series.points[cursor ?? series.points.length - 1]
+  const underwaterLabel =
+    point.underwaterMarkets === 0
+      ? 'At PnL peak'
+      : `Underwater: ${point.underwaterMarkets.toLocaleString('en-US')} ${point.underwaterMarkets === 1 ? 'market' : 'markets'}${point.underwaterMs === null ? '' : ` · ${durationLabel(point.underwaterMs)}`}`
   const cards = [
     {
       label: 'Total net PnL',
@@ -444,7 +463,7 @@ export function BacktestPerformanceCharts({
         <span className="ml-3">
           Market #{point.marketNumber.toLocaleString('en-US')} · net{' '}
           <span className={tone(point.pnl)}>{signed(point.pnl)}</span> USDC · drawdown{' '}
-          {money(point.drawdown)} USDC
+          {money(point.drawdown)} USDC · {underwaterLabel}
         </span>
       </div>
       <PerformanceChart
@@ -455,8 +474,33 @@ export function BacktestPerformanceCharts({
         hasDates={series.hasDates}
         selected={cursor}
         onSelect={setSelected}
-        cumulative
+        startAtZero
+        unit="USDC"
         markers={markers}
+      />
+      <PerformanceChart
+        title="Drawdown"
+        description={`Zero = recovered · deepest drop ${money(series.maxDrawdown)} USDC · ${underwaterLabel}`}
+        points={series.points}
+        values={drawdown}
+        hasDates={series.hasDates}
+        selected={cursor}
+        onSelect={setSelected}
+        startAtZero
+        ceilingAtZero
+        unit="USDC below peak"
+        markers={
+          series.drawdownIndex === null
+            ? []
+            : [
+                {
+                  index: series.drawdownIndex,
+                  value: -series.maxDrawdown,
+                  from: 0,
+                  label: `Maximum drawdown ${money(series.maxDrawdown)} USDC`,
+                },
+              ]
+        }
       />
       <PerformanceChart
         title={`Rolling average · ${window.toLocaleString('en-US')} markets`}
@@ -468,8 +512,9 @@ export function BacktestPerformanceCharts({
         onSelect={setSelected}
       />
       <p className="text-[11px] text-muted-foreground">
-        Hover either chart to inspect the same market on both. Use arrow keys when focused.
-        Cumulative PnL is not a compounded account balance.
+        Hover any chart to inspect the same market on all three. Use arrow keys when focused.
+        Underwater time runs from the most recent return to the PnL peak, or the first market for an
+        initial loss. Cumulative PnL is not a compounded account balance.
       </p>
     </section>
   )

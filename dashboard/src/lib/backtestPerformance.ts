@@ -11,6 +11,8 @@ export type PerformancePoint = {
   pnl: number
   cumulative: number
   drawdown: number
+  underwaterMarkets: number
+  underwaterMs: number | null
 }
 
 function marketTimestamp(market: PerformanceMarket): number | null {
@@ -38,6 +40,7 @@ export function buildPerformanceSeries(markets: readonly PerformanceMarket[]) {
   let maxDrawdown = 0
   let drawdownIndex: number | null = null
   let drawdownPeak = 0
+  let lastAtPeakIndex = -1
   const points: PerformancePoint[] = rows.map((row, index) => {
     cumulative += row.pnl
     if (cumulative > peak) {
@@ -45,6 +48,7 @@ export function buildPerformanceSeries(markets: readonly PerformanceMarket[]) {
       peakIndex = index
     }
     const drawdown = peak - cumulative
+    if (drawdown === 0) lastAtPeakIndex = index
     if (drawdown > maxDrawdown) {
       maxDrawdown = drawdown
       drawdownIndex = index
@@ -57,6 +61,10 @@ export function buildPerformanceSeries(markets: readonly PerformanceMarket[]) {
       pnl: row.pnl,
       cumulative,
       drawdown,
+      underwaterMarkets: index - lastAtPeakIndex,
+      underwaterMs: hasDates
+        ? row.timestamp! - rows[Math.max(0, lastAtPeakIndex)].timestamp!
+        : null,
     }
   })
 

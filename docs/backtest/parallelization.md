@@ -226,11 +226,18 @@ machine as the producer or anywhere with network access to Redis + MySQL.
 
 ### Profitability over time
 
-Each `/backtests/<id>` detail page includes cumulative net PnL and a rolling
+Each `/backtests/<id>` detail page includes cumulative net PnL, drawdown, and a rolling
 average over the previous 100, 500, or 1,000 markets. The default window is 500.
-Hover either chart, or focus it and use the arrow keys, to inspect the same
-market on both charts. Summary cards show total net PnL, the last 500 and 1,000
+Hover any chart, or focus it and use the arrow keys, to inspect the same
+market on all three charts. Summary cards show total net PnL, the last 500 and 1,000
 market averages, and the maximum peak-to-trough drawdown in USDC.
+
+The drawdown chart plots cumulative PnL minus its running peak, including the
+initial zero baseline. Values below zero show a loss from the prior peak; a
+return to zero marks recovery. The shared inspection row shows the number of
+markets and elapsed time since the latest return to the peak. Initial losses
+count all markets since the start, with elapsed time measured from the first
+market timestamp. When dates are missing, only the market count is shown.
 
 Charts sort saved results by market start time and include zero-PnL markets.
 Rolling values appear only after a full window is available. Fees are already
