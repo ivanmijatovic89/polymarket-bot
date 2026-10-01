@@ -45,6 +45,46 @@ test('full rolling windows require enough data and cannot include future profits
   assert.deepEqual(buildPerformanceSeries([]).points, [])
 })
 
+test('underwater duration resets at recovery and uses the latest equal peak', () => {
+  const { points } = buildPerformanceSeries(
+    [10, -4, 0, 4, 0, -2, 5].map((pnl, i) => market(i, pnl)),
+  )
+  assert.deepEqual(
+    points.map((p) => p.drawdown),
+    [0, 4, 4, 0, 0, 2, 0],
+  )
+  assert.deepEqual(
+    points.map((p) => p.underwaterMarkets),
+    [0, 1, 2, 0, 0, 1, 0],
+  )
+  assert.deepEqual(
+    points.map((p) => p.underwaterMs),
+    [0, 900_000, 1_800_000, 0, 0, 900_000, 0],
+  )
+})
+
+test('initial and unrecovered losses retain their duration, without inventing missing dates', () => {
+  const { points } = buildPerformanceSeries([market(0, -4), market(4, 1)])
+  assert.deepEqual(
+    points.map((p) => p.underwaterMarkets),
+    [1, 2],
+  )
+  assert.deepEqual(
+    points.map((p) => p.underwaterMs),
+    [0, 3_600_000],
+  )
+  assert.equal(points.at(-1)!.drawdown, 3)
+  const fallback = buildPerformanceSeries([{ slug: null, pnl: -4 }, market(4, 1)])
+  assert.deepEqual(
+    fallback.points.map((p) => p.underwaterMarkets),
+    [1, 2],
+  )
+  assert.deepEqual(
+    fallback.points.map((p) => p.underwaterMs),
+    [null, null],
+  )
+})
+
 test('stored dates take precedence; missing dates preserve all rows in saved order', () => {
   const series = buildPerformanceSeries([
     { ...market(0, 5), marketStartMs: 1780273800000 },
