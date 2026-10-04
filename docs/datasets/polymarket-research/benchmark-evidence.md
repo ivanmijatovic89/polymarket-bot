@@ -14,6 +14,27 @@ working-disk usage. Earlier measurements below count API staging and conversion
 files but did not explicitly sample DuckDB's shared spill directory. These are
 observed samples, not continuously measured or guaranteed peak disk requirements.
 
+## Fresh June 21 day with downloader version 7
+
+All 96 June 21 markets downloaded and published in **389.376 seconds (6.49
+minutes)** using 16 workers and the 60-rps shared ceiling. The run made 11,591
+requests with zero retries and was not resumed. It saved 342,288 trades and
+376,318 activities in 63,946,934 Parquet bytes, with 764,275,395 bytes of observed
+peak working disk. Offline verification passed and every source volume aggregate
+matched. There are 49,260 complete and 316 unresolved wallet/market histories;
+those unresolved histories retain strict cohort exclusions.
+
+A subsequent fresh DuckDB connection opened in 81.37 ms. First queries took
+57.15 ms for trade/wallet counts, 10.48 ms for the top-100 ranking, and 167.11 ms
+for a 1,000-row activity timeline. The OS cache was not flushed, and downloading
+and verification were also running. A linear projection of this one day's
+workload to 122 days is 13.20 hours and 7.27 GiB of Parquet. The broader **14–23
+hour, 6–11 GiB planning range** remains: future activity, latency, retries and
+source exceptions vary, and resumed runs are excluded from fresh comparisons.
+
+Evidence is `logs/downloader-v7-20261004/fresh-june21-benchmark.json` and
+`logs/volume-policy-20261004/live-2026-06-21.json` in the permanent root.
+
 ## June 1 baseline: one complete UTC day
 
 The cohort is `2026-06-01 <= market_start < 2026-06-02`. All 96 scheduled BTC

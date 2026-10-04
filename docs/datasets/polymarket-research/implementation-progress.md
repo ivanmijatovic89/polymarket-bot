@@ -33,8 +33,14 @@ identical to the independent probe (`publication-invariants.json` in the evidenc
 directory above). Full day verification is in
 `logs/volume-policy-20261004/live-2026-06-20.json`.
 
-Twenty-two days are published and verified (June 1–20, July 1 and August 1).
-June 21 is downloading. Full June–September coverage and monthly research remain
+June 21 then completed a fresh version 7 download in 389.376 seconds (6.49
+minutes), with 11,591 requests and zero retries. All 96 windows and 342,288 trades
+pass offline verification; 49,260 wallet/market histories are complete and 316
+remain explicitly unresolved. There are no source-volume warnings on this day.
+The fresh-day benchmark is `logs/downloader-v7-20261004/fresh-june21-benchmark.json`.
+
+Twenty-three days are published and verified (June 1–21, July 1 and August 1).
+June 22 is downloading. Full June–September coverage and monthly research remain
 required; this checkpoint does not satisfy the full-range objective.
 
 ## Downloader version 6: corroborated source warnings
