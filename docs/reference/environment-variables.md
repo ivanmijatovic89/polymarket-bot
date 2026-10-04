@@ -7,7 +7,9 @@ description: Complete reference for all environment variables recognised by the 
 
 `STARTING_CAPITAL` is a finite, non-negative USDC amount (default **500**) for the shared live/backtest execution allowance **per market**. `--starting-capital <USDC>` overrides it. Producers pass the resolved value through worker payloads and record it for extensions. It is separate from `INITIAL_CAPITAL`, the aggregate statistics baseline, and from `maxLossStop`, the realized-loss threshold. See [capital configuration](../backtest/running-backtests.md#per-market-execution-capital).
 
-All configuration is supplied through environment variables. The bot loads `.env` from the project root at startup. When `BOT_ENV` is set, a second file `.env.<BOT_ENV>` is also loaded with **override semantics** — values in the bot-specific file win over both `.env` and the shell environment.
+The trading bot loads `.env` from the project root at startup. When `BOT_ENV` is set, a second file `.env.<BOT_ENV>` is also loaded with **override semantics** — values in the bot-specific file win over both `.env` and the shell environment.
+
+[Recorder v3](/datasets/recording/recorder-v3#configuration) uses a separate, explicit configuration loader. It defaults to `.env.recorder`, accepts `--env-file`, reads only recorder settings and selected API credentials, and never imports the trading environment loader. For that command, exported variables override the selected file; `BOT_ENV` has no effect.
 
 ## BOT_ENV Multi-Bot Override
 

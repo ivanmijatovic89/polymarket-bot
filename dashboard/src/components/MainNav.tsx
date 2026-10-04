@@ -12,6 +12,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  Radio,
   Bot,
   Server,
   Trophy,
@@ -38,6 +39,7 @@ const ITEMS: NavItem[] = [
 ]
 
 const MORE_ITEMS: NavItem[] = [
+  { href: '/recorders', label: 'Recorders', icon: Radio, exact: true },
   { href: '/workers-calculator', label: 'Workers Calculator', icon: Calculator, exact: true },
   { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },

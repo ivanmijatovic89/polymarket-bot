@@ -5,6 +5,8 @@ description: How to capture live Polymarket WebSocket events to Parquet files fo
 
 # Recording Live Market Events
 
+This page describes the legacy `record:live` commands. For BTC 5m and 15m capture with Binance, Chainlink, price-to-beat, crash recovery, and verified R2 archival, use [Recorder v3](/datasets/recording/recorder-v3).
+
 The recorder subscribes to Polymarket's market WebSocket for a chosen symbol and writes every incoming event to Parquet files on disk. The resulting files are the primary input for the backtesting engine, which replays them through the exact same `MarketEngine` and strategy code that runs in live trading.
 
 ## Prerequisites

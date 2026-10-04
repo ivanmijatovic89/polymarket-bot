@@ -30,8 +30,19 @@ import { feedClockMs, wireBacktestExternalFeeds } from './feeds/wireBacktestExte
 import { createSyntheticFlusher } from './feeds/syntheticTickSchedule.js'
 import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
 import type { MarketTick } from '../strategy/Strategy.js'
+import type { MarketManifest } from '../recorder-v3/storage/manifest.js'
+import { readManifest } from '../recorder-v3/storage/manifest.js'
+import { readCapturedEvents } from '../recorder-v3/storage/parquet.js'
+import { digestFile } from '../recorder-v3/storage/files.js'
+import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v3/replay/dispatcher.js'
+import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { downloadCaptureForReplay } from '../recorder-v3/replay/package.js'
 
-export type RunSingleMarketInputMode = 'recorded' | 'telonex-delta' | 'telonex-paired'
+export type RunSingleMarketInputMode =
+  | 'recorded'
+  | 'recorder-v3'
+  | 'telonex-delta'
+  | 'telonex-paired'
 
 export type RunSingleMarketLatency = {
   delayMs: number
@@ -73,6 +84,8 @@ export type RunSingleMarketInput = {
   strategyDefinition?: StrategyDefinition<unknown>
   /** Which replay path to use. */
   inputMode: RunSingleMarketInputMode
+  /** Versioned capture descriptor passed unchanged to distributed workers. */
+  recorderV3?: { manifest: MarketManifest; allowGaps?: boolean; manifestUrl?: string }
   /** Recorded-mode replay ordering. Unused for telonex modes. */
   order: 'recorded' | 'exchange_time'
   /** Recorded-mode time-driven replay. Unused for telonex modes. */
@@ -124,7 +137,13 @@ export type RunSingleMarketOutput = {
   /** Wall-clock duration of replay + collection (ms). */
   durationMs: number
   /** Optional reason string when `marketStats` is null. */
-  skipReason?: 'no_slug' | 'no_resolution' | 'unresolved_outcome' | 'no_activity'
+  skipReason?:
+    | 'no_slug'
+    | 'no_resolution'
+    | 'unresolved_outcome'
+    | 'no_activity'
+    | 'incomplete_capture'
+  coverageReasons?: string[]
 }
 
 /**
@@ -240,12 +259,17 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // registers ExternalFeedsRequestPlugin, fulfill its requested sub-feeds
   // from historical data before any tick is replayed. Strategies without the
   // plugin return immediately — no behavior change for them.
-  const { syntheticTicks } = await wireBacktestExternalFeeds({
-    pluginSet,
-    slug: input.slug,
-    strategyWindow: input.strategyWindow ?? null,
-    ...(input.gammaPriceToBeat !== undefined ? { gammaPriceToBeat: input.gammaPriceToBeat } : {}),
-  })
+  const { syntheticTicks } =
+    input.inputMode === 'recorder-v3'
+      ? { syntheticTicks: null }
+      : await wireBacktestExternalFeeds({
+          pluginSet,
+          slug: input.slug,
+          strategyWindow: input.strategyWindow ?? null,
+          ...(input.gammaPriceToBeat !== undefined
+            ? { gammaPriceToBeat: input.gammaPriceToBeat }
+            : {}),
+        })
 
   let currentMarketId: string | undefined
   const currentMarketTrades: Fill[] = []
@@ -345,11 +369,22 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // r2:// URLs must pass through untouched: path.resolve() would mangle
   // `r2://bucket/key` into `<repo>/r2:/bucket/key`, defeating the isR2Url check
   // in openParquetReaderWithEpermFallback (that broke `--read-from r2`).
-  const filePath = isR2Url(input.filePath)
+  let filePath = isR2Url(input.filePath)
     ? input.filePath
     : path.isAbsolute(input.filePath)
       ? input.filePath
       : path.resolve(REPO_ROOT, input.filePath)
+
+  if (input.inputMode === 'recorder-v3' && input.recorderV3?.manifestUrl) {
+    const downloaded = await downloadCaptureForReplay(
+      input.recorderV3.manifestUrl,
+      path.resolve(REPO_ROOT, process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v3-cache'),
+    )
+    if (JSON.stringify(downloaded.manifest) !== JSON.stringify(input.recorderV3.manifest)) {
+      throw new Error('Downloaded capture manifest differs from producer metadata')
+    }
+    filePath = downloaded.filePath
+  }
 
   // `--read-from local-or-download-from-r2-to-local`: read the canonical local file if present, else
   // download it from R2 to that path once and read locally thereafter. The
@@ -365,7 +400,44 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
-  if (input.inputMode === 'telonex-paired') {
+  if (input.inputMode === 'recorder-v3') {
+    if (input.order !== 'recorded' || input.timeDriven)
+      throw new Error(
+        'Recorder v3 requires recorded sequence order; time-driven mode is unsupported',
+      )
+    const manifest =
+      input.recorderV3?.manifest ??
+      (await readManifest(path.join(path.dirname(filePath), 'manifest.json')))
+    if (manifest.market.slug !== input.slug)
+      throw new Error('Recorder manifest market does not match the backtest job')
+    const digest = await digestFile(filePath)
+    if (digest.sha256 !== manifest.events.sha256 || digest.bytes !== manifest.events.bytes)
+      throw new Error('Recorder parquet integrity verification failed')
+    const reqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
+    const config = reqPlugin?.config ?? {}
+    const coverageReasons = capturedMarketGapReasons(manifest.market, manifest.coverage, config)
+    if (coverageReasons.length > 0 && !input.recorderV3?.allowGaps) {
+      return {
+        idx: input.idx,
+        slug: input.slug,
+        marketStats: null,
+        eventsProcessed: 0,
+        eventsByType: {},
+        durationMs: Date.now() - startedAtMs,
+        skipReason: 'incomplete_capture',
+        coverageReasons,
+      }
+    }
+    await replayCapturedEvents({
+      market: manifest.market,
+      filePath,
+      config,
+      events: readCapturedEvents(filePath),
+      onDispatcher: (dispatcher) => reqPlugin?.fulfill(dispatcher.snapshotForTick),
+      onTick: dispatchTick,
+      ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
+    })
+  } else if (input.inputMode === 'telonex-paired') {
     await replayTelonexPairedParquetForMarket({
       filePath,
       ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),

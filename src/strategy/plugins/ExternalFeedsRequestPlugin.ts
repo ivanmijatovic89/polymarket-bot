@@ -3,6 +3,10 @@ import type { Plugin } from './PluginSet.js'
 
 // Keep this in sync with Strategy.requiredFeeds shape, but avoid importing Strategy types here.
 export type ExternalFeedsRequestConfig = {
+  /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
+  binanceBookTicker?: { symbol?: string }
+  /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
+  chainlinkTwap?: { symbol?: string; windowSeconds?: number }
   rtdsCryptoPrices?: {
     binanceSymbols?: string[]
     chainlinkSymbols?: string[]
@@ -52,6 +56,7 @@ export class ExternalFeedsRequestPlugin implements Plugin {
   private getSnapshot: ((tick?: MarketTick) => unknown) | null = null
 
   private lastTick: MarketTick | undefined
+  private readonly captured = new WeakMap<MarketTick, unknown>()
 
   constructor(config: ExternalFeedsRequestConfig) {
     this.config = config
@@ -59,6 +64,13 @@ export class ExternalFeedsRequestPlugin implements Plugin {
 
   fulfill(getSnapshot: (tick?: MarketTick) => unknown): void {
     this.getSnapshot = getSnapshot
+  }
+
+  captureMarketTick(tick: MarketTick): void {
+    if (!this.getSnapshot) return
+    // Providers can return a mutable store view. Detach the small feed snapshot
+    // at dispatch, before a queued tick waits for order/account I/O.
+    this.captured.set(tick, structuredClone(this.getSnapshot(tick)))
   }
 
   onMarketTick(tick: MarketTick): void {
@@ -69,6 +81,7 @@ export class ExternalFeedsRequestPlugin implements Plugin {
 
   snapshot(): unknown {
     if (!this.getSnapshot) return undefined
+    if (this.lastTick && this.captured.has(this.lastTick)) return this.captured.get(this.lastTick)
     return this.getSnapshot(this.lastTick)
   }
 

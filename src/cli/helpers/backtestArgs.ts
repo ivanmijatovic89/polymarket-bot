@@ -5,12 +5,17 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
   return 'recorded'
 }
 
-const INPUT_MODES = ['recorded', 'telonex-delta', 'telonex-paired'] as const
+const INPUT_MODES = ['recorded', 'recorder-v3', 'telonex-delta', 'telonex-paired'] as const
 
 type InputMode = (typeof INPUT_MODES)[number]
 
 function parseInputMode(raw: string | undefined): InputMode {
-  if (raw === 'recorded' || raw === 'telonex-delta' || raw === 'telonex-paired') {
+  if (
+    raw === 'recorded' ||
+    raw === 'recorder-v3' ||
+    raw === 'telonex-delta' ||
+    raw === 'telonex-paired'
+  ) {
     return raw
   }
   throw new Error(
@@ -46,6 +51,9 @@ export type BacktestArgs = {
   //   Replays typed book/price_change rows and runs strategy on each row.
   //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='delta-typed').
   inputMode: InputMode
+  allowCaptureGaps?: boolean
+  /** Optional filter for mixed Recorder v3 package directories. */
+  captureTimeframe?: '5m' | '15m'
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   slugs?: string[]
@@ -138,6 +146,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let inputMode: InputMode = 'recorded'
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
+  let allowCaptureGaps = false
   let symbol: string | undefined
   let timeframe = '15m'
   let timeframeExplicit = false
@@ -164,6 +173,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (!arg) continue
 
     switch (arg) {
+      case '--allow-capture-gaps':
+        allowCaptureGaps = true
+        break
       case '--mode': {
         // Legacy/compat: ignore `--mode orderbook` if passed.
         i += 1
@@ -464,7 +476,17 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --dir and --slug are mutually exclusive')
   }
 
-  const isTelonex = inputMode !== 'recorded'
+  const isTelonex = inputMode === 'telonex-delta' || inputMode === 'telonex-paired'
+  if (allowCaptureGaps && inputMode !== 'recorder-v3')
+    throw new Error('--allow-capture-gaps requires --input-mode recorder-v3')
+  if (inputMode === 'recorder-v3') {
+    if (order !== 'recorded' || timeDriven)
+      throw new Error('Recorder v3 requires recorded receive order without --time-driven')
+    if (symbol || slugs.length > 0 || readFrom)
+      throw new Error(
+        'Recorder v3 accepts package paths / --dir or r2:// manifest URLs; symbol/slug/read-from selection is not supported',
+      )
+  }
 
   if (isTelonex && readFrom === undefined) {
     throw new Error(`[backtest] --input-mode=${inputMode} requires --read-from (local|r2)`)
@@ -475,7 +497,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
     )
   }
 
-  if (timeframeExplicit && !symbol) {
+  if (
+    inputMode === 'recorder-v3' &&
+    timeframeExplicit &&
+    timeframe !== '5m' &&
+    timeframe !== '15m'
+  ) {
+    throw new Error('Recorder v3 --timeframe must be 5m or 15m')
+  }
+  if (timeframeExplicit && !symbol && inputMode !== 'recorder-v3') {
     throw new Error('[backtest] --timeframe is only valid together with --symbol')
   }
 
@@ -562,6 +592,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
     filePaths,
     ...(dirs.length > 0 ? { dirs } : {}),
     inputMode,
+    ...(allowCaptureGaps ? { allowCaptureGaps } : {}),
+    ...(inputMode === 'recorder-v3' && timeframeExplicit
+      ? { captureTimeframe: timeframe as '5m' | '15m' }
+      : {}),
     order,
     timeDriven,
     ...(slugs.length > 0 ? { slugs } : {}),

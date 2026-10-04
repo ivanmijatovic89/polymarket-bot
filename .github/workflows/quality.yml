@@ -55,6 +55,9 @@ jobs:
       - name: Feed coverage tests
         run: npm run feeds:coverage:test
 
+      - name: Recorder v3 tests
+        run: npm run record:v3:test
+
       - name: Research protocol check
         run: npm run research:check
 
