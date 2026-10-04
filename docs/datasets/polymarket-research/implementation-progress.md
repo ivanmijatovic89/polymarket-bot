@@ -8,7 +8,29 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
-## Latest checkpoint: downloader version 3 validation
+## Latest checkpoint: downloader version 3 live measurement
+
+At approximately 18:55 UTC on October 4, fourteen days are published and verified:
+June 1–12, July 1 and August 1. June 13 is downloading. Downloader version 3
+resumed the existing June 11 checkpoints, then completed a fresh June 12 day in
+452.419 seconds (7.54 minutes): all 96 markets, 369,592 trades, 13,494 requests,
+eight retries and 71,127,720 Parquet bytes. Integrity checks pass; 272 unresolved
+wallet-market histories remain explicitly excluded from strict cohort rankings.
+
+The live observation has 27.3% less elapsed time per request than the pooled eight
+earlier fresh June version 2 days, but workloads differ. The 14–23-hour planning
+range is retained; a linear projection using only June 12 is 15.33 hours for 122
+equally sized days. Full measurements and caveats are in
+[benchmark evidence](./benchmark-evidence). All 26 feature tests, local checks
+and all four CI jobs pass for implementation commit `42efdbc0`.
+
+The downloader resumed at 18:44:49 UTC with accounting version 6 and no rebuild.
+The validator records source revision `42efdbc0` and rechecked all published
+generations. Promotion, regression, CI and live benchmark evidence are saved in
+`logs/request-pacing-20261004/`. Full-range ingestion and monthly research are
+still required; the goal and draft PR remain open.
+
+## Downloader version 3 pre-promotion checkpoint
 
 As of October 4, 2026 at approximately 18:43 UTC, twelve days are published and
 independently verified: June 1–10, July 1 and August 1. June 11 is downloading.

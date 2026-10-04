@@ -212,3 +212,51 @@ new starvation regression fails against the old scheduler and passes with the
 fix. All 26 feature tests and root TypeScript/ESLint checks pass. Diagnostic
 scripts, measurements and regression logs are retained under
 `logs/request-pacing-20261004/` in the permanent data root.
+
+## First fresh downloader version 3 day: June 12
+
+The version 3 process resumed June 11 from existing checkpoints, so that day's
+126.154-second resumed timing is excluded from performance projections. June 12
+started fresh and completed in **452.419 seconds (7.54 minutes)**. All 96 windows,
+file hashes and independent SQL integrity checks passed on the published
+generation `7a1877cb-3e74-456e-87ce-c4d03797d0e2`.
+
+| Measurement | Result |
+| --- | ---: |
+| All-side trades / activities / position rows | 369,592 / 405,964 / 63,114 |
+| Trading wallets / wallet-condition batches | 5,093 / 6,336 |
+| HTTP requests / retries | 13,494 / 8 |
+| Complete / unresolved wallet-market pairs | 51,339 / 272 |
+| Parquet bytes | 71,127,720 |
+| Observed peak working disk | 830,718,661 bytes |
+| Dataset open | 57.87 ms |
+| First local trade/ranking/timeline query | 60.64 / 10.32 / 43.03 ms |
+
+Queries ran on the shared machine while June 13 was downloading, with the OS
+cache retained. The dataset contained fourteen published days, and these queries
+selected June 12. This is not a full-month query benchmark.
+
+Including local processing and publication, the new day averaged 29.83 requests
+per elapsed second. Eight earlier fresh June version 2 days pooled to 21.69,
+equivalent to 27.3% less elapsed time per request for this observation. Different
+days contain different row counts, response sizes and accounting work; this is
+not a controlled live-network A/B test. The fake-transport experiment isolates
+the scheduling mechanism; this live result verifies that the complete pipeline
+still works at the improved pace.
+
+If all 122 days resembled June 12, the projection would be **15.33 hours and
+8.08 GiB** of Parquet. Retain **14–23 hours and 6–11 GiB** as the broader planning
+range until more fresh version 3 days are available. At measurement time,
+18,504,855,552 bytes remained free; the 5 GiB guard is active.
+
+The 272 unresolved histories remain excluded from strict wallet-cohort rankings.
+Their overlapping flags are 255 unexplained native PnL values, 18 missing native
+position snapshots and 10 missing native economics. Passing file/SQL verification
+does not certify complete accounting for these wallets.
+
+Permanent evidence is under `logs/request-pacing-20261004/`:
+`live-june-12-comparison.json`, `live-june-12-benchmark.json`,
+`live-june-12-coverage.json` and the reproducible `live-comparison.mjs` script.
+Generation-bound verification is in `logs/backfill-validation/days/`.
+All four CI jobs passed for implementation commit `42efdbc0`; the full backfill
+and final monthly research remain active.
