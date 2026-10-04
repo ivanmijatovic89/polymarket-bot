@@ -55,6 +55,9 @@ jobs:
       - name: Feed coverage tests
         run: npm run feeds:coverage:test
 
+      - name: Research dataset tests
+        run: npm run research:data:test
+
       - name: Research protocol check
         run: npm run research:check
 

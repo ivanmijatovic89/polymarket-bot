@@ -132,6 +132,19 @@ export default withMermaid(
                 { text: 'Verify Parquet File', link: '/datasets/tools/verify-parquet' },
               ],
             },
+            {
+              text: 'Wallet Research (API v2)',
+              collapsed: true,
+              items: [
+                { text: 'Overview', link: '/datasets/polymarket-research/overview' },
+                { text: 'Sync and Query', link: '/datasets/polymarket-research/commands' },
+                { text: 'Accounting', link: '/datasets/polymarket-research/accounting' },
+                { text: 'SQL Schema', link: '/datasets/polymarket-research/schema' },
+                { text: 'Research Analyst', link: '/datasets/polymarket-research/agents/analyst' },
+                { text: 'Data Auditor', link: '/datasets/polymarket-research/agents/auditor' },
+                { text: 'Implementation Evidence', link: '/datasets/polymarket-research/implementation-progress' },
+              ],
+            },
           ],
         },
 
