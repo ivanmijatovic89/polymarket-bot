@@ -39,16 +39,24 @@ export async function* listRecordedMarkets(
   const prefix = `${validateArchivePrefix(filter.prefix)}/`
   for await (const key of store.list(prefix)) {
     if (!key.startsWith(prefix) || !/\/manifest-[a-f0-9]{64}\.json$/.test(key)) continue
-    // The predictable market directory avoids downloading metadata for unrelated date ranges.
-    const marketDirectory = key.slice(prefix.length).split('/')[0] ?? ''
+    // Both layouts keep immutable package identity; the selected prefix disambiguates
+    // legacy prefixes that happen to contain symbol or duration directory names.
+    const parts = key.slice(prefix.length).split('/')
+    const structured = parts.length === 5
+    if (parts.length !== 3 && !structured)
+      throw new Error('Catalog manifest has an unsupported archive directory layout')
+    const marketDirectory = parts[structured ? 2 : 0]!
     const slug = /^btc-updown-(5m|15m)-(\d+)$/.exec(marketDirectory)
-    if (slug) {
-      if (filter.timeframe && slug[1] !== filter.timeframe) continue
-      const startMs = Number(slug[2]) * 1000
-      if (filter.fromMs !== undefined && startMs < filter.fromMs) continue
-      if (filter.toMs !== undefined && startMs >= filter.toMs) continue
-    }
+    if (!slug) throw new Error('Catalog manifest has an unsupported market directory')
+    if (structured && (parts[0] !== 'btc' || parts[1] !== slug[1]))
+      throw new Error('Catalog symbol or duration directory does not match its market slug')
+    if (filter.timeframe && slug[1] !== filter.timeframe) continue
+    const startMs = Number(slug[2]) * 1000
+    if (filter.fromMs !== undefined && startMs < filter.fromMs) continue
+    if (filter.toMs !== undefined && startMs >= filter.toMs) continue
     const { manifest } = await readRemoteManifest(store, key)
+    if (structured !== (manifest.archiveLayout === 'symbol-timeframe'))
+      throw new Error('Catalog directory layout does not match its manifest archiveLayout')
     if (manifest.market.slug !== marketDirectory)
       throw new Error('Catalog manifest does not match its market directory')
     if (matchesCatalogFilter(manifest, filter)) yield { manifestKey: key, manifest }

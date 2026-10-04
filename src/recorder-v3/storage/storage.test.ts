@@ -123,6 +123,69 @@ test('combined Parquet preserves shared receipt sequence, exact raw values and s
   assert.equal(ready.manifest.events.firstSequence, '1')
   assert.equal(ready.manifest.events.lastSequence, '3')
   assert.equal(ready.manifest.coverage.complete, true)
+  assert.equal(ready.manifest.archiveLayout, 'symbol-timeframe')
+  assert.equal(
+    ready.manifest.events.key,
+    `recorder-v3/btc/15m/${market.slug}/${ready.manifest.recordingId}/events-${ready.manifest.events.sha256}.parquet`,
+  )
+})
+
+test('new five-minute archives place events, manifests and resolutions under the same typed hierarchy', async (t) => {
+  const spoolDir = await temporary(t)
+  const five: RecordedMarket = {
+    ...market,
+    timeframe: '5m',
+    slug: market.slug.replace('-15m-', '-5m-'),
+    endMs: market.startMs + 300_000,
+  }
+  const store = new DurableMarketStore({ spoolDir, prefix: 'validation/nested' })
+  await store.openMarket(five)
+  await store.append(five.slug, event(1))
+  const ready = await store.finalize(five.slug, { ...coverage, endedAtMs: five.endMs })
+  const cloud = new MemoryStore()
+  const archive = new ArchiveService({ spoolDir, blobStore: cloud })
+  await archive.queueResolution(ready.directory, {
+    schemaVersion: 3,
+    slug: five.slug,
+    conditionId: five.conditionId,
+    observedAtMs: five.endMs + 1_000,
+    status: 'pending',
+    winningOutcome: null,
+    winningTokenId: null,
+    payouts: null,
+    priceToBeat: null,
+    finalPrice: null,
+    source: 'gamma',
+    rawJson: '{}',
+  })
+  const result = await archive.runOnce()
+  assert.deepEqual(result.failures, [])
+  assert.equal(ready.manifest.archiveLayout, 'symbol-timeframe')
+  const directory = `validation/nested/btc/5m/${five.slug}/${ready.manifest.recordingId}/`
+  assert.equal(cloud.puts.length, 3)
+  assert(cloud.puts.every((key) => key.startsWith(directory)))
+  assert(cloud.puts.some((key) => key.startsWith(`${directory}resolutions/`)))
+  const downloaded = await downloadMarket(
+    cloud,
+    result.uploaded[0]!.manifestKey,
+    path.join(spoolDir, 'cache'),
+  )
+  assert.deepEqual(await collect(readCapturedEvents(downloaded.parquetPath)), [event(1)])
+})
+
+test('archiving an already finalized legacy package preserves its original key and manifest bytes', async (t) => {
+  const spoolDir = await temporary(t)
+  const ready = await finalized(spoolDir)
+  delete ready.manifest.archiveLayout
+  ready.manifest.events.key = ready.manifest.events.key.replace('/btc/15m/', '/')
+  const original = `${JSON.stringify(ready.manifest, null, 2)}\n`
+  await writeFile(path.join(ready.directory, 'manifest.json'), original)
+  const cloud = new MemoryStore()
+  const result = await new ArchiveService({ spoolDir, blobStore: cloud }).runOnce()
+  assert.deepEqual(result.failures, [])
+  assert.equal(cloud.puts[0], ready.manifest.events.key)
+  assert.equal(cloud.objects.get(result.uploaded[0]!.manifestKey)!.toString(), original)
+  assert.equal(await readFile(path.join(ready.directory, 'manifest.json'), 'utf8'), original)
 })
 
 test('SIGKILL plus a torn tail recovers the same market into one Parquet with an explicit gap', async (t) => {

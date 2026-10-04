@@ -244,6 +244,39 @@ test('network failures back off, while a missing initial price retains fast heal
   assert.deepEqual(h.requests, [0, 1_000, 3_000, 33_000])
 })
 
+test('a price disappearing after publication opens uncertainty and backs off until valid recovery', async (t) => {
+  const h = harness(t, (index) =>
+    index === 1 || index === 2 ? new Response('{"openPrice":null}') : good(),
+  )
+  await h.start()
+  await h.advance(30_000)
+  await h.advance(60_000)
+  await h.advance(120_000)
+  await h.advance(30_000)
+  assert.deepEqual(h.requests, [0, 30_000, 90_000, 210_000, 240_000])
+  assert.deepEqual(
+    h.statuses.map((status) => [status.reason, status.details?.retryBackoffMs]),
+    [
+      ['price_to_beat_unavailable', 60_000],
+      ['price_to_beat_unavailable', 120_000],
+    ],
+  )
+  assert.equal(h.frames.filter((frame) => frame.rawJson === '{"openPrice":null}').length, 2)
+})
+
+test('a nested rate-limit error with a null price cannot masquerade as healthy publication delay', async (t) => {
+  const h = harness(t, (index) =>
+    index === 0 ? new Response('{"openPrice":null,"error":{"code":429}}') : good(),
+  )
+  await h.start()
+  await h.advance(59_999)
+  assert.deepEqual(h.requests, [0])
+  await h.advance(1)
+  assert.deepEqual(h.requests, [0, 60_000])
+  assert.equal(h.statuses[0]?.reason, 'price_to_beat_unavailable')
+  assert.equal(h.statuses[0]?.details?.retryBackoffMs, 60_000)
+})
+
 test('ordinary HTTP failures use the current polling cadence and reset after a valid price', async (t) => {
   const h = harness(t, (index) =>
     index === 0 || index === 2 ? new Response('temporarily unavailable', { status: 503 }) : good(),
