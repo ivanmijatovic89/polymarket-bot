@@ -143,6 +143,8 @@ Use `Ctrl+C` or `SIGTERM` to stop. The recorder stops feed intake, cancels netwo
 
 Use a separate deployed checkout pinned to the tested commit on worker-2. Keep the spool and environment file outside that checkout so a code update cannot replace them. Validate locally before installing or starting a worker-2 service. Backtest workers can use other checkouts; they do not own recorder state. Disable automatic sleep on the recording host and keep its clock synchronized.
 
+The [worker-2 installation guide](./recorder-v3-worker-2) explains which existing fleet setup to reuse, why the recorder keeps its own checkout, the observed host load, exact release/configuration paths, validation gates, and service installation/update commands.
+
 ### Prepared macOS service
 
 `ops/macos/recorder-v3/com.polymarket.recorder-v3.plist.template` is a separate LaunchDaemon template. Preparing this file does not install or start a recorder. At deployment, replace `__USER__`, `__NODE20__` (absolute Node 20 executable), `__CHECKOUT__` (pinned recorder checkout), `__ENV_FILE__`, and `__LOG_DIR__`. Create the log/spool directories with ownership for that user, restrict the environment file to that user, and validate the rendered file with `plutil -lint` before installation.
