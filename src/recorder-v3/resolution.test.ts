@@ -237,6 +237,77 @@ test('a confirmed marker plus a stale pending task is recoverable after a crash'
   assert.equal(await exists(path.join(directory, 'events.parquet')), true)
 })
 
+test('a crash after recording a terminal revision cannot reuse the prior result confirmation time', async (t) => {
+  const spoolDir = await temporary(t)
+  const { directory, market } = await packageFixture(spoolDir)
+  let now = market.endMs + 1_000
+  let winner = 'Up'
+  const options = {
+    spoolDir,
+    now: () => now,
+    fetchRaw: async () => gamma(market, 'resolved', winner),
+  }
+  const tracker = new ResolutionTracker(options)
+  await tracker.runOnce()
+  const priorTask = await readFile(path.join(directory, 'resolution.pending.json'))
+  now += DAY
+  winner = 'Down'
+  await tracker.runOnce()
+  const revisedAtMs = now
+  // The revised outbox/history committed, but SIGKILL interrupted task replacement.
+  await writeFile(path.join(directory, 'resolution.pending.json'), priorTask)
+  now += 1_000
+  const restarted = new ResolutionTracker(options)
+  await restarted.runOnce()
+  assert.equal(await exists(path.join(directory, 'resolution.complete.json')), false)
+  assert.equal((await task(directory)).firstResolvedAtMs, revisedAtMs)
+  assert.equal((await task(directory)).nextAttemptAtMs, revisedAtMs + DAY)
+  now = revisedAtMs + DAY
+  await restarted.runOnce()
+  assert.equal(await exists(path.join(directory, 'resolution.complete.json')), true)
+})
+
+test('a corrupt completion marker cannot delete a pending resolution task', async (t) => {
+  const spoolDir = await temporary(t)
+  const { directory, market } = await packageFixture(spoolDir)
+  const tracker = new ResolutionTracker({
+    spoolDir,
+    now: () => market.endMs + 1_000,
+    fetchRaw: async () => gamma(market, 'resolved'),
+  })
+  await tracker.runOnce()
+  const retryTask = await readFile(path.join(directory, 'resolution.pending.json'))
+  for (const marker of ['{broken', JSON.stringify({ observedAtMs: 0, fingerprint: 'wrong' })]) {
+    await writeFile(path.join(directory, 'resolution.complete.json'), marker)
+    await tracker.runOnce()
+    assert.ok(tracker.lastError)
+    assert.deepEqual(await readFile(path.join(directory, 'resolution.pending.json')), retryTask)
+  }
+})
+
+test('bounded resolution passes rotate overdue markets even when every prior task is due again', async (t) => {
+  const spoolDir = await temporary(t)
+  const fixtures = await Promise.all(
+    Array.from({ length: 9 }, (_, index) => packageFixture(spoolDir, index)),
+  )
+  let now = fixtures.at(-1)!.market.endMs + 3_600_001
+  const visited: string[] = []
+  const tracker = new ResolutionTracker({
+    spoolDir,
+    now: () => now,
+    fetchRaw: async (slug) => {
+      visited.push(slug)
+      return gamma(fixtures.find(({ market }) => market.slug === slug)!.market)
+    },
+  })
+  await tracker.runOnce()
+  assert.equal(visited.length, 8)
+  now += 300_000 // Slow archival between maintenance passes makes all earlier tasks due again.
+  await tracker.runOnce()
+  assert.equal(visited.length, 16)
+  assert.equal(new Set(visited).size, 9)
+})
+
 class MemoryStore implements BlobStore {
   readonly objects = new Map<string, Buffer>()
   offline = true

@@ -39,20 +39,21 @@ function positionKey(assetId: string): string {
 }
 
 /**
- * INVARIANT: `apply(ev)` is the ONLY method that mutates snapshot-exposed state
+ * INVARIANT: `apply(ev)` and the one-shot `initializeClock()` are the only methods
+ * that mutate snapshot-exposed state
  * (positionsByAssetId, openOrdersByClientId, wsOpenOrdersByOrderId,
  * ordersByClientIdSnapshot, recentFills, recentSplits, marketByAssetId, nowMs,
  * realizedPnlTotal). Every private mutator (upsertOrderSnapshot, applyFillTo*,
  * pushFill, …) is reachable only from apply().
  *
  * `snapshot()` relies on this: it caches a frozen snapshot and invalidates it in
- * apply() (see `cachedSnapshot`). If you add a new code path that mutates any of
- * the above WITHOUT going through apply(), you MUST null `cachedSnapshot` there
- * too, or snapshot() will serve stale data. Prefer routing the mutation through
- * apply() so the single invalidation point keeps holding.
+ * apply() and initializeClock() (see `cachedSnapshot`). Any new mutation path
+ * must null `cachedSnapshot` too, or snapshot() will serve stale data. Route
+ * later state changes through apply() to preserve snapshot reuse between events.
  */
 export class Portfolio {
   private nowMs = Date.now()
+  private clockInitialized = false
   private readonly positionsByAssetId = new Map<string, Position>()
   private readonly openOrdersByClientId = new Map<string, OpenOrder>()
   private readonly ordersByClientIdSnapshot = new Map<string, OrderSnapshot>()
@@ -127,10 +128,12 @@ export class Portfolio {
 
   // Cached, frozen snapshot reused across calls until the next state change.
   // StrategyRunner calls snapshot() on every market tick (172k+ ticks/market in
-  // backtests), but portfolio state only changes inside apply() (account events,
-  // orders of magnitude rarer than ticks). Rebuilding every map on every tick
+  // backtests), but after clock initialization, portfolio state only changes
+  // inside apply() (account events, orders of magnitude rarer than ticks).
+  // Rebuilding every map on every tick
   // dominated backtest runtime (see #77); caching the whole snapshot makes the
-  // per-tick cost O(1) between account events. Invalidated in apply().
+  // per-tick cost O(1) between account events. Invalidated in apply() and once
+  // when initializeClock() replaces the pre-observation display clock.
   private cachedSnapshot: PortfolioSnapshot | null = null
 
   constructor(opts?: { maxRecentFills?: number; startingCapital?: number }) {
@@ -139,6 +142,14 @@ export class Portfolio {
       opts?.startingCapital ?? DEFAULT_STARTING_CAPITAL,
     )
     this.cash = this.startingCapital
+  }
+
+  /** The first observed tick/event replaces the construction-time display clock. */
+  initializeClock(nowMs: number): void {
+    if (this.clockInitialized || !Number.isFinite(nowMs)) return
+    this.nowMs = nowMs
+    this.clockInitialized = true
+    this.cachedSnapshot = null
   }
 
   snapshot(): PortfolioSnapshot {
@@ -417,12 +428,13 @@ export class Portfolio {
   apply(ev: AccountEvent): void {
     // Any inbound event can change portfolio state (and always advances nowMs
     // below), so drop the cached snapshot; the next snapshot() rebuilds it once.
-    // This is the single invalidation point — see the class-level INVARIANT.
+    // The one-shot clock initialization also invalidates it — see the class invariant.
     this.cachedSnapshot = null
     // Advance portfolio clock deterministically off inbound events.
-    if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
-    else if (ev.kind === 'positions_split') this.nowMs = Math.max(this.nowMs, ev.split.tsMs)
-    else this.nowMs = Math.max(this.nowMs, ev.tsMs)
+    const eventMs =
+      ev.kind === 'fill' ? ev.fill.tsMs : ev.kind === 'positions_split' ? ev.split.tsMs : ev.tsMs
+    this.initializeClock(eventMs)
+    this.nowMs = Math.max(this.nowMs, eventMs)
     this.applyCashOrderEvent(ev)
     // console.log(`[portfolio][${ev.kind}]`,  ev )
     switch (ev.kind) {

@@ -1,5 +1,5 @@
 import { MarketOrderBookEngine } from '../market/orderbook/MarketOrderBookEngine.js'
-import { decodeMarketChannelFrame } from '../market/marketChannelDecoder.js'
+import { inspectMarketFrame, marketFrameMessages } from './marketFrame.js'
 import { applyCapturedFeed, object, parseCapturedJson } from './replay/feedState.js'
 import { parseRecorderMarket } from './markets.js'
 import type {
@@ -71,6 +71,8 @@ export class CaptureCoordinator {
       monotonic?: () => string
       /** Retain closed windows for retrospective sequence/watchdog gap reports. */
       finalizationGraceMs?: number
+      /** Request fresh snapshots after invalid data made the local books unusable. */
+      onInvalidMarketFrame?: () => void
     },
   ) {}
 
@@ -263,15 +265,10 @@ export class CaptureCoordinator {
       this.lastReceived[sharedUpdate.feed] = event.receivedAtMs
       this.unavailable.delete(sharedUpdate.feed)
     }
-    const messages = event.source === 'polymarket' ? decodeMarketChannelFrame(event.rawJson) : []
+    const marketFrame = event.source === 'polymarket' ? inspectMarketFrame(event.rawJson) : null
     const parsed = event.source === 'polymarket' ? parseCapturedJson(event) : null
     const rawMessages = Array.isArray(parsed) ? parsed : [parsed]
-    const addressedMarkets = new Set(
-      rawMessages.flatMap((value) => {
-        const message = object(value)
-        return typeof message?.market === 'string' ? [message.market] : []
-      }),
-    )
+    const addressedMarkets = marketFrame?.addressedMarkets ?? new Set<string>()
     const malformedMarkets: string[] = []
     for (const state of this.markets.values()) {
       if (state.finished) continue
@@ -308,6 +305,7 @@ export class CaptureCoordinator {
         event.source === 'market_metadata' && frame.marketSlug === state.market.slug
       const addressed =
         event.source !== 'polymarket' ||
+        marketFrame?.unscopedInvalid === true ||
         addressedMarkets.size === 0 ||
         addressedMarkets.has(state.market.conditionId)
       // Preserve raw evidence even if a future server schema cannot be decoded.
@@ -342,7 +340,12 @@ export class CaptureCoordinator {
         // starts. Later metadata stays on the tape without changing its past.
         if (!state.started) state.market = { ...updated, rawJson: event.rawJson }
       }
-      const relevant = messages.filter((message) => message.market === state.market.conditionId)
+      const validated = marketFrame ? marketFrameMessages(marketFrame, state.market) : null
+      if (validated?.invalid) {
+        malformedMarkets.push(state.market.slug)
+        continue
+      }
+      const relevant = validated?.messages ?? []
       try {
         for (const message of relevant) {
           const assets =
@@ -387,6 +390,7 @@ export class CaptureCoordinator {
         reason: 'invalid_market_payload',
         details: { certainty: 'confirmed' },
       })
+    if (malformedMarkets.length) this.options.onInvalidMarketFrame?.()
     return event
   }
 

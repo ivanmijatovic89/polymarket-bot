@@ -119,6 +119,39 @@ test('outage replay resets disconnected books without emitting control ticks or 
   assert.equal(seen.length, 4)
 })
 
+test('outage replay discards malformed market members atomically and resumes on replacement books', async () => {
+  const seen: MarketTick[] = []
+  const dispatcher = new CapturedMarketDispatcher({
+    market,
+    filePath: '',
+    config: {},
+    onTick: (tick) => {
+      seen.push(tick)
+    },
+  })
+  await dispatcher.accept(frame(1, 'polymarket', [book(), book('down')]))
+  const invalid = {
+    event_type: 'price_change',
+    market: 'm',
+    timestamp: String(market.startMs),
+    price_changes: [{ asset_id: 'up', price: '0.5', size: '99', side: 'BID' }],
+  }
+  await dispatcher.accept(frame(2, 'polymarket', [book(), invalid]))
+  assert.equal(seen.length, 2, 'no member of an invalid market frame may emit a tick')
+  await dispatcher.accept(frame(3, 'polymarket', book('down')))
+  assert.deepEqual(Object.keys(seen.at(-1)!.snapshot.byAssetId), ['down'])
+  await dispatcher.accept({ ...frame(4, 'polymarket', null), rawJson: '{"event_type":' })
+  assert.equal(seen.length, 3)
+  await dispatcher.accept(frame(5, 'polymarket', book()))
+  assert.deepEqual(Object.keys(seen.at(-1)!.snapshot.byAssetId), ['up'])
+  await dispatcher.accept(frame(6, 'polymarket', { ...invalid, price_changes: null }))
+  await dispatcher.accept(frame(7, 'polymarket', [book(), book('down')]))
+  assert.deepEqual(Object.keys(seen.at(-1)!.snapshot.byAssetId).sort(), ['down', 'up'])
+  assert.ok(
+    seen.every((tick) => !tick.snapshot.byAssetId.up?.asks.some((level) => level.price === 0.5)),
+  )
+})
+
 test('same-clock mixed frames preserve receive order, full depth, and immutable tick feed state', async () => {
   const seen: Array<{ sequence: string; asset: string; value: number | undefined; depth: number }> =
     []

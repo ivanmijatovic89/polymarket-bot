@@ -12,9 +12,21 @@ export async function syncDirectory(directory: string): Promise<void> {
   }
 }
 
+/** Persist each new directory entry, including parents created by recursive mkdir. */
+export async function ensureDirectory(directory: string): Promise<void> {
+  const resolved = path.resolve(directory)
+  const created = await mkdir(resolved, { recursive: true })
+  if (!created) return
+  const boundary = path.dirname(path.resolve(created))
+  for (let parent = path.dirname(resolved); ; parent = path.dirname(parent)) {
+    await syncDirectory(parent)
+    if (parent === boundary) break
+  }
+}
+
 /** Write and sync the replacement before exposing it; the old version survives a crash. */
 export async function atomicWrite(file: string, value: string): Promise<void> {
-  await mkdir(path.dirname(file), { recursive: true })
+  await ensureDirectory(path.dirname(file))
   const temporary = `${file}.${randomUUID()}.tmp`
   const handle = await open(temporary, 'wx', 0o600)
   try {

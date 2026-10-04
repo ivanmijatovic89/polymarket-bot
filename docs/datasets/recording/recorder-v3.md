@@ -31,6 +31,8 @@ PolyBolt uses `price.crypto` for spot and `price.crypto.twap` for TWAP. The reco
 
 The website's `/api/crypto/crypto-price` endpoint is used to observe the published price to beat. Its request includes the market start/end, duration variant, and TWAP configuration. This website endpoint is not a stable documented public API. Its raw responses are preserved, and unavailable/invalid responses remain visible. A locally calculated average is never silently substituted for an official value.
 
+Healthy polling checks every second until a price is available, then every 30 seconds for corrections. Errors back off exponentially with a five-minute local cap; a valid `Retry-After` can require a longer wait. An observed rate limit retains a slower polling floor for that market, even after an isolated success. The recorder preserves the error response, retry details, and coverage gap. Corrections during the wait are unobservable; backoff does not manufacture complete coverage. Separate 5m and 15m requests remain necessary because their market parameters differ.
+
 ## Receipt order and initial state
 
 Every envelope has `captureId`, `sessionId`, `sequence`, `eventId`, `receivedAtMs`, `monotonicNs`, `source`, `connectionId`, `eventType`, `rawJson`, and optional request details. Decimal sequence numbers are stored losslessly. Provider timestamps and decimal prices remain in the original payload; they do not reorder the capture.
@@ -125,6 +127,30 @@ The service runs the Node process directly, preserves the existing backtest serv
 
 An R2 object without a published manifest is not a discoverable completed package. Retrying an ambiguous upload verifies the existing object before deciding whether more work is needed. The downloader repeats integrity verification before replay. R2 uses its [S3-compatible API](https://developers.cloudflare.com/r2/api/s3/api/).
 
+### R2 object layout
+
+The production prefix defaults to `recorder-v3`. Each market slug encodes its duration and opening time as Unix seconds in UTC. Each separate recording gets its own ID. Crash recovery resumes an unfinished recording's journal and ID; starting again after a finalized partial recording creates a new recording rather than overwriting it:
+
+```text
+recorder-v3/
+  btc-updown-5m-<opening-unix-seconds>/
+    <recording-id>/
+      events-<sha256>.parquet
+      manifest-<sha256>.json
+      resolutions/
+        <observed-at-ms>-<sha256>.json
+  btc-updown-15m-<opening-unix-seconds>/
+    <recording-id>/
+      events-<sha256>.parquet
+      manifest-<sha256>.json
+      resolutions/
+        <observed-at-ms>-<sha256>.json
+```
+
+All event feeds for a recording are in its single Parquet. The manifest contains identity, coverage, and integrity information. Later resolution updates are separate because an official result or correction can arrive after the immutable event file has been archived. Shared Binance/Chainlink observations are intentionally repeated in overlapping market files with identical receipt sequence and timestamps.
+
+There is no separate per-feed directory and no database required to discover these packages. `record:v3:data` filters the catalog by timeframe and opening date. If a market has multiple recordings after a restart, select one explicit manifest for a backtest; partial recordings are not silently stitched together.
+
 On restart, already finalized uploads are retried before opening live feeds. This lets a full spool recover after an R2 outage. New capture starts only after disk allowance is available; a disk read error or remaining exhaustion is reported and preserves pending data.
 
 At runtime, the recorder checks spool size, filesystem free space, pending writes, event-loop delays, and clock discontinuities. Resource exhaustion causes a visible controlled stop and preserves unuploaded data. A disk limit is an operating guard, not a reserved disk partition; other processes can still consume free space between checks. CPU and memory measurements should be checked under the intended backtest load before leaving the machine unattended.
@@ -164,6 +190,8 @@ Downloads are sequential and verified, refresh resolution observations, and reus
 
 Coverage records both confirmed loss and uncertainty: reconnect intervals, provider sequence gaps, missing initial books, stale feeds, late startup, interrupted capture, and observed clock/event-loop discontinuities. A connected socket alone does not prove complete upstream data. In particular, an unsequenced Polymarket stream cannot prove that no message was ever lost upstream.
 
+Malformed book frames remain in the raw recording. They invalidate affected books, open coverage gaps, and trigger a reconnect for fresh snapshots. Explicit outage replay preserves these resets and skips the invalid mutations.
+
 Ordinary v3 backtests skip an entire market when a feed required by that strategy has an affected interval. A gap only in an unused optional feed does not automatically disqualify it. The recording remains available. Use `--allow-capture-gaps` explicitly to test outage behavior; this does not invent replacement data.
 
 ```bash
@@ -176,6 +204,32 @@ npm run backtest -- --strategy YOUR_STRATEGY \
 ```
 
 The existing backtest queue/database configuration still applies. A package directory, its `manifest.json`, its `events.parquet`, or an `r2://bucket/.../manifest-SHA256.json` URL can select a recording. Workers download R2 inputs into a verified local cache. Selecting more than one recording of the same market is rejected; choose one capture explicitly.
+
+For a mixed download directory, add `--timeframe 5m` or `--timeframe 15m`. This filters packages before `--latest` and `--limit`; a duration mismatch selects no markets. Without this option, both durations are eligible. Saved run metadata derives its timeframe from the selected manifests: `5m`, `15m`, or null for a mixed batch.
+
+Use `--sequential` to execute in the CLI process without Redis. This still saves results to the configured MySQL database:
+
+```bash
+npm run backtest -- --strategy YOUR_STRATEGY \
+  --input-mode recorder-v3 --dir /absolute/path/to/recorder-cache/btc-5m \
+  --sequential
+```
+
+Without `--sequential`, the existing BullMQ producer, market workers, and aggregation worker are used. Workers must run the tested code revision and have access to the supplied local package path, or use an R2 manifest input with R2 download credentials. A directory on one machine is not automatically shared with another machine. The recorder archive downloader creates a deliberate local backtest cache; deleting uploaded files from the recorder spool does not delete this independent cache.
+
+For a concrete pipeline check using an existing example strategy and one five-minute recording:
+
+```bash
+npm run backtest -- --strategy placeLimitOrderAndCancelAfterFewSec.v1 \
+  --input-mode recorder-v3 --dir /absolute/path/to/recorder-cache \
+  --timeframe 5m --latest --limit 1 --sequential \
+  --param triggerPrice=1 --param orderPrice=0.9 --param size=5 \
+  --latency-delay-ms 0 --latency-jitter-ms 0
+```
+
+This uses simulated execution and saves the resulting run. Whether it fills depends on the selected recording. Check the saved run status, market results, and skip/failure reasons: the existing backtest CLI can exit zero after persisting a failed or partial batch. A zero shell exit alone does not prove successful replay or settlement.
+
+Refresh a downloaded selection with the same `record:v3:data download` command to pick up newer resolution observations. Verified Parquet files are reused. An unresolved official outcome is reported as unresolved; replay does not invent a winner or final PnL. The recorder configuration file supplies feed/archive settings, while the existing backtest environment supplies database/queue settings.
 
 Replay dispatches envelopes in recorded sequence through the shared market engine and strategy runner. Feed state is bound to the corresponding tick before asynchronous strategy work can run. Market snapshots at bootstrap do not trigger strategy history. Recorded receipt time replaces modeled historical feed-latency adjustments for this input mode.
 
@@ -203,4 +257,4 @@ This verifies file integrity, every row, sequence/receipt ordering, manifest row
 
 Before deployment, also validate real feed subscriptions, a complete market for each duration, correct current PTB, market transitions, clean shutdown/restart, actual R2 upload/read-back/deletion, fresh-cache download, and replay. Record the tested commit, elapsed capture time, CPU/memory/disk observations, and any detected gaps. A short connection smoke test is not evidence of long-term operational reliability.
 
-See the [October 2026 validation report](./recorder-v3-validation) for the measured local results and remaining deployment checks.
+See the [initial validation report](./recorder-v3-validation) and [second audit](./recorder-v3-second-audit) for measured local results and remaining deployment checks.

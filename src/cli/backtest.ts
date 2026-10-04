@@ -22,6 +22,7 @@ import {
   resolveBacktestProvenance,
 } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
+import { resolveBacktestTimeframe } from './helpers/backtestTimeframe.js'
 import { inheritedStartingCapital, resolveStartingCapital } from './helpers/capitalArgs.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
@@ -607,16 +608,13 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const captureTimeframes = new Set(
-    [...capturedPackages.values()].map((p) => p.manifest.market.timeframe),
-  )
   const effectiveTimeframe = isExtend
     ? planOk!.parent.timeframe
-    : isCapture
-      ? captureTimeframes.size === 1
-        ? [...captureTimeframes][0]!
-        : null
-      : parsed.timeframe
+    : resolveBacktestTimeframe({
+        inputMode: effectiveInputMode,
+        timeframe: parsed.timeframe,
+        captureTimeframes: [...capturedPackages.values()].map((p) => p.manifest.market.timeframe),
+      })
   console.log(`[backtest] mode=${effectiveInputMode} files=${filePaths.length}`)
   if (isTelonex) {
     console.log(
@@ -1194,7 +1192,7 @@ async function main(): Promise<void> {
         strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
         strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
         symbol: parsed.symbol ?? null,
-        timeframe: parsed.timeframe ?? null,
+        timeframe: effectiveTimeframe,
         inputMode: parsed.inputMode ?? null,
         converter: converter ?? null,
         readFrom: readFrom ?? null,
@@ -1302,7 +1300,7 @@ async function main(): Promise<void> {
       strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
       strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
       symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
-      timeframe: isExtend ? planOk!.parent.timeframe : (parsed.timeframe ?? null),
+      timeframe: effectiveTimeframe,
       inputMode: effectiveInputMode ?? null,
       converter: converter ?? null,
       readFrom: readFrom ?? null,

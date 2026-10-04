@@ -1,15 +1,18 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
-import { mkdir, open, readFile, readdir, rename, rm, unlink } from 'node:fs/promises'
+import { open, readFile, readdir, rename, rm, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import type { BlobStore } from './blobStore.js'
+import { readArchiveReceipt } from './archiveReceipt.js'
+import type { ArchiveReceipt } from './archiveReceipt.js'
 import {
   atomicWrite,
   digestFile,
   digestStream,
+  ensureDirectory,
   exists,
   readSmallStream,
   safeComponent,
@@ -18,12 +21,20 @@ import {
 import type { FileDigest } from './files.js'
 import type { MarketManifest } from './manifest.js'
 import { parseManifest, readManifest } from './manifest.js'
+import {
+  parseResolutionArtifact,
+  readResolutionArtifact,
+  validateResolutionCompletion,
+  validateResolutionObservation,
+} from './resolutionArtifact.js'
 import type { ResolutionObservation } from '../types.js'
 
-export type ArchiveReceipt = { manifestKey: string; verifiedAtMs: number }
+export { readArchiveReceipt } from './archiveReceipt.js'
+export type { ArchiveReceipt } from './archiveReceipt.js'
 export type ArchiveRunResult = {
   uploaded: ArchiveReceipt[]
   failures: Array<{ directory: string; message: string }>
+  attemptedDirectories: string[]
 }
 
 /** Content-addressed objects are accepted only after a complete streamed read-back. */
@@ -77,9 +88,9 @@ export class ArchiveService {
     if (!Number.isSafeInteger(limit) || limit <= 0)
       throw new Error('Archive pass limit must be positive')
     this.running = true
-    const result: ArchiveRunResult = { uploaded: [], failures: [] }
+    const result: ArchiveRunResult = { uploaded: [], failures: [], attemptedDirectories: [] }
     try {
-      await mkdir(this.options.spoolDir, { recursive: true })
+      await ensureDirectory(this.options.spoolDir)
       const entries = (await readdir(this.options.spoolDir, { withFileTypes: true })).sort((a, b) =>
         a.name.localeCompare(b.name),
       )
@@ -107,9 +118,15 @@ export class ArchiveService {
           }
           attempted++
           this.cursor = entry.name
+          result.attemptedDirectories.push(directory)
           if (!archived) result.uploaded.push(await this.archiveMarket(directory, options.signal))
           await this.uploadResolutionOutbox(directory, options.signal)
         } catch (error) {
+          if (result.attemptedDirectories.at(-1) !== directory) {
+            attempted++
+            this.cursor = entry.name
+            result.attemptedDirectories.push(directory)
+          }
           result.failures.push({
             directory,
             message: error instanceof Error ? error.message : String(error),
@@ -159,6 +176,8 @@ export class ArchiveService {
   }
 
   private async removeEventData(directory: string): Promise<void> {
+    if (!(await readArchiveReceipt(directory)))
+      throw new Error('Event deletion requires a verified archive receipt')
     // Only recorder-owned event data is deleted. Tiny manifests, receipts, and resolution tasks remain.
     let deleted = false
     for (const file of await readdir(directory)) {
@@ -184,16 +203,34 @@ export class ArchiveService {
     if (path.dirname(path.resolve(directory)) !== path.resolve(this.options.spoolDir))
       throw new Error('Cleanup path is outside recorder spool')
     if (
-      !(await exists(path.join(directory, 'archived.json'))) ||
+      !(await readArchiveReceipt(directory)) ||
       (await exists(path.join(directory, 'resolution.pending.json')))
     )
       return false
-    const outbox = path.join(directory, 'resolution-outbox')
-    if ((await exists(outbox)) && (await readdir(outbox)).length) return false
     const historyFile = path.join(directory, 'resolutions.json')
     if (!(await exists(historyFile))) return false
-    const history = JSON.parse(await readFile(historyFile, 'utf8')) as ResolutionObservation[]
+    const value: unknown = JSON.parse(await readFile(historyFile, 'utf8'))
+    if (!Array.isArray(value)) throw new Error('Invalid local resolution history')
+    const manifest = await readManifest(path.join(directory, 'manifest.json'))
+    const history = value.map((observation) =>
+      validateResolutionObservation(observation, manifest.market),
+    )
     if (history.at(-1)?.status !== 'resolved') return false
+    const completeFile = path.join(directory, 'resolution.complete.json')
+    if (!(await exists(completeFile))) return false
+    validateResolutionCompletion(
+      JSON.parse(await readFile(completeFile, 'utf8')),
+      history.at(-1) ?? null,
+    )
+    const outbox = path.join(directory, 'resolution-outbox')
+    if (await exists(outbox)) {
+      const entries = await readdir(outbox, { withFileTypes: true })
+      // A crash before atomic rename can strand an uncommitted replacement. Only
+      // these exact recorder-owned regular files may be retired with a completed package.
+      const temporary =
+        /^\d+-[a-f0-9]{64}\.json\.[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.tmp$/
+      if (entries.some((entry) => !entry.isFile() || !temporary.test(entry.name))) return false
+    }
     await rm(directory, { recursive: true })
     await syncDirectory(this.options.spoolDir)
     return true
@@ -208,9 +245,8 @@ export class ArchiveService {
       if (!/^\d+-[a-f0-9]{64}\.json$/.test(name)) continue
       const file = path.join(outbox, name)
       const key = `${path.posix.dirname(manifest.events.key)}/resolutions/${name}`
-      const digest = await digestFile(file)
+      const { observation: observed, digest } = await readResolutionArtifact(file, manifest.market)
       await putVerified(this.options.blobStore, key, file, digest, 'application/json', signal)
-      const observed = JSON.parse(await readFile(file, 'utf8')) as ResolutionObservation
       await appendResolutionHistory(directory, observed)
       await atomicWrite(
         path.join(directory, 'resolution.last-upload.json'),
@@ -298,14 +334,19 @@ export async function downloadMarket(
   cacheDir: string,
 ): Promise<DownloadedMarket> {
   const { manifest, rawJson } = await readRemoteManifest(store, manifestKey)
+  // Refresh failures must preserve the prior cache. Fetch and verify all sidecars
+  // before changing event bytes, and publish the manifest as the final local commit.
   const directory = path.join(
     cacheDir,
     safeComponent(manifest.market.slug),
     safeComponent(manifest.recordingId),
   )
-  await mkdir(directory, { recursive: true })
   const parquetPath = path.join(directory, 'events.parquet')
   const manifestPath = path.join(directory, 'manifest.json')
+  if ((await exists(manifestPath)) && (await readFile(manifestPath, 'utf8')) !== rawJson)
+    throw new Error('Cached recording identity already has a different immutable manifest')
+  const resolutions = await downloadResolutions(store, manifest)
+  await ensureDirectory(directory)
   if (!(await exists(parquetPath)) || !sameDigest(await digestFile(parquetPath), manifest.events)) {
     const events = await store.get(manifest.events.key)
     if (!events) throw new Error('Market events object does not exist')
@@ -343,11 +384,8 @@ export async function downloadMarket(
     await rename(temporary, parquetPath)
     await syncDirectory(directory)
   }
+  await atomicWrite(path.join(directory, 'resolutions.json'), JSON.stringify(resolutions))
   await atomicWrite(manifestPath, rawJson)
-  await atomicWrite(
-    path.join(directory, 'resolutions.json'),
-    JSON.stringify(await downloadResolutions(store, manifest)),
-  )
   return { manifest, manifestPath, parquetPath }
 }
 
@@ -363,22 +401,8 @@ export async function downloadResolutions(
     const stream = await store.get(key)
     if (!stream) throw new Error('Listed resolution disappeared')
     const body = await readSmallStream(stream)
-    if (createHash('sha256').update(body).digest('hex') !== match[2])
-      throw new Error('Resolution integrity check failed')
-    const observation = JSON.parse(body.toString('utf8')) as ResolutionObservation
-    if (
-      observation.schemaVersion !== 3 ||
-      observation.slug !== manifest.market.slug ||
-      observation.conditionId !== manifest.market.conditionId ||
-      !Number.isFinite(observation.observedAtMs)
-    )
-      throw new Error('Invalid resolution observation')
+    const { observation } = parseResolutionArtifact(body, path.posix.basename(key), manifest.market)
     observations.push(observation)
   }
   return observations.sort((a, b) => a.observedAtMs - b.observedAtMs)
-}
-
-export async function readArchiveReceipt(directory: string): Promise<ArchiveReceipt | null> {
-  const file = path.join(directory, 'archived.json')
-  return (await exists(file)) ? (JSON.parse(await readFile(file, 'utf8')) as ArchiveReceipt) : null
 }

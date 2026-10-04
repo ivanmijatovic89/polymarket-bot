@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { CaptureClockMonitor, recorderError, runRecorder } from './daemon.js'
@@ -155,6 +155,56 @@ test('permanent authentication failure produces a controlled error stop', async 
   }
 })
 
+test('invalid market input reconnects the feed and records recovery only after fresh books', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-rewarm-'))
+  try {
+    const market = currentMarket()
+    const dependencies = mockFeeds(market, [])
+    const reconnects: string[] = []
+    dependencies.polymarket = (callbacks: FeedCallbacks) => {
+      const send = (raw: unknown) =>
+        callbacks.onFrame({
+          source: 'polymarket',
+          connectionId: 'mock',
+          stamp: ingressStamp(),
+          rawJson: JSON.stringify(raw),
+        })
+      const books = () =>
+        send(
+          market.tokenIds.map((asset_id) => ({
+            event_type: 'book',
+            market: market.conditionId,
+            asset_id,
+            timestamp: String(Date.now()),
+            bids: [{ price: '0.4', size: '10' }],
+            asks: [{ price: '0.6', size: '10' }],
+          })),
+        )
+      return {
+        setMarkets() {},
+        stop() {},
+        start() {
+          books()
+          send({ event_type: 'price_change', market: market.conditionId, price_changes: null })
+        },
+        reconnect(reason?: string) {
+          reconnects.push(reason ?? '')
+          books()
+        },
+      }
+    }
+    const result = await runRecorder(config(directory), { dependencies, log: () => undefined })
+    assert.equal(result.state, 'stopped')
+    assert.deepEqual(reconnects, ['invalid_market_payload'])
+    const packageName = (await readdir(directory)).find((name) => name.startsWith(market.slug))!
+    const manifest = await readManifest(path.join(directory, packageName, 'manifest.json'))
+    const gap = manifest.coverage.gaps.find((item) => item.reason === 'invalid_market_payload')
+    assert.ok(gap && gap.endMs !== null && gap.endMs < market.endMs)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('disk guard failure stops capture and retains its local recording', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-disk-'))
   try {
@@ -265,6 +315,91 @@ test('a spool that remains full preserves an error status without opening live f
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+for (const healthyLastPackage of [true, false])
+  test(`full-spool startup visits later archive batches and ${healthyLastPackage ? 'recovers after eight failures' : 'stops after one bounded sweep without progress'}`, async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-archive-sweep-'))
+    try {
+      const market = currentMarket()
+      await runRecorder(config(directory), {
+        dependencies: mockFeeds(market, []),
+        log: () => undefined,
+      })
+      const packageName = (await readdir(directory)).find((name) => name.startsWith(market.slug))!
+      const originalParquet = path.join(directory, packageName, 'events.parquet')
+      const manifest = await readManifest(path.join(directory, packageName, 'manifest.json'))
+      for (let index = 0; index < 8; index++) {
+        const failedDirectory = path.join(directory, `aaa-failed-${index}`)
+        await mkdir(failedDirectory)
+        await copyFile(originalParquet, path.join(failedDirectory, 'events.parquet'))
+        await writeFile(
+          path.join(failedDirectory, 'manifest.json'),
+          JSON.stringify({
+            ...manifest,
+            events: { ...manifest.events, key: `recorder-v3-test/failed/${index}/events.parquet` },
+          }),
+        )
+      }
+      const objects = new Map<string, Buffer>()
+      const attemptedKeys: string[] = []
+      const cloud: BlobStore & { close(): void } = {
+        async putFile(key, file) {
+          attemptedKeys.push(key)
+          if (!healthyLastPackage || key.includes('/failed/'))
+            throw new Error('Fixture upload failure')
+          objects.set(key, await readFile(file))
+        },
+        async get(key) {
+          const value = objects.get(key)
+          return value
+            ? (async function* () {
+                yield value
+              })()
+            : null
+        },
+        async *list(prefix) {
+          for (const key of objects.keys()) if (key.startsWith(prefix)) yield key
+        },
+        close() {},
+      }
+      let discoveryCalls = 0
+      const result = await runRecorder(
+        {
+          ...config(directory),
+          upload: true,
+          r2: {
+            endpoint: 'https://unused.invalid',
+            bucket: 'test',
+            accessKeyId: 'key',
+            secretAccessKey: 'secret',
+            prefix: 'recorder-v3-test',
+          },
+        },
+        {
+          dependencies: {
+            ...mockFeeds(market, []),
+            blobStore: () => cloud,
+            disk: async () => ({
+              bytes: (await exists(originalParquet)) ? 2_000_000_000 : 0,
+              freeBytes: 1_000_000_000,
+            }),
+            discover: async () => {
+              discoveryCalls++
+              return [market]
+            },
+          },
+          log: () => undefined,
+        },
+      )
+      assert.ok(attemptedKeys.includes(manifest.events.key), 'the ninth package must be visited')
+      assert.ok(attemptedKeys.length <= 25, 'a complete outage must not spin forever')
+      assert.equal(discoveryCalls, healthyLastPackage ? 1 : 0)
+      assert.equal(result.state, healthyLastPackage ? 'stopped' : 'error')
+      assert.equal(result.archive.uploadedMarkets, healthyLastPackage ? 1 : 0)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
 
 test('missing a configured current timeframe remains visible as degraded with discovery context', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-discovery-'))

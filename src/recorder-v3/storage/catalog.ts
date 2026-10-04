@@ -1,4 +1,5 @@
 import { parse } from 'dotenv'
+import { RecorderCliError } from '../cliError.js'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -18,7 +19,7 @@ export type CatalogEntry = { manifestKey: string; manifest: MarketManifest }
 
 export function validateArchivePrefix(prefix: string): string {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9/_-]*$/.test(prefix) || prefix.includes('//') || prefix.endsWith('/'))
-    throw new Error('Invalid archive prefix')
+    throw new RecorderCliError('Invalid archive prefix')
   return prefix
 }
 
@@ -93,20 +94,20 @@ export type CatalogArgs = {
 
 function utcDate(value: string, name: string): number {
   if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z)?$/.test(value))
-    throw new Error(`${name} must be a UTC date or ISO timestamp ending in Z`)
+    throw new RecorderCliError(`${name} must be a UTC date or ISO timestamp ending in Z`)
   const timestamp = Date.parse(value)
   if (
     !Number.isFinite(timestamp) ||
     new Date(timestamp).toISOString().slice(0, 10) !== value.slice(0, 10)
   )
-    throw new Error(`Invalid ${name} date`)
+    throw new RecorderCliError(`Invalid ${name} date`)
   return timestamp
 }
 
 export function parseCatalogArgs(argv: string[]): CatalogArgs {
   const command = argv[0]
   if (command !== 'list' && command !== 'download')
-    throw new Error('Expected list or download subcommand')
+    throw new RecorderCliError('Expected list or download subcommand')
   const known = new Set([
     '--env-file',
     '--prefix',
@@ -119,26 +120,27 @@ export function parseCatalogArgs(argv: string[]): CatalogArgs {
   const options = new Map<string, string>()
   for (let i = 1; i < argv.length; i++) {
     const name = argv[i]!
-    if (!known.has(name)) throw new Error('Unknown catalog option')
-    if (options.has(name)) throw new Error(`Duplicate ${name} option`)
+    if (!known.has(name)) throw new RecorderCliError('Unknown catalog option')
+    if (options.has(name)) throw new RecorderCliError(`Duplicate ${name} option`)
     const value = argv[++i]
-    if (!value || value.startsWith('--')) throw new Error(`Missing value for ${name}`)
+    if (!value || value.startsWith('--')) throw new RecorderCliError(`Missing value for ${name}`)
     options.set(name, value)
   }
   const timeframe = options.get('--timeframe') ?? null
   if (timeframe !== null && timeframe !== '5m' && timeframe !== '15m')
-    throw new Error('Timeframe must be 5m or 15m')
+    throw new RecorderCliError('Timeframe must be 5m or 15m')
   const fromMs = options.has('--from') ? utcDate(options.get('--from')!, '--from') : null
   const toMs = options.has('--to') ? utcDate(options.get('--to')!, '--to') : null
   if (fromMs !== null && toMs !== null && fromMs >= toMs)
-    throw new Error('--from must be before --to')
+    throw new RecorderCliError('--from must be before --to')
   const output = options.get('--output') ?? null
   if (command === 'download' && !output)
-    throw new Error('Download requires an explicit --output cache directory')
-  if (command === 'list' && output) throw new Error('--output is only supported by download')
+    throw new RecorderCliError('Download requires an explicit --output cache directory')
+  if (command === 'list' && output)
+    throw new RecorderCliError('--output is only supported by download')
   const manifest = options.get('--manifest') ?? null
   if (manifest && (timeframe || fromMs !== null || toMs !== null))
-    throw new Error('--manifest cannot be combined with timeframe or date filters')
+    throw new RecorderCliError('--manifest cannot be combined with timeframe or date filters')
   const prefix = options.get('--prefix') ?? null
   if (prefix) validateArchivePrefix(prefix)
   return {
@@ -158,11 +160,19 @@ export async function loadCatalogConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<{ r2: R2BlobStoreOptions; filter: CatalogFilter; manifestKey: string | null }> {
   // Selected R2 values only; no wallet or trading configuration is initialized or exported.
-  const values = parse(await readFile(args.envFile))
+  let contents: Buffer
+  try {
+    contents = await readFile(args.envFile)
+  } catch {
+    throw new RecorderCliError(
+      'Cannot read the archive configuration file; select a readable file with --env-file',
+    )
+  }
+  const values = parse(contents)
   const get = (key: string) => (env[key] ?? values[key])?.trim()
   const required = (key: string) => {
     const value = get(key)
-    if (!value) throw new Error(`Missing ${key} in explicit archive configuration`)
+    if (!value) throw new RecorderCliError(`Missing ${key} in explicit archive configuration`)
     return value
   }
   const endpoint = required('R2_ENDPOINT')
@@ -170,7 +180,7 @@ export async function loadCatalogConfig(
   try {
     url = new URL(endpoint)
   } catch {
-    throw new Error('Invalid R2_ENDPOINT')
+    throw new RecorderCliError('Invalid R2_ENDPOINT')
   }
   if (
     url.protocol !== 'https:' ||
@@ -181,9 +191,12 @@ export async function loadCatalogConfig(
     url.search ||
     url.hash
   )
-    throw new Error('R2_ENDPOINT must be an HTTPS origin without credentials, path or query')
+    throw new RecorderCliError(
+      'R2_ENDPOINT must be an HTTPS origin without credentials, path or query',
+    )
   const bucket = required('R2_BUCKET')
-  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) throw new Error('Invalid R2_BUCKET')
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket))
+    throw new RecorderCliError('Invalid R2_BUCKET')
   const prefix = validateArchivePrefix(args.prefix ?? get('RECORDER_R2_PREFIX') ?? 'recorder-v3')
   let manifestKey = args.manifest
   if (manifestKey?.startsWith('r2://')) {
@@ -191,7 +204,7 @@ export async function loadCatalogConfig(
     try {
       manifestUrl = new URL(manifestKey)
     } catch {
-      throw new Error('Invalid R2 manifest URL')
+      throw new RecorderCliError('Invalid R2 manifest URL')
     }
     if (
       manifestUrl.hostname !== bucket ||
@@ -200,7 +213,9 @@ export async function loadCatalogConfig(
       manifestUrl.search ||
       manifestUrl.hash
     )
-      throw new Error('Manifest URL must use the configured R2 bucket without credentials or query')
+      throw new RecorderCliError(
+        'Manifest URL must use the configured R2 bucket without credentials or query',
+      )
     manifestKey = decodeURIComponent(manifestUrl.pathname.slice(1))
   }
   if (
@@ -209,7 +224,9 @@ export async function loadCatalogConfig(
       !/\/manifest-[a-f0-9]{64}\.json$/.test(manifestKey) ||
       manifestKey.split('/').includes('..'))
   )
-    throw new Error('Manifest key must be a committed manifest under the selected prefix')
+    throw new RecorderCliError(
+      'Manifest key must be a committed manifest under the selected prefix',
+    )
   return {
     r2: {
       endpoint,

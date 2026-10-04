@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readFile, readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { fetchGammaRaw } from './markets.js'
@@ -6,6 +5,13 @@ import { parseResolutionObservation } from './resolutionParser.js'
 import { appendResolutionHistory, queueResolution, type ArchiveService } from './storage/archive.js'
 import { atomicWrite, exists, syncDirectory } from './storage/files.js'
 import { readManifest } from './storage/manifest.js'
+import {
+  readResolutionArtifact,
+  resolutionFingerprint as fingerprint,
+  RESOLUTION_CONFIRMATION_MS as CONFIRMATION_MS,
+  validateResolutionCompletion,
+  validateResolutionObservation,
+} from './storage/resolutionArtifact.js'
 import type { RecordedMarket, ResolutionObservation } from './types.js'
 
 type ResolutionTask = {
@@ -18,45 +24,26 @@ type ResolutionTask = {
   lastError?: string
 }
 
-const CONFIRMATION_MS = 86_400_000
-
-function fingerprint(observation: ResolutionObservation): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        status: observation.status,
-        outcome: observation.winningOutcome,
-        token: observation.winningTokenId,
-        payouts: observation.payouts
-          ? Object.fromEntries(
-              Object.entries(observation.payouts).sort(([a], [b]) => a.localeCompare(b)),
-            )
-          : null,
-        priceToBeat: observation.priceToBeat,
-        finalPrice: observation.finalPrice,
-      }),
-    )
-    .digest('hex')
-}
-
 /** Outbox entries are durable before task/history updates, so include them in crash recovery. */
 async function latestObservation(
   directory: string,
   market: RecordedMarket,
 ): Promise<ResolutionObservation | null> {
   const historyFile = path.join(directory, 'resolutions.json')
-  const history: ResolutionObservation[] = (await exists(historyFile))
-    ? (JSON.parse(await readFile(historyFile, 'utf8')) as ResolutionObservation[])
-    : []
+  const readHistory = async () => {
+    if (!(await exists(historyFile))) return []
+    const value: unknown = JSON.parse(await readFile(historyFile, 'utf8'))
+    if (!Array.isArray(value)) throw new Error('Invalid local resolution history')
+    return value.map((observation) => validateResolutionObservation(observation, market))
+  }
+  const history: ResolutionObservation[] = await readHistory()
   const outbox = path.join(directory, 'resolution-outbox')
   let refreshHistory = false
   if (await exists(outbox)) {
     for (const name of await readdir(outbox)) {
       if (!/^\d+-[a-f0-9]{64}\.json$/.test(name)) continue
       try {
-        history.push(
-          JSON.parse(await readFile(path.join(outbox, name), 'utf8')) as ResolutionObservation,
-        )
+        history.push((await readResolutionArtifact(path.join(outbox, name), market)).observation)
       } catch (error) {
         // The uploader may have moved this observation into history since the listing.
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -65,17 +52,7 @@ async function latestObservation(
     }
   }
   if (refreshHistory && (await exists(historyFile))) {
-    history.push(...(JSON.parse(await readFile(historyFile, 'utf8')) as ResolutionObservation[]))
-  }
-  for (const observation of history) {
-    if (
-      observation.schemaVersion !== 3 ||
-      observation.slug !== market.slug ||
-      observation.conditionId !== market.conditionId ||
-      !Number.isFinite(observation.observedAtMs)
-    ) {
-      throw new Error('Invalid local resolution history')
-    }
+    history.push(...(await readHistory()))
   }
   return history.sort((a, b) => a.observedAtMs - b.observedAtMs).at(-1) ?? null
 }
@@ -85,6 +62,7 @@ export class ResolutionTracker {
   pending = 0
   lastError: string | null = null
   private running = false
+  private cursor: string | null = null
 
   constructor(
     private readonly options: {
@@ -106,7 +84,15 @@ export class ResolutionTracker {
     let requests = 0
     let passError: string | null = null
     try {
-      for (const entry of await readdir(this.options.spoolDir, { withFileTypes: true })) {
+      const entries = (await readdir(this.options.spoolDir, { withFileTypes: true })).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      )
+      const pivot =
+        this.cursor === null
+          ? -1
+          : entries.findIndex((entry) => entry.name.localeCompare(this.cursor!) > 0)
+      const ordered = pivot > 0 ? [...entries.slice(pivot), ...entries.slice(0, pivot)] : entries
+      for (const entry of ordered) {
         if (signal?.aborted) break
         if (!entry.isDirectory()) continue
         const directory = path.join(this.options.spoolDir, entry.name)
@@ -114,7 +100,12 @@ export class ResolutionTracker {
           const manifestFile = path.join(directory, 'manifest.json')
           if (!(await exists(manifestFile))) continue
           const taskFile = path.join(directory, 'resolution.pending.json')
-          if (await exists(path.join(directory, 'resolution.complete.json'))) {
+          const completeFile = path.join(directory, 'resolution.complete.json')
+          if (await exists(completeFile)) {
+            const complete: unknown = JSON.parse(await readFile(completeFile, 'utf8'))
+            const manifest = await readManifest(manifestFile)
+            const previous = await latestObservation(directory, manifest.market)
+            validateResolutionCompletion(complete, previous)
             // A crash between writing the completion marker and removing its task
             // must not leave the directory permanently ineligible for cleanup.
             if (await exists(taskFile)) {
@@ -151,6 +142,7 @@ export class ResolutionTracker {
             continue
           }
           requests++
+          this.cursor = entry.name
           try {
             let responseRaw: string | undefined
             let receivedAtMs: number | undefined
@@ -180,12 +172,15 @@ export class ResolutionTracker {
               // Repair a crash after durable outbox insertion but before local history.
               await appendResolutionHistory(directory, previous)
             }
+            const taskMatchesObservation = task.fingerprint === currentFingerprint
             task.fingerprint = currentFingerprint
             this.options.onObservation?.(observation)
             task.attempts = 0
             delete task.lastError
             if (observation.status === 'resolved') {
-              if (changed) task.firstResolvedAtMs = observedAtMs
+              if (changed || !taskMatchesObservation)
+                task.firstResolvedAtMs =
+                  !changed && previous?.status === 'resolved' ? previous.observedAtMs : observedAtMs
               task.firstResolvedAtMs ??=
                 previous?.status === 'resolved' ? previous.observedAtMs : observedAtMs
               // A corrected terminal outcome starts another confirmation interval.

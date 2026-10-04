@@ -52,7 +52,7 @@ export type BacktestArgs = {
   //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='delta-typed').
   inputMode: InputMode
   allowCaptureGaps?: boolean
-  /** Optional filter for mixed Recorder v3 package directories. */
+  /** Manifest-duration filter, applied to Recorder v3 inputs before ordering and limiting. */
   captureTimeframe?: '5m' | '15m'
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
