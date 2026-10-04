@@ -2,6 +2,8 @@ import { MarketOrderBookEngine } from '../market/orderbook/MarketOrderBookEngine
 import { inspectMarketFrame, marketFrameMessages } from './marketFrame.js'
 import { applyCapturedFeed, object, parseCapturedJson } from './replay/feedState.js'
 import { parseRecorderMarket } from './markets.js'
+import { OpeningReferenceTracker } from './replay/openingReference.js'
+import type { OpeningReferenceSnapshot } from '../trading/feeds/externalFeeds.js'
 import type {
   BootstrapPayload,
   CapturedEvent,
@@ -42,6 +44,7 @@ type MarketState = {
   gaps: CoverageGap[]
   openGaps: Map<RecorderFeed, CoverageGap>
   priceToBeat: CapturedEvent | null
+  openingReference: OpeningReferenceTracker | null
   rows: number
 }
 
@@ -100,6 +103,7 @@ export class CaptureCoordinator {
       gaps: [],
       openGaps: new Map(),
       priceToBeat: null,
+      openingReference: null,
       rows: 0,
     })
   }
@@ -195,7 +199,10 @@ export class CaptureCoordinator {
     if (books.length === 2) state.receivedFeeds.add('polymarket')
     const payload: BootstrapPayload = { kind: 'initial_state', market: state.market, feeds, books }
     this.options.sink.onStart?.(state.market)
-    this.write(state, this.local('bootstrap', payload, at, 'initial_state'))
+    const bootstrap = this.local('bootstrap', payload, at, 'initial_state')
+    state.openingReference = new OpeningReferenceTracker(state.market)
+    state.openingReference.accept(bootstrap)
+    this.write(state, bootstrap)
     // Polling a newly opened strike naturally takes time: record its availability,
     // not a fictitious outage before the first successful price-to-beat response.
     for (const feed of RECORDER_FEEDS) {
@@ -376,6 +383,8 @@ export class CaptureCoordinator {
         this.lastReceived.price_to_beat = event.receivedAtMs
       }
       if (!inWindow || !addressed) continue
+      if (event.source === 'chainlink' || event.source === 'price_to_beat')
+        state.openingReference?.accept(event)
       if (update) this.restored(state, update.feed, event.receivedAtMs)
       if (relevant.length && state.books.isWarm())
         this.restored(state, 'polymarket', event.receivedAtMs)
@@ -550,16 +559,21 @@ export class CaptureCoordinator {
     rows: number
     gaps: number
     booksReady: boolean
+    openingReference?: OpeningReferenceSnapshot
   }> {
     return [...this.markets.values()]
       .filter((state) => !state.finished)
-      .map((state) => ({
-        slug: state.market.slug,
-        timeframe: state.market.timeframe,
-        active: state.started && this.now() < state.market.endMs,
-        rows: state.rows,
-        gaps: state.gaps.length,
-        booksReady: state.books.isWarm(),
-      }))
+      .map((state) => {
+        const openingReference = state.openingReference?.snapshot()
+        return {
+          slug: state.market.slug,
+          timeframe: state.market.timeframe,
+          active: state.started && this.now() < state.market.endMs,
+          rows: state.rows,
+          gaps: state.gaps.length,
+          booksReady: state.books.isWarm(),
+          ...(openingReference ? { openingReference } : {}),
+        }
+      })
   }
 }

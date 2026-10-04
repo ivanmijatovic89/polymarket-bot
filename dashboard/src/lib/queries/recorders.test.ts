@@ -102,3 +102,78 @@ test('Redis failure and stalled queries return an unavailable report within a bo
   assert.ok(stalled.error)
   assert.ok(Date.now() - start < 1_000)
 })
+
+test('opening-reference status preserves provenance and strips unexpected fields', () => {
+  const openingReference = {
+    comparison: 'match',
+    observation: {
+      source: 'chainlink-opening-twap',
+      symbol: 'BTC',
+      sourceTimestampMs: 5_000,
+      windowSeconds: 60,
+      openPrice: 85_412.32,
+      fullAccuracyValue: '85412320000000000000000',
+      receivedAtMs: 6_000,
+      eventId: 'twap-event',
+      sessionId: 'session',
+      connectionId: 'connection',
+    },
+    website: { openPrice: 85_412.32, receivedAtMs: 7_000, eventId: 'website-event' },
+  }
+  const market = {
+    slug: 'btc-updown-5m-1791144900',
+    timeframe: '5m',
+    active: true,
+    rows: 100,
+    gaps: 0,
+    booksReady: true,
+  }
+  const parseMarket = (reference: unknown) =>
+    parseRecorderStatus(
+      'worker-2',
+      JSON.stringify({ ...status, markets: [{ ...market, openingReference: reference }] }),
+      10_000,
+    )
+  const parsed = parseMarket({
+    ...openingReference,
+    raw: 'must be stripped',
+    observation: { ...openingReference.observation, credentials: 'must be stripped' },
+  })
+  assert.equal(parsed.error, null)
+  assert.deepEqual(parsed.status?.markets[0]?.openingReference, openingReference)
+
+  const conflict = {
+    ...openingReference,
+    comparison: 'conflicting-twap',
+    conflict: {
+      fullAccuracyValue: '85413320000000000000000',
+      receivedAtMs: 8_000,
+      eventId: 'later-event',
+    },
+  }
+  assert.deepEqual(parseMarket(conflict).status?.markets[0]?.openingReference, conflict)
+  const recovered = { ...openingReference, conflictCount: 2 }
+  assert.deepEqual(parseMarket(recovered).status?.markets[0]?.openingReference, recovered)
+  assert.equal(
+    parseMarket({ ...openingReference, conflictCount: 0 }).status?.markets[0]?.openingReference
+      ?.conflictCount,
+    0,
+  )
+  assert.equal(parseMarket(undefined).error, null)
+  assert.equal(parseMarket({ comparison: 'unavailable' }).error, null)
+  assert.equal(parseMarket({ ...openingReference, comparison: 'mismatch' }).error, null)
+  for (const invalid of [
+    { ...openingReference, comparison: 'approved' },
+    { ...openingReference, conflictCount: -1 },
+    { ...openingReference, conflictCount: 0.5 },
+    { ...openingReference, conflictCount: '1' },
+    { ...openingReference, observation: { ...openingReference.observation, windowSeconds: 30 } },
+    { ...openingReference, observation: { ...openingReference.observation, source: 'website' } },
+    { ...openingReference, observation: { ...openingReference.observation, receivedAtMs: '6000' } },
+    { ...openingReference, observation: { ...openingReference.observation, receivedAtMs: 1e99 } },
+    { ...openingReference, website: { openPrice: -1, receivedAtMs: 7_000, eventId: 'invalid' } },
+    null,
+  ]) {
+    assert.equal(parseMarket(invalid).status, null)
+  }
+})

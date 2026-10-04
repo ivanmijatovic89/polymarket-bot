@@ -5,6 +5,7 @@ import type { MarketTick } from '../../strategy/Strategy.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 import type { BootstrapPayload, CapturedEvent, MarketCoverage, RecordedMarket } from '../types.js'
+import { OpeningReferenceTracker } from './openingReference.js'
 import {
   applyCapturedFeed,
   object,
@@ -42,6 +43,7 @@ export function capturedMarketGapReasons(
  */
 export class CapturedMarketDispatcher {
   private readonly engine: MarketEngine
+  private readonly openingReference: OpeningReferenceTracker
   private state: ExternalFeedsSnapshot = {}
   private sequence = -1n
   private captureId: string | undefined
@@ -58,6 +60,7 @@ export class CapturedMarketDispatcher {
     },
   ) {
     validateCapturedFeedRequest(args.config, args.market)
+    this.openingReference = new OpeningReferenceTracker(args.market)
     this.engine = new MarketEngine({
       expectedAssetIds: args.market.tokenIds,
       onTick: (tick) => this.dispatchTick(tick),
@@ -80,7 +83,10 @@ export class CapturedMarketDispatcher {
   }
 
   private async dispatchTick(tick: MarketTick): Promise<void> {
-    this.tickFeeds.set(tick, structuredClone(selectCapturedFeeds(this.state, this.args.config)))
+    this.tickFeeds.set(
+      tick,
+      structuredClone(selectCapturedFeeds(this.state, this.args.config, this.args.market)),
+    )
     await this.args.onTick(tick)
   }
 
@@ -133,12 +139,15 @@ export class CapturedMarketDispatcher {
       this.bootstrapSession = event.sessionId
       this.engine.reset()
       this.state = {}
+      this.openingReference.accept(event)
       for (const feed of bootstrap.feeds) {
         if (feed.receivedAtMs > event.receivedAtMs || BigInt(feed.sequence) > sequence)
           throw new Error('Bootstrap contains future feed state')
         const update = applyCapturedFeed(this.state, feed, market)
         if (update) this.state = update.snapshot
       }
+      const reference = this.openingReference.snapshot()
+      if (reference) this.state = { ...this.state, openingReference: reference }
       for (const book of bootstrap.books) {
         if (book.observedAtMs > event.receivedAtMs || BigInt(book.sequence) > sequence)
           throw new Error('Bootstrap contains future order book state')
@@ -149,6 +158,11 @@ export class CapturedMarketDispatcher {
 
     // Half-open market windows: boundary events belong to the next market.
     if (event.receivedAtMs < market.startMs || event.receivedAtMs >= market.endMs) return
+    if (event.source === 'chainlink' || event.source === 'price_to_beat') {
+      this.openingReference.accept(event)
+      const reference = this.openingReference.snapshot()
+      if (reference) this.state = { ...this.state, openingReference: reference }
+    }
     if (event.source === 'control') {
       const status = object(parseCapturedJson(event))
       if (

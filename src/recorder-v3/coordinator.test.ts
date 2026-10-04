@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CaptureCoordinator, RECORDER_FEEDS } from './coordinator.js'
 import { parseRecorderMarket } from './markets.js'
+import { CapturedMarketDispatcher } from './replay/dispatcher.js'
 import type {
   BootstrapPayload,
   CapturedEvent,
@@ -150,6 +151,59 @@ function harness(markets: RecordedMarket[]) {
     },
   }
 }
+
+test('opening-reference diagnostics match archived replay and remain market-specific across rotation', async () => {
+  const five = market()
+  const fifteen = market('15m')
+  const next = market('5m', five.endMs)
+  const h = harness([five, fifteen, next])
+  h.frame(
+    'polymarket',
+    [five, fifteen, next].flatMap((m) => m.tokenIds.map((token) => h.book(m, token))),
+    950,
+  )
+  h.advance(1_000)
+  const twap = (timestamp: number, value: string) => ({
+    channel: 'price.crypto.twap',
+    payload: {
+      source: 'chainlink',
+      symbol: 'btcusd',
+      timestamp,
+      full_accuracy_value: value,
+      window_seconds: 60,
+    },
+  })
+  h.frame('chainlink', twap(1_000, '85000.123456789012345678'), 1_100)
+  h.frame('price_to_beat', { openPrice: 85001 }, 1_200, fifteen.slug)
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === fifteen.slug)?.openingReference?.comparison,
+    'mismatch',
+  )
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === five.slug)?.openingReference?.comparison,
+    'waiting-for-website',
+  )
+  h.frame('price_to_beat', { openPrice: 85000.123456789012345678 }, 1_300, fifteen.slug)
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === fifteen.slug)?.openingReference?.comparison,
+    'match',
+  )
+  h.advance(next.startMs)
+  h.frame('chainlink', twap(next.startMs, '86000'), next.startMs + 100)
+  for (const m of [fifteen, next]) {
+    const dispatcher = new CapturedMarketDispatcher({
+      market: m,
+      filePath: 'capture.parquet',
+      config: { polymarketPriceToBeat: { enabled: true, source: 'chainlink-opening-twap' } },
+      onTick: () => {},
+    })
+    for (const event of h.rows.get(m.slug) ?? []) await dispatcher.accept(event)
+    const observed = h.coordinator.snapshot().find((row) => row.slug === m.slug)?.openingReference
+    assert.deepEqual(dispatcher.snapshot().openingReference, observed)
+    assert.equal(observed?.observation?.sourceTimestampMs, m.startMs)
+    assert.equal(observed?.observation?.openPrice, m === next ? 86000 : 85000.123456789012345678)
+  }
+})
 
 test('bootstrap retains only latest observed feed state and materialized books without fake history rows', () => {
   const m = market()
