@@ -438,6 +438,10 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     )
     check.verification = VOLUME_WARNING
     check.corroborating_transaction = candidate.transaction
+    check.corroborating_transactions = candidate.transactions
+    check.corroborating_taker_fills = candidate.taker_fill_count
+    check.corroborating_first_timestamp = candidate.first_timestamp
+    check.corroborating_last_timestamp = candidate.last_timestamp
     market.source_warnings = [VOLUME_WARNING]
     sourceWarnings.push({
       slug: market.slug,
@@ -509,7 +513,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute, sourceWarnings.length > 0)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 6,
+    downloader_version: 7,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,

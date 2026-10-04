@@ -29,7 +29,7 @@ incomplete. Wallet requests group up to 20 conditions.
 Source feed filters remain identical on every cursor page. If an empty market is
 omitted from the volume response, a separate single-event request must explicitly
 report zero aggregate volume; that evidence is saved. A missing volume row for a
-non-empty market stops publication. A small, corroborated early-trade aggregate
+non-empty market stops publication. A small, corroborated opening-burst aggregate
 disagreement may be published with an explicit source warning only under the
 [documented exception rule](./api-limitations#june-16-taker-volume-disagreement).
 Its trades are retained and wallet-accounting checks remain mandatory.

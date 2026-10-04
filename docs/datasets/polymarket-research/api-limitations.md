@@ -192,27 +192,32 @@ precision. The winning wallet's activity additionally contains its redemption.
 This supports retaining the trade. It does not establish why the aggregate
 differs or justify deleting a row to force agreement.
 
-Downloader version 6 retains this kind of corroborated disagreement as a source
+Downloader version 7 retains this kind of corroborated disagreement as a source
 warning, under the user's delegated acceptance decision. The rule is deliberately
 narrow. All of these conditions must hold:
 
-- The market is resolved. The positive discrepancy is at most 10 shares and
-  0.1% of its downloaded taker volume. These are conservative acceptance limits,
-  not claims about API numerical precision.
-- The discrepancy matches the unique earliest taker fill, before the market's
-  trading window, within one microshare. Its transaction contains exactly two
-  counterparties with matching quantities and timestamps. All-side quantity is
-  exactly twice taker quantity.
+- The market is resolved. The positive discrepancy is at most 0.1% of its
+  downloaded taker volume. This is a conservative acceptance limit, not a claim
+  about API numerical precision.
+- The discrepancy matches **all** taker fills in the first 60 seconds of observed
+  trading, within one microshare. This opening burst is entirely before the
+  market window, with at least 60 seconds from its last fill to the next trade.
+  All same-second fills are included; the code never searches for a matching
+  subset or invents ordering within a second.
+- Every opening transaction has exactly one taker row, and its maker rows sum
+  exactly to that taker's quantity with matching timestamps. Multiple makers
+  are preserved. All-side quantity is exactly twice total taker quantity.
 - Independent all-side and taker walks at page size 137 reproduce every original
   fill with its multiplicity. A repeated single-event aggregate remains unchanged.
-- Both counterparties pass the existing full wallet/market accounting checks,
-  including trade/activity, cash, positions and native PnL reconciliation.
+- Every wallet involved in the opening burst passes the existing full
+  wallet/market accounting checks, including trade/activity, cash, positions and
+  native PnL reconciliation.
 
 The code retains every trade and cash amount. It saves the repeated source rows
 in checksummed `volume-evidence.json`, flags the market in Parquet using
 `source_warnings`, and exposes the warning in coverage, wallet and leaderboard
 reports. Offline verification rechecks the saved evidence and recomputes the
-counterparties' accounting. `verify.valid` may be true with a warning, while
+participants' accounting. `verify.valid` may be true with a warning, while
 `all_source_aggregates_reconciled` is false. Wallet eligibility still depends on
 wallet accounting; this source warning alone does not exclude an otherwise
 complete wallet. A mismatch outside this rule still stops publication.
@@ -228,6 +233,27 @@ that day retain their existing exclusions. Live evidence is saved in
 This recurrence supports investigating aggregate start boundaries, but does not
 prove the cause. Original June 16 pages and wallet comparisons remain in
 `logs/volume-mismatch-20260616/` in the permanent root.
+
+## June 20 opening burst
+
+`btc-updown-15m-1781927100` has 34,013.455487 taker shares versus the aggregate's
+33,984.043742. Their **29.411745-share** difference equals all 15 taker fills in
+the opening 31 seconds. The next trade occurred over 22 hours later. Fresh
+all-side and taker walks reproduce the cached multisets exactly. Two opening
+transactions have several makers; their quantities sum exactly to the taker
+quantity. All eight involved wallets' full market histories reconcile, including
+their later trades, cash, positions and native PnL.
+
+This evidence extends the original single-fill rule to an isolated opening
+burst. The original absolute 10-share cap is removed; the 0.1% relative bound,
+complete repeated feeds and strict accounting for every involved wallet remain.
+The rule does not accept a mismatch merely because it is small. Tests cover
+multi-maker fills, all participants, arbitrary input order, rejection of matching
+subsets and continuous trading, Parquet publication, rebuild and offline evidence
+verification. Original pages, all eight wallet histories and the candidate
+validation are in `logs/volume-mismatch-20260620/` in the permanent root. This
+establishes corroboration of the retained facts, not the cause of the aggregate
+omission. The full June 20 day still needs to finish downloading and verify.
 
 ## Reproduce the local audit
 

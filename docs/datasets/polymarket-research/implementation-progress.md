@@ -8,6 +8,25 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Downloader version 7: corroborated opening bursts
+
+June 19 published and independently verified, bringing coverage to June 1–19,
+July 1 and August 1 (21 days). It has 49,025 complete and 320 unresolved
+wallet/market histories; its 1.960783-share warning passed all checks.
+
+June 20 stopped on a 29.411745-share aggregate discrepancy. Fresh complete trade
+walks reproduce the facts, and the difference equals 15 opening fills within 31
+seconds, followed by more than 22 hours without trades. All eight involved
+wallets reconcile. Downloader version 7 extends the source-warning rule to this
+isolated opening burst, including transactions matched by several makers. It
+retains the 0.1% relative bound and every participant's accounting checks, without
+selecting a matching subset or asserting order within a second. Accounting
+version 6 is unchanged. Evidence is in `logs/volume-mismatch-20260620/`.
+
+All 36 feature tests and root TypeScript/ESLint pass. The pending run resumes
+June 20's cached trade pages and downloads its wallet histories before publication.
+Full June–September coverage and monthly research remain required.
+
 ## Downloader version 6: corroborated source warnings
 
 June 17 is now published and independently verified with all 96 market windows:

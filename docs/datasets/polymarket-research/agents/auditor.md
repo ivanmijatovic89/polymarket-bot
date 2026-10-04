@@ -16,8 +16,8 @@ Use this page as instructions for an agent auditing the research dataset.
    match alone does not establish matching occurrences or participant coverage.
    Inspect `all_source_aggregates_reconciled` separately from `verify.valid` and
    wallet accounting. For a corroborated source warning, verify the checksummed
-   repeat-feed evidence, exact share discrepancy, market flag and both
-   counterparties' accounting. Never waive wallet checks because an aggregate
+   repeat-feed evidence, exact share discrepancy, market flag and every
+   opening participant's accounting. Never waive wallet checks because an aggregate
    discrepancy was accepted.
 4. Verify that strict rankings exclude entire incomplete wallet cohorts, rather
    than dropping only their problematic market rows.

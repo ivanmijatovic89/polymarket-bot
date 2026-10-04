@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { ApiClient } from './api.js'
 import { normalizeMarket, parseDate } from './catalog.js'
-import { units } from './decimal.js'
+import { decimal, units } from './decimal.js'
 import { readJson, writeJson } from './files.js'
 import { fileDigest } from './integrity.js'
 import { coverageReport, leaderboard, querySql } from './query.js'
@@ -77,7 +77,7 @@ test('source-volume exception requires a small unique early fill, repeated multi
   )
   assert.throws(() => volumeCandidate(market, trades.slice(0, 2), 1n), /mismatch/)
   const larger = structuredClone(trades)
-  larger[0]!.size = larger[1]!.size = '11'
+  larger[0]!.size = larger[1]!.size = '40'
   assert.throws(() => volumeCandidate(market, larger, units('30000')), /mismatch/)
   const lowVolume = structuredClone(trades)
   lowVolume[2]!.size = lowVolume[3]!.size = '100'
@@ -103,7 +103,68 @@ test('source-volume exception requires a small unique early fill, repeated multi
   )
 })
 
-function fixture(changeRepeat = false, badCounterparty = false) {
+function openingBurst(): FeedRow[] {
+  const rows = [
+    ...Array.from({ length: 15 }, (_, i) =>
+      [0, 1].map((side) => ({
+        ...trades[side]!,
+        proxy_wallet: wallet(i * 2 + side + 1),
+        timestamp: start - 100 + Math.floor((i * 31) / 14),
+        transaction_hash: `opening-${i}`,
+      })),
+    ).flat(),
+    ...trades.slice(2).map((row, i) => ({ ...row, proxy_wallet: wallet(31 + i) })),
+  ]
+  const maker = rows[1]!
+  rows.splice(
+    1,
+    1,
+    { ...maker, size: '0.570783' },
+    { ...maker, proxy_wallet: wallet(33), size: '1.390000' },
+  )
+  return rows
+}
+
+test('isolated opening bursts require every fill and counterparty without assuming tie order', () => {
+  const rows = openingBurst()
+  const proof = {
+    ...evidence(),
+    all_trades: rows,
+    taker_trades: rows.filter((row) => row.is_taker),
+  }
+  const reconciled = rows.map((row) => ({
+    wallet: row.proxy_wallet,
+    condition_id: row.condition_id,
+    quality: 'complete' as const,
+  }))
+  const candidate = validateVolumeEvidence(market, rows, units('30000'), proof, reconciled)
+  assert.equal(candidate.taker_fill_count, 15)
+  assert.equal(candidate.difference, '29.411745')
+  assert.equal(candidate.wallets.length, 31)
+  assert.deepEqual(volumeCandidate(market, [...rows].reverse(), units('30000')), candidate)
+  // A matching subset inside the opening burst is not an acceptable explanation.
+  assert.throws(() => volumeCandidate(market, rows, units('30001.960783')), /mismatch/)
+  assert.throws(
+    () =>
+      validateVolumeEvidence(
+        market,
+        rows,
+        units('30000'),
+        proof,
+        reconciled.filter((row) => row.wallet !== wallet(33)),
+      ),
+    /corroboration/,
+  )
+  const continuous = structuredClone(rows)
+  for (const row of continuous.filter((row) => row.transaction_hash === 'opening-14'))
+    row.timestamp = start - 41
+  for (const row of continuous.filter((row) => row.transaction_hash === 'later'))
+    row.timestamp = start - 39
+  assert.throws(() => volumeCandidate(market, continuous, units('30000')), /mismatch/)
+})
+
+function fixture(changeRepeat = false, badCounterparty = false, sourceTrades = trades) {
+  const trades = sourceTrades
   let now = 1_000_000
   let repeatRequests = 0
   const client = new ApiClient({
@@ -155,7 +216,7 @@ function fixture(changeRepeat = false, badCounterparty = false) {
               .map((row) => ({
                 ...row,
                 type: 'TRADE',
-                usdc_size: Number(row.size) < 2 ? '0.980391' : '15000',
+                usdc_size: decimal(units(row.size) / 2n),
               }))
           : []
       else if (url.pathname === '/v2/positions')
@@ -165,8 +226,12 @@ function fixture(changeRepeat = false, badCounterparty = false) {
                 ...row,
                 current_size: badCounterparty && i === 0 ? 0 : row.size,
                 realized_pnl: 0,
-                unrealized_pnl: [0.980392, -0.980391, 15000, -15000][i],
-                total_pnl: [0.980392, -0.980391, 15000, -15000][i],
+                unrealized_pnl: decimal(
+                  (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
+                ),
+                total_pnl: decimal(
+                  (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
+                ),
                 entry_fees_usdc: 0,
               }))
             : []
@@ -177,65 +242,68 @@ function fixture(changeRepeat = false, badCounterparty = false) {
   return { client, repeats: () => repeatRequests }
 }
 
-test('corroborated volume warnings survive Parquet, offline verification and rebuild without excluding reconciled wallets', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-'))
-  const { client, repeats } = fixture()
-  const options = {
-    root,
-    from: '2026-06-01',
-    to: '2026-06-02',
-    concurrency: 4,
-    requestsPerSecond: 12,
-    minFreeGiB: 1,
-    client,
-    log: () => {},
-  }
-  try {
-    const [saved] = await syncDataset(options)
-    assert.equal(repeats(), 2)
-    assert.equal(saved!.complete_wallet_markets, 4)
-    assert.equal(saved!.source_warnings?.length, 1)
-    const verify = await verifyDataset(root, options.from, options.to)
-    assert.equal(verify.valid, true, JSON.stringify(verify))
-    assert.equal(verify.days[0]!.warnings.length, 1)
-    assert.equal(verify.all_source_aggregates_reconciled, false)
-    assert.equal(verify.all_wallet_accounting_complete, true)
-    const ranking = (await leaderboard(root, options.from, options.to)) as {
-      rows: { wallet: string }[]
-      source_warnings: unknown[]
-    }
-    assert.equal(ranking.rows.length, 4)
-    assert.ok(ranking.rows.some((row) => row.wallet === wallet(1)))
-    assert.equal(ranking.source_warnings.length, 1)
-    assert.equal(
-      ((await coverageReport(root, options.from, options.to)) as { source_warnings: unknown[] })
-        .source_warnings.length,
-      1,
-    )
-    const flagged = await querySql(
+for (const openingFills of [1, 15]) {
+  test(`corroborated ${openingFills}-fill volume warnings survive Parquet, offline verification and rebuild without excluding reconciled wallets`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-'))
+    const { client, repeats } = fixture(false, false, openingFills === 1 ? trades : openingBurst())
+    const expectedWallets = openingFills === 1 ? 4 : 33
+    const options = {
       root,
-      `SELECT slug FROM markets WHERE list_contains(source_warnings, '${VOLUME_WARNING}')`,
-    )
-    assert.equal(flagged.length, 1)
-    const [rebuilt] = await rebuildDataset(root, options.from, options.to, 1)
-    assert.equal((await verifyDataset(root, options.from, options.to)).valid, true)
-    const file = path.join(root, rebuilt!.directory, 'volume-evidence.json')
-    const proof = (await readJson<Record<string, VolumeEvidence>>(file))!
-    proof[conditions[0]!]!.all_trades.pop()
-    await writeJson(file, proof)
-    let broken = await verifyDataset(root, options.from, options.to)
-    assert.ok(broken.days[0]!.errors.some((error) => error.includes('Checksum mismatch')))
-    const reportFile = path.join(root, rebuilt!.report)
-    const report = (await readJson<ApiRow>(reportFile))!
-    ;(report.files as ApiRow)['volume-evidence.json'] = await fileDigest(file)
-    await writeJson(reportFile, report)
-    broken = await verifyDataset(root, options.from, options.to)
-    assert.equal(broken.valid, false)
-    assert.ok(broken.days[0]!.errors.some((error) => error.includes('corroboration')))
-  } finally {
-    await rm(root, { recursive: true, force: true })
-  }
-})
+      from: '2026-06-01',
+      to: '2026-06-02',
+      concurrency: 4,
+      requestsPerSecond: 12,
+      minFreeGiB: 1,
+      client,
+      log: () => {},
+    }
+    try {
+      const [saved] = await syncDataset(options)
+      assert.equal(repeats(), 2)
+      assert.equal(saved!.complete_wallet_markets, expectedWallets)
+      assert.equal(saved!.source_warnings?.length, 1)
+      const verify = await verifyDataset(root, options.from, options.to)
+      assert.equal(verify.valid, true, JSON.stringify(verify))
+      assert.equal(verify.days[0]!.warnings.length, 1)
+      assert.equal(verify.all_source_aggregates_reconciled, false)
+      assert.equal(verify.all_wallet_accounting_complete, true)
+      const ranking = (await leaderboard(root, options.from, options.to)) as {
+        rows: { wallet: string }[]
+        source_warnings: unknown[]
+      }
+      assert.equal(ranking.rows.length, expectedWallets)
+      assert.ok(ranking.rows.some((row) => row.wallet === wallet(1)))
+      assert.equal(ranking.source_warnings.length, 1)
+      assert.equal(
+        ((await coverageReport(root, options.from, options.to)) as { source_warnings: unknown[] })
+          .source_warnings.length,
+        1,
+      )
+      const flagged = await querySql(
+        root,
+        `SELECT slug FROM markets WHERE list_contains(source_warnings, '${VOLUME_WARNING}')`,
+      )
+      assert.equal(flagged.length, 1)
+      const [rebuilt] = await rebuildDataset(root, options.from, options.to, 1)
+      assert.equal((await verifyDataset(root, options.from, options.to)).valid, true)
+      const file = path.join(root, rebuilt!.directory, 'volume-evidence.json')
+      const proof = (await readJson<Record<string, VolumeEvidence>>(file))!
+      proof[conditions[0]!]!.all_trades.pop()
+      await writeJson(file, proof)
+      let broken = await verifyDataset(root, options.from, options.to)
+      assert.ok(broken.days[0]!.errors.some((error) => error.includes('Checksum mismatch')))
+      const reportFile = path.join(root, rebuilt!.report)
+      const report = (await readJson<ApiRow>(reportFile))!
+      ;(report.files as ApiRow)['volume-evidence.json'] = await fileDigest(file)
+      await writeJson(reportFile, report)
+      broken = await verifyDataset(root, options.from, options.to)
+      assert.equal(broken.valid, false)
+      assert.ok(broken.days[0]!.errors.some((error) => error.includes('corroboration')))
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+}
 
 test('changed repeat feeds or unresolved counterparties cannot publish a volume exception', async () => {
   for (const [changeRepeat, badCounterparty] of [

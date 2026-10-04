@@ -24,37 +24,50 @@ export function volumeCandidate(market: Market, trades: FeedRow[], expected: big
   const takers = trades.filter((row) => row.is_taker)
   const actual = sum(takers.map((row) => units(row.size)))
   const difference = actual - expected
-  // At most 10 shares and 0.1% of volume, in a resolved market, matched by one
-  // earliest pre-window fill. This does not establish the aggregate's cause.
-  if (
-    !market.resolved ||
-    expected <= 0n ||
-    difference <= 1n ||
-    difference > 10_000_000n ||
-    difference * 1000n > actual
-  )
+  // A small isolated opening burst, with every same-second fill included.
+  // Select by time, never a subset chosen to force the aggregate to match.
+  if (!market.resolved || expected <= 0n || difference <= 1n || difference * 1000n > actual)
     return fail()
   const firstTime = takers.reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
-  const first = takers.filter((row) => row.timestamp === firstTime)
+  const first = takers.filter((row) => row.timestamp <= firstTime + 60)
+  const lastTime = first.reduce((maximum, row) => Math.max(maximum, row.timestamp), -Infinity)
+  const nextTime = takers
+    .filter((row) => row.timestamp > firstTime + 60)
+    .reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
   if (
-    first.length !== 1 ||
-    firstTime >= market.market_start ||
-    abs(units(first[0]!.size) - difference) > 1n ||
+    lastTime >= market.market_start ||
+    nextTime - lastTime < 60 ||
+    first.some((row) => units(row.size) <= 0n) ||
+    abs(sum(first.map((row) => units(row.size))) - difference) > 1n ||
     sum(trades.map((row) => units(row.size))) !== 2n * actual
   )
     return fail()
-  const transaction = first[0]!.transaction_hash.toLowerCase()
-  const pair = trades.filter((row) => row.transaction_hash.toLowerCase() === transaction)
-  const wallets = [...new Set(pair.map((row) => row.proxy_wallet.toLowerCase()))].sort()
-  if (
-    pair.length !== 2 ||
-    wallets.length !== 2 ||
-    pair.filter((row) => row.is_taker).length !== 1 ||
-    pair.some((row) => row.timestamp !== firstTime || units(row.size) !== units(first[0]!.size))
-  )
-    return fail()
+  const transactions = [...new Set(first.map((row) => row.transaction_hash.toLowerCase()))].sort()
+  if (transactions.length !== first.length) return fail()
+  const walletSet = new Set<string>()
+  for (const taker of first) {
+    const pair = trades.filter(
+      (row) => row.transaction_hash.toLowerCase() === taker.transaction_hash.toLowerCase(),
+    )
+    const pairWallets = new Set(pair.map((row) => row.proxy_wallet.toLowerCase()))
+    if (
+      pair.length < 2 ||
+      pairWallets.size < 2 ||
+      pair.filter((row) => row.is_taker).length !== 1 ||
+      pair.some((row) => row.timestamp !== taker.timestamp || units(row.size) <= 0n) ||
+      sum(pair.filter((row) => !row.is_taker).map((row) => units(row.size))) !== units(taker.size)
+    )
+      return fail()
+    for (const wallet of pairWallets) walletSet.add(wallet)
+  }
+  const wallets = [...walletSet].sort()
+  const transaction = transactions.length === 1 ? transactions[0] : undefined
   return {
     transaction,
+    transactions,
+    first_timestamp: firstTime,
+    last_timestamp: lastTime,
+    taker_fill_count: first.length,
     wallets,
     downloaded_shares: decimal(actual),
     difference: decimal(difference),
