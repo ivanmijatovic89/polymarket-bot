@@ -189,6 +189,8 @@ New manifests identify this layout with `archiveLayout: "symbol-timeframe"`. Exi
 
 All event feeds for a recording are in its single Parquet. The manifest contains identity, coverage, and integrity information. Later resolution updates are separate because an official result or correction can arrive after the immutable event file has been archived. Shared Binance/Chainlink observations are intentionally repeated in overlapping market files with identical receipt sequence and timestamps.
 
+Every column uses GZIP. The writer groups up to 4096 rows, with an additional estimated 4 MiB input-byte flush threshold, and omits statistics for opaque JSON payloads. Exact raw messages and all ordering/timing fields remain intact. Earlier v3 files used smaller groups and remain readable. Two measured archives became 26–29% smaller with this physical-layout change; see the [storage optimization report](./recorder-v3-storage-optimization) for sample sizes and validation limits. Existing R2 archives are not rewritten automatically.
+
 There is no separate per-feed directory and no database required to discover these packages. `record:v3:data` filters the catalog by timeframe and opening date. If a market has multiple recordings after a restart, select one explicit manifest for a backtest; partial recordings are not silently stitched together.
 
 On restart, already finalized uploads are retried before opening live feeds. This lets a full spool recover after an R2 outage. New capture starts only after disk allowance is available; a disk read error or remaining exhaustion is reported and preserves pending data.
@@ -229,6 +231,8 @@ Downloads are sequential and verified, refresh resolution observations, and reus
 ## Coverage and backtests
 
 Coverage records both confirmed loss and uncertainty: reconnect intervals, provider sequence gaps, missing initial books, stale feeds, late startup, interrupted capture, and observed clock/event-loop discontinuities. A connected socket alone does not prove complete upstream data. In particular, an unsequenced Polymarket stream cannot prove that no message was ever lost upstream.
+
+Polymarket disconnect control records include the peer's close code/reason and the connection's received message-frame/payload-byte counts. These aid diagnosis; the peer's `slow consumer: send buffer full` reason alone does not distinguish client processing, network delivery, and server buffering. Reconnecting restores current state from fresh books but cannot recover missing updates.
 
 Malformed book frames remain in the raw recording. They invalidate affected books, open coverage gaps, and trigger a reconnect for fresh snapshots. Explicit outage replay preserves these resets and skips the invalid mutations.
 

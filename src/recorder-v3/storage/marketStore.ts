@@ -9,6 +9,7 @@ import type { MarketManifest } from './manifest.js'
 import { readManifest } from './manifest.js'
 import { MAX_LINE_BYTES, journalFiles, readJournals } from './journalReader.js'
 import { runParquetJob } from './parquetJob.js'
+import { CAPTURE_ROW_GROUP_BYTES, CAPTURE_ROW_GROUP_SIZE } from './parquetLimits.js'
 import type {
   CapturedEvent,
   CoverageGap,
@@ -354,8 +355,8 @@ export class DurableMarketStore {
         state,
         coverage,
         prefix: this.prefix,
-        rowGroupSize: this.options.rowGroupSize ?? 512,
-        rowGroupBytes: this.options.rowGroupBytes ?? 4 * 1024 * 1024,
+        rowGroupSize: this.options.rowGroupSize ?? CAPTURE_ROW_GROUP_SIZE,
+        rowGroupBytes: this.options.rowGroupBytes ?? CAPTURE_ROW_GROUP_BYTES,
       }),
     )
     this.conversionChain = operation.then(

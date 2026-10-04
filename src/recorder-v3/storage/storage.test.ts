@@ -6,6 +6,7 @@ import { appendFile, mkdtemp, readFile, readdir, rm, unlink, writeFile } from 'n
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { ParquetReader } from '@dsnp/parquetjs'
 
 import {
   appendResolutionHistory,
@@ -128,6 +129,52 @@ test('combined Parquet preserves shared receipt sequence, exact raw values and s
     ready.manifest.events.key,
     `recorder-v3/btc/15m/${market.slug}/${ready.manifest.recordingId}/events-${ready.manifest.events.sha256}.parquet`,
   )
+})
+
+test('compaction preserves large integer identities and raw strings across bounded groups', async (t) => {
+  for (const rowGroupBytes of [undefined, 16 * 1024]) {
+    const store = new DurableMarketStore({
+      spoolDir: await temporary(t),
+      ...(rowGroupBytes === undefined ? {} : { rowGroupBytes }),
+    })
+    await store.openMarket(market)
+    const rows = Array.from({ length: 4100 }, (_, index): CapturedEvent => {
+      const sequence = String(9_007_199_254_740_993n + BigInt(index))
+      return {
+        ...event(index + 1, index % 2 ? 'polymarket' : 'binance'),
+        sequence,
+        eventId: `recorder-1:${sequence}`,
+        monotonicNs: String(9_007_199_254_740_993n + BigInt(index) * 7n),
+        // Whitespace, Unicode, and decimal strings must survive byte-for-byte.
+        rawJson: ' { "price": "0.12345678901234567890", "extra": "\\u2603" } ',
+        detailsJson: index % 3 ? null : '{"unknown":"preserve me"}',
+        sourceTimeMs: index % 2 ? market.startMs + index : null,
+      }
+    })
+    await Promise.all(rows.map((row) => store.append(market.slug, row)))
+    const ready = await store.finalize(market.slug, coverage)
+    const file = path.join(ready.directory, 'events.parquet')
+    assert.deepEqual(await collect(readCapturedEvents(file)), rows)
+    const reader = await ParquetReader.openFile(file)
+    try {
+      const groups = reader.metadata!.row_groups
+      assert.equal(
+        groups.reduce((n, group) => n + Number(group.num_rows), 0),
+        rows.length,
+      )
+      if (rowGroupBytes === undefined) assert.equal(groups.length, 2)
+      else assert.ok(groups.every((group) => Number(group.num_rows) < 32))
+      for (const group of groups) {
+        for (const column of group.columns) {
+          const metadata = column.meta_data!
+          if (['raw_json', 'details_json'].includes(metadata.path_in_schema[0]!))
+            assert.equal(metadata.statistics, null, 'opaque payload statistics waste space')
+        }
+      }
+    } finally {
+      await reader.close()
+    }
+  }
 })
 
 test('new five-minute archives place events, manifests and resolutions under the same typed hierarchy', async (t) => {

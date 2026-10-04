@@ -8,6 +8,7 @@ import { readJournals } from './journalReader.js'
 import { marketManifestSchema, type MarketManifest } from './manifest.js'
 import type { PackageState, ReadyMarket } from './marketStore.js'
 import { capturedEventSchema, eventToRow } from './parquet.js'
+import { CAPTURE_ROW_GROUP_BYTES, CAPTURE_ROW_GROUP_SIZE } from './parquetLimits.js'
 import type { MarketCoverage } from '../types.js'
 
 export type ParquetJob = {
@@ -24,7 +25,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
   const { directory, state, coverage } = job
   const file = path.join(directory, `events-${randomUUID()}.parquet.tmp`)
   const writer = await parquet.ParquetWriter.openFile(capturedEventSchema, file)
-  const rowGroupSize = job.rowGroupSize ?? 512
+  const rowGroupSize = job.rowGroupSize ?? CAPTURE_ROW_GROUP_SIZE
   writer.setRowGroupSize(rowGroupSize)
   writer.setMetadata('recorder_schema_version', '3')
   writer.setMetadata('market_slug', state.market.slug)
@@ -41,7 +42,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
       groupBytes +=
         Buffer.byteLength(event.rawJson) + Buffer.byteLength(event.detailsJson ?? '') + 512
       const flush =
-        groupRows >= rowGroupSize || groupBytes >= (job.rowGroupBytes ?? 4 * 1024 * 1024)
+        groupRows >= rowGroupSize || groupBytes >= (job.rowGroupBytes ?? CAPTURE_ROW_GROUP_BYTES)
       if (flush) writer.setRowGroupSize(groupRows)
       await writer.appendRow(eventToRow(event))
       if (flush) {
