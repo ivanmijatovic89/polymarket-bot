@@ -34,10 +34,22 @@ gaps retain their existing strict exclusions. Evidence is in
 `logs/volume-policy-20261004/live-2026-06-16.json` under the permanent root.
 
 All 34 feature tests, root TypeScript/ESLint, docs build and all four CI jobs pass
-for `5ad946c8`. June 18's different-page-size feed and aggregate rechecks passed;
-its wallet histories are now downloading. Nineteen days are published (June 1–17,
-July 1 and August 1). Full June–September coverage and actual monthly research
-remain pending. Accounting remains version 6.
+for `5ad946c8`; all four CI jobs also pass on documentation commit `5c2cc104`.
+June 18 is now published and independently verified with all 96 windows,
+437,719 trades, 58,987 complete and 304 unresolved wallet/market histories. Its
+3.000001-share source warning passed the same repeated-feed and counterparty
+checks; both counterparties remain complete. The resumed run took 493.533 seconds
+and is not counted as a fresh benchmark. Evidence is in
+`logs/volume-policy-20261004/live-2026-06-18.json`.
+
+Twenty days are published (June 1–18, July 1 and August 1). June 19 is downloading;
+its 1.960783-share early-trade discrepancy is undergoing the same automatic checks.
+A local-query benchmark over 7,357,257 June 1–17 trade rows measured first-query
+times of 134.20 ms for trade/wallet counts, 61.31 ms for the top-100 ranking query
+and 39.18 ms for a 1,000-row activity timeline, without flushing the OS cache.
+See [benchmark evidence](./benchmark-evidence) for scope and repeat timings.
+Full June–September coverage, full-range query benchmarks and actual monthly
+research remain pending. Accounting remains version 6.
 
 ## Downloader version 5: isolated DuckDB spill files
 

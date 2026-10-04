@@ -219,9 +219,12 @@ complete wallet. A mismatch outside this rule still stops publication.
 
 June 18 exposed another candidate: `btc-updown-15m-1781818200` has a
 3.000001-share discrepancy, within one microshare of a 3-share early fill.
-Its repeated feeds and aggregate agree on recheck; the full counterparty checks
-must still pass before publication. June 16 has now passed those checks and
-offline verification after publication, with the warning preserved.
+Both June 16 and June 18 have now passed the repeated-feed and counterparty
+checks, followed by offline verification after publication, with their warnings
+preserved. June 18's early counterparties have cash PnL +1.417530 and -1.470000
+USDC and no wallet-accounting issues. The separate 304 unresolved histories on
+that day retain their existing exclusions. Live evidence is saved in
+`logs/volume-policy-20261004/live-2026-06-18.json`.
 This recurrence supports investigating aggregate start boundaries, but does not
 prove the cause. Original June 16 pages and wallet comparisons remain in
 `logs/volume-mismatch-20260616/` in the permanent root.

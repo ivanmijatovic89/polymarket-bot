@@ -55,6 +55,25 @@ These are local query timings, not cold-disk or isolated-machine measurements.
 Run `research:benchmark` to reproduce these query shapes against the active
 snapshots. A whole-month or four-month dataset must be measured separately.
 
+## Local queries over 17 complete June days
+
+A later benchmark covers June 1–17 inclusive: 7,357,257 trade rows and
+1,388,556,507 Parquet bytes. The downloader was concurrently fetching June 18.
+Opening the dataset took 46.48 ms. On a fresh DuckDB connection:
+
+| Query | First execution | Two repeats |
+| --- | ---: | ---: |
+| Trade count and distinct wallets | 134.20 ms | 94.97 / 95.96 ms |
+| Top 100 complete wallet cohorts | 61.31 ms | 33.91 / 31.47 ms |
+| 1,000-row activity timeline | 39.18 ms | 38.66 / 34.16 ms |
+
+The operating-system cache was not flushed. The dataset also contained July 1
+and August 1, while these queries explicitly filtered the 17 June days. This is
+an intermediate scaling measurement, not a full-month or four-month benchmark.
+It does not establish monthly ranking completeness. Generation reports and query
+timings are saved under `logs/volume-policy-20261004/june01-17-local-benchmark.json`
+in the permanent root. Full-range measurements remain required.
+
 ## Validation and exclusions
 
 All SHA-256 checks and independent SQL checks passed after local accounting
