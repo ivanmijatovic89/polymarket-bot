@@ -8,6 +8,32 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Latest checkpoint: accounting version 6
+
+As of October 4, 2026 at approximately 18:19 UTC, ten days are published and
+independently verified: June 1–8, July 1 and August 1. The full backfill resumed
+on June 9 after a bounded offline accounting rebuild. All source-file hashes,
+snapshot cutoffs, wallet/market membership and monetary totals stayed unchanged;
+19 unresolved histories became complete under the new terminal-merge rounding
+rule. The before/after audit is
+`logs/weekly-audit-20260601-20260608/rebuild-v6-invariants.json` in the data root.
+
+All 24 feature tests, root TypeScript/ESLint and docs build pass, and all four CI
+jobs pass on implementation commit `ef61a7f3`. The validator now records that
+source revision and has checked all ten new generations. Its live state file
+remains authoritative for process IDs, coverage and subsequent progress.
+
+The first complete week's audit also measures selection effects: 790 of 13,018
+observed wallets remain excluded from strict June 1–7 rankings, representing
+1,243,100 of 3,341,212 trade rows (37.2%). One highly active wallet's full weekly
+cohort became eligible after the terminal-merge correction; the remaining native
+purchase-quantity and activity gaps are still unresolved. These are weekly
+results, not complete-month research. Full June–September ingestion, monthly
+comparison and detailed selected-wallet research remain required.
+
+Earlier checkpoints below retain their original accounting versions and sample
+measurements. Use current coverage and generation-bound verification for analysis.
+
 ## Completion checklist
 
 - [x] Establish cash accounting, settlement and API PnL comparison rules.

@@ -53,6 +53,14 @@ The reproducible SQL, bound snapshot index and source probes are saved under
 changing any exact cash result. This narrow improvement does not resolve the
 other discrepancies or establish a complete calendar month's rankings.
 
+After rebuilding all ten days then published, 19 histories passed the new rule.
+Source hashes, cutoffs, row membership and every monetary total were unchanged.
+In the same June 1–7 cohort, unresolved pairs fell to 3,033 and excluded wallets
+to 790. Restoring one active wallet's complete weekly cohort reduced excluded
+trade rows to 1,243,100 (37.2% of 3,341,212). This is still a material selection
+effect. The new measurements are in `eligibility-v6.json`, with unchanged-fact
+checks in `rebuild-v6-invariants.json` under the audit directory above.
+
 ## Native lifetime purchases disagree with activity
 
 Wallet `0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82` has 177,851 trade rows in the
