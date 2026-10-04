@@ -1,6 +1,9 @@
 import path from 'node:path'
 import { sqlQuote } from '../utils/duckdb.js'
-import { dates, parseDate } from './catalog.js'
+import { dates, parseDate, normalizeMarket } from './catalog.js'
+import { summarizeMarket } from './derived.js'
+import { feedRow, activityRow, positionRow, type ApiRow } from './types.js'
+import { validateVolumeEvidence, VOLUME_WARNING, type VolumeEvidence } from './volume.js'
 import { readJson } from './files.js'
 import { checkDigests, type FileDigest } from './integrity.js'
 import { loadIndex, TABLES } from './storage.js'
@@ -159,13 +162,92 @@ export async function verifyDataset(root: string, from: string, to: string) {
         )
       ).getRowObjectsJson()
       const volume = report.volume_checks as
-        | { slug: string; expected_taker_shares: string }[]
+        | {
+            slug: string
+            expected_taker_shares: string
+            downloaded_taker_shares: string
+            verification: string
+          }[]
         | undefined
+      let warned = 0
       for (const row of downloaded) {
         const expected = volume?.find((v) => v.slug === row.slug)
-        if (!expected || abs(units(row.amount) - units(expected.expected_taker_shares)) > 1n)
+        if (!expected) {
+          day.errors.push(`Taker volume check missing: ${String(row.slug)}`)
+          continue
+        }
+        const mismatch = abs(units(row.amount) - units(expected.expected_taker_shares)) > 1n
+        if (!mismatch && expected.verification !== VOLUME_WARNING) continue
+        if (
+          !mismatch ||
+          expected.verification !== VOLUME_WARNING ||
+          units(row.amount) !== units(expected.downloaded_taker_shares)
+        ) {
           day.errors.push(`Taker volume check failed: ${String(row.slug)}`)
+          continue
+        }
+        if (!(report.files as Record<string, FileDigest> | undefined)?.['volume-evidence.json'])
+          throw new Error('Source-volume evidence checksum is missing')
+        const evidence = await readJson<Record<string, VolumeEvidence>>(
+          path.join(root, snapshot.directory, 'volume-evidence.json'),
+        )
+        const marketRows = (
+          await connection.runAndReadAll(
+            `SELECT * FROM markets WHERE slug=${sqlQuote(String(row.slug))}`,
+          )
+        ).getRowObjectsJson()
+        const savedMarket = marketRows[0]!
+        const market = normalizeMarket(
+          JSON.parse(String(savedMarket.raw_json)) as ApiRow,
+          JSON.parse(String(savedMarket.resolution_json)) as ApiRow,
+        )
+        const raw = async (table: string) =>
+          (
+            await connection.runAndReadAll(
+              `SELECT raw_json FROM ${table} WHERE condition_id=${sqlQuote(market.condition_id)}`,
+            )
+          )
+            .getRowObjectsJson()
+            .map((r) => JSON.parse(String(r.raw_json)) as ApiRow)
+        const trades = (await raw('trades')).map(feedRow)
+        const activities = (await raw('activities')).map(activityRow)
+        const positions = (await raw('positions')).map(positionRow)
+        const summaries = summarizeMarket(
+          market,
+          trades,
+          activities,
+          positions,
+          new Set(trades.map((r) => r.proxy_wallet.toLowerCase())),
+        )
+        if (!evidence?.[market.condition_id])
+          throw new Error(`Source-volume evidence missing: ${market.slug}`)
+        const candidate = validateVolumeEvidence(
+          market,
+          trades,
+          units(expected.expected_taker_shares),
+          evidence[market.condition_id]!,
+          summaries,
+        )
+        const warning = snapshot.source_warnings?.find(
+          (w) =>
+            w.slug === market.slug &&
+            w.condition_id === market.condition_id &&
+            w.code === VOLUME_WARNING,
+        )
+        if (
+          !warning ||
+          units(warning.difference_shares) !== units(candidate.difference) ||
+          !(savedMarket.source_warnings as string[] | undefined)?.includes(VOLUME_WARNING)
+        )
+          throw new Error(`Source-volume warning missing from market/index: ${market.slug}`)
+        warned++
+        day.warnings.push(
+          `${VOLUME_WARNING}: ${market.slug}, ${candidate.difference} shares; counterparty accounting reconciles, aggregate remains inconsistent`,
+        )
       }
+      day.checks.source_volume_warnings = warned
+      if (warned !== (snapshot.source_warnings?.length ?? 0))
+        day.errors.push('Source-volume warning count differs from index')
     } catch (error) {
       day.errors.push(String(error))
     } finally {
@@ -175,6 +257,9 @@ export async function verifyDataset(root: string, from: string, to: string) {
   }
   return {
     valid: result.every((day) => day.valid),
+    all_source_aggregates_reconciled: result.every(
+      (day) => day.valid && day.checks.source_volume_warnings === 0,
+    ),
     all_wallet_accounting_complete: result.every(
       (day) =>
         day.valid &&

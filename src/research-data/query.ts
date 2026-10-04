@@ -50,6 +50,7 @@ export async function leaderboard(
     ).getRowObjectsJson()
     return {
       market: 'btc:15m',
+      source_warnings: required.flatMap((day) => index.days[day]?.source_warnings ?? []),
       from,
       to_exclusive: to,
       definition:
@@ -88,6 +89,7 @@ export async function walletReport(
     ).getRowObjectsJson()
     return {
       wallet: wallet.toLowerCase(),
+      source_warnings: dates(from, to).flatMap((day) => index.days[day]?.source_warnings ?? []),
       from,
       to_exclusive: to,
       missing_days: dates(from, to).filter((day) => !index.days[day]),
@@ -122,6 +124,7 @@ export async function coverageReport(root: string, from: string, to: string): Pr
       from,
       to_exclusive: to,
       expected_windows: required.length * 96,
+      source_warnings: required.flatMap((day) => index.days[day]?.source_warnings ?? []),
       missing_days: required.filter((day) => !index.days[day]),
       windows: windows[0],
       issues,

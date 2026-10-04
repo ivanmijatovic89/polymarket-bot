@@ -15,9 +15,16 @@ export async function fileDigest(file: string): Promise<FileDigest> {
   return { bytes: (await stat(file)).size, sha256: hash.digest('hex') }
 }
 
-export async function snapshotDigests(directory: string): Promise<Record<string, FileDigest>> {
+export async function snapshotDigests(
+  directory: string,
+  volumeEvidence = false,
+): Promise<Record<string, FileDigest>> {
   const result: Record<string, FileDigest> = {}
-  for (const file of [...TABLES.map((table) => `${table}.parquet`), 'wallet-queries.json']) {
+  for (const file of [
+    ...TABLES.map((table) => `${table}.parquet`),
+    'wallet-queries.json',
+    ...(volumeEvidence ? ['volume-evidence.json'] : []),
+  ]) {
     result[file] = await fileDigest(path.join(directory, file))
   }
   return result
@@ -28,7 +35,11 @@ export async function checkDigests(
   expected: Record<string, FileDigest>,
 ): Promise<string[]> {
   const errors: string[] = []
-  for (const file of [...TABLES.map((table) => `${table}.parquet`), 'wallet-queries.json']) {
+  for (const file of [
+    ...TABLES.map((table) => `${table}.parquet`),
+    'wallet-queries.json',
+    ...(expected['volume-evidence.json'] ? ['volume-evidence.json'] : []),
+  ]) {
     const digest = expected[file]
     if (!digest) {
       errors.push(`Missing checksum: ${file}`)

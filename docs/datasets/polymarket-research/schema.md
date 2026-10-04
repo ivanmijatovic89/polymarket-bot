@@ -120,3 +120,24 @@ ORDER BY market_start, wallet;
 Avoid summing only the good rows of an otherwise incomplete wallet. That can
 exclude losses and produce a misleading ranking. Use the leaderboard command or
 require all selected wallet/market rows to be complete.
+
+## Source aggregate warnings
+
+New market Parquet files include `source_warnings` (`VARCHAR[]`). A null or empty
+list means no source warning was recorded for that snapshot; older snapshots
+were published under the strict aggregate-match rule. The local dataset reader
+adds an empty field when reading only older files. Use:
+
+```sql
+SELECT slug, source_warnings
+FROM markets
+WHERE coalesce(len(source_warnings), 0) > 0;
+```
+
+`corroborated_source_volume_disagreement` preserves an API aggregate mismatch
+that passed the narrow repeat-feed and counterparty checks described in
+[API limitations](./api-limitations). Its original and downloaded quantities
+remain in `report.json` (`volume_checks`); repeated rows are in checksummed
+`volume-evidence.json`. Coverage, leaderboard and wallet reports expose
+`source_warnings` with the exact share difference. `verify` distinguishes
+`all_source_aggregates_reconciled` from wallet accounting and file validity.

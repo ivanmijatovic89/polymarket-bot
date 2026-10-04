@@ -22,6 +22,7 @@ export const SCHEMAS = {
     resolved: 'BOOLEAN',
     raw_json: 'VARCHAR',
     resolution_json: 'VARCHAR',
+    source_warnings: 'VARCHAR[]',
   },
   trades: {
     row_index: 'BIGINT',
@@ -112,6 +113,12 @@ export interface DaySnapshot {
   pending_wallet_markets: number
   parquet_bytes: number
   report: string
+  source_warnings?: {
+    slug: string
+    condition_id: string
+    code: string
+    difference_shares: string
+  }[]
 }
 export interface DatasetIndex {
   version: 1
@@ -188,6 +195,13 @@ export async function openDataset(
             .map(([name, type]) => `NULL::${type} AS "${name}"`)
             .join(', ')} WHERE false`
       await connection.run(`CREATE VIEW ${table} AS ${select}`)
+      if (table === 'markets' && files.length) {
+        const columns = (await connection.runAndReadAll('DESCRIBE markets')).getRowObjectsJson()
+        if (!columns.some((row) => row.column_name === 'source_warnings'))
+          await connection.run(
+            `CREATE OR REPLACE VIEW markets AS SELECT *, []::VARCHAR[] AS source_warnings FROM (${select})`,
+          )
+      }
     }
     await connection.run(`CREATE VIEW wallet_months AS WITH month_coverage AS (
     SELECT strftime(to_timestamp(market_start), '%Y-%m') AS month,

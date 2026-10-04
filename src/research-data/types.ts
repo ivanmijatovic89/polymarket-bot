@@ -13,6 +13,7 @@ export interface Market {
   payouts: string[]
   resolved: boolean
   raw_json: string
+  source_warnings?: string[]
   resolution_json: string
 }
 

@@ -2,10 +2,16 @@ import { randomUUID } from 'node:crypto'
 import { hostname } from 'node:os'
 import { mkdir, open, readdir, rm, stat, statfs } from 'node:fs/promises'
 import path from 'node:path'
-import { tradeKey } from './accounting.js'
+import { tradeKey, multisetDifference } from './accounting.js'
 import { createResearchDatabase } from './database.js'
 import { ACCOUNTING_VERSION, coverageRow, groupRows, summarizeMarket } from './derived.js'
 import { snapshotDigests } from './integrity.js'
+import {
+  validateVolumeEvidence,
+  volumeCandidate,
+  VOLUME_WARNING,
+  type VolumeEvidence,
+} from './volume.js'
 import { ApiClient, parallelMap } from './api.js'
 import { chunks, dates, discoverDay, parseDate, type Catalog } from './catalog.js'
 import { readJson, writeJson } from './files.js'
@@ -229,6 +235,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const trades: FeedRow[] = marketTrades.flat()
   const tradesByCondition = groupByCondition(trades)
   const volumeChecks: ApiRow[] = []
+  const volumeEvidence: Record<string, VolumeEvidence> = {}
   for (const batch of chunks(catalog.markets, 20)) {
     if (batch.some((m) => !m.event_id))
       throw new Error('Missing Gamma event ID for volume verification')
@@ -267,10 +274,52 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
         verification: zeroEventResponse ? 'empty_feeds_and_zero_event_total' : 'condition_volume',
         ...(zeroEventResponse ? { zero_event_response: zeroEventResponse } : {}),
       })
-      if (abs(actual - expected) > 1n)
-        throw new Error(
-          `Trade volume mismatch ${market.slug}: downloaded=${decimal(actual)} API=${decimal(expected)}; cached pages retained for investigation`,
+      if (abs(actual - expected) > 1n) {
+        const savedTrades = tradesByCondition.get(market.condition_id) ?? []
+        volumeCandidate(market, savedTrades, expected)
+        // Different page boundaries plus a new cache force an independent walk.
+        const repeatCache = path.join(stage, 'volume-rechecks', randomUUID())
+        const params = {
+          condition: market.condition_id,
+          filter_type: 'TOKENS',
+          filter_amount: '0.000001',
+          limit: 137,
+        }
+        const all = (
+          await client.walk('/v2/trades', { ...params, taker_only: false }, repeatCache)
+        ).map(feedRow)
+        const takers = (
+          await client.walk('/v2/trades', { ...params, taker_only: true }, repeatCache)
+        ).map(feedRow)
+        const repeatedVolume = (await client.get('/v2/live-volume', {
+          event_id: market.event_id,
+        })) as { data?: { conditions?: ApiRow[] } }
+        const repeated = repeatedVolume.data?.conditions?.find(
+          (r) => r.condition_id === market.condition_id,
         )
+        if (!repeated) throw new Error(`Repeat volume unavailable: ${market.slug}`)
+        if (
+          units(repeated.taker_volume) !== expected ||
+          multisetDifference(savedTrades, all) !== 0 ||
+          multisetDifference(
+            savedTrades.filter((r) => r.is_taker),
+            takers,
+          ) !== 0
+        )
+          throw new Error(`Source-volume corroboration failed: ${market.slug}`)
+        volumeEvidence[market.condition_id] = {
+          version: 1,
+          condition_id: market.condition_id,
+          observed_at: new Date().toISOString(),
+          page_size: 137,
+          aggregate_shares: decimal(units(repeated.taker_volume)),
+          all_trades: all,
+          taker_trades: takers,
+        }
+        log(
+          `[research] ${market.slug}: volume differs by ${decimal(actual - expected)} shares; checking counterparty accounting before publication`,
+        )
+      }
     }
   }
   const participants = new Map<string, Set<string>>()
@@ -374,6 +423,29 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     ),
   )
   const summariesByCondition = groupRows(summaries, (row) => row.condition_id)
+  const sourceWarnings: NonNullable<DaySnapshot['source_warnings']> = []
+  for (const market of catalog.markets) {
+    market.source_warnings = []
+    const evidence = volumeEvidence[market.condition_id]
+    if (!evidence) continue
+    const check = volumeChecks.find((row) => row.slug === market.slug)!
+    const candidate = validateVolumeEvidence(
+      market,
+      tradesByCondition.get(market.condition_id) ?? [],
+      units(check.expected_taker_shares),
+      evidence,
+      summariesByCondition.get(market.condition_id) ?? [],
+    )
+    check.verification = VOLUME_WARNING
+    check.corroborating_transaction = candidate.transaction
+    market.source_warnings = [VOLUME_WARNING]
+    sourceWarnings.push({
+      slug: market.slug,
+      condition_id: market.condition_id,
+      code: VOLUME_WARNING,
+      difference_shares: candidate.difference,
+    })
+  }
   const marketsBySlug = new Map(catalog.markets.map((market) => [market.slug, market]))
   const coverage = catalog.expected.map((slug) => {
     const market = marketsBySlug.get(slug)
@@ -425,16 +497,19 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     pending_wallet_markets: summaries.filter((r) => r.quality === 'pending_resolution').length,
     parquet_bytes: bytes,
     report: reportFile,
+    source_warnings: sourceWarnings,
   }
   const issueCounts: Record<string, number> = {}
   for (const row of summaries)
     for (const issue of row.issues) issueCounts[issue] = (issueCounts[issue] ?? 0) + 1
   const finalFreshness = await client.get('/v2/status')
   await writeJson(path.join(absolute, 'wallet-queries.json'), jobs)
-  const files = await snapshotDigests(absolute)
+  if (sourceWarnings.length)
+    await writeJson(path.join(absolute, 'volume-evidence.json'), volumeEvidence)
+  const files = await snapshotDigests(absolute, sourceWarnings.length > 0)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 5,
+    downloader_version: 6,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,
@@ -464,6 +539,9 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   log(
     `[research] ${day} published: ${snapshot.complete_wallet_markets} complete, ${snapshot.unresolved_wallet_markets} unresolved wallet/markets; ${(bytes / 1024 ** 2).toFixed(1)} MiB`,
   )
-  if (!options.keepRaw) await rm(cache, { recursive: true, force: true })
+  if (!options.keepRaw) {
+    await rm(cache, { recursive: true, force: true })
+    await rm(path.join(stage, 'volume-rechecks'), { recursive: true, force: true })
+  }
   return snapshot
 }

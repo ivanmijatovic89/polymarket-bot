@@ -103,6 +103,11 @@ export async function rebuildDataset(
           'activities.parquet',
           'positions.parquet',
           'wallet-queries.json',
+          ...((previousReport.files as Record<string, unknown> | undefined)?.[
+            'volume-evidence.json'
+          ]
+            ? ['volume-evidence.json']
+            : []),
         ]) {
           // Same filesystem, immutable files: hard links do not duplicate the data.
           await link(path.join(source, file), path.join(destination, file))
@@ -134,7 +139,12 @@ export async function rebuildDataset(
         accounting_version: ACCOUNTING_VERSION,
         rebuilt_at: new Date().toISOString(),
         rebuilt_from_generation: previous.generation,
-        files: await snapshotDigests(destination),
+        files: await snapshotDigests(
+          destination,
+          Boolean(
+            (previousReport.files as Record<string, unknown> | undefined)?.['volume-evidence.json'],
+          ),
+        ),
       })
       await publish(root, snapshot)
       output.push(snapshot)

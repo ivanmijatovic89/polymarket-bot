@@ -8,6 +8,26 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Downloader version 6: corroborated source warnings
+
+June 17 is now published and independently verified with all 96 market windows:
+58,989 complete and 351 unresolved wallet/market histories. Its resumed writer
+ran concurrently with the validator after spill isolation; neither crashed.
+All four CI jobs passed for the spill fix `7bedb52b`. This is live regression
+evidence, not a claim that every possible native failure is eliminated.
+
+June 18 stopped on another early-trade aggregate discrepancy (3.000001 shares).
+Downloader version 6 adds the bounded corroboration policy documented in
+[API limitations](./api-limitations). Source warnings persist in Parquet,
+checksummed repeat-feed evidence and query reports. They do not change cash
+calculations or exclude otherwise reconciled wallets. The new tests exercise
+successful publication, offline re-verification, retained eligibility, rebuild,
+changed feeds, incomplete counterparties and corrupted evidence.
+
+The next run resumes June 16, skips the published June 17 generation, and
+continues June 18 onward. Full June–September coverage and actual monthly
+research remain pending. Accounting remains version 6.
+
 ## Downloader version 5: isolated DuckDB spill files
 
 The concurrent downloader and offline validator both terminated in native DuckDB

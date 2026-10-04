@@ -192,14 +192,37 @@ precision. The winning wallet's activity additionally contains its redemption.
 This supports retaining the trade. It does not establish why the aggregate
 differs or justify deleting a row to force agreement.
 
-June 16 remains unpublished, with checkpoint pages preserved. Backfill continues
-from June 17 while this disagreement is investigated, so complete-June ranking
-remains blocked by the explicit missing day. No volume tolerance or acceptance
-criterion has been weakened. Evidence, original pages and wallet comparisons
-are in `logs/volume-mismatch-20260616/`. The user authorized a bounded policy that retains corroborated trades and
-flags the source aggregate without automatically excluding wallets whose own
-accounting reconciles. That implementation is pending; the discrepancy must
-remain visible and must not silently certify the aggregate as reconciled.
+Downloader version 6 retains this kind of corroborated disagreement as a source
+warning, under the user's delegated acceptance decision. The rule is deliberately
+narrow. All of these conditions must hold:
+
+- The market is resolved. The positive discrepancy is at most 10 shares and
+  0.1% of its downloaded taker volume. These are conservative acceptance limits,
+  not claims about API numerical precision.
+- The discrepancy matches the unique earliest taker fill, before the market's
+  trading window, within one microshare. Its transaction contains exactly two
+  counterparties with matching quantities and timestamps. All-side quantity is
+  exactly twice taker quantity.
+- Independent all-side and taker walks at page size 137 reproduce every original
+  fill with its multiplicity. A repeated single-event aggregate remains unchanged.
+- Both counterparties pass the existing full wallet/market accounting checks,
+  including trade/activity, cash, positions and native PnL reconciliation.
+
+The code retains every trade and cash amount. It saves the repeated source rows
+in checksummed `volume-evidence.json`, flags the market in Parquet using
+`source_warnings`, and exposes the warning in coverage, wallet and leaderboard
+reports. Offline verification rechecks the saved evidence and recomputes the
+counterparties' accounting. `verify.valid` may be true with a warning, while
+`all_source_aggregates_reconciled` is false. Wallet eligibility still depends on
+wallet accounting; this source warning alone does not exclude an otherwise
+complete wallet. A mismatch outside this rule still stops publication.
+
+June 18 exposed another candidate: `btc-updown-15m-1781818200` has a
+3.000001-share discrepancy, within one microshare of a 3-share early fill.
+Its full repeated-feed and counterparty checks must pass before publication.
+This recurrence supports investigating aggregate start boundaries, but does not
+prove the cause. Original June 16 pages and wallet comparisons remain in
+`logs/volume-mismatch-20260616/` in the permanent root.
 
 ## Reproduce the local audit
 
