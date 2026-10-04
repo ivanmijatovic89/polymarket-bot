@@ -8,6 +8,31 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Complete June and first monthly study
+
+All June days are now published and independently verified: 2,880 windows,
+12,240,106 participant trade rows and 30,091 observed wallets. The study snapshot
+also contains July 1–2 and August 1 (33 published days). July–September ingestion
+continues. Six June market-volume warnings remain visible and independently
+corroborated. Strict accounting excludes 2,274 wallets with 50.1% of observed June
+trade rows; those source facts remain queryable.
+
+The [complete June study](./monthly-wallet-study) follows the previously recorded
+selection rule. The eligible profit leader has economic PnL 54,166.546621 USDC
+across 2,772 markets. The most broadly active other top-20 wallet is June rank 11,
+with 8,387.540539 USDC across 2,795 markets. Local SQL checks reconcile both
+rankings to source trade counts, activity cash, daily totals and market profiles.
+Saved queries and generation metadata are under `logs/monthly-wallet-study/june/`.
+Later-month results and strategy generalization remain unproven.
+
+June 30's version-8 resumed download published 367,198 trades and 402,767
+activities across all 96 windows, with 48,776 complete and 569 unresolved
+wallet/market pairs. It took 376.787 seconds with 11,329 requests and no retries;
+this reused cached trade pages and is not a fresh benchmark. All seven opening
+participants retain exactly their independently probed cash/economic/native PnL
+and trade counts (`logs/volume-mismatch-20260630/publication-invariants.json`).
+All 37 feature tests and all four CI jobs pass on implementation commit `c22ff04e`.
+
 ## Downloader version 8: opening-burst evidence independent of volume
 
 June 1–29, July 1 and August 1 are published and independently verified (31

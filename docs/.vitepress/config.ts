@@ -143,6 +143,7 @@ export default withMermaid(
                 { text: 'API Exceptions', link: '/datasets/polymarket-research/api-limitations' },
                 { text: 'SQL Schema', link: '/datasets/polymarket-research/schema' },
                 { text: 'Wallet Study Example', link: '/datasets/polymarket-research/wallet-study-example' },
+                { text: 'Monthly Wallet Research', link: '/datasets/polymarket-research/monthly-wallet-study' },
                 { text: 'Research Analyst', link: '/datasets/polymarket-research/agents/analyst' },
                 { text: 'Data Auditor', link: '/datasets/polymarket-research/agents/auditor' },
                 { text: 'Benchmark Evidence', link: '/datasets/polymarket-research/benchmark-evidence' },

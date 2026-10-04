@@ -9,7 +9,9 @@ This example investigates wallet
 `0xeebde7a0e019a63e6b476eb425505b7b3e6eba30` in BTC 15-minute markets starting
 from June 1 through June 7, 2026, UTC. It uses complete coverage of those seven
 days and each selected market's observed lifecycle, including redemption after
-the period. The full June–September backfill and monthly research remain pending.
+the period. The [complete June study](./monthly-wallet-study) now provides a
+separate monthly ranking and two investigations selected from that ranking.
+The full June–September backfill and later-month research remain pending.
 
 The wallet was selected because an accounting correction made its active weekly
 cohort eligible for research. Selection did not use a profitable monthly ranking.
@@ -120,5 +122,6 @@ The permanent dataset contains the exact SQL, results and generation metadata in
 The independent profile, daily and activity-type totals all reconcile to the
 same exact PnL. Source snapshots were observed on October 4, 2026 and retain their
 original timestamps through the offline accounting rebuild. These observations
-describe this wallet's selected week. Monthly rankings and longer-period
-strategy conclusions require the remaining data and research.
+describe this wallet's selected week. They do not establish this wallet's
+eligibility in a longer cohort; its complete-June history includes unresolved
+markets. Longer-period strategy conclusions require the corresponding data and research.

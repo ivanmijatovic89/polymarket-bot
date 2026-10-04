@@ -52,6 +52,10 @@ The [research analyst](./agents/analyst) and [data auditor](./agents/auditor)
 instructions can be supplied to agents working in this project. They use local
 commands and SQL; a new agent runtime is not required.
 
+The [complete June study](./monthly-wallet-study) demonstrates a monthly ranking,
+population exclusions and two detailed local wallet investigations. Later-month
+comparisons remain in progress.
+
 ## Reliability boundary
 
 A completed cursor walk is evidence that the API served its full result set for

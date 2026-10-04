@@ -312,6 +312,12 @@ are retained in `logs/volume-mismatch-20260630/`. They establish evidence for
 retaining the source facts; the upstream cause of the aggregate omission remains
 unknown. Publication and full-day verification are separate steps.
 
+The full June 30 day has since published and passed offline verification.
+`publication-invariants.json` confirms unchanged trade counts and
+cash/economic/native PnL for all seven independently probed participants. The
+separate 569 unresolved wallet/market histories elsewhere that day retain their
+strict exclusions.
+
 ## Reproduce the local audit
 
 Run these queries through `research:sql --sql-file ...` against the saved root.
