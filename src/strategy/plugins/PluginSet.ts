@@ -6,6 +6,8 @@ export type PluginId = string
 
 export interface Plugin {
   id: PluginId
+  /** Capture input state synchronously, before an asynchronous runner queue can advance it. */
+  captureMarketTick?: (tick: MarketTick) => void
   onMarketTick: (tick: MarketTick, ctx?: StrategyContext) => void
   /**
    * Opt-in: when true, onMarketTick also fires for synthetic feed ticks
@@ -61,6 +63,10 @@ export class PluginSet {
   reset(): void {
     for (const p of this.plugins) p.reset?.()
     this.cached = {}
+  }
+
+  captureMarketTick(tick: MarketTick): void {
+    for (const p of this.plugins) p.captureMarketTick?.(tick)
   }
 
   onMarketTick(tick: MarketTick, ctx?: StrategyContext): void {

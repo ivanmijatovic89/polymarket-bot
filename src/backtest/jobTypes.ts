@@ -38,6 +38,7 @@ export type MarketJobData = {
    */
   strategyArtifact?: StrategyArtifactRef
   inputMode: RunSingleMarketInputMode
+  recorderV3?: import('./runSingleMarket.js').RunSingleMarketInput['recorderV3']
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   latency: RunSingleMarketLatency

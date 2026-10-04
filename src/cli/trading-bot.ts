@@ -288,6 +288,14 @@ async function main(): Promise<void> {
   // ESM import — `instanceof` alone would silently miss it.
   const externalFeedsReqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
+  if (
+    externalFeedsReqPlugin?.config.chainlinkTwap ||
+    externalFeedsReqPlugin?.config.binanceBookTicker
+  ) {
+    throw new Error(
+      'The current trading runtime does not supply captured TWAP/bookTicker feeds; use Recorder v3 replay until the live dispatcher is integrated',
+    )
+  }
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
 

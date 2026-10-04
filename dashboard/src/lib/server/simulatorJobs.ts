@@ -1,4 +1,4 @@
-import { fork, type ChildProcess } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import {
   existsSync,
@@ -72,14 +72,20 @@ function pump(): void {
   job.state.message = 'Resolving strategy and historical data…'
   save(job)
   try {
-    // Explicit tsx entrypoint keeps engine/Parquet dependencies out of the Next bundle.
-    const child = fork(
-      path.join(root, 'src/cli/backtest-simulator.ts'),
-      [String(job.state.runId), job.state.slug, simulatorDirectory(job.state.id)],
+    // Spawn the repository source as a runtime argument. Turbopack traces fork's
+    // module argument as a bundle entry, but this worker intentionally runs outside Next.
+    const child = spawn(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        path.join(root, 'src/cli/backtest-simulator.ts'),
+        String(job.state.runId),
+        job.state.slug,
+        simulatorDirectory(job.state.id),
+      ],
       {
         cwd: root,
-        execPath: process.execPath,
-        execArgv: ['--import', 'tsx'],
         stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
       },
     )

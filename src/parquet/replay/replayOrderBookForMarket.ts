@@ -1,5 +1,6 @@
 import type { AnyMarketMessage, MarketOrderBooksSnapshot } from '../../market/orderbook/index.js'
 import { MarketEngine } from '../../market/MarketEngine.js'
+import { decodeMarketChannelFrame } from '../../market/marketChannelDecoder.js'
 import { openParquetReaderWithEpermFallback } from '../../cli/helpers/openParquetReader.js'
 import { sleep } from '../../utils/sleep.js'
 import { toBigInt } from '../../utils/toBigInt.js'
@@ -62,9 +63,19 @@ export async function replayOrderBookForMarket(params: {
       heap.push({ fileIdx: i, row, keySeq, keyTs })
     }
 
+    let rawFrame = ''
     let activeMarket: string | undefined
-
-    const eng = new MarketEngine()
+    const eng = new MarketEngine({
+      onTick: async (tick) => {
+        if (tick.source.kind !== 'parquet') throw new Error('Expected parquet replay source')
+        await params.onSnapshot(tick.snapshot, {
+          msg: tick.msg,
+          rawJson: rawFrame,
+          market: tick.msg.market,
+          source: tick.source,
+        })
+      },
+    })
 
     let prevKeyTs: bigint | undefined
     while (true) {
@@ -107,22 +118,11 @@ export async function replayOrderBookForMarket(params: {
           ingestSeq,
           ...(tsLocalMs > 0 ? { tsLocalMs } : {}),
         }
-        const msg = await eng.handleRaw({ rawJson, source })
-        if (msg) {
-          const market = msg.market
-          if (!activeMarket) activeMarket = market
-          if (activeMarket === market) {
-            // Only run strategy ticks on book+price_change (per project rules).
-            if (msg.event_type === 'book' || msg.event_type === 'price_change') {
-              await params.onSnapshot(eng.snapshot(), {
-                msg,
-                rawJson,
-                market: activeMarket,
-                source,
-              })
-            }
-          }
-        }
+        rawFrame = rawJson
+        const messages = decodeMarketChannelFrame(rawJson)
+        activeMarket ??= messages[0]?.market
+        const selected = messages.filter((message) => message.market === activeMarket)
+        if (selected.length) await eng.handleRaw({ rawJson: JSON.stringify(selected), source })
       }
 
       const next = (await cursors[item.fileIdx]!.next()) as ReplayRow | null

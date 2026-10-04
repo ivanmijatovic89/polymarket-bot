@@ -35,6 +35,11 @@ import {
 import { getMarketResolution as getTelonexMarketResolution } from '../backtest/stats/telonexMarketResolution.js'
 import { runSingleMarket } from '../backtest/runSingleMarket.js'
 import {
+  resolveCaptureInputs,
+  resolveCapturePackage,
+  type ResolvedCapturePackage,
+} from '../recorder-v3/replay/package.js'
+import {
   AGGREGATE_JOB_OPTS,
   AGGREGATE_QUEUE,
   MARKET_JOB_OPTS,
@@ -330,7 +335,9 @@ async function main(): Promise<void> {
   const effectiveInputMode = isExtend
     ? (planOk!.parent.inputMode as 'telonex-delta' | 'telonex-paired')
     : parsed.inputMode
-  const isTelonex = effectiveInputMode !== 'recorded'
+  const isCapture = effectiveInputMode === 'recorder-v3'
+  const isTelonex =
+    effectiveInputMode === 'telonex-delta' || effectiveInputMode === 'telonex-paired'
   const converter: Converter | null = isTelonex
     ? isExtend
       ? (planOk!.parent.converter as Converter)
@@ -345,6 +352,7 @@ async function main(): Promise<void> {
   let filePaths: string[] = []
   const recordedBySlug = new Map<string, Market>()
   const telonexBySlug = new Map<string, TelonexMarket>()
+  const capturedPackages = new Map<string, ResolvedCapturePackage>()
 
   if (isExtend) {
     // Skip the normal selection logic entirely — candidates already come
@@ -353,6 +361,39 @@ async function main(): Promise<void> {
       if (m.dataset === null || m.dataset.trim() === '') continue
       filePaths.push(m.dataset)
       telonexBySlug.set(m.slug, m)
+    }
+  } else if (isCapture) {
+    const inputs = await resolveCaptureInputs(parsed.filePaths, parsed.dirs ?? [])
+    let packages = await Promise.all(inputs.map(resolveCapturePackage))
+    packages = packages.filter(
+      (p) =>
+        (parsed.captureTimeframe === undefined ||
+          p.manifest.market.timeframe === parsed.captureTimeframe) &&
+        (parsed.fromMs === undefined || p.manifest.market.startMs >= parsed.fromMs) &&
+        (parsed.toMs === undefined || p.manifest.market.startMs <= parsed.toMs),
+    )
+    packages.sort(
+      (a, b) =>
+        a.manifest.market.startMs - b.manifest.market.startMs ||
+        a.manifest.market.slug.localeCompare(b.manifest.market.slug),
+    )
+    if (parsed.latest) packages.reverse()
+    if (parsed.random) {
+      for (let i = packages.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[packages[i], packages[j]] = [packages[j]!, packages[i]!]
+      }
+    }
+    if (parsed.limit !== undefined) packages = packages.slice(0, parsed.limit)
+    const seenSlugs = new Set<string>()
+    for (const pkg of packages) {
+      if (seenSlugs.has(pkg.manifest.market.slug))
+        throw new Error(
+          `Multiple capture packages for ${pkg.manifest.market.slug}; select one recording explicitly`,
+        )
+      seenSlugs.add(pkg.manifest.market.slug)
+      filePaths.push(pkg.filePath)
+      capturedPackages.set(pkg.filePath, pkg)
     }
   } else if (!isTelonex) {
     // ---- recorded flow: query `markets` table ----
@@ -556,6 +597,9 @@ async function main(): Promise<void> {
         '    tsx src/cli/backtest.ts --strategy <id> --symbol <btc|eth|sol|...> [--limit N] [--random|--latest]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --slug <slug1[,slug2,...]>\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --dir <dir1> [--dir <dir2> ...]\n' +
+        '  Recorder v3 (verified mixed-feed market packages):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v3 --dir <package-cache> [--allow-capture-gaps]\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v3 r2://bucket/prefix/slug/recording/manifest-<sha256>.json\n' +
         '  Telonex (telonex_markets table, requires --read-from local|r2):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-delta --read-from local --symbol btc [--timeframe 15m] [--limit N]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-paired --read-from r2 --slug <slug>\n',
@@ -563,7 +607,16 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const effectiveTimeframe = isExtend ? planOk!.parent.timeframe : parsed.timeframe
+  const captureTimeframes = new Set(
+    [...capturedPackages.values()].map((p) => p.manifest.market.timeframe),
+  )
+  const effectiveTimeframe = isExtend
+    ? planOk!.parent.timeframe
+    : isCapture
+      ? captureTimeframes.size === 1
+        ? [...captureTimeframes][0]!
+        : null
+      : parsed.timeframe
   console.log(`[backtest] mode=${effectiveInputMode} files=${filePaths.length}`)
   if (isTelonex) {
     console.log(
@@ -627,7 +680,7 @@ async function main(): Promise<void> {
   // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed
   // fulfilled per market inside runSingleMarket. The producer only needs the
   // requested symbol here for the missing-day-files preflight.
-  const feedsBinanceRequested = Boolean(requiredFeeds.binanceWsSpotPrice)
+  const feedsBinanceRequested = !isCapture && Boolean(requiredFeeds.binanceWsSpotPrice)
   // Explicit strategy symbol, or null when the pair follows each market's slug
   // (the wiring in runSingleMarket derives it the same way).
   const feedsBinanceSymbol = requiredFeeds.binanceWsSpotPrice?.symbol?.trim().toLowerCase() || null
@@ -639,7 +692,8 @@ async function main(): Promise<void> {
   // priceToBeat feed: the producer resolves the Gamma-backfilled strike per
   // market (workers stay DB-free). Catalog-wide lookup (no conversion join),
   // so recorded-mode backtests get it too.
-  const feedsPriceToBeatRequested = requiredFeeds.polymarketPriceToBeat?.enabled === true
+  const feedsPriceToBeatRequested =
+    !isCapture && requiredFeeds.polymarketPriceToBeat?.enabled === true
   if (feedsPriceToBeatRequested) {
     console.log(
       '[backtest] external feeds: polymarketPriceToBeat (from telonex_markets.price_to_beat)',
@@ -647,7 +701,7 @@ async function main(): Promise<void> {
   }
   // rtds chainlink feed (Telonex crypto_prices): explicit symbol, or null when
   // it follows each market's slug (the wiring derives it the same way).
-  const feedsRtdsReq = requiredFeeds.rtdsCryptoPrices
+  const feedsRtdsReq = isCapture ? undefined : requiredFeeds.rtdsCryptoPrices
   const feedsChainlinkSymbol = feedsRtdsReq?.chainlinkSymbols?.[0]?.trim().toLowerCase() || null
   if (feedsRtdsReq) {
     console.log(
@@ -675,6 +729,7 @@ async function main(): Promise<void> {
      * (the canonical local path) is not present on the worker's disk.
      */
     r2Fallback?: string
+    recorderV3?: import('../backtest/runSingleMarket.js').RunSingleMarketInput['recorderV3']
     /** Set only when the strategy requests the priceToBeat feed. */
     gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
   }
@@ -692,7 +747,8 @@ async function main(): Promise<void> {
   for (let idx = 0; idx < filePaths.length; idx += 1) {
     const fp = filePaths[idx]!
     if (shouldStop) break
-    const slug = parseSlugFromFilename(fp)
+    const captured = capturedPackages.get(fp)
+    const slug = captured?.manifest.market.slug ?? parseSlugFromFilename(fp)
     let marketResolution: MarketResolution | null = null
     let marketMeta: GammaMarketMeta | undefined
     // For `--read-from local-or-download-from-r2-to-local` the worker reads the canonical local file
@@ -702,7 +758,10 @@ async function main(): Promise<void> {
     let resolvedFilePath = fp
     let r2Fallback: string | undefined
 
-    if (isTelonex) {
+    if (captured) {
+      marketMeta = captured.marketMeta
+      marketResolution = captured.marketResolution
+    } else if (isTelonex) {
       let row = slug ? (telonexBySlug.get(slug) ?? null) : null
       if (!row && slug) {
         row = await getTelonexMarketBySlug(slug, { converter: converter!, readFrom: readFrom! })
@@ -808,6 +867,15 @@ async function main(): Promise<void> {
       marketMeta,
       marketResolution,
       strategyWindow,
+      ...(captured
+        ? {
+            recorderV3: {
+              manifest: captured.manifest,
+              ...(parsed.allowCaptureGaps ? { allowGaps: true } : {}),
+              ...(captured.manifestUrl ? { manifestUrl: captured.manifestUrl } : {}),
+            },
+          }
+        : {}),
       ...(r2Fallback ? { r2Fallback } : {}),
       ...(gammaPriceToBeat !== undefined ? { gammaPriceToBeat } : {}),
     })
@@ -987,6 +1055,7 @@ async function main(): Promise<void> {
             strategyParams: built.params as Record<string, unknown>,
             ...(built.definition ? { strategyDefinition: built.definition } : {}),
             inputMode: effectiveInputMode,
+            ...(ctx.recorderV3 ? { recorderV3: ctx.recorderV3 } : {}),
             order: parsed.order,
             timeDriven: parsed.timeDriven,
             latency: { delayMs: latencyMs, jitterMs },
@@ -1029,6 +1098,10 @@ async function main(): Promise<void> {
               `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
             )
           }
+        } else if (result.skipReason === 'incomplete_capture') {
+          const reason = `incomplete_capture: ${(result.coverageReasons ?? []).join('; ')}`
+          failed.push({ idx: result.idx, slug: result.slug, reason })
+          console.warn(`[backtest] Skipping ${ctx.slug}: ${reason}`)
         } else if (result.skipReason === 'no_slug') {
           failed.push({
             idx: result.idx,
@@ -1255,6 +1328,7 @@ async function main(): Promise<void> {
       strategyParams: built.params as Record<string, unknown>,
       ...(built.artifact ? { strategyArtifact: built.artifact.ref } : {}),
       inputMode: effectiveInputMode,
+      ...(ctx.recorderV3 ? { recorderV3: ctx.recorderV3 } : {}),
       order: parsed.order,
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },

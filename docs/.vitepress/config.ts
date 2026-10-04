@@ -50,6 +50,7 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/recording/overview' },
+                { text: 'Recorder v3 (BTC 5m + 15m)', link: '/datasets/recording/recorder-v3' },
                 { text: 'Recording Live Events', link: '/datasets/recording/recording-live-events' },
                 { text: 'Parquet Event Writer', link: '/engine/parquet-event-writer' },
                 { text: 'Parquet Event Schema', link: '/engine/parquet-event-schema' },

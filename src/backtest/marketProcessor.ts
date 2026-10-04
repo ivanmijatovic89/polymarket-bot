@@ -74,6 +74,7 @@ export function makeMarketProcessor(args: {
       strategyParams: data.strategyParams,
       ...(artifactDefinition ? { strategyDefinition: artifactDefinition } : {}),
       inputMode: data.inputMode,
+      ...(data.recorderV3 ? { recorderV3: data.recorderV3 } : {}),
       order: data.order,
       timeDriven: data.timeDriven,
       latency: data.latency,
