@@ -166,3 +166,25 @@ do not mark complete merely because implementation/CI or sample days are done.
 June 2 evidence: `logs/june-02-verification.json`, `logs/june-02-benchmark.json`,
 and `logs/june-02-leaderboard.json`. Bounded API exception probes and saved source
 pages are under `logs/api-exception-probes/` in the permanent root.
+
+## Automatic validation during this backfill
+
+A task-specific local watcher is running from
+`operations/validate-backfill.mts` under the permanent data root. It uses the
+existing verification and query functions, makes no Polymarket requests, and
+does not modify published snapshots or restart the downloader.
+
+It saves generation-bound verification under `logs/backfill-validation/days/`.
+When every day in a month has passed those checks, it saves the month's coverage
+and strict leaderboard under `logs/backfill-validation/months/`. If a missing
+market prevents ranking, it records the error. After all 122 requested days pass,
+it runs full-range verification, coverage, the monthly comparison SQL and a local
+query benchmark. Generated reports still require the final exception audit and
+detailed wallet research before goal completion.
+
+The watcher's initial pass verified June 1–4, July 1 and August 1 with no integrity
+errors. June 5 was downloading at that checkpoint. Its current phase and process
+IDs are in `logs/backfill-validation/state.json`; progress is in
+`logs/backfill-validation-watcher.log`. Check the actual processes before treating
+an observation timeout as failure. A validator error is distinct from a downloader
+failure, and neither should trigger a duplicate running sync.
