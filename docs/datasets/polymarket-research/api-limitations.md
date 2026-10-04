@@ -159,6 +159,47 @@ is not a frozen historical transaction snapshot. The bounded probes used stable,
 resolved markets, preserved every original filter and followed each cursor to
 completion.
 
+## Gamma list omission recovered by direct lookup
+
+On June 17, `btc-updown-15m-1781727300` was absent from both closed/open list
+requests and a separate unfiltered slug list. Gamma's direct market and event
+slug endpoints returned market `2570741`, event `602381`, with `closed=true` and
+`active=false`. The market is therefore available; the list omission must not
+be classified as a nonexistent window.
+
+Catalog discovery now tries the direct market endpoint for each missing slug
+and fetches its resolution alongside the other markets. A direct 404 stays an
+explicit gap. Transient failures and responses for another slug fail visibly.
+Resuming a checkpoint with missing catalog entries retries discovery. Regression
+tests cover recovery, true 404s, failures, mismatched identities and resume.
+Original Gamma responses are in `logs/catalog-gap-20260617/` in the data root.
+
+## June 16 taker-volume disagreement
+
+Market `btc-updown-15m-1781581500`, event `596280`, stopped publication because
+1,431 taker rows sum to **29,379.603267 shares**, while `/v2/live-volume` returns
+**29,377.642483 shares**. Fresh walks at page sizes 1,000 and 137 reproduce the
+same multiset, with no identical taker rows. A fresh all-side walk also matches
+the checkpoint exactly; its 58,759.206534 shares equal twice the taker total.
+
+The 1.960784-share difference is within one microshare of the earliest trade's
+1.960783 shares. That trade occurred on June 15 at 03:53:12 UTC, before the
+selected market window, in transaction
+`0x7d8a73c8516e505f728ac0e4172cb4b59562078284a187e55fc8185b15cca1d1`.
+Both counterparties' wallet-scoped trade and activity endpoints retain it;
+their CLOSED positions also report the acquired quantity at four-decimal
+precision. The winning wallet's activity additionally contains its redemption.
+This supports retaining the trade. It does not establish why the aggregate
+differs or justify deleting a row to force agreement.
+
+June 16 remains unpublished, with checkpoint pages preserved. Backfill continues
+from June 17 while this disagreement is investigated, so complete-June ranking
+remains blocked by the explicit missing day. No volume tolerance or acceptance
+criterion has been weakened. Evidence, original pages and wallet comparisons
+are in `logs/volume-mismatch-20260616/`. A policy for accepting and flagging a
+corroborated source-aggregate disagreement, if needed, requires an explicit
+decision; it must not silently certify the market as fully reconciled.
+
 ## Reproduce the local audit
 
 Run these queries through `research:sql --sql-file ...` against the saved root.

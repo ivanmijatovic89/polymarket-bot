@@ -8,7 +8,22 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
-## Latest checkpoint: downloader version 3 live measurement
+## Latest checkpoint: source exceptions on June 16–17
+
+June 1–15, July 1 and August 1 are published and verified (17 days). The June 16
+run stopped on a reproducible 1.960784-share disagreement between the detailed
+taker feed and the API volume aggregate. Different page sizes and independent
+wallet requests reproduce the facts; the suspected earliest trade is retained.
+Its checkpoint is preserved and the backfill continues from June 17. June 16
+must be resolved before complete-June ranking can proceed.
+
+June 17 exposed a separate Gamma list omission. Direct market/event lookups
+recover that market, so downloader version 4 adds a direct slug fallback and
+retries incomplete catalogs on resume. All 30 feature tests and root
+TypeScript/ESLint pass. Accounting remains version 6. Details and evidence paths
+are in [API limitations](./api-limitations); the full-range objective remains open.
+
+## Downloader version 3 live measurement
 
 At approximately 18:55 UTC on October 4, fourteen days are published and verified:
 June 1–12, July 1 and August 1. June 13 is downloading. Downloader version 3

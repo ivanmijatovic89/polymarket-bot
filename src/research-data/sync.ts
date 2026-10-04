@@ -171,7 +171,9 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const client = options.client ?? new ApiClient({ requestsPerSecond: options.requestsPerSecond })
   const started = Date.now()
   const catalogFile = path.join(stage, 'catalog.json')
-  const catalog = (await readJson<Catalog>(catalogFile)) ?? (await discoverDay(client, day))
+  const cachedCatalog = await readJson<Catalog>(catalogFile)
+  const catalog =
+    cachedCatalog && !cachedCatalog.missing.length ? cachedCatalog : await discoverDay(client, day)
   await writeJson(catalogFile, catalog)
   const freshness = await client.get('/v2/status')
   log(
@@ -424,7 +426,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 3,
+    downloader_version: 4,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,

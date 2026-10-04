@@ -1,5 +1,5 @@
 import { windowFromSlug } from '../polymarket/upDownSlugWindow.js'
-import type { ApiClient } from './api.js'
+import { HttpError, type ApiClient } from './api.js'
 import type { ApiRow, Market } from './types.js'
 
 export const DAY_SECONDS = 86_400
@@ -105,6 +105,21 @@ export async function discoverDay(client: ApiClient, day: string): Promise<Catal
         found.set(raw.slug, raw)
       }
     }
+  }
+  // Gamma's list endpoint can omit an inactive market that still exists at its
+  // direct slug endpoint. Only a direct 404 is evidence of an unavailable slug;
+  // transient errors and mismatched responses must not become coverage gaps.
+  for (const slug of expected.filter((value) => !found.has(value))) {
+    let raw: unknown
+    try {
+      raw = await client.get(`/markets/slug/${encodeURIComponent(slug)}`, {}, true)
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) continue
+      throw error
+    }
+    if (!raw || typeof raw !== 'object' || (raw as ApiRow).slug !== slug)
+      throw new Error(`Gamma direct lookup returned an unexpected market: ${slug}`)
+    found.set(slug, raw as ApiRow)
   }
   const resolutions = new Map<string, ApiRow>()
   for (const batch of chunks([...found.values()], 20)) {
