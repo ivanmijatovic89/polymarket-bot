@@ -107,10 +107,9 @@ Scaling only the original June baseline gives **63.6 hours and 10.0 GiB of
 Parquet**, plus temporary workspace and retained generations. This is a deliberately
 labeled baseline extrapolation, not the estimate for the optimized downloader.
 
-A fresh optimized day is still required before launching the full backfill.
-The July 1 run resumed after the empty-market investigation, so its elapsed time
-must not be presented as an uninterrupted fresh benchmark. Disk capacity must be
-checked again using the measured range and the configured reserve.
+The subsequent fresh August result below supplies the optimized estimate.
+July 1 resumed after the empty-market investigation, so its elapsed time must
+not be presented as an uninterrupted fresh benchmark.
 
 ## Accounting version 5 follow-up
 
@@ -130,5 +129,29 @@ of 4,222 July wallets.
 The initial June measurements and version 4 counts above remain as the historical
 baseline. July used saved trade pages on resume: its completed wallet phase took
 495 seconds and its resumed process made 11,151 requests with two retries.
-A fresh August 1 day is now measuring the optimized path with 16 workers and a
-60-rps shared ceiling; separate endpoint ceilings still apply.
+August 1 measured the optimized path with 16 workers and a 60-rps shared ceiling;
+separate endpoint ceilings still apply.
+
+## Fresh optimized August benchmark and backfill start
+
+August 1 completed in **409.844 seconds (6.83 minutes)** with 9,325 requests,
+13 retries, 275,291 trades, 302,757 activities and 3,335 wallets. Its Parquet size
+is **49,952,243 bytes (47.64 MiB)**; observed peak working disk is 612,477,618 bytes.
+All 96 windows and independent file/SQL checks passed. Accounting version 5 has
+38,179 complete and 347 unresolved wallet/market pairs. First-query latencies
+were 9.42 ms for the trade scan, 5.47 ms for ranking and 18.69 ms for the timeline;
+dataset open took 22.52 ms, again without flushing the OS cache.
+
+The fresh August timing extrapolates to 13.9 hours for 122 equal-volume days.
+June's observed wallet-batch count was 6,743 versus August's 4,341 (1.55 times as
+many). Scaling for that higher workload gives a planning upper value near 21.6
+hours. Use **14–22 hours** as the initial planning range, not a confidence interval
+or a promise. The compressed-size samples imply **6–10 GiB**, plus up to about
+1 GiB observed temporary working space and retained generations. June's original
+31-minute result used a different downloader configuration and a larger dataset.
+
+Free disk before launch was 26,111,242,240 bytes (24.3 GiB), sufficient for the
+sample-based high estimate plus the 5 GiB reserve. The full June–September sync
+started on 2026-10-04 using 16 workers and the 60-rps shared ceiling. Existing
+June 1, July 1 and August 1 snapshots are reused. The disk guard remains active.
+The full backfill and full-month research demonstrations are not complete yet.

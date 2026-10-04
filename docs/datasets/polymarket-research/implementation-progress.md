@@ -18,7 +18,7 @@ parity. Work on `codex/polymarket-v2-research-data`.
 - [x] Test pagination, repeated fills, fees, split/merge/redeem, missing data,
       interruption, idempotency, incremental refresh and concurrent readers.
 - [x] Complete and verify a 96-window day; benchmark time, requests and disk.
-- [ ] Sample July/August/September, report four-month duration and disk estimates.
+- [x] Sample July/August/September, report four-month duration and disk estimates.
 - [ ] Complete June–September ingestion; explain all gaps and discrepancies.
 - [ ] Demonstrate monthly leaderboards, cross-month comparison and wallet research.
 - [x] Document schema, accounting, operation, recovery and agent workflows.
@@ -107,29 +107,32 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
 
 ## Current download and next actions
 
-- June 1 and July 1 are published, rebuilt with accounting version 5 and pass
-  file-integrity plus independent SQL verification. June has 58,248 complete /
-  732 unresolved wallet/market pairs. July has 49,868 complete / 492 unresolved.
-- The July run reused its trade cache after the empty-market investigation.
-  Its wallet phase completed in 495 seconds; the resumed process made 11,151
-  requests with two retries. It is not a fresh full-day benchmark.
-- A fresh August 1 run is now active: 16 workers, global ceiling 60 rps, endpoint
-  caps unchanged. This is the timing sample needed before launching backfill.
-- July/August/September targeted probes cover 12 markets and 57 wallet/market
-  histories; 56 passed version 4 accounting, one remains unresolved.
-- A refresh-after-rebuild regression confirms that old hard-linked source
-  Parquet files are never overwritten. A failed non-empty-market volume check
-  also leaves the previous published generation active.
-- After August finishes, verify its snapshot, measure queries and extrapolate
-  duration/storage with explicit caveats. Check free disk, then start the full
-  June–September sync if the saved-data checks pass and capacity is sufficient.
-- Finish discrepancy classification, monthly/cross-month/wallet examples, final
-  docs and PR validation. Keep the PR draft until the goal's required evidence
-  and actual backfill are complete.
+- June 1, July 1 and August 1 are published with accounting version 5 and pass
+  file-integrity plus independent SQL verification. Their complete/unresolved
+  wallet-market counts are 58,248/732, 49,868/492 and 38,179/347 respectively.
+- Fresh August 1: 409.844 seconds, 9,325 requests, 13 retries, 49,952,243 Parquet
+  bytes. The July run resumed and is not used as a fresh benchmark.
+- The planning estimate reported before starting backfill was 14–22 hours and
+  6–10 GiB plus temporary workspace. Free disk was 24.3 GiB, with a 5 GiB reserve.
+  See [benchmark evidence](./benchmark-evidence) for assumptions and measurements.
+- The full June–September backfill is now running with 16 workers and a 60-rps
+  shared ceiling; endpoint caps remain active. Existing sample days are skipped.
+- After completion, run `verify` and coverage over the full June–September range;
+  inspect every issue class, benchmark larger local queries and demonstrate
+  monthly/cross-month/wallet research. Update docs and the PR with actual totals.
+- All four CI jobs passed for `da9bbbd8` (current implementation). The PR remains
+  draft until required backfill and final evidence are complete.
 
 Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
-The active process logs to `logs/august-01-progress.log` under that root. Its PID
-is in `sync.lock`; always check the actual process before treating a tool timeout
-as process failure. June/July downloads and rebuilds have finished. Verification
-outputs are saved under `logs/2026-06-01-accounting-v5.json` and
-`logs/2026-07-01-accounting-v5.json`.
+Active log: `logs/june-september-progress.log`. The process PID is in `sync.lock`;
+always inspect the actual process before treating a tool observation timeout as
+process failure. On failure, repair the bounded issue and resume the same command:
+
+```bash
+npm run research:sync -- --root /Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2 --from 2026-06-01 --to 2026-10-01 --concurrency 16 --rps 60
+```
+
+Verification evidence for the samples is under `logs/2026-06-01-accounting-v5.json`,
+`logs/2026-07-01-accounting-v5.json` and `logs/august-01-verification.json`.
+The August benchmark is `logs/august-01-benchmark.json`. The goal remains active;
+do not mark complete merely because implementation/CI or sample days are done.
