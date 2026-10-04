@@ -102,7 +102,7 @@ balances, unsupported actions and unexplained economics are not rounded away.
 Passed locally: feature regression/integration tests, root TypeScript/ESLint,
 global-runtime tests, strategy artifact tests, trading tests, feed coverage tests,
 research protocol/index checks, WebUI typecheck/build, Dashboard typecheck/tests/
-build, and docs build. Current feature suite: 21 tests. Commits `9858d27e` and `9a6f689e` are pushed.
+build, and docs build. Current feature suite: 22 tests. Commits `9858d27e` and `9a6f689e` are pushed.
 The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draft PR: https://github.com/ivanmijatovic89/polymarket-bot/pull/272 (attached to the task). All four CI jobs passed for commit `9a6f689e`.
 
 ## Current download and next actions
@@ -133,6 +133,12 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
   three June 1 gaps recovered no missing rows. The new [API exception evidence](./api-limitations)
   records the observations, overlapping issue counts, large SPLIT-history native
   PnL differences and reproducible audit SQL. Accounting criteria are unchanged.
+- A two-calendar-month synthetic Parquet test now verifies missing-day and
+  missing-window guards, exclusion of a wallet's complete cohort when a loss is
+  unresolved, independent monthly eligibility, cross-month aggregation and a
+  July redemption attributed to its June market. All 22 feature tests, root
+  type checking and the added test's lint pass. This validates query behavior;
+  actual full-month data and research demonstrations remain pending.
 
 Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
 Active log: `logs/june-september-progress.log`. The process PID is in `sync.lock`;
