@@ -22,11 +22,7 @@ function nestedRateLimit(parsed: Record<string, unknown> | null): boolean {
   return code === 429 || code === '429'
 }
 
-export function priceToBeatUrl(
-  market: RecordedMarket,
-  nowMs: number,
-  baseUrl = 'https://polymarket.com',
-): string {
+export function priceToBeatUrl(market: RecordedMarket, baseUrl = 'https://polymarket.com'): string {
   const url = new URL('/api/crypto/crypto-price', baseUrl)
   url.searchParams.set('symbol', 'BTC')
   url.searchParams.set('eventStartTime', new Date(market.startMs).toISOString())
@@ -36,7 +32,8 @@ export function priceToBeatUrl(
   url.searchParams.set('twapEnabled', String(market.twapEnabled))
   if (market.twapLookbackSeconds !== null)
     url.searchParams.set('twapLookbackSeconds', String(market.twapLookbackSeconds))
-  url.searchParams.set('ts', String(nowMs))
+  // Keep one cache key per exact market/configuration. A unique timestamp bypasses
+  // the website edge cache; local receipt time is recorded separately on every response.
   return url.toString()
 }
 
@@ -121,7 +118,7 @@ export function createPriceToBeatFeed(options: PriceToBeatOptions) {
     request = new AbortController()
     const timeout = AbortSignal.timeout(options.timeoutMs ?? 10_000)
     const signal = AbortSignal.any([timeout, request.signal])
-    const url = priceToBeatUrl(options.market, before.receivedAtMs, options.baseUrl)
+    const url = priceToBeatUrl(options.market, options.baseUrl)
     let serverDeadlineMs = 0
     let retryAfter: string | null = null
     let rateLimited = false
@@ -151,7 +148,13 @@ export function createPriceToBeatFeed(options: PriceToBeatOptions) {
       else {
         if (!parsed || !('openPrice' in parsed))
           report('price_to_beat_invalid_response', received, retryAfter, rateLimited)
-        else if (parsed.openPrice !== null) {
+        else if (parsed.openPrice === null) {
+          // Initial publication delay is expected. A previously published price
+          // disappearing makes later corrections uncertain, without erasing the
+          // last value or pretending it was observed again.
+          if (hasPrice || rateLimited)
+            report('price_to_beat_unavailable', received, retryAfter, rateLimited)
+        } else {
           const open = Number(parsed.openPrice)
           if (
             (typeof parsed.openPrice === 'number' || typeof parsed.openPrice === 'string') &&

@@ -29,9 +29,11 @@ The implementation was checked against Polymarket's October 2026 APIs. Current B
 
 PolyBolt uses `price.crypto` for spot and `price.crypto.twap` for TWAP. The recorder requests Chainlink, verifies the acknowledged/actual provider, and preserves provider sequence/drop information. A returned provider mismatch is a data-quality problem even if the socket remains connected. See Polymarket's [RTDS migration guide](https://docs.polymarket.com/migrate/rtds-to-polybolt), [live-data overview](https://docs.polymarket.com/api-reference/live-data/overview), and [changelog](https://docs.polymarket.com/changelog/predictions).
 
-The website's `/api/crypto/crypto-price` endpoint is used to observe the published price to beat. Its request includes the market start/end, duration variant, and TWAP configuration. This website endpoint is not a stable documented public API. Its raw responses are preserved, and unavailable/invalid responses remain visible. A locally calculated average is never silently substituted for an official value.
+The website's `/api/crypto/crypto-price` endpoint is used to observe the published price to beat. Its request includes the market start/end, duration variant, and TWAP configuration. Requests reuse that exact URL without a unique timestamp parameter so the provider's edge cache can serve and refresh it. Cached responses may delay visible corrections; each response retains its actual local receipt time and any provider timestamp. This avoids unnecessary cache bypass but does not guarantee availability or establish a supported quota. This website endpoint is not a stable documented public API. Its raw responses are preserved, and unavailable/invalid responses remain visible. A locally calculated average is never silently substituted for an official value.
 
 Healthy polling checks every second until a price is available, then every 30 seconds for corrections. Errors back off exponentially with a five-minute local cap; a valid `Retry-After` can require a longer wait. An observed rate limit retains a slower polling floor for that market, even after an isolated success. The recorder preserves the error response, retry details, and coverage gap. Corrections during the wait are unobservable; backoff does not manufacture complete coverage. Separate 5m and 15m requests remain necessary because their market parameters differ.
+
+An initial `openPrice: null` can mean the opening reference has not been published yet. After a valid price has been observed, a null response means correction coverage is uncertain: it opens a PTB gap and backs off retries. The last valid value remains available with its original receipt time. Only a new valid price restores availability; an HTTP 200 status alone does not close the gap.
 
 ## Receipt order and initial state
 
@@ -129,23 +131,28 @@ An R2 object without a published manifest is not a discoverable completed packag
 
 ### R2 object layout
 
-The production prefix defaults to `recorder-v3`. Each market slug encodes its duration and opening time as Unix seconds in UTC. Each separate recording gets its own ID. Crash recovery resumes an unfinished recording's journal and ID; starting again after a finalized partial recording creates a new recording rather than overwriting it:
+The production prefix defaults to `recorder-v3`. New packages group markets by asset and timeframe before the slug. Each market slug encodes its duration and opening time as Unix seconds in UTC. Each separate recording gets its own ID. Crash recovery resumes an unfinished recording's journal and ID; starting again after a finalized partial recording creates a new recording rather than overwriting it:
 
 ```text
 recorder-v3/
-  btc-updown-5m-<opening-unix-seconds>/
-    <recording-id>/
-      events-<sha256>.parquet
-      manifest-<sha256>.json
-      resolutions/
-        <observed-at-ms>-<sha256>.json
-  btc-updown-15m-<opening-unix-seconds>/
-    <recording-id>/
-      events-<sha256>.parquet
-      manifest-<sha256>.json
-      resolutions/
-        <observed-at-ms>-<sha256>.json
+  btc/
+    5m/
+      btc-updown-5m-<opening-unix-seconds>/
+        <recording-id>/
+          events-<sha256>.parquet
+          manifest-<sha256>.json
+          resolutions/
+            <observed-at-ms>-<sha256>.json
+    15m/
+      btc-updown-15m-<opening-unix-seconds>/
+        <recording-id>/
+          events-<sha256>.parquet
+          manifest-<sha256>.json
+          resolutions/
+            <observed-at-ms>-<sha256>.json
 ```
+
+New manifests identify this layout with `archiveLayout: "symbol-timeframe"`. Existing flat packages at `<prefix>/<slug>/<recording-id>/` remain readable and discoverable under the same prefix. They are not renamed or rewritten: their immutable manifests embed their original object keys. Local download caches retain `<output>/<slug>/<recording-id>/`. The hierarchy leaves room for future assets; the recorder still supports only BTC 5m and 15m.
 
 All event feeds for a recording are in its single Parquet. The manifest contains identity, coverage, and integrity information. Later resolution updates are separate because an official result or correction can arrive after the immutable event file has been archived. Shared Binance/Chainlink observations are intentionally repeated in overlapping market files with identical receipt sequence and timestamps.
 
@@ -191,6 +198,8 @@ Downloads are sequential and verified, refresh resolution observations, and reus
 Coverage records both confirmed loss and uncertainty: reconnect intervals, provider sequence gaps, missing initial books, stale feeds, late startup, interrupted capture, and observed clock/event-loop discontinuities. A connected socket alone does not prove complete upstream data. In particular, an unsequenced Polymarket stream cannot prove that no message was ever lost upstream.
 
 Malformed book frames remain in the raw recording. They invalidate affected books, open coverage gaps, and trigger a reconnect for fresh snapshots. Explicit outage replay preserves these resets and skips the invalid mutations.
+
+Undecodable Binance text remains in the raw recording and opens uncertain gaps for both feeds sharing its connection. An identifiable invalid aggregate-trade or best-bid/ask payload affects its own feed. A later valid message restores that feed's availability but does not erase the recorded uncertainty interval.
 
 Ordinary v3 backtests skip an entire market when a feed required by that strategy has an affected interval. A gap only in an unused optional feed does not automatically disqualify it. The recording remains available. Use `--allow-capture-gaps` explicitly to test outage behavior; this does not invent replacement data.
 
@@ -257,4 +266,4 @@ This verifies file integrity, every row, sequence/receipt ordering, manifest row
 
 Before deployment, also validate real feed subscriptions, a complete market for each duration, correct current PTB, market transitions, clean shutdown/restart, actual R2 upload/read-back/deletion, fresh-cache download, and replay. Record the tested commit, elapsed capture time, CPU/memory/disk observations, and any detected gaps. A short connection smoke test is not evidence of long-term operational reliability.
 
-See the [initial validation report](./recorder-v3-validation) and [second audit](./recorder-v3-second-audit) for measured local results and remaining deployment checks.
+See the [initial validation report](./recorder-v3-validation), [second audit](./recorder-v3-second-audit), and [archive/coverage hardening report](./recorder-v3-hardening) for measured local results and remaining deployment checks.

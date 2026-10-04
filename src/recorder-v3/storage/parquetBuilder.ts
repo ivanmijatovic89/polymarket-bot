@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { atomicWrite, digestFile, exists, syncDirectory } from './files.js'
 import { readJournals } from './journalReader.js'
-import type { MarketManifest } from './manifest.js'
+import { marketManifestSchema, type MarketManifest } from './manifest.js'
 import type { PackageState, ReadyMarket } from './marketStore.js'
 import { capturedEventSchema, eventToRow } from './parquet.js'
 import type { MarketCoverage } from '../types.js'
@@ -72,6 +72,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
   await syncDirectory(directory)
   const manifest: MarketManifest = {
     schemaVersion: 3,
+    archiveLayout: 'symbol-timeframe',
     recordingId: state.recordingId,
     market: state.market,
     coverage,
@@ -79,12 +80,13 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
     finalizedAtMs: Date.now(),
     events: {
       ...digest,
-      key: `${job.prefix}/${state.market.slug}/${state.recordingId}/events-${digest.sha256}.parquet`,
+      key: `${job.prefix}/${state.market.symbol}/${state.market.timeframe}/${state.market.slug}/${state.recordingId}/events-${digest.sha256}.parquet`,
       rows,
       firstSequence,
       lastSequence,
     },
   }
+  marketManifestSchema.parse(manifest)
   await atomicWrite(path.join(directory, 'manifest.json'), JSON.stringify(manifest))
   return { directory, manifest }
 }

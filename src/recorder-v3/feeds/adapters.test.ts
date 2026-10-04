@@ -362,15 +362,14 @@ test('transport captures binary/control frames without data loss and stops recon
 
 test('price-to-beat includes exact TWAP and timeframe arguments and continues recording corrections', async (t) => {
   const m = market()
-  const five = new URL(priceToBeatUrl(m, m.startMs))
+  const five = new URL(priceToBeatUrl(m))
   assert.equal(five.searchParams.get('variant'), 'fiveminute')
   assert.equal(five.searchParams.get('twapEnabled'), 'true')
   assert.equal(five.searchParams.get('twapLookbackSeconds'), '60')
-  assert.equal(
-    new URL(priceToBeatUrl(market('15m'), m.startMs)).searchParams.get('variant'),
-    'fifteen',
-  )
+  assert.equal(new URL(priceToBeatUrl(market('15m'))).searchParams.get('variant'), 'fifteen')
+  assert.equal(five.searchParams.has('ts'), false)
   const output = collect()
+  const urls: string[] = []
   let count = 0
   const startedAtMs = Date.now()
   const values = [
@@ -387,7 +386,10 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
       receivedAtMs: m.startMs + Date.now() - startedAtMs,
       monotonicNs: String(count + 1),
     }),
-    fetch: async () => new Response(values[Math.min(count++, 2)]),
+    fetch: async (url) => {
+      urls.push(String(url))
+      return new Response(values[Math.min(count++, 2)])
+    },
   })
   t.after(() => feed.stop())
   feed.start()
@@ -398,6 +400,8 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
   )
   assert.equal(output.frames[0]?.request?.httpStatus, 200)
   assert.equal(output.frames[2]?.marketSlug, m.slug)
+  assert.deepEqual(urls, [five.toString(), five.toString(), five.toString()])
+  assert.ok(output.frames[2]!.stamp.receivedAtMs > output.frames[0]!.stamp.receivedAtMs)
 })
 
 test('stopping price-to-beat discards a late response and does not resurrect polling', async () => {

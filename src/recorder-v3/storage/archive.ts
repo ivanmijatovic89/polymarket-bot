@@ -324,6 +324,9 @@ export async function readRemoteManifest(
   const manifest = parseManifest(body.toString('utf8'))
   if (path.posix.dirname(manifest.events.key) !== path.posix.dirname(manifestKey))
     throw new Error('Manifest points outside its market package')
+  const parts = manifestKey.split('/')
+  if (parts.at(-3) !== manifest.market.slug || parts.at(-2) !== manifest.recordingId)
+    throw new Error('Manifest identity does not match its market package directory')
   return { manifest, rawJson: body.toString('utf8') }
 }
 
