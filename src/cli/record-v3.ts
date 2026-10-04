@@ -1,5 +1,6 @@
 import { loadRecorderConfig, RECORDER_HELP } from '../recorder-v3/config.js'
 import { runRecorder } from '../recorder-v3/daemon.js'
+import { RecorderCliError } from '../recorder-v3/cliError.js'
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
@@ -21,7 +22,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(() => {
+main().catch((error: unknown) => {
+  if (error instanceof RecorderCliError) {
+    console.error(error.message)
+    process.exitCode = 1
+    return
+  }
   // Configuration/startup errors must not accidentally print credential-bearing URLs.
   console.error(
     '[recorder] startup failed; check the explicit recorder configuration and spool permissions',

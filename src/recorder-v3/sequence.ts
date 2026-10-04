@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { link, mkdir, open, readFile, readdir, unlink } from 'node:fs/promises'
+import { link, open, readFile, readdir, unlink } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import path from 'node:path'
 
-import { atomicWrite, exists, isMissing, syncDirectory } from './storage/files.js'
+import { atomicWrite, ensureDirectory, exists, isMissing, syncDirectory } from './storage/files.js'
 import type { CapturedEvent, RawFrame } from './types.js'
 
 const LEASE_SIZE = 1_000_000_000_000n
@@ -27,7 +27,7 @@ type LockClaim = { pid: number; sessionId: string; hostname: string }
  */
 async function claimSpool(spoolDir: string, sessionId: string): Promise<() => Promise<void>> {
   const directory = path.join(spoolDir, 'recorder-locks')
-  await mkdir(directory, { recursive: true })
+  await ensureDirectory(directory)
   await syncDirectory(spoolDir)
   const names = (await readdir(directory)).filter((name) => /^\d{20}\.json$/.test(name)).sort()
   let generation = names.length ? BigInt(names.at(-1)!.slice(0, 20)) + 1n : 1n
@@ -94,7 +94,7 @@ export async function openCaptureSequence(spoolDir: string): Promise<{
   capture: (frame: RawFrame, eventType?: string) => CapturedEvent
   close: () => Promise<void>
 }> {
-  await mkdir(spoolDir, { recursive: true })
+  await ensureDirectory(spoolDir)
   const sessionId = randomUUID()
   const release = await claimSpool(spoolDir, sessionId)
   try {

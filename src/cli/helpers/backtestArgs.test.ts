@@ -1,6 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseArgs, parseLatencyFlagsFromCmd, resolveBacktestProvenance } from './backtestArgs.js'
+import { resolveBacktestTimeframe } from './backtestTimeframe.js'
+
+test('recorder run duration comes from selected packages instead of the CLI default', () => {
+  const parsed = parseArgs(['--input-mode', 'recorder-v3', '/tmp/package'])
+  assert.equal(parsed.timeframe, '15m')
+  assert.equal(parsed.captureTimeframe, undefined)
+  assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m'] }), '5m')
+  assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['15m'] }), '15m')
+  assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m', '5m'] }), '5m')
+  assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m', '15m'] }), null)
+})
+
+test('recorder duration filter is explicit and non-recorder metadata keeps its duration', () => {
+  const parsed = parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '5m'])
+  assert.equal(parsed.captureTimeframe, '5m')
+  assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m'] }), '5m')
+  const legacy = parseArgs(['--symbol', 'btc', '--timeframe', '5m'])
+  assert.equal(resolveBacktestTimeframe({ ...legacy, captureTimeframes: [] }), '5m')
+})
 
 test('parseArgs parses repeated --dir and --dir= forms', () => {
   const parsed = parseArgs(['--dir', '/tmp/a', '--dir=/tmp/b', 'x.parquet'])

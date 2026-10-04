@@ -10,6 +10,10 @@ import { readSmallStream, exists } from '../storage/files.js'
 import { parseManifest, readManifest, type MarketManifest } from '../storage/manifest.js'
 import type { ResolutionObservation } from '../types.js'
 import { object } from './feedState.js'
+import {
+  readResolutionArtifact,
+  validateResolutionObservation,
+} from '../storage/resolutionArtifact.js'
 
 export function replayBlobStore(bucket: string): R2BlobStore {
   const required = (name: string): string => {
@@ -164,14 +168,17 @@ export async function resolveCapturePackage(input: string): Promise<ResolvedCapt
     filePath = path.join(directory, 'events.parquet')
     // download CLI writes verified observations for fully offline backtests.
     const resolutionFile = path.join(directory, 'resolutions.json')
-    if (await exists(resolutionFile))
-      observations = JSON.parse(await readFile(resolutionFile, 'utf8')) as ResolutionObservation[]
+    if (await exists(resolutionFile)) {
+      const history: unknown = JSON.parse(await readFile(resolutionFile, 'utf8'))
+      if (!Array.isArray(history)) throw new Error('Invalid local resolution history')
+      observations = history.map((value) => validateResolutionObservation(value, manifest.market))
+    }
     const outbox = path.join(directory, 'resolution-outbox')
     if (await exists(outbox)) {
       for (const name of await readdir(outbox))
         if (/^\d+-[a-f0-9]{64}\.json$/.test(name))
           observations.push(
-            JSON.parse(await readFile(path.join(outbox, name), 'utf8')) as ResolutionObservation,
+            (await readResolutionArtifact(path.join(outbox, name), manifest.market)).observation,
           )
     }
   }

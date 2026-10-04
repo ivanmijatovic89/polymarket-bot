@@ -311,6 +311,7 @@ export class StrategyRunner {
         this.accountMarketByAssetId.set(assetId, marketKey)
     }
     this.lastMarket = tick.snapshot
+    this.portfolio.initializeClock(tick.snapshot.timestamp || Date.now())
 
     // Allow execution layer to emit fills/state updates that happen "because the market moved"
     // (only used in backtests; live fills arrive via user WS / polling).

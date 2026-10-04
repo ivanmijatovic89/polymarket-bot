@@ -21,6 +21,41 @@ function makeOrder(clientOrderId: string, tsMs: number, side: OrderSide = 'SELL'
   }
 }
 
+test('first account event establishes the portfolio clock independently of the host clock', (t) => {
+  let hostNow = 2_000_000_000_000
+  t.mock.method(Date, 'now', () => hostNow)
+  const run = () => {
+    const portfolio = new Portfolio()
+    const initial = portfolio.snapshot()
+    assert.equal(initial.nowMs, hostNow)
+    portfolio.apply({ kind: 'order_submitted', tsMs: 1_000, order: makeOrder('cid', 1_000) })
+    const first = portfolio.snapshot()
+    assert.notEqual(first, initial)
+    assert.equal(first.nowMs, 1_000)
+    portfolio.apply({ kind: 'order_accepted', tsMs: 900, clientOrderId: 'cid', orderId: 'oid' })
+    assert.equal(portfolio.snapshot().nowMs, 1_000)
+    portfolio.apply({ kind: 'order_open', tsMs: 1_100, clientOrderId: 'cid', orderId: 'oid' })
+    return portfolio.snapshot()
+  }
+  const first = run()
+  hostNow += 86_400_000
+  assert.deepEqual(run(), first)
+})
+
+test('clock initialization invalidates the cache only once and preserves prior snapshots', () => {
+  const portfolio = new Portfolio()
+  const initial = portfolio.snapshot()
+  portfolio.initializeClock(1_000)
+  const initialized = portfolio.snapshot()
+  assert.notEqual(initialized, initial)
+  assert.equal(initialized.nowMs, 1_000)
+  portfolio.initializeClock(2_000)
+  assert.equal(portfolio.snapshot(), initialized)
+  portfolio.apply({ kind: 'order_submitted', tsMs: 1_500, order: makeOrder('cid', 1_500) })
+  assert.equal(portfolio.snapshot().nowMs, 1_500)
+  assert.equal(initialized.nowMs, 1_000)
+})
+
 test('Portfolio.snapshot returns the same frozen object until the next apply()', () => {
   const portfolio = new Portfolio()
 

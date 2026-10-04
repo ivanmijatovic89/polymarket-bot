@@ -33,6 +33,7 @@ function harness(markets: RecordedMarket[]) {
   const rows = new Map<string, CapturedEvent[]>()
   const coverage = new Map<string, MarketCoverage>()
   const started = new Map<string, RecordedMarket>()
+  let invalidFrames = 0
   const capture = (frame: RawFrame, eventType = 'frame'): CapturedEvent => {
     sequence++
     return {
@@ -55,6 +56,9 @@ function harness(markets: RecordedMarket[]) {
     capture,
     now: () => now,
     monotonic: () => String(now * 1_000_000),
+    onInvalidMarketFrame: () => {
+      invalidFrames++
+    },
     sink: {
       onStart: (value) => {
         started.set(value.slug, value)
@@ -140,6 +144,7 @@ function harness(markets: RecordedMarket[]) {
     prime,
     stamp,
     book,
+    invalidFrames: () => invalidFrames,
     setNow: (ms: number) => {
       now = ms
     },
@@ -345,6 +350,92 @@ test('malformed book payload is preserved before invalidating only its market st
     true,
   )
   assert.ok(!h.rows.get(fifteen.slug)?.some((row) => row.eventId === event.eventId))
+  assert.equal(h.invalidFrames(), 1)
+})
+
+test('unknown order sides are retained as gaps and require fresh snapshots before restoration', () => {
+  const m = market()
+  const h = harness([m])
+  h.prime()
+  const change = (side: string) => ({
+    event_type: 'price_change',
+    market: m.conditionId,
+    timestamp: '1500',
+    price_changes: [{ asset_id: m.tokenIds[0], price: '0.5', size: '99', side }],
+  })
+  const invalid = h.frame('polymarket', change('BID'), 1_500)
+  assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === invalid.eventId))
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  assert.equal(h.invalidFrames(), 1)
+  h.frame('polymarket', change('BUY'), 1_600)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  h.frame('polymarket', h.book(m, m.tokenIds[0]), 1_700)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  h.frame('polymarket', h.book(m, m.tokenIds[1]), 1_800)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, true)
+  h.advance(m.endMs + 60_000)
+  assert.equal(h.coverage.get(m.slug)?.complete, false)
+  assert.deepEqual(h.coverage.get(m.slug)?.gaps, [
+    {
+      feed: 'polymarket',
+      startMs: 1_500,
+      endMs: 1_800,
+      reason: 'invalid_market_payload',
+      certainty: 'confirmed',
+    },
+  ])
+})
+
+test('undecodable Polymarket text invalidates all affected books while PONG remains harmless', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  const ingest = (rawJson: string, at: number) =>
+    h.coordinator.ingest({
+      source: 'polymarket',
+      connectionId: 'polymarket',
+      rawJson,
+      stamp: h.stamp(at),
+    })
+  ingest('PONG', 1_400)
+  assert.equal(h.invalidFrames(), 0)
+  const invalid = ingest('{"event_type":"price_change",', 1_500)
+  assert.equal(h.invalidFrames(), 1)
+  assert.ok(h.coordinator.snapshot().every((state) => !state.booksReady))
+  for (const m of [five, fifteen])
+    assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === invalid.eventId))
+  h.advance(fifteen.endMs + 60_000)
+  for (const m of [five, fifteen]) {
+    assert.equal(h.coverage.get(m.slug)?.complete, false)
+    assert.ok(h.coverage.get(m.slug)?.gaps.some((gap) => gap.reason === 'invalid_market_payload'))
+  }
+})
+
+test('a changed market event schema in a shared array cannot silently produce complete coverage', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  const event = h.frame(
+    'polymarket',
+    [
+      h.book(five, five.tokenIds[0]),
+      { event_type: 'price_change_v2', market: fifteen.conditionId, changes: [] },
+    ],
+    1_500,
+  )
+  assert.equal(h.invalidFrames(), 1)
+  assert.equal(h.coordinator.snapshot().find((state) => state.slug === five.slug)?.booksReady, true)
+  assert.equal(
+    h.coordinator.snapshot().find((state) => state.slug === fifteen.slug)?.booksReady,
+    false,
+  )
+  for (const m of [five, fifteen])
+    assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === event.eventId))
+  h.advance(fifteen.endMs + 60_000)
+  assert.equal(h.coverage.get(five.slug)?.complete, true)
+  assert.equal(h.coverage.get(fifteen.slug)?.complete, false)
 })
 
 test('post-end resolution and market metadata survive grace without recording subsequent price rows', () => {

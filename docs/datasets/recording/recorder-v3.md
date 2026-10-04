@@ -125,6 +125,30 @@ The service runs the Node process directly, preserves the existing backtest serv
 
 An R2 object without a published manifest is not a discoverable completed package. Retrying an ambiguous upload verifies the existing object before deciding whether more work is needed. The downloader repeats integrity verification before replay. R2 uses its [S3-compatible API](https://developers.cloudflare.com/r2/api/s3/api/).
 
+### R2 object layout
+
+The production prefix defaults to `recorder-v3`. Each market slug encodes its duration and opening time as Unix seconds in UTC. Each separate recording gets its own ID so a restart or another recorder cannot overwrite an earlier capture:
+
+```text
+recorder-v3/
+  btc-updown-5m-<opening-unix-seconds>/
+    <recording-id>/
+      events-<sha256>.parquet
+      manifest-<sha256>.json
+      resolutions/
+        <observed-at-ms>-<sha256>.json
+  btc-updown-15m-<opening-unix-seconds>/
+    <recording-id>/
+      events-<sha256>.parquet
+      manifest-<sha256>.json
+      resolutions/
+        <observed-at-ms>-<sha256>.json
+```
+
+All event feeds for a recording are in its single Parquet. The manifest contains identity, coverage, and integrity information. Later resolution updates are separate because an official result or correction can arrive after the immutable event file has been archived. Shared Binance/Chainlink observations are intentionally repeated in overlapping market files with identical receipt sequence and timestamps.
+
+There is no separate per-feed directory and no database required to discover these packages. `record:v3:data` filters the catalog by timeframe and opening date. If a market has multiple recordings after a restart, select one explicit manifest for a backtest; partial recordings are not silently stitched together.
+
 On restart, already finalized uploads are retried before opening live feeds. This lets a full spool recover after an R2 outage. New capture starts only after disk allowance is available; a disk read error or remaining exhaustion is reported and preserves pending data.
 
 At runtime, the recorder checks spool size, filesystem free space, pending writes, event-loop delays, and clock discontinuities. Resource exhaustion causes a visible controlled stop and preserves unuploaded data. A disk limit is an operating guard, not a reserved disk partition; other processes can still consume free space between checks. CPU and memory measurements should be checked under the intended backtest load before leaving the machine unattended.
@@ -176,6 +200,18 @@ npm run backtest -- --strategy YOUR_STRATEGY \
 ```
 
 The existing backtest queue/database configuration still applies. A package directory, its `manifest.json`, its `events.parquet`, or an `r2://bucket/.../manifest-SHA256.json` URL can select a recording. Workers download R2 inputs into a verified local cache. Selecting more than one recording of the same market is rejected; choose one capture explicitly.
+
+Use `--sequential` to execute in the CLI process without Redis. This still saves results to the configured MySQL database:
+
+```bash
+npm run backtest -- --strategy YOUR_STRATEGY \
+  --input-mode recorder-v3 --dir /absolute/path/to/recorder-cache/btc-5m \
+  --sequential
+```
+
+Without `--sequential`, the existing BullMQ producer, market workers, and aggregation worker are used. Workers must run the tested code revision and have access to the supplied local package path, or use an R2 manifest input with R2 download credentials. A directory on one machine is not automatically shared with another machine. The recorder archive downloader creates a deliberate local backtest cache; deleting uploaded files from the recorder spool does not delete this independent cache.
+
+Refresh a downloaded selection with the same `record:v3:data download` command to pick up newer resolution observations. Verified Parquet files are reused. An unresolved official outcome is reported as unresolved; replay does not invent a winner or final PnL. The recorder configuration file supplies feed/archive settings, while the existing backtest environment supplies database/queue settings.
 
 Replay dispatches envelopes in recorded sequence through the shared market engine and strategy runner. Feed state is bound to the corresponding tick before asynchronous strategy work can run. Market snapshots at bootstrap do not trigger strategy history. Recorded receipt time replaces modeled historical feed-latency adjustments for this input mode.
 

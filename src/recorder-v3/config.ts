@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import path from 'node:path'
 import { parse } from 'dotenv'
+import { RecorderCliError } from './cliError.js'
 import type { RecorderTimeframe } from './types.js'
 
 export type RecorderConfig = {
@@ -56,54 +57,64 @@ export async function loadRecorderConfig(
       noDashboard = true
       continue
     }
-    if (!known.has(arg)) throw new Error(`[recorder] unknown option ${arg}`)
+    if (!known.has(arg))
+      throw new RecorderCliError('[recorder] unknown option; use --help to see supported flags')
     const value = argv[++i]
-    if (!value || value.startsWith('--')) throw new Error(`[recorder] missing value for ${arg}`)
-    if (options.has(arg)) throw new Error(`[recorder] duplicate option ${arg}`)
+    if (!value || value.startsWith('--'))
+      throw new RecorderCliError(`[recorder] missing value for ${arg}`)
+    if (options.has(arg)) throw new RecorderCliError(`[recorder] duplicate option ${arg}`)
     options.set(arg, value)
   }
   const file = options.get('--env-file') ?? env.RECORDER_ENV_FILE ?? '.env.recorder'
-  const values = parse(await readFile(path.resolve(file)))
+  let contents: Buffer
+  try {
+    contents = await readFile(path.resolve(file))
+  } catch {
+    throw new RecorderCliError(
+      '[recorder] cannot read the configuration file; select a readable file with --env-file',
+    )
+  }
+  const values = parse(contents)
   const get = (key: string): string | undefined => (env[key] ?? values[key])?.trim() || undefined
   const required = (...keys: string[]): string => {
     for (const key of keys) {
       const value = get(key)
       if (value) return value
     }
-    throw new Error(`[recorder] missing ${keys[0]} in explicit recorder configuration`)
+    throw new RecorderCliError(`[recorder] missing ${keys[0]} in explicit recorder configuration`)
   }
   const positive = (name: string, value: string | undefined, fallback: number): number => {
     if (value === undefined) return fallback
     const number = Number(value)
     if (!Number.isSafeInteger(number) || number <= 0) {
-      throw new Error(`[recorder] ${name} must be a positive safe integer`)
+      throw new RecorderCliError(`[recorder] ${name} must be a positive safe integer`)
     }
     return number
   }
   const timeframeValue = options.get('--timeframes') ?? get('RECORDER_TIMEFRAMES') ?? '5m,15m'
   const timeframes = [...new Set(timeframeValue.split(',').map((value) => value.trim()))]
   if (!timeframes.length || timeframes.some((value) => value !== '5m' && value !== '15m')) {
-    throw new Error('[recorder] timeframes must be 5m, 15m, or 5m,15m')
+    throw new RecorderCliError('[recorder] timeframes must be 5m, 15m, or 5m,15m')
   }
   const defaultRecorderId = `${hostname()
     .replace(/[^a-zA-Z0-9_-]/g, '-')
     .slice(0, 92)}-btc`
   const recorderId = get('RECORDER_ID') ?? defaultRecorderId
   if (!/^[a-zA-Z0-9_-]{1,96}$/.test(recorderId)) {
-    throw new Error(
+    throw new RecorderCliError(
       '[recorder] RECORDER_ID must contain 1–96 letters, digits, hyphens or underscores',
     )
   }
   const uploadValue = get('RECORDER_UPLOAD') ?? 'true'
   if (uploadValue !== 'true' && uploadValue !== 'false') {
-    throw new Error('[recorder] RECORDER_UPLOAD must be true or false')
+    throw new RecorderCliError('[recorder] RECORDER_UPLOAD must be true or false')
   }
   const upload = !noUpload && uploadValue === 'true'
   const duration = options.get('--duration-seconds') ?? get('RECORDER_DURATION_SECONDS')
   const durationMs =
     duration === undefined ? null : positive('duration-seconds', duration, 0) * 1000
   if (durationMs !== null && (!Number.isSafeInteger(durationMs) || durationMs > 2_147_483_647)) {
-    throw new Error(
+    throw new RecorderCliError(
       '[recorder] duration-seconds exceeds the supported timer range (2147483 seconds)',
     )
   }
@@ -113,24 +124,26 @@ export async function loadRecorderConfig(
     prefix.includes('//') ||
     prefix.endsWith('/')
   ) {
-    throw new Error('[recorder] invalid RECORDER_R2_PREFIX')
+    throw new RecorderCliError('[recorder] invalid RECORDER_R2_PREFIX')
   }
   const redisUrl = get('RECORDER_REDIS_URL') ?? get('REDIS_URL') ?? null
   const statusValue = get('RECORDER_STATUS_ENABLED') ?? (redisUrl ? 'true' : 'false')
   if (statusValue !== 'true' && statusValue !== 'false')
-    throw new Error('[recorder] RECORDER_STATUS_ENABLED must be true or false')
+    throw new RecorderCliError('[recorder] RECORDER_STATUS_ENABLED must be true or false')
   const statusEnabled = !noDashboard && statusValue === 'true'
   if (statusEnabled && !redisUrl)
-    throw new Error('[recorder] status publishing requires RECORDER_REDIS_URL or REDIS_URL')
+    throw new RecorderCliError(
+      '[recorder] status publishing requires RECORDER_REDIS_URL or REDIS_URL',
+    )
   if (redisUrl) {
     let parsed: URL
     try {
       parsed = new URL(redisUrl)
     } catch {
-      throw new Error('[recorder] invalid Redis URL')
+      throw new RecorderCliError('[recorder] invalid Redis URL')
     }
     if (!['redis:', 'rediss:'].includes(parsed.protocol) || !parsed.hostname)
-      throw new Error('[recorder] invalid Redis URL')
+      throw new RecorderCliError('[recorder] invalid Redis URL')
   }
   let endpoint: string | undefined
   let bucket: string | undefined
@@ -140,7 +153,7 @@ export async function loadRecorderConfig(
     try {
       parsed = new URL(endpoint)
     } catch {
-      throw new Error('[recorder] invalid R2_ENDPOINT')
+      throw new RecorderCliError('[recorder] invalid R2_ENDPOINT')
     }
     if (
       parsed.protocol !== 'https:' ||
@@ -151,12 +164,12 @@ export async function loadRecorderConfig(
       parsed.hash ||
       parsed.pathname !== '/'
     )
-      throw new Error(
+      throw new RecorderCliError(
         '[recorder] R2_ENDPOINT must be an HTTPS service origin without credentials, path or query',
       )
     bucket = required('R2_BUCKET')
     if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket))
-      throw new Error('[recorder] invalid R2_BUCKET')
+      throw new RecorderCliError('[recorder] invalid R2_BUCKET')
   }
   return {
     recorderId,

@@ -1,5 +1,5 @@
 import { MarketEngine } from '../../market/MarketEngine.js'
-import { decodeMarketChannelFrame } from '../../market/marketChannelDecoder.js'
+import { inspectMarketFrame, marketFrameMessages } from '../marketFrame.js'
 import { buildSyntheticFeedTick } from '../../market/syntheticTick.js'
 import type { MarketTick } from '../../strategy/Strategy.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
@@ -197,9 +197,12 @@ export class CapturedMarketDispatcher {
     bootstrap: boolean,
   ): Promise<void> {
     // A shared websocket frame may contain messages for several active markets.
-    const messages = decodeMarketChannelFrame(rawJson).filter(
-      (msg) => msg.market === this.args.market.conditionId,
-    )
+    const { messages, invalid } = marketFrameMessages(inspectMarketFrame(rawJson), this.args.market)
+    if (invalid) {
+      if (bootstrap) throw new Error('Invalid initial order book state')
+      this.engine.reset()
+      return
+    }
     if (messages.length > 0)
       await this.engine.handleRaw({ rawJson: JSON.stringify(messages), source, bootstrap })
   }
