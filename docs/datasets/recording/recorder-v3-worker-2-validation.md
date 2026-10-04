@@ -7,6 +7,8 @@ description: Pinned installation, coexistence measurements, real feed capture, R
 
 Deployment started on October 4, 2026, at approximately 22:00 UTC (October 5 in Belgrade). The operator reduced backtest concurrency from six to three before installation. The [installation runbook](./recorder-v3-worker-2) describes the layout and maintenance commands.
 
+**Production is running:** the operator activated `com.polymarket.recorder-v3` at `23:13:25.966 UTC` on October 4 (01:13 on October 5 in Belgrade), after completing administrator authentication. The service publishes as `worker-2-btc` in **More → Recorders**.
+
 ## Installed layout
 
 | Component            | Location or value                                                                                |
@@ -76,6 +78,8 @@ The final bounded session exited successfully at `23:06:15.479 UTC`. All three r
 
 The two remaining journals belong to future markets that had not opened when capture stopped. They were retained because they had not been finalized and archived; deleting them would bypass the verified-upload rule. Small manifests, receipts, and pending resolution state also remain. The stopped process's last dashboard snapshot predates the maintenance pass; the fresh receipt audit establishes the final archive state.
 
+The final independent R2 catalog, download index, and offline verification report agreed on all 21 package identities and 4,837,555 rows, with no failed downloads or resolution-history hash discrepancies. Six full 5m packages passed required-feed admission. Eighteen packages had an official outcome at the cutoff; three remained pending. Offline guards observed no external connections, environment-file reads, or live imports. The one startup/recovery interval remained the only recorded local clock/event-loop gap. Temporary downloaded Parquet files and the temporary R2-only credential file were removed after verification; canonical R2 objects, manifests, sidecars, and evidence reports remain.
+
 ## Coexistence measurements
 
 At `22:50:35 UTC`, the harness had collected 548 samples across the validation sessions. CPU percentages below use one logical core as 100%; process-tree figures include the compression child.
@@ -97,7 +101,7 @@ The host uses wired Ethernet. Its existing fleet checkout stayed at `0bcdc81c07f
 
 ## Service activation
 
-The runtime is installed, but the continuous production LaunchDaemon is **not installed or running** at this validation cutoff. The remaining installation requires interactive administrator authentication. The reviewed acceptance decision is to begin **controlled collection with dashboard monitoring**, with the host-specific clean ordinary 15m check explicitly unfulfilled. Supporting evidence is the clean worker-2 ordinary 5m replay, real worker-2 15m outage/recovery/rejection checks, and earlier ordinary all-feed 15m replay on matching core code. This is not unattended reliability signoff; peer interruptions can make individual markets unusable for ordinary backtests.
+At the validation cutoff, the runtime was installed and administrator activation remained outstanding. The operator subsequently ran the prepared activation helper, and production started at `23:13:25.966 UTC`. The reviewed acceptance decision is **controlled collection with dashboard monitoring**, with the host-specific clean ordinary 15m check explicitly unfulfilled. Supporting evidence is the clean worker-2 ordinary 5m replay, real worker-2 15m outage/recovery/rejection checks, and earlier ordinary all-feed 15m replay on matching core code. This is not unattended reliability signoff; peer interruptions can make individual markets unusable for ordinary backtests.
 
 The rendered `com.polymarket.recorder-v3` LaunchDaemon runs as `worker-2` and points directly to the pinned Node executable, release, production configuration, and log directory. Shell syntax and plist validation passed, and an independent deployment review found no blockers in the isolation or credential handling.
 
@@ -110,5 +114,15 @@ ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recor
 ```
 
 Enter the password in the terminal's sudo prompt, never in chat. The helper does not change the clock, reboot the host, or operate the backtest service. Dashboard status is the monitoring channel; no Slack notifications are configured. The runbook defines the manual log inspection/rotation policy.
+
+## Production startup checks
+
+The loaded system service was independently inspected: PID `63593`, owner `worker-2`, explicit Node `v20.20.2`, pinned runtime revision `d6fdb59a581e8608085ef78eed284a428012bae1`, dedicated production configuration, and no duration limit. The installed plist has mode `0644`. Both BTC durations were subscribed, all six feed counters increased, and the 20 GiB spool/free-space settings matched the reviewed configuration. The dashboard API returned the same PID with `online: true`, and the real browser rendered the production recorder's feed and reference diagnostics.
+
+The initial 5m and 15m recordings began mid-market and are intentionally incomplete. At the next simultaneous boundary, both new markets received their exact opening TWAP. Website availability and corrections remained separate observations: the 15m website value corrected to match, while the 5m website response was initially unavailable. These states do not overwrite the selected Chainlink opening reference.
+
+The first production archives were independently downloaded and verified from their exact `recorder-v3/btc/<timeframe>/<slug>/<recording-id>/` keys: 24,994 rows for 5m and 16,597 rows for 15m, totaling 41,591. Receipt hashes matched, and worker-2 had already removed their WAL/Parquet files. Ordinary `runSingleMarket` admission returned `incomplete_capture` with zero strategy callbacks for both startup partials; official outcomes were still pending. Temporary download files and the R2-only credential file were removed after verification.
+
+At `23:17:30 UTC`, production had no archive backlog or upload error, all six feeds were receiving, and Polymarket had already reconnected twice. Those interruptions are preserved as coverage gaps. Activation therefore does not close the outstanding clean ordinary 15m host check or establish uninterrupted future collection.
 
 Reboot recovery and a real 24-hour resolution confirmation require later operational observation. They must not be inferred from a short capture, a valid plist, or a successful clean restart. The stopped validation spool has its own pending resolution tasks; the production service's separate spool will not process those tasks. Rechecking validation outcomes later requires a separate maintenance pass against that stopped validation spool.
