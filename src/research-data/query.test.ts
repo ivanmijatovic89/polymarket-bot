@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -166,6 +166,11 @@ test('monthly research requires the whole calendar and excludes the entire incom
       coverage: { excluded_wallets: string }
       rows: { wallet: string; economic_pnl_usdc: string }[]
     }
+  const example = (name: string) =>
+    readFile(
+      new URL(`../../docs/datasets/polymarket-research/sql/${name}.sql`, import.meta.url),
+      'utf8',
+    )
   try {
     for (const day of dates('2026-06-01', '2026-07-31')) await seedDay(day)
     const partial = await months()
@@ -240,6 +245,52 @@ test('monthly research requires the whole calendar and excludes the entire incom
       Number(report.activities[1]!.timestamp),
       parseDate('2026-07-02'),
       'a later redemption belongs to its June market cohort',
+    )
+    const monthlyExample = (await querySql(root, await example('monthly-rankings'))) as {
+      month: string
+      cohort_complete: boolean
+      wallet: string | null
+      economic_pnl_usdc: string | null
+    }[]
+    assert.deepEqual(
+      monthlyExample.filter((row) => row.month === '2026-06').map((row) => row.wallet),
+      [steady, late],
+    )
+    assert.ok(
+      monthlyExample
+        .filter((row) => row.month >= '2026-08')
+        .every(
+          (row) => !row.cohort_complete && row.wallet === null && row.economic_pnl_usdc === null,
+        ),
+    )
+    const comparisonExample = (await querySql(
+      root,
+      await example('june-candidates-across-months'),
+    )) as {
+      wallet: string
+      month: string
+      result_status: string
+      economic_pnl_usdc: string | null
+    }[]
+    assert.equal(comparisonExample.length, 8, 'retain four months for both June candidates')
+    const inactive = comparisonExample.find(
+      (row) => row.wallet === late && row.month === '2026-07',
+    )!
+    assert.equal(inactive.result_status, 'no_observed_trading')
+    assert.equal(inactive.economic_pnl_usdc, null, 'absence is not an invented zero PnL')
+    assert.equal(
+      comparisonExample.find((row) => row.wallet === steady && row.month === '2026-08')!
+        .result_status,
+      'incomplete_month',
+    )
+    const profileExample = (await querySql(
+      root,
+      (await example('wallet-market-profile')).replace(`0x${'0'.repeat(40)}`, steady),
+    )) as { cohort_complete: boolean; economic_pnl_usdc: string }[]
+    assert.equal(profileExample.length, 4)
+    assert.ok(
+      profileExample.every((row) => !row.cohort_complete),
+      'profile must disclose missing August/September',
     )
   } finally {
     writer.close()

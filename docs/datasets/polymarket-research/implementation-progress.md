@@ -139,6 +139,15 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
   July redemption attributed to its June market. All 22 feature tests, root
   type checking and the added test's lint pass. This validates query behavior;
   actual full-month data and research demonstrations remain pending.
+- Runnable SQL now covers separate monthly top-20 rankings, a fixed June
+  candidate list followed through September, and a wallet's per-market profile
+  with execution details grouped by outcome. The two-month synthetic fixture
+  exercises the saved SQL files. A preview against the current 480-window
+  dataset correctly suppresses all monthly ranks; the selected wallet profile
+  has 397 market rows with matching trade/role/outcome counts and explicitly
+  incomplete four-month coverage. Preview evidence is under
+  `logs/query-previews-20261004/`. All 22 tests, type checking, lint and docs build
+  pass. These previews do not satisfy the pending full-month demonstration.
 
 Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
 Active log: `logs/june-september-progress.log`. The process PID is in `sync.lock`;

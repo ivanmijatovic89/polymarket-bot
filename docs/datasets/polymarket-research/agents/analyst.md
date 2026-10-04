@@ -16,6 +16,8 @@ Use this page as instructions for an agent investigating wallet behavior.
 4. For comparisons across months, report each month's coverage and the number of
    markets/trades supporting each result. Do not infer consistent skill from one
    profitable position or select only favorable months.
+   The [runnable SQL examples](../schema#runnable-research-queries) select June
+   candidates once, then preserve their later losses, gaps and inactive months.
 5. Investigate candidate wallets through market-level PnL, trade timing relative
    to the window, buy/sell behavior, outcome exposure and maker/taker role. Preserve
    repeated fills; do not deduplicate by transaction hash.

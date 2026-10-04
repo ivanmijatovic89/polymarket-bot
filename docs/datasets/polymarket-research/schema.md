@@ -53,6 +53,47 @@ This selects traders with activity in every month. An absent row means no
 observed trading for that wallet/month, not an unknown zero-valued PnL snapshot.
 The coverage report must establish that the underlying month is present.
 
+## Runnable research queries
+
+Three SQL files in `docs/datasets/polymarket-research/sql/` support the initial
+June–September workflow. Run them from the repository root with the permanent
+data directory configured:
+
+```bash
+npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/monthly-rankings.sql
+npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/june-candidates-across-months.sql
+```
+
+`monthly-rankings.sql` returns up to 20 eligible wallets for each month, with
+found/expected windows and observed/unresolved wallet counts. An incomplete
+month has a coverage row with null wallet, rank and PnL. A complete month can also
+have no eligible wallets; inspect its population counts. Ranks use profit then
+wallet address, so tied profits have a deterministic display order.
+
+`june-candidates-across-months.sql` selects the June candidates once and follows
+those same wallets through September. It retains later losses and distinguishes
+an incomplete month, unresolved wallet accounting and no observed trading. An
+absent trading record is not replaced with a made-up PnL of zero. An incomplete
+June yields no candidates; inspect the monthly coverage query first.
+
+This differs from selecting wallets that traded in all four months: it keeps
+June candidates even if they subsequently stop trading. When investigating a
+strategy, form hypotheses from the selection period and test them on later data;
+using the later results to choose the June candidates would introduce hindsight.
+
+Copy `wallet-market-profile.sql`, replace the wallet and dates in its `params`
+CTE, then pass that file to `research:sql --sql-file`. It reports each market's
+PnL, quality flags, maker/taker counts, execution prices and timing relative to
+the market window. It keeps unresolved rows for diagnosis and includes full-range
+coverage on every row. Raw trade-price VWAP is separate from fee-inclusive
+activity cash. Execution prices and volumes are grouped by outcome inside each
+market row; `token_ids` and `outcomes` give the corresponding names. Market PnL
+appears once per row, so expanding outcome details requires care when aggregating.
+
+Keep the `research:coverage` output and snapshot timestamps with these query
+results. These files are reusable analyses, not evidence that the four-month
+backfill has already completed.
+
 ## Inspect execution timing and trade role
 
 ```sql
