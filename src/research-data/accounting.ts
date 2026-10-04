@@ -42,6 +42,51 @@ export function purchaseWacRoundingBound(activities: Activity[]): bigint | null 
   return sum([...byToken.values()].map((s) => (s.count * s.size + SCALE - 1n) / SCALE + 100n))
 }
 
+/** A terminal merge closes a bought pair for its combined settlement payout.
+ * With all purchases strictly before disposal, it introduces no new WAC basis:
+ * each acquisition's rounding error is still bounded by bought size × 1e-6.
+ * Require CLOSED zero balances and independently matching lifetime purchases.
+ * Interleaved merges, sells, splits and missing native quantities are excluded. */
+export function terminalMergeWacRoundingBound(
+  market: Market,
+  activities: Activity[],
+  positions: Position[],
+): bigint | null {
+  if (
+    !market.resolved ||
+    market.token_ids.length !== 2 ||
+    market.payouts.filter((p) => BigInt(p) === SCALE).length !== 1 ||
+    market.payouts.filter((p) => BigInt(p) === 0n).length !== 1 ||
+    !activities.some((a) => a.type === 'MERGE')
+  )
+    return null
+  const purchases = activities.filter((a) => a.type === 'TRADE' && a.side === 'BUY')
+  const disposals = activities.filter((a) => a.type === 'MERGE' || a.type === 'REDEEM')
+  if (
+    !purchases.length ||
+    purchases.length + disposals.length !== activities.length ||
+    purchases.some((a) => !market.token_ids.includes(a.token_id)) ||
+    purchases.reduce((latest, a) => Math.max(latest, a.timestamp), -Infinity) >=
+      disposals.reduce((earliest, a) => Math.min(earliest, a.timestamp), Infinity)
+  )
+    return null
+  for (const token of market.token_ids) {
+    const bought = sum(purchases.filter((a) => a.token_id === token).map((a) => units(a.size)))
+    const position = positions.find((p) => p.token_id === token)
+    if (
+      !position ||
+      position.status !== 'CLOSED' ||
+      units(position.current_size) !== 0n ||
+      !['number', 'string'].includes(typeof position.total_size) ||
+      abs(units(position.total_size) - bought) > 100n
+    )
+      return null
+  }
+  const bound = purchaseWacRoundingBound(purchases)!
+  // At most one micro-unit from integer cost allocation per outcome/disposal.
+  return bound + BigInt(disposals.length * market.token_ids.length)
+}
+
 /** Empirical native WAC model, used only to explain API differences. Cash PnL
  * remains the authoritative local result. Unsupported or negative inventories
  * deliberately have no model result. Same-second source order is not invented. */
@@ -263,6 +308,13 @@ export function accountWalletMarket(args: {
   if (pnlStatus === 'different' && remainingValue === 0n) {
     const bound = purchaseWacRoundingBound(activities)
     if (bound !== null && abs(delta!) <= bound) pnlStatus = 'rounding_compatible'
+  }
+  if (pnlStatus === 'different' && remainingValue === 0n) {
+    const bound = terminalMergeWacRoundingBound(market, activities, uniquePositions)
+    if (bound !== null && abs(delta!) <= bound) {
+      pnlStatus = 'rounding_compatible'
+      notes.add('terminal_merge_rounding_compatible')
+    }
   }
   const modeledPnl = pnlStatus === 'different' ? modeledWacPnl(market, activities) : null
   if (

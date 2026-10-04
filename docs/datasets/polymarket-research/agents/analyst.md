@@ -11,6 +11,9 @@ Use this page as instructions for an agent investigating wallet behavior.
    market cohort and permanent dataset root from the user's request/configuration.
 2. Run the local coverage command before ranking wallets. Report absent periods
    and excluded wallet/markets. Do not call the API to silently fill missing data.
+   Quantify the excluded wallets' share of observed trades as well: a small
+   number of unresolved histories can exclude highly active wallets and distort
+   the apparent research population.
 3. Use DuckDB SQL over the published Parquet views. Preserve the distinction
    between economic profit, realized cash, rewards and API-reported PnL.
 4. For comparisons across months, report each month's coverage and the number of

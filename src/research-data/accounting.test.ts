@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { accountWalletMarket, multisetDifference } from './accounting.js'
+import {
+  accountWalletMarket,
+  multisetDifference,
+  terminalMergeWacRoundingBound,
+} from './accounting.js'
 import { decimal, units } from './decimal.js'
 import type { Activity, FeedRow, Market, Position } from './types.js'
 
@@ -270,4 +274,91 @@ test('legacy redemption need not expose an untraded losing split token; missing 
     account(rows, [{ ...position('down', '0', '0.5373'), status: 'CLOSED' }]).quality,
     'unresolved',
   )
+})
+
+test('terminal merge rounding requires complete native purchases and strictly earlier buys', () => {
+  const rows = [
+    activity('TRADE', 'up', '1000', '499.9995', 'BUY'),
+    activity('TRADE', 'down', '1000', '500.0005', 'BUY'),
+    { ...activity('MERGE', '', '1000', '1000'), timestamp: market.market_start + 1 },
+  ]
+  const positions = [
+    { ...position('up', '0', '0.001'), status: 'CLOSED', total_size: '1000' },
+    { ...position('down', '0', '0'), status: 'CLOSED', total_size: '1000' },
+  ]
+  const result = account(rows, positions)
+  assert.equal(result.economic_pnl_usdc, '0.000000')
+  assert.equal(result.api_position_pnl_usdc, '0.001000')
+  assert.equal(result.quality, 'complete')
+  assert.ok(result.notes.includes('terminal_merge_rounding_compatible'))
+  assert.equal(
+    terminalMergeWacRoundingBound(market, rows, [
+      { ...positions[0]!, total_size: '999' },
+      positions[1]!,
+    ]),
+    null,
+  )
+  assert.equal(
+    terminalMergeWacRoundingBound(market, rows, [
+      { ...positions[0]!, status: 'REDEEMABLE' },
+      positions[1]!,
+    ]),
+    null,
+  )
+  assert.equal(
+    terminalMergeWacRoundingBound(
+      market,
+      rows.map((row) => ({ ...row, timestamp: market.market_start })),
+      positions,
+    ),
+    null,
+  )
+  assert.equal(
+    terminalMergeWacRoundingBound(
+      market,
+      [...rows, { ...rows[0]!, timestamp: market.market_start + 2 }],
+      positions,
+    ),
+    null,
+  )
+  assert.equal(
+    terminalMergeWacRoundingBound(market, [...rows, activity('SPLIT', '', '1', '1')], positions),
+    null,
+  )
+  assert.equal(
+    account(rows, [{ ...positions[0]!, total_pnl: '10' }, positions[1]!]).quality,
+    'unresolved',
+  )
+})
+
+test('live terminal merge fixture preserves exact cash while bounding native WAC order uncertainty', async () => {
+  const fixture = JSON.parse(
+    await readFile(new URL('./fixtures/june-04-terminal-merge.json', import.meta.url), 'utf8'),
+  ) as {
+    market: Market
+    wallet: string
+    trades: FeedRow[]
+    activities: Activity[]
+    positions: Position[]
+  }
+  const result = accountWalletMarket({ ...fixture, fetched: true })
+  assert.equal(result.trade_count, 449)
+  assert.equal(result.economic_pnl_usdc, '-138.061487')
+  assert.equal(result.api_position_pnl_usdc, '-137.799800')
+  assert.equal(result.quality, 'complete')
+  assert.ok(result.notes.includes('terminal_merge_rounding_compatible'))
+  const incompleteNative = accountWalletMarket({
+    ...fixture,
+    positions: fixture.positions.map((p, index) =>
+      index === 0 ? { ...p, total_size: decimal(units(p.total_size) - 1_000_000n) } : p,
+    ),
+    fetched: true,
+  })
+  assert.equal(incompleteNative.quality, 'unresolved')
+  assert.ok(incompleteNative.issues.includes('api_pnl_unreconciled'))
+  const missingPurchase = fixture.activities.filter((_, index) => index !== 0)
+  const broken = accountWalletMarket({ ...fixture, activities: missingPurchase, fetched: true })
+  assert.equal(broken.quality, 'unresolved')
+  assert.ok(broken.issues.includes('trade_activity_multiset_mismatch'))
+  assert.ok(broken.issues.includes('unexplained_token_outflow'))
 })

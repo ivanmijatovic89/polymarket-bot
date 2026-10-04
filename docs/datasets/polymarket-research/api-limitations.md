@@ -36,6 +36,40 @@ The sample days have no trade/activity multiset mismatches. Agreement between th
 two trade feeds cannot prove that all non-trade acquisitions, burns or transfers
 were exposed. The evidence below distinguishes observations from possible causes.
 
+### Exclusion can affect active wallets disproportionately
+
+The accounting-version-5 audit of June 1–7 covers 672 market windows and
+3,341,212 trade rows. It finds 3,049 unresolved pairs out of 411,576 observed
+wallet/market pairs. Excluding each affected wallet's entire weekly cohort removes
+791 of 13,018 wallets (6.1%), including 1,391,334 trade rows (41.6%). These are
+historical baseline measurements, not complete-month results or current-version
+coverage. A small unresolved-pair percentage can therefore hide a substantial
+limitation for research into active traders. Report wallet and trade participation
+alongside unresolved-pair counts, and rerun the audit after accounting updates.
+
+The reproducible SQL, bound snapshot index and source probes are saved under
+`logs/weekly-audit-20260601-20260608/`. The accounting-version-6 dry run explains
+17 terminal-merge histories across the nine sample days then available, without
+changing any exact cash result. This narrow improvement does not resolve the
+other discrepancies or establish a complete calendar month's rankings.
+
+## Native lifetime purchases disagree with activity
+
+Wallet `0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82` has 177,851 trade rows in the
+first week, but two unresolved markets exclude it from that strict weekly cohort.
+For `btc-updown-15m-1780384500`, observed winning-token purchases total
+`935.918090` shares; native `total_size` reports `915.9245`. The contract defines
+that field as lifetime bought shares. The `19.993590` share difference exceeds
+its output precision. Exact cash PnL is `24.868641`, compared with native
+`7.117400`; the `17.751241` difference also exceeds the purchase rounding bound.
+
+On `btc-updown-15m-1780724700`, observed winning purchases are `1657.445524`
+shares versus native `1645.4455`; local and native PnL differ by `2.710361`.
+Fresh complete activity and CLOSED-position walks reproduce both cases exactly.
+Six diagnostic within-second orderings do not reproduce native PnL. This proves
+an inconsistency between served representations, not which underlying event or
+ledger is wrong. Both histories remain excluded, with all original facts retained.
+
 ## Winning holding disappears without a redemption row
 
 Wallet `0x0b4c08cc6017119e98479629c17b1445c41f0f79`, condition

@@ -100,6 +100,31 @@ All served cash and share quantities are accumulated as integer millionths.
 Parquet uses decimal columns. API prices are ratios and are stored at higher
 precision; price times quantity is not a replacement for the cash field.
 
+### A merge after all purchases
+
+Accounting version 6 extends the purchase rounding explanation to a narrow
+closing sequence: every acquisition is a BUY, every BUY precedes every MERGE or
+REDEEM by at least one timestamp second, both native positions are CLOSED with
+zero balances, and each native lifetime bought quantity matches the observed
+purchases within its four-decimal precision. Sales, splits, unknown actions,
+interleaved purchases and missing native quantities cannot use this rule.
+
+For a resolved binary pair paying $1 and $0, merging a pair returns the same
+combined value as settlement. After the final purchase there is no further
+weighted-average entry update. Each purchase's six-decimal truncation can change
+cost by less than its current share quantity times `0.000001`; current quantity
+is bounded by all bought shares. Summing that bound across purchases and outcomes,
+plus native output precision and a micro-unit per outcome/disposal for integer
+allocation, therefore also bounds this closing sequence. The remaining inventory
+and trade/activity checks must still pass independently.
+
+The diagnostic note is `terminal_merge_rounding_compatible`. A saved June 4
+fixture with 449 trades, one final merge and one redemption retains exact cash
+PnL `-138.061487` and native PnL `-137.799800`. It passes the bound; removing a
+purchase or reducing the native lifetime bought quantity fails the relevant
+checks. This explains compatibility with the empirical rounding model without
+claiming a particular within-second event order or replacing the cash result.
+
 ## Scope of a strict ranking
 
 Every selected day must be published, and every scheduled market window must
