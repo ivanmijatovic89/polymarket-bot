@@ -72,6 +72,16 @@ the saved history contains SELL 20, MERGE 20 and REDEEM 20 without an acquisitio
 There is no defensible local purchase price to invent. An unexposed transfer or
 missing source activity is a possible cause, not an established explanation.
 
+A bounded follow-up compared `exclude_deposits_withdrawals=true` and `false`
+for this missing-acquisition case and the first missing-redemption case above.
+Both requests used the same wallet, condition, time bounds and ascending order,
+and followed pagination to exhaustion. Including deposits and withdrawals still
+returned the same three and one economic rows respectively, including duplicate
+multiplicity. This option did not recover the missing events in either case;
+it does not establish that every other wallet behaves the same way. The saved
+request parameters, original responses and comparison are in
+`logs/api-exception-probes/include-deposits-evidence.json` under the dataset root.
+
 ## Large native PnL differences in SPLIT histories
 
 Wallet `0x674887d1ac838099a48b629dff53f25b7b87ee08`, condition
