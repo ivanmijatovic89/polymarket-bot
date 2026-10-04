@@ -55,12 +55,13 @@ The coverage report must establish that the underlying month is present.
 
 ## Runnable research queries
 
-Three SQL files in `docs/datasets/polymarket-research/sql/` support the initial
+Four SQL files in `docs/datasets/polymarket-research/sql/` support the initial
 June–September workflow. Run them from the repository root with the permanent
 data directory configured:
 
 ```bash
 npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/monthly-rankings.sql
+npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/monthly-population.sql
 npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/june-candidates-across-months.sql
 ```
 
@@ -69,6 +70,16 @@ found/expected windows and observed/unresolved wallet counts. An incomplete
 month has a coverage row with null wallet, rank and PnL. A complete month can also
 have no eligible wallets; inspect its population counts. Ranks use profit then
 wallet address, so tied profits have a deterministic display order.
+
+`monthly-population.sql` reports observed wallets, unresolved wallet/market
+pairs, and the share of participant trade rows belonging to excluded wallets.
+It counts every trade of an excluded wallet in that month, including its
+reconciled markets. A small unresolved-pair count can therefore accompany a
+large excluded-trade share. These are participant occurrences, not a count of
+unique matched executions or a claim about unseen upstream data. Source-warning
+markets are reported separately. Incomplete months retain their coverage flag;
+their observed populations can grow as additional days arrive. A month with no
+observed trades has a null exclusion percentage, not zero.
 
 `june-candidates-across-months.sql` selects the June candidates once and follows
 those same wallets through September. It retains later losses and distinguishes

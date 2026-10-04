@@ -17,6 +17,8 @@ Use this page as instructions for an agent investigating wallet behavior.
    corroborated market-volume aggregate mismatch does not by itself invalidate
    a wallet whose complete accounting reconciles. Do not describe flagged source
    aggregates as fully reconciled or silently remove their retained trades.
+   Use `sql/monthly-population.sql` alongside the monthly ranking to record
+   those population and excluded-trade counts for each month.
 3. Use DuckDB SQL over the published Parquet views. Preserve the distinction
    between economic profit, realized cash, rewards and API-reported PnL.
 4. For comparisons across months, report each month's coverage and the number of

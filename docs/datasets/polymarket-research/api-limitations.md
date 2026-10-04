@@ -61,6 +61,16 @@ trade rows to 1,243,100 (37.2% of 3,341,212). This is still a material selection
 effect. The new measurements are in `eligibility-v6.json`, with unchanged-fact
 checks in `rebuild-v6-invariants.json` under the audit directory above.
 
+The later June 1–24 checkpoint contains 9,984,088 participant trade rows and
+26,905 wallets. Its 8,226 unresolved wallet/market pairs exclude 1,945 wallets
+(7.2%) with 4,832,670 trade rows (48.4%). This is a partial-month measurement,
+using accounting version 6, not a final June ranking. Four corroborated market
+volume warnings are counted separately and do not cause these exclusions.
+Run [the monthly population query](./schema#runnable-research-queries) beside
+each ranking; its excluded-trade count includes an excluded wallet's reconciled
+markets too. Snapshot-bound output and the twenty largest excluded contributors
+are saved under `logs/monthly-population-20261004/`.
+
 ## Native lifetime purchases disagree with activity
 
 Wallet `0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82` has 177,851 trade rows in the
@@ -77,6 +87,20 @@ Fresh complete activity and CLOSED-position walks reproduce both cases exactly.
 Six diagnostic within-second orderings do not reproduce native PnL. This proves
 an inconsistency between served representations, not which underlying event or
 ledger is wrong. Both histories remain excluded, with all original facts retained.
+
+A second wallet on `btc-updown-15m-1780384500`,
+`0x48ac40fc545cf327edd5365435c3a9f385614a7e`, has a losing-token discrepancy:
+43 BUY activities acquire `211.552755` shares, while native lifetime purchases
+report `204.9527`, a difference of `6.600055` shares. Its winning purchases and
+redemption agree at `297.760189` shares. Exact cash PnL is `-36.549486` versus
+native `-34.348300`; the empirical WAC model gives `-36.543098` and does not
+explain that gap. Fresh wallet-scoped walks at page size 137 reproduce all 96
+trades, 97 activities and both CLOSED positions. The wallet has only this one
+unresolved market among 2,284 observed June 1–24 markets, but its 225,054 trade
+rows are excluded from that strict cohort. The saved and repeated source rows
+remain in `logs/monthly-population-20261004/wallet-48ac-june02/evidence.json`.
+This is an unresolved source contradiction, not a reason to discard its loss or
+increase the rounding tolerance.
 
 ## Winning holding disappears without a redemption row
 

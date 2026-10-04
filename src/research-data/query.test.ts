@@ -263,6 +263,41 @@ test('monthly research requires the whole calendar and excludes the entire incom
           (row) => !row.cohort_complete && row.wallet === null && row.economic_pnl_usdc === null,
         ),
     )
+    const populationExample = (await querySql(root, await example('monthly-population'))) as {
+      month: string
+      cohort_complete: boolean
+      observed_wallets: string
+      reconciled_wallets: string
+      excluded_wallets: string
+      observed_wallet_markets: string
+      unresolved_wallet_markets: string
+      observed_trade_rows: string
+      excluded_wallet_trade_rows: string
+      excluded_trade_rows_percent: number | null
+      source_warning_markets: string
+    }[]
+    const junePopulation = populationExample.find((row) => row.month === '2026-06')!
+    assert.equal(junePopulation.cohort_complete, true)
+    assert.equal(junePopulation.observed_wallets, '3')
+    assert.equal(junePopulation.reconciled_wallets, '2')
+    assert.equal(junePopulation.excluded_wallets, '1')
+    assert.equal(junePopulation.observed_wallet_markets, '5')
+    assert.equal(junePopulation.unresolved_wallet_markets, '1')
+    assert.equal(junePopulation.observed_trade_rows, '5')
+    assert.equal(junePopulation.excluded_wallet_trade_rows, '2')
+    assert.equal(
+      junePopulation.excluded_trade_rows_percent,
+      40,
+      "the excluded population includes the wallet's reconciled +100 market as well as its unresolved loss",
+    )
+    assert.equal(junePopulation.source_warning_markets, '0')
+    const julyPopulation = populationExample.find((row) => row.month === '2026-07')!
+    assert.equal(julyPopulation.excluded_wallets, '0', 'exclusion is scoped to each month')
+    assert.equal(julyPopulation.excluded_trade_rows_percent, 0)
+    const augustPopulation = populationExample.find((row) => row.month === '2026-08')!
+    assert.equal(augustPopulation.cohort_complete, false)
+    assert.equal(augustPopulation.observed_trade_rows, '0')
+    assert.equal(augustPopulation.excluded_trade_rows_percent, null)
     const comparisonExample = (await querySql(
       root,
       await example('june-candidates-across-months'),
