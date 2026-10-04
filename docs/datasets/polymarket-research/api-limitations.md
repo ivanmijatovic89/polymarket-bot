@@ -19,6 +19,37 @@ and bounded live requests were used for that endpoint.
 
 ## Observed issue classes
 
+The complete June 2026 cohort uses accounting version 6 and contains 1,629,489
+wallet/market pairs. Of these, 10,826 remain unresolved. The full-month audit
+finds only the five issue classes below; their counts overlap.
+
+| Issue | June affected pairs | June affected wallets |
+| --- | ---: | ---: |
+| `api_pnl_unreconciled` | 9,291 | 2,219 |
+| `missing_position_snapshot` | 1,321 | 21 |
+| `missing_position_economics` | 1,013 | 11 |
+| `position_balance_mismatch` | 767 | 170 |
+| `unexplained_token_outflow` | 267 | 22 |
+| Distinct unresolved pairs / wallets | 10,826 | 2,274 |
+
+The unresolved pairs contain 265,980 participant trade rows. Whole-wallet cohort
+exclusion also removes their otherwise reconciled markets, bringing the excluded
+population to 6,127,405 of 12,240,106 June trade rows (50.1%). For example, wallet
+`0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82` has six unresolved markets among
+2,779 observed markets; its entire 641,012-row June history is excluded from the
+strict ranking. These rows remain available for explicitly qualified research.
+
+No June wallet/market has a trade/activity multiset mismatch or unsupported
+activity flag. That does not establish that the source exposes every non-trade
+event. The six corroborated market-volume warnings remain separate from wallet
+accounting. Saved SQL, daily totals, disjoint issue combinations, representative
+rows and snapshot-bound checks are under `logs/monthly-accounting-audit/2026-06/`.
+Each unresolved pair has at least one explicit issue; all complete pairs have
+an economic result and no issues. This inventory measures the failures; the
+source investigations below explain what is known and what remains unproven.
+
+### Earlier sample-day baseline
+
 These are overlapping wallet/market counts from accounting version 5. A row can
 have several issues; adding the columns overcounts affected pairs. These three
 sample days are not evidence of complete calendar months.
