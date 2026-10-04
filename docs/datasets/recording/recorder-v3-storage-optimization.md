@@ -65,3 +65,15 @@ The transport now retains the public Polymarket peer's close reason plus message
 A useful controlled comparison needs the same subscriptions and overlapping observation period on a host using an independent internet path, together with event-loop/CPU measurements. A second machine behind the same router is not that control. Additional mitigations worth testing are shorter advance subscriptions and splitting market subscriptions across sockets. Keep both current market durations, opening snapshots, lifecycle evidence, connection-scoped gap handling, and one global receipt sequence. A short period without a disconnect does not establish a fix.
 
 A new two-minute attribution probe at 23:46:30–23:48:30 UTC on October 4 reproduced code 1013 with the same close reason. It received approximately 91.1 MB of JSON payloads; only 0.352% belonged to upcoming markets. Thus shorter advance subscriptions are unlikely to remove much traffic in that observed workload. The probe used about 6.3 CPU seconds across 120 wall-clock seconds, with event-loop delay p99 of 13.9 ms and a process-wide maximum of 99.4 ms. That process-wide maximum is not a measurement at the precise close instant. The probe was stopped and did not modify production subscriptions.
+
+A simultaneous six-minute comparison at 23:51:00–23:57:00 UTC used minimal count/discard clients on the control Mac. One socket subscribed to current/next 5m and 15m markets; two other sockets split the same target market set by duration. Discovery refreshed every 15 seconds and application PINGs were sent every 10 seconds.
+
+| Connection | Peer closes | Received payload | Largest one-second payload sample |
+| --- | ---: | ---: | ---: |
+| Combined 5m + 15m | 5 | 241.98 MB | 1.97 MB |
+| Separate 5m | 1 | 138.37 MB | 1.35 MB |
+| Separate 15m | 0 | 111.00 MB | 1.01 MB |
+
+All six peer closes were code 1013 with `slow consumer: send buffer full`. The separate 5m socket's close occurred during initial subscription. Process-wide event-loop delay was 14.6 ms at p99 and 50.4 ms maximum. Payload counts differ because subscriptions and reconnect snapshots arrive independently and gaps lose observations; these are not duplicate-delivery parity measurements.
+
+Splitting sockets is therefore a promising candidate, not an established reliability fix. The short test added duplicate inbound traffic and shared the same host, router, and internet path; it does not identify the root cause or estimate a long-term failure rate. No production topology change was made. A production implementation must scope reconnect/invalid-book gaps to the affected socket's markets, preserve one global receipt sequence, validate both bootstrap/rotation paths, and retain conservative ordinary-backtest rejection. The diagnostic sockets were all stopped at the deadline.
