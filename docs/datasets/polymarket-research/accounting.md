@@ -111,3 +111,26 @@ partial profit into an apparently complete winning record.
 Raw SQL and coverage reports retain excluded wallets and their reasons. The
 `wallet_months` view also requires coverage of the whole calendar month before
 exposing a final monthly economic PnL; observed cash is labeled separately.
+
+## Untouched open positions and fee-exclusive native cost
+
+The V2 contract defines native unrealized PnL as current value minus fee-exclusive
+entry cost. A June 1 API example reports a 100-share losing holding, entry cost
+`1`, disclosed entry fees `0.0693`, gross cost `1.0693`, and native PnL `-1`.
+The activity contains a single BUY cash leg of `1.0693`, so net economic PnL is
+`-1.0693`.
+
+`fee_basis_difference` classifies this definition difference only when the history
+contains BUY activity alone, native realized PnL is zero, the position is not
+CLOSED, the served cost-plus-fee identity holds, and gross basis independently
+matches all observed purchase cash within served precision. The API PnL remains
+unchanged. This is not a rule to subtract disclosed fees from every PnL column:
+realized or already net values must not be adjusted again. Inventory and other
+coverage checks still apply.
+
+A legacy combined redemption can omit a position row for a losing token that was
+only minted by SPLIT and never traded. Its final payout is zero, and the old
+redemption shape does not expose its burn. The dataset records
+`untraded_zero_payout_position_not_exposed` rather than requiring native economics
+for that untraded outcome. Traded or winning tokens still require snapshots, and
+the wallet's total native PnL must pass the usual independent comparison.

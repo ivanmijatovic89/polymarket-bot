@@ -111,3 +111,24 @@ A fresh optimized day is still required before launching the full backfill.
 The July 1 run resumed after the empty-market investigation, so its elapsed time
 must not be presented as an uninterrupted fresh benchmark. Disk capacity must be
 checked again using the measured range and the configured reserve.
+
+## Accounting version 5 follow-up
+
+Both published days were rebuilt offline and again passed file/SQL verification.
+The new classification distinguishes the narrowly verified fee-exclusive native
+OPEN basis and an untraded losing token omitted by legacy combined redemption.
+It does not change the locally calculated cash amounts.
+
+| Day | Complete wallet/market pairs | Unresolved pairs | Parquet bytes |
+| --- | ---: | ---: | ---: |
+| June 1 | 58,248 | 732 | 88,053,108 |
+| July 1 | 49,868 | 492 | 67,022,595 |
+
+The version 5 strict daily rankings exclude 221 of 5,232 June wallets and 134
+of 4,222 July wallets.
+
+The initial June measurements and version 4 counts above remain as the historical
+baseline. July used saved trade pages on resume: its completed wallet phase took
+495 seconds and its resumed process made 11,151 requests with two retries.
+A fresh August 1 day is now measuring the optimized path with 16 workers and a
+60-rps shared ceiling; separate endpoint ceilings still apply.

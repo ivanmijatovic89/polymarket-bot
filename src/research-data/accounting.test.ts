@@ -232,3 +232,42 @@ test('live July trade/merge lifecycle reproduces native WAC without changing exa
   assert.equal(result.quality, 'complete')
   assert.ok(result.notes.includes('native_wac_reproduced'))
 })
+
+test('untouched open fee-exclusive native PnL is explained without double-deducting cash fees', () => {
+  const buy = { ...activity('TRADE', 'down', '100', '1.0693', 'BUY'), price: '0.01' }
+  const open = {
+    ...position('down', '100', '-1'),
+    status: 'REDEEMABLE',
+    realized_pnl: '0',
+    unrealized_pnl: '-1',
+    entry_cost_usdc: '1',
+    entry_fees_usdc: '0.0693',
+    total_cost_usdc: '1.0693',
+  }
+  const result = account([buy], [open])
+  assert.equal(result.economic_pnl_usdc, '-1.069300')
+  assert.equal(result.api_position_pnl_usdc, '-1.000000')
+  assert.equal(result.api_pnl_status, 'fee_basis_difference')
+  assert.equal(result.quality, 'complete')
+  const alreadyNet = account([buy], [{ ...open, total_pnl: '-1.0693', realized_pnl: '-0.0693' }])
+  assert.equal(alreadyNet.economic_pnl_usdc, '-1.069300')
+  assert.equal(alreadyNet.api_pnl_status, 'match')
+  assert.equal(account([buy], [{ ...open, total_pnl: '-0.9' }]).quality, 'unresolved')
+  assert.equal(account([buy], [{ ...open, status: 'CLOSED' }]).quality, 'unresolved')
+})
+
+test('legacy redemption need not expose an untraded losing split token; missing traded tokens still fail', () => {
+  const rows = [
+    activity('SPLIT', '', '40', '40'),
+    activity('TRADE', 'up', '1.5625', '1.0252', 'BUY'),
+    activity('REDEEM', '', '41.5625', '41.5625'),
+  ]
+  const result = account(rows, [{ ...position('up', '0', '0.5373'), status: 'CLOSED' }])
+  assert.equal(result.economic_pnl_usdc, '0.537300')
+  assert.equal(result.quality, 'complete')
+  assert.ok(result.notes.includes('untraded_zero_payout_position_not_exposed'))
+  assert.equal(
+    account(rows, [{ ...position('down', '0', '0.5373'), status: 'CLOSED' }]).quality,
+    'unresolved',
+  )
+})

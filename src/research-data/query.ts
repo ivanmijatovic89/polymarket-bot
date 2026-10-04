@@ -42,7 +42,8 @@ export async function leaderboard(
         sum(pnl_with_rewards_usdc) AS pnl_with_rewards_usdc,
         count(*) FILTER (WHERE economic_pnl_usdc > 0) AS profitable_markets,
         count(*) FILTER (WHERE quality <> 'complete') AS incomplete_markets,
-        count(*) FILTER (WHERE api_pnl_status = 'rounding_compatible') AS api_rounding_differences
+        count(*) FILTER (WHERE api_pnl_status = 'rounding_compatible') AS api_rounding_differences,
+        count(*) FILTER (WHERE api_pnl_status = 'fee_basis_difference') AS api_fee_basis_differences
       FROM wallet_markets WHERE ${range} GROUP BY wallet)
       SELECT * EXCLUDE (incomplete_markets) FROM ranked WHERE incomplete_markets = 0
       ORDER BY economic_pnl_usdc DESC, wallet LIMIT ${Math.max(1, Math.min(10000, Math.floor(limit)))}`)

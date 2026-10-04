@@ -120,7 +120,7 @@ export async function verifyDataset(root: string, from: string, to: string) {
       )
       await check(
         'complete_rows_with_issues',
-        `SELECT count(*) AS n FROM wallet_markets WHERE quality = 'complete' AND (len(issues) <> 0 OR economic_pnl_usdc IS NULL OR api_pnl_status NOT IN ('match', 'rounding_compatible'))`,
+        `SELECT count(*) AS n FROM wallet_markets WHERE quality = 'complete' AND (len(issues) <> 0 OR economic_pnl_usdc IS NULL OR api_pnl_status NOT IN ('match', 'rounding_compatible', 'fee_basis_difference'))`,
       )
       await check(
         'complete_wallet_markets',

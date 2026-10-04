@@ -102,27 +102,34 @@ balances, unsupported actions and unexplained economics are not rounded away.
 Passed locally: feature regression/integration tests, root TypeScript/ESLint,
 global-runtime tests, strategy artifact tests, trading tests, feed coverage tests,
 research protocol/index checks, WebUI typecheck/build, Dashboard typecheck/tests/
-build, and docs build. Current feature suite: 19 tests. Foundation commit: `9858d27e`. Later fixes
-are pending another formatter/typecheck/docs pass and commit. No PR is open yet.
+build, and docs build. Current feature suite: 21 tests. Commits `9858d27e` and `9a6f689e` are pushed.
+The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draft PR: https://github.com/ivanmijatovic89/polymarket-bot/pull/272 (attached to the task). All four CI jobs passed for commit `9a6f689e`.
 
 ## Current download and next actions
 
-- July 1 is downloading with 12 workers and a 32-rps shared budget. Its first
-  attempt stopped at an empty-feed market absent from per-condition volume.
-  A direct event request reports total zero; this bounded case now has a saved
-  evidence path and a regression test. The run resumed from cached trade pages.
-- July/August/September probes cover 12 markets and 57 wallet/market histories;
-  56 pass current accounting, one remains unresolved. See benchmark evidence.
-- A refresh-after-rebuild regression now confirms that old hard-linked source
-  Parquet files are never overwritten when a prior sync state remains on disk.
-- After July finishes, verify its snapshot and run a fresh optimized August day.
-  Use that fresh timing, the month probes and disk capacity to update the full
-  backfill estimate before starting all June–September days.
-- Complete the backfill, investigate/classify remaining issues, demonstrate
-  monthly/cross-month/wallet queries, and open/attach a PR with CI evidence.
+- June 1 and July 1 are published, rebuilt with accounting version 5 and pass
+  file-integrity plus independent SQL verification. June has 58,248 complete /
+  732 unresolved wallet/market pairs. July has 49,868 complete / 492 unresolved.
+- The July run reused its trade cache after the empty-market investigation.
+  Its wallet phase completed in 495 seconds; the resumed process made 11,151
+  requests with two retries. It is not a fresh full-day benchmark.
+- A fresh August 1 run is now active: 16 workers, global ceiling 60 rps, endpoint
+  caps unchanged. This is the timing sample needed before launching backfill.
+- July/August/September targeted probes cover 12 markets and 57 wallet/market
+  histories; 56 passed version 4 accounting, one remains unresolved.
+- A refresh-after-rebuild regression confirms that old hard-linked source
+  Parquet files are never overwritten. A failed non-empty-market volume check
+  also leaves the previous published generation active.
+- After August finishes, verify its snapshot, measure queries and extrapolate
+  duration/storage with explicit caveats. Check free disk, then start the full
+  June–September sync if the saved-data checks pass and capacity is sufficient.
+- Finish discrepancy classification, monthly/cross-month/wallet examples, final
+  docs and PR validation. Keep the PR draft until the goal's required evidence
+  and actual backfill are complete.
 
 Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
-The current July process is observed through exec session 9518; its durable log
-is `logs/july-01-progress.log` under that root. Always inspect `sync.lock` and the
-actual process before treating a tool observation timeout as process failure.
-The June download and local rebuild processes have finished.
+The active process logs to `logs/august-01-progress.log` under that root. Its PID
+is in `sync.lock`; always check the actual process before treating a tool timeout
+as process failure. June/July downloads and rebuilds have finished. Verification
+outputs are saved under `logs/2026-06-01-accounting-v5.json` and
+`logs/2026-07-01-accounting-v5.json`.

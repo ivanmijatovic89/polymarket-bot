@@ -1,7 +1,7 @@
 import { accountWalletMarket } from './accounting.js'
 import type { Activity, FeedRow, Market, Position, WalletMarket } from './types.js'
 
-export const ACCOUNTING_VERSION = 4
+export const ACCOUNTING_VERSION = 5
 
 export function groupRows<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
   const output = new Map<string, T[]>()

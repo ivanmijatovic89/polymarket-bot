@@ -216,7 +216,14 @@ export function accountWalletMarket(args: {
     const position = positionByToken.get(token)
     if (balance < -1n) issues.add('unexplained_token_outflow')
     if (!position && activities.some((a) => a.token_id === token || a.type === 'SPLIT')) {
-      issues.add('missing_position_snapshot')
+      const untradedLegacyLoser =
+        legacyRedeem &&
+        market.resolved &&
+        payout === 0n &&
+        balance >= 0n &&
+        !activities.some((a) => a.type === 'TRADE' && a.token_id === token)
+      if (untradedLegacyLoser) notes.add('untraded_zero_payout_position_not_exposed')
+      else issues.add('missing_position_snapshot')
     }
     if (position) {
       const servedBalance = units(position.current_size)
@@ -265,6 +272,40 @@ export function accountWalletMarket(args: {
   ) {
     pnlStatus = 'rounding_compatible'
     notes.add('native_wac_reproduced')
+  }
+  // The documented native unrealized value subtracts fee-exclusive entry
+  // cost. Recognize that definition difference only for an untouched BUY
+  // position whose gross basis independently equals all observed purchase cash.
+  // Do not subtract entry fees from native realized PnL or from cash again.
+  if (
+    pnlStatus === 'different' &&
+    delta !== null &&
+    activities.length &&
+    activities.every((a) => a.type === 'TRADE' && a.side === 'BUY') &&
+    uniquePositions.every(
+      (p) =>
+        p.status !== 'CLOSED' &&
+        units(p.realized_pnl) === 0n &&
+        ['entry_cost_usdc', 'entry_fees_usdc', 'total_cost_usdc'].every(
+          (key) => typeof p[key] === 'number' || typeof p[key] === 'string',
+        ),
+    )
+  ) {
+    const fees = sum(uniquePositions.map((p) => units(p.entry_fees_usdc)))
+    const gross = sum(uniquePositions.map((p) => units(p.total_cost_usdc)))
+    const precision = BigInt(uniquePositions.length) * 200n
+    if (
+      fees > 0n &&
+      abs(gross - amounts.buy) <= precision &&
+      abs(delta + fees) <= precision &&
+      uniquePositions.every(
+        (p) =>
+          abs(units(p.total_cost_usdc) - units(p.entry_cost_usdc) - units(p.entry_fees_usdc)) <= 1n,
+      )
+    ) {
+      pnlStatus = 'fee_basis_difference'
+      notes.add('native_unrealized_fee_exclusive')
+    }
   }
   if (pnlStatus === 'different') issues.add('api_pnl_unreconciled')
   if (sourcePnl === null) issues.add('missing_position_economics')

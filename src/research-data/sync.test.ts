@@ -38,6 +38,7 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
   )
   let version = 1
   let requests = 0
+  let omitNonEmptyVolume = false
   const row = (
     condition: string,
     wallet: string,
@@ -106,11 +107,12 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
             q
               .get('event_id')!
               .split(',')
-              .filter((id) => version !== 3 || id !== '96').length * 10,
+              .filter((id) => (version !== 3 || id !== '96') && (!omitNonEmptyVolume || id !== '1'))
+              .length * 10,
           conditions: q
             .get('event_id')!
             .split(',')
-            .filter((id) => version !== 3 || id !== '96')
+            .filter((id) => (version !== 3 || id !== '96') && (!omitNonEmptyVolume || id !== '1'))
             .map((id) => ({ condition_id: conditions[Number(id) - 1], taker_volume: 10 })),
         }
       else if (url.pathname === '/v2/trades')
@@ -240,6 +242,15 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
     assert.equal(Number(zeroMarket[0]!.trade_count), 0)
     const zeroVerified = await verifyDataset(root, options.from, options.to)
     assert.equal(zeroVerified.valid, true, JSON.stringify(zeroVerified))
+    omitNonEmptyVolume = true
+    await assert.rejects(syncDataset({ ...options, refresh: true }), /Volume unavailable/)
+    const afterFailedRefresh = await openDataset(root)
+    assert.equal(
+      afterFailedRefresh.index.days[options.from]!.generation,
+      afterRebuild!.generation,
+      'failed validation must retain the previous published snapshot',
+    )
+    afterFailedRefresh.close()
     await appendFile(path.join(root, afterRebuild!.directory, 'wallet-queries.json'), ' ')
     const corrupt = await verifyDataset(root, options.from, options.to)
     assert.equal(corrupt.valid, false)
