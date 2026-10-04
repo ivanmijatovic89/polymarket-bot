@@ -253,7 +253,15 @@ subsets and continuous trading, Parquet publication, rebuild and offline evidenc
 verification. Original pages, all eight wallet histories and the candidate
 validation are in `logs/volume-mismatch-20260620/` in the permanent root. This
 establishes corroboration of the retained facts, not the cause of the aggregate
-omission. The full June 20 day still needs to finish downloading and verify.
+omission. The full June 20 day has since published and passed offline verification.
+The eight involved wallets retain exactly the probe's cash PnL, economic PnL,
+native PnL and trade counts; `publication-invariants.json` records the comparison.
+The separate 322 unresolved histories elsewhere that day retain their exclusions.
+
+Gamma's saved market and event `startDate` are both 03:52:56 UTC, before this
+03:53:13–03:53:44 opening burst. A cutoff at that declared timestamp therefore
+does not explain this case. The actual aggregate omission mechanism remains
+unproven.
 
 ## Reproduce the local audit
 

@@ -23,9 +23,19 @@ retains the 0.1% relative bound and every participant's accounting checks, witho
 selecting a matching subset or asserting order within a second. Accounting
 version 6 is unchanged. Evidence is in `logs/volume-mismatch-20260620/`.
 
-All 36 feature tests and root TypeScript/ESLint pass. The pending run resumes
-June 20's cached trade pages and downloads its wallet histories before publication.
-Full June–September coverage and monthly research remain required.
+All 36 feature tests, root TypeScript/ESLint, docs build and all four CI jobs pass
+on `1f90b9e3`. June 20 is now published and independently verified: all 96 windows,
+367,779 trades, 402,688 activities, 48,298 complete and 322 unresolved wallet/market
+histories. The resumed run took 402.652 seconds and is not a fresh benchmark.
+The 15-fill warning and original quantities are retained. All eight involved
+wallets remain complete, with cash PnL, economic PnL, native PnL and trade counts
+identical to the independent probe (`publication-invariants.json` in the evidence
+directory above). Full day verification is in
+`logs/volume-policy-20261004/live-2026-06-20.json`.
+
+Twenty-two days are published and verified (June 1–20, July 1 and August 1).
+June 21 is downloading. Full June–September coverage and monthly research remain
+required; this checkpoint does not satisfy the full-range objective.
 
 ## Downloader version 6: corroborated source warnings
 
