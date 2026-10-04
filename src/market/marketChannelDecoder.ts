@@ -45,3 +45,18 @@ export function decodeMarketChannelMessage(rawJson: string): AnyMarketMessage | 
 
   return null
 }
+
+/** A websocket frame may contain multiple messages; array order is wire order. */
+export function decodeMarketChannelFrame(rawJson: string): AnyMarketMessage[] {
+  let value: unknown
+  try {
+    value = JSON.parse(rawJson)
+  } catch {
+    return []
+  }
+  const values = Array.isArray(value) ? value : [value]
+  return values.flatMap((item) => {
+    const msg = decodeMarketChannelMessage(JSON.stringify(item))
+    return msg ? [msg] : []
+  })
+}

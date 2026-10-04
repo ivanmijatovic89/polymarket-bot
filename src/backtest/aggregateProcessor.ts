@@ -34,6 +34,9 @@ function redisKeyToJobId(redisKey: string): string {
 }
 
 function nullMarketStatsReason(result: MarketJobResult): string {
+  if (result.skipReason === 'incomplete_capture') {
+    return `incomplete_capture: ${(result.coverageReasons ?? []).join('; ')}`
+  }
   if (result.skipReason === 'unresolved_outcome') {
     return 'unresolved_outcome: market has no final outcome/result_id, so PnL cannot be computed'
   }

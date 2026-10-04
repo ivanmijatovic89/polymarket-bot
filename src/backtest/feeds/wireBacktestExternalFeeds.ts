@@ -172,6 +172,11 @@ export async function wireBacktestExternalFeeds(args: {
   // No request plugin → strategy didn't opt in; stay silent (this runs for
   // every market of every feed-less backtest).
   if (!reqPlugin) return { syntheticTicks: null }
+  if (reqPlugin.config.chainlinkTwap || reqPlugin.config.binanceBookTicker) {
+    throw new Error(
+      'TWAP and Binance best bid/ask require --input-mode recorder-v3; historical feed mode cannot supply them',
+    )
+  }
 
   const binanceReq = reqPlugin.config.binanceWsSpotPrice
   const priceToBeatEnabled = reqPlugin.config.polymarketPriceToBeat?.enabled === true

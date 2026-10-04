@@ -60,7 +60,42 @@ test('parseArgs parses telonex-delta mode with --symbol + --read-from', () => {
 test('parseArgs rejects old telonex-*-parquet alias', () => {
   assert.throws(
     () => parseArgs(['--input-mode', 'telonex-delta-parquet', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode must be one of: recorded, telonex-delta, telonex-paired/,
+    /\[backtest\] --input-mode must be one of: recorded, recorder-v3, telonex-delta, telonex-paired/,
+  )
+})
+
+test('recorder-v3 accepts package inputs and explicit outage replay only in receive order', () => {
+  const parsed = parseArgs([
+    '--input-mode',
+    'recorder-v3',
+    '--dir',
+    '/tmp/packages',
+    '--allow-capture-gaps',
+  ])
+  assert.equal(parsed.inputMode, 'recorder-v3')
+  assert.equal(parsed.allowCaptureGaps, true)
+  assert.equal(
+    parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '5m']).captureTimeframe,
+    '5m',
+  )
+  assert.throws(
+    () => parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '1h']),
+    /must be 5m or 15m/,
+  )
+  assert.deepEqual(parsed.dirs, ['/tmp/packages'])
+  assert.equal(
+    parseArgs(['--input-mode', 'recorder-v3', 'r2://bucket/prefix/manifest.json']).filePaths.length,
+    1,
+  )
+  assert.throws(() => parseArgs(['--allow-capture-gaps']), /requires --input-mode recorder-v3/)
+  assert.throws(
+    () => parseArgs(['--input-mode', 'recorder-v3', '--order', 'exchange_time']),
+    /receive order/,
+  )
+  assert.throws(() => parseArgs(['--input-mode', 'recorder-v3', '--time-driven']), /receive order/)
+  assert.throws(
+    () => parseArgs(['--input-mode', 'recorder-v3', '--symbol', 'btc']),
+    /package paths/,
   )
 })
 

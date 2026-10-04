@@ -6,6 +6,21 @@ export type RtdsPricePoint = {
 }
 
 export type ExternalFeedsSnapshot = {
+  /** Captured best bid/ask has no exchange timestamp in Binance's spot payload. */
+  binanceBookTicker?: {
+    symbol: string
+    updateId: string
+    bidPrice: string
+    bidQuantity: string
+    askPrice: string
+    askQuantity: string
+    receivedAtMs: number
+  }
+  chainlinkTwap?: RtdsPricePoint & {
+    windowSeconds: number
+    fullAccuracyValue?: string
+    source: 'chainlink'
+  }
   rtdsPolymarketCryptoPrices?: {
     binance?: RtdsPricePoint
     chainlink?: RtdsPricePoint

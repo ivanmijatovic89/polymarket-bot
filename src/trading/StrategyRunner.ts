@@ -246,6 +246,7 @@ export class StrategyRunner {
   }
 
   onMarketTick(tick: MarketTick): Promise<void> {
+    this.pluginSet?.captureMarketTick?.(tick)
     return this.runSerial('tick', async () => {
       await this.processMarketTick(tick)
       if (this.observer?.onCapital) {
