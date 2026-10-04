@@ -372,6 +372,7 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
   )
   const output = collect()
   let count = 0
+  const startedAtMs = Date.now()
   const values = [
     '{"openPrice":null}',
     '{"openPrice":85000.123456789}',
@@ -382,7 +383,10 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
     market: m,
     pollMs: 100,
     correctionPollMs: 100,
-    clock: () => ({ receivedAtMs: m.startMs + count, monotonicNs: String(count + 1) }),
+    clock: () => ({
+      receivedAtMs: m.startMs + Date.now() - startedAtMs,
+      monotonicNs: String(count + 1),
+    }),
     fetch: async () => new Response(values[Math.min(count++, 2)]),
   })
   t.after(() => feed.stop())
