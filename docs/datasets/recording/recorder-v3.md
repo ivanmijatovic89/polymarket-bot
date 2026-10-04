@@ -266,4 +266,4 @@ This verifies file integrity, every row, sequence/receipt ordering, manifest row
 
 Before deployment, also validate real feed subscriptions, a complete market for each duration, correct current PTB, market transitions, clean shutdown/restart, actual R2 upload/read-back/deletion, fresh-cache download, and replay. Record the tested commit, elapsed capture time, CPU/memory/disk observations, and any detected gaps. A short connection smoke test is not evidence of long-term operational reliability.
 
-See the [initial validation report](./recorder-v3-validation) and [second audit](./recorder-v3-second-audit) for measured local results and remaining deployment checks.
+See the [initial validation report](./recorder-v3-validation), [second audit](./recorder-v3-second-audit), and [archive/coverage hardening report](./recorder-v3-hardening) for measured local results and remaining deployment checks.
