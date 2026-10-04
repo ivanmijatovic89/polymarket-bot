@@ -139,6 +139,7 @@ export default withMermaid(
                 { text: 'Overview', link: '/datasets/polymarket-research/overview' },
                 { text: 'Sync and Query', link: '/datasets/polymarket-research/commands' },
                 { text: 'Accounting', link: '/datasets/polymarket-research/accounting' },
+                { text: 'API Exceptions', link: '/datasets/polymarket-research/api-limitations' },
                 { text: 'SQL Schema', link: '/datasets/polymarket-research/schema' },
                 { text: 'Research Analyst', link: '/datasets/polymarket-research/agents/analyst' },
                 { text: 'Data Auditor', link: '/datasets/polymarket-research/agents/auditor' },

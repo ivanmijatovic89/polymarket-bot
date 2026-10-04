@@ -22,6 +22,8 @@ Use this page as instructions for an agent auditing the research dataset.
 6. Inspect API PnL differences separately. Check empirical WAC explanations and
    their diagnostic result. Neither purchase-only bounds nor a reproduced native
    WAC result excuses unsupported transfers, missing cash or inventory gaps.
+   Consult the [API exception evidence](../api-limitations) for reproducible
+   examples and the limitations of holder snapshots and native leaderboards.
 7. Confirm that every query uses published immutable generations. Check for
    partial staging work and whether a benchmark resumed from existing pages.
 8. Save reproducible SQL and concrete mismatched rows, identify likely causes and

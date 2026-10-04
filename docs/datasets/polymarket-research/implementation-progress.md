@@ -22,7 +22,7 @@ parity. Work on `codex/polymarket-v2-research-data`.
 - [ ] Complete June–September ingestion; explain all gaps and discrepancies.
 - [ ] Demonstrate monthly leaderboards, cross-month comparison and wallet research.
 - [x] Document schema, accounting, operation, recovery and agent workflows.
-- [ ] Pass repository checks, open and attach a PR, inspect CI results.
+- [x] Pass repository checks, open and attach a PR, inspect CI results.
 
 ## Current environment
 
@@ -122,6 +122,11 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
   monthly/cross-month/wallet research. Update docs and the PR with actual totals.
 - All four CI jobs passed for `da9bbbd8` (current implementation). The PR remains
   draft until required backfill and final evidence are complete.
+- All four CI jobs also passed for documentation commit `daa16b60`.
+- Complete holder walks and fresh wallet activity/OPEN-position requests for
+  three June 1 gaps recovered no missing rows. The new [API exception evidence](./api-limitations)
+  records the observations, overlapping issue counts, large SPLIT-history native
+  PnL differences and reproducible audit SQL. Accounting criteria are unchanged.
 
 Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
 Active log: `logs/june-september-progress.log`. The process PID is in `sync.lock`;
