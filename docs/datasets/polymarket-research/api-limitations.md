@@ -219,7 +219,9 @@ complete wallet. A mismatch outside this rule still stops publication.
 
 June 18 exposed another candidate: `btc-updown-15m-1781818200` has a
 3.000001-share discrepancy, within one microshare of a 3-share early fill.
-Its full repeated-feed and counterparty checks must pass before publication.
+Its repeated feeds and aggregate agree on recheck; the full counterparty checks
+must still pass before publication. June 16 has now passed those checks and
+offline verification after publication, with the warning preserved.
 This recurrence supports investigating aggregate start boundaries, but does not
 prove the cause. Original June 16 pages and wallet comparisons remain in
 `logs/volume-mismatch-20260616/` in the permanent root.

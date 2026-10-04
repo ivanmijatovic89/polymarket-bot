@@ -13,7 +13,10 @@ Use this page as instructions for an agent investigating wallet behavior.
    and excluded wallet/markets. Do not call the API to silently fill missing data.
    Quantify the excluded wallets' share of observed trades as well: a small
    number of unresolved histories can exclude highly active wallets and distort
-   the apparent research population.
+   the apparent research population. Report `source_warnings` separately: a
+   corroborated market-volume aggregate mismatch does not by itself invalidate
+   a wallet whose complete accounting reconciles. Do not describe flagged source
+   aggregates as fully reconciled or silently remove their retained trades.
 3. Use DuckDB SQL over the published Parquet views. Preserve the distinction
    between economic profit, realized cash, rewards and API-reported PnL.
 4. For comparisons across months, report each month's coverage and the number of

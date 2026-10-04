@@ -14,6 +14,11 @@ Use this page as instructions for an agent auditing the research dataset.
    absent day, absent market, zero-trade market and failed wallet accounting.
 3. Inspect volume checks and trade/activity multiset comparisons. An aggregate
    match alone does not establish matching occurrences or participant coverage.
+   Inspect `all_source_aggregates_reconciled` separately from `verify.valid` and
+   wallet accounting. For a corroborated source warning, verify the checksummed
+   repeat-feed evidence, exact share discrepancy, market flag and both
+   counterparties' accounting. Never waive wallet checks because an aggregate
+   discrepancy was accepted.
 4. Verify that strict rankings exclude entire incomplete wallet cohorts, rather
    than dropping only their problematic market rows.
 5. Recalculate selected wallet cash legs and settlement-valued holdings with

@@ -29,7 +29,10 @@ incomplete. Wallet requests group up to 20 conditions.
 Source feed filters remain identical on every cursor page. If an empty market is
 omitted from the volume response, a separate single-event request must explicitly
 report zero aggregate volume; that evidence is saved. A missing volume row for a
-non-empty market stops publication.
+non-empty market stops publication. A small, corroborated early-trade aggregate
+disagreement may be published with an explicit source warning only under the
+[documented exception rule](./api-limitations#june-16-taker-volume-disagreement).
+Its trades are retained and wallet-accounting checks remain mandatory.
 
 Options include `--root`, `--concurrency` (default 12), `--rps` (default 32,
 maximum 60), `--keep-raw`, and `--min-free-gib` (default 5). Concurrency shares one
@@ -94,6 +97,9 @@ participant counts, cash arithmetic, trade/activity occurrences, accounting
 statuses, and saved taker-volume totals. Integrity failures exit nonzero. The
 separate `all_wallet_accounting_complete` field distinguishes structurally valid
 data from a dataset with unresolved accounting or missing market coverage.
+`all_source_aggregates_reconciled` is independently false when an accepted source
+warning remains. Inspect `warnings` and `source_warnings`; successful integrity
+verification does not mean every upstream aggregate agrees.
 
 `rebuild` recomputes accounting entirely from saved raw API facts. It creates a
 new immutable generation, preserves the original source timestamps and download

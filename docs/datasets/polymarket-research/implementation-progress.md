@@ -24,9 +24,20 @@ calculations or exclude otherwise reconciled wallets. The new tests exercise
 successful publication, offline re-verification, retained eligibility, rebuild,
 changed feeds, incomplete counterparties and corrupted evidence.
 
-The next run resumes June 16, skips the published June 17 generation, and
-continues June 18 onward. Full June–September coverage and actual monthly
-research remain pending. Accounting remains version 6.
+The live June 16 resume is now published and independently verified: all 96
+windows, 55,452 complete and 335 unresolved wallet/market histories, and
+73,623,586 Parquet bytes. The 1.960784-share warning appears in Parquet and
+reports; both early counterparties remain complete with unchanged cash PnL
+(+0.926494 and -0.960784 USDC). `verify.valid` is true while
+`all_source_aggregates_reconciled` is false. The unrelated 335 wallet-accounting
+gaps retain their existing strict exclusions. Evidence is in
+`logs/volume-policy-20261004/live-2026-06-16.json` under the permanent root.
+
+All 34 feature tests, root TypeScript/ESLint, docs build and all four CI jobs pass
+for `5ad946c8`. June 18's different-page-size feed and aggregate rechecks passed;
+its wallet histories are now downloading. Nineteen days are published (June 1–17,
+July 1 and August 1). Full June–September coverage and actual monthly research
+remain pending. Accounting remains version 6.
 
 ## Downloader version 5: isolated DuckDB spill files
 
