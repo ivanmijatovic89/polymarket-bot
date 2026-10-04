@@ -117,6 +117,12 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
   See [benchmark evidence](./benchmark-evidence) for assumptions and measurements.
 - The full June–September backfill is now running with 16 workers and a 60-rps
   shared ceiling; endpoint caps remain active. Existing sample days are skipped.
+- June 2 is now published and independently verified: 96 markets, 476,018 trades,
+  515,903 activities, 62,413 complete and 490 unresolved wallet/market pairs.
+  Fresh elapsed time was 650.827 seconds, with 14,667 requests and 10 retries;
+  Parquet uses 90,696,153 bytes. The strict daily ranking excludes 205 wallets.
+  The updated measured planning range is 14–23 hours and 6–11 GiB. June 3 is
+  downloading; the four-month run is still active.
 - After completion, run `verify` and coverage over the full June–September range;
   inspect every issue class, benchmark larger local queries and demonstrate
   monthly/cross-month/wallet research. Update docs and the PR with actual totals.
@@ -141,3 +147,7 @@ Verification evidence for the samples is under `logs/2026-06-01-accounting-v5.js
 `logs/2026-07-01-accounting-v5.json` and `logs/august-01-verification.json`.
 The August benchmark is `logs/august-01-benchmark.json`. The goal remains active;
 do not mark complete merely because implementation/CI or sample days are done.
+
+June 2 evidence: `logs/june-02-verification.json`, `logs/june-02-benchmark.json`,
+and `logs/june-02-leaderboard.json`. Bounded API exception probes and saved source
+pages are under `logs/api-exception-probes/` in the permanent root.

@@ -155,3 +155,35 @@ sample-based high estimate plus the 5 GiB reserve. The full June–September syn
 started on 2026-10-04 using 16 workers and the 60-rps shared ceiling. Existing
 June 1, July 1 and August 1 snapshots are reused. The disk guard remains active.
 The full backfill and full-month research demonstrations are not complete yet.
+
+## Fresh optimized June 2: heavier-day confirmation
+
+The first new day in the full backfill finished in **650.827 seconds (10.85
+minutes)** using the same 16-worker/60-rps configuration as August. The saved
+snapshot passed all file hashes and independent SQL checks, with 96 unique market
+windows, no missing participant summaries and no failed cash identities.
+
+| Measurement | Result |
+| --- | ---: |
+| All-side trades / activities / position rows | 476,018 / 515,903 / 75,991 |
+| Trading wallets / wallet-condition batches | 5,132 / 6,828 |
+| HTTP requests / retries | 14,667 / 10 |
+| Complete / unresolved wallet-market pairs | 62,413 / 490 |
+| Entire wallets excluded from strict daily ranking | 205 |
+| Parquet bytes | 90,696,153 (86.49 MiB) |
+| Observed peak working disk | 1,055,964,141 bytes (0.983 GiB) |
+| First local trade/ranking/timeline query | 23.95 / 8.54 / 27.12 ms |
+| Dataset open | 60.28 ms |
+
+The local benchmark ran while verification and the next day's download were
+active; the OS cache was not flushed. These are observed shared-machine timings.
+Evidence is saved under `logs/june-02-verification.json`,
+`logs/june-02-benchmark.json` and `logs/june-02-leaderboard.json` in the data root.
+
+Extrapolating this fresh June day alone gives 22.06 hours and 10.31 GiB for 122
+days. Together with fresh August, the updated working range is **14–23 hours and
+6–11 GiB of Parquet**, plus temporary working space and retained generations.
+The initial 14–22-hour estimate above records what was known at backfill launch.
+The new range is still a sample-based estimate, not an upper bound or confidence
+interval. At the June 2 checkpoint, 24.15 GiB remained available and June 3 was
+downloading. No full-month result is claimed at this checkpoint.
