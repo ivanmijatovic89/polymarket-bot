@@ -26,6 +26,12 @@ The source fact tables preserve `raw_json` for fields not promoted to columns.
 it is not a blockchain log index or a permanent global event ID. `is_taker` is
 assigned by multiset matching against the separately downloaded taker feed.
 
+For broad analytical scans, select the typed columns you need. Reserve
+`raw_json` for narrowly scoped source inspection. In a 155-history audit, scanning
+and sorting raw activity payloads exceeded the reader's 512 MB memory budget;
+the required typed fields completed successfully with one query thread. A small
+result set does not guarantee a small intermediate scan or sort.
+
 ## Compare monthly profitability
 
 ```sql

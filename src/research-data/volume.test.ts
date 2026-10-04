@@ -60,7 +60,7 @@ const summaries = trades.map((row) => ({
   quality: 'complete' as const,
 }))
 
-test('source-volume exception requires a small unique early fill, repeated multisets and reconciled counterparties', () => {
+test('source-volume exception requires a unique early fill, repeated multisets and reconciled counterparties', () => {
   assert.equal(
     validateVolumeEvidence(market, trades, units('30000'), evidence(), summaries).difference,
     '1.960783',
@@ -78,10 +78,11 @@ test('source-volume exception requires a small unique early fill, repeated multi
   assert.throws(() => volumeCandidate(market, trades.slice(0, 2), 1n), /mismatch/)
   const larger = structuredClone(trades)
   larger[0]!.size = larger[1]!.size = '40'
-  assert.throws(() => volumeCandidate(market, larger, units('30000')), /mismatch/)
+  assert.equal(volumeCandidate(market, larger, units('30000')).difference, '40.000000')
   const lowVolume = structuredClone(trades)
   lowVolume[2]!.size = lowVolume[3]!.size = '100'
-  assert.throws(() => volumeCandidate(market, lowVolume, units('100')), /mismatch/)
+  assert.equal(volumeCandidate(market, lowVolume, units('100')).difference, '1.960783')
+  assert.throws(() => volumeCandidate(market, lowVolume, 0n), /mismatch/)
   const tied = structuredClone(trades)
   tied[2]!.timestamp = start - 100
   assert.throws(() => volumeCandidate(market, tied, units('30000')), /mismatch/)
@@ -163,7 +164,12 @@ test('isolated opening bursts require every fill and counterparty without assumi
   assert.throws(() => volumeCandidate(market, continuous, units('30000')), /mismatch/)
 })
 
-function fixture(changeRepeat = false, badCounterparty = false, sourceTrades = trades) {
+function fixture(
+  changeRepeat = false,
+  badCounterparty = false,
+  sourceTrades = trades,
+  sourceVolume = '30000',
+) {
   const trades = sourceTrades
   let now = 1_000_000
   let repeatRequests = 0
@@ -191,7 +197,7 @@ function fixture(changeRepeat = false, badCounterparty = false, sourceTrades = t
               .split(',')
               .map((id) => ({
                 condition_id: conditions[Number(id) - 1],
-                taker_volume: id === '1' ? 30000 : 0,
+                taker_volume: id === '1' ? sourceVolume : 0,
               })),
           },
         })
@@ -242,11 +248,32 @@ function fixture(changeRepeat = false, badCounterparty = false, sourceTrades = t
   return { client, repeats: () => repeatRequests }
 }
 
-for (const openingFills of [1, 15]) {
+const lowerVolumeBurst = [
+  ...Array.from({ length: 5 }, (_, i) =>
+    [0, 1].map((side) => ({
+      ...trades[side]!,
+      proxy_wallet: wallet(i * 2 + side + 1),
+      size: '5.882351',
+      timestamp: start - 100 + (i % 2),
+      transaction_hash: `opening-${i}`,
+    })),
+  ).flat(),
+  ...trades.slice(2).map((row, i) => ({
+    ...row,
+    size: '26065.057158',
+    proxy_wallet: wallet(11 + i),
+  })),
+]
+
+for (const [openingFills, sourceTrades, sourceVolume, expectedWallets] of [
+  [1, trades, '30000', 4],
+  [15, openingBurst(), '30000', 33],
+  // June 30's five fills are 0.113% of volume, yet its full ledger reconciles.
+  [5, lowerVolumeBurst, '26065.057158', 12],
+] as const) {
   test(`corroborated ${openingFills}-fill volume warnings survive Parquet, offline verification and rebuild without excluding reconciled wallets`, async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-'))
-    const { client, repeats } = fixture(false, false, openingFills === 1 ? trades : openingBurst())
-    const expectedWallets = openingFills === 1 ? 4 : 33
+    const { client, repeats } = fixture(false, false, sourceTrades, sourceVolume)
     const options = {
       root,
       from: '2026-06-01',
@@ -320,7 +347,7 @@ test('changed repeat feeds or unresolved counterparties cannot publish a volume 
           concurrency: 4,
           requestsPerSecond: 12,
           minFreeGiB: 1,
-          client: fixture(changeRepeat, badCounterparty).client,
+          client: fixture(changeRepeat, badCounterparty, lowerVolumeBurst, '26065.057158').client,
           log: () => {},
         }),
         /corroboration/,

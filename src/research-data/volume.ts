@@ -24,10 +24,11 @@ export function volumeCandidate(market: Market, trades: FeedRow[], expected: big
   const takers = trades.filter((row) => row.is_taker)
   const actual = sum(takers.map((row) => units(row.size)))
   const difference = actual - expected
-  // A small isolated opening burst, with every same-second fill included.
+  // An isolated opening burst, with every same-second fill included.
   // Select by time, never a subset chosen to force the aggregate to match.
-  if (!market.resolved || expected <= 0n || difference <= 1n || difference * 1000n > actual)
-    return fail()
+  // Magnitude alone cannot corroborate or invalidate the detailed ledger:
+  // repeated feeds and every participant's accounting must still pass below.
+  if (!market.resolved || expected <= 0n || difference <= 1n) return fail()
   const firstTime = takers.reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
   const first = takers.filter((row) => row.timestamp <= firstTime + 60)
   const lastTime = first.reduce((maximum, row) => Math.max(maximum, row.timestamp), -Infinity)
@@ -35,6 +36,7 @@ export function volumeCandidate(market: Market, trades: FeedRow[], expected: big
     .filter((row) => row.timestamp > firstTime + 60)
     .reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
   if (
+    !Number.isFinite(nextTime) ||
     lastTime >= market.market_start ||
     nextTime - lastTime < 60 ||
     first.some((row) => units(row.size) <= 0n) ||

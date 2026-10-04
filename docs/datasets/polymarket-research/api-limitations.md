@@ -216,16 +216,16 @@ precision. The winning wallet's activity additionally contains its redemption.
 This supports retaining the trade. It does not establish why the aggregate
 differs or justify deleting a row to force agreement.
 
-Downloader version 7 retains this kind of corroborated disagreement as a source
+Downloader version 8 retains this kind of corroborated disagreement as a source
 warning, under the user's delegated acceptance decision. The rule is deliberately
 narrow. All of these conditions must hold:
 
-- The market is resolved. The positive discrepancy is at most 0.1% of its
-  downloaded taker volume. This is a conservative acceptance limit, not a claim
-  about API numerical precision.
+- The market is resolved, its reported aggregate is positive, and the detailed
+  taker total exceeds that aggregate. Neither an absolute nor a percentage
+  difference is sufficient evidence for this exception.
 - The discrepancy matches **all** taker fills in the first 60 seconds of observed
   trading, within one microshare. This opening burst is entirely before the
-  market window, with at least 60 seconds from its last fill to the next trade.
+  market window, with an observed later trade at least 60 seconds after its last fill.
   All same-second fills are included; the code never searches for a matching
   subset or invents ordering within a second.
 - Every opening transaction has exactly one taker row, and its maker rows sum
@@ -268,9 +268,10 @@ transactions have several makers; their quantities sum exactly to the taker
 quantity. All eight involved wallets' full market histories reconcile, including
 their later trades, cash, positions and native PnL.
 
-This evidence extends the original single-fill rule to an isolated opening
-burst. The original absolute 10-share cap is removed; the 0.1% relative bound,
-complete repeated feeds and strict accounting for every involved wallet remain.
+Version 7 extended the original single-fill rule to an isolated opening
+burst. It removed the original absolute 10-share cap while retaining a 0.1%
+relative bound. Version 8 subsequently removed that magnitude gate for the
+reason below; complete repeated feeds and every participant's accounting remain required.
 The rule does not accept a mismatch merely because it is small. Tests cover
 multi-maker fills, all participants, arbitrary input order, rejection of matching
 subsets and continuous trading, Parquet publication, rebuild and offline evidence
@@ -286,6 +287,30 @@ Gamma's saved market and event `startDate` are both 03:52:56 UTC, before this
 03:53:13–03:53:44 opening burst. A cutoff at that declared timestamp therefore
 does not explain this case. The actual aggregate omission mechanism remains
 unproven.
+
+## June 30: evidence and the percentage gate
+
+`btc-updown-15m-1782789300` has 26,094.468913 downloaded taker shares versus
+26,065.057158 in the aggregate. The **29.411755-share** difference equals all five
+opening fills and is about 0.113% of the downloaded total. Fresh complete walks
+at page size 137 reproduce both trade multisets exactly, the aggregate is
+unchanged, and all seven opening participants' full market histories reconcile.
+This is the same absolute discrepancy observed and verified on June 28, whose
+higher market volume kept it below the former 0.1% gate.
+
+Version 8 removes the percentage gate instead of increasing it to fit this one
+market. Market volume does not establish whether the retained trades and cash
+are correct. The exception requires the entire isolated opening burst to explain
+the discrepancy, repeated complete feeds to agree, all maker/taker quantities
+to match, and every involved wallet to pass accounting. A missing later trade,
+matching subset, changed repeat feed or unresolved participant still fails.
+The exact discrepancy remains a source warning, and the aggregate remains
+explicitly unreconciled. No trade, cash value or wallet-accounting tolerance changes.
+
+The cached rows, repeat walks, seven wallet histories and candidate validation
+are retained in `logs/volume-mismatch-20260630/`. They establish evidence for
+retaining the source facts; the upstream cause of the aggregate omission remains
+unknown. Publication and full-day verification are separate steps.
 
 ## Reproduce the local audit
 

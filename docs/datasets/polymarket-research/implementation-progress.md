@@ -8,6 +8,34 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Downloader version 8: opening-burst evidence independent of volume
+
+June 1–29, July 1 and August 1 are published and independently verified (31
+days). June 30 stopped on a 29.411755-share source aggregate discrepancy: five
+opening fills, complete matching repeat feeds and seven reconciled participants.
+The discrepancy is 0.113% of the market's volume, so the version-7 percentage gate
+rejected it despite the corroborating evidence. Version 8 removes that gate while
+retaining all structural, repeat-feed and wallet-accounting requirements. The
+source aggregate stays visibly unreconciled. Accounting version 6 is unchanged.
+See the [June 30 evidence](./api-limitations#june-30-evidence-and-the-percentage-gate).
+All 37 feature tests, root TypeScript/ESLint, formatting and the docs build pass.
+The live seven-participant candidate passes the new evidence validator; its
+full-day publication and verification are still pending at this checkpoint.
+
+July downloads continued while June 30 was investigated. Full June publication,
+monthly research and the remaining July–September backfill are still required.
+The study selection rule was recorded before complete June was available in
+`logs/monthly-wallet-study/selection-plan.json`: inspect June's profit leader and
+the most broadly active wallet among its other top-20 eligible wallets, then
+follow the same candidates through later months. A prepared local study runner
+checks full-month verification before producing results.
+
+The monthly population report and tests passed all four CI jobs on `11651e9e`.
+A separate 155-history diagnostic tested two interpretations of lifetime WAC;
+neither reproduced the selected native PnL values. It made no accounting change.
+Six inspected histories also have native purchase-quantity contradictions.
+Evidence is in `logs/native-denominator-audit-20261004/`.
+
 ## Downloader version 7: corroborated opening bursts
 
 June 19 published and independently verified, bringing coverage to June 1–19,
