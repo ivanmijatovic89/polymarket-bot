@@ -202,3 +202,5 @@ This verifies file integrity, every row, sequence/receipt ordering, manifest row
 `npm run record:v3:test` covers feed parsing, sequence ownership, recovery, archive integrity, resolution tracking, and deterministic replay. These tests run in CI alongside the existing strategy/trading regressions.
 
 Before deployment, also validate real feed subscriptions, a complete market for each duration, correct current PTB, market transitions, clean shutdown/restart, actual R2 upload/read-back/deletion, fresh-cache download, and replay. Record the tested commit, elapsed capture time, CPU/memory/disk observations, and any detected gaps. A short connection smoke test is not evidence of long-term operational reliability.
+
+See the [October 2026 validation report](./recorder-v3-validation) for the measured local results and remaining deployment checks.
