@@ -7,7 +7,7 @@ description: Reuse the existing fleet host while keeping recorder releases, cred
 
 Worker-2 is already a configured fleet machine. Reuse its SSH access, macOS account, installed Node 20, network access, and power settings. Give the recorder a separate pinned checkout, dependency directory, configuration, spool, and launchd service. No VM, container, additional server, or second fleet worker is needed.
 
-This is installation guidance, not a record of completed deployment. The October 4 inspection was read-only; no dependencies, recorder files, or service were installed on worker-2. Its running tests were left untouched.
+The October 4 inspection below is a historical baseline. Installation and host validation began later that evening (October 5 in Belgrade), after the operator reduced backtest concurrency from six to **three**. See the [deployment evidence](./recorder-v3-worker-2-validation) for the installed revision, validation results, and activation status.
 
 ## Why a separate checkout is useful
 
@@ -45,7 +45,7 @@ The installed backtest boot helper does not explicitly pin Node 20. Its eventual
 
 ## Stage 1: prepare when the current test workload has headroom
 
-The initial inspection found a busy machine. Finish the current test batch or arrange a separate capacity decision before dependency installation or the recording validation. Do not infer spare capacity from the recorder's earlier laptop measurements. Keep the current six-worker setting during the first controlled coexistence check; if receipt delays, CPU contention, or memory pressure are unacceptable, drain work and explicitly choose a smaller backtest allocation before trying again.
+The initial inspection found a busy machine. The operator subsequently reduced concurrency to three, which was confirmed before installation. Keep that allocation during the controlled coexistence check. Do not infer spare capacity from the recorder's earlier laptop measurements. If receipt delays, CPU contention, or memory pressure are unacceptable, drain work and explicitly choose a smaller backtest allocation before trying again.
 
 The commands below run **on worker-2 as `worker-2`**, with no fleet update command. This revision is the recorder implementation whose CI and local capture/replay validation passed:
 
@@ -76,7 +76,7 @@ HUSKY=0 npm ci --no-audit --no-fund
 
 The path and revision assignments above are reused in subsequent blocks; keep the same shell or set them again. If the release directory already exists, inspect its identity and contents instead of deleting it or rerunning installation underneath a running recorder. Keep the default Node version unchanged. Do not omit development dependencies: this deployment uses `tsx` from the locked install. Dashboard/WebUI builds and the entire test suite belong in CI/local validation, not on the loaded recorder host.
 
-GitHub authentication for this independent clone remains a deployment check. If unavailable on worker-2, transfer a verified source release from the control machine without including its `.env`, data, or dependency directories; do not repurpose the running fleet checkout.
+The first deployment encountered GitHub SSH host-key verification failure. It used a checksum-verified Git bundle from the control machine, fetched its `refs/remotes/origin/main` explicitly into the new release repository, and checked out the tested revision. No host-key check was disabled. A Git bundle containing only remote-tracking references may appear empty to a normal clone; inspect `git bundle list-heads` and fetch the advertised reference explicitly. Future releases can use the same transfer route until GitHub trust/authentication is deliberately configured. Never include the control machine's `.env`, data, or dependency directories, or repurpose the running fleet checkout.
 
 ## Stage 2: dedicated configuration
 
@@ -146,6 +146,8 @@ The deployment gate requires no unexplained local clock/event-loop gaps, no grow
 
 From the control/backtest machine, use the [archive download and backtest commands](./recorder-v3#find-and-download-archived-markets) to download the validation prefix into an independent cache. Verify every package, replay complete 5m and 15m markets with the needed feeds, inspect saved backtest results, and confirm that the worker spool's archived event files have been deleted only after matching verified archive receipts. Exercise resolution sidecar refresh as results become available. This keeps replay verification CPU off worker-2 during recording.
 
+If repeated upstream interruptions prevent a complete host recording during bounded validation, that check remains unfulfilled. Document any reviewed decision to begin controlled collection with the exact missing evidence, the supporting checks, and the expected exclusion of gapped markets. Do not silently extend indefinitely, waive required-feed admission, or present an outage replay as an ordinary pass. The [first deployment evidence](./recorder-v3-worker-2-validation) records this distinction for worker-2's 15m sample.
+
 ## Stage 4: render and install the recorder service
 
 Proceed only after the bounded validation is complete and its process has stopped. Production uses its own spool and the prefix `recorder-v3`. The existing template runs the recorder directly with an explicit Node executable; it does not invoke a login shell, NVM default, tmux worker launcher, or fleet updater.
@@ -198,6 +200,6 @@ sudo launchctl bootout system/com.polymarket.recorder-v3
 
 Prepare the next release in another directory with its own dependencies; keep one tested prior release for rollback. Stop and unload the service, render its plist for the new release, lint/install/bootstrap it, and confirm recovery and uploads using the unchanged production spool. A rollback uses the same sequence with the previous compatible release. Do not `git pull` or run `npm ci` inside a release used by an active recorder. Future releases that change spool/schema compatibility require their documented migration procedure.
 
-Set an explicit log-rotation policy before leaving the installation unattended: the template writes `recorder.log` but does not cap or rotate it. A simple maintenance option is to stop the recorder cleanly, rotate/compress the closed log, then restart; coordinate this known capture gap. Retained log files are separate from unuploaded recordings. Preserve the configuration, spool, archive receipts, and pending resolution tasks during every update.
+The initial log policy is manual: inspect `recorder.log` at each release update and at least monthly; rotate it at 32 MiB or before retaining a second large log. Stop the recorder cleanly, wait for its PID to exit, rename/compress the closed log, then explicitly start the loaded service with `sudo launchctl kickstart system/com.polymarket.recorder-v3`. Coordinate and retain the resulting known capture gap. Keep at most three compressed historical logs. The template does not cap or rotate logs automatically, and recorder spool limits do not include this log directory. Retained logs are separate from unuploaded recordings. Preserve the configuration, spool, archive receipts, and pending resolution tasks during every update.
 
 Reboot recovery and the real 24-hour resolution confirmation are later operational checks. Schedule any reboot when backtest jobs can safely finish. Do not interpret the current short inspection, successful TLS probes, or prior laptop soak as completion of worker-2 validation.
