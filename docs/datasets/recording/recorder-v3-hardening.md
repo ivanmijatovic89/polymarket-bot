@@ -7,6 +7,8 @@ description: Follow-up review, PTB source research, and pre-deployment validatio
 
 This follow-up addresses the findings from the additional read-only review after the [second audit](./recorder-v3-second-audit). Runtime changes are frozen at `cb539c8c`. Worker-2 deployment is separate from this local validation.
 
+The subsequent [opening-reference implementation](./recorder-v3-opening-reference) adds an explicit exact-boundary TWAP source and re-verifies these immutable recordings. This page preserves the earlier website-mode results and source investigation.
+
 ## Changes
 
 - New R2 packages use `<prefix>/btc/<5m|15m>/<market-slug>/<recording-id>/`. An optional `archiveLayout: "symbol-timeframe"` field identifies the new layout without changing the event schema. The writer, catalog, direct manifest reader, and downloader validate its identity and digest-bearing path. Existing flat packages retain their original object keys and bytes. Catalog prefixes select the configured archive root; local cache paths remain unchanged.

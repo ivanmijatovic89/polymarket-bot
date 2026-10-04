@@ -11,15 +11,15 @@ The recorder runs independently of backtest workers and the trading bot. It does
 
 ## What is recorded
 
-| Source | Observations |
-| --- | --- |
-| Polymarket market WebSocket | Raw book snapshots, price changes, trades, lifecycle messages, arrays, and other received frames for subscribed markets |
-| Binance BTCUSDT | Aggregate trades and best bid/ask (`aggTrade`, `bookTicker`) |
-| Chainlink through Polymarket PolyBolt | BTC/USD spot and 60-second TWAP, including provider and sequence metadata |
-| Price to beat | Raw HTTP responses, availability time, request parameters, status, and later corrections |
-| Market metadata | Discovery responses, token/outcome mapping, boundaries, and reference-price configuration |
-| Capture control | Connection changes, detected gaps, initial state, and shutdown/recovery information |
-| Official resolution | Observed Gamma status, winner/token, payout vector, PTB/final price when present, and raw source response |
+| Source                                | Observations                                                                                                            |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Polymarket market WebSocket           | Raw book snapshots, price changes, trades, lifecycle messages, arrays, and other received frames for subscribed markets |
+| Binance BTCUSDT                       | Aggregate trades and best bid/ask (`aggTrade`, `bookTicker`)                                                            |
+| Chainlink through Polymarket PolyBolt | BTC/USD spot and 60-second TWAP, including provider and sequence metadata                                               |
+| Price to beat                         | Raw HTTP responses, availability time, request parameters, status, and later corrections                                |
+| Market metadata                       | Discovery responses, token/outcome mapping, boundaries, and reference-price configuration                               |
+| Capture control                       | Connection changes, detected gaps, initial state, and shutdown/recovery information                                     |
+| Official resolution                   | Observed Gamma status, winner/token, payout vector, PTB/final price when present, and raw source response               |
 
 Full Binance order-book depth, other symbols, and 1h/4h/daily markets are outside the first version.
 
@@ -34,6 +34,37 @@ The website's `/api/crypto/crypto-price` endpoint is used to observe the publish
 Healthy polling checks every second until a price is available, then every 30 seconds for corrections. Errors back off exponentially with a five-minute local cap; a valid `Retry-After` can require a longer wait. An observed rate limit retains a slower polling floor for that market, even after an isolated success. The recorder preserves the error response, retry details, and coverage gap. Corrections during the wait are unobservable; backoff does not manufacture complete coverage. Separate 5m and 15m requests remain necessary because their market parameters differ.
 
 An initial `openPrice: null` can mean the opening reference has not been published yet. After a valid price has been observed, a null response means correction coverage is uncertain: it opens a PTB gap and backs off retries. The last valid value remains available with its original receipt time. Only a new valid price restores availability; an HTTP 200 status alone does not close the gap.
+
+### Selecting the opening Chainlink TWAP
+
+Recorder v3 also derives an explicitly named `chainlink-opening-twap` reference from the captured stream. It requires a valid Chainlink 60-second TWAP whose provider timestamp equals the market's exact opening timestamp. It examines every point in a snapshot, including an opening point delivered in a later snapshot. It never substitutes a nearby point, spot price, locally calculated average, or later Gamma value.
+
+The value becomes available only when that frame was received locally. Its snapshot preserves the full decimal string, provider timestamp, receipt time, and event/session/connection identity. Duplicate confirmations keep the original receipt; a correction in a later frame becomes visible at that frame's receipt. Conflicting values for the same boundary within one frame withhold the reference. A subsequent unambiguous observation can restore it during explicit outage replay, but ordinary admission rejects the market if any such conflict occurred.
+
+This is a selectable stream-derived reference, not a promise that Polymarket will never apply another publication or correction rule. In the local comparison, the exact opening TWAP matched later website PTB in seven full-duration recordings and all six available official Gamma PTBs. Some initial website values differed before being corrected. A website mismatch therefore stays visible as a diagnostic; it neither changes the selected source nor invalidates TWAP mode by itself. See the [opening-reference validation report](./recorder-v3-opening-reference).
+
+Website polling and raw responses continue regardless of the strategy's selection. Existing strategies default to website PTB. A strategy opts in through its external-feed request:
+
+```ts
+new ExternalFeedsRequestPlugin({
+  polymarketPriceToBeat: { enabled: true, source: 'chainlink-opening-twap' },
+})
+```
+
+`ctx.plugins.externalFeeds.polymarketPriceToBeat` then holds the selected reference. `openingReference` supplies provenance and comparison diagnostics; `websitePriceToBeat` preserves the independent website observation when available. Before receipt, or during a conflict, the selected PTB is absent. Strategies must tolerate that absence. A process restart resets volatile reference state; replay restores only observations actually included in the new bootstrap or received afterward.
+
+Ordinary backtests in this mode require complete Polymarket coverage, complete Chainlink TWAP coverage for the market, and exact opening-reference evidence. They do not require successful website PTB polling. The preflight scan checks eligibility without injecting its final value into earlier ticks. Other requested feeds retain their own coverage requirements. `--allow-capture-gaps` permits missing/conflicting evidence for outage experiments and does not manufacture a reference.
+
+No event-schema migration or re-recording is required: existing v3 Parquet files already contain the raw observations. The example strategy exposes the choice as a parameter:
+
+```bash
+npm run backtest -- --strategy readExternalFeedsExample.v1 \
+  --input-mode recorder-v3 --dir /absolute/path/to/recorder-cache \
+  --timeframe 15m --latest --limit 1 --sequential \
+  --param priceToBeatSource=chainlink-opening-twap
+```
+
+This example observes/logs feeds and emits no orders, so `no_activity` is expected. The legacy live trading command and historical input modes explicitly reject this source because they cannot yet supply matching stream semantics. Use `website` to retain their existing behavior.
 
 ## Receipt order and initial state
 
@@ -72,20 +103,20 @@ RECORDER_REDIS_URL=redis://host:6379
 
 PolyBolt requires existing CLOB API credentials. These credentials are not scoped as read-only, although this recorder only uses them for feed authentication. No private key is needed. Use a dedicated file containing just the required credentials/settings; the recorder never imports the trading `.env` loader or changes `process.env`.
 
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `RECORDER_ENV_FILE` / `--env-file` | `.env.recorder` | Explicit configuration file |
-| `RECORDER_ID` | Sanitized hostname plus `-btc` | Stable dashboard identity |
-| `RECORDER_SPOOL_DIR` / `--spool-dir` | `data/recorder-v3` | Active journals, pending packages, operational state |
-| `RECORDER_TIMEFRAMES` / `--timeframes` | `5m,15m` | Either or both BTC durations |
-| `RECORDER_UPLOAD` | `true` | Enable R2 archival; `--no-upload` overrides it |
-| `RECORDER_R2_PREFIX` | `recorder-v3` | Namespace for immutable R2 objects |
-| `RECORDER_MAX_SPOOL_BYTES` | `21474836480` (20 GiB) | Local spool limit |
-| `RECORDER_MIN_FREE_BYTES` | `21474836480` (20 GiB) | Minimum filesystem free space |
-| `RECORDER_MAX_PENDING_BYTES` | `16777216` (16 MiB) | Pending capture-write memory allowance |
-| `RECORDER_REDIS_URL` | `REDIS_URL`, if present | Optional dashboard connection |
-| `RECORDER_STATUS_ENABLED` | Whether Redis is configured | Publish dashboard status; `--no-dashboard` overrides it |
-| `RECORDER_DURATION_SECONDS` / `--duration-seconds` | Unset | Optional bounded validation run |
+| Setting                                            | Default                        | Meaning                                                 |
+| -------------------------------------------------- | ------------------------------ | ------------------------------------------------------- |
+| `RECORDER_ENV_FILE` / `--env-file`                 | `.env.recorder`                | Explicit configuration file                             |
+| `RECORDER_ID`                                      | Sanitized hostname plus `-btc` | Stable dashboard identity                               |
+| `RECORDER_SPOOL_DIR` / `--spool-dir`               | `data/recorder-v3`             | Active journals, pending packages, operational state    |
+| `RECORDER_TIMEFRAMES` / `--timeframes`             | `5m,15m`                       | Either or both BTC durations                            |
+| `RECORDER_UPLOAD`                                  | `true`                         | Enable R2 archival; `--no-upload` overrides it          |
+| `RECORDER_R2_PREFIX`                               | `recorder-v3`                  | Namespace for immutable R2 objects                      |
+| `RECORDER_MAX_SPOOL_BYTES`                         | `21474836480` (20 GiB)         | Local spool limit                                       |
+| `RECORDER_MIN_FREE_BYTES`                          | `21474836480` (20 GiB)         | Minimum filesystem free space                           |
+| `RECORDER_MAX_PENDING_BYTES`                       | `16777216` (16 MiB)            | Pending capture-write memory allowance                  |
+| `RECORDER_REDIS_URL`                               | `REDIS_URL`, if present        | Optional dashboard connection                           |
+| `RECORDER_STATUS_ENABLED`                          | Whether Redis is configured    | Publish dashboard status; `--no-dashboard` overrides it |
+| `RECORDER_DURATION_SECONDS` / `--duration-seconds` | Unset                          | Optional bounded validation run                         |
 
 Exported environment variables override the selected file; command-line settings override both. `BOT_ENV` does not affect the recorder. Existing `CLOB_API_KEY`, `CLOB_SECRET`, `CLOB_PASSPHRASE`, and `CLOB_PASS_PHRASE` aliases are accepted.
 
@@ -248,6 +279,8 @@ The existing live trading command has not been migrated to PolyBolt or Binance b
 
 Open **More → Recorders** in the existing dashboard. It shows recorder state, last heartbeat, feed ages and reconnects, active markets, gaps, spool/free space, archive progress, resolution backlog, CPU/RSS, and recent completed packages. An absent heartbeat becomes stale/offline rather than making a recorder disappear.
 
+Active markets also show the opening TWAP, its receipt/provenance, and comparison with website PTB. A missing observation, pending website comparison, website mismatch, and conflicting TWAP frame have distinct states. These diagnostics do not silently select a different strategy reference.
+
 Redis is optional for recording. Local `status.json` is written in the spool. Redis/dashboard failure does not interrupt capture. There are no Slack messages or other notifications.
 
 CPU/RSS metrics describe the ingestion process. The separate Parquet compression process is bounded to a 512 MiB JavaScript heap but consumes additional CPU and native memory while it runs; include it when measuring total host load.
@@ -262,8 +295,10 @@ npm run record:v3:verify -- /absolute/path/to/package-directory
 
 This verifies file integrity, every row, sequence/receipt ordering, manifest row counts, and replay through the shared dispatcher. It reports source counts, feed counts, strategy-tick count, coverage, and a deterministic replay digest including order-book/feed snapshots. The digest excludes the cache path, so it can compare an original package with an independent R2 download. Incomplete coverage is reported separately from corruption.
 
+The `openingReference` result separately reports exact-boundary observations, corrections, conflicts, the final comparison, and reasons that prevent ordinary TWAP-source admission. This diagnostic does not change the existing website-mode replay digest.
+
 `npm run record:v3:test` covers feed parsing, sequence ownership, recovery, archive integrity, resolution tracking, and deterministic replay. These tests run in CI alongside the existing strategy/trading regressions.
 
 Before deployment, also validate real feed subscriptions, a complete market for each duration, correct current PTB, market transitions, clean shutdown/restart, actual R2 upload/read-back/deletion, fresh-cache download, and replay. Record the tested commit, elapsed capture time, CPU/memory/disk observations, and any detected gaps. A short connection smoke test is not evidence of long-term operational reliability.
 
-See the [initial validation report](./recorder-v3-validation), [second audit](./recorder-v3-second-audit), and [archive/coverage hardening report](./recorder-v3-hardening) for measured local results and remaining deployment checks.
+See the [initial validation report](./recorder-v3-validation), [second audit](./recorder-v3-second-audit), [archive/coverage hardening report](./recorder-v3-hardening), and [opening-reference validation](./recorder-v3-opening-reference) for measured local results and remaining deployment checks.

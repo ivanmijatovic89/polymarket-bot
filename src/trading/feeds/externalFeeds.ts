@@ -5,7 +5,46 @@ export type RtdsPricePoint = {
   receivedAtMs: number
 }
 
+export type OpeningReferenceObservation = {
+  source: 'chainlink-opening-twap'
+  symbol: 'BTC'
+  sourceTimestampMs: number
+  windowSeconds: 60
+  openPrice: number
+  fullAccuracyValue: string
+  receivedAtMs: number
+  eventId: string
+  sessionId: string
+  connectionId: string
+}
+
+export type OpeningReferenceSnapshot = {
+  observation?: OpeningReferenceObservation
+  conflict?: { fullAccuracyValue: string; receivedAtMs: number; eventId: string }
+  /** Conflicts in this capture session, retained after recovery and reset at bootstrap. */
+  conflictCount?: number
+  website?: { openPrice: number; receivedAtMs: number; eventId: string }
+  comparison: 'unavailable' | 'waiting-for-website' | 'match' | 'mismatch' | 'conflicting-twap'
+}
+
+export type PriceToBeatSnapshot = {
+  symbol: string
+  eventStartTimeIso: string
+  endDateIso: string
+  openPrice: number
+  apiTimestampMs?: number
+  receivedAtMs: number
+  /** Absent on legacy snapshots means the website observation. */
+  source?: 'website' | 'chainlink-opening-twap'
+  fullAccuracyValue?: string
+  sourceTimestampMs?: number
+  windowSeconds?: number
+  eventId?: string
+}
+
 export type ExternalFeedsSnapshot = {
+  openingReference?: OpeningReferenceSnapshot
+  websitePriceToBeat?: PriceToBeatSnapshot
   /** Captured best bid/ask has no exchange timestamp in Binance's spot payload. */
   binanceBookTicker?: {
     symbol: string
@@ -26,14 +65,7 @@ export type ExternalFeedsSnapshot = {
     chainlink?: RtdsPricePoint
   }
   binanceWsSpotPrice?: RtdsPricePoint
-  polymarketPriceToBeat?: {
-    symbol: string
-    eventStartTimeIso: string
-    endDateIso: string
-    openPrice: number
-    apiTimestampMs?: number
-    receivedAtMs: number
-  }
+  polymarketPriceToBeat?: PriceToBeatSnapshot
 }
 
 export type ExternalFeedsStore = {

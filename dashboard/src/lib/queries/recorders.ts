@@ -9,6 +9,37 @@ import {
 
 const count = z.number().finite().nonnegative()
 const text = z.string().max(10_000)
+const timestamp = count.max(8_640_000_000_000_000)
+const openingReference = z.object({
+  observation: z
+    .object({
+      source: z.literal('chainlink-opening-twap'),
+      symbol: z.literal('BTC'),
+      sourceTimestampMs: timestamp,
+      windowSeconds: z.literal(60),
+      openPrice: z.number().finite().positive(),
+      fullAccuracyValue: text,
+      receivedAtMs: timestamp,
+      eventId: text,
+      sessionId: text,
+      connectionId: text,
+    })
+    .optional(),
+  conflict: z
+    .object({ fullAccuracyValue: text, receivedAtMs: timestamp, eventId: text })
+    .optional(),
+  conflictCount: count.int().optional(),
+  website: z
+    .object({ openPrice: z.number().finite().positive(), receivedAtMs: timestamp, eventId: text })
+    .optional(),
+  comparison: z.enum([
+    'unavailable',
+    'waiting-for-website',
+    'match',
+    'mismatch',
+    'conflicting-twap',
+  ]),
+})
 const schema = z.object({
   schemaVersion: z.literal(3),
   recorderId: text,
@@ -47,6 +78,7 @@ const schema = z.object({
         rows: count,
         gaps: count,
         booksReady: z.boolean(),
+        openingReference: openingReference.optional(),
       }),
     )
     .max(100),

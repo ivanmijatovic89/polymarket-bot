@@ -10,6 +10,7 @@ export const ConfigSchema = z.strictObject({
    * Log throttling. Keeps the strategy cheap even at high tick rates.
    */
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
+  priceToBeatSource: z.enum(['website', 'chainlink-opening-twap']).default('website'),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -18,7 +19,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'readExternalFeedsExample.v1',
   title: 'Read external feed BTC price (Binance + Chainlink) v1',
   description:
-    'Example strategy: opts into RTDS crypto prices and logs BTC price from Binance (btcusdt) and Chainlink (btc/usd).',
+    'Example strategy: logs Binance and Chainlink prices with an explicit website or recorded opening TWAP reference.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -38,6 +39,8 @@ export function createStrategy(cfg: Config): {
     const c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
     const bw = feeds?.binanceWsSpotPrice
     const ptb = feeds?.polymarketPriceToBeat
+    const ptbSource = ptb ? (ptb.source ?? 'website') : 'unavailable'
+    const ptbComparison = feeds?.openingReference?.comparison ?? 'unavailable'
 
     const priceDiff =
       ptb && c && Number.isFinite(ptb.openPrice) && Number.isFinite(c.value)
@@ -63,7 +66,7 @@ export function createStrategy(cfg: Config): {
         : 'n/a'
 
     console.log(
-      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} diff=${priceDiff}`,
+      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} priceToBeatRequestedSource=${cfg.priceToBeatSource} priceToBeatSource=${ptbSource} priceToBeatComparison=${ptbComparison} diff=${priceDiff}`,
     )
   }
 
@@ -99,9 +102,9 @@ export function createStrategy(cfg: Config): {
     strategy,
     plugins: [
       new ExternalFeedsRequestPlugin({
-        rtdsCryptoPrices: {}, // symbols follow the traded market (TRADING_SYMBOL); rtds is live-only
+        rtdsCryptoPrices: {}, // symbols follow the traded market in supported live/replay runtimes
         binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
-        polymarketPriceToBeat: { enabled: true },
+        polymarketPriceToBeat: { enabled: true, source: cfg.priceToBeatSource },
       }),
     ],
   }

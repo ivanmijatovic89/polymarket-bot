@@ -35,6 +35,8 @@ import { readManifest } from '../recorder-v3/storage/manifest.js'
 import { readCapturedEvents } from '../recorder-v3/storage/parquet.js'
 import { digestFile } from '../recorder-v3/storage/files.js'
 import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v3/replay/dispatcher.js'
+import { inspectOpeningReference } from '../recorder-v3/replay/openingReference.js'
+import { validateCapturedFeedRequest } from '../recorder-v3/replay/feedState.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { downloadCaptureForReplay } from '../recorder-v3/replay/package.js'
 
@@ -415,7 +417,15 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       throw new Error('Recorder parquet integrity verification failed')
     const reqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
     const config = reqPlugin?.config ?? {}
+    validateCapturedFeedRequest(config, manifest.market)
     const coverageReasons = capturedMarketGapReasons(manifest.market, manifest.coverage, config)
+    if (
+      config.polymarketPriceToBeat?.enabled &&
+      config.polymarketPriceToBeat.source === 'chainlink-opening-twap'
+    ) {
+      const reference = await inspectOpeningReference(manifest.market, readCapturedEvents(filePath))
+      coverageReasons.push(...reference.reasons)
+    }
     if (coverageReasons.length > 0 && !input.recorderV3?.allowGaps) {
       return {
         idx: input.idx,

@@ -262,7 +262,12 @@ export function requestedCapturedFeeds(config: ExternalFeedsRequestConfig): Set<
   if (config.binanceBookTicker) required.add('binance_book_ticker')
   if (config.rtdsCryptoPrices) required.add('chainlink_spot')
   if (config.chainlinkTwap) required.add('chainlink_twap')
-  if (config.polymarketPriceToBeat?.enabled) required.add('price_to_beat')
+  if (config.polymarketPriceToBeat?.enabled)
+    required.add(
+      config.polymarketPriceToBeat.source === 'chainlink-opening-twap'
+        ? 'chainlink_twap'
+        : 'price_to_beat',
+    )
   return required
 }
 
@@ -270,6 +275,14 @@ export function validateCapturedFeedRequest(
   config: ExternalFeedsRequestConfig,
   market: RecordedMarket,
 ): void {
+  const ptbSource = config.polymarketPriceToBeat?.source
+  if (ptbSource !== undefined && ptbSource !== 'website' && ptbSource !== 'chainlink-opening-twap')
+    throw new Error('Unknown captured price-to-beat source')
+  if (
+    ptbSource === 'chainlink-opening-twap' &&
+    (!market.twapEnabled || market.twapLookbackSeconds !== 60)
+  )
+    throw new Error('Chainlink opening TWAP requires an explicit 60-second TWAP market')
   for (const request of [config.binanceWsSpotPrice, config.binanceBookTicker]) {
     if (request?.symbol && request.symbol.toLowerCase() !== 'btcusdt') {
       throw new Error(`Recorder v3 contains BTCUSDT, not ${request.symbol}`)
@@ -302,7 +315,30 @@ export function validateCapturedFeedRequest(
 export function selectCapturedFeeds(
   state: ExternalFeedsSnapshot,
   config: ExternalFeedsRequestConfig,
+  market?: RecordedMarket,
 ): ExternalFeedsSnapshot {
+  const opening =
+    config.polymarketPriceToBeat?.enabled &&
+    config.polymarketPriceToBeat.source === 'chainlink-opening-twap'
+  if (opening && !market) throw new Error('Opening reference selection requires market identity')
+  const reference = state.openingReference
+  const observation = reference?.conflict ? undefined : reference?.observation
+  const price = opening
+    ? observation && market
+      ? {
+          symbol: observation.symbol,
+          eventStartTimeIso: new Date(market.startMs).toISOString(),
+          endDateIso: new Date(market.endMs).toISOString(),
+          openPrice: observation.openPrice,
+          receivedAtMs: observation.receivedAtMs,
+          source: observation.source,
+          sourceTimestampMs: observation.sourceTimestampMs,
+          windowSeconds: observation.windowSeconds,
+          fullAccuracyValue: observation.fullAccuracyValue,
+          eventId: observation.eventId,
+        }
+      : undefined
+    : state.polymarketPriceToBeat
   return {
     ...(config.binanceWsSpotPrice && state.binanceWsSpotPrice
       ? { binanceWsSpotPrice: state.binanceWsSpotPrice }
@@ -314,8 +350,10 @@ export function selectCapturedFeeds(
       ? { rtdsPolymarketCryptoPrices: state.rtdsPolymarketCryptoPrices }
       : {}),
     ...(config.chainlinkTwap && state.chainlinkTwap ? { chainlinkTwap: state.chainlinkTwap } : {}),
-    ...(config.polymarketPriceToBeat?.enabled && state.polymarketPriceToBeat
-      ? { polymarketPriceToBeat: state.polymarketPriceToBeat }
+    ...(config.polymarketPriceToBeat?.enabled && price ? { polymarketPriceToBeat: price } : {}),
+    ...(opening && reference ? { openingReference: reference } : {}),
+    ...(opening && state.polymarketPriceToBeat
+      ? { websitePriceToBeat: state.polymarketPriceToBeat }
       : {}),
   }
 }

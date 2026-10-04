@@ -1,7 +1,7 @@
 import type { MarketTick } from '../Strategy.js'
 import type { Plugin } from './PluginSet.js'
 
-// Keep this in sync with Strategy.requiredFeeds shape, but avoid importing Strategy types here.
+// New recorder capabilities are plugin-only; do not add them to Strategy.requiredFeeds.
 export type ExternalFeedsRequestConfig = {
   /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
   binanceBookTicker?: { symbol?: string }
@@ -29,7 +29,21 @@ export type ExternalFeedsRequestConfig = {
   }
   polymarketPriceToBeat?: {
     enabled?: boolean
+    /** Website observations remain the default; the opening TWAP requires Recorder v3. */
+    source?: 'website' | 'chainlink-opening-twap'
   }
+}
+
+/** Fail before an older runtime can substitute a different reference price. */
+export function assertLegacyPriceToBeatSource(
+  config: ExternalFeedsRequestConfig | undefined,
+  runtime: 'trading-bot' | 'historical-backtest',
+): void {
+  if (config?.polymarketPriceToBeat?.source !== 'chainlink-opening-twap') return
+  throw new Error(
+    `[${runtime}] priceToBeat source=chainlink-opening-twap requires --input-mode recorder-v3; ` +
+      'this runtime cannot supply the captured opening reference',
+  )
 }
 
 /**

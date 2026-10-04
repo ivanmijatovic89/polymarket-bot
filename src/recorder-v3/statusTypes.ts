@@ -1,4 +1,5 @@
 import type { RecorderFeed, RecorderTimeframe } from './types.js'
+import type { OpeningReferenceSnapshot } from '../trading/feeds/externalFeeds.js'
 
 export const RECORDER_STATUS_SET = 'recorder:v3:instances'
 export const RECORDER_STATUS_PREFIX = 'recorder:v3:status:'
@@ -30,6 +31,7 @@ export type RecorderStatus = {
     rows: number
     gaps: number
     booksReady: boolean
+    openingReference?: OpeningReferenceSnapshot
   }>
   spool: {
     bytes: number
