@@ -59,9 +59,29 @@ export function modeledWacPnl(market: Market, activities: Activity[]): bigint | 
     ]),
   )
   for (const activity of activities) {
-    if (activity.type !== 'TRADE' && activity.type !== 'REDEEM') return null
+    if (['REWARD', 'MAKER_REBATE', 'TAKER_REBATE'].includes(activity.type)) continue
+    if (!['TRADE', 'REDEEM', 'SPLIT', 'MERGE'].includes(activity.type)) return null
     const cash = units(activity.usdc_size)
     let size = units(activity.size)
+    if (cash < 0n || size < 0n) return null
+    if (activity.type === 'SPLIT' || activity.type === 'MERGE') {
+      if (abs(cash - size) > 1n) return null
+      let allocated = 0n
+      for (const [index, state] of [...states.values()].entries()) {
+        const part = index === states.size - 1 ? cash - allocated : cash / BigInt(states.size)
+        allocated += part
+        if (activity.type === 'SPLIT') {
+          if (state.size + size === 0n) return null
+          state.average = (state.average * state.size + part * SCALE) / (state.size + size)
+          state.size += size
+        } else {
+          state.realized += part - (state.average * size) / SCALE
+          state.size -= size
+          if (state.size < 0n) return null
+        }
+      }
+      continue
+    }
     let token = activity.token_id
     if (activity.type === 'REDEEM' && !states.has(token)) {
       const winners = [...states].filter(([, value]) => value.payout === SCALE)

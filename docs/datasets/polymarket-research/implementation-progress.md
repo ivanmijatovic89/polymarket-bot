@@ -17,7 +17,7 @@ parity. Work on `codex/polymarket-v2-research-data`.
 - [x] Implement offline DuckDB queries, strict leaderboards and wallet drill-downs.
 - [x] Test pagination, repeated fills, fees, split/merge/redeem, missing data,
       interruption, idempotency, incremental refresh and concurrent readers.
-- [ ] Complete and verify a 96-window day; benchmark time, requests and disk.
+- [x] Complete and verify a 96-window day; benchmark time, requests and disk.
 - [ ] Sample July/August/September, report four-month duration and disk estimates.
 - [ ] Complete June–September ingestion; explain all gaps and discrepancies.
 - [ ] Demonstrate monthly leaderboards, cross-month comparison and wallet research.
@@ -69,24 +69,27 @@ No live/backtest execution code was changed. Source facts remain immutable, and
 raw API fields are retained alongside typed columns. New snapshots include SHA-256
 file digests; local accounting rebuilds retain original source timestamps.
 
-The first live June 1 benchmark is running with the initial wallet-scoped OPEN
-implementation, 6 workers and 12 requests/second. It has 96 catalog markets,
-469,728 all-side trade rows, 5,232 trading wallets and 6,743 wallet-condition
-batches. All 96 market taker-volume comparisons passed. At 1,435 seconds,
-5,350/6,743 wallet batches had completed, with 16,904 requests and 5 retries.
-These are interim measurements, not the final benchmark.
+The June 1 benchmark completed and passed file-integrity and independent SQL
+verification. It downloaded 469,728 trades, 506,900 activities and 72,229 position
+rows across 96 markets and 5,232 wallets. The initial 6-worker/12-rps implementation
+took 1,877.259 seconds with 21,141 requests and five retries. Its rebuilt Parquet
+uses 88,052,503 bytes; measured peak working disk was 1,045,940,575 bytes. Local
+queries took roughly 8–19 ms on the first execution (OS cache not flushed).
+
+Accounting version 4 has 58,215 complete and 765 unresolved wallet/market pairs.
+The strict daily leaderboard excludes 225 entire wallets. Detailed measurements
+and the overlapping issue counts are in [benchmark evidence](./benchmark-evidence).
 
 A separate comparison of all 96 market-scoped OPEN walks matched all 5,829
 available wallet-scoped OPEN records checked (same balance, total/realized/
 unrealized PnL and fees). New downloads use market-scoped OPEN plus wallet-scoped
 CLOSED. Market-scoped CLOSED is still unsuitable for participant coverage.
-This removes thousands of requests from each day. The original running benchmark
-continues unchanged so its duration remains measurable.
+This removes thousands of requests from each day. The original baseline is retained for comparison.
 
 The current CLI defaults are 12 workers and 32 shared requests/second, with
 independent endpoint caps below the official limits (18/second positions and
 activity, 27/second trades and Gamma listings, 9/second status). `Retry-After`
-pauses all workers. The running June benchmark still uses its original settings.
+pauses all workers. The completed June baseline used its original settings.
 Official rate limits: https://docs.polymarket.com/api-reference/rate-limits
 
 Accounting handles overlapping OPEN/CLOSED position views without double counting,
@@ -99,20 +102,27 @@ balances, unsupported actions and unexplained economics are not rounded away.
 Passed locally: feature regression/integration tests, root TypeScript/ESLint,
 global-runtime tests, strategy artifact tests, trading tests, feed coverage tests,
 research protocol/index checks, WebUI typecheck/build, Dashboard typecheck/tests/
-build, and docs build. Final source changes require another formatter/typecheck/
-feature test pass before committing. No PR is open yet.
+build, and docs build. Current feature suite: 19 tests. Foundation commit: `9858d27e`. Later fixes
+are pending another formatter/typecheck/docs pass and commit. No PR is open yet.
 
-## Next action
+## Current download and next actions
 
-1. Finish the running June 1 download. Rebuild its accounting locally using the
-   latest version, then run file/SQL verification and inspect all issue classes.
-2. Benchmark local queries and persist the final report. Sample July, August and
-   September using the optimized downloader and report a realistic full-range
-   duration/disk estimate before starting the four-month backfill.
-3. Complete the backfill, demonstrate monthly/cross-month/wallet queries, document
-   remaining upstream limitations, and open a PR with final validation evidence.
+- July 1 is downloading with 12 workers and a 32-rps shared budget. Its first
+  attempt stopped at an empty-feed market absent from per-condition volume.
+  A direct event request reports total zero; this bounded case now has a saved
+  evidence path and a regression test. The run resumed from cached trade pages.
+- July/August/September probes cover 12 markets and 57 wallet/market histories;
+  56 pass current accounting, one remains unresolved. See benchmark evidence.
+- A refresh-after-rebuild regression now confirms that old hard-linked source
+  Parquet files are never overwritten when a prior sync state remains on disk.
+- After July finishes, verify its snapshot and run a fresh optimized August day.
+  Use that fresh timing, the month probes and disk capacity to update the full
+  backfill estimate before starting all June–September days.
+- Complete the backfill, investigate/classify remaining issues, demonstrate
+  monthly/cross-month/wallet queries, and open/attach a PR with CI evidence.
 
-Runtime observation handles (not required to resume from disk): initial download
-exec session 4830, process PID 81905. Always check the root lock and process before
-assuming an observation timeout means the downloader stopped. Progress/state is
-under `work/2026-06-01`; repeat the sync command to resume only if it has stopped.
+Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
+The current July process is observed through exec session 9518; its durable log
+is `logs/july-01-progress.log` under that root. Always inspect `sync.lock` and the
+actual process before treating a tool observation timeout as process failure.
+The June download and local rebuild processes have finished.

@@ -85,14 +85,16 @@ closed, purchase-only histories. It is never used to excuse a missing cash leg,
 a trade mismatch or a balance gap. Other unexplained PnL differences exclude a
 wallet/market from strict ranking until investigated.
 
-For mixed BUY/SELL histories, a second empirical check replays six-decimal WAC
+For mixed trade/split/merge histories, a second empirical check replays six-decimal WAC
 using the served activity order. A history is labeled `native_wac_reproduced` only
 when this independently calculated result matches native PnL within the documented
 component precision. Its diagnostic value is stored as `modeled_api_pnl_usdc`.
-This model does not change local cash PnL, invent a within-second chronology, or
-accept unsupported split/merge sequences. A June 1 regression fixture includes
+Splits allocate collateral equally across outcomes; merges realize their combined
+cost. The model does not change local cash PnL or invent a within-second chronology.
+Negative intermediate inventory or unsupported actions have no model result. A June 1 regression fixture includes
 both an explained 109-trade history and a three-trade counterexample whose larger
-API PnL difference remains unresolved.
+API PnL difference remains unresolved. A separate July 1 fixture verifies a
+139-trade, nine-merge lifecycle against native PnL.
 
 All served cash and share quantities are accumulated as integer millionths.
 Parquet uses decimal columns. API prices are ratios and are stored at higher

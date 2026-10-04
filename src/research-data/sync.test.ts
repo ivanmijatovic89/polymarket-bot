@@ -102,16 +102,24 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
       else if (url.pathname === '/v2/status') data = { serving: { lag_seconds: 0 }, age_seconds: 0 }
       else if (url.pathname === '/v2/live-volume')
         data = {
+          taker_volume_total:
+            q
+              .get('event_id')!
+              .split(',')
+              .filter((id) => version !== 3 || id !== '96').length * 10,
           conditions: q
             .get('event_id')!
             .split(',')
+            .filter((id) => version !== 3 || id !== '96')
             .map((id) => ({ condition_id: conditions[Number(id) - 1], taker_volume: 10 })),
         }
       else if (url.pathname === '/v2/trades')
-        data = selected.flatMap((condition) => [
-          row(condition, buyers, 'TRADE', 'BUY', 'up', 10, version === 1 ? 4 : 3),
-          ...(q.get('taker_only') === 'false' ? [row(condition, sellers, 'TRADE', 'SELL')] : []),
-        ])
+        data = selected
+          .filter((condition) => version !== 3 || condition !== conditions[95])
+          .flatMap((condition) => [
+            row(condition, buyers, 'TRADE', 'BUY', 'up', 10, version === 1 ? 4 : 3),
+            ...(q.get('taker_only') === 'false' ? [row(condition, sellers, 'TRADE', 'SELL')] : []),
+          ])
       else if (url.pathname === '/v2/activity')
         data = selected.flatMap((condition) =>
           user === buyers
@@ -205,7 +213,34 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
       rows: { economic_pnl_usdc: number }[]
     }
     assert.equal(Number(rebuiltRanking.rows[0]!.economic_pnl_usdc), 672)
-    await appendFile(path.join(root, rebuilt!.directory, 'wallet-queries.json'), ' ')
+    const immutableRebuildReader = await openDataset(root)
+    version = 3
+    const [afterRebuild] = await syncDataset({ ...options, refresh: true })
+    assert.notEqual(
+      afterRebuild!.generation,
+      updated!.generation,
+      'refresh after rebuild must never overwrite the earlier published generation',
+    )
+    const stillOld = (
+      await immutableRebuildReader.connection.runAndReadAll(
+        'SELECT count(*)::INTEGER AS n FROM trades',
+      )
+    ).getRowObjectsJson()
+    assert.equal(
+      stillOld[0]!.n,
+      192,
+      'hard-linked source facts remain immutable after another refresh',
+    )
+    immutableRebuildReader.close()
+    const zeroMarket = (await querySql(
+      root,
+      'SELECT found, trade_count FROM coverage ORDER BY market_start DESC LIMIT 1',
+    )) as { found: boolean; trade_count: string }[]
+    assert.equal(zeroMarket[0]!.found, true)
+    assert.equal(Number(zeroMarket[0]!.trade_count), 0)
+    const zeroVerified = await verifyDataset(root, options.from, options.to)
+    assert.equal(zeroVerified.valid, true, JSON.stringify(zeroVerified))
+    await appendFile(path.join(root, afterRebuild!.directory, 'wallet-queries.json'), ' ')
     const corrupt = await verifyDataset(root, options.from, options.to)
     assert.equal(corrupt.valid, false)
     assert.ok(corrupt.days[0]!.errors.some((error) => error.includes('Checksum mismatch')))

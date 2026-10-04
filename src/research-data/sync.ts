@@ -151,8 +151,14 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const stateFile = path.join(work, 'state.json')
   let state = await readJson<RunState>(stateFile)
   const current = (await loadIndex(options.root)).days[day]
-  const resumed = Boolean(state && current?.generation !== state.generation)
-  if (!state || current?.generation === state.generation) {
+  // A local accounting rebuild can replace the active generation while the
+  // last sync state still points at an older, published snapshot. Never resume
+  // writes into any generation that already has a finished report.
+  const finishedState =
+    state &&
+    (await readJson(path.join(options.root, 'snapshots', day, state.generation, 'report.json')))
+  const resumed = Boolean(state && !finishedState && current?.generation !== state.generation)
+  if (!state || current?.generation === state.generation || finishedState) {
     state = {
       generation: randomUUID(),
       asOf: Math.floor(Date.now() / 1000),
@@ -229,7 +235,21 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     })) as { data?: { conditions?: ApiRow[] } }
     if (!Array.isArray(volume.data?.conditions)) throw new Error('Invalid market volume response')
     for (const market of batch) {
-      const row = volume.data.conditions.find((r) => r.condition_id === market.condition_id)
+      let row = volume.data.conditions.find((r) => r.condition_id === market.condition_id)
+      let zeroEventResponse: unknown
+      if (!row && !tradesByCondition.get(market.condition_id)?.length) {
+        const single = (await client.get('/v2/live-volume', { event_id: market.event_id })) as {
+          data?: { taker_volume_total?: unknown; conditions?: ApiRow[] }
+        }
+        if (
+          Array.isArray(single.data?.conditions) &&
+          units(single.data.taker_volume_total) === 0n &&
+          single.data.conditions.every((r) => units(r.taker_volume) === 0n)
+        ) {
+          row = { taker_volume: '0' }
+          zeroEventResponse = single
+        }
+      }
       if (!row) throw new Error(`Volume unavailable: ${market.slug}`)
       const expected = units(row.taker_volume)
       const actual = sum(
@@ -242,6 +262,8 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
         expected_taker_shares: decimal(expected),
         downloaded_taker_shares: decimal(actual),
         difference: decimal(actual - expected),
+        verification: zeroEventResponse ? 'empty_feeds_and_zero_event_total' : 'condition_volume',
+        ...(zeroEventResponse ? { zero_event_response: zeroEventResponse } : {}),
       })
       if (abs(actual - expected) > 1n)
         throw new Error(

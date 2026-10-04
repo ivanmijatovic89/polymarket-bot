@@ -214,3 +214,21 @@ test('live mixed buy/sell WAC explains rounding but does not excuse a larger API
   assert.ok(unexplained!.issues.includes('api_pnl_unreconciled'))
   assert.equal(unexplained!.economic_pnl_usdc, '7.306865')
 })
+
+test('live July trade/merge lifecycle reproduces native WAC without changing exact cash profit', async () => {
+  const fixture = JSON.parse(
+    await readFile(new URL('./fixtures/july-01-merge.json', import.meta.url), 'utf8'),
+  ) as {
+    market: Market
+    wallet: string
+    trades: FeedRow[]
+    activities: Activity[]
+    positions: Position[]
+  }
+  const result = accountWalletMarket({ ...fixture, fetched: true })
+  assert.equal(result.cash_pnl_usdc, '22.611345')
+  assert.equal(result.modeled_api_pnl_usdc, '22.617526')
+  assert.equal(result.api_position_pnl_usdc, '22.617500')
+  assert.equal(result.quality, 'complete')
+  assert.ok(result.notes.includes('native_wac_reproduced'))
+})

@@ -142,6 +142,7 @@ export default withMermaid(
                 { text: 'SQL Schema', link: '/datasets/polymarket-research/schema' },
                 { text: 'Research Analyst', link: '/datasets/polymarket-research/agents/analyst' },
                 { text: 'Data Auditor', link: '/datasets/polymarket-research/agents/auditor' },
+                { text: 'Benchmark Evidence', link: '/datasets/polymarket-research/benchmark-evidence' },
                 { text: 'Implementation Evidence', link: '/datasets/polymarket-research/implementation-progress' },
               ],
             },

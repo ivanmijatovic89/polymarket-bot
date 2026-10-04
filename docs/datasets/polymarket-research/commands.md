@@ -26,7 +26,10 @@ trades, checks aggregate taker volume, discovers trading wallets and fetches
 activity plus open/closed positions. OPEN positions use the market-wide superset;
 CLOSED positions use wallet anchors because the market-wide CLOSED population is
 incomplete. Wallet requests group up to 20 conditions.
-Source feed filters remain identical on every cursor page.
+Source feed filters remain identical on every cursor page. If an empty market is
+omitted from the volume response, a separate single-event request must explicitly
+report zero aggregate volume; that evidence is saved. A missing volume row for a
+non-empty market stops publication.
 
 Options include `--root`, `--concurrency` (default 12), `--rps` (default 32,
 maximum 60), `--keep-raw`, and `--min-free-gib` (default 5). Concurrency shares one
