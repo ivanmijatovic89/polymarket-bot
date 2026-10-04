@@ -1,4 +1,3 @@
-import { DuckDBInstance } from '@duckdb/node-api'
 import path from 'node:path'
 import { sqlQuote } from '../utils/duckdb.js'
 import { dates, parseDate } from './catalog.js'
@@ -6,6 +5,7 @@ import { readJson } from './files.js'
 import { checkDigests, type FileDigest } from './integrity.js'
 import { loadIndex, TABLES } from './storage.js'
 import { abs, units } from './decimal.js'
+import { createResearchDatabase } from './database.js'
 
 interface VerificationDay {
   date: string
@@ -52,8 +52,7 @@ export async function verifyDataset(root: string, from: string, to: string) {
     else
       day.warnings.push('Legacy snapshot has no file checksums; rebuild locally to establish them')
     if (day.errors.length) continue
-    const db = await DuckDBInstance.create(':memory:', { threads: '2', memory_limit: '512MB' })
-    const connection = await db.connect()
+    const { connection, close } = await createResearchDatabase()
     try {
       for (const table of TABLES)
         await connection.run(
@@ -170,8 +169,7 @@ export async function verifyDataset(root: string, from: string, to: string) {
     } catch (error) {
       day.errors.push(String(error))
     } finally {
-      connection.closeSync()
-      db.closeSync()
+      close()
     }
     day.valid = day.errors.length === 0
   }

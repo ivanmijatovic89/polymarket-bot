@@ -1,9 +1,9 @@
-import { DuckDBInstance } from '@duckdb/node-api'
 import { randomUUID } from 'node:crypto'
 import { hostname } from 'node:os'
 import { mkdir, open, readdir, rm, stat, statfs } from 'node:fs/promises'
 import path from 'node:path'
 import { tradeKey } from './accounting.js'
+import { createResearchDatabase } from './database.js'
 import { ACCOUNTING_VERSION, coverageRow, groupRows, summarizeMarket } from './derived.js'
 import { snapshotDigests } from './integrity.js'
 import { ApiClient, parallelMap } from './api.js'
@@ -381,8 +381,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   })
   const directory = path.join('snapshots', day, state.generation)
   const absolute = path.join(options.root, directory)
-  const db = await DuckDBInstance.create(':memory:', { threads: '2', memory_limit: '512MB' })
-  const connection = await db.connect()
+  const { connection, close, tempDirectory } = await createResearchDatabase()
   const stagedBytes = await directoryBytes(stage)
   let peakWorkingBytes = stagedBytes
   let bytes = 0
@@ -397,13 +396,22 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     }
     for (const table of TABLES) {
       await ensureDisk(options.root, options.minFreeGiB ?? 5)
-      bytes += await writeParquet(connection, table, tables[table], absolute, (currentBytes) => {
-        peakWorkingBytes = Math.max(peakWorkingBytes, stagedBytes + bytes + currentBytes)
-      })
+      bytes += await writeParquet(
+        connection,
+        table,
+        tables[table],
+        absolute,
+        async (currentBytes) => {
+          const spillBytes = await directoryBytes(tempDirectory)
+          peakWorkingBytes = Math.max(
+            peakWorkingBytes,
+            stagedBytes + bytes + currentBytes + spillBytes,
+          )
+        },
+      )
     }
   } finally {
-    connection.closeSync()
-    db.closeSync()
+    close()
   }
   const reportFile = path.join(directory, 'report.json')
   const snapshot: DaySnapshot = {
@@ -426,7 +434,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 4,
+    downloader_version: 5,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,

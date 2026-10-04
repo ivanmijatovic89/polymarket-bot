@@ -9,6 +9,11 @@ These measurements were taken on 2026-10-04 with Node 20.19.6 on the local Mac.
 They describe the stated sample and downloader configuration, not a guarantee for
 all historical markets. No blockchain source was downloaded or used for verification.
 
+Downloader version 5 includes sampled DuckDB spill files in its observed peak
+working-disk usage. Earlier measurements below count API staging and conversion
+files but did not explicitly sample DuckDB's shared spill directory. These are
+observed samples, not continuously measured or guaranteed peak disk requirements.
+
 ## June 1 baseline: one complete UTC day
 
 The cohort is `2026-06-01 <= market_start < 2026-06-02`. All 96 scheduled BTC

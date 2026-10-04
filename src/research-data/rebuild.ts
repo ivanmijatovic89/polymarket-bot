@@ -1,4 +1,4 @@
-import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api'
+import type { DuckDBConnection } from '@duckdb/node-api'
 import { randomUUID } from 'node:crypto'
 import { link, mkdir, stat } from 'node:fs/promises'
 import path from 'node:path'
@@ -10,6 +10,7 @@ import { checkDigests, snapshotDigests, type FileDigest } from './integrity.js'
 import { loadIndex, publish, TABLES, writeParquet, type DaySnapshot } from './storage.js'
 import { claimLock, ensureDisk } from './sync.js'
 import { activityRow, feedRow, positionRow, type ApiRow, type WalletMarket } from './types.js'
+import { createResearchDatabase } from './database.js'
 
 async function rawRows(
   connection: DuckDBConnection,
@@ -59,8 +60,7 @@ export async function rebuildDataset(
       const directory = path.join('snapshots', date, generation)
       const destination = path.join(root, directory)
       await mkdir(destination, { recursive: true })
-      const db = await DuckDBInstance.create(':memory:', { threads: '2', memory_limit: '512MB' })
-      const connection = await db.connect()
+      const { connection, close } = await createResearchDatabase()
       const summaries: WalletMarket[] = []
       const coverage: ReturnType<typeof coverageRow>[] = []
       try {
@@ -108,8 +108,7 @@ export async function rebuildDataset(
           await link(path.join(source, file), path.join(destination, file))
         }
       } finally {
-        connection.closeSync()
-        db.closeSync()
+        close()
       }
       let bytes = 0
       for (const table of TABLES)

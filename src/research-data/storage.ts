@@ -1,10 +1,11 @@
-import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api'
+import type { DuckDBConnection } from '@duckdb/node-api'
 import { createWriteStream } from 'node:fs'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { once } from 'node:events'
 import path from 'node:path'
 import { sqlQuote } from '../utils/duckdb.js'
 import { readJson, writeJson } from './files.js'
+import { createResearchDatabase } from './database.js'
 
 export const SCHEMAS = {
   markets: {
@@ -137,7 +138,7 @@ export async function writeParquet(
   table: TableName,
   rows: unknown[],
   directory: string,
-  onDiskSample?: (bytes: number) => void,
+  onDiskSample?: (bytes: number) => void | Promise<void>,
 ): Promise<number> {
   await mkdir(directory, { recursive: true })
   const input = path.join(directory, `${table}.jsonl.tmp`)
@@ -162,7 +163,7 @@ export async function writeParquet(
       `COPY (${select}) TO ${sqlQuote(output)} (FORMAT PARQUET, COMPRESSION ZSTD)`,
     )
     const bytes = (await stat(output)).size
-    onDiskSample?.(bytes + (await stat(input)).size)
+    await onDiskSample?.(bytes + (await stat(input)).size)
     return bytes
   } finally {
     stream.destroy()
@@ -174,8 +175,7 @@ export async function openDataset(
   root: string,
 ): Promise<{ connection: DuckDBConnection; index: DatasetIndex; close: () => void }> {
   const index = await loadIndex(root)
-  const db = await DuckDBInstance.create(':memory:', { threads: '2', memory_limit: '512MB' })
-  const connection = await db.connect()
+  const { connection, close } = await createResearchDatabase()
   try {
     await connection.run("SET TimeZone = 'UTC'")
     for (const table of TABLES) {
@@ -206,14 +206,10 @@ export async function openDataset(
     return {
       connection,
       index,
-      close: () => {
-        connection.closeSync()
-        db.closeSync()
-      },
+      close,
     }
   } catch (error) {
-    connection.closeSync()
-    db.closeSync()
+    close()
     throw error
   }
 }

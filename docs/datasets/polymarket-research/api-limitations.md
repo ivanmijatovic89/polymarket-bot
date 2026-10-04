@@ -196,9 +196,10 @@ June 16 remains unpublished, with checkpoint pages preserved. Backfill continues
 from June 17 while this disagreement is investigated, so complete-June ranking
 remains blocked by the explicit missing day. No volume tolerance or acceptance
 criterion has been weakened. Evidence, original pages and wallet comparisons
-are in `logs/volume-mismatch-20260616/`. A policy for accepting and flagging a
-corroborated source-aggregate disagreement, if needed, requires an explicit
-decision; it must not silently certify the market as fully reconciled.
+are in `logs/volume-mismatch-20260616/`. The user authorized a bounded policy that retains corroborated trades and
+flags the source aggregate without automatically excluding wallets whose own
+accounting reconciles. That implementation is pending; the discrepancy must
+remain visible and must not silently certify the aggregate as reconciled.
 
 ## Reproduce the local audit
 

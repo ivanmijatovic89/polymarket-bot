@@ -8,6 +8,27 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Downloader version 5: isolated DuckDB spill files
+
+The concurrent downloader and offline validator both terminated in native DuckDB
+while processing June 17. Their independent in-memory instances used the same
+working-directory spill location. Downloader version 5 gives every writer,
+reader, rebuild and verifier its own temporary directory and removes only the
+files owned by that instance. The crash stack and shared spill-file inventory
+are saved under `logs/duckdb-spill-20261004/` in the permanent root.
+
+All 31 feature tests and root TypeScript/ESLint pass, including a regression that
+forces two databases to spill concurrently, closes one, and verifies the other's
+remaining spilled data. The shared-directory collision is the working diagnosis;
+live concurrent download/verification after the fix remains to be checked.
+Downloader version 5 also samples its own DuckDB spill usage in the observed peak
+working-disk metric. Accounting remains version 6 and no rebuild is required.
+
+The user authorized treating the corroborated June 16 aggregate discrepancy as
+a visible source warning without automatically excluding otherwise reconciled
+wallets. The bounded acceptance rule and independent verification still need to
+be implemented; original trades and strict wallet-accounting checks are retained.
+
 ## Latest checkpoint: source exceptions on June 16–17
 
 June 1–15, July 1 and August 1 are published and verified (17 days). The June 16
