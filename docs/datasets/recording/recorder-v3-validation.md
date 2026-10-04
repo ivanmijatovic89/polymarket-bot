@@ -7,6 +7,8 @@ description: Measured local capture, archival, replay, and recovery evidence bef
 
 This report records the local validation performed on October 4, 2026, with Node.js 20.19.6. The implementation under test is commit `24fd3bfc78385fb0ef46d3ccb8f2f002f1f4a965`. Later changes to this report do not change that implementation. See the [operating guide](./recorder-v3) for configuration and commands.
 
+The subsequent [second audit](./recorder-v3-second-audit) found and fixed additional recovery, resolution-integrity, and replay-clock issues. It also tests the actual sequential and queued backtest CLI with persisted results. Use that follow-up when assessing the current candidate; this page preserves the original measurements.
+
 The recorder was tested in an isolated checkout on a MacBook Pro with an Apple M1 Pro and 16 GiB RAM. No recorder service was installed or started on worker-2. Capture used public market observations and authenticated feed access; it did not initialize wallet signing or order submission. R2 writes used a separate `recorder-v3-validation/2026-10-04-final` namespace; an earlier round-trip test used its sibling `2026-10-04` prefix.
 
 ## Automated checks
