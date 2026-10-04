@@ -187,3 +187,28 @@ The initial 14–22-hour estimate above records what was known at backfill launc
 The new range is still a sample-based estimate, not an upper bound or confidence
 interval. At the June 2 checkpoint, 24.15 GiB remained available and June 3 was
 downloading. No full-month result is claimed at this checkpoint.
+
+## Downloader version 3: request scheduling experiment
+
+The version 2 scheduler reserved a future global slot before waiting for an
+endpoint's budget. Concurrent activity requests could therefore delay position
+requests even while the positions endpoint had available capacity. Version 3
+claims a slot only when both budgets permit it, rechecking the shared cooldown
+and both budgets after every timer wake. The configured limits, request filters,
+cursor handling and accounting version 6 are unchanged.
+
+A local fake-transport experiment used 60 wallet jobs, 16 workers and a fixed
+200 ms response delay. Each job made one activity and one position request, for
+120 requests total. The global ceiling was 60/second and each endpoint 18/second.
+The frozen old scheduler took 6,540 and 6,542 ms in two runs; the actual updated
+client took 3,748 ms (32.0 requests/second versus 18.3). This is a scheduler
+measurement, not a Polymarket download benchmark: no real network requests,
+JSON compression or Parquet publication were included. Do not apply its roughly
+43% elapsed-time reduction to the backfill estimate without a fresh live day.
+
+Concurrent-clock tests check endpoint and global spacing, delayed timer wakes,
+and a shared `Retry-After` received while another request is already queued. The
+new starvation regression fails against the old scheduler and passes with the
+fix. All 26 feature tests and root TypeScript/ESLint checks pass. Diagnostic
+scripts, measurements and regression logs are retained under
+`logs/request-pacing-20261004/` in the permanent data root.

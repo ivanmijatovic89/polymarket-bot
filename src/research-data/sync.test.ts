@@ -69,9 +69,13 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
     unrealized_pnl: 0,
     entry_fees_usdc: 0,
   })
+  let requestClock = 1_000_000
   const client = new ApiClient({
     requestsPerSecond: 100000,
-    sleep: async () => {},
+    now: () => requestClock,
+    sleep: async (ms) => {
+      requestClock += ms
+    },
     fetch: (async (input) => {
       requests++
       const url = new URL(String(input))

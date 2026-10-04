@@ -8,7 +8,23 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
-## Latest checkpoint: accounting version 6
+## Latest checkpoint: downloader version 3 validation
+
+As of October 4, 2026 at approximately 18:43 UTC, twelve days are published and
+independently verified: June 1–10, July 1 and August 1. June 11 is downloading.
+A request-scheduling correction removes cross-endpoint waiting caused by future
+global-slot reservations; the same endpoint and global limits remain active.
+All 26 feature tests and root TypeScript/ESLint pass. The concurrency regression
+also fails against the old implementation for the expected starvation assertion.
+See [benchmark evidence](./benchmark-evidence) for the fake-transport comparison;
+live version 3 timing is still pending, so the 14–23-hour planning range remains.
+
+Main through `1aeea7c0` is integrated in merge commit `85d49cda`. Both the research
+dataset and recorder-v3 CI test steps are retained, and all four CI jobs passed
+on that merge. The feature still makes no changes to live/backtest strategy paths.
+Accounting remains version 6; the scheduling change needs no dataset rebuild.
+
+## Accounting version 6 checkpoint
 
 As of October 4, 2026 at approximately 18:19 UTC, ten days are published and
 independently verified: June 1–8, July 1 and August 1. The full backfill resumed
@@ -52,7 +68,8 @@ measurements. Use current coverage and generation-bound verification for analysi
 
 ## Current environment
 
-- Base main: `0bcdc81c07f8a1e760df8c515da50188fca8f082`.
+- Initial base main: `0bcdc81c07f8a1e760df8c515da50188fca8f082`; subsequently
+  integrated main through `1aeea7c0` in merge commit `85d49cda`.
 - Worktree: `/Users/mijat/.codex/worktrees/polymarket-v2-research-data/polymarket-bot`.
 - Runtime: `/Users/mijat/.nvm/versions/node/v20.19.6/bin` (host default is Node 26).
 - Permanent dataset: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.

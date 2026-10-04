@@ -90,11 +90,16 @@ export class ApiClient {
         this.endpointNext.get(key) ?? 0,
         this.cooldownUntil,
       )
-      this.nextRequest = due + 1000 / (this.options.requestsPerSecond ?? 32)
-      this.endpointNext.set(key, due + 1000 / endpointRate)
-      await this.wait(due - now)
-      // A concurrent response may have paused the client while this slot slept.
-      if (this.cooldownUntil <= due) return
+      if (due > now) {
+        // Do not reserve a future global slot while this endpoint is waiting:
+        // another family can use that capacity. Recheck all budgets on wake,
+        // including a Retry-After received while this request was asleep.
+        await this.wait(due - now)
+        continue
+      }
+      this.nextRequest = now + 1000 / (this.options.requestsPerSecond ?? 32)
+      this.endpointNext.set(key, now + 1000 / endpointRate)
+      return
     }
   }
 
