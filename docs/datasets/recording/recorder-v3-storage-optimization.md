@@ -1,6 +1,6 @@
 ---
 title: Recorder v3 storage optimization
-description: Lossless Parquet compaction, replay CPU optimization, typed format benchmarks, and WebSocket reliability measurements.
+description: Parquet compaction, replay CPU optimization, typed and selective-field storage benchmarks, and WebSocket reliability measurements.
 ---
 
 # Recorder v3 storage optimization
@@ -378,3 +378,63 @@ All four recorder variants produce identical strategy intents, ordered account e
 Final PnL is -7.73 USDC for the historical market and -7.63 for every recorder variant. Those values establish reproducibility of the tested outcomes, not profitability or economic equivalence between different markets. Every measured repetition must match its corresponding verification run's complete final statistics. Replays block network connections, environment-file reads, and live-execution imports.
 
 The Telonex size column covers only its 4,675,167-byte Polymarket file. This strategy also reads the 12,409,568-byte Binance day file for August 25; that file is shared across the day's markets and queried for the required interval, so assigning its full size to one market would be misleading. PTB is supplied from saved market metadata. The recorder Parquet files contain all captured feeds, including those this strategy does not request. They are not equal-content storage comparisons. File sizes exclude small recorder metadata sidecars.
+
+## Compact experiment: omit price-change hashes
+
+This follow-up measures a deliberately lossy field policy, separately from the lossless compaction above. It removes only `price_change.price_changes[].hash` from recognized typed messages. It does not remove events, round values, sample feeds, or split the self-contained market file. It is an offline experiment based on `f234a42b`, with the same application runtime as the preceding study; production source, dependencies, worker-2, and R2 objects remain unchanged.
+
+The source audit found that `OrderBookEngine.applyPriceChange` does not consume the per-change hash, whereas `applyBook` stores the book-snapshot hash in `lastBookHash`. Consequently, book hashes remain. So do `best_bid`, `best_ask`, exact price/quantity strings, exchange timestamps, receipt timestamps, monotonic times, sequence and identity fields, both Binance streams, Chainlink data, PTB/reference observations, and lifecycle/gap evidence. File-integrity SHA-256 checks are unrelated to the omitted exchange field and remain enabled.
+
+The prototype removes one physical list column from the previously verified flat layout. DuckDB writes GZIP and Zstandard level-9 versions with the same 8,192-row groups and disabled bloom filters, ordered by the captured sequence. Every other column remains. The reader substitutes an empty string for the omitted hash; it does not reconstruct the original hash. Strictly unrecognized message shapes keep their exact raw fallback, including any hashes they contain. Recognized typed rows retain the earlier limitation that original JSON whitespace, key order, and numeric spelling are not preserved.
+
+### Size results
+
+| Recording | Captured rows | Current JSON/GZIP | Full-field flat/Zstandard | Compact/GZIP | Compact/Zstandard | Reduction from current JSON |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Same 5m sample | 240,595 | 16.42 MB | 11.84 MB | 5.93 MB | 5.01 MB | 69.5% |
+| Same 15m sample | 409,674 | 28.04 MB | 20.64 MB | 9.63 MB | 8.18 MB | 70.8% |
+
+These are measured file sizes, not estimates obtained by subtracting column sizes. Exact compact GZIP/Zstandard bytes are 5,929,075 / 5,013,261 for 5m and 9,634,626 / 8,183,710 for 15m. The 5m conversion omits 348,658 hash values across 174,329 price-change messages; 15m omits 626,284 across 313,142 messages. Compared with the full-field flat/Zstandard control, dropping that one column saves 57.7% and 60.4%, respectively.
+
+The compact 15m file is 1.75 times the 4.68 MB Telonex market reference, rather than the current recorder's 6.00 times. The remaining difference still compares a self-contained captured-feed file with a historical market-only file plus separate feed data. It also compares different market activity. The two sample sizes must not be extrapolated as long-term averages.
+
+### Retained-data checks
+
+Every compact file is compared against its original archive row by row. The comparison requires identical envelopes and parsed fields, with one explicit exception: hashes inside recognized price-change payloads must become empty strings. Original omitted values must be 40-character lowercase hexadecimal strings, and all other fields must match. The check is performed for both codecs and both durations. All 703 / 2,108 fallback strings remain byte-identical; typed row counts remain 239,892 / 407,566. Projected opening-reference inspection reports also equal those obtained from the original files.
+
+The normalized retained-data SHA-256 is `4fc9e2dfe33ef1c7eb89e4194171577c6f394fa6130d5080aa76d535ad859bd0` for 5m and `74314cb2629b87c923a3297096005cea9fbf0bcdb58e7d0c55b03b2023273694` for 15m. These hashes intentionally exclude the removed values and are not evidence of full original-message equality. The original full-message stream cannot be recovered from this compact file.
+
+A separate all-feed observer replays current JSON and both compact codecs for each duration. It compares every complete strategy tick, including the full orderbook snapshot and tick-scoped feeds, after normalizing only the omitted message hashes and local input path. All six runs agree within their respective market. The 5m file produces 183,027 callbacks and the 15m file 321,831. Both Binance streams, Chainlink spot/TWAP, opening-reference state, and website/PTB snapshots have identical visibility counts and values. The normalized tick/book/feed hashes are `b2e2077ff7a9c42885b460b6b2c7bae5a3185d3340a34225ac29b62f4f5e89d4` and `135eeb0fc422df44040a4530e567cf1a05c4aeb3add1940b1b64dcd5e8fd381d`, respectively.
+
+The observer deliberately submits no orders, so the runner reports `no_activity` after completing replay; this is not admission rejection. The 5m sample passes ordinary admission. The known gap in the 15m sample still requires explicit outage replay, as in earlier sections. No admission policy changes or missing-data repairs are part of this experiment.
+
+The unchanged `SplitSellRedeem.v5` strategy is verified separately with its defaults and the same execution configuration as the preceding strategy benchmark. All five recorder variants (current JSON, direct JSON reader, full-field flat/Zstandard, compact/GZIP, compact/Zstandard) match across 315,796 callbacks, complete orderbooks, feed availability, contexts, capital, decisions, ordered account events, fills, fees, final positions, and final statistics. Each splits 10 shares and completes one taker sell. The strategy requests Binance spot and website PTB, not Chainlink; its decisions still do not read feed prices. The all-feed observer above supplies the separate feed-preservation check.
+
+The full orderbook-snapshot hash is `c532cad2ab9857625372db22f5f8d8c17204e2df3fcad69d2af7fb09c44cde21`. The context/decision/account trace remains `e62460962195ac0f2d7c0ce3b4e32f740a643b514926b25b89bf35135a7dce55`, and final statistics remain `25b923b3126f2a06caa50ad323248521a6e65173709e972b24d1f1ee6071ed82`, identical to the preceding full-field study. The message/source/timestamp hash after replacing per-change hashes is `f45306cd71368818b1bef0f9cfae57b50237cfa82846b3ba36137764cc61925b`; the original full-message hash is deliberately different. Verification explicitly requires that difference for compact files so the lossy policy cannot be mistaken for exact-message preservation.
+
+### Repeated real-strategy timing
+
+The same `SplitSellRedeem.v5` workload is measured again in one fresh batch: six cases, one discarded warm-up and three measured fresh Node 20 processes per case, alternating forward/reverse case order. All 24 runs reproduce their verification run's final statistics. Correctness instrumentation is disabled for timing; all correctness jobs finish before timing starts. No other benchmark, build, or test process runs alongside the timed cases. Normal desktop activity remains possible.
+
+| 15m input / reader | Parquet size | Median seconds (minimum–maximum) | Time versus Telonex | Peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Telonex reference | 4.68 MB | 5.26 (5.25–5.49) | Reference | 372 MiB |
+| Recorder, current JSON | 28.04 MB | 6.69 (6.65–6.74) | 27.2% longer | 371 MiB |
+| Recorder, same JSON with direct reader | 28.04 MB | 6.25 (6.17–6.45) | 18.9% longer | 354 MiB |
+| Recorder, full-field flat/Zstandard | 20.64 MB | 6.79 (6.72–6.85) | 29.2% longer | 444 MiB |
+| Recorder, compact/GZIP | 9.63 MB | 5.96 (5.95–5.99) | 13.4% longer | 437 MiB |
+| Recorder, compact/Zstandard | 8.18 MB | 6.12 (6.05–6.26) | 16.4% longer | 418 MiB |
+
+Relative to the current JSON recorder in this same batch, compact/GZIP reduces elapsed time by 10.8% and file size by 65.6%; compact/Zstandard reduces time by 8.5% and size by 70.8%. Omitting hashes reduces full-field flat/Zstandard replay time by 9.9%. GZIP is 0.16 seconds faster than Zstandard at the median, while Zstandard saves another 1.45 MB (15.1% of the compact GZIP file). These measurements favor Zstandard for storage and GZIP for elapsed replay time on this sample. Both remain slower than the different Telonex reference market.
+
+The storage gain is much greater than the speed gain because decoding remaining columns, constructing messages, orderbook processing, and strategy/execution work remain. Median process CPU time is 8.24 seconds for current JSON, 8.06 for compact/GZIP, and 8.30 for compact/Zstandard; the latter has no CPU-time saving despite its lower elapsed time. Peak RSS also remains higher for compact readers. A 70.8% storage reduction must not be presented as a similar throughput improvement or evidence of more concurrent workers fitting in RAM.
+
+Timing scope is unchanged: `runSingleMarket` includes input integrity/admission, required feed loading, replay, strategy and execution work, and final statistics. It excludes process imports, archive preparation/downloads, producer orchestration, and database/dashboard writes. Network, environment-file reads, and live-execution imports are blocked in every replay. The 38 guarded row-check/replay processes complete without attempts to use those capabilities. The historical market still has 324,880 strategy callbacks versus 315,796 recorder callbacks; the comparison is a workload reference, not equal-input proof. Telonex's size still excludes its separate Binance day file and PTB metadata. The new table uses fresh measurements for every case, rather than combining earlier reference times with later candidate times.
+
+### Adoption boundary
+
+This experiment establishes storage savings and observed replay equivalence for strategies that do not consume the omitted field. It does not establish equivalence for an arbitrary future strategy that reads `tick.msg.price_changes[].hash`, or support future provider-hash integrity analysis using the compact file. Empty placeholders must never be presented as the original values.
+
+A production migration needs an explicit versioned field-retention contract and the same strategy-facing normalization in live and backtest paths, including historical/legacy inputs. It must not silently introduce backtest-only field omission. It also needs compatibility readers, strict validation and fallback tests, crash/recovery and writer integration, resource measurements on the recorder host, and broader market samples. Filename-based format dispatch and generated decoders in the scratch experiment are not suitable production format detection.
+
+No compact writer or reader is installed by this study. Existing source and archived files keep their current contract. The experiment scripts, individual results, row checks, and file checksums are retained locally under `.tmp/recorder-compact-study/`; large regenerated data files are temporary. Compact Zstandard file SHA-256 values are `efea9d296dbc4ca4d9e069e375e485849783bc6f31da5668d546050311bc79c4` (5m) and `0bcbc114497d44af09a586f2e43d07b36f4f9189f4dd362fafa190a89093e86f` (15m).
