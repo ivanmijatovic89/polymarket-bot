@@ -29,10 +29,19 @@ incomplete. Wallet requests group up to 20 conditions.
 Source feed filters remain identical on every cursor page. If an empty market is
 omitted from the volume response, a separate single-event request must explicitly
 report zero aggregate volume; that evidence is saved. A missing volume row for a
-non-empty market stops publication. A small, corroborated opening-burst aggregate
+non-empty market stops publication. A corroborated opening-burst aggregate
 disagreement may be published with an explicit source warning only under the
 [documented exception rule](./api-limitations#june-16-taker-volume-disagreement).
 Its trades are retained and wallet-accounting checks remain mandatory.
+Stable repeated feeds with an uncorroborated aggregate disagreement are retained
+as `unresolved_source_volume_disagreement`; every observed market participant is
+excluded from strict cohort rankings. Changed repeated feeds still fail.
+
+To sync the full initial cohort (already published days are skipped):
+
+```bash
+npm run research:sync -- --market btc:15m --from 2026-06-01 --to 2026-10-01 --concurrency 16 --rps 60
+```
 
 Options include `--root`, `--concurrency` (default 12), `--rps` (default 32,
 maximum 60), `--keep-raw`, and `--min-free-gib` (default 5). Concurrency shares one

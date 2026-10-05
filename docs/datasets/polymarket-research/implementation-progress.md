@@ -8,6 +8,32 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Final dataset and research review
+
+All 122 days and 11,712 windows are published and verified. The complete dataset
+has 37,120,045 participant trades, 41,171,117 activities and 6,535,035 position
+rows, using 6.62 GiB of active Parquet. All source generations match the final
+verification reports. There are no missing windows or pending-resolution rows;
+100,037 wallet/market pairs retain explicit unresolved quality. Of 146 volume
+warning markets, 115 are corroborated and 31 remain unresolved.
+
+All monthly inventories and the fixed June-wallet follow-ups are reviewed.
+September's active candidate reconciles at 3,560.216249 USDC and changes from
+all-maker to mostly taker executions. The June leader retains one unresolved
+September market. No verified four-month total is invented for either candidate.
+Every monthly top-100 ranking was checked against underlying whole-wallet
+eligibility and exact cash plus settlement value; the top-20 SQL agrees.
+
+A repeated full-range sync skipped all 122 days with network access forbidden
+and left the index unchanged. All 41 feature tests and root TypeScript/ESLint
+pass after merging main through `72032083`. The full-range query and download
+measurements, source limitations and evidence paths are in
+[completion evidence](./completion-evidence). The downloader and independent
+validator exited normally after their work finished.
+
+The checkpoints below retain their historical scope, versions and pending work.
+Use the final completion report for current dataset status.
+
 ## Complete August audit and fixed-wallet follow-up
 
 All 31 August days and 2,976 windows are published and independently verified.
@@ -295,15 +321,16 @@ measurements. Use current coverage and generation-bound verification for analysi
       interruption, idempotency, incremental refresh and concurrent readers.
 - [x] Complete and verify a 96-window day; benchmark time, requests and disk.
 - [x] Sample July/August/September, report four-month duration and disk estimates.
-- [ ] Complete June–September ingestion; explain all gaps and discrepancies.
-- [ ] Demonstrate monthly leaderboards, cross-month comparison and wallet research.
+- [x] Complete June–September ingestion; explain all gaps and discrepancies. The exception guide distinguishes failed checks, supporting evidence and unknown upstream causes.
+- [x] Demonstrate monthly leaderboards, cross-month comparison and wallet research.
 - [x] Document schema, accounting, operation, recovery and agent workflows.
 - [x] Pass repository checks, open and attach a PR, inspect CI results.
 
 ## Current environment
 
 - Initial base main: `0bcdc81c07f8a1e760df8c515da50188fca8f082`; subsequently
-  integrated main through `1aeea7c0` in merge commit `85d49cda`.
+  integrated main through `1aeea7c0` in merge commit `85d49cda`, and through
+  `72032083` during final review.
 - Worktree: `/Users/mijat/.codex/worktrees/polymarket-v2-research-data/polymarket-bot`.
 - Runtime: `/Users/mijat/.nvm/versions/node/v20.19.6/bin` (host default is Node 26).
 - Permanent dataset: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
@@ -382,7 +409,7 @@ research protocol/index checks, WebUI typecheck/build, Dashboard typecheck/tests
 build, and docs build. Current feature suite: 22 tests. Commits `9858d27e` and `9a6f689e` are pushed.
 The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draft PR: https://github.com/ivanmijatovic89/polymarket-bot/pull/272 (attached to the task). All four CI jobs passed for commit `9a6f689e`.
 
-## Current download and next actions
+## Initial download checkpoint and next actions (historical)
 
 - June 1, July 1 and August 1 are published with accounting version 5 and pass
   file-integrity plus independent SQL verification. Their complete/unresolved
@@ -446,7 +473,7 @@ pages are under `logs/api-exception-probes/` in the permanent root.
 
 ## Automatic validation during this backfill
 
-A task-specific local watcher is running from
+A task-specific local watcher completed its run from
 `operations/validate-backfill.mts` under the permanent data root. It uses the
 existing verification and query functions, makes no Polymarket requests, and
 does not modify published snapshots or restart the downloader.

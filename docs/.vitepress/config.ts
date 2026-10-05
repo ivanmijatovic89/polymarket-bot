@@ -139,6 +139,7 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/polymarket-research/overview' },
+                { text: 'Completion Evidence', link: '/datasets/polymarket-research/completion-evidence' },
                 { text: 'Sync and Query', link: '/datasets/polymarket-research/commands' },
                 { text: 'Accounting', link: '/datasets/polymarket-research/accounting' },
                 { text: 'API Exceptions', link: '/datasets/polymarket-research/api-limitations' },

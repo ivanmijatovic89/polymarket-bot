@@ -14,6 +14,11 @@ each market's 15-minute window. This is 122 days and 11,712 scheduled windows.
 Market discovery records absent windows explicitly. Do not assume that every
 scheduled window has an available market.
 
+The [completed initial backfill](./completion-evidence) contains all 11,712
+windows, 37.12 million participant trade rows and 6.62 GiB of active Parquet.
+Full-range integrity checks pass. Some wallet histories remain unresolved and
+are excluded from strict rankings, as quantified in the completion report.
+
 A market cohort includes its entire observed lifecycle: trading before the
 15-minute window, subsequent settlement and later redemption. The Gamma
 `startDate` can describe creation of the listing; the slug-derived trading-window
@@ -52,11 +57,11 @@ The [research analyst](./agents/analyst) and [data auditor](./agents/auditor)
 instructions can be supplied to agents working in this project. They use local
 commands and SQL; a new agent runtime is not required.
 
-The [June through August studies](./monthly-wallet-study) demonstrate monthly
+The [June through September studies](./monthly-wallet-study) demonstrate monthly
 rankings, population exclusions and two detailed local wallet investigations.
 August's excluded wallets account for 90.4% of observed trade rows, and both
-selected wallets have unresolved August profit. September comparison remains
-in progress.
+selected wallets have unresolved August profit. September retains one unresolved
+candidate and one reconciled candidate with a changed execution pattern.
 
 ## Reliability boundary
 
@@ -78,4 +83,5 @@ incomplete API requests stop publication. The saved discrepancy is never silentl
 rounded away or relabeled as reconciled.
 
 The progress log and benchmarks are [recorded here](./implementation-progress).
-The implementation is not accepted until the full checklist and backfill pass.
+The [completion evidence](./completion-evidence) records full-range checks and
+the research claims supported by this snapshot.

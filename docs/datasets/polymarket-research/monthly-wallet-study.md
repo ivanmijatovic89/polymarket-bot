@@ -1,6 +1,6 @@
 ---
 title: Monthly Wallet Research
-description: June through August wallet rankings, source limitations and reproducible local strategy investigations.
+description: June through September wallet rankings, source limitations and reproducible local strategy investigations.
 ---
 
 # Monthly wallet research
@@ -8,10 +8,10 @@ description: June through August wallet rankings, source limitations and reprodu
 The June 2026 BTC 15-minute cohort is complete: all 30 UTC market-start days and
 2,880 scheduled windows are published and independently verified. The results
 below were calculated locally from Parquet on October 4, 2026, using each selected
-market's full observed lifecycle. July and August are also fully published and
+market's full observed lifecycle. July, August and September are also fully published and
 independently verified; their follow-up results are below. Verification includes
 explicit unresolved histories, so it does not imply every wallet can be ranked.
-September ingestion and comparison remain in progress.
+The four-month comparisons are complete, including explicitly unresolved results.
 
 ## Population and ranking limits
 
@@ -128,17 +128,18 @@ with taker purchases. Their early, recurring entry timing and broad market
 participation are consistent with a systematic process. The exact decision rule
 is not observable from fills alone.
 
-The next tests keep these wallets fixed through July, August and September:
+The follow-up studies keep these wallets fixed through July, August and September:
 
 1. Compare complete-month profitability, losing periods, activity and role mix,
    retaining inactive months and unresolved accounting explicitly.
 2. Measure whether the timing and inventory imbalance persist, and whether
    outcome selection contributes more than paired inventory to the result.
-3. Use the appropriate existing price/orderbook datasets to test candidate quote,
+3. For subsequent strategy reconstruction, use existing price/orderbook datasets to test candidate quote,
    inventory and signal rules. This trade dataset does not reveal canceled orders,
    contemporaneous book state or the wallet's private signals.
 
-The available evidence supports those hypotheses and tests. The July follow-up supports persistence of the observed behavior, but does not
+The July follow-up supports persistence of the observed behavior. September shows
+a different execution pattern for the active candidate. The study does not
 reproduce either strategy or establish future performance.
 
 ## July follow-up with the June selection fixed
@@ -189,7 +190,7 @@ inventory, predominantly maker fills for the leader and exclusively maker fills
 for the active candidate. This supports a behavior hypothesis, not an exact
 quote rule. Lifetime average pair costs still combine trades at different times.
 The August follow-up below retains these wallets despite unresolved accounting.
-September remains pending and must stay in the fixed-wallet study.
+The September follow-up also preserves the original selection.
 
 Evidence is in `logs/monthly-wallet-study/follow-up-2026-07/`, including fixed
 selection checks, snapshot generations, SQL, daily losses, market profiles and
@@ -248,8 +249,81 @@ Evidence is in `logs/monthly-wallet-study/follow-up-2026-08/`, including SQL,
 snapshot generations, eligibility records and `research-review.json`. The audit
 is under `logs/monthly-accounting-audit/2026-08/`. Monthly ranking SQL took
 4.48 seconds and the two wallet profiles 2.47 / 2.18 seconds, excluding setup and
-file writes with OS caches retained. September follow-up and full-range
-benchmarks remain pending.
+file writes with OS caches retained. September results follow below; full-range
+measurements are in [benchmark evidence](./benchmark-evidence).
+
+## September follow-up and four-month comparison
+
+All 30 September days and 2,880 windows are published and independently verified.
+The cohort has 7,188,978 participant trade rows and 15,247 observed wallets.
+Strict rankings include 14,271 wallets. The 976 excluded wallets account for
+3,254,786 rows (45.3%); 7,556 wallet/market pairs remain unresolved. There are
+no September source-volume warnings.
+
+The original profit leader has one unresolved September market among 2,228.
+On `btc-updown-15m-1789845300`, its saved 33 BUY activities and remaining holdings
+give a diagnostic economic result of -109.400064 USDC, while native positions
+report -48.390900: a difference of -61.009164 USDC. The served losing position
+includes positive realized PnL despite this purchase-only activity history.
+That discrepancy remains unexplained. The wallet has no strict September profit
+or rank; dropping that one market would produce a partial result.
+
+The active candidate reconciles for September, with **3,560.216249 USDC**
+economic and cash profit, eligible rank 52. Its exact cash identity is:
+
+```text
+54,390.392292 - 50,830.176043 = 3,560.216249 USDC
+```
+
+There are no observed sales, splits, merges, rewards or remaining settlement
+value. Native PnL is separately retained at 3,560.286900 USDC. Of 729 traded
+markets, 449 were profitable and 280 losing. It had 18 profitable days among
+29 days with observed trading; its best day was September 9 (+855.223735 USDC)
+and worst September 6 (-992.607088). September 1 has no observed trading for it.
+
+Its execution pattern changed substantially:
+
+| Observed active-candidate measure | July | September |
+| --- | ---: | ---: |
+| Traded markets / trade rows | 2,956 / 94,920 | 729 / 1,127 |
+| Maker / taker rows | 94,920 / 0 | 107 / 1,020 |
+| Median fill size, shares | 5 | 46 |
+| Median fills per market | 31 | 1 |
+| Median first / last fill offset | 28 / 628 seconds | 537 / 638 seconds |
+| Markets buying both outcomes | 2,884 | 104 |
+
+The September history is mostly taker executions, typically starts later, and
+buys both outcomes in only 14.3% of traded markets. There are 35 pre-window fills,
+the earliest 60 seconds before the nominal window. This contradicts an unchanged
+all-maker accumulation pattern across all months. It supports investigating a
+change toward more selective directional buying, but does not reveal the trigger,
+signal, capital allocation or exact strategy. Later entry is an observation,
+not proof that the wallet predicts settlement from any particular signal.
+
+Among markets with both outcomes, the median smaller/larger purchase quantity is
+0.3012 and combined lifetime average pair cost is 1.0846 USDC. Only 29 of those
+104 markets have average pair cost below 1; quantities remain unequal and these
+averages are not simultaneous executable prices.
+
+The original June selection yields this comparison:
+
+| Month | June profit leader: strict economic PnL | June active candidate: strict economic PnL |
+| --- | ---: | ---: |
+| June | 54,166.546621 USDC | 8,387.540539 USDC |
+| July | 18,148.088389 USDC | 1,854.056583 USDC |
+| August | Unavailable: 117 unresolved markets | Unavailable: 57 unresolved markets |
+| September | Unavailable: 1 unresolved market | 3,560.216249 USDC |
+
+Neither wallet receives a verified four-month profit total. The fixed June top
+20 contains five reconciled September histories, four unresolved histories and
+eleven wallets with no observed trading. One reconciled candidate, June rank 7,
+lost 26,302.943172 USDC across 1,595 September markets. That loss remains in the
+comparison; later winners do not replace original candidates.
+
+Evidence is in `logs/monthly-wallet-study/follow-up-2026-09/` and
+`logs/monthly-accounting-audit/2026-09/`. The final full-range report saves all
+80 fixed-candidate month outcomes. Source rows for the leader's September gap
+are retained under `logs/final-acceptance-20261005/`.
 
 ## Reproduce and verify
 
@@ -276,7 +350,8 @@ These timings exclude database setup and result-file writes. OS caches were not
 flushed, and the downloader was active; they are not cold-start or full-range
 benchmarks.
 
-The completed June, July and August studies are milestones, with August's
-unresolved results retained explicitly. Full June–September ingestion, September
-rankings and fixed-wallet comparisons, and full-range benchmarks remain required
-for feature acceptance.
+All four monthly studies, fixed-wallet comparisons and full-range benchmarks
+are complete. [Completion evidence](./completion-evidence) records the generation
+checks, source limitations and reproducibility details. Further strategy
+reconstruction can use these observations as hypotheses while supplying the
+missing orderbook and signal evidence.

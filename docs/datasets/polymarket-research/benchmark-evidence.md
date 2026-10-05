@@ -5,7 +5,7 @@ description: Measured ingestion, storage, query latency and coverage for the API
 
 # Benchmark evidence
 
-These measurements were taken on 2026-10-04 with Node 20.19.6 on the local Mac.
+These measurements were taken on October 4–5, 2026 with Node 20.19.6 on the local Mac.
 They describe the stated sample and downloader configuration, not a guarantee for
 all historical markets. No blockchain source was downloaded or used for verification.
 
@@ -13,6 +13,56 @@ Downloader version 5 includes sampled DuckDB spill files in its observed peak
 working-disk usage. Earlier measurements below count API staging and conversion
 files but did not explicitly sample DuckDB's shared spill directory. These are
 observed samples, not continuously measured or guaranteed peak disk requirements.
+
+## Completed four-month dataset
+
+The final benchmark covers all 122 days, 11,712 markets and 37,120,045 participant
+trade rows. Active Parquet files total **7,113,305,039 bytes (6.62 GiB)**. Retained
+generations, logs and investigation artifacts are additional; the permanent root
+occupied approximately 7.85 GiB at review. The largest sampled working footprint
+was 1,168,752,570 bytes (1.09 GiB), and the 5 GiB free-space reserve remained in
+force. One disk-reserve stop resumed from its retained cache after space became
+available; no unrelated files were deleted.
+
+| Full-range local query | First execution | Two repeats |
+| --- | ---: | ---: |
+| Trade count and distinct wallets | 569.32 ms | 335.85 / 333.22 ms |
+| Top 100 complete four-month wallet cohorts | 156.66 ms | 130.68 / 124.00 ms |
+| 1,000-row activity timeline | 69.75 ms | 56.40 / 58.74 ms |
+
+Dataset opening took 60.52 ms. These measurements used a fresh DuckDB connection
+with the operating-system cache retained after verification. A separate study
+using one query thread measured the richer four-month, separate-month top-20
+query at 4.36 seconds and fixed-candidate comparison at 4.32 seconds. The two
+September wallet profiles took 2.39 / 2.11 seconds. These queries do different
+work and exclude setup and result-file writes.
+
+Fresh-day download observations across the implementation's versions were:
+
+| Market month | Fresh days measured | Mean seconds/day | Observed min–max seconds/day | Mean requests/day |
+| --- | ---: | ---: | ---: | ---: |
+| June | 23 | 552.22 | 389.38–1,877.26 | 13,086 |
+| July | 30 | 379.15 | 315.01–495.85 | 11,048 |
+| August | 28 | 311.93 | 255.26–427.07 | 8,866 |
+| September | 30 | 267.32 | 240.33–319.35 | 7,743 |
+
+The June group includes the slower initial baseline. All September days used
+downloader version 10, 16 workers and a 60-rps shared ceiling with endpoint caps;
+their average was **4.46 minutes for 96 markets**. Activity and request counts
+also differ by month, so differences cannot be attributed to code alone.
+
+Stored successful-attempt reports sum to 44,864.134 seconds (12.46 hours),
+1,208,034 requests and 349 retries. Eleven reports resumed checkpoints and do not
+include earlier interrupted work. The sum excludes failed attempts, development,
+investigations and idle waits; it is not the total wall-clock cost of the task.
+The initial 14–23-hour, 6–11-GiB estimate was a planning range before full ingestion.
+The final projection over 111 fresh days remains a linear extrapolation across
+different workloads and versions, not a confidence interval.
+
+Evidence is under `logs/backfill-validation/full-range-benchmark.json` and
+`logs/final-acceptance-20261005/`. All four months now have complete calendar
+coverage, but [accounting exclusions](./completion-evidence#dataset-and-quality)
+still constrain research.
 
 ## Fresh June 21 day with downloader version 7
 
@@ -93,7 +143,7 @@ and August 1, while these queries explicitly filtered the 17 June days. This is
 an intermediate scaling measurement, not a full-month or four-month benchmark.
 It does not establish monthly ranking completeness. Generation reports and query
 timings are saved under `logs/volume-policy-20261004/june01-17-local-benchmark.json`
-in the permanent root. Full-range measurements remain required.
+in the permanent root. The completed full-range measurements are reported above.
 
 ## Validation and exclusions
 

@@ -11,7 +11,9 @@ from June 1 through June 7, 2026, UTC. It uses complete coverage of those seven
 days and each selected market's observed lifecycle, including redemption after
 the period. The [complete June study](./monthly-wallet-study) now provides a
 separate monthly ranking and two investigations selected from that ranking.
-The full June–September backfill and later-month research remain pending.
+The [four-month follow-up](./monthly-wallet-study) and
+[full-range verification](./completion-evidence) are now complete, with
+unresolved wallet histories reported explicitly.
 
 The wallet was selected because an accounting correction made its active weekly
 cohort eligible for research. Selection did not use a profitable monthly ranking.

@@ -499,3 +499,38 @@ every unresolved pair. Evidence and review are under
 The [fixed June-wallet follow-up](./monthly-wallet-study#august-follow-up-observed-behavior-unresolved-profit)
 retains unresolved August results without changing the selection or relaxing
 accounting rules.
+
+## Complete September accounting inventory
+
+All 30 days and 2,880 windows pass integrity checks. There are 7,556 unresolved
+pairs among 1,033,464 wallet/market pairs. Whole-wallet exclusion removes 976 of
+15,247 wallets and 3,254,786 of 7,188,978 participant rows (45.3%). No September
+market has a source-volume warning.
+
+| Issue | September affected pairs | September affected wallets |
+| --- | ---: | ---: |
+| `api_pnl_unreconciled` | 7,153 | 959 |
+| `missing_position_snapshot` | 417 | 27 |
+| `missing_position_economics` | 238 | 13 |
+| `position_balance_mismatch` | 169 | 22 |
+| `unexplained_token_outflow` | 98 | 12 |
+
+These counts overlap; eight disjoint combinations cover all unresolved pairs.
+The monthly audit checks excluded-wallet counts and all their trade rows against
+the population query. Evidence is under `logs/monthly-accounting-audit/2026-09/`.
+
+The fixed June profit leader illustrates why one unresolved market still affects
+the entire selected wallet cohort. On `btc-updown-15m-1789845300`, saved activity
+contains 33 BUY rows, no sales, splits, merges or redemptions. Its remaining
+75 winning shares give diagnostic economic PnL -109.400064 USDC, compared with
+native PnL -48.390900. The native losing position reports +47.530400 realized PnL
+and a cost basis different from observed purchase cash; no served activity
+explains those values. The difference of -61.009164 USDC is not waived as
+rounding. The exact source cause remains unknown, and strict September profit
+is unavailable for that wallet.
+
+The scoped market, activity and position queries and original payloads are saved
+under `logs/final-acceptance-20261005/september-leader-gap-*`. The four-month
+inventory now covers eight issue classes across 100,037 unresolved pairs. It
+explains the checks that fail and preserves diagnostic examples; it does not
+assert an upstream explanation for every individual source inconsistency.
