@@ -56,6 +56,8 @@ export function createSocketTransport(options: TransportOptions): SocketTranspor
   let openedNs = 0n
   let lastPingNs = 0n
   let retryAfterMs = 0
+  let receivedFrames = 0
+  let receivedBytes = 0
 
   const status = (kind: FeedStatus['kind'], reason?: string, details?: Record<string, unknown>) => {
     options.onStatus({
@@ -81,6 +83,8 @@ export function createSocketTransport(options: TransportOptions): SocketTranspor
     const currentId = id
     retryAfterMs = 0
     openedNs = 0n
+    receivedFrames = 0
+    receivedBytes = 0
     const current = options.socketFactory
       ? options.socketFactory(options.url)
       : new WebSocket(options.url, {
@@ -124,6 +128,10 @@ export function createSocketTransport(options: TransportOptions): SocketTranspor
       if (!isCurrent()) return
       lastActivityNs = BigInt(received.monotonicNs)
       lastActivityMs = received.receivedAtMs
+      receivedFrames++
+      receivedBytes += Array.isArray(data)
+        ? data.reduce((bytes, part) => bytes + part.byteLength, 0)
+        : data.byteLength
       // All current feeds use text. Unexpected binary data is preserved losslessly.
       const raw = binary
         ? JSON.stringify({
@@ -173,7 +181,7 @@ export function createSocketTransport(options: TransportOptions): SocketTranspor
       request.destroy()
       current.terminate()
     })
-    current.on('close', (code) => {
+    current.on('close', (code, reason: Buffer) => {
       if (socket !== current) return
       if (tick) clearInterval(tick)
       tick = undefined
@@ -183,6 +191,11 @@ export function createSocketTransport(options: TransportOptions): SocketTranspor
       // Even a normal remote close interrupts observation; do not suppress boundary gaps.
       status('disconnected', 'websocket_closed', {
         code,
+        // Public market diagnostics only: authenticated providers may echo
+        // sensitive request details in their close reasons.
+        ...(options.source === 'polymarket'
+          ? { closeReason: reason.toString('utf8'), receivedFrames, receivedBytes }
+          : {}),
         ...(openedNs > 0n ? { startMs: lastActivityMs } : {}),
         certainty: 'uncertain',
       })

@@ -150,6 +150,41 @@ const credentials = {
   secret: 'TEST_ONLY_SECRET',
   passphrase: 'TEST_ONLY_PASSPHRASE',
 }
+
+test('Polymarket captures peer close evidence and resets counters on reconnect', async (t) => {
+  let connections = 0
+  const ws = await server((socket) => {
+    const attempt = ++connections
+    socket.on('message', (data) => {
+      if (!data.toString().includes('assets_ids')) return
+      socket.send('PONG')
+      if (attempt === 1) socket.close(1013, 'slow consumer: send buffer full')
+      else if (attempt === 2) socket.close(1013, 'second connection')
+    })
+  })
+  const output = collect()
+  const feed = createPolymarketFeed({
+    ...output,
+    url: ws.url,
+    markets: [market()],
+    reconnectBaseMs: 1,
+    random: () => 0,
+  })
+  t.after(async () => {
+    feed.stop()
+    await ws.close()
+  })
+  feed.start()
+  await until(() => output.statuses.filter((s) => s.kind === 'disconnected').length === 2)
+  const closes = output.statuses.filter((s) => s.kind === 'disconnected')
+  assert.equal(closes[0]?.details?.code, 1013)
+  assert.equal(closes[0]?.details?.closeReason, 'slow consumer: send buffer full')
+  for (const close of closes) {
+    assert.equal(close.details?.receivedFrames, 1)
+    assert.equal(close.details?.receivedBytes, 4)
+  }
+  assert.notEqual(closes[0]?.connectionId, closes[1]?.connectionId)
+})
 function price(channel: string, seq: number, extra: Record<string, unknown> = {}) {
   return JSON.stringify({
     v: 1,
@@ -251,7 +286,7 @@ test('PolyBolt reconnect resets channel sequence and retains an explicit disconn
 })
 
 test('PolyBolt policy/authentication failure halts instead of an endless credential retry loop', async (t) => {
-  const ws = await server((socket) => socket.close(4001))
+  const ws = await server((socket) => socket.close(4001, credentials.secret))
   const output = collect()
   const feed = createPolyBoltFeed({ ...output, url: ws.url, credentials, reconnectBaseMs: 1 })
   t.after(async () => {
@@ -262,6 +297,7 @@ test('PolyBolt policy/authentication failure halts instead of an endless credent
   await until(() => output.statuses.some((status) => status.details?.permanent === true))
   await delay(30)
   assert.equal(ws.sockets.length, 1)
+  assert.ok(!JSON.stringify(output.statuses).includes(credentials.secret))
 })
 
 test('Binance records aggregate trades and timestamp-free book tickers, detecting aggregate gaps only', async (t) => {

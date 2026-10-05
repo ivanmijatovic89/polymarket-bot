@@ -5,7 +5,7 @@ import type { CapturedEvent, RecorderSource } from '../types.js'
 const text = { type: 'UTF8' as const, compression: 'GZIP' as const }
 const integer = { type: 'INT64' as const, compression: 'GZIP' as const }
 export const capturedEventSchema = new parquet.ParquetSchema({
-  schema_version: { type: 'INT32' },
+  schema_version: { type: 'INT32', compression: 'GZIP' },
   capture_id: text,
   session_id: text,
   sequence: integer,
@@ -16,8 +16,10 @@ export const capturedEventSchema = new parquet.ParquetSchema({
   connection_id: text,
   event_type: text,
   source_time_ms: { ...integer, optional: true },
-  raw_json: text,
-  details_json: { ...text, optional: true },
+  // Replay scans these verbatim strings; min/max copies in page headers,
+  // column indexes and the footer only duplicate potentially large payloads.
+  raw_json: { ...text, statistics: false },
+  details_json: { ...text, optional: true, statistics: false },
 })
 
 export function eventToRow(event: CapturedEvent): Record<string, unknown> {
