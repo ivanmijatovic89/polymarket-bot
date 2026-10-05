@@ -35,6 +35,7 @@ import { readManifest } from '../recorder-v3/storage/manifest.js'
 import { readCapturedEvents } from '../recorder-v3/storage/parquet.js'
 import { digestFile } from '../recorder-v3/storage/files.js'
 import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v3/replay/dispatcher.js'
+import { cloneExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 import { inspectOpeningReference } from '../recorder-v3/replay/openingReference.js'
 import { validateCapturedFeedRequest } from '../recorder-v3/replay/feedState.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
@@ -443,7 +444,8 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       filePath,
       config,
       events: readCapturedEvents(filePath),
-      onDispatcher: (dispatcher) => reqPlugin?.fulfill(dispatcher.snapshotForTick),
+      onDispatcher: (dispatcher) =>
+        reqPlugin?.fulfill(dispatcher.snapshotForTick, cloneExternalFeedsSnapshot),
       onTick: dispatchTick,
       ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
     })

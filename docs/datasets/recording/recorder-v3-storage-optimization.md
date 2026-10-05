@@ -1,6 +1,6 @@
 ---
 title: Recorder v3 storage optimization
-description: Lossless Parquet compaction, direct typed replay benchmarks, and WebSocket reliability measurements.
+description: Lossless Parquet compaction, replay CPU optimization, typed format benchmarks, and WebSocket reliability measurements.
 ---
 
 # Recorder v3 storage optimization
@@ -179,7 +179,7 @@ The typed/binary candidate takes 8.4% longer than the optimized JSON baseline in
 
 This is evidence about the tested nested layout and JavaScript adapter, not a claim that every typed Parquet design is slower. A different column layout, conversion API, projection strategy, or decoder could perform differently and needs its own measurements. The experiment has not established a production implementation that combines the measured storage saving with a replay speed improvement.
 
-Follow-up controls retained both the optimized JSON file and the existing reader, changing only the engine's handoff of messages that had already been decoded and validated. Common-feed replay took 9.18 seconds (9.10–9.21), approximately 23% less time than the 11.90-second baseline. All-feed replay took 15.38 seconds (15.30–15.43), approximately 15% less than 18.05 seconds. These controls were a separate subsequent batch with the same warm-up/repetition procedure. They remain experiments, not shipped replay changes. They identify useful work that does not require rewriting archives.
+Follow-up controls retained both the optimized JSON file and the existing reader, changing only the engine's handoff of messages that had already been decoded and validated. Common-feed replay took 9.18 seconds (9.10–9.21), approximately 23% less time than the 11.90-second baseline. All-feed replay took 15.38 seconds (15.30–15.43), approximately 15% less than 18.05 seconds. These controls were a separate subsequent batch with the same warm-up/repetition procedure. They were scratch experiments during the format study; the replay CPU optimization below implements the validated handoff without rewriting archives.
 
 The original pre-compaction 15m archive was also replayed with all feeds: 18.47 seconds (18.38–18.57). Thus the compatible writer optimization has a substantial storage benefit, but its wall-time improvement in this particular workload is only about 2%. Comparing the typed candidate to that older physical file still shows a runtime regression.
 
@@ -204,4 +204,66 @@ This is a workload comparison, not a controlled format-only comparison: the mark
 
 Keep the compatible optimized JSON Parquet format for now. The tested typed design reduces archive bytes by about 26–27%, but increases all-feed replay time by about 30–32% and peak benchmark memory by roughly 40%. It does not deliver the hoped-for speed improvement or a 10–20-fold storage reduction.
 
-Prioritize profiling and removing redundant decoding in the shared engine path, and investigate the cost of the opening-reference preflight while retaining its checks. Any production change must preserve the same live/replay ordering, immutable tick-scoped feed visibility, gap rejection, and exact decimal values. Revisit typed storage when a concrete reader/layout demonstrates an acceptable combined storage, speed, memory, and migration tradeoff. This study changes documentation only; worker-2, R2 objects, the recorder schema, and production replay remain unchanged.
+Optimize the replay CPU path before considering a format migration. The follow-up below removes redundant decoding and simplifies defensive snapshot copying; the opening-reference preflight remains intact. Any production change must preserve the same live/replay ordering, immutable tick-scoped feed visibility, gap rejection, and exact decimal values. Revisit typed storage when a concrete reader/layout demonstrates an acceptable combined storage, speed, memory, and migration tradeoff. The format study changed documentation only. The compatible replay change below is a separate follow-up; it does not deploy worker-2 or rewrite R2 objects.
+
+
+## Replay CPU optimization
+
+The roughly 11.9-second recorder result versus 5.4 seconds for the August historical market implied about 2.2 times the elapsed time, or 54% less throughput, for the lightweight observer used here. It was a real replay overhead, not evidence that accurate receipt ordering necessarily requires that cost. It was also not a timing prediction for every strategy: strategies with substantial computation or execution simulation have additional costs in both modes.
+
+### Where the time went
+
+Node 20 CPU profiles found substantial work in repeated JSON conversion, frame inspection, and feed snapshot capture. Sampled Parquet/compression work was similar between the common-feed recorder and historical cases. The profile includes imports and native work may be attributed to the calling JavaScript function; sampled categories are diagnostic evidence, not an exact additive wall-time breakdown.
+
+A separate instrumented replay counted 1,045,692 `JSON.parse` calls, 634,289 `JSON.stringify` calls, and 645,514 `structuredClone` calls for the 321,831-callback 15m common-feed case. After the runtime change the counts fall to 411,447 parses, 44 serializations, and 1,852 general-purpose clones. The two per-tick defensive copies still occur through the specialized copier. Wrapping these functions perturbs performance, so these counts must not be treated as timings from the uninstrumented benchmark.
+
+The recorder previously parsed a market frame for validation, serialized the validated messages for `MarketEngine`, parsed that frame again, and serialized/parsed each child once more. Historical typed replay already constructs messages directly. The dispatcher and external-feed plugin also each detached a snapshot for every strategy callback using the general-purpose structured-clone serializer.
+
+The compatible optimization:
+
+- Adds `MarketEngine.handleDecoded` for frames the caller has already validated. Raw and decoded frames use the same queue, book application loop, bootstrap suppression, and callback ordering. The raw decoder also filters parsed children directly instead of serializing and parsing them again.
+- Copies the recorder's known plain feed objects directly, including every nested opening-reference and RTDS price object. Both defensive copies remain: dispatcher snapshots and plugin snapshots retain independent ownership. No mutable snapshot is shared between strategy ticks.
+- Lets a runtime supply that copier to `ExternalFeedsRequestPlugin.fulfill`. Other providers retain the existing general-purpose `structuredClone` default, including support for non-DTO snapshots. Strategy artifacts use the running checkout's shared plugin implementation.
+
+Frame validation, strict receive sequence checks, file SHA-256 checks, market/token filtering, gap admission, and the full opening-reference preflight remain enabled. There is no schema change, event removal, precision reduction, new CLI flag, or archive conversion.
+
+### Repeated measurements
+
+The baseline is `53f58d1e806086c9d1cc3a1504222e3aa4caac70`, whose `src/` tree matches the earlier format-study revision. The candidate uses the runtime changes described above. Both read the same optimized GZIP files with the existing Parquet reader, with no experimental typed reader. This is a new benchmark batch: compare before and after within this table, rather than mixing timings from earlier batches.
+
+The host, Node version, observer, feed configurations, and timed interval match the direct replay experiment above. Each of seven cases has one discarded warm-up and three measured fresh processes, run sequentially with alternating order: 28 backtests, of which 21 contribute to the medians. Correctness hashing and profiling are separate runs. No tests, builds, or other benchmark subprocesses run concurrently with the timed cases. Normal desktop activity is not disabled; the 5m cases show more wall-time variation.
+
+Times are median seconds (minimum–maximum); memory is median lifetime peak process RSS.
+
+| Workload | Before | After | Elapsed-time reduction | Peak RSS before → after |
+| --- | ---: | ---: | ---: | ---: |
+| 15m, common feeds | 11.43 (11.41–11.49) | 6.73 (6.70–6.83) | 41.2% | 342 → 360 MiB |
+| 15m, all recorder feeds | 17.39 (17.36–17.94) | 9.67 (9.53–9.90) | 44.4% | 355 → 386 MiB |
+| 5m, all recorder feeds | 10.36 (10.25–12.08) | 5.69 (5.65–6.41) | 45.0% | 348 → 356 MiB |
+
+The August 25 historical common-feed control in this batch takes 5.50 seconds (5.50–5.58), with 338,887 callbacks versus the recorder's 321,831. The optimized recorder's 6.73 seconds is approximately 22% longer, or 18% less throughput, in this comparison. It is still not a format-only comparison: the actual markets, book activity, and visibility models differ. On a per-callback basis the figures are approximately 2.09 seconds versus 1.62 seconds per 100,000 callbacks.
+
+A separate historical regression control alternates the old and updated runtimes on the same August file (one warm-up and three measured runs each). Median time is 5.56 → 5.57 seconds, a 0.3% increase, with ranges 5.50–5.72 and 5.57–5.96. This shows no material median regression in that workload, while the ranges retain the desktop-run variability. These eight runs are separate from the 28-run recorder comparison.
+
+Median process CPU time also falls: 13.19 → 8.39 seconds for 15m common, 20.99 → 12.58 for 15m all, and 12.56 → 7.55 for 5m all. CPU time can exceed elapsed time because decompression uses background threads. The measured speed gain is therefore not merely a change in waiting time. Peak memory is slightly higher, including a roughly 31 MiB increase for the 15m all-feed case; this is a speed optimization, not a memory optimization.
+
+All-feed replay still pays for the opening-reference preflight and larger feed snapshots. That preflight is absent from the common-feed 11.43 → 6.73 comparison, so it cannot explain that case's original slowdown. Further preflight or reader optimization remains possible, but must retain admission evidence and must never expose a final opening price to earlier ticks.
+
+The archive sizes remain 16.423 MB for this 5m sample and 28.038 MB for this 15m sample. This runtime change does not deliver additional storage savings, and the historical market-only file size remains an invalid comparison to a self-contained package containing all feeds.
+
+
+### Correctness and operational scope
+
+Separate baseline/candidate runs hash every strategy tick, complete book snapshot, receipt sequence/time, and tick-scoped feed snapshot. Only the input path and object-key ordering are normalized. The counts and hashes match in all three configurations:
+
+| Workload | Callbacks | Matching SHA-256 |
+| --- | ---: | --- |
+| 15m-common | 321,831 | `7227bede41e360d68ad4c43aaa836d50c6a360deb48e5d9501fc9f06f2b04650` |
+| 15m-all | 321,831 | `d6d21f0d044e9b319ea30afc66bf186f9deffc6e179b5457b14adc5f27d4fe99` |
+| 5m-all | 183,027 | `fc015c3d28f22c70b18ba07c100fea87c76402776fa6dcb0f091602386600027` |
+
+The 15m sample still requires explicit outage replay; ordinary admission is used for 5m. The observer places no orders, so these hashes establish input-stream equivalence rather than fill-model performance. Replay runs block network connections, `.env` reads, and live-execution imports.
+
+Local validation passes 193 recorder tests, 260 trading tests, four plugin tests, and 34 strategy-artifact tests, plus TypeScript and ESLint. New tests cover mixed raw/decoded frame queues, synchronous frame contiguity, bootstrap suppression, preserved message fields and child indices, and mutation isolation for every nested feed object. The complete feed fixture requires every optional schema field, so future snapshot additions must update its isolation coverage. The default plugin copier is also checked with `Map` and `Date` values.
+
+This change is used by the backtest runtime when that checkout is updated. It leaves the running worker-2 recorder service, recorder installation, R2 objects, archive layout, and trading credentials untouched. No worker service is restarted as part of this investigation.

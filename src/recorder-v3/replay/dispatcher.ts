@@ -4,7 +4,10 @@ import { includesMarket } from '../marketScope.js'
 import { buildSyntheticFeedTick } from '../../market/syntheticTick.js'
 import type { MarketTick } from '../../strategy/Strategy.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
+import {
+  cloneExternalFeedsSnapshot,
+  type ExternalFeedsSnapshot,
+} from '../../trading/feeds/externalFeeds.js'
 import type { BootstrapPayload, CapturedEvent, MarketCoverage, RecordedMarket } from '../types.js'
 import { OpeningReferenceTracker } from './openingReference.js'
 import {
@@ -86,7 +89,9 @@ export class CapturedMarketDispatcher {
   private async dispatchTick(tick: MarketTick): Promise<void> {
     this.tickFeeds.set(
       tick,
-      structuredClone(selectCapturedFeeds(this.state, this.args.config, this.args.market)),
+      cloneExternalFeedsSnapshot(
+        selectCapturedFeeds(this.state, this.args.config, this.args.market),
+      ),
     )
     await this.args.onTick(tick)
   }
@@ -218,8 +223,7 @@ export class CapturedMarketDispatcher {
       this.engine.reset()
       return
     }
-    if (messages.length > 0)
-      await this.engine.handleRaw({ rawJson: JSON.stringify(messages), source, bootstrap })
+    if (messages.length > 0) await this.engine.handleDecoded({ messages, source, bootstrap })
   }
 }
 
