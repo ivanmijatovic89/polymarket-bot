@@ -177,7 +177,7 @@ The following cases replay the same 15m file's 321,831 callbacks with the common
 
 The typed/binary candidate takes 8.4% longer than the optimized JSON baseline in common-feed mode. Comparing the same DuckDB reader, Zstandard codec, and decoded handoff, typed columns take approximately 34% longer than JSON in this prototype. The faster JSON control demonstrates that decoder changes and file-format changes must be evaluated separately. Merely replacing the reader or compression codec did not improve replay speed in these runs.
 
-This is evidence about the tested nested layout and JavaScript adapter, not a claim that every typed Parquet design is slower. A different column layout, conversion API, projection strategy, or decoder could perform differently and needs its own measurements. The experiment has not established a production implementation that combines the measured storage saving with a replay speed improvement.
+This is evidence about the tested nested layout and JavaScript adapter, not a claim that every typed Parquet design is slower. A different column layout, conversion API, projection strategy, or decoder could perform differently and needs its own measurements. This nested-layout experiment did not establish a production implementation that combines the measured storage saving with a replay speed improvement. The later flat-layout follow-up below evaluates a different candidate.
 
 Follow-up controls retained both the optimized JSON file and the existing reader, changing only the engine's handoff of messages that had already been decoded and validated. Common-feed replay took 9.18 seconds (9.10–9.21), approximately 23% less time than the 11.90-second baseline. All-feed replay took 15.38 seconds (15.30–15.43), approximately 15% less than 18.05 seconds. These controls were a separate subsequent batch with the same warm-up/repetition procedure. They were scratch experiments during the format study; the replay CPU optimization below implements the validated handoff without rewriting archives.
 
@@ -202,7 +202,7 @@ This is a workload comparison, not a controlled format-only comparison: the mark
 
 ### Recommendation
 
-Keep the compatible optimized JSON Parquet format for now. The tested typed design reduces archive bytes by about 26–27%, but increases all-feed replay time by about 30–32% and peak benchmark memory by roughly 40%. It does not deliver the hoped-for speed improvement or a 10–20-fold storage reduction.
+At this stage of the study, keep the compatible optimized JSON Parquet format. The tested nested typed design reduces archive bytes by about 26–27%, but increases all-feed replay time by about 30–32% and peak benchmark memory by roughly 40%. It does not deliver the hoped-for speed improvement or a 10–20-fold storage reduction.
 
 Optimize the replay CPU path before considering a format migration. The follow-up below removes redundant decoding and simplifies defensive snapshot copying; the opening-reference preflight remains intact. Any production change must preserve the same live/replay ordering, immutable tick-scoped feed visibility, gap rejection, and exact decimal values. Revisit typed storage when a concrete reader/layout demonstrates an acceptable combined storage, speed, memory, and migration tradeoff. The format study changed documentation only. The compatible replay change below is a separate follow-up; it does not deploy worker-2 or rewrite R2 objects.
 
@@ -267,3 +267,84 @@ The 15m sample still requires explicit outage replay; ordinary admission is used
 Local validation passes 193 recorder tests, 260 trading tests, four plugin tests, and 34 strategy-artifact tests, plus TypeScript and ESLint. New tests cover mixed raw/decoded frame queues, synchronous frame contiguity, bootstrap suppression, preserved message fields and child indices, and mutation isolation for every nested feed object. The complete feed fixture requires every optional schema field, so future snapshot additions must update its isolation coverage. The default plugin copier is also checked with `Map` and `Date` values.
 
 This change is used by the backtest runtime when that checkout is updated. It leaves the running worker-2 recorder service, recorder installation, R2 objects, archive layout, and trading credentials untouched. No worker service is restarted as part of this investigation.
+
+
+## Direct columnar reader and flat layout follow-up
+
+This is a storage experiment against the runtime optimized in PR #283 (`d50421ea1e96acd730083f57bd4ad20aa2d377e6`). No application dependency, recorder writer, archive object, or deployed service changes in this follow-up.
+
+The earlier nested typed design combined two costs: decoding Parquet and converting nested DuckDB results into JavaScript objects. The new experiment uses `hyparquet` 1.31.2 and `hyparquet-compressors` 1.1.2 installed only in a scratch directory. The reader handles one physical row group at a time, in file order, with Node's native GZIP decompressor for GZIP columns and the compressor package's Zstandard decoder. The library provides column callbacks that avoid constructing a full intermediate row object for every column; see the [Hyparquet reader documentation](https://github.com/hyparam/hyparquet#parquetread).
+
+Initial 15m all-feed JSON probes took 9.58 seconds with the current reader, 8.22 with the direct reader on the same JSON/GZIP file, and 9.31 on JSON/Zstandard. These are single exploratory runs, not the repeated results below. Initial typed-reader results were discarded when the full equality check caught binary hashes being decoded as UTF-8. The corrected reader explicitly disables UTF-8 inference for unannotated binary columns; annotated string columns still decode as text. Row equivalence and callback equivalence are checked before repeating the timed study.
+
+The second prototype flattens each recognized payload into scalar columns and parallel list columns. For example, price-change asset IDs, prices, quantities, sides, and hashes occupy corresponding list positions. It retains one row per captured envelope, explicit receive sequence/timestamps, exact decimal strings, message boundaries, and binary hashes. Unknown shapes and non-target messages retain their exact raw JSON fallback. Column callbacks populate a bounded row-group view, and the decoder constructs only the payload belonging to that row's kind. The shared market-frame validator, engine, feed reducers, strategy runner, and file-integrity check still run.
+
+For the opening-reference preflight, the prototype projects only envelope and fallback-payload columns and forwards bootstrap, Chainlink, and website price observations to the unchanged tracker. All three reference sources remain in the fallback column in this layout; the reader rejects an incompatible typed reference payload. The full replay still reads every captured row and all payload columns. This avoids decoding the large order-book columns twice without injecting future reference data or bypassing the reference-admission decision.
+
+Recognized typed messages preserve parsed fields and values, but do not preserve their original JSON whitespace, key ordering, or numeric spelling. Unknown shapes retain the original raw string. This remains a proposed versioned format, not a byte-for-byte replacement for the raw-message contract. JSON/GZIP reader-only controls preserve the original strings.
+
+### Repeated timing and size comparison
+
+All candidates replay the same two recorded markets with the same no-order observer. The original column uses the pre-CPU-optimization runtime (`53f58d1e`) and the original worker archive; the current column uses runtime `d50421ea` and its compatible optimized JSON/GZIP file. The prototype uses that same current runtime in an isolated source copy, changing the reader and decoded-payload handoff described above. The all-feed configuration requests both Binance streams, Chainlink spot, opening TWAP/reference data, and website PTB observations.
+
+Each of ten cases has one discarded warm-up and three measured fresh Node 20 processes, run sequentially with alternating order. There are 40 backtests, with 30 contributing to the medians. The timed interval includes file integrity/admission, any applicable opening-reference preflight, replay, strategy callbacks, and result construction. It excludes process imports, preparation/downloads, and the expensive full-stream correctness hashing, which runs separately. No builds, tests, or other benchmark processes run concurrently with timed cases; ordinary desktop activity is not disabled. Sizes are decimal MB for the event Parquet alone; metadata sidecars are excluded consistently.
+
+| Recording | Original archive/runtime | Current optimized JSON | Flat typed/Zstandard | Original → current → flat size | Current → flat peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 5m, all feeds | 9.95 (9.89–10.13) | 5.51 (5.48–5.52) | 4.89 (4.89–4.98) | 22.24 → 16.42 → 11.84 MB | 360 → 451 MiB |
+| 15m, all feeds | 17.05 (17.01–17.12) | 9.17 (9.14–9.40) | 8.13 (8.10–8.27) | 39.34 → 28.04 → 20.64 MB | 368 → 456 MiB |
+
+Times are median seconds (three-run minimum–maximum). Memory is median lifetime peak process RSS, not a recorder-service measurement or a peak allocation limit.
+
+| Additional 15m control | File size | Median seconds (range) | Peak RSS |
+| --- | ---: | ---: | ---: |
+| Same optimized JSON/GZIP, direct reader | 28.04 MB | 8.03 (7.99–8.13) | 377 MiB |
+| Flat typed/GZIP, direct reader | 22.91 MB | 7.92 (7.84–7.96) | 452 MiB |
+| Current JSON, common feeds | 28.04 MB | 6.35 (6.33–6.43) | 364 MiB |
+| Flat typed/Zstandard, common feeds | 20.64 MB | 6.47 (6.41–6.52) | 429 MiB |
+
+Relative to the current optimized JSON files, flat/Zstandard saves 27.9% of bytes for 5m and 26.4% for 15m, while reducing all-feed elapsed time by 11.2% and 11.3%. Compared with the original archive/runtime pair, file sizes fall by approximately 47% and elapsed time by approximately 51–52%. These are combined storage/runtime improvements, not compression-only speed gains.
+
+The same-file reader control matters: merely reading the current JSON/GZIP file with the direct reader reduces 15m all-feed elapsed time by 12.5%, slightly outperforming flat/Zstandard without a format change. Flat/GZIP has the lowest measured median here, 7.92 seconds, but is only 0.11 seconds ahead of that reader control and its ranges nearly meet. It takes 11.0% more space than flat/Zstandard. Three desktop runs establish a candidate tradeoff, not a robust universal ranking between these close variants.
+
+Common-feed replay does not share the full all-feed benefit. In the main batch, flat/Zstandard takes 6.47 versus 6.35 seconds for current JSON, a 1.8% increase. Its process CPU time rises from 7.93 to 8.81 seconds. All-feed CPU time falls from 12.19 to 11.14 seconds, partly because projected reference preflight avoids a second full payload decode. A claim that removing JSON speeds up every strategy would therefore be unsupported.
+
+The historical comparison is repeated in a separate interleaved batch using the August 25 market and only the common feed configuration. Each of five cases has one discarded warm-up and three measured fresh processes (20 runs, 15 contributing to medians). Every replay observes Binance trades, Chainlink spot, and PTB. Historical feeds are read from their existing local day files; network and environment-file access remain blocked.
+
+| Common-feed workload | Median seconds (range) | Strategy callbacks | Peak RSS |
+| --- | ---: | ---: | ---: |
+| Historical August market, current runtime | 5.29 (5.25–5.30) | 338,887 | 377 MiB |
+| Recorder, current JSON reader | 6.42 (6.39–6.45) | 321,831 | 357 MiB |
+| Recorder, same JSON file with direct reader | 5.92 (5.86–5.97) | 321,831 | 340 MiB |
+| Recorder, flat/GZIP | 6.27 (6.27–6.39) | 321,831 | 437 MiB |
+| Recorder, flat/Zstandard | 6.47 (6.47–6.53) | 321,831 | 432 MiB |
+
+For this common-feed workload, the direct reader on the existing JSON file is the fastest recorder candidate, reducing elapsed time by 7.7% (6.42 → 5.92 seconds). It remains 12.0% slower than the historical market; flat/GZIP and flat/Zstandard remain 18.6% and 22.4% slower. The historical market has 338,887 callbacks versus 321,831 for the recorder. This is still a different-market workload comparison with different retained data and visibility models, not a controlled proof that one storage format costs those percentages.
+
+### Why Telonex files are much smaller
+
+The selected August historical market file is 4,675,167 bytes and the June file is 4,238,525 bytes. Those are market-only files; historical Binance and Chainlink data live in separate shared files, and PTB comes from metadata. They are not self-contained all-feed recorder packages.
+
+There is also a material payload difference: historical typed replay reconstructs `hash`, `best_bid`, and `best_ask` as empty strings. The recorder retains those provider fields. In the nested binary-hash Zstandard prototype, the price-change hash column alone consumes 6,831,484 bytes for 5m and 12,462,981 bytes for 15m, approximately 57% and 60% of the respective files. Those hash bytes alone exceed the historical market file size. This explains much of the apparent storage gap without treating it as merely a JSON-formatting problem.
+
+Omitting those fields might reduce storage further, but changes the retained data and requires a separate product decision. They are retained in every candidate here. Eliminating JSON parsing also does not eliminate decompression, Parquet decoding, validation, message construction, or strategy work.
+
+### Equivalence and remaining work
+
+Both flat files are checked against their original captured archives row by row, including the complete envelope and every parsed payload field. Raw fallback strings must match byte for byte. The 5m file contains 240,595 rows (239,892 typed and 703 fallback); 15m contains 409,674 rows (407,566 typed and 2,108 fallback). Neither event filtering nor downsampling contributes to the smaller files. Full opening-reference reports from the projected reader must equal the reports from the original full-file reader.
+
+The row-stream semantic SHA-256 values are `ba42276f17400beb359cfaa42d63246fa919f509d101f8fe3002ef6c15704f5a` for 5m and `ebe45b0c90d6f1be2f9c11d2ea1d6d8e77a57a4d2bb71c94985f712ece6a076a` for 15m. These hash the envelope and canonical payload rather than the Parquet bytes. Independent full replay checks require the same callback counts and tick/feed hashes reported in the CPU-optimization section above, preserving the same path/key-order normalization. The reader-only JSON controls must also match the original 15m all-feed and common-feed hashes.
+
+All row/envelope/fallback and opening-reference checks pass for both GZIP and Zstandard flat files. The corrected Zstandard candidate matches all three existing full tick/book/feed hashes, and the same-file JSON reader controls match the 15m all-feed and common-feed hashes. The 15m recording still uses explicit outage replay because of its captured gap; 5m uses ordinary admission. This verifies the observed samples, not every possible future message shape.
+
+A separate instrumented 15m common-feed replay reduces `JSON.parse` calls from the optimized runtime's 411,447 to 3,881 (99.1% fewer), with 44 `JSON.stringify` and 1,852 generic `structuredClone` calls still present. Both defensive feed-snapshot copies remain. These counters come from instrumented runs, not the timing measurements. The small common-feed speed difference despite almost eliminating JSON parsing demonstrates that decompression, column decoding, object construction, and downstream work remain material.
+
+A production implementation would need an explicit format version, strict decoding and unknown-shape fallback tests, compatibility with existing archives, crash/recovery and writer integration tests, broader market coverage, and an explicit decision about retaining parsed values rather than original JSON spelling. The scratch reader's benchmark-specific schema dispatch and generated decoders are not a production migration design. No source code or dependency change from this experiment is installed in the application, and worker-2 remains untouched.
+
+### Recommendation after the follow-up
+
+For speed, prioritize hardening and evaluating the direct reader with the existing JSON/GZIP archives. It improves both measured configurations without changing the retained raw-message contract, although a production reader replacement still needs compatibility, failure-handling, and broader-file tests. For archive size, flat columns plus binary hashes are a promising separate migration: Zstandard saves approximately 26–28% relative to current compact JSON and improves the all-feed workload, at the cost of more process memory and no common-feed speed improvement here. GZIP trades larger files for slightly faster replay.
+
+These measurements do not establish a globally optimal format or justify a 10–20-fold reduction claim. For repeated strategy sweeps, a validated reusable decoded-data cache is another unmeasured option; it trades memory/local storage and invalidation complexity for avoiding repeated decoding. It would need archive-hash/version keys, isolated mutable strategy state, and the same timing/order and corruption checks. This study does not implement or claim a measured speedup for such a cache.
+
+Keep the production format unchanged until those adoption choices are made. The evidence supports reader optimization for speed and an explicit storage/precision/raw-text contract decision for a typed migration, rather than choosing a format solely because it removes JSON parsing.
