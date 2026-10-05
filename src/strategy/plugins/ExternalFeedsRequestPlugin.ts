@@ -68,6 +68,7 @@ export class ExternalFeedsRequestPlugin implements Plugin {
   readonly config: ExternalFeedsRequestConfig
 
   private getSnapshot: ((tick?: MarketTick) => unknown) | null = null
+  private captureSnapshot: ((tick?: MarketTick) => unknown) | null = null
 
   private lastTick: MarketTick | undefined
   private readonly captured = new WeakMap<MarketTick, unknown>()
@@ -76,15 +77,20 @@ export class ExternalFeedsRequestPlugin implements Plugin {
     this.config = config
   }
 
-  fulfill(getSnapshot: (tick?: MarketTick) => unknown): void {
+  /** The optional copier must detach every mutable value in the provider snapshot. */
+  fulfill<T>(
+    getSnapshot: (tick?: MarketTick) => T,
+    cloneSnapshot: (snapshot: T) => T = structuredClone,
+  ): void {
     this.getSnapshot = getSnapshot
+    this.captureSnapshot = (tick) => cloneSnapshot(getSnapshot(tick))
   }
 
   captureMarketTick(tick: MarketTick): void {
-    if (!this.getSnapshot) return
+    if (!this.captureSnapshot) return
     // Providers can return a mutable store view. Detach the small feed snapshot
     // at dispatch, before a queued tick waits for order/account I/O.
-    this.captured.set(tick, structuredClone(this.getSnapshot(tick)))
+    this.captured.set(tick, this.captureSnapshot(tick))
   }
 
   onMarketTick(tick: MarketTick): void {

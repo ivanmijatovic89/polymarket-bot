@@ -68,6 +68,32 @@ export type ExternalFeedsSnapshot = {
   polymarketPriceToBeat?: PriceToBeatSnapshot
 }
 
+/**
+ * Detach our plain feed DTOs without the general structured-clone serializer.
+ * Every leaf contains only scalars. Keep the copies here in sync when adding
+ * nested fields; this helper is not a clone for arbitrary plugin snapshots.
+ */
+export function cloneExternalFeedsSnapshot(value: ExternalFeedsSnapshot): ExternalFeedsSnapshot {
+  const copy = { ...value }
+  if (value.binanceWsSpotPrice) copy.binanceWsSpotPrice = { ...value.binanceWsSpotPrice }
+  if (value.binanceBookTicker) copy.binanceBookTicker = { ...value.binanceBookTicker }
+  if (value.chainlinkTwap) copy.chainlinkTwap = { ...value.chainlinkTwap }
+  if (value.polymarketPriceToBeat) copy.polymarketPriceToBeat = { ...value.polymarketPriceToBeat }
+  if (value.websitePriceToBeat) copy.websitePriceToBeat = { ...value.websitePriceToBeat }
+  if (value.rtdsPolymarketCryptoPrices) {
+    const prices = (copy.rtdsPolymarketCryptoPrices = { ...value.rtdsPolymarketCryptoPrices })
+    if (prices.binance) prices.binance = { ...prices.binance }
+    if (prices.chainlink) prices.chainlink = { ...prices.chainlink }
+  }
+  if (value.openingReference) {
+    const reference = (copy.openingReference = { ...value.openingReference })
+    if (reference.observation) reference.observation = { ...reference.observation }
+    if (reference.website) reference.website = { ...reference.website }
+    if (reference.conflict) reference.conflict = { ...reference.conflict }
+  }
+  return copy
+}
+
 export type ExternalFeedsStore = {
   snapshot: () => ExternalFeedsSnapshot
   updateBinance: (u: { symbol: string; tsMs: number; value: number }) => void
