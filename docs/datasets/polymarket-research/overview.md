@@ -52,9 +52,11 @@ The [research analyst](./agents/analyst) and [data auditor](./agents/auditor)
 instructions can be supplied to agents working in this project. They use local
 commands and SQL; a new agent runtime is not required.
 
-The [June and July studies](./monthly-wallet-study) demonstrate monthly rankings,
-population exclusions and two detailed local wallet investigations. Later-month
-comparisons remain in progress.
+The [June through August studies](./monthly-wallet-study) demonstrate monthly
+rankings, population exclusions and two detailed local wallet investigations.
+August's excluded wallets account for 90.4% of observed trade rows, and both
+selected wallets have unresolved August profit. September comparison remains
+in progress.
 
 ## Reliability boundary
 

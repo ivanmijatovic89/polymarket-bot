@@ -11,7 +11,7 @@ file and SQL checks; `all_wallet_accounting_complete` answers the separate
 accounting question. An unresolved wallet is excluded from the strict leaderboard
 for the entire selected cohort, including its otherwise complete markets.
 
-The following evidence was inspected on October 4, 2026. It uses Data API V2 and
+The following evidence was inspected on October 4–5, 2026. It uses Data API V2 and
 saved Parquet only. The contract reference is the
 [official V2 OpenAPI document](https://data-api.polymarket.com/v2/openapi.json).
 Context7 returned older V1 documentation for the holder lookup, so the V2 contract
@@ -454,3 +454,48 @@ integrity while `all_source_aggregates_reconciled` and
 `all_wallet_accounting_complete` remain false. Rebuild preserves the exclusions.
 Changed repeated feeds, missing API responses, invalid cursor walks and file
 corruption remain failures. Completed days are not rewritten by this change.
+
+## Complete August accounting inventory
+
+All 31 days and 2,976 windows pass the independent generation-bound integrity
+checks. The cohort contains 1,186,610 wallet/market pairs, of which 69,273 remain
+unresolved. Strict whole-wallet exclusion removes 5,557 of 17,874 wallets and
+7,293,457 of 8,070,073 participant trade rows (**90.4%**). The unresolved pairs
+themselves contain 820,722 rows; the larger exclusion count includes every other
+August market traded by an affected wallet. This materially limits any claim
+about the highest-earning wallets across the full observed population.
+
+| Issue | August affected pairs | August affected wallets |
+| --- | ---: | ---: |
+| `missing_position_snapshot` | 30,490 | 3,504 |
+| `missing_position_economics` | 29,186 | 3,490 |
+| `api_pnl_unreconciled` | 15,068 | 2,614 |
+| `position_balance_mismatch` | 13,451 | 38 |
+| `unresolved_source_volume_disagreement` | 13,013 | 2,887 |
+| `unexplained_token_outflow` | 27 | 10 |
+| `redemption_cash_mismatch` | 4 | 4 |
+| `conflicting_position_snapshots` | 1 | 1 |
+
+Counts overlap. Nineteen disjoint issue combinations cover all 69,273 unresolved
+pairs. The 134 market-volume warnings consist of 103 corroborated warnings and
+31 unresolved disagreements. The latter propagate into wallet quality and strict
+exclusion; corroborated warnings alone do not. The observed issues do not all
+share an established upstream cause.
+
+The additional redemption and conflicting-snapshot classes remain explicit.
+For example, on `btc-updown-15m-1787362200`, wallet
+`0xd02d674628f924e77414f7a968b911be46acb498` has matching diagnostic cash and native
+PnL of 0.100000 USDC but also redemption, token-outflow and balance failures.
+Agreement on profit alone therefore cannot establish a complete history.
+On `btc-updown-15m-1787596200`, wallet
+`0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82` has conflicting position snapshots
+and an unreconciled 5.901275 USDC native-PnL difference. These examples are
+diagnostics, not verified wallet profits or explanations of the source failure.
+
+The saved inventory independently checks daily and whole-wallet population
+totals, issue combinations, complete-row money fields and explicit issues for
+every unresolved pair. Evidence and review are under
+`logs/monthly-accounting-audit/2026-08/2026-10-05T17-46-44.241Z/`.
+The [fixed June-wallet follow-up](./monthly-wallet-study#august-follow-up-observed-behavior-unresolved-profit)
+retains unresolved August results without changing the selection or relaxing
+accounting rules.

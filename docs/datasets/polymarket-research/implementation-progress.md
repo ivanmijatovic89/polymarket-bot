@@ -8,6 +8,30 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Complete August audit and fixed-wallet follow-up
+
+All 31 August days and 2,976 windows are published and independently verified.
+The monthly study contains 8,070,073 participant trade rows and 17,874 wallets.
+Strict whole-wallet exclusions remove 5,557 wallets accounting for 90.4% of trade
+rows; 69,273 wallet/market pairs remain unresolved. Of 134 market-volume warnings,
+103 are corroborated and 31 remain unresolved. Local integrity passes with these
+explicit quality flags; this is not complete accounting for every wallet.
+
+The [August study](./monthly-wallet-study#august-follow-up-observed-behavior-unresolved-profit)
+keeps the June selection fixed. The two detailed candidates have 117 and 57
+unresolved markets, so neither receives a strict August profit or rank. Their
+served execution profiles remain available. Among the fixed June top 20, nine
+are unresolved, nine have no observed August trading and two reconcile; the
+comparison retains the losing result and does not select replacement winners.
+
+The audit independently cross-checks excluded-wallet counts and trade totals,
+disjoint issue combinations, complete-row fields and daily totals. Snapshot-bound
+SQL, results and review records are under `logs/monthly-accounting-audit/2026-08/`
+and `logs/monthly-wallet-study/follow-up-2026-08/`. No accounting tolerances changed.
+At this study's snapshot, 98 days through September 6 were published and checked;
+September 7 was downloading. Final September research, full-range verification,
+benchmarks and feature acceptance remain pending.
+
 ## Downloader version 10: unresolved aggregate publication
 
 The August 20 restart introduces an explicit unresolved source-volume state.
@@ -24,10 +48,10 @@ rebuild preservation and rejection of altered repeat evidence. The [API guide](.
 describes the August 20 discrepancy. Operational evidence is retained under
 `logs/aug20-recovery-20261005/` in the permanent data root.
 
-June and July monthly studies are complete. August–September ingestion and
-monthly follow-ups, final full-range verification and feature acceptance remain
-pending. Continuous AI polling stays paused; scheduled checkpoints monitor the
-separate downloader and validator.
+June through August monthly studies are complete, including explicitly unresolved
+August results. September ingestion and follow-up, final full-range verification
+and feature acceptance remain pending. Continuous AI polling stays paused;
+scheduled checkpoints monitor the separate downloader and validator.
 
 ## Complete June and first monthly study
 
