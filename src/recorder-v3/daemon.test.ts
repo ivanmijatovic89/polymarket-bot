@@ -11,6 +11,7 @@ import { readCapturedEvents } from './storage/parquet.js'
 import { readManifest } from './storage/manifest.js'
 import { openCaptureSequence } from './sequence.js'
 import type { BlobStore } from './storage/blobStore.js'
+import type { RecorderStatus } from './statusTypes.js'
 import { exists } from './storage/files.js'
 
 function config(spoolDir: string): RecorderConfig {
@@ -161,6 +162,7 @@ test('invalid market input reconnects the feed and records recovery only after f
     const market = currentMarket()
     const dependencies = mockFeeds(market, [])
     const reconnects: string[] = []
+    const failedConnections: Array<string | undefined> = []
     dependencies.polymarket = (callbacks: FeedCallbacks) => {
       const send = (raw: unknown) =>
         callbacks.onFrame({
@@ -187,7 +189,8 @@ test('invalid market input reconnects the feed and records recovery only after f
           books()
           send({ event_type: 'price_change', market: market.conditionId, price_changes: null })
         },
-        reconnect(reason?: string) {
+        reconnect(reason?: string, connectionId?: string) {
+          failedConnections.push(connectionId)
           reconnects.push(reason ?? '')
           books()
         },
@@ -196,6 +199,7 @@ test('invalid market input reconnects the feed and records recovery only after f
     const result = await runRecorder(config(directory), { dependencies, log: () => undefined })
     assert.equal(result.state, 'stopped')
     assert.deepEqual(reconnects, ['invalid_market_payload'])
+    assert.deepEqual(failedConnections, ['mock'])
     const packageName = (await readdir(directory)).find((name) => name.startsWith(market.slug))!
     const manifest = await readManifest(path.join(directory, packageName, 'manifest.json'))
     const gap = manifest.coverage.gaps.find((item) => item.reason === 'invalid_market_payload')
@@ -431,6 +435,100 @@ test('missing a configured current timeframe remains visible as degraded with di
       await running
     }
   } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('dashboard preserves partial socket failure and counts reconnects independently', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-sockets-'))
+  const abort = new AbortController()
+  const five = currentMarket()
+  const fifteen: RecordedMarket = {
+    ...five,
+    timeframe: '15m',
+    slug: 'btc-updown-15m-test',
+    conditionId: 'fifteen',
+    tokenIds: ['up-fifteen', 'down-fifteen'],
+  }
+  let callbacks: FeedCallbacks | undefined
+  const status = (
+    timeframe: '5m' | '15m',
+    kind: Parameters<FeedCallbacks['onStatus']>[0]['kind'],
+  ) =>
+    callbacks!.onStatus({
+      source: 'polymarket',
+      connectionId: timeframe,
+      channelId: `polymarket:${timeframe}`,
+      marketSlugs: [timeframe === '5m' ? five.slug : fifteen.slug],
+      stamp: ingressStamp(),
+      kind,
+    })
+  const frame = (m: RecordedMarket) =>
+    callbacks!.onFrame({
+      source: 'polymarket',
+      connectionId: m.timeframe,
+      channelId: `polymarket:${m.timeframe}`,
+      marketSlugs: [m.slug],
+      stamp: ingressStamp(),
+      rawJson: 'PONG',
+    })
+  const readStatus = async (expected: string, reconnects: number) => {
+    const deadline = Date.now() + 2_000
+    while (Date.now() < deadline) {
+      if (await exists(path.join(directory, 'status.json'))) {
+        const value = JSON.parse(
+          await readFile(path.join(directory, 'status.json'), 'utf8'),
+        ) as RecorderStatus
+        const feed = value.feeds.find((f) => f.feed === 'polymarket')!
+        if (feed.state === expected && feed.reconnects === reconnects) return value
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    throw new Error(`Did not observe ${expected} with ${reconnects} reconnects`)
+  }
+  const running = runRecorder(
+    { ...config(directory), durationMs: null },
+    {
+      dependencies: {
+        ...mockFeeds(five, []),
+        discover: async () => [five, fifteen],
+        polymarket: (options) => {
+          callbacks = options
+          return {
+            setMarkets() {},
+            reconnect() {},
+            stop() {},
+            start() {
+              for (const m of [five, fifteen]) {
+                status(m.timeframe, 'connecting')
+                status(m.timeframe, 'connected')
+                frame(m)
+              }
+            },
+          }
+        },
+      },
+      signal: abort.signal,
+      statusIntervalMs: 5,
+      log: () => undefined,
+    },
+  )
+  try {
+    await readStatus('receiving', 0)
+    status('5m', 'disconnected')
+    frame(fifteen)
+    assert.equal((await readStatus('disconnected', 0)).state, 'degraded')
+    status('5m', 'connecting')
+    frame(fifteen)
+    await readStatus('connecting', 1)
+    status('5m', 'connected')
+    frame(five)
+    await readStatus('receiving', 1)
+    status('5m', 'stopped')
+    await readStatus('receiving', 1)
+  } finally {
+    abort.abort()
+    await running
     await rm(directory, { recursive: true, force: true })
   }
 })

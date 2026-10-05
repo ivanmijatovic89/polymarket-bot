@@ -1,5 +1,6 @@
 import { MarketEngine } from '../../market/MarketEngine.js'
 import { inspectMarketFrame, marketFrameMessages } from '../marketFrame.js'
+import { includesMarket } from '../marketScope.js'
 import { buildSyntheticFeedTick } from '../../market/syntheticTick.js'
 import type { MarketTick } from '../../strategy/Strategy.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
@@ -167,7 +168,7 @@ export class CapturedMarketDispatcher {
       const status = object(parseCapturedJson(event))
       if (
         status?.source === 'polymarket' &&
-        (!status.marketSlug || status.marketSlug === market.slug) &&
+        includesMarket(status, market.slug) &&
         ['disconnected', 'gap', 'stale', 'provider_mismatch', 'error'].includes(String(status.kind))
       ) {
         this.engine.reset()

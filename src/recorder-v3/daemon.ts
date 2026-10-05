@@ -190,9 +190,31 @@ export async function runRecorder(
   const initialMetadataWrites = new Map<string, Promise<void>>()
   const finalizers = new Set<Promise<void>>()
   const phases = new Map<RecorderFeed, string>()
+  const channelPhases = new Map<RecorderFeed, Map<string, string>>()
+  const unhealthyPhases = [
+    'connecting',
+    'gap',
+    'error',
+    'stale',
+    'disconnected',
+    'provider_mismatch',
+  ]
+  const setPhase = (feed: RecorderFeed, phase: string, channelId = 'shared') => {
+    const channels = channelPhases.get(feed) ?? new Map<string, string>()
+    if (phase === 'stopped') channels.delete(channelId)
+    else channels.set(channelId, phase)
+    channelPhases.set(feed, channels)
+    // Traffic on a healthy socket must not hide another socket's outage.
+    phases.set(
+      feed,
+      [...channels.values()].find((value) => unhealthyPhases.includes(value)) ??
+        [...channels.values()].at(-1) ??
+        phase,
+    )
+  }
   const messages = new Map<RecorderFeed, number>()
   const reconnects = new Map<RecorderFeed, number>()
-  const connected = new Set<RecorderFeed>()
+  const connected = new Set<string>()
   let pendingBytes = 0
   let disk = initialDisk
   let diskVerified = true
@@ -260,7 +282,8 @@ export async function runRecorder(
     capture: sequence.capture,
     now: () => deps.stamp().receivedAtMs,
     monotonic: () => deps.stamp().monotonicNs,
-    onInvalidMarketFrame: () => polymarket.reconnect('invalid_market_payload'),
+    onInvalidMarketFrame: (connectionId) =>
+      polymarket.reconnect('invalid_market_payload', connectionId),
     sink: {
       onStart: (market) => {
         registered.set(market.slug, market)
@@ -320,7 +343,7 @@ export async function runRecorder(
               : undefined
         if (feed) {
           messages.set(feed, (messages.get(feed) ?? 0) + 1)
-          phases.set(feed, 'receiving')
+          setPhase(feed, 'receiving', frame.channelId)
         }
       } catch (error) {
         fail(error)
@@ -335,10 +358,11 @@ export async function runRecorder(
         for (const feed of sourceFeeds(status.source).filter(
           (feed) => !hinted || feed === hinted,
         )) {
-          if (status.kind === 'connecting' && connected.has(feed))
+          const channelKey = `${feed}:${status.channelId ?? 'shared'}`
+          if (status.kind === 'connecting' && connected.has(channelKey))
             reconnects.set(feed, (reconnects.get(feed) ?? 0) + 1)
-          if (status.kind === 'connected') connected.add(feed)
-          phases.set(feed, status.kind)
+          if (status.kind === 'connected') connected.add(channelKey)
+          setPhase(feed, status.kind, status.channelId)
         }
         if (status.details?.permanent === true)
           requestStop(status.reason ?? 'Permanent feed failure', true)
@@ -462,9 +486,7 @@ export async function runRecorder(
           RECORDER_FEEDS.some(
             (feed) =>
               coordinator.lastReceived[feed] === undefined ||
-              ['gap', 'error', 'stale', 'disconnected', 'provider_mismatch'].includes(
-                phases.get(feed) ?? '',
-              ),
+              unhealthyPhases.includes(phases.get(feed) ?? ''),
           ))
           ? 'degraded'
           : state,
