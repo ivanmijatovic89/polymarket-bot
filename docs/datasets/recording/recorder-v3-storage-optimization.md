@@ -543,3 +543,32 @@ All ten strategy correctness runs pass. Across the nine recorder configurations,
 ID reconstruction and standard Parquet V2 encoding are worth carrying into a production design: they reduce storage by another 12.8–15.7% on these samples without losing additional data. The WASM decoder remains an optional candidate, pending a quieter-machine benchmark and normal dependency/integration review. No experiment here proves an optimal format or a fleet-wide speed improvement. Production adoption still needs the versioned retention/parity contract, compatibility readers, writer/crash/recovery integration, and resource checks described in the preceding compact study.
 
 Scripts, dependency pins, exact file digests, row/edge/replay proofs, individual timings, and summaries are retained under `.tmp/recorder-envelope-study/`. No production format, application dependency, service, deployment, or remote archive is changed by this report.
+
+## Quieter-machine timing rerun
+
+After the user stopped the competing work, the same ten configurations were rerun on the same Mac with Node 20.19.6, unchanged `SplitSellRedeem.v5` defaults, execution settings, historical feed configuration, decoder dependencies, and application source at `f56030fc`. The four heavily loaded Node processes observed in the preceding batch were no longer consuming CPU. Process snapshots taken between rounds show ordinary desktop/application activity; this remains a shared workstation rather than a fully isolated benchmark host.
+
+Only the 15m timing inputs needed restoration. All ten regenerated files match their preceding sizes and SHA-256 digests, and the recorded decoder dependency hashes match. Preparation, conversion, and checksum comparisons finished before timing. The previous complete row, feed, book, and strategy-trace proofs are reused for these identical inputs and unchanged runtime; they are not counted as newly executed trace checks. Every fresh timing run independently checks its strategy source digest and complete settled-statistics digest against the corresponding verified baseline.
+
+There is one excluded warm-up plus five measured fresh processes per configuration: 60 sequential runs in total, with forward/reverse case ordering alternated by round. All runs are kept, including the slower repeats. Timing scope remains `runSingleMarket`, excluding imports and decoder initialization, diagnostic hashing, producer orchestration, and database/dashboard writes. No other experiment or build work was started by this study during timing. The offline guard remains enabled.
+
+| Configuration | 15m file MB | Median seconds (range) | Median CPU seconds | Peak RSS, median MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Telonex reference, existing reader | 4.68 | 5.25 (5.16–5.28) | 6.88 | 415 |
+| Recorder JSON control, existing reader | 28.04 | 6.57 (6.51–6.71) | 8.13 | 367 |
+| Previous compact Zstandard / JavaScript | 8.18 | 6.11 (5.96–7.02) | 8.25 | 428 |
+| Previous compact Zstandard / WASM | 8.18 | 5.94 (5.89–6.12) | 7.98 | 447 |
+| Reconstructed IDs, V1/Zstandard / JavaScript | 7.50 | 6.04 (5.97–6.20) | 8.14 | 407 |
+| Reconstructed IDs, V1/Zstandard / WASM | 7.50 | 6.05 (5.85–6.08) | 7.99 | 436 |
+| Stored IDs, V2/Zstandard / JavaScript | 7.52 | 6.24 (6.12–6.45) | 8.33 | 432 |
+| Reconstructed IDs, V2/Zstandard / JavaScript | 6.90 | 6.04 (5.98–6.16) | 8.29 | 398 |
+| Reconstructed IDs, V2/Zstandard / WASM | 6.90 | 5.94 (5.81–6.41) | 8.01 | 435 |
+| Reconstructed IDs, V2/GZIP / native | 7.29 | 6.15 (5.92–6.24) | 8.20 | 406 |
+
+The reconstructed-ID/V2 file retains its 15.7% storage reduction relative to the previous compact file, with essentially unchanged replay speed. Its JavaScript median is 1.1% lower than the previous compact JavaScript control; its WASM median is 2.9% lower. Switching only the new file from JavaScript to WASM changes the median from 6.0449 to 5.9376 seconds (1.8%, approximately 0.11 seconds). That WASM variant is faster in three of five corresponding rounds, not every round, and the ranges overlap. These observations support treating WASM as optional, rather than claiming a dependable speed gain from this small sample.
+
+Both versions of the smallest file finish faster than the JSON control in every corresponding measured round, with median reductions of 8.0% for JavaScript and 9.7% for WASM. Their medians remain 15.0% and 13.0% above the Telonex reference. The latter still compares different recordings and coverage, not format alone: the Telonex size excludes its separate feeds, and this strategy requests Binance aggregate-trade price and website PTB rather than all recorded feeds. The earlier separate-feed storage totals and all-feed preservation proofs remain applicable.
+
+All 60 fresh runs reproduce the verified outcomes and strategy source digest. File sizes and retention policy are unchanged; there was no additional field omission and no new 5m performance claim. The measured 5m compact size remains 4,371,219 bytes from the preceding storage experiment.
+
+This rerun replaces the preceding busy-machine timings for the current comparison. The recommendation remains to carry ID reconstruction and Parquet V2 into the production design for their storage savings, while keeping the WASM decoder optional. Production integration, broader market coverage, and compatibility/recovery checks remain separate work; no recorder, dependency, service, or R2 object was changed. Scripts, input identity checks, process-load snapshots, individual runs, and summaries are saved in `.tmp/recorder-quiet-retest/`.
