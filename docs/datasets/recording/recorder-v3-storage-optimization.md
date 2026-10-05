@@ -478,3 +478,68 @@ These are fresh comparisons within this follow-up, not replacements for the earl
 All four correctness runs have 324,880 strategy callbacks, Binance visible at every callback, and PTB visible at 323,814. Both Chainlink-enabled runs have a real Chainlink point at every callback. Context hashes match between day-file and slice layouts for each feed configuration; capital/decision/account traces match across all four. All 24 warm-up/timed runs reproduce the original final-statistics hash `8f288be96f430a76f87d01c67c84f9a5bfe10d0d1456874ee474676471e1238e`, including the same initial split and taker sell. All 29 guarded measurement/replay processes complete without network, environment-file, or live-execution access attempts.
 
 Scripts, exact sizes, provider-series comparisons, timings, and validation results remain in `.tmp/recorder-telonex-total-study/`. Source datasets and production services are unchanged.
+
+## Lossless follow-up: reconstruct IDs, use Parquet delta encoding, and change the decoder
+
+This offline follow-up starts from the compact prototype, so the previously documented omission of per-price-change hashes and original JSON spelling remains. It removes no further information. Tests use main `2d0133e1`, whose application source is unchanged since the preceding replay study. The regenerated controls match all previous byte sizes and SHA-256 digests. A further V1 rewrite control reproduces both compact sizes exactly.
+
+The experiments separate three changes:
+
+- Omit the physical `event_id` column after checking every source row satisfies `event_id = capture_id + ':' + sequence`; reconstruct the exact string at read time. Both component fields remain. Conversion rejects a noncanonical ID rather than silently changing it.
+- Enable DuckDB's `PARQUET_VERSION V2`. The resulting files use `DELTA_BINARY_PACKED` for the sequence/receipt/monotonic integer columns and delta-length encoding for some strings. Values remain exact; no application-specific timestamp subtraction, continuity assumption, rounding, or clock repair is involved. See [DuckDB's encoding documentation](https://duckdb.org/2025/01/22/parquet-encodings.html).
+- Replace the JavaScript Zstandard decompressor with `@foxglove/wasm-zstd` 1.0.1, installed only in the ignored experiment directory. Its synchronous page decoder runs after asynchronous initialization; see the [library API](https://github.com/foxglove/wasm-zstd). The existing native GZIP control remains. Node stays at 20.19.6.
+
+Files retain the same captured sequence order, 8,192-row groups, Zstandard level 9 or GZIP, and disabled bloom filters. Both codecs remain one self-contained event Parquet per market. Reference preflight still projects only the columns it needs, with reconstructed IDs when the physical column is absent. The scratch format dispatch is not a production compatibility mechanism.
+
+### Storage measurements
+
+| Layout | 5m bytes | 15m bytes | 15m reduction versus compact control |
+| --- | ---: | ---: | ---: |
+| Previous compact Zstandard control | 5,013,261 | 8,183,710 | — |
+| Reconstructed IDs, V1/Zstandard | 4,748,679 | 7,502,884 | 8.3% |
+| Stored IDs, V2/Zstandard | 4,614,502 | 7,517,182 | 8.1% |
+| Reconstructed IDs, V2/Zstandard | 4,371,219 | 6,897,122 | 15.7% |
+| Reconstructed IDs, V2/GZIP | 4,606,358 | 7,291,912 | 10.9% |
+
+The smallest option reduces the 15m sample by another 1,286,588 bytes (15.7%) and the 5m sample by 642,042 bytes (12.8%). Relative to the current JSON recorder files, the reductions are 75.4% and 73.4%. These savings reconstruct all newly omitted redundant identity data; they add no field loss.
+
+### Correctness and scope
+
+Six candidate/decoder combinations each compare all 240,595 / 409,674 rows against the original 5m / 15m archive. Only the earlier price-change hash omission is allowed. Every retained envelope and parsed value matches, all 703 / 2,108 raw fallback strings remain exact, and projected opening-reference reports match. The retained-data digests remain `4fc9e2dfe33ef1c7eb89e4194171577c6f394fa6130d5080aa76d535ad859bd0` and `74314cb2629b87c923a3297096005cea9fbf0bcdb58e7d0c55b03b2023273694`.
+
+The compact control and the smallest V2/Zstandard file with WASM decoding also match on full all-feed replays of both durations. They produce 183,027 / 321,831 callbacks, with identical full tick/book/feed digests `b2e2077ff7a9c42885b460b6b2c7bae5a3185d3340a34225ac29b62f4f5e89d4` and `135eeb0fc422df44040a4530e567cf1a05c4aeb3add1940b1b64dcd5e8fd381d`. The observer deliberately places no orders, so `no_activity` is the expected final report, not an admission failure.
+
+Additional fixtures exercise zero rows, one row, and 9,007 rows across physical row-group boundaries with both V1/V2 and JavaScript/WASM decompression. They cover sequence values above JavaScript's safe-integer range, a one-billion sequence jump, monotonic values near signed-INT64 maximum followed by a session reset, a backward receipt-clock correction, and null source clocks. All reconstructed values must equal the exact expected strings/integers.
+
+The unchanged strategy remains `SplitSellRedeem.v5` with the defaults and execution settings documented above. It requests Binance aggregate-trade price and website PTB, and does not make trading decisions from external prices. A separate all-feed observer verifies both Binance feeds, Chainlink spot/TWAP, PTB/opening-reference state, full books, and callback ordering. The known 15m gap still requires explicit outage replay; compaction does not change ordinary admission.
+
+### Measurement method
+
+Correctness observers run separately from timing. Ten configurations each use one warm-up plus five measured fresh processes, interleaved in alternating order, with no other experiment, build, or test jobs started by this study running concurrently. Unrelated long-running Node processes on this shared Mac were observed consuming substantial CPU; they were left untouched. The ranges therefore matter, and small median differences are provisional rather than isolated-machine throughput claims. Two additional measured repeats were added for every configuration after the initial batch showed noticeable variation in a few cases; all slower runs remain included. The timer covers `runSingleMarket`: loading and integrity/admission, replay, strategy/execution, and final statistics. Imports, decoder initialization, conversion, archive transfer, orchestration, and database/dashboard writes remain outside that timer. Repeated final statistics must match the corresponding correctness run. All replay processes use the offline guard.
+
+These are two storage samples and one recorder strategy-timing sample, not fleet-wide averages. Telonex remains a different market with different coverage and callback count. Its size below is the market Parquet only; the preceding section measures the additional historical feeds. Production application code, package dependencies, worker-2, and R2 archives remain unchanged.
+
+### Fresh strategy timings
+
+| Configuration | 15m file MB | Median seconds (range) | Median CPU seconds | Peak RSS, median MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Telonex reference, existing reader | 4.68 | 6.08 (5.31–7.92) | 7.77 | 384 |
+| Recorder JSON control, existing reader | 28.04 | 7.79 (6.73–8.82) | 9.43 | 362 |
+| Previous compact Zstandard / JavaScript | 8.18 | 7.31 (6.19–7.85) | 9.56 | 427 |
+| Previous compact Zstandard / WASM | 8.18 | 7.12 (6.01–7.41) | 9.13 | 429 |
+| Reconstructed IDs, V1/Zstandard / JavaScript | 7.50 | 7.33 (6.27–8.84) | 9.41 | 404 |
+| Reconstructed IDs, V1/Zstandard / WASM | 7.50 | 7.12 (6.36–9.18) | 9.16 | 409 |
+| Stored IDs, V2/Zstandard / JavaScript | 7.52 | 7.52 (6.42–7.95) | 9.65 | 415 |
+| Reconstructed IDs, V2/Zstandard / JavaScript | 6.90 | 7.22 (6.39–7.93) | 9.40 | 391 |
+| Reconstructed IDs, V2/Zstandard / WASM | 6.90 | 7.06 (5.96–7.84) | 9.27 | 427 |
+| Reconstructed IDs, V2/GZIP / native | 7.29 | 7.06 (5.93–7.43) | 9.19 | 408 |
+
+The smallest layout with WASM has a 3.4% lower median elapsed time than the previous compact JavaScript control in this batch; the same layout with JavaScript is 1.2% lower. Their ranges overlap substantially under observed background load. This does not establish a reliable throughput improvement. WASM alone is 2.6% lower in median; that small difference does not justify claiming a production speed win or automatically adding the dependency. The new smallest-file median is 16.0% above the Telonex reference in this batch, which still compares different markets and coverage. Do not compare these busy-machine seconds directly with the earlier benchmark batches.
+
+All ten strategy correctness runs pass. Across the nine recorder configurations, 315,796 callbacks have identical complete orderbooks, feed availability, contexts, capital, intents, ordered account/portfolio events, fills, fees, positions, and settled statistics. All eight compact configurations have the exact same complete message trace as the previous compact prototype; no new normalization exception is introduced. The JSON control differs only by the already documented price-change hashes. The full-book digest remains `c532cad2ab9857625372db22f5f8d8c17204e2df3fcad69d2af7fb09c44cde21`, the strategy/account trace remains `e62460962195ac0f2d7c0ce3b4e32f740a643b514926b25b89bf35135a7dce55`, and settled statistics remain `25b923b3126f2a06caa50ad323248521a6e65173709e972b24d1f1ee6071ed82`. All 60 warm-up/timed runs reproduce their verification-run statistics.
+
+### Decision
+
+ID reconstruction and standard Parquet V2 encoding are worth carrying into a production design: they reduce storage by another 12.8–15.7% on these samples without losing additional data. The WASM decoder remains an optional candidate, pending a quieter-machine benchmark and normal dependency/integration review. No experiment here proves an optimal format or a fleet-wide speed improvement. Production adoption still needs the versioned retention/parity contract, compatibility readers, writer/crash/recovery integration, and resource checks described in the preceding compact study.
+
+Scripts, dependency pins, exact file digests, row/edge/replay proofs, individual timings, and summaries are retained under `.tmp/recorder-envelope-study/`. No production format, application dependency, service, deployment, or remote archive is changed by this report.
