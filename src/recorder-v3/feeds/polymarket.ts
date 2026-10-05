@@ -1,4 +1,4 @@
-import type { RecordedMarket } from '../types.js'
+import type { RecordedMarket, RecorderTimeframe } from '../types.js'
 import { createSocketTransport, ingressStamp, type TransportOptions } from './transport.js'
 
 export type PolymarketFeedOptions = Omit<TransportOptions, 'source' | 'url' | 'onOpen'> & {
@@ -7,8 +7,8 @@ export type PolymarketFeedOptions = Omit<TransportOptions, 'source' | 'url' | 'o
   dataStaleMs?: number
 }
 
-/** One public market connection survives both 5m and 15m boundaries. */
-export function createPolymarketFeed(options: PolymarketFeedOptions) {
+/** One duration's public connection survives market boundaries. */
+function createPolymarketConnection(options: PolymarketFeedOptions) {
   const clock = options.clock ?? ingressStamp
   let markets = options.markets ?? []
   let desired = new Set((options.markets ?? []).flatMap((market) => market.tokenIds))
@@ -99,6 +99,7 @@ export function createPolymarketFeed(options: PolymarketFeedOptions) {
     start: transport.start,
     stop: transport.stop,
     reconnect: transport.reconnect,
+    connectionId: transport.connectionId,
     setMarkets(updated: readonly RecordedMarket[]) {
       markets = updated
       for (const conditionId of lastMarketData.keys())
@@ -107,5 +108,63 @@ export function createPolymarketFeed(options: PolymarketFeedOptions) {
       desired = new Set(markets.flatMap((market) => market.tokenIds))
       update()
     },
+  }
+}
+
+/** Independent sockets limit per-connection traffic; callbacks retain one global receipt order. */
+export function createPolymarketFeed(options: PolymarketFeedOptions) {
+  let running = false
+  const groups = new Map<
+    RecorderTimeframe,
+    { markets: readonly RecordedMarket[]; feed: ReturnType<typeof createPolymarketConnection> }
+  >()
+  const setMarkets = (markets: readonly RecordedMarket[]) => {
+    for (const timeframe of ['5m', '15m'] as const) {
+      const selected = markets.filter((market) => market.timeframe === timeframe)
+      const existing = groups.get(timeframe)
+      if (!selected.length) {
+        if (existing) {
+          existing.feed.stop()
+          groups.delete(timeframe)
+        }
+        continue
+      }
+      if (existing) {
+        existing.markets = selected
+        existing.feed.setMarkets(selected)
+        continue
+      }
+      // Freeze scope on each callback so later discovery cannot change recorded evidence.
+      const scope = () => ({
+        channelId: `polymarket:${timeframe}`,
+        marketSlugs: (groups.get(timeframe)?.markets ?? selected).map((market) => market.slug),
+      })
+      const feed = createPolymarketConnection({
+        ...options,
+        markets: selected,
+        onFrame: (frame) => options.onFrame({ ...frame, ...scope() }),
+        onStatus: (status) => options.onStatus({ ...status, ...scope() }),
+      })
+      groups.set(timeframe, { markets: selected, feed })
+      if (running) feed.start()
+    }
+  }
+  setMarkets(options.markets ?? [])
+  return {
+    start() {
+      if (running) return
+      running = true
+      for (const { feed } of groups.values()) feed.start()
+    },
+    stop() {
+      running = false
+      for (const { feed } of groups.values()) feed.stop()
+    },
+    reconnect(reason: string, connectionId?: string) {
+      for (const { feed } of groups.values())
+        if (connectionId === undefined || feed.connectionId() === connectionId)
+          feed.reconnect(reason)
+    },
+    setMarkets,
   }
 }

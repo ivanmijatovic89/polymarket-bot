@@ -28,6 +28,10 @@ export type RawFrame = {
   rawJson: string
   stamp: IngressStamp
   marketSlug?: string
+  /** Routing scope assigned by our subscription owner, never inferred from remote JSON. */
+  marketSlugs?: readonly string[]
+  /** Stable subscription group across reconnects; connectionId identifies each socket. */
+  channelId?: string
   request?: { url: string; httpStatus: number; startedAtMs: number }
 }
 
@@ -47,6 +51,8 @@ export type FeedStatus = {
   stamp: IngressStamp
   reason?: string
   marketSlug?: string
+  marketSlugs?: readonly string[]
+  channelId?: string
   details?: Record<string, unknown>
 }
 

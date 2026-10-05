@@ -407,6 +407,119 @@ test('malformed book payload is preserved before invalidating only its market st
   assert.equal(h.invalidFrames(), 1)
 })
 
+test('scoped disconnects and undecodable frames preserve the other timeframe in capture and replay', async () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  h.coordinator.status({
+    source: 'polymarket',
+    connectionId: 'five-socket',
+    channelId: 'polymarket:5m',
+    marketSlugs: [five.slug],
+    kind: 'disconnected',
+    stamp: h.stamp(1_200),
+  })
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === five.slug)?.booksReady, false)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === fifteen.slug)?.booksReady, true)
+  h.frame(
+    'polymarket',
+    five.tokenIds.map((id) => h.book(five, id)),
+    1_300,
+  )
+  const invalid = h.coordinator.ingest({
+    source: 'polymarket',
+    connectionId: 'five-socket',
+    channelId: 'polymarket:5m',
+    marketSlugs: [five.slug],
+    rawJson: '{malformed',
+    stamp: h.stamp(1_400),
+  })
+  assert.equal(h.invalidFrames(), 1)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === five.slug)?.booksReady, false)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === fifteen.slug)?.booksReady, true)
+  assert.ok(h.rows.get(five.slug)?.some((r) => r.eventId === invalid.eventId))
+  assert.ok(!h.rows.get(fifteen.slug)?.some((r) => r.eventId === invalid.eventId))
+  const change = (m: RecordedMarket) => ({
+    event_type: 'price_change',
+    market: m.conditionId,
+    timestamp: '1500',
+    price_changes: [{ asset_id: m.tokenIds[0], price: '0.41', size: '5', side: 'BUY' }],
+  })
+  h.frame('polymarket', change(five), 1_500)
+  h.frame('polymarket', change(fifteen), 1_501)
+  for (const m of [five, fifteen]) {
+    const ticks: Array<{ at: number; assets: string[] }> = []
+    const dispatcher = new CapturedMarketDispatcher({
+      market: m,
+      filePath: 'test.parquet',
+      config: {},
+      onTick: (tick) => {
+        ticks.push({
+          at: tick.source.kind === 'parquet' ? tick.source.tsLocalMs! : -1,
+          assets: Object.keys(tick.snapshot.byAssetId),
+        })
+      },
+    })
+    for (const event of h.rows.get(m.slug)!) await dispatcher.accept(event)
+    const last = ticks.at(-1)!
+    assert.equal(last.at, m === five ? 1_500 : 1_501)
+    assert.deepEqual(
+      last.assets.sort(),
+      (m === five ? [five.tokenIds[0]] : [...fifteen.tokenIds]).sort(),
+      'replay clears the failed book and retains both healthy snapshots',
+    )
+  }
+  h.advance(fifteen.endMs + 60_000)
+  assert.ok(h.coverage.get(five.slug)?.gaps.some((g) => g.feed === 'polymarket'))
+  assert.ok(!h.coverage.get(fifteen.slug)?.gaps.some((g) => g.feed === 'polymarket'))
+})
+
+test('a scoped pre-boundary disconnect invalidates only its future bootstrap', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.frame(
+    'polymarket',
+    [five, fifteen].flatMap((m) => m.tokenIds.map((id) => h.book(m, id))),
+    900,
+  )
+  h.coordinator.status({
+    source: 'polymarket',
+    connectionId: 'five',
+    marketSlugs: [five.slug],
+    kind: 'disconnected',
+    stamp: h.stamp(950),
+  })
+  h.advance(1_000)
+  for (const m of [five, fifteen]) {
+    const bootstrap = JSON.parse(h.rows.get(m.slug)![0]!.rawJson) as BootstrapPayload
+    assert.equal(bootstrap.books.length, m === five ? 0 : 2)
+  }
+})
+
+test('traffic from another timeframe cannot verify the ended market tail at shutdown', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  h.coordinator.ingest({
+    source: 'polymarket',
+    connectionId: 'fifteen',
+    marketSlugs: [fifteen.slug],
+    rawJson: 'PONG',
+    stamp: h.stamp(five.endMs + 1),
+  })
+  h.coordinator.shutdown('test_stop', five.endMs + 2)
+  assert.ok(
+    h.coverage
+      .get(five.slug)
+      ?.gaps.some(
+        (g) => g.feed === 'polymarket' && g.reason === 'shutdown_before_tail_verification',
+      ),
+  )
+})
+
 test('unknown order sides are retained as gaps and require fresh snapshots before restoration', () => {
   const m = market()
   const h = harness([m])

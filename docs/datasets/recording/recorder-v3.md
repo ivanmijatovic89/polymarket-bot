@@ -74,6 +74,8 @@ The global sequence establishes the order in which this Node process handled obs
 
 The recorder discovers and subscribes to upcoming markets before they begin. It retains only the necessary current book/feed state for their bootstrap, with the original observation times. There is no five-minute prehistory added to every file. Bootstrap restores state without emitting historical strategy ticks. Subscriptions stay active across boundaries.
 
+Polymarket uses one persistent socket per configured timeframe: 5m and 15m each carry their current, upcoming, and grace-period subscriptions. Both sockets feed the same synchronous capture sequencer alongside Binance and Chainlink. This reduces traffic per Polymarket connection without changing the per-market file layout or ordering by provider timestamps. It does not reduce total subscribed market traffic or guarantee that peer disconnects stop.
+
 There is a 60-second finalization grace after market end for connection diagnostics and targeted metadata/resolution responses. Ordinary post-end price and book updates do not become strategy ticks for the ended market. This grace is not a guarantee against arbitrarily late upstream corrections.
 
 This dataset represents receipt at the recorder process. It avoids estimating relative arrival delays between independently collected feeds, but cannot reproduce exchange matching, fills, or the network timing of another machine.
@@ -235,6 +237,8 @@ Coverage records both confirmed loss and uncertainty: reconnect intervals, provi
 Polymarket disconnect control records include the peer's close code/reason and the connection's received message-frame/payload-byte counts. These aid diagnosis; the peer's `slow consumer: send buffer full` reason alone does not distinguish client processing, network delivery, and server buffering. Reconnecting restores current state from fresh books but cannot recover missing updates.
 
 Malformed book frames remain in the raw recording. They invalidate affected books, open coverage gaps, and trigger a reconnect for fresh snapshots. Explicit outage replay preserves these resets and skips the invalid mutations.
+
+Polymarket control records include the stable `channelId` and affected `marketSlugs`; `connectionId` still changes on every reconnect. Disconnects and undecodable frames affect only that socket's markets. A malformed frame reconnects its originating socket; a recorder-wide clock/event-loop problem still reconnects both. The healthy timeframe retains its books, and replay applies the same scoped resets. Legacy control records without a scope keep their original all-market behavior. Dashboard feed status remains degraded while either socket is unhealthy, and opening the second timeframe's first connection does not count as a reconnect.
 
 Undecodable Binance text remains in the raw recording and opens uncertain gaps for both feeds sharing its connection. An identifiable invalid aggregate-trade or best-bid/ask payload affects its own feed. A later valid message restores that feed's availability but does not erase the recorded uncertainty interval.
 

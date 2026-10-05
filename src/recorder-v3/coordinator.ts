@@ -2,6 +2,7 @@ import { MarketOrderBookEngine } from '../market/orderbook/MarketOrderBookEngine
 import { inspectMarketFrame, marketFrameMessages } from './marketFrame.js'
 import { applyCapturedFeed, object, parseCapturedJson } from './replay/feedState.js'
 import { parseRecorderMarket } from './markets.js'
+import { includesMarket } from './marketScope.js'
 import { OpeningReferenceTracker } from './replay/openingReference.js'
 import type { OpeningReferenceSnapshot } from '../trading/feeds/externalFeeds.js'
 import type {
@@ -36,6 +37,7 @@ type MarketState = {
   market: RecordedMarket
   books: MarketOrderBookEngine
   lastBookObservation: Map<string, { receivedAtMs: number; sequence: string }>
+  lastPolymarketAtMs: number | undefined
   started: boolean
   finished: boolean
   startedAtMs: number
@@ -75,7 +77,7 @@ export class CaptureCoordinator {
       /** Retain closed windows for retrospective sequence/watchdog gap reports. */
       finalizationGraceMs?: number
       /** Request fresh snapshots after invalid data made the local books unusable. */
-      onInvalidMarketFrame?: () => void
+      onInvalidMarketFrame?: (connectionId: string) => void
     },
   ) {}
 
@@ -95,6 +97,7 @@ export class CaptureCoordinator {
         expectedAssetIds: market.tokenIds,
       }),
       lastBookObservation: new Map(),
+      lastPolymarketAtMs: undefined,
       started: false,
       finished: false,
       startedAtMs: this.now(),
@@ -279,7 +282,8 @@ export class CaptureCoordinator {
     const malformedMarkets: string[] = []
     for (const state of this.markets.values()) {
       if (state.finished) continue
-      if (frame.marketSlug && frame.marketSlug !== state.market.slug) continue
+      if (!includesMarket(frame, state.market.slug)) continue
+      if (event.source === 'polymarket') state.lastPolymarketAtMs = event.receivedAtMs
       // A post-boundary frame can end an existing outage, but is never data for
       // that older market and must not repair its missing observations.
       if (state.started && event.receivedAtMs >= state.market.endMs) {
@@ -399,7 +403,7 @@ export class CaptureCoordinator {
         reason: 'invalid_market_payload',
         details: { certainty: 'confirmed' },
       })
-    if (malformedMarkets.length) this.options.onInvalidMarketFrame?.()
+    if (malformedMarkets.length) this.options.onInvalidMarketFrame?.(frame.connectionId)
     return event
   }
 
@@ -441,12 +445,12 @@ export class CaptureCoordinator {
         ? Math.max(startMs, Math.min(status.details.endMs, status.stamp.receivedAtMs))
         : null
     const certainty = status.details?.certainty === 'confirmed' ? 'confirmed' : 'uncertain'
-    if (losing && endMs === null && !status.marketSlug) {
+    if (losing && endMs === null && !status.marketSlug && status.marketSlugs === undefined) {
       for (const feed of feeds)
         this.unavailable.set(feed, { since: startMs, reason: status.reason ?? status.kind })
     }
     for (const state of this.markets.values()) {
-      if (state.finished || (status.marketSlug && status.marketSlug !== state.market.slug)) continue
+      if (state.finished || !includesMarket(status, state.market.slug)) continue
       if (losing && status.source === 'polymarket') {
         state.books = new MarketOrderBookEngine({
           market: state.market.conditionId,
@@ -533,7 +537,8 @@ export class CaptureCoordinator {
         if (at >= state.market.endMs) {
           // Shutdown shortens retrospective validation; mark its unverified tail.
           for (const feed of RECORDER_FEEDS) {
-            const verifiedThrough = this.lastReceived[feed]
+            const verifiedThrough =
+              feed === 'polymarket' ? state.lastPolymarketAtMs : this.lastReceived[feed]
             if (verifiedThrough === undefined || verifiedThrough < state.market.endMs) {
               this.gap(
                 state,

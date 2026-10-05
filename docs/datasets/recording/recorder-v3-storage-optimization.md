@@ -77,3 +77,34 @@ A simultaneous six-minute comparison at 23:51:00–23:57:00 UTC used minimal cou
 All six peer closes were code 1013 with `slow consumer: send buffer full`. The separate 5m socket's close occurred during initial subscription. Process-wide event-loop delay was 14.6 ms at p99 and 50.4 ms maximum. Payload counts differ because subscriptions and reconnect snapshots arrive independently and gaps lose observations; these are not duplicate-delivery parity measurements.
 
 Splitting sockets is therefore a promising candidate, not an established reliability fix. The short test added duplicate inbound traffic and shared the same host, router, and internet path; it does not identify the root cause or estimate a long-term failure rate. No production topology change was made. A production implementation must scope reconnect/invalid-book gaps to the affected socket's markets, preserve one global receipt sequence, validate both bootstrap/rotation paths, and retain conservative ordinary-backtest rejection. The diagnostic sockets were all stopped at the deadline.
+
+## Typed-column experiment (not a recorder format change)
+
+The follow-up experiment uses the same two archived recordings. It separates the six high-volume message shapes into nullable Parquet structs/lists in one mixed-feed file: Polymarket `price_change`, `book`, `best_bid_ask`, and `last_trade_price`, plus Binance `aggTrade` and `bookTicker`. Prices and quantities retain their exact decimal strings, safe integer fields use BIGINT, flags use BOOLEAN, and all receipt/sequence/identity fields remain. Unknown shapes, arrays, Chainlink messages, metadata, bootstrap, and control messages remain exact raw strings. A strict shape check prevents unknown fields from being discarded.
+
+This covers 239,892 of 240,595 rows in the 5m sample and 407,566 of 409,674 rows in the 15m sample. The remaining 703 and 2,108 rows use the raw fallback. The experiment preserves parsed fields and values, array/frame boundaries, and ordering; it does **not** promise preservation of JSON whitespace or object-key ordering for typed rows.
+
+The comparison below uses DuckDB for every variant, 8,192-row groups, bloom filters disabled, one thread, and Zstandard level 9 where applicable. Thus JSON-versus-typed differences do not include a switch of writer or row-group settings. These are sample sizes in decimal MB, not average future market sizes.
+
+| Layout | 5m | 15m |
+| --- | ---: | ---: |
+| Existing JSON payload, GZIP | 16.37 | 28.04 |
+| Typed payload, GZIP | 14.42 | 25.08 |
+| Typed payload + binary price-change hashes, GZIP | 13.34 | 23.14 |
+| Existing JSON payload, Zstandard | 13.48 | 24.24 |
+| Typed payload, Zstandard | 12.89 | 22.52 |
+| Typed payload + binary price-change hashes, Zstandard | 11.98 | 20.88 |
+
+Typed columns alone save approximately 12%/11% with GZIP and 4%/7% with Zstandard. Adding reversible binary hashes increases those savings to approximately 18%/17% with GZIP and 11%/14% with Zstandard. The best experimental layout saves approximately 27%/26% against the compatible production-builder GZIP files (16.42/28.04 MB), or 46%/47% against the original pre-optimization archives (22.24/39.34 MB). It is not a 10–20× reduction against compressed Parquet.
+
+Price-change hashes dominate the remaining data: even after binary encoding and Zstandard they occupy 6.83 MB and 12.46 MB, approximately 57% and 60% of each resulting file. They are retained rather than discarded. Merely removing repeated JSON key text cannot remove that payload; compression already handles much of the repeated syntax.
+
+### Validation and migration implications
+
+- Every experimental file was read back completely and compared in receive order across all 650,269 rows. Canonical hashes cover the envelope and every decoded payload field, including exact price/quantity strings and raw fallbacks. Both compression codecs and binary-hash variants matched.
+- A scratch decoder reconstructed the typed Zstandard files into temporary compatible v3 packages, then the real `runSingleMarket` path replayed original and reconstructed packages with all six feed requests. The 5m sample matched 183,027 callbacks in ordinary mode; the already-incomplete 15m sample matched 321,831 callbacks in explicit outage mode. Tick order, book snapshots, and tick-scoped external-feed snapshots matched the original hashes reported above. Network calls, environment-file reads, and live-execution imports were blocked during replay. The observer emitted no orders; this validates replay parity, not fill-model behavior or a production typed reader.
+- Lowercase 40-character hexadecimal price-change hashes were explicitly validated before binary conversion, and decoding restores the exact original string. Unsupported forms would require raw fallback in any future design.
+- Binance uses case-sensitive field pairs (`b`/`B`, `a`/`A`, and `m`/`M`). DuckDB's case-insensitive struct naming initially renamed fields. Explicit reversible field-name mapping corrected this, and the full round-trip check then passed. A future schema should use unambiguous names such as `bid_price` and `bid_quantity` with an explicit provider-field mapping.
+- This remains an isolated experiment. The recorder still writes its existing raw-JSON envelope schema; its CLI and readers have no typed-format mode. Zstandard support, typed decoding, unknown-field compatibility, schema versioning, crash recovery, resource limits, and archive/backtest integration would all need implementation and validation before adopting it.
+
+The typed canonical SHA-256 values are `6173b5dfdd95c813ec6bd65c339730e2a6719b79186b66e155238d58bc89a0e1` (5m) and `8e8458c51d2e548c331fc0fa7dfda13d99b383530a8104366825b297a19dbee9` (15m). They are semantic hashes, not hashes of the original wire formatting or physical Parquet bytes.

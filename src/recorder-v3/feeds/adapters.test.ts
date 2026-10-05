@@ -131,7 +131,7 @@ test('Polymarket keeps array frames intact and adds/removes tokens without recon
   assert.deepEqual(output.frames[0]?.stamp, { receivedAtMs: 123, monotonicNs: '456' })
   assert.equal(messages[0]?.custom_feature_enabled, true)
   assert.equal(messages[0]?.initial_dump, true)
-  feed.setMarkets([market('15m')])
+  feed.setMarkets([market('5m', 2_100_000)])
   await until(() => messages.length === 3)
   assert.equal(messages[1]?.operation, 'subscribe')
   assert.equal(messages[2]?.operation, 'unsubscribe')
@@ -141,7 +141,7 @@ test('Polymarket keeps array frames intact and adds/removes tokens without recon
   assert.equal(ws.sockets.length, 2)
   assert.equal(messages[3]?.type, 'market')
   assert.equal(messages[3]?.initial_dump, true)
-  assert.deepEqual(messages[3]?.assets_ids, market('15m').tokenIds)
+  assert.deepEqual(messages[3]?.assets_ids, market('5m', 2_100_000).tokenIds)
   assert.ok(output.statuses.some((status) => status.reason === 'capture_event_loop_gap'))
 })
 
@@ -150,6 +150,76 @@ const credentials = {
   secret: 'TEST_ONLY_SECRET',
   passphrase: 'TEST_ONLY_PASSPHRASE',
 }
+
+test('Polymarket isolates timeframe sockets, targeted reconnects, and subscription retirement', async (t) => {
+  const subscriptions = new Map<WebSocket, string[]>()
+  const ws = await server((socket) => {
+    socket.on('message', (data) => {
+      const message = JSON.parse(data.toString()) as { type?: string; assets_ids?: string[] }
+      if (message.type === 'market') {
+        subscriptions.set(socket, message.assets_ids!)
+        socket.send('PONG')
+      }
+    })
+  })
+  const five = market('5m')
+  const fifteen = market('15m')
+  const output = collect()
+  const feed = createPolymarketFeed({
+    ...output,
+    url: ws.url,
+    markets: [five, fifteen],
+    reconnectBaseMs: 1,
+    random: () => 0,
+  })
+  t.after(async () => {
+    feed.stop()
+    await ws.close()
+  })
+  feed.start()
+  feed.start()
+  await until(() => output.frames.length === 2)
+  assert.equal(ws.sockets.length, 2)
+  assert.deepEqual([...subscriptions.values()].sort(), [five.tokenIds, fifteen.tokenIds].sort())
+  const fiveFrame = output.frames.find((frame) => frame.channelId === 'polymarket:5m')!
+  const fifteenFrame = output.frames.find((frame) => frame.channelId === 'polymarket:15m')!
+  assert.deepEqual(fiveFrame.marketSlugs, [five.slug])
+  assert.deepEqual(fifteenFrame.marketSlugs, [fifteen.slug])
+  assert.notEqual(fiveFrame.connectionId, fifteenFrame.connectionId)
+  feed.reconnect('invalid_market_payload', fiveFrame.connectionId)
+  await until(() => output.frames.length === 3)
+  assert.equal(ws.sockets.length, 3)
+  assert.equal(output.frames[2]?.channelId, 'polymarket:5m')
+  const healthy = [...subscriptions].find(([, ids]) => ids.includes(fifteen.tokenIds[0]))![0]
+  healthy.send('PONG')
+  await until(() => output.frames.length === 4)
+  assert.equal(output.frames[3]?.connectionId, fifteenFrame.connectionId)
+  assert.ok(
+    output.statuses
+      .filter((s) => s.reason === 'invalid_market_payload')
+      .every((s) => s.channelId === 'polymarket:5m' && s.marketSlugs?.[0] === five.slug),
+  )
+  feed.setMarkets([fifteen])
+  assert.ok(output.statuses.some((s) => s.kind === 'stopped' && s.channelId === 'polymarket:5m'))
+  healthy.send('PONG')
+  await until(() => output.frames.length === 5)
+  assert.equal(output.frames[4]?.connectionId, fifteenFrame.connectionId)
+  feed.setMarkets([five, fifteen])
+  await until(() => output.frames.length === 6)
+  assert.equal(ws.sockets.length, 4)
+  assert.equal(output.frames[5]?.channelId, 'polymarket:5m')
+  assert.deepEqual(fiveFrame.marketSlugs, [five.slug], 'previous frame scope remains immutable')
+  feed.reconnect('capture_event_loop_gap')
+  await until(() => output.frames.length === 8)
+  assert.equal(ws.sockets.length, 6)
+  assert.deepEqual(
+    output.statuses
+      .filter((s) => s.reason === 'capture_event_loop_gap')
+      .map((s) => s.channelId)
+      .sort(),
+    ['polymarket:15m', 'polymarket:5m'],
+  )
+})
 
 test('Polymarket captures peer close evidence and resets counters on reconnect', async (t) => {
   let connections = 0
@@ -470,12 +540,13 @@ test('Polymarket PONG-only activity cannot hide a stalled active market subscrip
     socket.on('close', () => clearInterval(timer))
   })
   const output = collect()
-  const now = Date.now()
+  let now = Date.now()
   const active = { ...market(), startMs: now - 1_000, endMs: now + 10_000 }
   const feed = createPolymarketFeed({
     ...output,
     url: ws.url,
     markets: [active],
+    clock: () => ({ receivedAtMs: now, monotonicNs: String(BigInt(now) * 1_000_000n) }),
     dataStaleMs: 40,
     tickMs: 5,
   })
@@ -484,6 +555,10 @@ test('Polymarket PONG-only activity cannot hide a stalled active market subscrip
     await ws.close()
   })
   feed.start()
+  // Establish real PONG traffic before advancing the watchdog clock. Host load
+  // must not turn this into a race between socket delivery and a 40ms timeout.
+  await until(() => output.frames.some((frame) => frame.rawJson === 'PONG'))
+  now += 41
   await until(() =>
     output.statuses.some((status) => status.reason === 'polymarket_market_data_stale'),
   )
