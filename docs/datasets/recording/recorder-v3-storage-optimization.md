@@ -348,3 +348,33 @@ For speed, prioritize hardening and evaluating the direct reader with the existi
 These measurements do not establish a globally optimal format or justify a 10–20-fold reduction claim. For repeated strategy sweeps, a validated reusable decoded-data cache is another unmeasured option; it trades memory/local storage and invalidation complexity for avoiding repeated decoding. It would need archive-hash/version keys, isolated mutable strategy state, and the same timing/order and corruption checks. This study does not implement or claim a measured speedup for such a cache.
 
 Keep the production format unchanged until those adoption choices are made. The evidence supports reader optimization for speed and an explicit storage/precision/raw-text contract decision for a typed migration, rather than choosing a format solely because it removes JSON parsing.
+
+## SplitSellRedeem.v5 strategy benchmark
+
+This follow-up replaces the no-order observer with the unchanged `src/strategies/split/SplitSellRedeem.v5.ts` strategy. Its source SHA-256 is `ede47d26753799dd535b116792dcd9856f5ada50607886c9e0ce7bc14b02bae5`, identical in the user's checkout and the benchmark worktree. The runtime is `68c952c7`, whose application source matches the preceding benchmark. Experimental readers remain confined to the isolated source copy; there is no production format or strategy change.
+
+The strategy requests Binance spot and website PTB. It does not request Chainlink or synthetic feed-update ticks, and its trading decisions do not read external-feed prices: they use the order book, time-window gate, and dwell gate. Consequently, this is a real-strategy execution benchmark with the file's actual feed configuration, not a Binance-plus-Chainlink trading-signal benchmark.
+
+Parameters are parsed from the strategy's defaults: split 10 shares, sell 10, bid-price dwell range 0.20–0.35 for 40 seconds, trading allowed from 240 through 600 seconds after market start. Both input modes use 500 USDC simulated starting capital, immediate intent handling, zero execution delay/jitter, and the existing `worst_queue` maker-fill model. Historical feed visibility keeps its existing modeled delays; recorder replay preserves captured arrival order. Strategy code, plugins, OrderManager, execution simulation, portfolio updates, and final-outcome valuation all run normally.
+
+The same August Telonex market and October recorder market are used as above. The recorder sample still has a known gap and requires explicit outage replay; its results must not be treated as a clean production research sample. No settings are changed to force a trade or to bypass strategy gates.
+
+| Input / reader | Parquet size | Median seconds (minimum–maximum) | Time versus Telonex | Peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Telonex reference | 4.68 MB | 5.16 (5.07–5.25) | Reference | 387 MiB |
+| Recorder, current optimized JSON | 28.04 MB | 6.34 (6.31–6.40) | 22.9% longer | 351 MiB |
+| Recorder, same JSON with direct reader | 28.04 MB | 5.85 (5.84–5.87) | 13.2% longer | 351 MiB |
+| Recorder, flat typed/GZIP | 22.91 MB | 6.26 (6.26–6.39) | 21.3% longer | 448 MiB |
+| Recorder, flat typed/Zstandard | 20.64 MB | 6.39 (6.37–6.41) | 23.9% longer | 446 MiB |
+
+The direct reader reduces this strategy's recorder runtime by 7.8% relative to the current reader, but remains 13.2% slower than the historical example. Flat/GZIP reduces current-recorder runtime by only 1.3%; flat/Zstandard takes 0.8% longer. Their storage savings remain 18.3% and 26.4%, respectively. This actual-strategy test supports the earlier recommendation to prioritize the reader for speed; the typed layout primarily offers storage savings for this workload. Three repeats on one market per source do not establish fleet-wide throughput or isolate format cost from different market activity.
+
+Timing uses one discarded warm-up and three measured fresh Node 20 processes per case, with five cases interleaved in alternating order. No diagnostic observer or correctness hashing runs inside the timed cases. The interval includes historical feed loading or recorder integrity/admission, replay, actual strategy and execution work, and final market statistics. Process imports, archive download/conversion, producer orchestration, and database/dashboard persistence are excluded. Correctness checks are separate from the 20 timing runs. No benchmark jobs or builds run concurrently with timed cases.
+
+Both markets execute an initial 10-share split and one completed taker sell under the unchanged defaults. The historical case produces 324,880 strategy callbacks; the recorder produces 315,796. There are no synthetic feed-update callbacks in this strategy configuration. Binance snapshots are present at every strategy callback, and PTB is present at 323,814 historical callbacks and 315,668 recorder callbacks. No Chainlink price is requested or observed; the historical provider's empty RTDS container is not counted as Chainlink availability.
+
+All four recorder variants produce identical strategy intents, ordered account events, fees, final positions, and final-outcome statistics. The message/source/timestamp hash is `c613b6ccb938e501453bc5ed425bae1dbe4507407b82a253d429307e047075ba`. The context, capital, decision, and account/portfolio trace hash is `e62460962195ac0f2d7c0ce3b4e32f740a643b514926b25b89bf35135a7dce55`; the final statistics hash, excluding execution timestamps, is `25b923b3126f2a06caa50ad323248521a6e65173709e972b24d1f1ee6071ed82`. These checks compare readers on the same recorder data, not outcomes across different markets. Regenerated input files also match the preceding study's byte sizes and SHA-256 values.
+
+Final PnL is -7.73 USDC for the historical market and -7.63 for every recorder variant. Those values establish reproducibility of the tested outcomes, not profitability or economic equivalence between different markets. Every measured repetition must match its corresponding verification run's complete final statistics. Replays block network connections, environment-file reads, and live-execution imports.
+
+The Telonex size column covers only its 4,675,167-byte Polymarket file. This strategy also reads the 12,409,568-byte Binance day file for August 25; that file is shared across the day's markets and queried for the required interval, so assigning its full size to one market would be misleading. PTB is supplied from saved market metadata. The recorder Parquet files contain all captured feeds, including those this strategy does not request. They are not equal-content storage comparisons. File sizes exclude small recorder metadata sidecars.
