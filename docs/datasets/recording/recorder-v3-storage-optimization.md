@@ -108,3 +108,26 @@ Price-change hashes dominate the remaining data: even after binary encoding and 
 - This remains an isolated experiment. The recorder still writes its existing raw-JSON envelope schema; its CLI and readers have no typed-format mode. Zstandard support, typed decoding, unknown-field compatibility, schema versioning, crash recovery, resource limits, and archive/backtest integration would all need implementation and validation before adopting it.
 
 The typed canonical SHA-256 values are `6173b5dfdd95c813ec6bd65c339730e2a6719b79186b66e155238d58bc89a0e1` (5m) and `8e8458c51d2e548c331fc0fa7dfda13d99b383530a8104366825b297a19dbee9` (15m). They are semantic hashes, not hashes of the original wire formatting or physical Parquet bytes.
+
+## Implemented socket isolation and full-recorder follow-up
+
+The recorder now owns one persistent Polymarket connection per configured timeframe. Each callback carries an immutable snapshot of that connection's market scope. Disconnects invalidate only those books; malformed frames reconnect only their originating connection. Recorder-wide clock failures still affect both sockets. Capture and replay share the scope predicate, and shutdown tail verification cannot use traffic from the other timeframe. One global capture sequence and the existing per-market Parquet schema remain unchanged. Dashboard health aggregates both sockets without hiding an outage behind traffic on the healthy socket.
+
+Validation includes 187 recorder tests, TypeScript/ESLint, and the repository's CI checks. Regression tests cover scoped and global reconnects, subscription rotation/removal, malformed-frame capture and replay, pre-boundary bootstrap invalidation, shutdown-tail evidence, and dashboard health/reconnect accounting. The existing PONG watchdog test uses a controlled clock so host load cannot turn socket delivery into a 40 ms test race.
+
+A local Node 20 full-recorder run started at 00:20:53 UTC on October 5, stopped capture at its configured 00:46:00 deadline, and finished draining at 00:46:15. It used the real six feeds and ordinary journal/Parquet conversion. Upload and dashboard publishing were disabled; worker-2's service continued unchanged on the shared internet connection. Closed journals were removed only after complete Parquet checksum/row/replay verification to bound the temporary no-upload spool; Parquet and metadata were retained for subsequent checks.
+
+| Polymarket connection | Captured frames | Captured payload | Peer closes |
+| --- | ---: | ---: | ---: |
+| 5m | 754,062 | 495.26 MB | 4 |
+| 15m | 562,936 | 354.65 MB | 1 |
+
+All five closes were code 1013, `slow consumer: send buffer full`. Event-loop delay was 15.8 ms at p99 and 171.6 ms maximum. These are process scheduling measurements and decoded message payload sizes, not TCP throughput or end-to-end latency. Two public handshakes requesting `permessage-deflate` (default settings and client context takeover disabled) negotiated no extensions. No compression option was changed in production; negotiation is necessary for the [`ws` compression extension](https://github.com/websockets/ws#websocket-compression) to take effect.
+
+The four fully observed 5m windows included one with three Polymarket gaps and three with zero gaps. The fully observed 15m window had one Polymarket gap. Startup and interrupted final windows were correctly incomplete. In particular, `btc-updown-5m-1791160200` remained complete while its overlapping 15m socket disconnected at 00:33:15. Independent sockets therefore preserved usable 5m coverage that an all-market reset would have invalidated.
+
+The complete 5m file entered ordinary `runSingleMarket` replay with all feed requests and produced 171,653 observer callbacks. Its official outcome was initially pending, then the recorder observed **Down**; repeating replay with that later resolution retained the identical tick/feed hash. The observer submitted no orders. Outcome availability changes terminal statistics, not recorded tick visibility.
+
+All nine finalized packages passed checksum, row/sequence, feed, scoped-control, and replay verification across 1,654,763 rows. The gapped full 15m file was rejected in ordinary mode before any strategy callback (`incomplete_capture`); explicit outage replay processed 261,311 callbacks with all feed snapshots. Its official outcome was still pending at that check, so terminal outcome statistics were withheld. This verifies conservative admission as well as the ability to inspect a captured outage.
+
+This run does not establish a reduction in long-term disconnect frequency or identify a root cause. The late overlap with worker-2 was quiet on both configurations, and the hosts share a router/ISP; the older service and new recorder were also running on different hosts with different workloads. The implemented benefit is failure isolation. A controlled comparison on an independent network remains necessary to separate network-path effects from upstream buffering. The test exited with `duration_complete`; worker-2's pinned release and R2 objects were not changed.
