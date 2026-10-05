@@ -1,10 +1,15 @@
 import { MarketEngine } from '../../market/MarketEngine.js'
-import { decodeMarketChannelFrame } from '../../market/marketChannelDecoder.js'
+import { inspectMarketFrame, marketFrameMessages } from '../marketFrame.js'
+import { includesMarket } from '../marketScope.js'
 import { buildSyntheticFeedTick } from '../../market/syntheticTick.js'
 import type { MarketTick } from '../../strategy/Strategy.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
+import {
+  cloneExternalFeedsSnapshot,
+  type ExternalFeedsSnapshot,
+} from '../../trading/feeds/externalFeeds.js'
 import type { BootstrapPayload, CapturedEvent, MarketCoverage, RecordedMarket } from '../types.js'
+import { OpeningReferenceTracker } from './openingReference.js'
 import {
   applyCapturedFeed,
   object,
@@ -42,6 +47,7 @@ export function capturedMarketGapReasons(
  */
 export class CapturedMarketDispatcher {
   private readonly engine: MarketEngine
+  private readonly openingReference: OpeningReferenceTracker
   private state: ExternalFeedsSnapshot = {}
   private sequence = -1n
   private captureId: string | undefined
@@ -58,6 +64,7 @@ export class CapturedMarketDispatcher {
     },
   ) {
     validateCapturedFeedRequest(args.config, args.market)
+    this.openingReference = new OpeningReferenceTracker(args.market)
     this.engine = new MarketEngine({
       expectedAssetIds: args.market.tokenIds,
       onTick: (tick) => this.dispatchTick(tick),
@@ -80,7 +87,12 @@ export class CapturedMarketDispatcher {
   }
 
   private async dispatchTick(tick: MarketTick): Promise<void> {
-    this.tickFeeds.set(tick, structuredClone(selectCapturedFeeds(this.state, this.args.config)))
+    this.tickFeeds.set(
+      tick,
+      cloneExternalFeedsSnapshot(
+        selectCapturedFeeds(this.state, this.args.config, this.args.market),
+      ),
+    )
     await this.args.onTick(tick)
   }
 
@@ -133,12 +145,15 @@ export class CapturedMarketDispatcher {
       this.bootstrapSession = event.sessionId
       this.engine.reset()
       this.state = {}
+      this.openingReference.accept(event)
       for (const feed of bootstrap.feeds) {
         if (feed.receivedAtMs > event.receivedAtMs || BigInt(feed.sequence) > sequence)
           throw new Error('Bootstrap contains future feed state')
         const update = applyCapturedFeed(this.state, feed, market)
         if (update) this.state = update.snapshot
       }
+      const reference = this.openingReference.snapshot()
+      if (reference) this.state = { ...this.state, openingReference: reference }
       for (const book of bootstrap.books) {
         if (book.observedAtMs > event.receivedAtMs || BigInt(book.sequence) > sequence)
           throw new Error('Bootstrap contains future order book state')
@@ -149,11 +164,16 @@ export class CapturedMarketDispatcher {
 
     // Half-open market windows: boundary events belong to the next market.
     if (event.receivedAtMs < market.startMs || event.receivedAtMs >= market.endMs) return
+    if (event.source === 'chainlink' || event.source === 'price_to_beat') {
+      this.openingReference.accept(event)
+      const reference = this.openingReference.snapshot()
+      if (reference) this.state = { ...this.state, openingReference: reference }
+    }
     if (event.source === 'control') {
       const status = object(parseCapturedJson(event))
       if (
         status?.source === 'polymarket' &&
-        (!status.marketSlug || status.marketSlug === market.slug) &&
+        includesMarket(status, market.slug) &&
         ['disconnected', 'gap', 'stale', 'provider_mismatch', 'error'].includes(String(status.kind))
       ) {
         this.engine.reset()
@@ -197,11 +217,13 @@ export class CapturedMarketDispatcher {
     bootstrap: boolean,
   ): Promise<void> {
     // A shared websocket frame may contain messages for several active markets.
-    const messages = decodeMarketChannelFrame(rawJson).filter(
-      (msg) => msg.market === this.args.market.conditionId,
-    )
-    if (messages.length > 0)
-      await this.engine.handleRaw({ rawJson: JSON.stringify(messages), source, bootstrap })
+    const { messages, invalid } = marketFrameMessages(inspectMarketFrame(rawJson), this.args.market)
+    if (invalid) {
+      if (bootstrap) throw new Error('Invalid initial order book state')
+      this.engine.reset()
+      return
+    }
+    if (messages.length > 0) await this.engine.handleDecoded({ messages, source, bootstrap })
   }
 }
 

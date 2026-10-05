@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CaptureCoordinator, RECORDER_FEEDS } from './coordinator.js'
 import { parseRecorderMarket } from './markets.js'
+import { CapturedMarketDispatcher } from './replay/dispatcher.js'
 import type {
   BootstrapPayload,
   CapturedEvent,
@@ -33,6 +34,7 @@ function harness(markets: RecordedMarket[]) {
   const rows = new Map<string, CapturedEvent[]>()
   const coverage = new Map<string, MarketCoverage>()
   const started = new Map<string, RecordedMarket>()
+  let invalidFrames = 0
   const capture = (frame: RawFrame, eventType = 'frame'): CapturedEvent => {
     sequence++
     return {
@@ -55,6 +57,9 @@ function harness(markets: RecordedMarket[]) {
     capture,
     now: () => now,
     monotonic: () => String(now * 1_000_000),
+    onInvalidMarketFrame: () => {
+      invalidFrames++
+    },
     sink: {
       onStart: (value) => {
         started.set(value.slug, value)
@@ -140,11 +145,65 @@ function harness(markets: RecordedMarket[]) {
     prime,
     stamp,
     book,
+    invalidFrames: () => invalidFrames,
     setNow: (ms: number) => {
       now = ms
     },
   }
 }
+
+test('opening-reference diagnostics match archived replay and remain market-specific across rotation', async () => {
+  const five = market()
+  const fifteen = market('15m')
+  const next = market('5m', five.endMs)
+  const h = harness([five, fifteen, next])
+  h.frame(
+    'polymarket',
+    [five, fifteen, next].flatMap((m) => m.tokenIds.map((token) => h.book(m, token))),
+    950,
+  )
+  h.advance(1_000)
+  const twap = (timestamp: number, value: string) => ({
+    channel: 'price.crypto.twap',
+    payload: {
+      source: 'chainlink',
+      symbol: 'btcusd',
+      timestamp,
+      full_accuracy_value: value,
+      window_seconds: 60,
+    },
+  })
+  h.frame('chainlink', twap(1_000, '85000.123456789012345678'), 1_100)
+  h.frame('price_to_beat', { openPrice: 85001 }, 1_200, fifteen.slug)
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === fifteen.slug)?.openingReference?.comparison,
+    'mismatch',
+  )
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === five.slug)?.openingReference?.comparison,
+    'waiting-for-website',
+  )
+  h.frame('price_to_beat', { openPrice: 85000.123456789012345678 }, 1_300, fifteen.slug)
+  assert.equal(
+    h.coordinator.snapshot().find((m) => m.slug === fifteen.slug)?.openingReference?.comparison,
+    'match',
+  )
+  h.advance(next.startMs)
+  h.frame('chainlink', twap(next.startMs, '86000'), next.startMs + 100)
+  for (const m of [fifteen, next]) {
+    const dispatcher = new CapturedMarketDispatcher({
+      market: m,
+      filePath: 'capture.parquet',
+      config: { polymarketPriceToBeat: { enabled: true, source: 'chainlink-opening-twap' } },
+      onTick: () => {},
+    })
+    for (const event of h.rows.get(m.slug) ?? []) await dispatcher.accept(event)
+    const observed = h.coordinator.snapshot().find((row) => row.slug === m.slug)?.openingReference
+    assert.deepEqual(dispatcher.snapshot().openingReference, observed)
+    assert.equal(observed?.observation?.sourceTimestampMs, m.startMs)
+    assert.equal(observed?.observation?.openPrice, m === next ? 86000 : 85000.123456789012345678)
+  }
+})
 
 test('bootstrap retains only latest observed feed state and materialized books without fake history rows', () => {
   const m = market()
@@ -345,6 +404,205 @@ test('malformed book payload is preserved before invalidating only its market st
     true,
   )
   assert.ok(!h.rows.get(fifteen.slug)?.some((row) => row.eventId === event.eventId))
+  assert.equal(h.invalidFrames(), 1)
+})
+
+test('scoped disconnects and undecodable frames preserve the other timeframe in capture and replay', async () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  h.coordinator.status({
+    source: 'polymarket',
+    connectionId: 'five-socket',
+    channelId: 'polymarket:5m',
+    marketSlugs: [five.slug],
+    kind: 'disconnected',
+    stamp: h.stamp(1_200),
+  })
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === five.slug)?.booksReady, false)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === fifteen.slug)?.booksReady, true)
+  h.frame(
+    'polymarket',
+    five.tokenIds.map((id) => h.book(five, id)),
+    1_300,
+  )
+  const invalid = h.coordinator.ingest({
+    source: 'polymarket',
+    connectionId: 'five-socket',
+    channelId: 'polymarket:5m',
+    marketSlugs: [five.slug],
+    rawJson: '{malformed',
+    stamp: h.stamp(1_400),
+  })
+  assert.equal(h.invalidFrames(), 1)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === five.slug)?.booksReady, false)
+  assert.equal(h.coordinator.snapshot().find((s) => s.slug === fifteen.slug)?.booksReady, true)
+  assert.ok(h.rows.get(five.slug)?.some((r) => r.eventId === invalid.eventId))
+  assert.ok(!h.rows.get(fifteen.slug)?.some((r) => r.eventId === invalid.eventId))
+  const change = (m: RecordedMarket) => ({
+    event_type: 'price_change',
+    market: m.conditionId,
+    timestamp: '1500',
+    price_changes: [{ asset_id: m.tokenIds[0], price: '0.41', size: '5', side: 'BUY' }],
+  })
+  h.frame('polymarket', change(five), 1_500)
+  h.frame('polymarket', change(fifteen), 1_501)
+  for (const m of [five, fifteen]) {
+    const ticks: Array<{ at: number; assets: string[] }> = []
+    const dispatcher = new CapturedMarketDispatcher({
+      market: m,
+      filePath: 'test.parquet',
+      config: {},
+      onTick: (tick) => {
+        ticks.push({
+          at: tick.source.kind === 'parquet' ? tick.source.tsLocalMs! : -1,
+          assets: Object.keys(tick.snapshot.byAssetId),
+        })
+      },
+    })
+    for (const event of h.rows.get(m.slug)!) await dispatcher.accept(event)
+    const last = ticks.at(-1)!
+    assert.equal(last.at, m === five ? 1_500 : 1_501)
+    assert.deepEqual(
+      last.assets.sort(),
+      (m === five ? [five.tokenIds[0]] : [...fifteen.tokenIds]).sort(),
+      'replay clears the failed book and retains both healthy snapshots',
+    )
+  }
+  h.advance(fifteen.endMs + 60_000)
+  assert.ok(h.coverage.get(five.slug)?.gaps.some((g) => g.feed === 'polymarket'))
+  assert.ok(!h.coverage.get(fifteen.slug)?.gaps.some((g) => g.feed === 'polymarket'))
+})
+
+test('a scoped pre-boundary disconnect invalidates only its future bootstrap', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.frame(
+    'polymarket',
+    [five, fifteen].flatMap((m) => m.tokenIds.map((id) => h.book(m, id))),
+    900,
+  )
+  h.coordinator.status({
+    source: 'polymarket',
+    connectionId: 'five',
+    marketSlugs: [five.slug],
+    kind: 'disconnected',
+    stamp: h.stamp(950),
+  })
+  h.advance(1_000)
+  for (const m of [five, fifteen]) {
+    const bootstrap = JSON.parse(h.rows.get(m.slug)![0]!.rawJson) as BootstrapPayload
+    assert.equal(bootstrap.books.length, m === five ? 0 : 2)
+  }
+})
+
+test('traffic from another timeframe cannot verify the ended market tail at shutdown', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  h.coordinator.ingest({
+    source: 'polymarket',
+    connectionId: 'fifteen',
+    marketSlugs: [fifteen.slug],
+    rawJson: 'PONG',
+    stamp: h.stamp(five.endMs + 1),
+  })
+  h.coordinator.shutdown('test_stop', five.endMs + 2)
+  assert.ok(
+    h.coverage
+      .get(five.slug)
+      ?.gaps.some(
+        (g) => g.feed === 'polymarket' && g.reason === 'shutdown_before_tail_verification',
+      ),
+  )
+})
+
+test('unknown order sides are retained as gaps and require fresh snapshots before restoration', () => {
+  const m = market()
+  const h = harness([m])
+  h.prime()
+  const change = (side: string) => ({
+    event_type: 'price_change',
+    market: m.conditionId,
+    timestamp: '1500',
+    price_changes: [{ asset_id: m.tokenIds[0], price: '0.5', size: '99', side }],
+  })
+  const invalid = h.frame('polymarket', change('BID'), 1_500)
+  assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === invalid.eventId))
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  assert.equal(h.invalidFrames(), 1)
+  h.frame('polymarket', change('BUY'), 1_600)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  h.frame('polymarket', h.book(m, m.tokenIds[0]), 1_700)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, false)
+  h.frame('polymarket', h.book(m, m.tokenIds[1]), 1_800)
+  assert.equal(h.coordinator.snapshot()[0]?.booksReady, true)
+  h.advance(m.endMs + 60_000)
+  assert.equal(h.coverage.get(m.slug)?.complete, false)
+  assert.deepEqual(h.coverage.get(m.slug)?.gaps, [
+    {
+      feed: 'polymarket',
+      startMs: 1_500,
+      endMs: 1_800,
+      reason: 'invalid_market_payload',
+      certainty: 'confirmed',
+    },
+  ])
+})
+
+test('undecodable Polymarket text invalidates all affected books while PONG remains harmless', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  const ingest = (rawJson: string, at: number) =>
+    h.coordinator.ingest({
+      source: 'polymarket',
+      connectionId: 'polymarket',
+      rawJson,
+      stamp: h.stamp(at),
+    })
+  ingest('PONG', 1_400)
+  assert.equal(h.invalidFrames(), 0)
+  const invalid = ingest('{"event_type":"price_change",', 1_500)
+  assert.equal(h.invalidFrames(), 1)
+  assert.ok(h.coordinator.snapshot().every((state) => !state.booksReady))
+  for (const m of [five, fifteen])
+    assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === invalid.eventId))
+  h.advance(fifteen.endMs + 60_000)
+  for (const m of [five, fifteen]) {
+    assert.equal(h.coverage.get(m.slug)?.complete, false)
+    assert.ok(h.coverage.get(m.slug)?.gaps.some((gap) => gap.reason === 'invalid_market_payload'))
+  }
+})
+
+test('a changed market event schema in a shared array cannot silently produce complete coverage', () => {
+  const five = market()
+  const fifteen = market('15m')
+  const h = harness([five, fifteen])
+  h.prime()
+  const event = h.frame(
+    'polymarket',
+    [
+      h.book(five, five.tokenIds[0]),
+      { event_type: 'price_change_v2', market: fifteen.conditionId, changes: [] },
+    ],
+    1_500,
+  )
+  assert.equal(h.invalidFrames(), 1)
+  assert.equal(h.coordinator.snapshot().find((state) => state.slug === five.slug)?.booksReady, true)
+  assert.equal(
+    h.coordinator.snapshot().find((state) => state.slug === fifteen.slug)?.booksReady,
+    false,
+  )
+  for (const m of [five, fifteen])
+    assert.ok(h.rows.get(m.slug)?.some((row) => row.eventId === event.eventId))
+  h.advance(fifteen.endMs + 60_000)
+  assert.equal(h.coverage.get(five.slug)?.complete, true)
+  assert.equal(h.coverage.get(fifteen.slug)?.complete, false)
 })
 
 test('post-end resolution and market metadata survive grace without recording subsequent price rows', () => {

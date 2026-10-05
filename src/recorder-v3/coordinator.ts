@@ -1,7 +1,10 @@
 import { MarketOrderBookEngine } from '../market/orderbook/MarketOrderBookEngine.js'
-import { decodeMarketChannelFrame } from '../market/marketChannelDecoder.js'
+import { inspectMarketFrame, marketFrameMessages } from './marketFrame.js'
 import { applyCapturedFeed, object, parseCapturedJson } from './replay/feedState.js'
 import { parseRecorderMarket } from './markets.js'
+import { includesMarket } from './marketScope.js'
+import { OpeningReferenceTracker } from './replay/openingReference.js'
+import type { OpeningReferenceSnapshot } from '../trading/feeds/externalFeeds.js'
 import type {
   BootstrapPayload,
   CapturedEvent,
@@ -34,6 +37,7 @@ type MarketState = {
   market: RecordedMarket
   books: MarketOrderBookEngine
   lastBookObservation: Map<string, { receivedAtMs: number; sequence: string }>
+  lastPolymarketAtMs: number | undefined
   started: boolean
   finished: boolean
   startedAtMs: number
@@ -42,6 +46,7 @@ type MarketState = {
   gaps: CoverageGap[]
   openGaps: Map<RecorderFeed, CoverageGap>
   priceToBeat: CapturedEvent | null
+  openingReference: OpeningReferenceTracker | null
   rows: number
 }
 
@@ -71,6 +76,8 @@ export class CaptureCoordinator {
       monotonic?: () => string
       /** Retain closed windows for retrospective sequence/watchdog gap reports. */
       finalizationGraceMs?: number
+      /** Request fresh snapshots after invalid data made the local books unusable. */
+      onInvalidMarketFrame?: (connectionId: string) => void
     },
   ) {}
 
@@ -90,6 +97,7 @@ export class CaptureCoordinator {
         expectedAssetIds: market.tokenIds,
       }),
       lastBookObservation: new Map(),
+      lastPolymarketAtMs: undefined,
       started: false,
       finished: false,
       startedAtMs: this.now(),
@@ -98,6 +106,7 @@ export class CaptureCoordinator {
       gaps: [],
       openGaps: new Map(),
       priceToBeat: null,
+      openingReference: null,
       rows: 0,
     })
   }
@@ -193,7 +202,10 @@ export class CaptureCoordinator {
     if (books.length === 2) state.receivedFeeds.add('polymarket')
     const payload: BootstrapPayload = { kind: 'initial_state', market: state.market, feeds, books }
     this.options.sink.onStart?.(state.market)
-    this.write(state, this.local('bootstrap', payload, at, 'initial_state'))
+    const bootstrap = this.local('bootstrap', payload, at, 'initial_state')
+    state.openingReference = new OpeningReferenceTracker(state.market)
+    state.openingReference.accept(bootstrap)
+    this.write(state, bootstrap)
     // Polling a newly opened strike naturally takes time: record its availability,
     // not a fictitious outage before the first successful price-to-beat response.
     for (const feed of RECORDER_FEEDS) {
@@ -263,19 +275,15 @@ export class CaptureCoordinator {
       this.lastReceived[sharedUpdate.feed] = event.receivedAtMs
       this.unavailable.delete(sharedUpdate.feed)
     }
-    const messages = event.source === 'polymarket' ? decodeMarketChannelFrame(event.rawJson) : []
+    const marketFrame = event.source === 'polymarket' ? inspectMarketFrame(event.rawJson) : null
     const parsed = event.source === 'polymarket' ? parseCapturedJson(event) : null
     const rawMessages = Array.isArray(parsed) ? parsed : [parsed]
-    const addressedMarkets = new Set(
-      rawMessages.flatMap((value) => {
-        const message = object(value)
-        return typeof message?.market === 'string' ? [message.market] : []
-      }),
-    )
+    const addressedMarkets = marketFrame?.addressedMarkets ?? new Set<string>()
     const malformedMarkets: string[] = []
     for (const state of this.markets.values()) {
       if (state.finished) continue
-      if (frame.marketSlug && frame.marketSlug !== state.market.slug) continue
+      if (!includesMarket(frame, state.market.slug)) continue
+      if (event.source === 'polymarket') state.lastPolymarketAtMs = event.receivedAtMs
       // A post-boundary frame can end an existing outage, but is never data for
       // that older market and must not repair its missing observations.
       if (state.started && event.receivedAtMs >= state.market.endMs) {
@@ -308,6 +316,7 @@ export class CaptureCoordinator {
         event.source === 'market_metadata' && frame.marketSlug === state.market.slug
       const addressed =
         event.source !== 'polymarket' ||
+        marketFrame?.unscopedInvalid === true ||
         addressedMarkets.size === 0 ||
         addressedMarkets.has(state.market.conditionId)
       // Preserve raw evidence even if a future server schema cannot be decoded.
@@ -342,7 +351,12 @@ export class CaptureCoordinator {
         // starts. Later metadata stays on the tape without changing its past.
         if (!state.started) state.market = { ...updated, rawJson: event.rawJson }
       }
-      const relevant = messages.filter((message) => message.market === state.market.conditionId)
+      const validated = marketFrame ? marketFrameMessages(marketFrame, state.market) : null
+      if (validated?.invalid) {
+        malformedMarkets.push(state.market.slug)
+        continue
+      }
+      const relevant = validated?.messages ?? []
       try {
         for (const message of relevant) {
           const assets =
@@ -373,6 +387,8 @@ export class CaptureCoordinator {
         this.lastReceived.price_to_beat = event.receivedAtMs
       }
       if (!inWindow || !addressed) continue
+      if (event.source === 'chainlink' || event.source === 'price_to_beat')
+        state.openingReference?.accept(event)
       if (update) this.restored(state, update.feed, event.receivedAtMs)
       if (relevant.length && state.books.isWarm())
         this.restored(state, 'polymarket', event.receivedAtMs)
@@ -387,6 +403,7 @@ export class CaptureCoordinator {
         reason: 'invalid_market_payload',
         details: { certainty: 'confirmed' },
       })
+    if (malformedMarkets.length) this.options.onInvalidMarketFrame?.(frame.connectionId)
     return event
   }
 
@@ -428,12 +445,12 @@ export class CaptureCoordinator {
         ? Math.max(startMs, Math.min(status.details.endMs, status.stamp.receivedAtMs))
         : null
     const certainty = status.details?.certainty === 'confirmed' ? 'confirmed' : 'uncertain'
-    if (losing && endMs === null && !status.marketSlug) {
+    if (losing && endMs === null && !status.marketSlug && status.marketSlugs === undefined) {
       for (const feed of feeds)
         this.unavailable.set(feed, { since: startMs, reason: status.reason ?? status.kind })
     }
     for (const state of this.markets.values()) {
-      if (state.finished || (status.marketSlug && status.marketSlug !== state.market.slug)) continue
+      if (state.finished || !includesMarket(status, state.market.slug)) continue
       if (losing && status.source === 'polymarket') {
         state.books = new MarketOrderBookEngine({
           market: state.market.conditionId,
@@ -520,7 +537,8 @@ export class CaptureCoordinator {
         if (at >= state.market.endMs) {
           // Shutdown shortens retrospective validation; mark its unverified tail.
           for (const feed of RECORDER_FEEDS) {
-            const verifiedThrough = this.lastReceived[feed]
+            const verifiedThrough =
+              feed === 'polymarket' ? state.lastPolymarketAtMs : this.lastReceived[feed]
             if (verifiedThrough === undefined || verifiedThrough < state.market.endMs) {
               this.gap(
                 state,
@@ -546,16 +564,21 @@ export class CaptureCoordinator {
     rows: number
     gaps: number
     booksReady: boolean
+    openingReference?: OpeningReferenceSnapshot
   }> {
     return [...this.markets.values()]
       .filter((state) => !state.finished)
-      .map((state) => ({
-        slug: state.market.slug,
-        timeframe: state.market.timeframe,
-        active: state.started && this.now() < state.market.endMs,
-        rows: state.rows,
-        gaps: state.gaps.length,
-        booksReady: state.books.isWarm(),
-      }))
+      .map((state) => {
+        const openingReference = state.openingReference?.snapshot()
+        return {
+          slug: state.market.slug,
+          timeframe: state.market.timeframe,
+          active: state.started && this.now() < state.market.endMs,
+          rows: state.rows,
+          gaps: state.gaps.length,
+          booksReady: state.books.isWarm(),
+          ...(openingReference ? { openingReference } : {}),
+        }
+      })
   }
 }

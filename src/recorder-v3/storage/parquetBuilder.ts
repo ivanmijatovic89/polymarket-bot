@@ -5,9 +5,10 @@ import path from 'node:path'
 
 import { atomicWrite, digestFile, exists, syncDirectory } from './files.js'
 import { readJournals } from './journalReader.js'
-import type { MarketManifest } from './manifest.js'
+import { marketManifestSchema, type MarketManifest } from './manifest.js'
 import type { PackageState, ReadyMarket } from './marketStore.js'
 import { capturedEventSchema, eventToRow } from './parquet.js'
+import { CAPTURE_ROW_GROUP_BYTES, CAPTURE_ROW_GROUP_SIZE } from './parquetLimits.js'
 import type { MarketCoverage } from '../types.js'
 
 export type ParquetJob = {
@@ -24,7 +25,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
   const { directory, state, coverage } = job
   const file = path.join(directory, `events-${randomUUID()}.parquet.tmp`)
   const writer = await parquet.ParquetWriter.openFile(capturedEventSchema, file)
-  const rowGroupSize = job.rowGroupSize ?? 512
+  const rowGroupSize = job.rowGroupSize ?? CAPTURE_ROW_GROUP_SIZE
   writer.setRowGroupSize(rowGroupSize)
   writer.setMetadata('recorder_schema_version', '3')
   writer.setMetadata('market_slug', state.market.slug)
@@ -41,7 +42,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
       groupBytes +=
         Buffer.byteLength(event.rawJson) + Buffer.byteLength(event.detailsJson ?? '') + 512
       const flush =
-        groupRows >= rowGroupSize || groupBytes >= (job.rowGroupBytes ?? 4 * 1024 * 1024)
+        groupRows >= rowGroupSize || groupBytes >= (job.rowGroupBytes ?? CAPTURE_ROW_GROUP_BYTES)
       if (flush) writer.setRowGroupSize(groupRows)
       await writer.appendRow(eventToRow(event))
       if (flush) {
@@ -72,6 +73,7 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
   await syncDirectory(directory)
   const manifest: MarketManifest = {
     schemaVersion: 3,
+    archiveLayout: 'symbol-timeframe',
     recordingId: state.recordingId,
     market: state.market,
     coverage,
@@ -79,12 +81,13 @@ export async function buildParquetFile(job: ParquetJob): Promise<ReadyMarket> {
     finalizedAtMs: Date.now(),
     events: {
       ...digest,
-      key: `${job.prefix}/${state.market.slug}/${state.recordingId}/events-${digest.sha256}.parquet`,
+      key: `${job.prefix}/${state.market.symbol}/${state.market.timeframe}/${state.market.slug}/${state.recordingId}/events-${digest.sha256}.parquet`,
       rows,
       firstSequence,
       lastSequence,
     },
   }
+  marketManifestSchema.parse(manifest)
   await atomicWrite(path.join(directory, 'manifest.json'), JSON.stringify(manifest))
   return { directory, manifest }
 }

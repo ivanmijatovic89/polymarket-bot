@@ -27,7 +27,10 @@ import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPr
 import { windowStartMsFromSlug } from '../polymarket/upDownSlugWindow.js'
 import { ExternalFeedsPlugin } from '../strategy/plugins/ExternalFeedsPlugin.js'
 import { PluginSet } from '../strategy/plugins/PluginSet.js'
-import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import {
+  assertLegacyPriceToBeatSource,
+  isExternalFeedsRequestPlugin,
+} from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { computePositionMetricsFromMarket } from '../trading/positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from '../trading/orderbookMetrics.js'
 import { mkdir } from 'node:fs/promises'
@@ -196,6 +199,10 @@ async function main(): Promise<void> {
     pluginSet = new PluginSet()
     for (const p of built.plugins) pluginSet.register(p)
   }
+  assertLegacyPriceToBeatSource(
+    pluginSet?.list().find(isExternalFeedsRequestPlugin)?.config,
+    'trading-bot',
+  )
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // Optional per-run JSONL logging

@@ -26,6 +26,10 @@ export function decodeMarketChannelMessage(rawJson: string): AnyMarketMessage | 
   } catch {
     return null
   }
+  return marketMessage(obj)
+}
+
+function marketMessage(obj: unknown): AnyMarketMessage | null {
   if (!obj || typeof obj !== 'object') return null
 
   const rec = obj as Record<string, unknown>
@@ -56,7 +60,7 @@ export function decodeMarketChannelFrame(rawJson: string): AnyMarketMessage[] {
   }
   const values = Array.isArray(value) ? value : [value]
   return values.flatMap((item) => {
-    const msg = decodeMarketChannelMessage(JSON.stringify(item))
+    const msg = marketMessage(item)
     return msg ? [msg] : []
   })
 }

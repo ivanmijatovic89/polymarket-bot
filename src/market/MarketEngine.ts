@@ -85,7 +85,25 @@ export class MarketEngine {
     /** Starting state is applied without pretending a new strategy tick occurred. */
     bootstrap?: boolean
   }): Promise<AnyMarketMessage | null> {
-    const apply = () => this.applyFrame(args)
+    return this.enqueueFrame(() => this.applyFrame(decodeMarketChannelFrame(args.rawJson), args))
+  }
+
+  /**
+   * Accept an already decoded frame using the same queue and tick semantics as
+   * handleRaw. The caller validates and transfers ownership of these messages;
+   * it must not mutate them while the frame is queued or after dispatch.
+   */
+  handleDecoded(args: {
+    messages: readonly AnyMarketMessage[]
+    source: EngineSource
+    bootstrap?: boolean
+  }): Promise<AnyMarketMessage | null> {
+    return this.enqueueFrame(() => this.applyFrame(args.messages, args))
+  }
+
+  private enqueueFrame(
+    apply: () => AnyMarketMessage | null | Promise<AnyMarketMessage | null>,
+  ): Promise<AnyMarketMessage | null> {
     try {
       if (this.pendingFrame) return this.trackFrame(this.pendingFrame.then(apply))
       const result = apply()
@@ -103,12 +121,10 @@ export class MarketEngine {
     return tracked
   }
 
-  private applyFrame(args: {
-    rawJson: string
-    source: EngineSource
-    bootstrap?: boolean
-  }): AnyMarketMessage | null | Promise<AnyMarketMessage | null> {
-    const messages = decodeMarketChannelFrame(args.rawJson)
+  private applyFrame(
+    messages: readonly AnyMarketMessage[],
+    args: { source: EngineSource; bootstrap?: boolean },
+  ): AnyMarketMessage | null | Promise<AnyMarketMessage | null> {
     const applyFrom = (
       start: number,
     ): AnyMarketMessage | null | Promise<AnyMarketMessage | null> => {

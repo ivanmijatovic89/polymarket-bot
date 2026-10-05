@@ -6,6 +6,10 @@ import { digestFile } from './storage/files.js'
 import { readManifest } from './storage/manifest.js'
 import { readCapturedEvents } from './storage/parquet.js'
 import type { RecorderFeed } from './types.js'
+import {
+  OpeningReferenceTracker,
+  type OpeningReferenceInspection,
+} from './replay/openingReference.js'
 
 export type CaptureVerification = {
   slug: string
@@ -21,6 +25,7 @@ export type CaptureVerification = {
   feeds: Partial<Record<RecorderFeed, number>>
   firstSequence: string | null
   lastSequence: string | null
+  openingReference?: OpeningReferenceInspection
 }
 
 /** Verify every row and replay the same tick/feed snapshots without strategy, DB or network I/O. */
@@ -34,6 +39,7 @@ export async function verifyCapturePackage(input: string): Promise<CaptureVerifi
   if (digest.bytes !== manifest.events.bytes || digest.sha256 !== manifest.events.sha256)
     throw new Error('Recording bytes differ from the manifest')
   const replay = createHash('sha256')
+  const openingReference = new OpeningReferenceTracker(manifest.market)
   const result: CaptureVerification = {
     slug: manifest.market.slug,
     timeframe: manifest.market.timeframe,
@@ -117,6 +123,7 @@ export async function verifyCapturePackage(input: string): Promise<CaptureVerifi
     if (update) result.feeds[update.feed] = (result.feeds[update.feed] ?? 0) + 1
     result.firstSequence ??= event.sequence
     result.lastSequence = event.sequence
+    openingReference.accept(event)
     await dispatcher.accept(event)
   }
   if (
@@ -126,5 +133,6 @@ export async function verifyCapturePackage(input: string): Promise<CaptureVerifi
   )
     throw new Error('Recording row count or sequence bounds differ from the manifest')
   result.replaySha256 = replay.digest('hex')
+  result.openingReference = openingReference.report()
   return result
 }

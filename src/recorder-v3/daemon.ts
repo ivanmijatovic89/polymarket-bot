@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import path from 'node:path'
-import { mkdir, readdir, stat, statfs } from 'node:fs/promises'
+import { readdir, stat, statfs } from 'node:fs/promises'
 import { CaptureCoordinator, RECORDER_FEEDS, sourceFeeds } from './coordinator.js'
 import type { RecorderConfig } from './config.js'
 import { discoverBtcMarkets } from './markets.js'
@@ -16,6 +16,7 @@ import { ArchiveService, readArchiveReceipt } from './storage/archive.js'
 import { R2BlobStore, type BlobStore, type R2BlobStoreOptions } from './storage/blobStore.js'
 import { DurableMarketStore, type ReadyMarket } from './storage/marketStore.js'
 import { applyCapturedFeed } from './replay/feedState.js'
+import { ensureDirectory } from './storage/files.js'
 import type { RecorderStatus } from './statusTypes.js'
 import type {
   CapturedEvent,
@@ -148,7 +149,7 @@ export async function runRecorder(
     ...options.dependencies,
   }
   const log = options.log ?? console.log
-  await mkdir(config.spoolDir, { recursive: true })
+  await ensureDirectory(config.spoolDir)
   const initialDisk = await deps.disk(config.spoolDir)
   const sequence = await openCaptureSequence(config.spoolDir)
   const store = new DurableMarketStore({
@@ -189,9 +190,31 @@ export async function runRecorder(
   const initialMetadataWrites = new Map<string, Promise<void>>()
   const finalizers = new Set<Promise<void>>()
   const phases = new Map<RecorderFeed, string>()
+  const channelPhases = new Map<RecorderFeed, Map<string, string>>()
+  const unhealthyPhases = [
+    'connecting',
+    'gap',
+    'error',
+    'stale',
+    'disconnected',
+    'provider_mismatch',
+  ]
+  const setPhase = (feed: RecorderFeed, phase: string, channelId = 'shared') => {
+    const channels = channelPhases.get(feed) ?? new Map<string, string>()
+    if (phase === 'stopped') channels.delete(channelId)
+    else channels.set(channelId, phase)
+    channelPhases.set(feed, channels)
+    // Traffic on a healthy socket must not hide another socket's outage.
+    phases.set(
+      feed,
+      [...channels.values()].find((value) => unhealthyPhases.includes(value)) ??
+        [...channels.values()].at(-1) ??
+        phase,
+    )
+  }
   const messages = new Map<RecorderFeed, number>()
   const reconnects = new Map<RecorderFeed, number>()
-  const connected = new Set<RecorderFeed>()
+  const connected = new Set<string>()
   let pendingBytes = 0
   let disk = initialDisk
   let diskVerified = true
@@ -259,6 +282,8 @@ export async function runRecorder(
     capture: sequence.capture,
     now: () => deps.stamp().receivedAtMs,
     monotonic: () => deps.stamp().monotonicNs,
+    onInvalidMarketFrame: (connectionId) =>
+      polymarket.reconnect('invalid_market_payload', connectionId),
     sink: {
       onStart: (market) => {
         registered.set(market.slug, market)
@@ -318,7 +343,7 @@ export async function runRecorder(
               : undefined
         if (feed) {
           messages.set(feed, (messages.get(feed) ?? 0) + 1)
-          phases.set(feed, 'receiving')
+          setPhase(feed, 'receiving', frame.channelId)
         }
       } catch (error) {
         fail(error)
@@ -333,10 +358,11 @@ export async function runRecorder(
         for (const feed of sourceFeeds(status.source).filter(
           (feed) => !hinted || feed === hinted,
         )) {
-          if (status.kind === 'connecting' && connected.has(feed))
+          const channelKey = `${feed}:${status.channelId ?? 'shared'}`
+          if (status.kind === 'connecting' && connected.has(channelKey))
             reconnects.set(feed, (reconnects.get(feed) ?? 0) + 1)
-          if (status.kind === 'connected') connected.add(feed)
-          phases.set(feed, status.kind)
+          if (status.kind === 'connected') connected.add(channelKey)
+          setPhase(feed, status.kind, status.channelId)
         }
         if (status.details?.permanent === true)
           requestStop(status.reason ?? 'Permanent feed failure', true)
@@ -413,14 +439,14 @@ export async function runRecorder(
     lastDiscoveryAtMs = deps.stamp().receivedAtMs
   }
   const drainArchive = async () => {
-    if (!archive || stopped) return 0
+    if (!archive || stopped) return { uploaded: 0, attemptedDirectories: [] as string[] }
     const result = await archive.runOnce({ signal: startupAbort.signal })
     uploadedMarkets += result.uploaded.length
     lastSuccessAtMs = result.uploaded.at(-1)?.verifiedAtMs ?? lastSuccessAtMs
     archiveError = result.failures.length
       ? recorderError(result.failures[0]!.message, config)
       : null
-    return result.uploaded.length
+    return { uploaded: result.uploaded.length, attemptedDirectories: result.attemptedDirectories }
   }
   const maintain = async () => {
     if (stopped) return
@@ -460,9 +486,7 @@ export async function runRecorder(
           RECORDER_FEEDS.some(
             (feed) =>
               coordinator.lastReceived[feed] === undefined ||
-              ['gap', 'error', 'stale', 'disconnected', 'provider_mismatch'].includes(
-                phases.get(feed) ?? '',
-              ),
+              unhealthyPhases.includes(phases.get(feed) ?? ''),
           ))
           ? 'degraded'
           : state,
@@ -553,18 +577,23 @@ export async function runRecorder(
         .catch((error) => log(`[recorder] initial status: ${recorderError(error, config)}`))
       // Already-finalized packages can free a full spool without opening a journal or
       // starting compression. A restart must be able to recover after an R2 outage.
-      // Retry bounded archive batches while each pass frees space. Cancellation remains
-      // available even if months of failed uploads accumulated before this restart.
-      let drained: number
+      // Visit every pending package before declaring a full spool unrecoverable:
+      // an early failed batch must not hide later packages that can free space.
+      const attemptedDirectories = new Set<string>()
+      let madeProgress: boolean
       do {
-        drained = await drainArchive().catch((error) => {
+        const drained = await drainArchive().catch((error) => {
           archiveError = recorderError(error, config)
-          return 0
+          return { uploaded: 0, attemptedDirectories: [] as string[] }
         })
+        madeProgress =
+          drained.uploaded > 0 ||
+          drained.attemptedDirectories.some((directory) => !attemptedDirectories.has(directory))
+        for (const directory of drained.attemptedDirectories) attemptedDirectories.add(directory)
         disk = await deps.disk(config.spoolDir)
       } while (
         !stopped &&
-        drained > 0 &&
+        madeProgress &&
         (disk.bytes >= config.maxSpoolBytes || disk.freeBytes <= config.minFreeBytes)
       )
       await checkDisk()

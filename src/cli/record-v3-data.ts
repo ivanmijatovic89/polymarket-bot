@@ -1,5 +1,6 @@
 import { readRemoteManifest } from '../recorder-v3/storage/archive.js'
 import { R2BlobStore } from '../recorder-v3/storage/blobStore.js'
+import { RecorderCliError } from '../recorder-v3/cliError.js'
 import {
   CATALOG_HELP,
   downloadRecordedMarkets,
@@ -62,7 +63,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(() => {
+main().catch((error: unknown) => {
+  if (error instanceof RecorderCliError) {
+    console.error(`[recorder-data] ${error.message}`)
+    process.exitCode = 1
+    return
+  }
   // SDK errors may carry endpoint details; never print configuration or credential-bearing URLs.
   console.error(
     '[recorder-data] catalog operation failed; check arguments, explicit R2 configuration, connectivity, and archive integrity. Earlier successful downloads remain available.',

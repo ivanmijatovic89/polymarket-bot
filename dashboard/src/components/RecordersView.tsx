@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Skeleton } from './ui/skeleton'
 import type { RecorderEntry, RecordersReport } from '@/lib/queries/recorders'
 import { RECORDER_OFFLINE_AFTER_MS } from '@bot/recorder-v3/statusTypes'
+import type { OpeningReferenceSnapshot } from '@bot/trading/feeds/externalFeeds'
 
 async function fetchRecorders(): Promise<RecordersReport> {
   const response = await fetch('/api/recorders', {
@@ -208,6 +209,9 @@ function RecorderCard({
                       {market.rows.toLocaleString()} rows
                     </span>
                   </div>
+                  <div className="w-full border-t pt-2">
+                    <OpeningReference reference={market.openingReference} now={now} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -306,6 +310,111 @@ function RecorderCard({
         </CardContent>
       )}
     </Card>
+  )
+}
+
+function OpeningReference({
+  reference,
+  now,
+}: {
+  reference: OpeningReferenceSnapshot | undefined
+  now: number
+}) {
+  if (!reference)
+    return <p className="text-muted-foreground">Opening TWAP: not reported by this recorder.</p>
+  const labels: Record<OpeningReferenceSnapshot['comparison'], string> = {
+    unavailable: 'Opening TWAP unavailable',
+    'waiting-for-website': 'Awaiting website comparison',
+    match: 'Matches website PTB',
+    mismatch: 'Website PTB differs',
+    'conflicting-twap': 'Conflicting opening TWAPs',
+  }
+  const { observation, website, conflict, comparison } = reference
+  const conflicting = comparison === 'conflicting-twap'
+  const conflictCount = reference.conflictCount ?? 0
+  const price = (value: number): string =>
+    value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium tabular-nums">
+          Opening TWAP: {observation ? `$${price(observation.openPrice)}` : 'Unavailable'}
+        </span>
+        <Badge
+          variant={conflicting ? 'destructive' : comparison === 'match' ? 'success' : 'warning'}
+        >
+          {labels[comparison]}
+        </Badge>
+        {conflictCount > 0 && (
+          <Badge variant="warning">
+            {conflictCount} TWAP {conflictCount === 1 ? 'conflict' : 'conflicts'} in this capture
+            session
+          </Badge>
+        )}
+      </div>
+      {observation && (
+        <p className="text-muted-foreground">
+          Chainlink 60-second TWAP at market opening · Received {age(observation.receivedAtMs, now)}
+        </p>
+      )}
+      <p className="text-muted-foreground">
+        Website PTB:{' '}
+        {website
+          ? `$${price(website.openPrice)} · Received ${age(website.receivedAtMs, now)}`
+          : 'Not observed'}
+      </p>
+      {comparison === 'mismatch' && (
+        <p className="text-muted-foreground">
+          Website PTB differs; TWAP mode keeps the selected Chainlink observation.
+        </p>
+      )}
+      {conflicting && (
+        <p className="text-destructive">
+          Opening reference is uncertain. Normal backtests requiring it exclude this market.
+        </p>
+      )}
+      {!conflicting && conflictCount > 0 && (
+        <p className="text-destructive">
+          A previous opening TWAP conflict excludes this market from ordinary TWAP backtests. The
+          recovered value may be used in explicit outage replay.
+        </p>
+      )}
+      {(observation || website || conflict) && (
+        <details className="text-muted-foreground">
+          <summary className="cursor-pointer">Observation details</summary>
+          <div className="mt-2 space-y-1 break-all">
+            {observation && (
+              <>
+                <p>
+                  Source: {observation.source} · Source time:{' '}
+                  {new Date(observation.sourceTimestampMs).toISOString()}
+                </p>
+                <p>
+                  Received: {new Date(observation.receivedAtMs).toISOString()} · Event:{' '}
+                  {observation.eventId}
+                </p>
+                <p>Full accuracy value: {observation.fullAccuracyValue}</p>
+                <p>
+                  Session: {observation.sessionId} · Connection: {observation.connectionId}
+                </p>
+              </>
+            )}
+            {website && (
+              <p>
+                Website received: {new Date(website.receivedAtMs).toISOString()} · Event:{' '}
+                {website.eventId}
+              </p>
+            )}
+            {conflict && (
+              <p>
+                Conflicting value: {conflict.fullAccuracyValue} · Received:{' '}
+                {new Date(conflict.receivedAtMs).toISOString()} · Event: {conflict.eventId}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+    </div>
   )
 }
 

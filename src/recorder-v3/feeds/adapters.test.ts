@@ -131,7 +131,7 @@ test('Polymarket keeps array frames intact and adds/removes tokens without recon
   assert.deepEqual(output.frames[0]?.stamp, { receivedAtMs: 123, monotonicNs: '456' })
   assert.equal(messages[0]?.custom_feature_enabled, true)
   assert.equal(messages[0]?.initial_dump, true)
-  feed.setMarkets([market('15m')])
+  feed.setMarkets([market('5m', 2_100_000)])
   await until(() => messages.length === 3)
   assert.equal(messages[1]?.operation, 'subscribe')
   assert.equal(messages[2]?.operation, 'unsubscribe')
@@ -141,7 +141,7 @@ test('Polymarket keeps array frames intact and adds/removes tokens without recon
   assert.equal(ws.sockets.length, 2)
   assert.equal(messages[3]?.type, 'market')
   assert.equal(messages[3]?.initial_dump, true)
-  assert.deepEqual(messages[3]?.assets_ids, market('15m').tokenIds)
+  assert.deepEqual(messages[3]?.assets_ids, market('5m', 2_100_000).tokenIds)
   assert.ok(output.statuses.some((status) => status.reason === 'capture_event_loop_gap'))
 })
 
@@ -150,6 +150,111 @@ const credentials = {
   secret: 'TEST_ONLY_SECRET',
   passphrase: 'TEST_ONLY_PASSPHRASE',
 }
+
+test('Polymarket isolates timeframe sockets, targeted reconnects, and subscription retirement', async (t) => {
+  const subscriptions = new Map<WebSocket, string[]>()
+  const ws = await server((socket) => {
+    socket.on('message', (data) => {
+      const message = JSON.parse(data.toString()) as { type?: string; assets_ids?: string[] }
+      if (message.type === 'market') {
+        subscriptions.set(socket, message.assets_ids!)
+        socket.send('PONG')
+      }
+    })
+  })
+  const five = market('5m')
+  const fifteen = market('15m')
+  const output = collect()
+  const feed = createPolymarketFeed({
+    ...output,
+    url: ws.url,
+    markets: [five, fifteen],
+    reconnectBaseMs: 1,
+    random: () => 0,
+  })
+  t.after(async () => {
+    feed.stop()
+    await ws.close()
+  })
+  feed.start()
+  feed.start()
+  await until(() => output.frames.length === 2)
+  assert.equal(ws.sockets.length, 2)
+  assert.deepEqual([...subscriptions.values()].sort(), [five.tokenIds, fifteen.tokenIds].sort())
+  const fiveFrame = output.frames.find((frame) => frame.channelId === 'polymarket:5m')!
+  const fifteenFrame = output.frames.find((frame) => frame.channelId === 'polymarket:15m')!
+  assert.deepEqual(fiveFrame.marketSlugs, [five.slug])
+  assert.deepEqual(fifteenFrame.marketSlugs, [fifteen.slug])
+  assert.notEqual(fiveFrame.connectionId, fifteenFrame.connectionId)
+  feed.reconnect('invalid_market_payload', fiveFrame.connectionId)
+  await until(() => output.frames.length === 3)
+  assert.equal(ws.sockets.length, 3)
+  assert.equal(output.frames[2]?.channelId, 'polymarket:5m')
+  const healthy = [...subscriptions].find(([, ids]) => ids.includes(fifteen.tokenIds[0]))![0]
+  healthy.send('PONG')
+  await until(() => output.frames.length === 4)
+  assert.equal(output.frames[3]?.connectionId, fifteenFrame.connectionId)
+  assert.ok(
+    output.statuses
+      .filter((s) => s.reason === 'invalid_market_payload')
+      .every((s) => s.channelId === 'polymarket:5m' && s.marketSlugs?.[0] === five.slug),
+  )
+  feed.setMarkets([fifteen])
+  assert.ok(output.statuses.some((s) => s.kind === 'stopped' && s.channelId === 'polymarket:5m'))
+  healthy.send('PONG')
+  await until(() => output.frames.length === 5)
+  assert.equal(output.frames[4]?.connectionId, fifteenFrame.connectionId)
+  feed.setMarkets([five, fifteen])
+  await until(() => output.frames.length === 6)
+  assert.equal(ws.sockets.length, 4)
+  assert.equal(output.frames[5]?.channelId, 'polymarket:5m')
+  assert.deepEqual(fiveFrame.marketSlugs, [five.slug], 'previous frame scope remains immutable')
+  feed.reconnect('capture_event_loop_gap')
+  await until(() => output.frames.length === 8)
+  assert.equal(ws.sockets.length, 6)
+  assert.deepEqual(
+    output.statuses
+      .filter((s) => s.reason === 'capture_event_loop_gap')
+      .map((s) => s.channelId)
+      .sort(),
+    ['polymarket:15m', 'polymarket:5m'],
+  )
+})
+
+test('Polymarket captures peer close evidence and resets counters on reconnect', async (t) => {
+  let connections = 0
+  const ws = await server((socket) => {
+    const attempt = ++connections
+    socket.on('message', (data) => {
+      if (!data.toString().includes('assets_ids')) return
+      socket.send('PONG')
+      if (attempt === 1) socket.close(1013, 'slow consumer: send buffer full')
+      else if (attempt === 2) socket.close(1013, 'second connection')
+    })
+  })
+  const output = collect()
+  const feed = createPolymarketFeed({
+    ...output,
+    url: ws.url,
+    markets: [market()],
+    reconnectBaseMs: 1,
+    random: () => 0,
+  })
+  t.after(async () => {
+    feed.stop()
+    await ws.close()
+  })
+  feed.start()
+  await until(() => output.statuses.filter((s) => s.kind === 'disconnected').length === 2)
+  const closes = output.statuses.filter((s) => s.kind === 'disconnected')
+  assert.equal(closes[0]?.details?.code, 1013)
+  assert.equal(closes[0]?.details?.closeReason, 'slow consumer: send buffer full')
+  for (const close of closes) {
+    assert.equal(close.details?.receivedFrames, 1)
+    assert.equal(close.details?.receivedBytes, 4)
+  }
+  assert.notEqual(closes[0]?.connectionId, closes[1]?.connectionId)
+})
 function price(channel: string, seq: number, extra: Record<string, unknown> = {}) {
   return JSON.stringify({
     v: 1,
@@ -251,7 +356,7 @@ test('PolyBolt reconnect resets channel sequence and retains an explicit disconn
 })
 
 test('PolyBolt policy/authentication failure halts instead of an endless credential retry loop', async (t) => {
-  const ws = await server((socket) => socket.close(4001))
+  const ws = await server((socket) => socket.close(4001, credentials.secret))
   const output = collect()
   const feed = createPolyBoltFeed({ ...output, url: ws.url, credentials, reconnectBaseMs: 1 })
   t.after(async () => {
@@ -262,6 +367,7 @@ test('PolyBolt policy/authentication failure halts instead of an endless credent
   await until(() => output.statuses.some((status) => status.details?.permanent === true))
   await delay(30)
   assert.equal(ws.sockets.length, 1)
+  assert.ok(!JSON.stringify(output.statuses).includes(credentials.secret))
 })
 
 test('Binance records aggregate trades and timestamp-free book tickers, detecting aggregate gaps only', async (t) => {
@@ -362,16 +468,16 @@ test('transport captures binary/control frames without data loss and stops recon
 
 test('price-to-beat includes exact TWAP and timeframe arguments and continues recording corrections', async (t) => {
   const m = market()
-  const five = new URL(priceToBeatUrl(m, m.startMs))
+  const five = new URL(priceToBeatUrl(m))
   assert.equal(five.searchParams.get('variant'), 'fiveminute')
   assert.equal(five.searchParams.get('twapEnabled'), 'true')
   assert.equal(five.searchParams.get('twapLookbackSeconds'), '60')
-  assert.equal(
-    new URL(priceToBeatUrl(market('15m'), m.startMs)).searchParams.get('variant'),
-    'fifteen',
-  )
+  assert.equal(new URL(priceToBeatUrl(market('15m'))).searchParams.get('variant'), 'fifteen')
+  assert.equal(five.searchParams.has('ts'), false)
   const output = collect()
+  const urls: string[] = []
   let count = 0
+  const startedAtMs = Date.now()
   const values = [
     '{"openPrice":null}',
     '{"openPrice":85000.123456789}',
@@ -382,8 +488,14 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
     market: m,
     pollMs: 100,
     correctionPollMs: 100,
-    clock: () => ({ receivedAtMs: m.startMs + count, monotonicNs: String(count + 1) }),
-    fetch: async () => new Response(values[Math.min(count++, 2)]),
+    clock: () => ({
+      receivedAtMs: m.startMs + Date.now() - startedAtMs,
+      monotonicNs: String(count + 1),
+    }),
+    fetch: async (url) => {
+      urls.push(String(url))
+      return new Response(values[Math.min(count++, 2)])
+    },
   })
   t.after(() => feed.stop())
   feed.start()
@@ -394,6 +506,8 @@ test('price-to-beat includes exact TWAP and timeframe arguments and continues re
   )
   assert.equal(output.frames[0]?.request?.httpStatus, 200)
   assert.equal(output.frames[2]?.marketSlug, m.slug)
+  assert.deepEqual(urls, [five.toString(), five.toString(), five.toString()])
+  assert.ok(output.frames[2]!.stamp.receivedAtMs > output.frames[0]!.stamp.receivedAtMs)
 })
 
 test('stopping price-to-beat discards a late response and does not resurrect polling', async () => {
@@ -426,12 +540,13 @@ test('Polymarket PONG-only activity cannot hide a stalled active market subscrip
     socket.on('close', () => clearInterval(timer))
   })
   const output = collect()
-  const now = Date.now()
+  let now = Date.now()
   const active = { ...market(), startMs: now - 1_000, endMs: now + 10_000 }
   const feed = createPolymarketFeed({
     ...output,
     url: ws.url,
     markets: [active],
+    clock: () => ({ receivedAtMs: now, monotonicNs: String(BigInt(now) * 1_000_000n) }),
     dataStaleMs: 40,
     tickMs: 5,
   })
@@ -440,6 +555,10 @@ test('Polymarket PONG-only activity cannot hide a stalled active market subscrip
     await ws.close()
   })
   feed.start()
+  // Establish real PONG traffic before advancing the watchdog clock. Host load
+  // must not turn this into a race between socket delivery and a 40ms timeout.
+  await until(() => output.frames.some((frame) => frame.rawJson === 'PONG'))
+  now += 41
   await until(() =>
     output.statuses.some((status) => status.reason === 'polymarket_market_data_stale'),
   )

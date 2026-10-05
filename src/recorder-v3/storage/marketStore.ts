@@ -1,13 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, open, readFile, readdir } from 'node:fs/promises'
+import { open, readFile, readdir } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 
-import { atomicWrite, exists, safeComponent, syncDirectory } from './files.js'
+import { atomicWrite, ensureDirectory, exists, safeComponent, syncDirectory } from './files.js'
+import { readArchiveReceipt } from './archiveReceipt.js'
 import type { MarketManifest } from './manifest.js'
 import { readManifest } from './manifest.js'
 import { MAX_LINE_BYTES, journalFiles, readJournals } from './journalReader.js'
 import { runParquetJob } from './parquetJob.js'
+import { CAPTURE_ROW_GROUP_BYTES, CAPTURE_ROW_GROUP_SIZE } from './parquetLimits.js'
 import type {
   CapturedEvent,
   CoverageGap,
@@ -182,7 +184,7 @@ export class DurableMarketStore {
       this.options.spoolDir,
       `${safeComponent(market.slug)}--${state.recordingId}`,
     )
-    await mkdir(directory, { recursive: true })
+    await ensureDirectory(directory)
     await atomicWrite(path.join(directory, 'state.json'), JSON.stringify(state))
     const journal = await this.newJournal(directory)
     this.active.set(market.slug, { state, directory, journal, lastSequence: null })
@@ -250,14 +252,14 @@ export class DurableMarketStore {
 
   async recover(nowMs = Date.now()): Promise<RecoveryResult> {
     if (this.active.size) throw new Error('Recover must run before opening markets')
-    await mkdir(this.options.spoolDir, { recursive: true })
+    await ensureDirectory(this.options.spoolDir)
     const result: RecoveryResult = { active: [], ready: [] }
     for (const entry of await readdir(this.options.spoolDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue
       const directory = path.join(this.options.spoolDir, entry.name)
       if (
         !(await exists(path.join(directory, 'state.json'))) ||
-        (await exists(path.join(directory, 'archived.json')))
+        (await readArchiveReceipt(directory))
       )
         continue
       if (await exists(path.join(directory, 'manifest.json'))) {
@@ -353,8 +355,8 @@ export class DurableMarketStore {
         state,
         coverage,
         prefix: this.prefix,
-        rowGroupSize: this.options.rowGroupSize ?? 512,
-        rowGroupBytes: this.options.rowGroupBytes ?? 4 * 1024 * 1024,
+        rowGroupSize: this.options.rowGroupSize ?? CAPTURE_ROW_GROUP_SIZE,
+        rowGroupBytes: this.options.rowGroupBytes ?? CAPTURE_ROW_GROUP_BYTES,
       }),
     )
     this.conversionChain = operation.then(

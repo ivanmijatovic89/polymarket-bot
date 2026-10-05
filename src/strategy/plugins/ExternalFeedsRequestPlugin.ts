@@ -1,7 +1,7 @@
 import type { MarketTick } from '../Strategy.js'
 import type { Plugin } from './PluginSet.js'
 
-// Keep this in sync with Strategy.requiredFeeds shape, but avoid importing Strategy types here.
+// New recorder capabilities are plugin-only; do not add them to Strategy.requiredFeeds.
 export type ExternalFeedsRequestConfig = {
   /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
   binanceBookTicker?: { symbol?: string }
@@ -29,7 +29,21 @@ export type ExternalFeedsRequestConfig = {
   }
   polymarketPriceToBeat?: {
     enabled?: boolean
+    /** Website observations remain the default; the opening TWAP requires Recorder v3. */
+    source?: 'website' | 'chainlink-opening-twap'
   }
+}
+
+/** Fail before an older runtime can substitute a different reference price. */
+export function assertLegacyPriceToBeatSource(
+  config: ExternalFeedsRequestConfig | undefined,
+  runtime: 'trading-bot' | 'historical-backtest',
+): void {
+  if (config?.polymarketPriceToBeat?.source !== 'chainlink-opening-twap') return
+  throw new Error(
+    `[${runtime}] priceToBeat source=chainlink-opening-twap requires --input-mode recorder-v3; ` +
+      'this runtime cannot supply the captured opening reference',
+  )
 }
 
 /**
@@ -54,6 +68,7 @@ export class ExternalFeedsRequestPlugin implements Plugin {
   readonly config: ExternalFeedsRequestConfig
 
   private getSnapshot: ((tick?: MarketTick) => unknown) | null = null
+  private captureSnapshot: ((tick?: MarketTick) => unknown) | null = null
 
   private lastTick: MarketTick | undefined
   private readonly captured = new WeakMap<MarketTick, unknown>()
@@ -62,15 +77,20 @@ export class ExternalFeedsRequestPlugin implements Plugin {
     this.config = config
   }
 
-  fulfill(getSnapshot: (tick?: MarketTick) => unknown): void {
+  /** The optional copier must detach every mutable value in the provider snapshot. */
+  fulfill<T>(
+    getSnapshot: (tick?: MarketTick) => T,
+    cloneSnapshot: (snapshot: T) => T = structuredClone,
+  ): void {
     this.getSnapshot = getSnapshot
+    this.captureSnapshot = (tick) => cloneSnapshot(getSnapshot(tick))
   }
 
   captureMarketTick(tick: MarketTick): void {
-    if (!this.getSnapshot) return
+    if (!this.captureSnapshot) return
     // Providers can return a mutable store view. Detach the small feed snapshot
     // at dispatch, before a queued tick waits for order/account I/O.
-    this.captured.set(tick, structuredClone(this.getSnapshot(tick)))
+    this.captured.set(tick, this.captureSnapshot(tick))
   }
 
   onMarketTick(tick: MarketTick): void {

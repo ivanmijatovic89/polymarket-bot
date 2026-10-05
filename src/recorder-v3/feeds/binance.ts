@@ -4,8 +4,8 @@ import {
   parseObject,
   type TransportOptions,
 } from './transport.js'
-import type { IngressStamp } from '../types.js'
-import { isValidBinancePriceEnvelope } from '../replay/feedState.js'
+import type { IngressStamp, RecorderFeed } from '../types.js'
+import { isValidBinancePriceEnvelope, object } from '../replay/feedState.js'
 
 export type BinanceFeedOptions = Omit<
   TransportOptions,
@@ -35,26 +35,65 @@ export function createBinanceFeed(options: BinanceFeedOptions) {
     },
     onMessage: (raw, stamp, connection) => {
       const message = parseObject(raw)
-      if (!message || message.transport) return
-      const data = message.data as Record<string, unknown> | undefined
-      if (message.e === 'serverShutdown' || data?.e === 'serverShutdown') {
-        connection.reconnect('binance_server_shutdown')
-        return
-      }
-      if (
-        !data ||
-        (message.stream !== 'btcusdt@aggTrade' && message.stream !== 'btcusdt@bookTicker')
-      ) {
+      const gap = (reason: string, feed?: RecorderFeed) => {
         options.onStatus({
           source: 'binance',
           connectionId: connection.connectionId(),
           kind: 'gap',
           stamp,
-          reason: 'unexpected_binance_envelope',
+          reason,
+          details: { certainty: 'uncertain', ...(feed ? { feed } : {}) },
         })
+      }
+      if (!message) {
+        // The shared socket cannot identify which requested stream an undecodable
+        // frame belonged to. Preserve it and invalidate coverage for both feeds.
+        gap('invalid_binance_json')
+        return
+      }
+      const data = object(message.data)
+      if (message.e === 'serverShutdown' || data?.e === 'serverShutdown') {
+        connection.reconnect('binance_server_shutdown')
         return
       }
       const stream = message.stream
+      const feed =
+        stream === 'btcusdt@aggTrade'
+          ? 'binance_agg_trade'
+          : stream === 'btcusdt@bookTicker'
+            ? 'binance_book_ticker'
+            : undefined
+      if (!feed || typeof stream !== 'string') {
+        // Successful stream-control replies and well-formed unrelated streams
+        // remain raw evidence without invalidating the requested BTC feeds.
+        const controlId = message.id
+        const controlResult = message.result
+        if (
+          stream === undefined &&
+          message.data === undefined &&
+          (controlId === null ||
+            typeof controlId === 'string' ||
+            Number.isSafeInteger(controlId)) &&
+          (controlResult === null ||
+            typeof controlResult === 'boolean' ||
+            (Array.isArray(controlResult) &&
+              controlResult.every((item) => typeof item === 'string')))
+        )
+          return
+        if (
+          typeof stream === 'string' &&
+          stream.length > 0 &&
+          typeof data?.s === 'string' &&
+          data.s !== 'BTCUSDT'
+        )
+          return
+        gap('unexpected_binance_envelope')
+        return
+      }
+      if (!data) {
+        gap('invalid_binance_payload', feed)
+        return
+      }
       if (data.s !== 'BTCUSDT') {
         connection.reconnect('binance_symbol_mismatch')
         return
@@ -67,7 +106,7 @@ export function createBinanceFeed(options: BinanceFeedOptions) {
           stamp,
           reason: 'invalid_binance_price',
           details: {
-            feed: stream === 'btcusdt@aggTrade' ? 'binance_agg_trade' : 'binance_book_ticker',
+            feed,
             certainty: 'confirmed',
           },
         })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { CaptureClockMonitor, recorderError, runRecorder } from './daemon.js'
@@ -11,6 +11,7 @@ import { readCapturedEvents } from './storage/parquet.js'
 import { readManifest } from './storage/manifest.js'
 import { openCaptureSequence } from './sequence.js'
 import type { BlobStore } from './storage/blobStore.js'
+import type { RecorderStatus } from './statusTypes.js'
 import { exists } from './storage/files.js'
 
 function config(spoolDir: string): RecorderConfig {
@@ -155,6 +156,59 @@ test('permanent authentication failure produces a controlled error stop', async 
   }
 })
 
+test('invalid market input reconnects the feed and records recovery only after fresh books', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-rewarm-'))
+  try {
+    const market = currentMarket()
+    const dependencies = mockFeeds(market, [])
+    const reconnects: string[] = []
+    const failedConnections: Array<string | undefined> = []
+    dependencies.polymarket = (callbacks: FeedCallbacks) => {
+      const send = (raw: unknown) =>
+        callbacks.onFrame({
+          source: 'polymarket',
+          connectionId: 'mock',
+          stamp: ingressStamp(),
+          rawJson: JSON.stringify(raw),
+        })
+      const books = () =>
+        send(
+          market.tokenIds.map((asset_id) => ({
+            event_type: 'book',
+            market: market.conditionId,
+            asset_id,
+            timestamp: String(Date.now()),
+            bids: [{ price: '0.4', size: '10' }],
+            asks: [{ price: '0.6', size: '10' }],
+          })),
+        )
+      return {
+        setMarkets() {},
+        stop() {},
+        start() {
+          books()
+          send({ event_type: 'price_change', market: market.conditionId, price_changes: null })
+        },
+        reconnect(reason?: string, connectionId?: string) {
+          failedConnections.push(connectionId)
+          reconnects.push(reason ?? '')
+          books()
+        },
+      }
+    }
+    const result = await runRecorder(config(directory), { dependencies, log: () => undefined })
+    assert.equal(result.state, 'stopped')
+    assert.deepEqual(reconnects, ['invalid_market_payload'])
+    assert.deepEqual(failedConnections, ['mock'])
+    const packageName = (await readdir(directory)).find((name) => name.startsWith(market.slug))!
+    const manifest = await readManifest(path.join(directory, packageName, 'manifest.json'))
+    const gap = manifest.coverage.gaps.find((item) => item.reason === 'invalid_market_payload')
+    assert.ok(gap && gap.endMs !== null && gap.endMs < market.endMs)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('disk guard failure stops capture and retains its local recording', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-disk-'))
   try {
@@ -266,6 +320,91 @@ test('a spool that remains full preserves an error status without opening live f
   }
 })
 
+for (const healthyLastPackage of [true, false])
+  test(`full-spool startup visits later archive batches and ${healthyLastPackage ? 'recovers after eight failures' : 'stops after one bounded sweep without progress'}`, async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-archive-sweep-'))
+    try {
+      const market = currentMarket()
+      await runRecorder(config(directory), {
+        dependencies: mockFeeds(market, []),
+        log: () => undefined,
+      })
+      const packageName = (await readdir(directory)).find((name) => name.startsWith(market.slug))!
+      const originalParquet = path.join(directory, packageName, 'events.parquet')
+      const manifest = await readManifest(path.join(directory, packageName, 'manifest.json'))
+      for (let index = 0; index < 8; index++) {
+        const failedDirectory = path.join(directory, `aaa-failed-${index}`)
+        await mkdir(failedDirectory)
+        await copyFile(originalParquet, path.join(failedDirectory, 'events.parquet'))
+        await writeFile(
+          path.join(failedDirectory, 'manifest.json'),
+          JSON.stringify({
+            ...manifest,
+            events: { ...manifest.events, key: `recorder-v3-test/failed/${index}/events.parquet` },
+          }),
+        )
+      }
+      const objects = new Map<string, Buffer>()
+      const attemptedKeys: string[] = []
+      const cloud: BlobStore & { close(): void } = {
+        async putFile(key, file) {
+          attemptedKeys.push(key)
+          if (!healthyLastPackage || key.includes('/failed/'))
+            throw new Error('Fixture upload failure')
+          objects.set(key, await readFile(file))
+        },
+        async get(key) {
+          const value = objects.get(key)
+          return value
+            ? (async function* () {
+                yield value
+              })()
+            : null
+        },
+        async *list(prefix) {
+          for (const key of objects.keys()) if (key.startsWith(prefix)) yield key
+        },
+        close() {},
+      }
+      let discoveryCalls = 0
+      const result = await runRecorder(
+        {
+          ...config(directory),
+          upload: true,
+          r2: {
+            endpoint: 'https://unused.invalid',
+            bucket: 'test',
+            accessKeyId: 'key',
+            secretAccessKey: 'secret',
+            prefix: 'recorder-v3-test',
+          },
+        },
+        {
+          dependencies: {
+            ...mockFeeds(market, []),
+            blobStore: () => cloud,
+            disk: async () => ({
+              bytes: (await exists(originalParquet)) ? 2_000_000_000 : 0,
+              freeBytes: 1_000_000_000,
+            }),
+            discover: async () => {
+              discoveryCalls++
+              return [market]
+            },
+          },
+          log: () => undefined,
+        },
+      )
+      assert.ok(attemptedKeys.includes(manifest.events.key), 'the ninth package must be visited')
+      assert.ok(attemptedKeys.length <= 25, 'a complete outage must not spin forever')
+      assert.equal(discoveryCalls, healthyLastPackage ? 1 : 0)
+      assert.equal(result.state, healthyLastPackage ? 'stopped' : 'error')
+      assert.equal(result.archive.uploadedMarkets, healthyLastPackage ? 1 : 0)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
 test('missing a configured current timeframe remains visible as degraded with discovery context', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-discovery-'))
   const abort = new AbortController()
@@ -296,6 +435,100 @@ test('missing a configured current timeframe remains visible as degraded with di
       await running
     }
   } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('dashboard preserves partial socket failure and counts reconnects independently', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'recorder-daemon-sockets-'))
+  const abort = new AbortController()
+  const five = currentMarket()
+  const fifteen: RecordedMarket = {
+    ...five,
+    timeframe: '15m',
+    slug: 'btc-updown-15m-test',
+    conditionId: 'fifteen',
+    tokenIds: ['up-fifteen', 'down-fifteen'],
+  }
+  let callbacks: FeedCallbacks | undefined
+  const status = (
+    timeframe: '5m' | '15m',
+    kind: Parameters<FeedCallbacks['onStatus']>[0]['kind'],
+  ) =>
+    callbacks!.onStatus({
+      source: 'polymarket',
+      connectionId: timeframe,
+      channelId: `polymarket:${timeframe}`,
+      marketSlugs: [timeframe === '5m' ? five.slug : fifteen.slug],
+      stamp: ingressStamp(),
+      kind,
+    })
+  const frame = (m: RecordedMarket) =>
+    callbacks!.onFrame({
+      source: 'polymarket',
+      connectionId: m.timeframe,
+      channelId: `polymarket:${m.timeframe}`,
+      marketSlugs: [m.slug],
+      stamp: ingressStamp(),
+      rawJson: 'PONG',
+    })
+  const readStatus = async (expected: string, reconnects: number) => {
+    const deadline = Date.now() + 2_000
+    while (Date.now() < deadline) {
+      if (await exists(path.join(directory, 'status.json'))) {
+        const value = JSON.parse(
+          await readFile(path.join(directory, 'status.json'), 'utf8'),
+        ) as RecorderStatus
+        const feed = value.feeds.find((f) => f.feed === 'polymarket')!
+        if (feed.state === expected && feed.reconnects === reconnects) return value
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    throw new Error(`Did not observe ${expected} with ${reconnects} reconnects`)
+  }
+  const running = runRecorder(
+    { ...config(directory), durationMs: null },
+    {
+      dependencies: {
+        ...mockFeeds(five, []),
+        discover: async () => [five, fifteen],
+        polymarket: (options) => {
+          callbacks = options
+          return {
+            setMarkets() {},
+            reconnect() {},
+            stop() {},
+            start() {
+              for (const m of [five, fifteen]) {
+                status(m.timeframe, 'connecting')
+                status(m.timeframe, 'connected')
+                frame(m)
+              }
+            },
+          }
+        },
+      },
+      signal: abort.signal,
+      statusIntervalMs: 5,
+      log: () => undefined,
+    },
+  )
+  try {
+    await readStatus('receiving', 0)
+    status('5m', 'disconnected')
+    frame(fifteen)
+    assert.equal((await readStatus('disconnected', 0)).state, 'degraded')
+    status('5m', 'connecting')
+    frame(fifteen)
+    await readStatus('connecting', 1)
+    status('5m', 'connected')
+    frame(five)
+    await readStatus('receiving', 1)
+    status('5m', 'stopped')
+    await readStatus('receiving', 1)
+  } finally {
+    abort.abort()
+    await running
     await rm(directory, { recursive: true, force: true })
   }
 })
