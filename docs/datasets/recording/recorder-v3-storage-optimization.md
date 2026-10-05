@@ -438,3 +438,43 @@ This experiment establishes storage savings and observed replay equivalence for 
 A production migration needs an explicit versioned field-retention contract and the same strategy-facing normalization in live and backtest paths, including historical/legacy inputs. It must not silently introduce backtest-only field omission. It also needs compatibility readers, strict validation and fallback tests, crash/recovery and writer integration, resource measurements on the recorder host, and broader market samples. Filename-based format dispatch and generated decoders in the scratch experiment are not suitable production format detection.
 
 No compact writer or reader is installed by this study. Existing source and archived files keep their current contract. The experiment scripts, individual results, row checks, and file checksums are retained locally under `.tmp/recorder-compact-study/`; large regenerated data files are temporary. Compact Zstandard file SHA-256 values are `efea9d296dbc4ca4d9e069e375e485849783bc6f31da5668d546050311bc79c4` (5m) and `0bcbc114497d44af09a586f2e43d07b36f4f9189f4dd362fafa190a89093e86f` (15m).
+
+## Telonex including its separate historical feeds
+
+The 5.26-second Telonex result above already includes loading Binance aggregate trades and serving PTB to `SplitSellRedeem.v5`. It must not be described as a feed-free timing. Chainlink is absent from that strategy's request. This follow-up measures the storage of the available historical feed inputs for the same August 25 market, then separately measures the cost of enabling Chainlink spot without changing trading logic or adding synthetic strategy ticks.
+
+### Per-market storage
+
+The existing 4,675,167-byte Polymarket file is left unchanged. Feed slices retain every column of the source files and are written as Zstandard level-9 Parquet with 8,192-row groups and bloom filters disabled. The existing historical loaders request a five-minute lookback, one earlier seed observation, and a post-window tail of two seconds for Binance or five seconds for Chainlink. Both the strict 15-minute interval and the complete loader input are measured; the latter is used for the replay-ready total. This does not change the recorder's pre-market collection policy.
+
+| Component | Strict 15-minute interval | Complete historical-loader input |
+| --- | ---: | ---: |
+| Original Telonex market file | 4,675,167 bytes | 4,675,167 bytes |
+| Binance aggregate trades | 106,755 bytes / 13,153 rows | 143,790 bytes / 17,721 rows |
+| Chainlink spot | 16,007 bytes / 853 rows | 21,113 bytes / 1,150 rows |
+| Saved PTB and metadata-sync timestamp | 60 bytes | 60 bytes |
+| Total: market + Binance + PTB | **4.782 MB** | **4.819 MB** |
+| Total: market + Binance + Chainlink spot + PTB | **4.798 MB** | **4.840 MB** |
+
+These totals sum the market Parquet, separate compressed feed slices, and a small PTB JSON sidecar. They are not measurements of a newly combined single-Parquet format. Each source-versus-slice SQL multiset comparison passes in both directions; loading the replay-ready slices with the unchanged providers produces identical ordered timestamp/value arrays to loading the full day files, including Chainlink broadcast timestamps.
+
+The original Binance and Chainlink day files occupy 12,409,568 and 3,193,085 bytes. Keeping both whole-day files plus this market would total 20.278 MB, but those day files are shared across the day's markets. Charging their entire size to every 15-minute market would overstate storage. Conversely, dividing by 96 assumes evenly distributed activity and is not a measured size for this interval.
+
+The available feeds add just 164,963 bytes to this market's replay-ready package. Thus separate-feed storage does **not** explain the full gap between the 4.68 MB Telonex market and the 8.18 MB compact recorder sample. Even at 4.84 MB, the historical package lacks the recorder's Binance best bid/ask stream, captured opening TWAP/reference observations, and a shared local arrival sequence across all sources. Historical visibility uses its existing modeled latency; wrapping those files together cannot recover the recorder's arrival history. The markets also differ, so the remaining size difference cannot be attributed solely to the physical format.
+
+### Timing with the available feeds
+
+The same strategy implementation and defaults are used. The Chainlink-enabled cases replace only the external-feed request plugin with one that also requests `btc/usd` spot, with `tickOnUpdate: false`. The original Binance/PTB requests and all trading logic remain unchanged. This measures additional feed loading, visibility lookups, and snapshot copying; it does not claim that this strategy trades on Chainlink prices. It does not enable Binance best bid/ask or opening TWAP, which the historical mode cannot supply.
+
+Four configurations each run once for correctness, once for warm-up, and five times for timing in fresh Node 20 processes. Cases alternate forward/reverse order, without concurrent benchmark/build/test work. After the initial three measured repeats showed a noticeably slower repeat, two more repeats were added for every case; the slower results remain included. All correctness checks finish before timing, and timed runs have no diagnostic observer. The timing scope remains `runSingleMarket`, including feed loading and excluding imports, preparation, downloads, and database/dashboard persistence.
+
+| Historical feeds enabled | Existing shared day files: median seconds (range) | Extracted per-market slices: median seconds (range) |
+| --- | ---: | ---: |
+| Binance + PTB, original strategy request | 5.35 (5.26–5.62) | 5.37 (5.34–6.60) |
+| Binance + Chainlink spot + PTB | 5.83 (5.59–6.17) | 5.58 (5.44–5.96) |
+
+These are fresh comparisons within this follow-up, not replacements for the earlier interleaved recorder-versus-Telonex batch. They suggest about 0.48 seconds additional elapsed time with the day-file layout and 0.20 seconds with the extracted slices on this sample. The ranges overlap, so small differences should not be presented as a guaranteed throughput gain. No timings were measured for a newly merged single-Parquet Telonex format.
+
+All four correctness runs have 324,880 strategy callbacks, Binance visible at every callback, and PTB visible at 323,814. Both Chainlink-enabled runs have a real Chainlink point at every callback. Context hashes match between day-file and slice layouts for each feed configuration; capital/decision/account traces match across all four. All 24 warm-up/timed runs reproduce the original final-statistics hash `8f288be96f430a76f87d01c67c84f9a5bfe10d0d1456874ee474676471e1238e`, including the same initial split and taker sell. All 29 guarded measurement/replay processes complete without network, environment-file, or live-execution access attempts.
+
+Scripts, exact sizes, provider-series comparisons, timings, and validation results remain in `.tmp/recorder-telonex-total-study/`. Source datasets and production services are unchanged.
