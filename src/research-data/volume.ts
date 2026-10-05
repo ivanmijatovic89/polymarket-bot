@@ -24,18 +24,23 @@ export function volumeCandidate(market: Market, trades: FeedRow[], expected: big
   const takers = trades.filter((row) => row.is_taker)
   const actual = sum(takers.map((row) => units(row.size)))
   const difference = actual - expected
-  // An isolated opening burst, with every same-second fill included.
+  // An isolated pre-window opening burst, with every same-second fill included.
   // Select by time, never a subset chosen to force the aggregate to match.
   // Magnitude alone cannot corroborate or invalidate the detailed ledger:
   // repeated feeds and every participant's accounting must still pass below.
   if (!market.resolved || expected <= 0n || difference <= 1n) return fail()
   const firstTime = takers.reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
-  const first = takers.filter((row) => row.timestamp <= firstTime + 60)
+  // Some opening fills are minutes apart. Choose the entire first five minutes
+  // before the market window, independent of the discrepancy's amount.
+  const isOpening = (row: FeedRow) =>
+    row.timestamp <= firstTime + 300 && row.timestamp < market.market_start
+  const first = takers.filter(isOpening)
   const lastTime = first.reduce((maximum, row) => Math.max(maximum, row.timestamp), -Infinity)
   const nextTime = takers
-    .filter((row) => row.timestamp > firstTime + 60)
+    .filter((row) => !isOpening(row))
     .reduce((minimum, row) => Math.min(minimum, row.timestamp), Infinity)
   if (
+    first.length === 0 ||
     !Number.isFinite(nextTime) ||
     lastTime >= market.market_start ||
     nextTime - lastTime < 60 ||

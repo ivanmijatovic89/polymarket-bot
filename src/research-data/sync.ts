@@ -513,7 +513,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute, sourceWarnings.length > 0)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 8,
+    downloader_version: 9,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,

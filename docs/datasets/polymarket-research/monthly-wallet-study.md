@@ -1,6 +1,6 @@
 ---
 title: Monthly Wallet Research
-description: Complete-June wallet rankings and reproducible local strategy investigations.
+description: June and July wallet rankings and reproducible local strategy investigations.
 ---
 
 # Monthly wallet research
@@ -8,8 +8,8 @@ description: Complete-June wallet rankings and reproducible local strategy inves
 The June 2026 BTC 15-minute cohort is complete: all 30 UTC market-start days and
 2,880 scheduled windows are published and independently verified. The results
 below were calculated locally from Parquet on October 4, 2026, using each selected
-market's full observed lifecycle. July–September ingestion and the later-month
-comparison remain in progress.
+market's full observed lifecycle. July is also complete and independently verified; its follow-up results are below.
+August–September ingestion and comparison remain in progress.
 
 ## Population and ranking limits
 
@@ -136,8 +136,64 @@ The next tests keep these wallets fixed through July, August and September:
    inventory and signal rules. This trade dataset does not reveal canceled orders,
    contemporaneous book state or the wallet's private signals.
 
-The available evidence supports those hypotheses and tests. It does not yet
-establish their performance in later months or reproduce either strategy.
+The available evidence supports those hypotheses and tests. The July follow-up supports persistence of the observed behavior, but does not
+reproduce either strategy or establish future performance.
+
+## July follow-up with the June selection fixed
+
+All 31 July days and 2,976 windows are published and independently verified.
+The cohort has 9,620,888 participant trade rows and 23,369 observed wallets.
+Strict rankings include 21,678 wallets. The 1,691 excluded wallets account for
+3,562,673 trade rows (37.0%); 12,382 wallet/market pairs remain unresolved.
+Six corroborated market-volume warnings are separate from wallet exclusions.
+The accounting audit found the same five issue classes as June.
+
+The two wallets selected from June both reconcile across their entire July
+cohort. No later outcomes were used to change that selection.
+
+| July measure | June profit leader | June active candidate |
+| --- | ---: | ---: |
+| July eligible rank | 2 | 42 |
+| Markets / trade rows | 2,522 / 271,524 | 2,956 / 94,920 |
+| Economic PnL, USDC | 18,148.088389 | 1,854.056583 |
+| Cash PnL, USDC | 18,147.728389 | 1,854.056583 |
+| Unredeemed settlement value, USDC | 0.360000 | 0.000000 |
+| Native API PnL, USDC | 18,251.701900 | 1,856.717200 |
+| Profitable days out of 31 | 17 | 17 |
+| Maker / taker rows | 229,926 / 41,598 | 94,920 / 0 |
+| Markets buying both outcomes | 2,490 | 2,884 |
+| Median fill size, shares | 10 | 5 |
+| Median first / last fill offset | 7 / 745 seconds | 28 / 628 seconds |
+| Median smaller/larger outcome quantity | 0.6773 | 0.6477 |
+| Median combined average pair cost, USDC | 1.0642 | 1.0658 |
+
+Both still only buy and redeem, with no observed sales, splits, merges or
+attributable rewards. Their exact cash identities are:
+
+```text
+2,891,696.773965 - 2,873,549.045576 = 18,147.728389 USDC
+  276,992.885321 -   275,138.828738 =  1,854.056583 USDC
+```
+
+The leader's best day was July 15 (+11,181.160547 USDC); its worst was July 1
+(-7,255.561820). The active candidate's best was July 5 (+637.623263), and its
+worst was July 18 (-500.067823). The reports retain every day, including losses.
+Both earned less than in June. The active candidate's purchase turnover fell
+from 563,526.957045 to 275,138.828738 USDC alongside a smaller median fill, so a
+profit comparison alone cannot separate sizing changes from changes in edge.
+
+The broad execution pattern persists: both-outcome accumulation with unequal
+inventory, predominantly maker fills for the leader and exclusively maker fills
+for the active candidate. This supports a behavior hypothesis, not an exact
+quote rule. Lifetime average pair costs still combine trades at different times.
+August and September remain untested and must stay in the fixed-wallet study.
+
+Evidence is in `logs/monthly-wallet-study/follow-up-2026-07/`, including fixed
+selection checks, snapshot generations, SQL, daily losses, market profiles and
+`research-review.json`. The independent issue inventory and population
+cross-checks are in `logs/monthly-accounting-audit/2026-07/`.
+SQL execution and result retrieval took 2.73 seconds for monthly rankings and
+1.64 / 1.59 seconds for the wallet profiles; these are not cold-cache benchmarks.
 
 ## Reproduce and verify
 
@@ -164,6 +220,6 @@ These timings exclude database setup and result-file writes. OS caches were not
 flushed, and the downloader was active; they are not cold-start or full-range
 benchmarks.
 
-The completed June study is one milestone. Full June–September ingestion,
+The completed June and July studies are milestones. Full June–September ingestion,
 separate later-month rankings, fixed-wallet comparisons and full-range benchmarks
 remain required for feature acceptance.

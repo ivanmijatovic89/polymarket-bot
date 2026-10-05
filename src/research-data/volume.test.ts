@@ -265,11 +265,39 @@ const lowerVolumeBurst = [
   })),
 ]
 
+// August 8: two early fills 177 seconds apart, followed by hours without trades.
+const spacedOpening = [
+  ...[0, 177].flatMap((offset, i) =>
+    trades.slice(0, 2).map((row, side) => ({
+      ...row,
+      proxy_wallet: wallet(i * 2 + side + 1),
+      size: '3.921567',
+      timestamp: start - 85_000 + offset,
+      transaction_hash: `spaced-${i}`,
+    })),
+  ),
+  ...trades.slice(2).map((row, i) => ({ ...row, proxy_wallet: wallet(5 + i) })),
+]
+
+test('minute-separated opening fills require the full bounded burst and a later gap', () => {
+  assert.equal(volumeCandidate(market, spacedOpening, units('30000')).difference, '7.843134')
+  assert.throws(() => volumeCandidate(market, spacedOpening, units('30003.921567')), /mismatch/)
+  const outside = structuredClone(spacedOpening)
+  for (const row of outside.filter((r) => r.transaction_hash === 'spaced-1'))
+    row.timestamp = start - 85_000 + 301
+  assert.throws(() => volumeCandidate(market, outside, units('30000')), /mismatch/)
+  const continuous = structuredClone(spacedOpening)
+  for (const row of continuous.filter((r) => r.transaction_hash === 'later'))
+    row.timestamp = start - 85_000 + 220
+  assert.throws(() => volumeCandidate(market, continuous, units('30000')), /mismatch/)
+})
+
 for (const [openingFills, sourceTrades, sourceVolume, expectedWallets] of [
   [1, trades, '30000', 4],
   [15, openingBurst(), '30000', 33],
   // June 30's five fills are 0.113% of volume, yet its full ledger reconciles.
   [5, lowerVolumeBurst, '26065.057158', 12],
+  [2, spacedOpening, '30000', 6],
 ] as const) {
   test(`corroborated ${openingFills}-fill volume warnings survive Parquet, offline verification and rebuild without excluding reconciled wallets`, async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-'))

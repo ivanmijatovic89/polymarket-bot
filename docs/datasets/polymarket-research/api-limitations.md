@@ -247,14 +247,14 @@ precision. The winning wallet's activity additionally contains its redemption.
 This supports retaining the trade. It does not establish why the aggregate
 differs or justify deleting a row to force agreement.
 
-Downloader version 8 retains this kind of corroborated disagreement as a source
+Downloader version 9 retains this kind of corroborated disagreement as a source
 warning, under the user's delegated acceptance decision. The rule is deliberately
 narrow. All of these conditions must hold:
 
 - The market is resolved, its reported aggregate is positive, and the detailed
   taker total exceeds that aggregate. Neither an absolute nor a percentage
   difference is sufficient evidence for this exception.
-- The discrepancy matches **all** taker fills in the first 60 seconds of observed
+- The discrepancy matches **all** pre-window taker fills in the first five minutes of observed
   trading, within one microshare. This opening burst is entirely before the
   market window, with an observed later trade at least 60 seconds after its last fill.
   All same-second fills are included; the code never searches for a matching
@@ -381,3 +381,44 @@ inspect an individual case. `raw_json` retains fields such as native cost basis
 and source event timestamps. A source refresh may recover corrected rows; an
 offline rebuild can only reevaluate the facts already saved. Neither operation
 is evidence that a discrepancy has disappeared until its checks pass again.
+
+## July accounting inventory and August recovery
+
+The complete July cohort has 12,382 unresolved wallet/market pairs among
+1,457,649 observed pairs. Whole-wallet exclusion removes 1,691 of 23,369 wallets
+and 3,562,673 of 9,620,888 participant trade rows (37.0%). The six market-volume
+warnings do not themselves exclude reconciled wallets.
+
+| Issue | July affected pairs | July affected wallets |
+| --- | ---: | ---: |
+| `api_pnl_unreconciled` | 11,059 | 1,681 |
+| `missing_position_snapshot` | 1,874 | 7 |
+| `missing_position_economics` | 1,144 | 5 |
+| `position_balance_mismatch` | 198 | 43 |
+| `unexplained_token_outflow` | 140 | 10 |
+
+Issue counts overlap. The audit checks disjoint combinations, daily totals,
+complete-row money fields and the whole-wallet excluded population against the
+monthly SQL. Evidence: `logs/monthly-accounting-audit/2026-07/`.
+
+On August 8, `btc-updown-15m-1786228200` has a 7.843134-share aggregate gap.
+It equals two opening taker fills of 3.921567 shares, 177 seconds apart, followed
+by a 61,509-second gap before the next trade. Fresh all-participant and taker
+walks with page size 137 reproduce the cached feeds. Both opening participants'
+full histories reconcile, including a later sale and merge for one wallet.
+The original 60-second selection missed the second opening fill. Version 9
+selects every pre-window fill in the first five minutes, regardless of the
+aggregate amount, and still requires an observed later trade separated by at
+least 60 seconds. A matching subset, altered repeat feed, unbalanced transaction
+or unresolved participant fails publication. Exact cash and share values remain
+unchanged. Evidence: `logs/august-recovery-20261005/`.
+
+August 7 has a separate source-data problem: 22,267 unresolved wallet/market
+pairs, including 17,965 with missing position snapshots, 17,654 with missing
+native economics and 4,605 with unexplained native PnL differences. Counts
+overlap. Fresh individual OPEN/CLOSED requests for three affected wallets on
+`btc-updown-15m-1786068000` still return no positions, reproducing the batched
+result. This bounded sample does not establish the upstream cause or prove all
+other affected rows have the same cause. The day passes file and calculation
+integrity checks; unresolved histories remain excluded from strict rankings.
+No accounting tolerance was changed to accept these histories.
