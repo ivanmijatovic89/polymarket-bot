@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, rename } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { ApiClient } from './api.js'
+import { createResearchDatabase } from './database.js'
+import { sqlQuote } from '../utils/duckdb.js'
 import { normalizeMarket, parseDate } from './catalog.js'
 import { decimal, units } from './decimal.js'
 import { readJson, writeJson } from './files.js'
@@ -17,12 +19,13 @@ import {
   validateVolumeEvidence,
   volumeCandidate,
   VOLUME_WARNING,
+  UNRESOLVED_VOLUME,
   type VolumeEvidence,
 } from './volume.js'
 
 const start = parseDate('2026-06-01')
 const conditions = Array.from(
-  { length: 96 },
+  { length: 192 },
   (_, i) => `0x${(i + 1).toString(16).padStart(64, '0')}`,
 )
 const wallet = (i: number) => `0x${String(i).padStart(40, '0')}`
@@ -183,7 +186,7 @@ function fixture(
       const url = new URL(String(input)),
         q = url.searchParams
       const selected = q.get('condition')?.split(',') ?? []
-      const active = selected.includes(conditions[0]!)
+      const scopedTrades = trades.filter((row) => selected.includes(row.condition_id))
       const user = q.get('user')
       if (url.pathname === '/markets')
         return Response.json(
@@ -197,7 +200,17 @@ function fixture(
               .split(',')
               .map((id) => ({
                 condition_id: conditions[Number(id) - 1],
-                taker_volume: id === '1' ? sourceVolume : 0,
+                taker_volume:
+                  id === '1'
+                    ? sourceVolume
+                    : decimal(
+                        trades
+                          .filter(
+                            (row) =>
+                              row.condition_id === conditions[Number(id) - 1] && row.is_taker,
+                          )
+                          .reduce((total, row) => total + units(row.size), 0n),
+                      ),
               })),
           },
         })
@@ -210,37 +223,34 @@ function fixture(
           payouts: [1000000, 0],
         }))
       else if (url.pathname === '/v2/trades') {
-        data = active ? trades.filter((row) => q.get('taker_only') === 'false' || row.is_taker) : []
+        data = scopedTrades.filter((row) => q.get('taker_only') === 'false' || row.is_taker)
         if (q.get('limit') === '137') {
           repeatRequests++
           if (changeRepeat) data = (data as FeedRow[]).slice(1)
         }
       } else if (url.pathname === '/v2/activity')
-        data = active
-          ? trades
-              .filter((row) => row.proxy_wallet === user)
-              .map((row) => ({
-                ...row,
-                type: 'TRADE',
-                usdc_size: decimal(units(row.size) / 2n),
-              }))
-          : []
+        data = scopedTrades
+          .filter((row) => row.proxy_wallet === user)
+          .map((row) => ({
+            ...row,
+            type: 'TRADE',
+            usdc_size: decimal(units(row.size) / 2n),
+          }))
       else if (url.pathname === '/v2/positions')
-        data =
-          active && !user
-            ? trades.map((row, i) => ({
-                ...row,
-                current_size: badCounterparty && i === 0 ? 0 : row.size,
-                realized_pnl: 0,
-                unrealized_pnl: decimal(
-                  (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
-                ),
-                total_pnl: decimal(
-                  (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
-                ),
-                entry_fees_usdc: 0,
-              }))
-            : []
+        data = !user
+          ? scopedTrades.map((row, i) => ({
+              ...row,
+              current_size: badCounterparty && i === 0 ? 0 : row.size,
+              realized_pnl: 0,
+              unrealized_pnl: decimal(
+                (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
+              ),
+              total_pnl: decimal(
+                (row.token_id === 'up' ? units(row.size) : 0n) - units(row.size) / 2n,
+              ),
+              entry_fees_usdc: 0,
+            }))
+          : []
       else throw new Error(`Unexpected endpoint ${url.pathname}`)
       return Response.json({ data, pagination: { next_cursor: null } })
     }) as typeof fetch,
@@ -360,29 +370,122 @@ for (const [openingFills, sourceTrades, sourceVolume, expectedWallets] of [
   })
 }
 
-test('changed repeat feeds or unresolved counterparties cannot publish a volume exception', async () => {
-  for (const [changeRepeat, badCounterparty] of [
-    [true, false],
-    [false, true],
-  ]) {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-reject-'))
+test('changed repeat feeds cannot publish even as an unresolved aggregate', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-reject-'))
+  try {
+    await assert.rejects(
+      syncDataset({
+        root,
+        from: '2026-06-01',
+        to: '2026-06-02',
+        concurrency: 4,
+        requestsPerSecond: 12,
+        minFreeGiB: 1,
+        client: fixture(true, false, lowerVolumeBurst, '26065.057158').client,
+        log: () => {},
+      }),
+      /corroboration/,
+    )
+    assert.equal(await readJson(path.join(root, 'index.json')), null)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+for (const badCounterparty of [false, true]) {
+  test(`unresolved aggregate preserves evidence, excludes whole wallets and permits later days (counterparty gap=${badCounterparty})`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'research-volume-unresolved-'))
+    const sourceTrades = [
+      ...trades,
+      ...trades.slice(0, 2).map((row, i) => ({
+        ...row,
+        condition_id: conditions[1]!,
+        proxy_wallet: i === 0 ? wallet(1) : wallet(9),
+        size: '10',
+        timestamp: start + 900,
+        transaction_hash: 'unaffected-market',
+      })),
+    ]
+    const options = {
+      root,
+      from: '2026-06-01',
+      to: '2026-06-03',
+      concurrency: 4,
+      requestsPerSecond: 12,
+      minFreeGiB: 1,
+      log: () => {},
+      client: fixture(false, badCounterparty, sourceTrades, badCounterparty ? '30000' : '30001')
+        .client,
+    }
     try {
-      await assert.rejects(
-        syncDataset({
-          root,
-          from: '2026-06-01',
-          to: '2026-06-02',
-          concurrency: 4,
-          requestsPerSecond: 12,
-          minFreeGiB: 1,
-          client: fixture(changeRepeat, badCounterparty, lowerVolumeBurst, '26065.057158').client,
-          log: () => {},
-        }),
-        /corroboration/,
+      const saved = await syncDataset(options)
+      assert.equal(saved.length, 2)
+      assert.equal(saved[0]!.source_warnings?.[0]?.code, UNRESOLVED_VOLUME)
+      assert.equal(saved[1]!.source_warnings?.length, 0)
+      // Older unflagged generations omitted this column entirely.
+      const legacyMarketFile = path.join(root, saved[1]!.directory, 'markets.parquet')
+      const legacyDb = await createResearchDatabase()
+      try {
+        await legacyDb.connection.run(
+          `COPY (SELECT * EXCLUDE(source_warnings) FROM read_parquet(${sqlQuote(legacyMarketFile)})) TO ${sqlQuote(legacyMarketFile + '.legacy')} (FORMAT PARQUET)`,
+        )
+      } finally {
+        legacyDb.close()
+      }
+      await rename(legacyMarketFile + '.legacy', legacyMarketFile)
+      const legacyReportFile = path.join(root, saved[1]!.report)
+      const legacyReport = (await readJson<ApiRow>(legacyReportFile))!
+      ;(legacyReport.files as ApiRow)['markets.parquet'] = await fileDigest(legacyMarketFile)
+      await writeJson(legacyReportFile, legacyReport)
+      const rows = (await querySql(
+        root,
+        `SELECT wallet, condition_id, quality, issues FROM wallet_markets ORDER BY condition_id,wallet`,
+      )) as { wallet: string; condition_id: string; quality: string; issues: string[] }[]
+      const flagged = rows.filter((row) => row.condition_id === conditions[0])
+      assert.equal(flagged.length, 4)
+      assert.ok(
+        flagged.every(
+          (row) => row.quality === 'unresolved' && row.issues.includes(UNRESOLVED_VOLUME),
+        ),
       )
-      assert.equal(await readJson(path.join(root, 'index.json')), null)
+      // Wallet 1 has a separate complete market, but its entire cohort is excluded.
+      if (!badCounterparty)
+        assert.equal(
+          rows.find((row) => row.wallet === wallet(1) && row.condition_id === conditions[1])
+            ?.quality,
+          'complete',
+        )
+      const ranking = (await leaderboard(root, options.from, options.to)) as {
+        rows: { wallet: string }[]
+      }
+      assert.deepEqual(
+        ranking.rows.map((row) => row.wallet),
+        [wallet(9)],
+      )
+      const verification = await verifyDataset(root, options.from, options.to)
+      assert.equal(verification.valid, true, JSON.stringify(verification))
+      assert.equal(verification.all_source_aggregates_reconciled, false)
+      assert.equal(verification.all_wallet_accounting_complete, false)
+      const [rebuilt] = await rebuildDataset(root, options.from, '2026-06-02', 1)
+      assert.equal(rebuilt!.unresolved_wallet_markets, saved[0]!.unresolved_wallet_markets)
+      for (const file of ['trades.parquet', 'activities.parquet', 'positions.parquet'])
+        assert.deepEqual(
+          await fileDigest(path.join(root, saved[0]!.directory, file)),
+          await fileDigest(path.join(root, rebuilt!.directory, file)),
+        )
+      await rebuildDataset(root, '2026-06-02', options.to, 1)
+      assert.equal((await verifyDataset(root, options.from, options.to)).valid, true)
+      const proofFile = path.join(root, rebuilt!.directory, 'volume-evidence.json')
+      const proof = (await readJson<Record<string, VolumeEvidence>>(proofFile))!
+      proof[conditions[0]!]!.taker_trades.pop()
+      await writeJson(proofFile, proof)
+      const reportFile = path.join(root, rebuilt!.report)
+      const report = (await readJson<ApiRow>(reportFile))!
+      ;(report.files as ApiRow)['volume-evidence.json'] = await fileDigest(proofFile)
+      await writeJson(reportFile, report)
+      assert.equal((await verifyDataset(root, options.from, options.to)).valid, false)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
-  }
-})
+  })
+}

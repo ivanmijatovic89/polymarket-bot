@@ -133,6 +133,15 @@ For a wallet to rank, all of its observed trader/market pairs in the selected
 cohort must have complete accounting. A missing losing position must never turn
 partial profit into an apparently complete winning record.
 
+Downloader version 10 also marks every observed participant in a market with
+`unresolved_source_volume_disagreement` as unresolved. The repeated trade feeds
+agree, but the aggregate discrepancy cannot be corroborated under the narrower
+opening-fill rule. The discrepancy is not safely attributable to particular
+wallets, so all observed participants are excluded for the selected cohort.
+This source-quality flag changes eligibility, not cash or native PnL calculations.
+Rebuild preserves it from the saved market flags; verification independently
+checks both the evidence and exclusion flags. Other markets and days can proceed.
+
 Raw SQL and coverage reports retain excluded wallets and their reasons. The
 `wallet_months` view also requires coverage of the whole calendar month before
 exposing a final monthly economic PnL; observed cash is labeled separately.

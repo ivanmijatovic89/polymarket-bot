@@ -334,7 +334,9 @@ market. Market volume does not establish whether the retained trades and cash
 are correct. The exception requires the entire isolated opening burst to explain
 the discrepancy, repeated complete feeds to agree, all maker/taker quantities
 to match, and every involved wallet to pass accounting. A missing later trade,
-matching subset, changed repeat feed or unresolved participant still fails.
+matching subset or unresolved participant cannot receive corroborated status.
+Changed repeat feeds still fail publication; version 10 retains stable but
+uncorroborated discrepancies with the stricter unresolved classification below.
 The exact discrepancy remains a source warning, and the aggregate remains
 explicitly unreconciled. No trade, cash value or wallet-accounting tolerance changes.
 
@@ -410,7 +412,9 @@ The original 60-second selection missed the second opening fill. Version 9
 selects every pre-window fill in the first five minutes, regardless of the
 aggregate amount, and still requires an observed later trade separated by at
 least 60 seconds. A matching subset, altered repeat feed, unbalanced transaction
-or unresolved participant fails publication. Exact cash and share values remain
+or unresolved participant prevents corroborated status. Version 10 may publish
+stable uncorroborated discrepancies with all participants unresolved, as described
+below; changed repeat feeds still fail publication. Exact cash and share values remain
 unchanged. Evidence: `logs/august-recovery-20261005/`.
 
 August 7 has a separate source-data problem: 22,267 unresolved wallet/market
@@ -422,3 +426,31 @@ result. This bounded sample does not establish the upstream cause or prove all
 other affected rows have the same cause. The day passes file and calculation
 integrity checks; unresolved histories remain excluded from strict rankings.
 No accounting tolerance was changed to accept these histories.
+
+## August 20: retain unresolved aggregate gaps and continue
+
+`btc-updown-15m-1787187600` stopped downloader version 9 with downloaded taker
+volume **29,433.261693 shares** versus API volume **29,431.300910 shares**.
+The difference is **1.960783 shares**, approximately 0.0067%. Small size does not
+establish which rows or wallets explain the gap.
+
+Downloader version 10 distinguishes two outcomes after complete fresh walks at
+page size 137 reproduce the saved all-participant and taker multisets and a
+repeated aggregate agrees:
+
+- `corroborated_source_volume_disagreement`: the existing opening-fill and
+  participant-accounting proof passes. Reconciled wallets remain eligible.
+- `unresolved_source_volume_disagreement`: the proof fails. Publish the observed
+  facts and discrepancy evidence, mark every observed participant in that market
+  unresolved, and exclude each affected wallet's entire selected cohort from
+  strict rankings. Later days continue downloading.
+
+This classification is independent of discrepancy magnitude; it is not a
+rounding allowance. The exact aggregate, downloaded total, difference, repeat
+feeds and failure reason are preserved in the report and checksummed evidence.
+Cash and native PnL remain unchanged diagnostic fields. Market, coverage, wallet
+and leaderboard reports expose the flag. Offline verification can pass local
+integrity while `all_source_aggregates_reconciled` and
+`all_wallet_accounting_complete` remain false. Rebuild preserves the exclusions.
+Changed repeated feeds, missing API responses, invalid cursor walks and file
+corruption remain failures. Completed days are not rewritten by this change.

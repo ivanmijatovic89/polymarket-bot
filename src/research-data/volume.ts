@@ -3,6 +3,9 @@ import { abs, decimal, sum, units } from './decimal.js'
 import type { FeedRow, Market, WalletMarket } from './types.js'
 
 export const VOLUME_WARNING = 'corroborated_source_volume_disagreement'
+export const UNRESOLVED_VOLUME = 'unresolved_source_volume_disagreement'
+
+class UncorroboratedVolumeError extends Error {}
 
 export interface VolumeEvidence {
   version: 1
@@ -17,8 +20,8 @@ export interface VolumeEvidence {
 /** A narrow source exception, never a general volume or wallet-PnL tolerance. */
 export function volumeCandidate(market: Market, trades: FeedRow[], expected: bigint) {
   const fail = () => {
-    throw new Error(
-      `Uncorroborated trade volume mismatch: ${market.slug}; downloaded=${decimal(actual)} API=${decimal(expected)}; cached pages retained`,
+    throw new UncorroboratedVolumeError(
+      `Uncorroborated trade volume mismatch: ${market.slug}; downloaded=${decimal(actual)} API=${decimal(expected)}`,
     )
   }
   const takers = trades.filter((row) => row.is_taker)
@@ -88,18 +91,9 @@ export function validateVolumeEvidence(
   evidence: VolumeEvidence,
   summaries: Pick<WalletMarket, 'wallet' | 'condition_id' | 'quality'>[],
 ) {
+  validateRepeatedVolumeEvidence(market, trades, expected, evidence)
   const candidate = volumeCandidate(market, trades, expected)
   if (
-    evidence.version !== 1 ||
-    evidence.condition_id !== market.condition_id ||
-    evidence.page_size !== 137 ||
-    !Number.isFinite(Date.parse(evidence.observed_at)) ||
-    units(evidence.aggregate_shares) !== expected ||
-    multisetDifference(trades, evidence.all_trades) !== 0 ||
-    multisetDifference(
-      trades.filter((row) => row.is_taker),
-      evidence.taker_trades,
-    ) !== 0 ||
     candidate.wallets.some(
       (wallet) =>
         !summaries.some(
@@ -110,6 +104,62 @@ export function validateVolumeEvidence(
         ),
     )
   )
-    throw new Error(`Source-volume corroboration failed: ${market.slug}`)
+    throw new UncorroboratedVolumeError(`Source-volume corroboration failed: ${market.slug}`)
   return candidate
+}
+
+/** Unstable or incomplete repeat feeds remain fatal; they are not aggregate-only gaps. */
+function validateRepeatedVolumeEvidence(
+  market: Market,
+  trades: FeedRow[],
+  expected: bigint,
+  evidence: VolumeEvidence,
+) {
+  if (
+    evidence.version !== 1 ||
+    evidence.condition_id !== market.condition_id ||
+    evidence.page_size !== 137 ||
+    !Number.isFinite(Date.parse(evidence.observed_at)) ||
+    units(evidence.aggregate_shares) !== expected ||
+    multisetDifference(trades, evidence.all_trades) !== 0 ||
+    multisetDifference(
+      trades.filter((row) => row.is_taker),
+      evidence.taker_trades,
+    ) !== 0
+  )
+    throw new Error(`Source-volume corroboration failed: ${market.slug}`)
+}
+
+/** Retain a stable aggregate discrepancy without claiming complete market accounting. */
+export function assessVolumeEvidence(
+  market: Market,
+  trades: FeedRow[],
+  expected: bigint,
+  evidence: VolumeEvidence,
+  summaries: Pick<WalletMarket, 'wallet' | 'condition_id' | 'quality'>[],
+) {
+  try {
+    const candidate = validateVolumeEvidence(market, trades, expected, evidence, summaries)
+    return { code: VOLUME_WARNING, difference: candidate.difference, candidate, reason: null }
+  } catch (error) {
+    if (!(error instanceof UncorroboratedVolumeError)) throw error
+    return {
+      code: UNRESOLVED_VOLUME,
+      difference: decimal(
+        sum(trades.filter((row) => row.is_taker).map((row) => units(row.size))) - expected,
+      ),
+      candidate: null,
+      reason: error.message,
+    }
+  }
+}
+
+/** Every observed participant is affected when the missing/excess volume is unlocalized. */
+export function applyVolumeQuality(market: Market, summary: WalletMarket): WalletMarket {
+  if (!market.source_warnings?.includes(UNRESOLVED_VOLUME)) return summary
+  return {
+    ...summary,
+    quality: 'unresolved',
+    issues: [...new Set([...summary.issues, UNRESOLVED_VOLUME])].sort(),
+  }
 }

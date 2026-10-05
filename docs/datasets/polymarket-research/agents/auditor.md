@@ -19,6 +19,10 @@ Use this page as instructions for an agent auditing the research dataset.
    repeat-feed evidence, exact share discrepancy, market flag and every
    opening participant's accounting. Never waive wallet checks because an aggregate
    discrepancy was accepted.
+   For `unresolved_source_volume_disagreement`, check that the repeat feeds match,
+   the aggregate discrepancy remains recorded, and every observed market participant
+   carries the unresolved issue. Verify whole-wallet exclusion and preservation of
+   the flag after rebuild. File integrity passing does not reconcile this aggregate.
 4. Verify that strict rankings exclude entire incomplete wallet cohorts, rather
    than dropping only their problematic market rows.
 5. Recalculate selected wallet cash legs and settlement-valued holdings with

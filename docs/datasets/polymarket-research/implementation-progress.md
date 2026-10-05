@@ -8,6 +8,27 @@ local SQL, trustworthy monthly rankings, wallet histories, documentation and tes
 Blockchain download, verification and enrichment are excluded. Preserve strategy
 parity. Work on `codex/polymarket-v2-research-data`.
 
+## Downloader version 10: unresolved aggregate publication
+
+The August 20 restart introduces an explicit unresolved source-volume state.
+Stable repeated trade feeds with an uncorroborated aggregate discrepancy can be
+saved without stopping later days. Every observed participant in the affected
+market is unresolved and excluded from strict cohort rankings. The existing
+corroborated classification remains available only when its full proof passes.
+Repeat-feed inconsistencies remain fatal. Source facts, money and completed
+generations are unchanged; local rebuild and verification retain/check the flags.
+
+All 41 feature tests pass, including continuation to a later day, whole-wallet
+exclusion despite a separate complete market, unresolved counterparty handling,
+rebuild preservation and rejection of altered repeat evidence. The [API guide](./api-limitations#august-20-retain-unresolved-aggregate-gaps-and-continue)
+describes the August 20 discrepancy. Operational evidence is retained under
+`logs/aug20-recovery-20261005/` in the permanent data root.
+
+June and July monthly studies are complete. August–September ingestion and
+monthly follow-ups, final full-range verification and feature acceptance remain
+pending. Continuous AI polling stays paused; scheduled checkpoints monitor the
+separate downloader and validator.
+
 ## Complete June and first monthly study
 
 All June days are now published and independently verified: 2,880 windows,

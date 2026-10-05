@@ -66,7 +66,7 @@ export async function rebuildDataset(
       try {
         const marketRows = (
           await connection.runAndReadAll(
-            `SELECT raw_json, resolution_json FROM read_parquet(${sqlQuote(path.join(source, 'markets.parquet'))}) ORDER BY market_start`,
+            `SELECT * FROM read_parquet(${sqlQuote(path.join(source, 'markets.parquet'))}) ORDER BY market_start`,
           )
         ).getRowObjectsJson()
         for (const row of marketRows) {
@@ -74,6 +74,7 @@ export async function rebuildDataset(
             JSON.parse(String(row.raw_json)) as ApiRow,
             JSON.parse(String(row.resolution_json)) as ApiRow | undefined,
           )
+          market.source_warnings = (row.source_warnings as string[] | null) ?? []
           // At most one market's raw history is loaded at a time.
           const trades = (
             await rawRows(connection, path.join(source, 'trades.parquet'), market.condition_id)

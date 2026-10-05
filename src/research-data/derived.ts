@@ -1,5 +1,6 @@
 import { accountWalletMarket } from './accounting.js'
 import type { Activity, FeedRow, Market, Position, WalletMarket } from './types.js'
+import { applyVolumeQuality } from './volume.js'
 
 export const ACCOUNTING_VERSION = 6
 
@@ -39,6 +40,7 @@ export function summarizeMarket(
         fetched: fetchedWallets.has(wallet),
       }),
     )
+    .map((summary) => applyVolumeQuality(market, summary))
 }
 
 export function coverageRow(slug: string, market: Market | undefined, summaries: WalletMarket[]) {

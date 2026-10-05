@@ -17,6 +17,9 @@ Use this page as instructions for an agent investigating wallet behavior.
    corroborated market-volume aggregate mismatch does not by itself invalidate
    a wallet whose complete accounting reconciles. Do not describe flagged source
    aggregates as fully reconciled or silently remove their retained trades.
+   `unresolved_source_volume_disagreement` is different: every observed participant
+   in that market has unresolved quality and is excluded from the entire selected
+   strict wallet cohort. Raw cash remains available only as a diagnostic result.
    Use `sql/monthly-population.sql` alongside the monthly ranking to record
    those population and excluded-trade counts for each month.
 3. Use DuckDB SQL over the published Parquet views. Preserve the distinction

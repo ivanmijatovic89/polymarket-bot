@@ -68,5 +68,12 @@ exclude wallets with unresolved accounting in any selected market. Missing dates
 or missing market windows prevent a strict cohort leaderboard entirely. Local SQL
 still exposes the observed facts for diagnosis.
 
+A stable but uncorroborated market-volume discrepancy can be published with
+`unresolved_source_volume_disagreement` so subsequent days keep downloading.
+Every observed participant in that market is unresolved and excluded from strict
+cohort rankings. Repeated trade feeds must still match; inconsistent repeats or
+incomplete API requests stop publication. The saved discrepancy is never silently
+rounded away or relabeled as reconciled.
+
 The progress log and benchmarks are [recorded here](./implementation-progress).
 The implementation is not accepted until the full checklist and backfill pass.

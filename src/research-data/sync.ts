@@ -7,9 +7,9 @@ import { createResearchDatabase } from './database.js'
 import { ACCOUNTING_VERSION, coverageRow, groupRows, summarizeMarket } from './derived.js'
 import { snapshotDigests } from './integrity.js'
 import {
-  validateVolumeEvidence,
-  volumeCandidate,
-  VOLUME_WARNING,
+  assessVolumeEvidence,
+  applyVolumeQuality,
+  UNRESOLVED_VOLUME,
   type VolumeEvidence,
 } from './volume.js'
 import { ApiClient, parallelMap } from './api.js'
@@ -276,7 +276,6 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
       })
       if (abs(actual - expected) > 1n) {
         const savedTrades = tradesByCondition.get(market.condition_id) ?? []
-        volumeCandidate(market, savedTrades, expected)
         // Different page boundaries plus a new cache force an independent walk.
         const repeatCache = path.join(stage, 'volume-rechecks', randomUUID())
         const params = {
@@ -413,7 +412,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
       fetched.get(condition)!.add(result.wallet)
     }
   }
-  const summaries = catalog.markets.flatMap((market) =>
+  const baseSummaries = catalog.markets.flatMap((market) =>
     summarizeMarket(
       market,
       tradesByCondition.get(market.condition_id) ?? [],
@@ -422,34 +421,47 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
       fetched.get(market.condition_id) ?? new Set(),
     ),
   )
-  const summariesByCondition = groupRows(summaries, (row) => row.condition_id)
+  const baseSummariesByCondition = groupRows(baseSummaries, (row) => row.condition_id)
   const sourceWarnings: NonNullable<DaySnapshot['source_warnings']> = []
   for (const market of catalog.markets) {
     market.source_warnings = []
     const evidence = volumeEvidence[market.condition_id]
     if (!evidence) continue
     const check = volumeChecks.find((row) => row.slug === market.slug)!
-    const candidate = validateVolumeEvidence(
+    const assessment = assessVolumeEvidence(
       market,
       tradesByCondition.get(market.condition_id) ?? [],
       units(check.expected_taker_shares),
       evidence,
-      summariesByCondition.get(market.condition_id) ?? [],
+      baseSummariesByCondition.get(market.condition_id) ?? [],
     )
-    check.verification = VOLUME_WARNING
-    check.corroborating_transaction = candidate.transaction
-    check.corroborating_transactions = candidate.transactions
-    check.corroborating_taker_fills = candidate.taker_fill_count
-    check.corroborating_first_timestamp = candidate.first_timestamp
-    check.corroborating_last_timestamp = candidate.last_timestamp
-    market.source_warnings = [VOLUME_WARNING]
+    check.verification = assessment.code
+    if (assessment.candidate) {
+      const candidate = assessment.candidate
+      check.corroborating_transaction = candidate.transaction
+      check.corroborating_transactions = candidate.transactions
+      check.corroborating_taker_fills = candidate.taker_fill_count
+      check.corroborating_first_timestamp = candidate.first_timestamp
+      check.corroborating_last_timestamp = candidate.last_timestamp
+    } else {
+      check.unresolved_reason = assessment.reason
+      log(
+        `[research] ${market.slug}: ${UNRESOLVED_VOLUME}; all market participants excluded from strict rankings`,
+      )
+    }
+    market.source_warnings = [assessment.code]
     sourceWarnings.push({
       slug: market.slug,
       condition_id: market.condition_id,
-      code: VOLUME_WARNING,
-      difference_shares: candidate.difference,
+      code: assessment.code,
+      difference_shares: assessment.difference,
     })
   }
+  const marketsByCondition = new Map(catalog.markets.map((market) => [market.condition_id, market]))
+  const summaries = baseSummaries.map((row) =>
+    applyVolumeQuality(marketsByCondition.get(row.condition_id)!, row),
+  )
+  const summariesByCondition = groupRows(summaries, (row) => row.condition_id)
   const marketsBySlug = new Map(catalog.markets.map((market) => [market.slug, market]))
   const coverage = catalog.expected.map((slug) => {
     const market = marketsBySlug.get(slug)
@@ -513,7 +525,7 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute, sourceWarnings.length > 0)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 9,
+    downloader_version: 10,
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,

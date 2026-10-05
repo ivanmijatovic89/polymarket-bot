@@ -3,7 +3,12 @@ import { sqlQuote } from '../utils/duckdb.js'
 import { dates, parseDate, normalizeMarket } from './catalog.js'
 import { summarizeMarket } from './derived.js'
 import { feedRow, activityRow, positionRow, type ApiRow } from './types.js'
-import { validateVolumeEvidence, VOLUME_WARNING, type VolumeEvidence } from './volume.js'
+import {
+  assessVolumeEvidence,
+  VOLUME_WARNING,
+  UNRESOLVED_VOLUME,
+  type VolumeEvidence,
+} from './volume.js'
 import { readJson } from './files.js'
 import { checkDigests, type FileDigest } from './integrity.js'
 import { loadIndex, TABLES } from './storage.js'
@@ -60,6 +65,11 @@ export async function verifyDataset(root: string, from: string, to: string) {
       for (const table of TABLES)
         await connection.run(
           `CREATE VIEW ${table} AS SELECT * FROM read_parquet(${sqlQuote(path.join(root, snapshot.directory, `${table}.parquet`))})`,
+        )
+      const marketColumns = (await connection.runAndReadAll('DESCRIBE markets')).getRowObjectsJson()
+      if (!marketColumns.some((row) => row.column_name === 'source_warnings'))
+        await connection.run(
+          `CREATE OR REPLACE VIEW markets AS SELECT *, []::VARCHAR[] AS source_warnings FROM read_parquet(${sqlQuote(path.join(root, snapshot.directory, 'markets.parquet'))})`,
         )
       const check = async (name: string, sql: string, expected = 0) => {
         const rows = (await connection.runAndReadAll(sql)).getRowObjectsJson()
@@ -125,6 +135,14 @@ export async function verifyDataset(root: string, from: string, to: string) {
         `SELECT count(*) AS n FROM wallet_markets WHERE quality = 'complete' AND (len(issues) <> 0 OR economic_pnl_usdc IS NULL OR api_pnl_status NOT IN ('match', 'rounding_compatible', 'fee_basis_difference'))`,
       )
       await check(
+        'source_volume_quality_failures',
+        `SELECT count(*) AS n FROM wallet_markets w JOIN markets m USING(condition_id)
+         WHERE (coalesce(list_contains(m.source_warnings, '${UNRESOLVED_VOLUME}'), false)
+           AND (w.quality <> 'unresolved' OR NOT list_contains(w.issues, '${UNRESOLVED_VOLUME}')))
+         OR (list_contains(w.issues, '${UNRESOLVED_VOLUME}')
+           AND NOT coalesce(list_contains(m.source_warnings, '${UNRESOLVED_VOLUME}'), false))`,
+      )
+      await check(
         'complete_wallet_markets',
         `SELECT count(*) AS n FROM wallet_markets WHERE quality='complete'`,
         snapshot.complete_wallet_markets,
@@ -177,10 +195,11 @@ export async function verifyDataset(root: string, from: string, to: string) {
           continue
         }
         const mismatch = abs(units(row.amount) - units(expected.expected_taker_shares)) > 1n
-        if (!mismatch && expected.verification !== VOLUME_WARNING) continue
+        const flagged = [VOLUME_WARNING, UNRESOLVED_VOLUME].includes(expected.verification)
+        if (!mismatch && !flagged) continue
         if (
           !mismatch ||
-          expected.verification !== VOLUME_WARNING ||
+          !flagged ||
           units(row.amount) !== units(expected.downloaded_taker_shares)
         ) {
           day.errors.push(`Taker volume check failed: ${String(row.slug)}`)
@@ -221,28 +240,30 @@ export async function verifyDataset(root: string, from: string, to: string) {
         )
         if (!evidence?.[market.condition_id])
           throw new Error(`Source-volume evidence missing: ${market.slug}`)
-        const candidate = validateVolumeEvidence(
+        const assessment = assessVolumeEvidence(
           market,
           trades,
           units(expected.expected_taker_shares),
           evidence[market.condition_id]!,
           summaries,
         )
+        if (assessment.code !== expected.verification)
+          throw new Error(`Source-volume classification differs from evidence: ${market.slug}`)
         const warning = snapshot.source_warnings?.find(
           (w) =>
             w.slug === market.slug &&
             w.condition_id === market.condition_id &&
-            w.code === VOLUME_WARNING,
+            w.code === assessment.code,
         )
         if (
           !warning ||
-          units(warning.difference_shares) !== units(candidate.difference) ||
-          !(savedMarket.source_warnings as string[] | undefined)?.includes(VOLUME_WARNING)
+          units(warning.difference_shares) !== units(assessment.difference) ||
+          !(savedMarket.source_warnings as string[] | undefined)?.includes(assessment.code)
         )
           throw new Error(`Source-volume warning missing from market/index: ${market.slug}`)
         warned++
         day.warnings.push(
-          `${VOLUME_WARNING}: ${market.slug}, ${candidate.difference} shares; counterparty accounting reconciles, aggregate remains inconsistent`,
+          `${assessment.code}: ${market.slug}, ${assessment.difference} shares; ${assessment.code === UNRESOLVED_VOLUME ? 'all observed market participants excluded from strict rankings' : 'counterparty accounting reconciles, aggregate remains inconsistent'}`,
         )
       }
       day.checks.source_volume_warnings = warned
