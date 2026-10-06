@@ -8,6 +8,10 @@ all timed result comparisons and the final input-hash checks passed.
 Raw observations, runtime versions, load averages, source hashes and the release
 binary hash are saved in [measurements-june-1000.json](measurements-june-1000.json).
 
+The follow-up [original-file benchmark](REPORT-JUNE-1000-RAW.md) includes
+Binance/Chainlink daily-feed loading and preparation inside both timed engines.
+Use that report for the more complete comparison of this replay workload.
+
 ## Fixed inputs and host
 
 - Apple M1 Pro, 10 CPU cores, 16 GiB RAM; one local computer.

@@ -83,8 +83,8 @@ The prepared-feed comparison includes market Parquet decoding, real and syntheti
 ticks, strategy decisions, FOK execution, portfolio state, per-market statistics,
 and loading the prepared feed JSON. Raw daily-feed extraction is outside that
 comparison. `--production` adds a baseline using unmodified `runSingleMarket`,
-including its production feed loaders. A native port of those daily-file loaders
-is still required to measure a complete Rust replacement.
+including its production feed loaders. The newer original daily-feed benchmark
+below includes native loading of those same files inside its timed path.
 
 Single-process wall time includes executable/module startup and output writing;
 `replayMs` records the internal batch duration separately. CPU and peak RSS come
@@ -215,3 +215,7 @@ per-market statistics. Every timed output must match the reference. Compilation,
 verification, fleet/network/DB/queue output and batch aggregation remain outside
 timing. The runner checks original inputs, sources and the binary again at the
 end and writes checkpoints to `results/june-1000-raw/raw-scaling.json`.
+
+Completed original-file results are in
+[REPORT-JUNE-1000-RAW.md](REPORT-JUNE-1000-RAW.md), with raw observations in
+[measurements-june-1000-raw.json](measurements-june-1000-raw.json).
