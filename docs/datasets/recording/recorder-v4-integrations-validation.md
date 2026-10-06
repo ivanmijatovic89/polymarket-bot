@@ -149,3 +149,34 @@ Activate the bounded-log supervisor with a planned V4-only service update after 
 and validating its pinned release. Preserve the external V4 spool and all existing R2 data.
 The [worker-2 runbook](./recorder-v4-worker-2) covers operation and rollback. V3 is retired and
 must not be restarted as a rollback target.
+
+## October 6 rollout evidence
+
+[PR #296](https://github.com/ivanmijatovic89/polymarket-bot/pull/296) merged as
+`a94e9a6a3d151546b56fcf4572858fe518f2f0ca` after all four CI checks passed.
+The production migration journal records migration 0039 with checksum
+`73cf6841cd04f5397c93ad159715b6540bcc0fb6faaf6c02ad7ea704f4c48cba`;
+both provenance columns were verified as nullable JSON. The market and aggregate queues
+were empty before rollout. The primary dashboard and local workers were restarted, and
+worker-1, worker-2 and milan-m1 were fast-forwarded and restarted using the fleet updater.
+All 17 market children and four supervisors reported the merged commit in fresh heartbeats.
+
+Production queued validation run **9659** (`v4-post-rollout-20261006-a94e9a6a`) used the
+all-feed observer and the same two immutable captures listed above. Both jobs succeeded
+on worker-1 at the merged commit, with no failed/skipped markets and no orders. The
+aggregate persisted selection metadata and both exact capture references. The production
+dashboard simulator then matched all 11 comparisons for each duration, including capture
+and event hashes. Scanning all 275,526 frames and 2,201,674 feed receipt timestamps found
+no future observations; requested feeds appeared at their recorded arrival. Both simulator
+processes exited and removed their temporary input downloads.
+
+Worker-2's recorder remained on its original V4 release during this rollout. Its next
+pinned release was installed separately and passed 18 supervisor/updater checks, typecheck,
+native DuckDB and exact plist validation. The concrete administrator activation command is
+in the [worker-2 runbook](./recorder-v4-worker-2#prepared-october-6-bounded-log-update).
+Service preparation does not prove activation; the operator's command and subsequent
+heartbeat/capture verification remain the final recorder service step.
+
+A follow-up in this chat is scheduled to review the 24–48-hour production observation
+period, including gaps, eligibility, uploads, resolution tracking, free disk and log growth.
+No R2 deletion, overwrite or migration was part of this rollout.

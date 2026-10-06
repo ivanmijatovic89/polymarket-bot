@@ -125,6 +125,16 @@ stdout/stderr destinations are `/dev/null`, while all recorder output goes throu
 the bounded logger. Log retention is separate from recording cleanup. Never
 remove spool state or R2 data to rotate a log.
 
+### Prepared October 6 bounded-log update
+
+The reviewed release `a94e9a6a3d151546b56fcf4572858fe518f2f0ca` is installed in the isolated release directory. Node 20 installation, typecheck, native DuckDB and 18 supervisor/updater checks passed on worker-2. Preparation leaves the existing recorder running. Activate this prepared update once from the control Mac:
+
+```bash
+ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-update-a94e9a6a.zsh'
+```
+
+macOS requires an administrator password in that terminal. The wrapper verifies the updater checksum and supplies the exact pinned release, rendered plist and plist checksum. Its deployment record is `/Users/worker-2/Services/polymarket-recorder-v4/prepared-update-a94e9a6a.json`. This is a planned V4 stop/start, so captures crossing the restart can be partial. Afterward, verify fresh recorder status, both durations and uploads using the routine commands above. Preparation alone does not establish that activation succeeded.
+
 ### Changing the pinned release
 
 Prepare a new pinned V4 release, install its dependencies and validate it before changing the service. Keep the V4 spool outside releases so it survives updates. Render the checked-in supervisor template with the exact worker-2 paths, then record the full release commit and rendered file's SHA-256 (`shasum -a 256 /absolute/rendered.plist`). Review the rendered file before supplying that checksum to the updater.
