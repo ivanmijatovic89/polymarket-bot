@@ -72,7 +72,7 @@ export type ResolvedCapturePackage = {
   marketResolution: MarketResolution
 }
 
-export function captureMarketMetadata(manifest: MarketManifest): GammaMarketMeta {
+export function captureMarketMetadata(manifest: Pick<MarketManifest, 'market'>): GammaMarketMeta {
   const { market } = manifest
   const outcomeTokenMap: Record<string, string> = {}
   market.outcomes.forEach((outcome, i) => {

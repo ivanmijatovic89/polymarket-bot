@@ -1,3 +1,5 @@
+import type { RecorderV4SelectionMetadata } from '../recorder-v4/replay/eligibility.js'
+import { parseCaptureReference } from '../recorder-v4/replay/provenance.js'
 import type { TelonexFeedEligibility } from './telonexEligibility.js'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchStats, BatchStatsFields } from '../backtest/stats/batchStats.js'
@@ -14,7 +16,6 @@ import {
   backtestRunMarkets,
   backtestRunSegments,
   backtestRuns,
-  telonexMarkets,
 } from './schema.js'
 
 function mustGetDb(): ReturnType<typeof getDb> {
@@ -99,6 +100,7 @@ export type BacktestRunSummary = {
 }
 
 type InsertBacktestRunRow = {
+  recorderV4Selection?: RecorderV4SelectionMetadata | null
   feedEligibility?: TelonexFeedEligibility | null
   batchUid: string
   submissionUid: string
@@ -413,6 +415,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         strategy: row.strategy,
         params: row.params,
         feedEligibility: row.feedEligibility ?? null,
+        recorderV4Selection: row.recorderV4Selection ?? null,
         strategyArtifactSha256: row.strategyArtifactSha256 ?? null,
         strategyArtifactMeta: row.strategyArtifactMeta ?? null,
         symbol: row.symbol,
@@ -461,6 +464,9 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
           mergableShares: toDecimal(entry.stats.mergableShares),
           cost: toDecimal(entry.stats.cost),
           splitCost: toDecimal(entry.stats.splitCost),
+          recorderV4Capture: entry.stats.recorderV4Capture
+            ? parseCaptureReference(entry.stats.recorderV4Capture)
+            : null,
           intentMeta: entry.stats.intentMeta,
           machineId: entry.stats.execution?.machineId ?? null,
           workerChildId: entry.stats.execution?.workerChildId ?? null,
@@ -583,6 +589,9 @@ async function hydrateBacktestRun(
       splitCost: parseDecimal(m.splitCost),
       intentMeta: parseJsonValue<Array<Record<string, unknown>>>(m.intentMeta),
       ...(m.skipReason ? { skipReason: m.skipReason } : {}),
+      ...(m.recorderV4Capture
+        ? { recorderV4Capture: parseCaptureReference(m.recorderV4Capture) }
+        : {}),
       ...(execution ? { execution } : {}),
     }
   })
@@ -643,13 +652,10 @@ export async function getCoveredSlugsForRun(runId: number): Promise<Set<string>>
 }
 
 /**
- * Returns `{ minMs, maxMs }` for the parent run's covered slug set, joined
- * against `telonex_markets.market_start_ms`. Used by the extension planner
- * to anchor the auto-direction filter ("just before covered" /
- * "just after covered"). Returns nulls if covered is empty.
- *
- * One join, indexed both sides (`run_id` on `backtest_run_markets`,
- * `slug` on `telonex_markets`).
+ * Returns the parent's covered window range from its persisted market starts.
+ * Both Telonex and V4 extensions use this to anchor the auto-direction filter
+ * ("just before covered" / "just after covered"). The run/start index supports
+ * the range lookup without depending on another dataset catalog.
  */
 export async function getCoveredRangeForRun(
   runId: number,
@@ -657,11 +663,10 @@ export async function getCoveredRangeForRun(
   const db = mustGetDb()
   const rows = await db
     .select({
-      minMs: sql<number | null>`MIN(${telonexMarkets.marketStartMs})`,
-      maxMs: sql<number | null>`MAX(${telonexMarkets.marketStartMs})`,
+      minMs: sql<number | null>`MIN(${backtestRunMarkets.marketStartMs})`,
+      maxMs: sql<number | null>`MAX(${backtestRunMarkets.marketStartMs})`,
     })
     .from(backtestRunMarkets)
-    .innerJoin(telonexMarkets, eq(telonexMarkets.slug, backtestRunMarkets.slug))
     .where(eq(backtestRunMarkets.runId, runId))
   const row = rows[0]
   if (!row || row.minMs === null) return { minMs: null, maxMs: null }
@@ -670,6 +675,7 @@ export async function getCoveredRangeForRun(
 
 /** Subset of `backtest_runs` columns needed to plan an extension. */
 export type ExtensibleRun = {
+  recorderV4Selection?: RecorderV4SelectionMetadata | null
   feedEligibility: TelonexFeedEligibility | null
   id: number
   batchUid: string
@@ -719,6 +725,7 @@ export async function getRunForExtension(
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
       feedEligibility: backtestRuns.feedEligibility,
+      recorderV4Selection: backtestRuns.recorderV4Selection,
       strategyArtifactSha256: backtestRuns.strategyArtifactSha256,
       strategyArtifactMeta: backtestRuns.strategyArtifactMeta,
       symbol: backtestRuns.symbol,
@@ -735,14 +742,18 @@ export async function getRunForExtension(
     .limit(1)
 
   if (!row) return { kind: 'not-found' }
-  if (row.inputMode === null || row.inputMode === 'recorded') {
+  if (!['telonex-delta', 'telonex-paired', 'recorder-v4'].includes(row.inputMode ?? '')) {
     return { kind: 'not-telonex', inputMode: row.inputMode }
   }
   const missing: string[] = []
   if (!row.symbol) missing.push('symbol')
-  if (!row.timeframe) missing.push('timeframe')
-  if (!row.converter) missing.push('converter')
-  if (!row.readFrom) missing.push('read_from')
+  if (row.inputMode === 'recorder-v4') {
+    if (!row.recorderV4Selection) missing.push('recorder_v4_selection')
+  } else {
+    if (!row.timeframe) missing.push('timeframe')
+    if (!row.converter) missing.push('converter')
+    if (!row.readFrom) missing.push('read_from')
+  }
   if (missing.length > 0) return { kind: 'missing-metadata', missing }
 
   return {
@@ -756,13 +767,14 @@ export async function getRunForExtension(
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
       feedEligibility: row.feedEligibility ?? null,
+      recorderV4Selection: row.recorderV4Selection ?? null,
       strategyArtifactSha256: row.strategyArtifactSha256,
       strategyArtifactMeta: row.strategyArtifactMeta ?? null,
       symbol: row.symbol!,
-      timeframe: row.timeframe!,
-      inputMode: row.inputMode,
-      converter: row.converter!,
-      readFrom: row.readFrom!,
+      timeframe: row.timeframe ?? 'mixed',
+      inputMode: row.inputMode!,
+      converter: row.converter ?? 'recorder-v4',
+      readFrom: row.readFrom ?? 'r2',
       capitalInitial: parseDecimal(row.capitalInitial),
       comment: row.comment,
       extendingAt: row.extendingAt,
@@ -843,6 +855,7 @@ export async function applyExtensionToRun(opts: {
         id: backtestRuns.id,
         capitalInitial: backtestRuns.capitalInitial,
         failuresCount: backtestRuns.failuresCount,
+        inputMode: backtestRuns.inputMode,
       })
       .from(backtestRuns)
       .where(eq(backtestRuns.id, opts.parentRunId))
@@ -924,6 +937,9 @@ export async function applyExtensionToRun(opts: {
         splitCost: parseDecimal(m.splitCost),
         intentMeta: parseJsonValue<Array<Record<string, unknown>>>(m.intentMeta),
         ...(m.skipReason ? { skipReason: m.skipReason } : {}),
+        ...(m.recorderV4Capture
+          ? { recorderV4Capture: parseCaptureReference(m.recorderV4Capture) }
+          : {}),
         ...(execution ? { execution } : {}),
       }
     })
@@ -957,6 +973,9 @@ export async function applyExtensionToRun(opts: {
           mergableShares: toDecimal(entry.stats.mergableShares),
           cost: toDecimal(entry.stats.cost),
           splitCost: toDecimal(entry.stats.splitCost),
+          recorderV4Capture: entry.stats.recorderV4Capture
+            ? parseCaptureReference(entry.stats.recorderV4Capture)
+            : null,
           intentMeta: entry.stats.intentMeta,
           machineId: entry.stats.execution?.machineId ?? null,
           workerChildId: entry.stats.execution?.workerChildId ?? null,
@@ -1048,6 +1067,9 @@ export async function applyExtensionToRun(opts: {
       .update(backtestRuns)
       .set({
         status,
+        ...(parent.inputMode === 'recorder-v4'
+          ? { timeframe: recorderResultTimeframe(allMarketsWithStartMs.map((m) => m.slug)) }
+          : {}),
         marketsPersisted: allMarketsWithStartMs.length,
         failuresCount: totalFailures,
         // Release the concurrent-extend lock in the same transaction as the
@@ -1090,4 +1112,12 @@ export async function clearExtensionLock(runId: number): Promise<boolean> {
     ? (result[0] as { affectedRows?: number })?.affectedRows
     : 0
   return Boolean(affected && affected > 0)
+}
+
+/** Actual result durations may become mixed when a V4 run is extended. */
+export function recorderResultTimeframe(slugs: readonly string[]): '5m' | '15m' | null {
+  const values = new Set(slugs.map((slug) => /^btc-updown-(5m|15m)-\d+$/.exec(slug)?.[1]))
+  if (values.size !== 1) return null
+  const only = [...values][0]
+  return only === '5m' || only === '15m' ? only : null
 }

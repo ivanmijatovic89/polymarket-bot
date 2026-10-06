@@ -1,3 +1,5 @@
+import type { RecorderV4SelectionMetadata } from '@bot/recorder-v4/replay/eligibility'
+import type { RecorderV4Capture } from '@bot/recorder-v4/replay/provenance'
 import type { TelonexFeedEligibility } from '@bot/db/telonexEligibility'
 import {
   bigint,
@@ -33,6 +35,7 @@ export const backtestRuns = mysqlTable(
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
     feedEligibility: json('feed_eligibility').$type<TelonexFeedEligibility | null>(),
+    recorderV4Selection: json('recorder_v4_selection').$type<RecorderV4SelectionMetadata | null>(),
     // External strategy artifact provenance (issue #211). Null for registry
     // strategies. Mirrors src/db/schema.ts.
     strategyArtifactSha256: varchar('strategy_artifact_sha256', { length: 64 }),
@@ -91,6 +94,7 @@ export const backtestRunMarkets = mysqlTable(
     slug: varchar('slug', { length: 255 }).notNull(),
     marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
     finalOutcome: mysqlEnum('final_outcome', ['UP', 'DOWN']).notNull(),
+    recorderV4Capture: json('recorder_v4_capture').$type<RecorderV4Capture | null>(),
     skipReason: mysqlEnum('skip_reason', ['no_in_window_activity']),
     pnl: decimal('pnl', { precision: 14, scale: 4 }).notNull(),
     tradeCount: int('trade_count').notNull(),

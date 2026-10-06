@@ -29,15 +29,15 @@ The recorder on worker-2 owns capture and its temporary spool. R2 holds the dura
 
 ## What is recorded
 
-| Source                                | Observations                                                                                                            |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Source                                | Observations                                                                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Polymarket market WebSocket           | Book snapshots, price changes, trades, lifecycle messages, arrays, and other received frames; see the compact field contract below |
-| Binance BTCUSDT                       | Aggregate trades and best bid/ask (`aggTrade`, `bookTicker`)                                                            |
-| Chainlink through Polymarket PolyBolt | BTC/USD spot and 60-second TWAP, including provider and sequence metadata                                               |
-| Price to beat                         | Raw HTTP responses, availability time, request parameters, status, and later corrections                                |
-| Market metadata                       | Discovery responses, token/outcome mapping, boundaries, and reference-price configuration                               |
-| Capture control                       | Connection changes, detected gaps, initial state, and shutdown/recovery information                                     |
-| Official resolution                   | Observed Gamma status, winner/token, payout vector, PTB/final price when present, and raw source response               |
+| Binance BTCUSDT                       | Aggregate trades and best bid/ask (`aggTrade`, `bookTicker`)                                                                       |
+| Chainlink through Polymarket PolyBolt | BTC/USD spot and 60-second TWAP, including provider and sequence metadata                                                          |
+| Price to beat                         | Raw HTTP responses, availability time, request parameters, status, and later corrections                                           |
+| Market metadata                       | Discovery responses, token/outcome mapping, boundaries, and reference-price configuration                                          |
+| Capture control                       | Connection changes, detected gaps, initial state, and shutdown/recovery information                                                |
+| Official resolution                   | Observed Gamma status, winner/token, payout vector, PTB/final price when present, and raw source response                          |
 
 Full Binance order-book depth, other symbols, and 1h/4h/daily markets are outside the first version.
 
@@ -82,7 +82,19 @@ npm run backtest -- --strategy readExternalFeedsExample.v1 \
   --param priceToBeatSource=chainlink-opening-twap
 ```
 
-This example observes/logs feeds and emits no orders, so `no_activity` is expected. The legacy live trading command and historical input modes explicitly reject this source because they cannot yet supply matching stream semantics. Use `website` to retain their existing behavior.
+To observe every supported V4 feed and both opening references in one replay:
+
+```bash
+npm run backtest -- --strategy readExternalFeedsExample.v1 \
+  --input-mode recorder-v4 --read-from r2 --timeframe 15m --latest --limit 1 \
+  --sequential --latency-delay-ms 0 --latency-jitter-ms 0 \
+  --param priceToBeatSource=chainlink-opening-twap \
+  --param binanceBookTicker=true --param chainlinkTwap=true
+```
+
+Use `--timeframe 5m` for five-minute captures. The extra flags default to `false`, so existing example commands keep their feed requirements. This opt-in observes direct Binance trades and best bid/ask, Chainlink spot and rolling 60-second TWAP, the selected opening TWAP, and the independent website PTB when received. It does not request the legacy RTDS Binance stream. Open the saved market in the dashboard simulator to inspect these values at each strategy tick; none appears before its recorded receipt.
+
+This example observes/logs feeds and emits no orders, so `no_activity` is expected. The V4 live feed runtime supplies the same reference semantics; see [live feed configuration](/live-trading/live-trading-bot). Historical input modes and explicitly selected legacy live feeds reject this source. Use `website` to retain their existing behavior.
 
 ## Receipt order and initial state
 
@@ -125,7 +137,7 @@ PolyBolt requires existing CLOB API credentials. These credentials are not scope
 
 | Setting                                            | Default                        | Meaning                                                 |
 | -------------------------------------------------- | ------------------------------ | ------------------------------------------------------- |
-| `RECORDER_ENV_FILE` / `--env-file`                 | `.env.recorder-v4`                | Explicit configuration file                             |
+| `RECORDER_ENV_FILE` / `--env-file`                 | `.env.recorder-v4`             | Explicit configuration file                             |
 | `RECORDER_ID`                                      | Sanitized hostname plus `-btc` | Stable dashboard identity                               |
 | `RECORDER_SPOOL_DIR` / `--spool-dir`               | `data/recorder-v4`             | Active journals, pending packages, operational state    |
 | `RECORDER_TIMEFRAMES` / `--timeframes`             | `5m,15m`                       | Either or both BTC durations                            |
@@ -307,7 +319,19 @@ npm run backtest -- --strategy YOUR_STRATEGY \
   --allow-capture-gaps
 ```
 
-The existing backtest queue/database configuration still applies. A package directory, its `manifest.json`, its `events.parquet`, or an `r2://bucket/.../manifest-SHA256.json` URL can select a recording. Workers download R2 inputs into a verified local cache. Selecting more than one recording of the same market is rejected; choose one capture explicitly.
+The existing backtest queue/database configuration still applies. A package directory, its `manifest.json`, its `events.parquet`, or an `r2://bucket/.../manifest-SHA256.json` URL can select a recording. Workers download R2 inputs into a verified local cache. Multiple recordings of one market are excluded as ambiguous before limiting; choose one exact manifest explicitly.
+
+You can also select directly from the R2 catalog:
+
+```bash
+npm run backtest -- --strategy YOUR_STRATEGY \
+  --input-mode recorder-v4 --read-from r2 --symbol btc \
+  --timeframe 5m --latest --limit 100 --list-eligible
+```
+
+`--list-eligible` prints counts, selected references and exclusion reasons without dispatching jobs. Remove it to run. The selector checks official resolution, Polymarket and requested-feed coverage, and evidence for the strategy's selected PTB source **before** applying the limit. Ordinary launches fail before enqueueing if the requested number of eligible markets is unavailable. Date bounds are inclusive milliseconds (`--from-ms`, `--to-ms`); `--capture-prefix` selects an explicit V4 namespace. First-time PTB admission can download all otherwise eligible files in the range; owned temporary Parquets are removed after inspection, and small immutable evidence is cached in committed buckets capped at 16 MiB, plus at most 64 KiB per in-flight writer. Handled failures remove their own temporary file; interrupted temporary files are reclaimed on a later write once their owning process is confirmed dead. Active-process, unrelated, and symlink files are preserved. See [Running backtests](/backtest/running-backtests#recorder-v4-eligible-market-selection) for details.
+
+Saved runs retain the exact recording reference and selection policy. [Extensions](/backtest/extending-a-run#recorder-v4) reuse that source and policy; they never replace already covered recordings or stitch capture sessions together.
 
 For a mixed download directory, add `--timeframe 5m` or `--timeframe 15m`. This filters packages before `--latest` and `--limit`; a duration mismatch selects no markets. Without this option, both durations are eligible. Saved run metadata derives its timeframe from the selected manifests: `5m`, `15m`, or null for a mixed batch.
 

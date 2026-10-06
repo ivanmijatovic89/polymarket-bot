@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RecorderV4Datasets } from '@/components/coverage/RecorderV4Datasets'
 import { ChevronLeft, ChevronRight, Database, Table2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -498,9 +499,34 @@ async function DatasetDetail({ params }: { params: BacktestDatasetParams }) {
 
 export default async function BacktestDatasetsPage(props: { searchParams: PageSearchParams }) {
   const searchParams = await props.searchParams
-  // No `symbol` param → multi-combo overview. With `symbol` → single-combo detail.
-  if (firstValue(searchParams.symbol) === undefined) {
-    return <DatasetOverview converter={parseConverter(searchParams)} />
-  }
-  return <DatasetDetail params={parseParams(searchParams)} />
+  const v4 = firstValue(searchParams.source) === 'recorder-v4'
+  return (
+    <div className="space-y-6">
+      <nav className="flex gap-4 text-sm" aria-label="Dataset source">
+        <Link
+          href="/backtests/datasets"
+          className={!v4 ? 'font-semibold underline' : 'text-muted-foreground'}
+        >
+          Telonex
+        </Link>
+        <Link
+          href="/backtests/datasets?source=recorder-v4"
+          className={v4 ? 'font-semibold underline' : 'text-muted-foreground'}
+        >
+          Recorder V4
+        </Link>
+      </nav>
+      {v4 ? (
+        <RecorderV4Datasets
+          timeframe={firstValue(searchParams.timeframe) === '5m' ? '5m' : '15m'}
+          from={firstValue(searchParams.from)}
+          to={firstValue(searchParams.to)}
+        />
+      ) : firstValue(searchParams.symbol) === undefined ? (
+        <DatasetOverview converter={parseConverter(searchParams)} />
+      ) : (
+        <DatasetDetail params={parseParams(searchParams)} />
+      )}
+    </div>
+  )
 }

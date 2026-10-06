@@ -274,6 +274,13 @@
       "when": 1790764018946,
       "tag": "0038_backtest_feed_eligibility",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1791293543593,
+      "tag": "0039_recorder_v4_replay_provenance",
+      "breakpoints": true
     }
   ]
 }

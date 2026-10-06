@@ -29,7 +29,7 @@ export function CoverageSection({ id }: { id: number }) {
     return (
       <section>
         <SectionHeading
-          title="Telonex coverage"
+          title="Dataset coverage"
           subtitle="Eligible markets covered by this backtest."
           icon={Layers}
         />
@@ -50,28 +50,65 @@ export function CoverageSection({ id }: { id: number }) {
   return (
     <section className="space-y-4">
       <SectionHeading
-        title="Telonex coverage"
-        subtitle={`Run targeted ${meta.symbol}/${meta.timeframe} via ${meta.converter} (${meta.readFrom}). Compared against all eligible markets since ${new Date(meta.eligibleFromMs).toISOString().slice(0, 10)}.`}
+        title={meta.inputMode === 'recorder-v4' ? 'Recorder V4 coverage' : 'Telonex coverage'}
+        subtitle={
+          meta.metadataOnly
+            ? `Saved selection and current archive metadata for ${meta.symbol}/${meta.timeframe}.`
+            : `Run targeted ${meta.symbol}/${meta.timeframe} via ${meta.converter} (${meta.readFrom}). Compared against all eligible markets since ${new Date(meta.eligibleFromMs).toISOString().slice(0, 10)}.`
+        }
         icon={Layers}
       />
-      {!meta.feedRequirementsRecorded && (
+      {meta.selectionSummary && (
+        <Card className="space-y-2 p-4 text-sm">
+          <p className="font-medium">Verified eligibility at the saved selection</p>
+          <p>
+            {meta.selectionSummary.eligible.toLocaleString()} eligible ·{' '}
+            {meta.selectionSummary.selected.toLocaleString()} selected ·{' '}
+            {meta.selectionSummary.excluded.toLocaleString()} excluded
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {meta.completedMarkets?.toLocaleString()} completed market results currently saved in
+            this run. The selection snapshot is historical; later extensions can add results.
+          </p>
+        </Card>
+      )}
+      {meta.metadataOnly && (
         <p className="text-sm text-muted-foreground">
-          This older run did not record its feed requirements. Coverage shows orderbook availability only.
+          Current catalog: manifest and official-resolution checks only, refreshed at most every
+          five minutes. No event files are downloaded by this view.
+          {Boolean(meta.unverifiedReferences) &&
+            ` ${meta.unverifiedReferences} captures need event-level PTB verification and are not counted as eligible here. The backtest selector performs that verification before launching jobs.`}
         </p>
       )}
-      <Card className="space-y-4 p-4">
-        <CoverageSummary summary={report.summary} meta={meta} />
-        <CoverageHeatmap
-          buckets={report.buckets}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
-        />
-      </Card>
-      <MissingMarketsPanel
-        missing={report.missingSlugs}
-        selectedDay={selectedDay}
-        onClearSelectedDay={() => setSelectedDay(null)}
-      />
+      {meta.exclusions && Object.keys(meta.exclusions).length > 0 && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Excluded recordings</summary>
+          <pre className="mt-2">{JSON.stringify(meta.exclusions, null, 2)}</pre>
+        </details>
+      )}
+      {!meta.feedRequirementsRecorded && (
+        <p className="text-sm text-muted-foreground">
+          This older run did not record its feed requirements. Coverage shows orderbook availability
+          only.
+        </p>
+      )}
+      {!meta.unverifiedReferences && (
+        <>
+          <Card className="space-y-4 p-4">
+            <CoverageSummary summary={report.summary} meta={meta} />
+            <CoverageHeatmap
+              buckets={report.buckets}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+            />
+          </Card>
+          <MissingMarketsPanel
+            missing={report.missingSlugs}
+            selectedDay={selectedDay}
+            onClearSelectedDay={() => setSelectedDay(null)}
+          />
+        </>
+      )}
     </section>
   )
 }

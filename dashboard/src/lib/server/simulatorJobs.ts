@@ -12,6 +12,10 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import type { SimulatorStatus, TraceManifest } from '@bot/backtest/simulator/contracts'
+import {
+  simulatorDirectoryBytes as directoryBytes,
+  simulatorWorkerAlive,
+} from '@bot/backtest/simulator/storage'
 
 function repositoryRoot(): string {
   let dir = process.cwd()
@@ -40,17 +44,31 @@ function save(job: Job): void {
   writeFileSync(`${file}.tmp`, JSON.stringify(job.state))
   renameSync(`${file}.tmp`, file)
 }
+function hasLiveWorker(id: string): boolean {
+  try {
+    const state = JSON.parse(
+      readFileSync(path.join(simulatorDirectory(id), 'status.json'), 'utf8'),
+    ) as SimulatorStatus
+    return simulatorWorkerAlive(state.workerPid)
+  } catch {
+    return false
+  }
+}
 function prune(): void {
   mkdirSync(cache, { recursive: true })
   const completed = readdirSync(cache)
     .filter((id) => idPattern.test(id))
-    .filter((id) => !['queued', 'running'].includes(manager.jobs.get(id)?.state.status ?? ''))
+    .filter(
+      (id) =>
+        !['queued', 'running'].includes(manager.jobs.get(id)?.state.status ?? '') &&
+        !hasLiveWorker(id),
+    )
     .map((id) => {
       const dir = simulatorDirectory(id)
       return {
         id,
         time: statSync(dir).mtimeMs,
-        bytes: readdirSync(dir).reduce((sum, f) => sum + statSync(path.join(dir, f)).size, 0),
+        bytes: directoryBytes(dir),
       }
     })
     .sort((a, b) => b.time - a.time)
@@ -90,6 +108,26 @@ function pump(): void {
       },
     )
     job.child = child
+    job.state.workerPid = child.pid
+    save(job)
+    const storageGuard = setInterval(() => {
+      try {
+        const input = path.join(simulatorDirectory(job.state.id), 'input')
+        if (existsSync(input) && directoryBytes(input) > 2 * 1024 ** 3) {
+          job.state.status = 'failed'
+          job.state.message = 'Simulator download exceeded the 2 GiB per-session input limit.'
+          save(job)
+          terminate(child)
+        }
+      } catch (error) {
+        job.state.status = 'failed'
+        job.state.message =
+          error instanceof Error ? error.message : 'Could not check simulator storage.'
+        save(job)
+        terminate(child)
+      }
+    }, 5000)
+    storageGuard.unref()
     let ready = false
     child.on('message', (message: unknown) => {
       if (job.state.status !== 'running' || !message || typeof message !== 'object') return
@@ -110,6 +148,10 @@ function pump(): void {
       save(job)
     })
     child.once('close', (code) => {
+      clearInterval(storageGuard)
+      // Also runs after SIGKILL/timeout, when the child's finally block could not clean up.
+      rmSync(path.join(simulatorDirectory(job.state.id), 'input'), { recursive: true, force: true })
+      delete job.state.workerPid
       clearTimeout(job.timeout)
       if (job.state.status === 'running') {
         job.state.status = ready && code === 0 ? 'ready' : 'failed'
@@ -119,7 +161,9 @@ function pump(): void {
             : `Replay process exited (${code ?? 'signal'}).`
         save(job)
       }
+      save(job)
       delete job.child
+      prune()
       manager.active = null
       pump()
     })

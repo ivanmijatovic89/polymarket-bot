@@ -11,11 +11,16 @@ export type {
 export type CoverageMeta = {
   symbol: string
   timeframe: string
-  converter: 'delta-typed' | 'paired'
+  converter: 'delta-typed' | 'paired' | 'recorder-v4'
   readFrom: 'local' | 'r2'
   inputMode: string
   feedRequirementsRecorded: boolean
   eligibleFromMs: number
+  selectionSummary?: import('@bot/recorder-v4/replay/eligibility').RecorderV4SelectionSummary
+  completedMarkets?: number
+  metadataOnly?: boolean
+  unverifiedReferences?: number
+  exclusions?: Record<string, number>
 }
 
 export type CoverageResponse =
