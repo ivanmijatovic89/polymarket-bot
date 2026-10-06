@@ -10,7 +10,7 @@ from pathlib import Path
 from benchmark import HERE, command, execute, fingerprint, summary
 from scaling import chunks_for, run_workers
 from raw_benchmark_helpers import raw_fingerprint, source_fingerprint, sha
-from compare import compare
+from compare import compare, normalized
 
 
 def aggregate(engine, records, manifest, label, directory, node):
@@ -54,6 +54,46 @@ def batch_run(engine, chunks, label, directory, node, trace, manifest):
     return [records[s] for s in slugs],aggregated,measured
 
 
+def typescript_trace_sources(manifest):
+    root=HERE.parent.parent
+    paths=sorted(list((root/'src').rglob('*.ts'))+[HERE/'oracle.mts',HERE/'common.mts',HERE/'aggregate-oracle.mts',root/'package.json',root/'package-lock.json',root/'data/strategy-artifacts'/f"{manifest['artifactSha256']}.mjs"])
+    return {str(p.relative_to(root)):sha(p) for p in paths}
+
+
+def save_full_trace_provenance(manifest, manifest_path, chunks, directory, node_version):
+    outputs=[directory/f'full-trace-typescript-{i}.json' for i in range(len(chunks))]
+    for chunk, output in zip(chunks,outputs):
+        d=json.loads(output.read_text())
+        if d['manifestSha256']!=sha(chunk) or d['engine']!='typescript' or d['mode']!='production' or not d['trace'] or d['node']!=node_version:
+            raise RuntimeError('Invalid fresh full TypeScript trace')
+        for result in d['results']:
+            if any(key not in result for key in ['contextSha256','finalContext','finalState']) or 'intentMeta' not in result['stats']:
+                raise RuntimeError('This trace lacks full output coverage')
+    provenance={'schema':'full-local-output-v2','manifestSha256':sha(manifest_path),'node':node_version,'sourceSha256':typescript_trace_sources(manifest),'outputsSha256':{p.name:sha(p) for p in outputs}}
+    (directory/'full-typescript-trace-provenance.json').write_text(json.dumps(provenance,indent=2))
+
+
+def load_full_trace(manifest, manifest_path, chunks, directory, node_version, node):
+    saved=json.loads((directory/'full-typescript-trace-provenance.json').read_text())
+    if saved['schema']!='full-local-output-v2' or saved['manifestSha256']!=sha(manifest_path) or saved['node']!=node_version or saved['sourceSha256']!=typescript_trace_sources(manifest):
+        raise RuntimeError('Full TypeScript trace provenance is stale')
+    raw={};records={}
+    for i,chunk in enumerate(chunks):
+        output=directory/f'full-trace-typescript-{i}.json'
+        if saved['outputsSha256'].get(output.name)!=sha(output):raise RuntimeError('Full reference output hash changed')
+        d=json.loads(output.read_text())
+        if d['manifestSha256']!=sha(chunk) or d['engine']!='typescript' or d['mode']!='production' or not d['trace'] or d['node']!=node_version:
+            raise RuntimeError('Full reference runtime/configuration changed')
+        for result in d['results']:
+            if result['slug'] in raw:raise RuntimeError('Duplicate reference market')
+            raw[result['slug']]=result
+        for result in normalized(d):records[result['slug']]=result
+    slugs=[m['slug'] for m in manifest['markets']]
+    if set(raw)!=set(slugs):raise RuntimeError('Reference market coverage differs')
+    aggregated,_=aggregate('typescript-production',[raw[s] for s in slugs],manifest,'reused-full-typescript',directory,node)
+    return [records[s] for s in slugs],aggregated
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--manifest',type=Path,required=True)
@@ -61,6 +101,7 @@ def main():
     parser.add_argument('--results',type=Path,default=HERE/'results/june-1000-full')
     parser.add_argument('--workers',type=int,nargs='+',default=[8])
     parser.add_argument('--rounds',type=int,default=3)
+    parser.add_argument('--reuse-fresh-typescript',action='store_true')
     args=parser.parse_args()
     manifest=json.loads(args.manifest.read_text())
     if args.rounds<3 or any(w<1 or w>len(manifest['markets']) for w in args.workers):
@@ -75,8 +116,13 @@ def main():
     sources=source_fingerprint();binary=sha(HERE/'target/release/rust-backtest-experiment')
     report={'dateUtc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'node':node_version,'rust':subprocess.check_output(['rustc','--version'],text=True).strip(),'platform':platform.platform(),'loadStart':os.getloadavg(),'manifestSha256':sha(args.manifest),'binarySha256':binary,'engineCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=HERE,text=True).strip(),'sourceSha256':sources,'marketCount':len(manifest['markets']),'rounds':args.rounds,'initialCapital':1000,'workerStartingCapital':manifest['settings']['startingCapital'],'measurements':{},'scope':'Original local market and Binance/Chainlink files; complete local order/portfolio/context/diagnostics and market/batch/calendar/tail statistics for the pinned v15 telonex-delta workload. Queue/database/network/fleet excluded. Other strategies/plugins/input formats not benchmarked. Logging output disabled in both engines. Warm filesystem cache. Workers are processes, not CPU affinity.'}
     chunks=chunks_for(manifest,max(args.workers),directory)
-    print(f'Fresh full TypeScript traces: {len(manifest["markets"])} markets',flush=True)
-    expected,ts_aggregate,_=batch_run('typescript-production',chunks,'full-trace-typescript',directory,args.node,'trace',manifest)
+    if args.reuse_fresh_typescript:
+        expected,ts_aggregate=load_full_trace(manifest,args.manifest,chunks,directory,node_version,args.node)
+        print('Reused newly generated full TypeScript traces after source/input/output/runtime hash checks',flush=True)
+    else:
+        print(f'Fresh full TypeScript traces: {len(manifest["markets"])} markets',flush=True)
+        expected,ts_aggregate,_=batch_run('typescript-production',chunks,'full-trace-typescript',directory,args.node,'trace',manifest)
+        save_full_trace_provenance(manifest,args.manifest,chunks,directory,node_version)
     print('Fresh full Rust traces',flush=True)
     native,rs_aggregate,_=batch_run('rust',chunks,'full-trace-rust',directory,args.node,'trace',manifest)
     compare(expected,native);compare(stable_aggregate(ts_aggregate),stable_aggregate(rs_aggregate))

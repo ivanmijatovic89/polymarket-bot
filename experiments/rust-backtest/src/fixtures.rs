@@ -73,8 +73,8 @@ pub fn run(input: &Value) -> Value {
                         }
                         engine.ledger.apply(&e);
                         engine.reconcile(&e);
-                        let p = engine.decision_snapshot();
                         let metrics = Metrics::new(&engine.ledger, &assets, &snaps, 10);
+                        let p = engine.decision_snapshot();
                         emitted.push(json!({"event":e,"portfolio":p,"metrics":metrics.value()}));
                         if let Some(callbacks) = step["callbacks"].as_object() {
                             let kind = s(&e, "kind");

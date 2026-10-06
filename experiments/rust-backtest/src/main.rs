@@ -290,8 +290,12 @@ impl<'a> Sim<'a> {
                 self.depth,
             );
             std::hint::black_box(&metrics);
+            let decision_portfolio = self.engine.decision_snapshot();
+            std::hint::black_box(&decision_portfolio);
             if self.trace {
-                self.events.push(json!({"event":event,"portfolio":self.engine.decision_snapshot(),"metrics":metrics.value()}));
+                self.events.push(
+                    json!({"event":event,"portfolio":decision_portfolio,"metrics":metrics.value()}),
+                );
             }
             // The frozen strategy's account callback returns no intents.
             self.strategy.on_account_event(&event);
@@ -797,6 +801,52 @@ mod tests {
         assert_eq!(
             sim.events.last().unwrap()["event"]["reason"],
             json!("killed")
+        );
+    }
+    #[test]
+    fn trace_free_callbacks_build_the_same_full_snapshots_as_traced_callbacks() {
+        let (m, s, c) = test_inputs();
+        let mut results = Vec::new();
+        for trace in [false, true] {
+            let mut sim = Sim::new(
+                &m,
+                &s,
+                &c,
+                Feeds {
+                    binance: vec![],
+                    chainlink: vec![],
+                },
+                trace,
+                10,
+            );
+            sim.books[0] = Book {
+                exists: true,
+                ts: 1000,
+                bids: vec![],
+                asks: vec![Level {
+                    price: 0.5,
+                    size: 10.0,
+                }],
+            };
+            sim.submit(
+                Decision {
+                    asset: 0,
+                    price: 0.5,
+                    size: 10.0,
+                    seq: 1,
+                    meta: json!({"case":"same-work"}),
+                    reason: String::new(),
+                },
+                1000,
+            );
+            sim.dispatch(0, 1600, 2.0, Some(1600));
+            let snapshot = sim.engine.ledger.snapshot().clone();
+            results.push((snapshot, sim.engine.ledger.snapshot_rebuilds));
+        }
+        assert_eq!(results[0], results[1]);
+        assert!(
+            results[0].1 >= 7,
+            "each account callback must consume a rebuilt complete snapshot"
         );
     }
     #[test]

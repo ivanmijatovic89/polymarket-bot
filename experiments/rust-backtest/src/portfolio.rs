@@ -65,6 +65,8 @@ struct CashOrder {
     final_filled: Option<f64>,
 }
 pub struct Ledger {
+    #[cfg(test)]
+    pub snapshot_rebuilds: u64,
     pub now: Option<i64>,
     pub starting: f64,
     pub cash: f64,
@@ -94,6 +96,8 @@ pub struct Ledger {
 impl Ledger {
     pub fn new(starting: f64) -> Self {
         Self {
+            #[cfg(test)]
+            snapshot_rebuilds: 0,
             now: None,
             starting,
             cash: starting,
@@ -149,6 +153,10 @@ impl Ledger {
     }
     pub fn snapshot(&mut self) -> &Value {
         if self.cached.is_none() {
+            #[cfg(test)]
+            {
+                self.snapshot_rebuilds += 1;
+            }
             let reserved = self.reserved();
             let mut snap = json!({"capital":{"startingCapital":self.starting,"cash":self.cash,"reservedCash":reserved,"availableCash":r(self.cash-reserved)},"nowMs":self.now,"realizedPnlTotal":self.realized,"positionsByAssetId":self.positions,"openOrdersByClientId":self.open,"wsOpenOrdersByOrderId":self.ws,"ordersByClientId":self.history,"recentFills":self.fills,"marketByAssetId":self.markets});
             if !self.splits.is_empty() {

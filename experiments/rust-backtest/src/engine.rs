@@ -124,17 +124,21 @@ impl LocalEngine {
                 .map(|e| n(&e["split"], "splitCost"))
                 .sum::<f64>()
     }
-    pub fn decision_snapshot(&mut self) -> Value {
-        let mut p = self.ledger.snapshot().clone();
+    pub fn decision_snapshot(&mut self) -> std::borrow::Cow<'_, Value> {
         let pending = self.pending_capital();
-        if pending != 0.0 {
-            let reserved = r(n(&p["capital"], "reservedCash") + pending);
-            p["capital"]["reservedCash"] = json!(reserved);
-            p["capital"]["availableCash"] = json!(r(n(&p["capital"], "cash") - reserved));
+        let portfolio = self.ledger.snapshot();
+        if pending == 0.0 {
+            return std::borrow::Cow::Borrowed(portfolio);
         }
-        p
+        let mut p = portfolio.clone();
+        let reserved = r(n(&p["capital"], "reservedCash") + pending);
+        p["capital"]["reservedCash"] = json!(reserved);
+        p["capital"]["availableCash"] = json!(r(n(&p["capital"], "cash") - reserved));
+        std::borrow::Cow::Owned(p)
     }
     pub fn reconcile(&mut self, event: &Value) {
+        // Production reconciliation consumes the complete cached portfolio after every event.
+        self.ledger.snapshot();
         let detail = &event["order"];
         if s(event, "kind") == "order_submitted" {
             if let Some(i) = self.submissions.iter().position(|o| o == detail) {
