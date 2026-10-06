@@ -1,43 +1,36 @@
 ---
 title: Research Analyst Instructions
-description: Reusable instructions for agents researching the local wallet dataset.
+description: Local wallet research using the shared documented calculations.
 ---
 
 # Research analyst instructions
 
-Use this page as instructions for an agent investigating wallet behavior.
+These are existing reusable project instructions, not a separate agent runtime.
+A specialized skill/agent can be added later using this documentation.
 
-1. Read the dataset overview, accounting guide and schema. Determine the exact
-   market cohort and permanent dataset root from the user's request/configuration.
-2. Run the local coverage command before ranking wallets. Report absent periods
-   and excluded wallet/markets. Do not call the API to silently fill missing data.
-   Quantify the excluded wallets' share of observed trades as well: a small
-   number of unresolved histories can exclude highly active wallets and distort
-   the apparent research population. Report `source_warnings` separately: a
-   corroborated market-volume aggregate mismatch does not by itself invalidate
-   a wallet whose complete accounting reconciles. Do not describe flagged source
-   aggregates as fully reconciled or silently remove their retained trades.
-   `unresolved_source_volume_disagreement` is different: every observed participant
-   in that market has unresolved quality and is excluded from the entire selected
-   strict wallet cohort. Raw cash remains available only as a diagnostic result.
-   Use `sql/monthly-population.sql` alongside the monthly ranking to record
-   those population and excluded-trade counts for each month.
-3. Use DuckDB SQL over the published Parquet views. Preserve the distinction
-   between economic profit, realized cash, rewards and API-reported PnL.
-4. For comparisons across months, report each month's coverage and the number of
-   markets/trades supporting each result. Do not infer consistent skill from one
-   profitable position or select only favorable months.
-   The [runnable SQL examples](../schema#runnable-research-queries) select June
-   candidates once, then preserve their later losses, gaps and inactive months.
-5. Investigate candidate wallets through market-level PnL, trade timing relative
-   to the window, buy/sell behavior, outcome exposure and maker/taker role. Preserve
-   repeated fills; do not deduplicate by transaction hash.
-6. Record the SQL, dataset snapshot dates, cohort definition and row counts with
-   each finding. Separate observed facts from hypotheses about strategy.
-7. Describe what would test each strategy hypothesis. Trades and activity cannot
-   reveal canceled orders or exact orderbook state; request the appropriate
-   existing orderbook dataset when that evidence is necessary.
-8. Keep research read-only. Request a sync or audit when required inputs are
-   unavailable or inconsistent. Do not modify source Parquet to fit a hypothesis.
-
-Deliver an evidence-backed report with reproducible SQL and clear uncertainty.
+1. Read the [overview](../overview), [profit calculation](../accounting) and
+   [schema](../schema). Determine the requested market family, UTC market-start
+   range and permanent dataset root.
+2. Inspect coverage and verification internally. If required days or market
+   windows have not downloaded, explain the actual missing input. Do not invent
+   a complete-period result or silently call the API during research.
+3. Use normal `research:leaderboard`, `wallet_months` and the SQL examples.
+   **Include all observed wallets and all their selected market rows.** Do not
+   filter by `quality`, `issues`, API PnL agreement or the historical strict view.
+4. Keep normal ranking output simple: wallet, calculated profit, markets, trades.
+   Do not add reconciliation warnings or repeat audit columns in ordinary results.
+   Those are maintenance data, available when an audit is explicitly requested.
+5. Compare like market cohorts. June means markets starting in June, including
+   downloaded later lifecycle activity. Profit includes remaining settlement value;
+   rewards are separate. Never add API position profit to calculated profit.
+6. Choose research candidates from a stated period and retain their subsequent
+   losses and inactivity. Do not choose June candidates using their July–September
+   performance. Use trade timing, side, outcome exposure and maker/taker role to
+   formulate hypotheses, then test those hypotheses on later data.
+7. Save reproducible SQL and selected snapshot generations with substantial studies;
+   pin generations if their exact files must survive automatic retention.
+8. Preserve genuine repeated fills. Trade timestamps/source order do not reveal
+   exact within-second matching chronology, canceled orders or historical books.
+   Use the separate orderbook data when a hypothesis needs that evidence.
+9. Keep research read-only. Request a documented refresh or maintenance audit when
+   appropriate. Do not alter raw source facts to fit a strategy hypothesis.

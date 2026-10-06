@@ -20,6 +20,7 @@ export async function benchmarkDataset(root: string, from: string, to: string, p
       source_as_of: snapshot.as_of,
       elapsed_seconds: Number(report.elapsed_seconds),
       resumed: report.resumed_from_checkpoint === true,
+      shared_wallet_queue: report.wallet_batch_scope === 'update',
       requests: Number((report.api as { requests: number }).requests),
       retries: Number((report.api as { retries: number }).retries),
       parquet_bytes: snapshot.parquet_bytes,
@@ -43,7 +44,7 @@ export async function benchmarkDataset(root: string, from: string, to: string, p
       ],
       [
         'wallet_ranking',
-        `SELECT wallet, sum(economic_pnl_usdc) AS pnl FROM wallet_markets WHERE ${range} GROUP BY wallet HAVING bool_and(quality='complete') ORDER BY pnl DESC, wallet LIMIT 100`,
+        `SELECT wallet, sum(economic_pnl_usdc) AS pnl FROM wallet_markets WHERE ${range} GROUP BY wallet ORDER BY pnl DESC, wallet LIMIT 100`,
       ],
       [
         'activity_timeline',
@@ -63,7 +64,7 @@ export async function benchmarkDataset(root: string, from: string, to: string, p
   } finally {
     close()
   }
-  const fresh = reports.filter((report) => !report.resumed)
+  const fresh = reports.filter((report) => !report.resumed && !report.shared_wallet_queue)
   const fs = await statfs(root)
   const projected = (key: 'elapsed_seconds' | 'requests' | 'parquet_bytes') => {
     const values = fresh.map((r) => r[key])
@@ -92,7 +93,7 @@ export async function benchmarkDataset(root: string, from: string, to: string, p
       elapsed_seconds: projected('elapsed_seconds'),
       requests: projected('requests'),
       parquet_bytes: projected('parquet_bytes'),
-      note: 'Linear extrapolation of observed fresh days, not a confidence interval. Market volume, wallet activity, API latency, throttling and downloader version can change it. Resumed downloads are excluded.',
+      note: 'Linear extrapolation of observed fresh days, not a confidence interval. Market volume, wallet activity, API latency, throttling and downloader version can change it. Resumed downloads and days sharing an update wallet queue are excluded. Use the update report to time a complete shared run.',
     },
     disk: {
       available_bytes: fs.bavail * fs.bsize,

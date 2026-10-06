@@ -140,6 +140,10 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/polymarket-research/overview' },
+                { text: 'Nightly Download', link: '/datasets/polymarket-research/downloading' },
+                { text: 'Operations and Upgrades', link: '/datasets/polymarket-research/operations' },
+                { text: 'Performance', link: '/datasets/polymarket-research/performance' },
+                { text: 'Accounting Audit Reference', link: '/datasets/polymarket-research/accounting-audit' },
                 { text: 'Completion Evidence', link: '/datasets/polymarket-research/completion-evidence' },
                 { text: 'Sync and Query', link: '/datasets/polymarket-research/commands' },
                 { text: 'Accounting', link: '/datasets/polymarket-research/accounting' },

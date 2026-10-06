@@ -15,6 +15,9 @@ import {
 import { ApiClient, parallelMap } from './api.js'
 import { chunks, dates, discoverDay, parseDate, type Catalog } from './catalog.js'
 import { readJson, writeJson } from './files.js'
+import { DEFAULT_FAMILY, ensureDatasetFamily, marketFamily, type MarketFamilyId } from './family.js'
+import { fetchWallet, type WalletBatches } from './wallet-batches.js'
+import { verifySnapshots } from './verify.js'
 import { abs, decimal, sum, units } from './decimal.js'
 import {
   loadIndex,
@@ -25,7 +28,6 @@ import {
   type TableName,
 } from './storage.js'
 import {
-  activityRow,
   feedRow,
   positionRow,
   type Activity,
@@ -45,6 +47,11 @@ export interface SyncOptions {
   minFreeGiB?: number
   log?: (message: string) => void
   client?: ApiClient
+  market?: MarketFamilyId
+  asOf?: number
+  walletBatches?: WalletBatches
+  retentionManaged?: boolean
+  requireCompleteMarkets?: boolean
 }
 interface RunState {
   generation: string
@@ -70,35 +77,68 @@ async function directoryBytes(directory: string): Promise<number> {
   return bytes
 }
 
+export class SyncBusyError extends Error {}
+
 export async function claimLock(root: string): Promise<() => Promise<void>> {
   await mkdir(root, { recursive: true })
   const file = path.join(root, 'sync.lock')
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const token = randomUUID()
+  const ownerAlive = (owner: { pid: number; host: string } | null) => {
+    if (!owner || owner.host !== hostname() || !Number.isSafeInteger(owner.pid) || owner.pid <= 0)
+      throw new Error(`Cannot establish lock ownership: ${file}`)
     try {
-      const handle = await open(file, 'wx')
-      await handle.writeFile(
-        JSON.stringify({ pid: process.pid, host: hostname(), startedAt: new Date().toISOString() }),
-      )
-      await handle.close()
-      return () => rm(file, { force: true })
+      process.kill(owner.pid, 0)
+      return true
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-      const owner = await readJson<{ pid: number; host: string }>(file)
-      if (!owner || owner.host !== hostname() || !Number.isSafeInteger(owner.pid))
-        throw new Error(`Cannot establish lock ownership: ${file}`)
-      try {
-        process.kill(owner.pid, 0)
-      } catch (probeError) {
-        if ((probeError as NodeJS.ErrnoException).code === 'ESRCH') {
-          await rm(file)
-          continue
-        }
-        throw probeError
-      }
-      throw new Error(`Research sync already running with PID ${owner.pid}`)
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+      throw error
     }
   }
-  throw new Error('Unable to claim sync lock')
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let handle
+    try {
+      handle = await open(file, 'wx')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      const recovery = path.join(root, 'sync-lock-recovery')
+      try {
+        await mkdir(recovery)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+          throw new Error(
+            'Another process is recovering the sync lock; inspect sync-lock-recovery if it persists',
+          )
+        throw error
+      }
+      try {
+        const owner = await readJson<{ pid: number; host: string }>(file)
+        if (!owner) continue
+        if (ownerAlive(owner))
+          throw new SyncBusyError(`Research sync already running with PID ${owner.pid}`)
+        await rm(file)
+      } finally {
+        await rm(recovery, { recursive: true, force: true })
+      }
+      continue
+    }
+    try {
+      await handle.writeFile(
+        JSON.stringify({
+          pid: process.pid,
+          host: hostname(),
+          token,
+          startedAt: new Date().toISOString(),
+        }),
+      )
+    } finally {
+      await handle.close()
+    }
+    return async () => {
+      const owner = await readJson<{ token?: string }>(file)
+      if (owner?.token === token) await rm(file, { force: true })
+    }
+  }
+  throw new SyncBusyError('Unable to claim sync lock')
 }
 
 export async function ensureDisk(root: string, minGiB: number): Promise<number> {
@@ -125,30 +165,40 @@ function groupByCondition<T extends { condition_id: string }>(rows: T[]): Map<st
 }
 
 export async function syncDataset(options: SyncOptions): Promise<DaySnapshot[]> {
-  const days = dates(options.from, options.to)
+  dates(options.from, options.to)
   if (parseDate(options.to) > Date.now() / 1000)
     throw new Error('Sync complete UTC days only; --to cannot be in the future')
   const release = await claimLock(options.root)
-  const log = options.log ?? console.error
   try {
-    const output: DaySnapshot[] = []
-    for (const [index, day] of days.entries()) {
-      const existing = (await loadIndex(options.root)).days[day]
-      if (existing && !options.refresh) {
-        log(
-          `[research] ${day} already published; use --refresh to recheck late activity and API corrections`,
-        )
-        output.push(existing)
-        continue
-      }
-      await ensureDisk(options.root, options.minFreeGiB ?? 5)
-      log(`[research] day ${index + 1}/${days.length}: ${day}`)
-      output.push(await syncDay(options, day))
-    }
-    return output
+    return await syncSelectedDays(options, dates(options.from, options.to))
   } finally {
     await release()
   }
+}
+
+/** Internal worker used by sync and update while their caller owns sync.lock. */
+export async function syncSelectedDays(
+  options: SyncOptions,
+  days: string[],
+): Promise<DaySnapshot[]> {
+  await ensureDatasetFamily(options.root, options.market ?? DEFAULT_FAMILY)
+  const log = options.log ?? console.error
+  const output: DaySnapshot[] = []
+  const shared = {
+    ...options,
+    client: options.client ?? new ApiClient({ requestsPerSecond: options.requestsPerSecond }),
+  }
+  for (const [index, day] of days.entries()) {
+    const existing = (await loadIndex(options.root)).days[day]
+    if (existing && !options.refresh) {
+      output.push(existing)
+      continue
+    }
+    await ensureDisk(options.root, options.minFreeGiB ?? 5)
+    log(`[research] day ${index + 1}/${days.length}: ${day}`)
+    output.push(await syncDay(shared, day))
+  }
+  return output
 }
 
 async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> {
@@ -163,27 +213,43 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const finishedState =
     state &&
     (await readJson(path.join(options.root, 'snapshots', day, state.generation, 'report.json')))
-  const resumed = Boolean(state && !finishedState && current?.generation !== state.generation)
-  if (!state || current?.generation === state.generation || finishedState) {
+  const cutoffChanged = options.asOf !== undefined && state?.asOf !== options.asOf
+  const resumed = Boolean(
+    state && !finishedState && !cutoffChanged && current?.generation !== state.generation,
+  )
+  if (!state || current?.generation === state.generation || finishedState || cutoffChanged) {
     state = {
       generation: randomUUID(),
-      asOf: Math.floor(Date.now() / 1000),
+      asOf: options.asOf ?? Math.floor(Date.now() / 1000),
       startedAt: new Date().toISOString(),
     }
     await writeJson(stateFile, state)
   }
   const stage = path.join(work, state.generation)
+  if (options.retentionManaged)
+    await writeJson(path.join(stage, 'managed-update.json'), { managed: true })
   const cache = path.join(stage, 'pages')
   const client = options.client ?? new ApiClient({ requestsPerSecond: options.requestsPerSecond })
+  const statsBefore = structuredClone(client.stats)
+  const family = marketFamily(options.market)
   const started = Date.now()
   const catalogFile = path.join(stage, 'catalog.json')
   const cachedCatalog = await readJson<Catalog>(catalogFile)
   const catalog =
-    cachedCatalog && !cachedCatalog.missing.length ? cachedCatalog : await discoverDay(client, day)
+    cachedCatalog && !cachedCatalog.missing.length
+      ? cachedCatalog
+      : await discoverDay(client, day, family.id)
   await writeJson(catalogFile, catalog)
+  if (
+    catalog.missing.length &&
+    (options.requireCompleteMarkets || (current && !current.missing_markets.length))
+  )
+    throw new Error(
+      `Market windows missing on ${day}: ${catalog.missing.length}; previous published data retained`,
+    )
   const freshness = await client.get('/v2/status')
   log(
-    `[research] ${day}: ${catalog.markets.length}/96 catalog markets; ${catalog.missing.length} missing`,
+    `[research] ${day}: ${catalog.markets.length}/${family.windowsPerDay} catalog markets; ${catalog.missing.length} missing`,
   )
   let completedMarkets = 0
   const marketTrades = await parallelMap(catalog.markets, options.concurrency, async (market) => {
@@ -370,27 +436,9 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     jobs,
     options.concurrency,
     async (job): Promise<WalletResult> => {
-      const params = { user: job.wallet, condition: job.conditions.join(','), limit: 1000 }
-      const activities = (
-        await client.walk(
-          '/v2/activity',
-          { ...params, start: 1, end: state!.asOf, sort_direction: 'ASC' },
-          cache,
-        )
-      ).map(activityRow)
-      const closed = (
-        await client.walk('/v2/positions', { ...params, status: 'CLOSED' }, cache)
-      ).map(positionRow)
-      const positions = closed
-      if (
-        [...activities, ...positions].some(
-          (row) =>
-            row.proxy_wallet.toLowerCase() !== job.wallet ||
-            !job.conditions.includes(row.condition_id),
-        )
-      ) {
-        throw new Error('Wallet endpoint ignored its wallet/condition filters')
-      }
+      const { activities, positions } = options.walletBatches
+        ? await options.walletBatches.fetch(job, state!.asOf, cache)
+        : await fetchWallet(client, job, state!.asOf, cache)
       if (++completedJobs % 50 === 0 || completedJobs === jobs.length) {
         const elapsed = (Date.now() - started) / 1000
         log(
@@ -525,7 +573,10 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
   const files = await snapshotDigests(absolute, sourceWarnings.length > 0)
   await writeJson(path.join(options.root, reportFile), {
     accounting_version: ACCOUNTING_VERSION,
-    downloader_version: 10,
+    downloader_version: 11,
+    retention_managed: options.retentionManaged ?? false,
+    market: family.id,
+    wallet_batch_scope: options.walletBatches ? 'update' : 'day',
     requested_rps: options.requestsPerSecond,
     concurrency: options.concurrency,
     files,
@@ -548,9 +599,34 @@ async function syncDay(options: SyncOptions, day: string): Promise<DaySnapshot> 
     position_rows: positions.length,
     wallets: participants.size,
     wallet_batches: jobs.length,
-    api: client.stats,
+    api: {
+      ...Object.fromEntries(
+        Object.entries(client.stats)
+          .filter(([key]) => key !== 'endpoints')
+          .map(([key, value]) => [
+            key,
+            Number(value) - Number(statsBefore[key as keyof typeof statsBefore]),
+          ]),
+      ),
+      endpoints: Object.fromEntries(
+        Object.entries(client.stats.endpoints).map(([key, value]) => [
+          key,
+          value - (statsBefore.endpoints[key] ?? 0),
+        ]),
+      ),
+    },
     issues: issueCounts,
   })
+  const tomorrow = new Date((parseDate(day) + 86400) * 1000).toISOString().slice(0, 10)
+  const verification = await verifySnapshots(
+    options.root,
+    { version: 1, days: { [day]: snapshot } },
+    day,
+    tomorrow,
+  )
+  if (!verification.valid)
+    throw new Error(`Pre-publication verification failed: ${JSON.stringify(verification.days)}`)
+  await writeJson(path.join(absolute, 'verification.json'), verification)
   await publish(options.root, snapshot)
   log(
     `[research] ${day} published: ${snapshot.complete_wallet_markets} complete, ${snapshot.unresolved_wallet_markets} unresolved wallet/markets; ${(bytes / 1024 ** 2).toFixed(1)} MiB`,

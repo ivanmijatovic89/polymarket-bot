@@ -152,7 +152,10 @@
     "research:leaderboard": "tsx src/cli/research-data.ts leaderboard",
     "research:wallet": "tsx src/cli/research-data.ts wallet",
     "research:sql": "tsx src/cli/research-data.ts sql",
-    "research:data:test": "tsx --test src/research-data/*.test.ts"
+    "research:data:test": "tsx --test src/research-data/*.test.ts",
+    "research:update": "tsx src/cli/research-data.ts update",
+    "research:status": "tsx src/cli/research-data.ts status",
+    "research:schedule": "tsx scripts/install-research-update.mts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
