@@ -1,5 +1,6 @@
 use sha2::{Digest as ShaDigest, Sha256};
 mod feeds;
+mod raw_feeds;
 mod strategy;
 mod types;
 use anyhow::{bail, ensure, Context, Result};
@@ -466,7 +467,10 @@ impl<'a> Sim<'a> {
 }
 fn run(m: &Market, s: &Settings, c: &Params, trace: bool, depth: usize) -> Result<Value> {
     let started = Instant::now();
-    let feeds: Feeds = serde_json::from_reader(BufReader::new(File::open(&m.feeds)?))?;
+    let feeds: Feeds = match &m.raw_feeds {
+        Some(files) => raw_feeds::load(files, m)?,
+        None => serde_json::from_reader(BufReader::new(File::open(&m.feeds)?))?,
+    };
     let mut sim = Sim::new(m, s, c, feeds, trace, depth);
     let reader = SerializedFileReader::new(File::open(&m.file_path)?)?;
     let mut decoder = None;
@@ -494,7 +498,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     ensure!(
         args.len() >= 3,
-        "Usage: rust-backtest-experiment manifest.json output.json [trace|no-trace] [market-index]"
+        "Usage: rust-backtest-experiment manifest.json output.json [trace|no-trace|verify-feeds] [market-index]"
     );
     let manifest: Manifest = serde_json::from_reader(BufReader::new(File::open(&args[1])?))?;
     ensure!(
@@ -520,6 +524,49 @@ fn main() -> Result<()> {
         .unwrap_or(10.0)
         .floor()
         .max(1.0) as usize;
+    let raw_mode = manifest.markets.iter().all(|m| m.raw_feeds.is_some());
+    ensure!(
+        raw_mode || manifest.markets.iter().all(|m| m.raw_feeds.is_none()),
+        "Mixed raw/prepared feed modes are unsupported"
+    );
+    if args.get(3).is_some_and(|v| v == "verify-feeds") {
+        ensure!(
+            raw_mode,
+            "Feed verification requires original Parquet paths"
+        );
+        let started = Instant::now();
+        let mut binance_rows = 0;
+        let mut chainlink_rows = 0;
+        for (i, m) in manifest.markets.iter().enumerate() {
+            let actual = raw_feeds::load(m.raw_feeds.as_ref().unwrap(), m)?;
+            let reference: Feeds = serde_json::from_reader(BufReader::new(File::open(&m.feeds)?))?;
+            ensure!(
+                actual.binance == reference.binance,
+                "Binance series differs for {}",
+                m.slug
+            );
+            ensure!(
+                actual.chainlink == reference.chainlink,
+                "Chainlink series differs for {}",
+                m.slug
+            );
+            binance_rows += actual.binance.len();
+            chainlink_rows += actual.chainlink.len();
+            if (i + 1) % 25 == 0 {
+                eprintln!(
+                    "Feed parity: {} markets, {:.1} s, last={}",
+                    i + 1,
+                    started.elapsed().as_secs_f64(),
+                    m.slug
+                );
+            }
+        }
+        serde_json::to_writer(
+            BufWriter::new(File::create(&args[2])?),
+            &json!({"marketCount":manifest.markets.len(),"binanceRows":binance_rows,"chainlinkRows":chainlink_rows,"exactSeriesParity":true,"manifestSha256":format!("{:x}",Sha256::digest(std::fs::read(&args[1])?)),"durationMs":started.elapsed().as_secs_f64()*1000.0}),
+        )?;
+        return Ok(());
+    }
     let trace = args.get(3).is_some_and(|v| v == "trace");
     let started = Instant::now();
     let mut results = Vec::new();
@@ -552,7 +599,7 @@ fn main() -> Result<()> {
     ensure!(!results.is_empty(), "No market selected");
     serde_json::to_writer(
         BufWriter::new(File::create(&args[2])?),
-        &json!({"engine":"rust","manifestSha256":format!("{:x}",Sha256::digest(std::fs::read(&args[1])?)),"mode":"prepared","trace":trace,"durationMs":started.elapsed().as_secs_f64()*1000.0,"results":results}),
+        &json!({"engine":"rust","manifestSha256":format!("{:x}",Sha256::digest(std::fs::read(&args[1])?)),"mode":if raw_mode { "raw-parquet" } else { "prepared" },"trace":trace,"durationMs":started.elapsed().as_secs_f64()*1000.0,"results":results}),
     )?;
     Ok(())
 }

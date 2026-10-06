@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::Deserialize;
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct Feeds {
     pub binance: Vec<[f64; 2]>,
     pub chainlink: Vec<[f64; 3]>,

@@ -178,3 +178,40 @@ inside a shared `node_modules` directory.
 The completed 1,000-market measurements and migration limits are in
 [REPORT-JUNE-1000.md](REPORT-JUNE-1000.md), with raw observations in
 [measurements-june-1000.json](measurements-june-1000.json).
+
+## Original daily-feed file benchmark
+
+`raw-inputs.mts` adds original Binance and Chainlink daily Parquet paths, hashes
+and frozen lookback/outage settings to the existing market selection. It does
+not extract price series. Both timed engines read and prepare the original
+feeds independently for every market. No decoded daily-feed cache is retained
+between Rust markets. Parquet column projection and row-group bounds avoid
+irrelevant decoding while preserving the production seed and ordering rules.
+
+```sh
+"$NODE20" --import tsx experiments/rust-backtest/raw-inputs.mts \
+  experiments/rust-backtest/fixtures/june-1000/manifest.json \
+  experiments/rust-backtest/fixtures/june-1000/raw-manifest.json "$DATA_CHECKOUT"
+
+cargo build --release --locked --manifest-path experiments/rust-backtest/Cargo.toml
+
+python3 -u experiments/rust-backtest/raw-benchmark.py \
+  --manifest experiments/rust-backtest/fixtures/june-1000/raw-manifest.json \
+  --reference-results experiments/rust-backtest/results/june-1000 \
+  --node "$NODE20" --workers 4 8 --trace-workers 8 --rounds 1
+```
+
+This runner requires the original eight-worker TypeScript reference traces and
+hash provenance from the completed prepared-feed run. It checks that reference
+source, runtime, inputs and outputs remain unchanged. Rust's reconstructed raw
+series must match the production-loader series exactly for every selected
+market, then native raw replay full traces must match the verified reference.
+Prepared feed JSON is used only during these untimed correctness gates.
+
+Timing uses the unmodified production TypeScript replay and native raw replay,
+with matching workers and fixed chunks. It includes daily-feed reads, seed/range
+extraction, ordering and outage checks, market decoding, strategy/execution and
+per-market statistics. Every timed output must match the reference. Compilation,
+verification, fleet/network/DB/queue output and batch aggregation remain outside
+timing. The runner checks original inputs, sources and the binary again at the
+end and writes checkpoints to `results/june-1000-raw/raw-scaling.json`.

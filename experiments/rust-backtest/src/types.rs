@@ -19,6 +19,8 @@ pub struct Market {
     pub slug: String,
     pub file_path: String,
     pub feeds: String,
+    #[serde(default)]
+    pub raw_feeds: Option<crate::raw_feeds::RawFeedFiles>,
     pub start_ms: i64,
     pub end_ms: i64,
     pub market_id: String,
