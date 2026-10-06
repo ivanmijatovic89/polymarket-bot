@@ -300,7 +300,7 @@ async function main(): Promise<void> {
     externalFeedsReqPlugin?.config.binanceBookTicker
   ) {
     throw new Error(
-      'The current trading runtime does not supply captured TWAP/bookTicker feeds; use Recorder v3 replay until the live dispatcher is integrated',
+      'The current trading runtime does not supply captured TWAP/bookTicker feeds; use Recorder v4 replay until the live dispatcher is integrated',
     )
   }
 

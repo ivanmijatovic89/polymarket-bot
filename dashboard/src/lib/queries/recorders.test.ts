@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { parseRecorderStatus, readRecorderReports, recorderIsOnline } from './recorders.js'
-import type { RecorderStatus } from '../../../../src/recorder-v3/statusTypes.js'
+import type { RecorderStatus } from '../../../../src/recorder-v4/statusTypes.js'
 
 const status: RecorderStatus = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   recorderId: 'worker-2',
   captureId: 'capture',
   sessionId: 'session',

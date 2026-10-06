@@ -176,7 +176,7 @@ export async function wireBacktestExternalFeeds(args: {
   assertLegacyPriceToBeatSource(reqPlugin.config, 'historical-backtest')
   if (reqPlugin.config.chainlinkTwap || reqPlugin.config.binanceBookTicker) {
     throw new Error(
-      'TWAP and Binance best bid/ask require --input-mode recorder-v3; historical feed mode cannot supply them',
+      'TWAP and Binance best bid/ask require --input-mode recorder-v4; historical feed mode cannot supply them',
     )
   }
 

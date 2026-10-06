@@ -30,20 +30,20 @@ import { feedClockMs, wireBacktestExternalFeeds } from './feeds/wireBacktestExte
 import { createSyntheticFlusher } from './feeds/syntheticTickSchedule.js'
 import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
 import type { MarketTick } from '../strategy/Strategy.js'
-import type { MarketManifest } from '../recorder-v3/storage/manifest.js'
-import { readManifest } from '../recorder-v3/storage/manifest.js'
-import { readCapturedEvents } from '../recorder-v3/storage/parquet.js'
-import { digestFile } from '../recorder-v3/storage/files.js'
-import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v3/replay/dispatcher.js'
+import type { MarketManifest } from '../recorder-v4/storage/manifest.js'
+import { readManifest } from '../recorder-v4/storage/manifest.js'
+import { readCapturedEvents, readOpeningReferenceEvents } from '../recorder-v4/storage/parquet.js'
+import { digestFile } from '../recorder-v4/storage/files.js'
+import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v4/replay/dispatcher.js'
 import { cloneExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
-import { inspectOpeningReference } from '../recorder-v3/replay/openingReference.js'
-import { validateCapturedFeedRequest } from '../recorder-v3/replay/feedState.js'
+import { inspectOpeningReference } from '../recorder-v4/replay/openingReference.js'
+import { validateCapturedFeedRequest } from '../recorder-v4/replay/feedState.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { downloadCaptureForReplay } from '../recorder-v3/replay/package.js'
+import { downloadCaptureForReplay } from '../recorder-v4/replay/package.js'
 
 export type RunSingleMarketInputMode =
   | 'recorded'
-  | 'recorder-v3'
+  | 'recorder-v4'
   | 'telonex-delta'
   | 'telonex-paired'
 
@@ -88,7 +88,7 @@ export type RunSingleMarketInput = {
   /** Which replay path to use. */
   inputMode: RunSingleMarketInputMode
   /** Versioned capture descriptor passed unchanged to distributed workers. */
-  recorderV3?: { manifest: MarketManifest; allowGaps?: boolean; manifestUrl?: string }
+  recorderV4?: { manifest: MarketManifest; allowGaps?: boolean; manifestUrl?: string }
   /** Recorded-mode replay ordering. Unused for telonex modes. */
   order: 'recorded' | 'exchange_time'
   /** Recorded-mode time-driven replay. Unused for telonex modes. */
@@ -214,6 +214,10 @@ export function buildRunnerForMarket(args: {
  * the output is deterministic for a given input — same call twice yields identical `marketStats`.
  */
 export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunSingleMarketOutput> {
+  if (!['recorded', 'recorder-v4', 'telonex-delta', 'telonex-paired'].includes(input.inputMode))
+    throw new Error(
+      `Unsupported backtest input mode: ${String(input.inputMode)}; V3 trial replay has been retired`,
+    )
   const startedAtMs = Date.now()
   const eventsByType: Record<string, number> = {}
   let eventsProcessed = 0
@@ -263,7 +267,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // from historical data before any tick is replayed. Strategies without the
   // plugin return immediately — no behavior change for them.
   const { syntheticTicks } =
-    input.inputMode === 'recorder-v3'
+    input.inputMode === 'recorder-v4'
       ? { syntheticTicks: null }
       : await wireBacktestExternalFeeds({
           pluginSet,
@@ -378,12 +382,12 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       ? input.filePath
       : path.resolve(REPO_ROOT, input.filePath)
 
-  if (input.inputMode === 'recorder-v3' && input.recorderV3?.manifestUrl) {
+  if (input.inputMode === 'recorder-v4' && input.recorderV4?.manifestUrl) {
     const downloaded = await downloadCaptureForReplay(
-      input.recorderV3.manifestUrl,
-      path.resolve(REPO_ROOT, process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v3-cache'),
+      input.recorderV4.manifestUrl,
+      path.resolve(REPO_ROOT, process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v4-cache'),
     )
-    if (JSON.stringify(downloaded.manifest) !== JSON.stringify(input.recorderV3.manifest)) {
+    if (JSON.stringify(downloaded.manifest) !== JSON.stringify(input.recorderV4.manifest)) {
       throw new Error('Downloaded capture manifest differs from producer metadata')
     }
     filePath = downloaded.filePath
@@ -403,13 +407,13 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
-  if (input.inputMode === 'recorder-v3') {
+  if (input.inputMode === 'recorder-v4') {
     if (input.order !== 'recorded' || input.timeDriven)
       throw new Error(
-        'Recorder v3 requires recorded sequence order; time-driven mode is unsupported',
+        'Recorder v4 requires recorded sequence order; time-driven mode is unsupported',
       )
     const manifest =
-      input.recorderV3?.manifest ??
+      input.recorderV4?.manifest ??
       (await readManifest(path.join(path.dirname(filePath), 'manifest.json')))
     if (manifest.market.slug !== input.slug)
       throw new Error('Recorder manifest market does not match the backtest job')
@@ -424,10 +428,13 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       config.polymarketPriceToBeat?.enabled &&
       config.polymarketPriceToBeat.source === 'chainlink-opening-twap'
     ) {
-      const reference = await inspectOpeningReference(manifest.market, readCapturedEvents(filePath))
+      const reference = await inspectOpeningReference(
+        manifest.market,
+        readOpeningReferenceEvents(filePath),
+      )
       coverageReasons.push(...reference.reasons)
     }
-    if (coverageReasons.length > 0 && !input.recorderV3?.allowGaps) {
+    if (coverageReasons.length > 0 && !input.recorderV4?.allowGaps) {
       return {
         idx: input.idx,
         slug: input.slug,

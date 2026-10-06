@@ -1,5 +1,6 @@
 import type { AnyMarketMessage, MarketOrderBooksSnapshot } from './orderbook/index.js'
 import { MarketOrderBookEngine } from './orderbook/index.js'
+import { normalizePriceChangeHashes } from './priceChangeHashes.js'
 import { decodeMarketChannelFrame } from './marketChannelDecoder.js'
 
 export type EngineSource =
@@ -129,7 +130,7 @@ export class MarketEngine {
       start: number,
     ): AnyMarketMessage | null | Promise<AnyMarketMessage | null> => {
       for (let frameIndex = start; frameIndex < messages.length; frameIndex++) {
-        const msg = messages[frameIndex]!
+        const msg = normalizePriceChangeHashes(messages[frameIndex]!)
         this.ob.applyAny(msg)
         if (!args.bootstrap && (msg.event_type === 'book' || msg.event_type === 'price_change')) {
           const source =

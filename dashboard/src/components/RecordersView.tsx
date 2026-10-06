@@ -8,7 +8,7 @@ import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Skeleton } from './ui/skeleton'
 import type { RecorderEntry, RecordersReport } from '@/lib/queries/recorders'
-import { RECORDER_OFFLINE_AFTER_MS } from '@bot/recorder-v3/statusTypes'
+import { RECORDER_OFFLINE_AFTER_MS } from '@bot/recorder-v4/statusTypes'
 import type { OpeningReferenceSnapshot } from '@bot/trading/feeds/externalFeeds'
 
 async function fetchRecorders(): Promise<RecordersReport> {

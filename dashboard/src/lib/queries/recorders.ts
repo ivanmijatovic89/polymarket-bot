@@ -5,7 +5,7 @@ import {
   RECORDER_STATUS_PREFIX,
   RECORDER_STATUS_SET,
   type RecorderStatus,
-} from '../../../../src/recorder-v3/statusTypes'
+} from '../../../../src/recorder-v4/statusTypes'
 
 const count = z.number().finite().nonnegative()
 const text = z.string().max(10_000)
@@ -41,7 +41,7 @@ const openingReference = z.object({
   ]),
 })
 const schema = z.object({
-  schemaVersion: z.literal(3),
+  schemaVersion: z.literal(4),
   recorderId: text,
   captureId: text,
   sessionId: text,

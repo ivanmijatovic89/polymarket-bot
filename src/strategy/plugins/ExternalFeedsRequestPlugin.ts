@@ -3,9 +3,9 @@ import type { Plugin } from './PluginSet.js'
 
 // New recorder capabilities are plugin-only; do not add them to Strategy.requiredFeeds.
 export type ExternalFeedsRequestConfig = {
-  /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
+  /** Recorder v4 captured feed; unsupported runtimes fail explicitly. */
   binanceBookTicker?: { symbol?: string }
-  /** Recorder v3 captured feed; unsupported runtimes fail explicitly. */
+  /** Recorder v4 captured feed; unsupported runtimes fail explicitly. */
   chainlinkTwap?: { symbol?: string; windowSeconds?: number }
   rtdsCryptoPrices?: {
     binanceSymbols?: string[]
@@ -29,7 +29,7 @@ export type ExternalFeedsRequestConfig = {
   }
   polymarketPriceToBeat?: {
     enabled?: boolean
-    /** Website observations remain the default; the opening TWAP requires Recorder v3. */
+    /** Website observations remain the default; the opening TWAP requires Recorder v4. */
     source?: 'website' | 'chainlink-opening-twap'
   }
 }
@@ -41,7 +41,7 @@ export function assertLegacyPriceToBeatSource(
 ): void {
   if (config?.polymarketPriceToBeat?.source !== 'chainlink-opening-twap') return
   throw new Error(
-    `[${runtime}] priceToBeat source=chainlink-opening-twap requires --input-mode recorder-v3; ` +
+    `[${runtime}] priceToBeat source=chainlink-opening-twap requires --input-mode recorder-v4; ` +
       'this runtime cannot supply the captured opening reference',
   )
 }

@@ -41,7 +41,7 @@ test('legacy runtime guard accepts website defaults and explicitly rejects openi
             },
             runtime,
           ),
-        /chainlink-opening-twap requires --input-mode recorder-v3/,
+        /chainlink-opening-twap requires --input-mode recorder-v4/,
       )
     }
   }
@@ -61,7 +61,7 @@ test('historical backtest refuses opening TWAP before reading unrelated data or 
       slug: 'btc-updown-15m-1791144900',
       gammaPriceToBeat: { priceToBeat: 85_412.32, syncedAtMs: 1_791_146_000_000 },
     }),
-    /historical-backtest.*chainlink-opening-twap requires --input-mode recorder-v3/,
+    /historical-backtest.*chainlink-opening-twap requires --input-mode recorder-v4/,
   )
   assert.equal(request.snapshot(), undefined)
 })

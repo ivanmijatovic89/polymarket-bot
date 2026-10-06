@@ -6,7 +6,7 @@ export function resolveBacktestTimeframe(args: {
   timeframe: string | null
   captureTimeframes: Iterable<'5m' | '15m'>
 }): string | null {
-  if (args.inputMode !== 'recorder-v3') return args.timeframe
+  if (args.inputMode !== 'recorder-v4') return args.timeframe
   const timeframes = new Set(args.captureTimeframes)
   return timeframes.size === 1 ? [...timeframes][0]! : null
 }

@@ -5,7 +5,7 @@ description: How the live recorder captures Polymarket WebSocket events to Parqu
 
 # Live Recording Overview
 
-For new BTC 5m and 15m capture, use [Recorder v3](/datasets/recording/recorder-v3). It records Polymarket, Binance, Chainlink spot/TWAP, and price-to-beat observations on one receipt sequence, with durable recovery, verified R2 archival, resolution tracking, and dashboard monitoring. Each market has one self-contained mixed-feed Parquet. Use `--input-mode recorder-v3` to replay these packages.
+For new BTC 5m and 15m capture, use [Recorder v4](/datasets/recording/recorder-v4). It records Polymarket, Binance, Chainlink spot/TWAP, and price-to-beat observations on one receipt sequence, with durable recovery, verified R2 archival, resolution tracking, and dashboard monitoring. Each market has one self-contained mixed-feed Parquet. Use `--input-mode recorder-v4` to replay these packages.
 
 The remainder of this page describes the **legacy `record:live` recorder and format**. Its rotation, temporary-file recovery limitations, and scanning commands do not apply to v3.
 

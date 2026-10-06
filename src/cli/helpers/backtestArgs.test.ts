@@ -4,7 +4,7 @@ import { parseArgs, parseLatencyFlagsFromCmd, resolveBacktestProvenance } from '
 import { resolveBacktestTimeframe } from './backtestTimeframe.js'
 
 test('recorder run duration comes from selected packages instead of the CLI default', () => {
-  const parsed = parseArgs(['--input-mode', 'recorder-v3', '/tmp/package'])
+  const parsed = parseArgs(['--input-mode', 'recorder-v4', '/tmp/package'])
   assert.equal(parsed.timeframe, '15m')
   assert.equal(parsed.captureTimeframe, undefined)
   assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m'] }), '5m')
@@ -14,7 +14,7 @@ test('recorder run duration comes from selected packages instead of the CLI defa
 })
 
 test('recorder duration filter is explicit and non-recorder metadata keeps its duration', () => {
-  const parsed = parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '5m'])
+  const parsed = parseArgs(['--input-mode', 'recorder-v4', '--timeframe', '5m'])
   assert.equal(parsed.captureTimeframe, '5m')
   assert.equal(resolveBacktestTimeframe({ ...parsed, captureTimeframes: ['5m'] }), '5m')
   const legacy = parseArgs(['--symbol', 'btc', '--timeframe', '5m'])
@@ -79,41 +79,41 @@ test('parseArgs parses telonex-delta mode with --symbol + --read-from', () => {
 test('parseArgs rejects old telonex-*-parquet alias', () => {
   assert.throws(
     () => parseArgs(['--input-mode', 'telonex-delta-parquet', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode must be one of: recorded, recorder-v3, telonex-delta, telonex-paired/,
+    /\[backtest\] --input-mode must be one of: recorded, recorder-v4, telonex-delta, telonex-paired/,
   )
 })
 
-test('recorder-v3 accepts package inputs and explicit outage replay only in receive order', () => {
+test('recorder-v4 accepts package inputs and explicit outage replay only in receive order', () => {
   const parsed = parseArgs([
     '--input-mode',
-    'recorder-v3',
+    'recorder-v4',
     '--dir',
     '/tmp/packages',
     '--allow-capture-gaps',
   ])
-  assert.equal(parsed.inputMode, 'recorder-v3')
+  assert.equal(parsed.inputMode, 'recorder-v4')
   assert.equal(parsed.allowCaptureGaps, true)
   assert.equal(
-    parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '5m']).captureTimeframe,
+    parseArgs(['--input-mode', 'recorder-v4', '--timeframe', '5m']).captureTimeframe,
     '5m',
   )
   assert.throws(
-    () => parseArgs(['--input-mode', 'recorder-v3', '--timeframe', '1h']),
+    () => parseArgs(['--input-mode', 'recorder-v4', '--timeframe', '1h']),
     /must be 5m or 15m/,
   )
   assert.deepEqual(parsed.dirs, ['/tmp/packages'])
   assert.equal(
-    parseArgs(['--input-mode', 'recorder-v3', 'r2://bucket/prefix/manifest.json']).filePaths.length,
+    parseArgs(['--input-mode', 'recorder-v4', 'r2://bucket/prefix/manifest.json']).filePaths.length,
     1,
   )
-  assert.throws(() => parseArgs(['--allow-capture-gaps']), /requires --input-mode recorder-v3/)
+  assert.throws(() => parseArgs(['--allow-capture-gaps']), /requires --input-mode recorder-v4/)
   assert.throws(
-    () => parseArgs(['--input-mode', 'recorder-v3', '--order', 'exchange_time']),
+    () => parseArgs(['--input-mode', 'recorder-v4', '--order', 'exchange_time']),
     /receive order/,
   )
-  assert.throws(() => parseArgs(['--input-mode', 'recorder-v3', '--time-driven']), /receive order/)
+  assert.throws(() => parseArgs(['--input-mode', 'recorder-v4', '--time-driven']), /receive order/)
   assert.throws(
-    () => parseArgs(['--input-mode', 'recorder-v3', '--symbol', 'btc']),
+    () => parseArgs(['--input-mode', 'recorder-v4', '--symbol', 'btc']),
     /package paths/,
   )
 })
