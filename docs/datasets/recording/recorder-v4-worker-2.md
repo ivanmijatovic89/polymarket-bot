@@ -125,15 +125,17 @@ stdout/stderr destinations are `/dev/null`, while all recorder output goes throu
 the bounded logger. Log retention is separate from recording cleanup. Never
 remove spool state or R2 data to rotate a log.
 
-### Prepared October 6 bounded-log update
+### Completed October 6 bounded-log update
 
-The reviewed release `a94e9a6a3d151546b56fcf4572858fe518f2f0ca` is installed in the isolated release directory. Node 20 installation, typecheck, native DuckDB and 18 supervisor/updater checks passed on worker-2. Preparation leaves the existing recorder running. Activate this prepared update once from the control Mac:
+The operator activated release `a94e9a6a3d151546b56fcf4572858fe518f2f0ca` at 15:44 UTC on October 6. Node 20 installation, typecheck, native DuckDB and 18 supervisor/updater checks passed before activation. The completed command was:
 
 ```bash
 ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-update-a94e9a6a.zsh'
 ```
 
-macOS requires an administrator password in that terminal. The wrapper verifies the updater checksum and supplies the exact pinned release, rendered plist and plist checksum. Its deployment record is `/Users/worker-2/Services/polymarket-recorder-v4/prepared-update-a94e9a6a.json`. This is a planned V4 stop/start, so captures crossing the restart can be partial. Afterward, verify fresh recorder status, both durations and uploads using the routine commands above. Preparation alone does not establish that activation succeeded.
+Do not repeat this completed activation for routine operation. The wrapper verified the updater checksum and supplied the exact pinned release, rendered plist and plist checksum. Its deployment record is `/Users/worker-2/Services/polymarket-recorder-v4/prepared-update-a94e9a6a.json`; the previous V4 plist was preserved under `service-update-20261006T154423Z-XimAGx/`.
+
+Post-activation checks confirmed supervisor PID 95492 and recorder child PID 95498, a fresh dashboard heartbeat, both durations and all six feeds receiving. Four uploads completed after startup with no backlog or archive error. The new 5m and 15m restart-spanning recordings were marked incomplete, uploaded with read-back verification, and their local event files removed. The active log measured 1,023 bytes; the running supervisor now enforces the 32 MiB total bound. V3 remained disabled. Full-market coverage and longer-term disconnect behavior remain part of the scheduled production review.
 
 ### Changing the pinned release
 
