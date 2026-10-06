@@ -96,7 +96,7 @@ The operator completed administrator activation at 10:55 UTC on October 6 using:
 ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-recorder-v4.zsh'
 ```
 
-V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The initial activation left the primary dashboard and fleet checkouts unchanged; their separate rollout must load the merged V4 code before displaying V4 status or dispatching V4 backtests. Do not rerun the initial activation command on an already loaded service.
+V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The separate dashboard and fleet rollout subsequently completed on October 6: all 17 market workers loaded the V4-capable commit, and a production V4 package completed a queued backtest successfully. See the [consumer rollout evidence](./recorder-v4-validation#dashboard-and-backtest-fleet-rollout-completed-october-6). Do not rerun the initial activation command on an already loaded service.
 
 The one-time installer included rollback to V3 on a failed initial switch. That behavior is historical and must not be used for routine operation or future V4 updates now that the V3 archives have been retired. Keep the original installation files as deployment evidence.
 

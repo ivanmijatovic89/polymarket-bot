@@ -120,3 +120,14 @@ The first production archives use `recorder-v4/btc/<timeframe>/<slug>/<recording
 Matching archive receipts were present on worker-2, and these packages' local event Parquet, WAL and conversion intermediates had been removed after verified upload. Their metadata and resolution tasks remain. Official outcomes were still pending at the first independent download; resolution tracking continues separately. Existing R2 objects were neither deleted nor overwritten.
 
 The first complete production 5m market, `btc-updown-5m-1791284400` (11:00–11:05 UTC), subsequently uploaded with zero coverage gaps: 132,119 rows and 2,509,534 Parquet bytes. Independent verification on both Macs matched 109,076 replay callbacks and hash `ce0bb61e26bff834e0997cca35694f38d30700a34e3a536085253c9b6e20fbe1`; its verified local event files were cleaned up. Ordinary all-feed replay admitted the capture and exposed the recorded Chainlink opening reference, Chainlink spot/TWAP, Binance trades/book ticker and PTB. It returned `unresolved_outcome` after replay because official settlement was still pending in that download. The complete 15m controlled capture above establishes full-duration validation; the first full 15m continuous-service market was still recording at this check.
+
+
+## Dashboard and backtest fleet rollout completed (October 6)
+
+After the operator confirmed that no backtests were active, the primary checkout and all fleet checkouts were updated to `476f6949e735143cb9e1a65b4841edf998e487c4` (PR #293, including the V4 runtime from PR #290). The dashboard was restarted and its API and Recorders page showed V4 online with all six feeds and opening-reference diagnostics. The existing Global Runtime stayed running.
+
+All 17 market-worker processes reported the loaded V4-capable commit: worker-1 retained six workers, worker-2 three, milan-m1 four, and the control Mac four. Worker-1 retained the aggregation queue. Node 20 was verified; remote shell commands explicitly put the selected NVM binary directory first where a user-local Node shim otherwise took precedence. No recorder service restart was needed; worker-2's pinned V4 PID remained 43225.
+
+A queued production-package smoke test used `readExternalFeedsExample.v1`, `--input-mode recorder-v4`, `--timeframe 5m`, and `priceToBeatSource=chainlink-opening-twap` on `btc-updown-5m-1791284400`. Batch `823dec91-d929-448f-84e3-fb03bbe96db1` ran on milan-m1 and completed aggregation with **1 succeeded, 0 failed, 0 skipped**, in 8.04 seconds. Official settlement was available by this run. The observer strategy emits no orders; this verifies fleet download/admission/replay/result persistence, not strategy profitability.
+
+The recorder continued capturing throughout the consumer rollout. At its final check it had 20 archived packages, zero pending uploads, and no archive errors. Provider disconnects can still mark later markets incomplete; these rollout results do not imply future gap-free coverage.

@@ -106,10 +106,14 @@ npm run fleet:runtime:status | fleet:runtime:start | fleet:runtime:stop   # Glob
 # machine's cores_for_backtest in dashboard/src/data/machines.json, else cores-2)
 npm run worker:markets | worker:aggregate | worker:markets-and-aggregate
 
-# Record live WS → Parquet
-npm run record:live:btc                # or :eth :sol :xrp
+# Recorder V4 — BTC 5m + 15m, mixed feeds, verified R2 archive
+npm run record:v4 -- --env-file /absolute/path/to/.env.recorder-v4
+npm run record:v4:verify -- /absolute/path/to/package
+npm run record:v4:test
+# Use docs/datasets/recording/recorder-v4-worker-2.md for the deployed service.
+# V4 is the supported recorder; do not recreate retired capture commands.
 
-# Parquet utilities
+# Historical raw-event Parquet utilities (not V4 package commands)
 npm run verify:parquet -- <file.parquet>
 npm run list:backtest-files -- --symbol btc
 npm run scan:disconnect-events -- <dir> [--delete-files-where-disconnects-equal-or-greater=N]
@@ -177,7 +181,7 @@ npm run bull-board                      # Bull Board UI on :3052 (separate proc)
 |------|-------|-------------|
 | Live trading | `src/cli/trading-bot.ts` | Polymarket market WS + user WS / REST poll |
 | Backtest | `src/cli/backtest.ts` | Parquet files (by path, `--symbol`, `--slug`, or `--dir`) |
-| Recording | `src/cli/record-live.ts` | Polymarket market WS → rotating Parquet |
+| Recording | `src/cli/record-v4.ts` | Polymarket, Binance trades/quotes, Chainlink spot/TWAP, PTB → durable journals → compact Parquet + verified R2 manifests |
 
 ### Data flow
 
@@ -211,7 +215,8 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/strategy/` | `Strategy` interface, `StrategyRunner` types, `strategyRegistry`, plugins, toolkit |
 | `src/strategies/` | Concrete strategy implementations (30+; `split/`, `scalp/`, `signals/`, `templates/`) |
 | `src/trading/` | `OrderManager`, `Portfolio`, `StrategyRunner`, `execution/`, `feeds/`, risk/fees/metrics |
-| `src/parquet/` | `io/` (writer + schema), `replay/`, `indexer/`, `cli/` utilities |
+| `src/parquet/` | Historical replay schemas/readers and file utilities; also used by Telonex/PMXT conversions |
+| `src/recorder-v4/` | Mixed-feed capture, durable journals, compact archive format, coverage, resolution, deterministic replay |
 | `src/polymarket/` | CLOB client, market WS, user WS (`ws/`), Gamma, RTDS, relayer, 15m slug resolution |
 | `src/blockchain/` | On-chain helpers: balance/approval checks, balance tracker, ConditionalTokens |
 | `src/db/` | Drizzle schema, helpers, seed-from-parquet script |
@@ -241,22 +246,21 @@ JSON params pass through as strings: `--param assetIds='["a","b"]'`.
 
 ### Plugins & external feeds
 
+For Recorder V4, requested feed observations come from the selected package in recorded receipt order (see the format section below). The historical latency models in this paragraph apply to other supported backtest inputs.
+
 Plugins (`src/strategy/plugins/`) are optional per-tick computations/data exposed via `ctx.plugins`. `StrategyRunner` caches the tick-scoped snapshot and reuses it for cascading `onAccountEvent`. Existing plugins: `TimeWindowVolatility`, `TechnicalIndicators`, `DwellGate`, `TimeWindowGate`, `DeribitVolatilityIndex`, `ExternalFeeds` (+ request-side).
 
 External feeds are **strategy-driven**: a strategy opts in by registering `ExternalFeedsRequestPlugin` (or via legacy `strategy.requiredFeeds`). Live, `trading-bot.ts` only starts feed clients requested by the selected strategy. Symbols **follow the traded market by default**: `binanceWsSpotPrice: {}` / `rtdsCryptoPrices: {}` derive the pair from `TRADING_SYMBOL` live (and, for the binance feed, from the market slug in backtests); an explicitly configured symbol/list overrides the derivation. In **backtests**, the `binanceWsSpotPrice` sub-feed is fulfilled automatically from historical `data.binance.vision` aggTrades (as-of lookup, measured-latency offset, seeded with the last pre-window trade; missing day files are a hard error — see `docs/datasets/price-feeds/binance/feed.md`). Day files are distributed producer → R2 → workers: `binance:download-aggtrades -- --pair X --sync` (self-healing full-range, daily cron), `binance:upload-aggtrades-r2`, and on each worker `binance:download-aggtrades-r2-to-local`. The `polymarketPriceToBeat` sub-feed is also fulfilled in backtests, from `telonex_markets.price_to_beat` (Gamma `events[].eventMetadata`, backfilled by `telonex:sync-pricetobeat-and-final-price` — run it after `telonex:sync`; key appears ~2.7s after window start by default — the measured live p50 (p90 3.5s, max 5.4s; feeds:parity harness, 2026-07-21), tune via `BACKTEST_PRICE_TO_BEAT_LATENCY_MS`; markets before their series' recording epoch ⇒ absent key; markets settled <30h ago ⇒ absent key with a warning (pipeline-lag grace — Telonex catalogs daily and the backfill waits 3h after settle); post-epoch unbackfilled or inside a verified Polymarket-side hole ⇒ hard error, recoverable via `--refetch-nulls` if the stamp was a transient Gamma glitch; per-series epochs in `docs/datasets/data-coverage.md`). The `rtdsPolymarketCryptoPrices.chainlink` sub-feed is also fulfilled in backtests, from the Telonex `crypto_prices` channel (the Chainlink rounds Polymarket resolves with; coverage from 2026-04-02; **two-clock model** — visibility keys on Polymarket's broadcast time ~1s after the round time plus a measured bot leg (`BACKTEST_RTDS_CHAINLINK_LATENCY_MS`), while the emitted `tsMs` stays the round time; **hard error in EVERY unavailable case incl. pre-coverage markets AND in-window upstream data holes ≥5min** (`BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS`, data-driven; `0` accepts stale replay) — it is the resolution price; dataset commands `telonex:crypto-prices:{download --sync,upload-r2,download-r2-to-local}`; see `docs/datasets/price-feeds/chainlink/feed.md`). The remaining sub-feeds (`rtdsPolymarketCryptoPrices.binance`, `deribitVolatilityIndex`) are still live-only. **Synthetic feed ticks** (opt-in): `binanceWsSpotPrice: { tickOnUpdate: true }` and/or `rtdsCryptoPrices: { tickOnUpdate: true }` give the strategy an extra `onMarketTick` on every Binance aggTrade / Chainlink round (event_type `binance_agg_trade` / `chainlink_round`, unchanged book, re-stamped time), live and replay identically; the execution simulator never runs on synthetic ticks, and plugins skip them unless they declare `handlesSyntheticTicks = true` — see `docs/backtest/adr-binance-driven-ticks.md`.
 
-### Parquet format
+### Recording and replay formats
 
-Recorded files: `data/events/<symbol>/<slug>.parquet` (override root with `RECORD_BASE_DIR`). One file per 15-minute market window. Filename uses the Gamma slug `<symbol>-updown-15m-<epochStart>`. Writers produce `*.parquet.tmp` and rename to `*.parquet` on close; SIGINT/SIGTERM rename to `*-terminated.parquet`.
+Recorder V4 is the only supported new market recorder. Read `docs/datasets/recording/recorder-v4.md` for the full field contract, diagrams, archive lifecycle, and commands. Worker-2 runs an isolated pinned service described in `recorder-v4-worker-2.md`; fleet checkout updates do not restart it.
 
-Schema (`src/parquet/io/eventSchema.ts`, all GZIP columns):
-- `ingest_seq` INT64 — per-market monotonic sequence (assigned locally)
-- `ts_local_ms` INT64 — `Date.now()` at ingest
-- `ts_exchange_ms` INT64 (optional) — parsed from message `timestamp`
-- `event_type` UTF8 — includes synthetic `"disconnect"` rows with `ws_close_code`/`reason` in `raw_json`
-- `raw_json` UTF8 — original WS message
+V4 records one self-contained mixed-feed compact Parquet per BTC 5m/15m market. All sources share a receipt sequence and original receive times; overlapping files intentionally duplicate shared observations. R2 packages live under `recorder-v4/btc/<5m|15m>/<slug>/<recording-id>/` and include immutable manifests and resolution sidecars. Recorder-local event files are removed only after complete archive verification; backtest caches are independent.
 
-Backtest heap-merges multiple files by `ingest_seq` (deterministic multi-asset replay). Orderbook-mode backtests process files sequentially (each file is a 15m episode).
+Use `--input-mode recorder-v4` with a package path, a downloaded package directory via `--dir`, or an R2 manifest URL. V4 uses recorded receive times, not historical feed-latency offsets. Incomplete required-feed coverage skips the whole market by default; `--allow-capture-gaps` is explicit outage replay. Official outcomes are used only for settlement. New feed capabilities unsupported by the live bot are rejected there, not silently substituted.
+
+The separate `recorded` input mode and `src/parquet/io/eventSchema.ts` remain for historical raw-event files and Telonex/PMXT conversions (`ingest_seq`, `ts_local_ms`, optional `ts_exchange_ms`, `event_type`, `raw_json`). Those schemas and utilities do not describe V4 capture. Do not seed V4 packages with `db:insert-parquet`.
 
 ### Execution modes
 
@@ -277,7 +281,7 @@ Backtest latency simulation (intent → exchange-visible):
 - **`src/index.ts` is a placeholder** — do not add runtime logic there.
 - **Maker backtests**: the simulator fills when the book goes *through* the resting level; passive resting fills are not modeled beyond that.
 - **`instanceof` on strategy plugins silently fails**: `strategyRegistry` loads strategy files via CJS `createRequire`, so plugin instances carry a different class identity than the same class imported via ESM elsewhere. `p instanceof SomePlugin` across that boundary returns `false` with no error (this once silently disabled live external feeds for the whole SplitSellRedeem family). Detect plugins structurally instead — e.g. `isExternalFeedsRequestPlugin` in `src/strategy/plugins/ExternalFeedsRequestPlugin.ts` (checks `id` + method surface); add a similar guard next to any new plugin class.
-- **Symbol selection**: live scripts require `TRADING_SYMBOL` (falls back to `RECORD_SYMBOL`); recorder requires `RECORD_SYMBOL`. Both accept `BTC|ETH|SOL|XRP`.
+- **Symbol selection**: live trading requires `TRADING_SYMBOL` (`BTC|ETH|SOL|XRP`; `RECORD_SYMBOL` remains a compatibility fallback). Recorder V4 supports BTC with `RECORDER_TIMEFRAMES=5m,15m`; it does not read `RECORD_SYMBOL`.
 - **Telonex eligibility — single source of truth**: all queries against `telonex_markets` / `telonex_market_conversions` must go through `src/db/telonexMarkets.ts` (`listEligibleTelonexMarkets`, `listEligibleTelonexSlugs`, `countEligibleTelonexMarkets`). Do NOT write inline SQL against these tables elsewhere — add a function to that module instead. The dashboard (`dashboard/src/lib/queries/`) imports from there.
 - **Telonex market time**: use `telonex_markets.market_start_ms` (indexed bigint, derived from slug at sync time). `start_date_us` is NOT the market window start — verified empirically that 100% of 19,223 rows differ from the slug epoch (avg ~22h earlier; likely creation/announcement time). Never order/filter markets by `start_date_us`. `end_date_us` IS the market end and matches `market_start_ms + timeframe_ms` deterministically.
 - **Telonex eligibility floor**: env `TELONEX_DATASET_ELIGIBLE_FROM` (ISO 8601 UTC, default `2025-12-01T00:00:00Z`). Loaded via `src/config/telonex.ts` as `TELONEX_DATASET_ELIGIBLE_FROM_MS`. Markets with `market_start_ms` below this are excluded from the eligible universe. Move the env var to ignore older markets without dropping rows.
@@ -313,7 +317,7 @@ Telonex:
 
 Database: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `DATABASE_NAME`.
 
-Recorder: `RECORD_BASE_DIR` (default `data/events`), `RECORD_STATS_INTERVAL_MS`, `RECORD_MAX_INFLIGHT_APPENDS`, `RECORD_SKIP_IF_OLDER_MS`.
+Recorder V4: explicit `RECORDER_ENV_FILE` / `--env-file` (default `.env.recorder-v4`), `RECORDER_SPOOL_DIR`, `RECORDER_TIMEFRAMES`, `RECORDER_R2_PREFIX`, optional `RECORDER_REDIS_URL`. See the V4 configuration reference; the trading `.env` and `BOT_ENV` are not loaded.
 
 Relayer: `POLYMARKET_BUILDER_API_*`, `POLYMARKET_RELAYER_URL`, `POLYMARKET_RELAYER_CHAIN_ID`, `POLYMARKET_RELAYER_TX_TYPE`, `POLYMARKET_TX_MODE_SPLIT|MERGE|REDEEM`, `POLYMARKET_EOA_GAS_MULTIPLIER`.
 

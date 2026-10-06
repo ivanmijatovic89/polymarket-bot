@@ -3,6 +3,7 @@
 ## Component Architecture Diagram
 
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 graph TB
     subgraph "Data Collection Layer"
         WS_Market[Market WebSocket<br/>Polymarket WS]
@@ -12,7 +13,7 @@ graph TB
     end
 
     subgraph "CLI Entry Points"
-        RecordLive[record-live.ts<br/>Data Recorder]
+        RecorderV4[record-v4.ts<br/>Data Recorder]
         TradingBot[trading-bot.ts<br/>Live Trading]
         Backtest[backtest.ts<br/>Backtesting]
     end
@@ -42,22 +43,22 @@ graph TB
     end
 
     subgraph "Data Storage"
-        ParquetWriter[Parquet Writer<br/>Event Storage]
+        ParquetWriter[V4 Journals and Finalizer<br/>Compact Mixed-Feed Parquet]
         ParquetReader[Parquet Reader<br/>Event Replay]
-        FileSystem[Parquet Files<br/>data/events/]
+        FileSystem[V4 Packages in R2<br/>Verified Local Replay Cache]
     end
 
     %% Data Collection Flow
-    WS_Market --> RecordLive
+    WS_Market --> RecorderV4
     WS_Market --> TradingBot
     WS_User --> TradingBot
     REST_API --> TradingBot
-    Gamma_API --> RecordLive
+    Gamma_API --> RecorderV4
     Gamma_API --> TradingBot
 
     %% Recording Flow
-    RecordLive --> MarketDecoder
-    MarketDecoder --> ParquetWriter
+    OtherFeeds[Binance, Chainlink and PTB] --> RecorderV4
+    RecorderV4 --> ParquetWriter
     ParquetWriter --> FileSystem
 
     %% Live Trading Flow
@@ -91,7 +92,7 @@ graph TB
     %% Market Engine Internals
     MarketEngine --> OrderBookEngine
 
-    style RecordLive fill:#e1f5ff
+    style RecorderV4 fill:#e1f5ff
     style TradingBot fill:#e1f5ff
     style Backtest fill:#e1f5ff
     style Strategy fill:#fff4e1
@@ -272,7 +273,9 @@ flowchart LR
     FILL -->|SELL realizes pnl vs avg entry| PNL
 ```
 
-## System Flow Diagram - Backtesting
+## System Flow Diagram - Historical Raw-Event Backtesting
+
+This diagram describes the raw-event input path. V4 uses verified mixed-feed packages, receipt sequence, required-feed coverage admission, and official settlement sidecars; see the [V4 replay diagram](/datasets/recording/recorder-v4#coverage-and-backtests).
 
 ```mermaid
 flowchart TD
@@ -344,62 +347,9 @@ flowchart TD
     style SettleMarket fill:#fff9c4
 ```
 
-## System Flow Diagram - Data Recording
+## System Flow Diagram - Recorder V4
 
-```mermaid
-flowchart TD
-    Start([Start: record-live.ts]) --> LoadConfig[Load Config<br/>WS URL, API Keys]
-    LoadConfig --> InitRecorder[Initialize Parquet Recorder<br/>RotatingParquetEventRecorder]
-    InitRecorder --> ResolveMarket[Resolve Current Market<br/>Gamma API: Get 15m Up/Down]
-
-    ResolveMarket --> CheckAge{Market Age<br/>< 10s?}
-    CheckAge -->|Too Old| WaitBoundary[Wait for Next<br/>15m Boundary]
-    CheckAge -->|OK| ConnectWS[Connect Market WS<br/>Subscribe to Assets]
-
-    WaitBoundary --> ResolveMarket
-
-    ConnectWS --> StartBoundaryScheduler[Start 15m Boundary Scheduler<br/>Auto-Rotate]
-    StartBoundaryScheduler --> EventLoop{Event Loop}
-
-    EventLoop -->|WS Message| IndexEvent[Index Event<br/>RawEventIndexer]
-    IndexEvent --> ExtractFields[Extract Fields<br/>market/event_type/timestamp]
-
-    ExtractFields --> CheckValid{Valid Market?}
-    CheckValid -->|No| DropEvent[Drop Event<br/>Increment Counter]
-    CheckValid -->|Yes| IncrementSeq[Increment ingest_seq<br/>Per-Market Counter]
-
-    IncrementSeq --> BuildRow[Build Parquet Row<br/>ingest_seq + timestamps + raw_json]
-    BuildRow --> CheckLag{Writer Lag<br/>< Max Inflight?}
-
-    CheckLag -->|Too Much| DisconnectWS[Disconnect WS<br/>Prevent Memory Growth]
-    CheckLag -->|OK| AppendParquet[Append to Parquet<br/>Async Write]
-
-    DisconnectWS --> Reconnect[Reconnect After Delay<br/>1s]
-    Reconnect --> ConnectWS
-
-    AppendParquet --> TrackInflight[Track In-Flight<br/>Appends Counter]
-    TrackInflight --> EventLoop
-
-    EventLoop -->|WS Disconnect| ClassifyClose[Classify Close<br/>Expected vs Unexpected]
-    ClassifyClose -->|Expected| ContinueLoop[Continue<br/>Normal Market End]
-    ClassifyClose -->|Unexpected| WriteDisconnect[Write Disconnect Marker<br/>Synthetic Event]
-
-    WriteDisconnect --> AppendParquet
-
-    EventLoop -->|15m Boundary| Rotate[Rotate Market<br/>Close Writers]
-    Rotate --> WaitDrain[Wait for In-Flight<br/>Appends to Drain]
-    WaitDrain --> CloseWriters[Close Parquet Writers<br/>Write Footer + Rename]
-    CloseWriters --> ResolveMarket
-
-    EventLoop -->|Shutdown Signal| Shutdown[Shutdown<br/>Close All Writers]
-    Shutdown --> RenameTerminated[Rename Files<br/>-terminated.parquet]
-    RenameTerminated --> End([End])
-
-    style Start fill:#e1f5ff
-    style EventLoop fill:#fff4e1
-    style AppendParquet fill:#e8f5e9
-    style Rotate fill:#fff9c4
-```
+The [canonical V4 capture and archive diagram](/datasets/recording/recorder-v4#capture-and-archive-diagram) covers receipt sequencing, durable journals, finalization, verified R2 upload, local cleanup, and dashboard health. The [replay diagram](/datasets/recording/recorder-v4#coverage-and-backtests) covers feed availability, gap admission, shared strategy execution, and official settlement.
 
 ## Key Architectural Principles
 
@@ -442,9 +392,9 @@ flowchart TD
 
 ### 7. **Data Recording**
 
-- Raw JSON events stored in Parquet format
-- Per-market ingestion sequence numbers for ordering
-- Synthetic disconnect markers for data gap detection
+- Compact mixed-feed Parquet per BTC 5m/15m market
+- Shared receipt sequence and local clocks across captured sources
+- Coverage evidence, verified R2 archives, and later official resolution sidecars
 
 ### 8. **Risk Management**
 

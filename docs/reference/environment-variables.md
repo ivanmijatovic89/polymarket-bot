@@ -45,7 +45,7 @@ Launch each with `BOT_ENV=botA npm run trade:bot` and `BOT_ENV=botB npm run trad
 | Variable                 | Type                       | Default                                                | Description                                                                        |
 | ------------------------ | -------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `TRADING_SYMBOL`         | `BTC \| ETH \| SOL \| XRP` | _(required)_                                           | Symbol the live trading bot subscribes to. Falls back to `RECORD_SYMBOL` if unset. |
-| `RECORD_SYMBOL`          | `BTC \| ETH \| SOL \| XRP` | _(required for recorder)_                              | Symbol the recorder subscribes to.                                                 |
+| `RECORD_SYMBOL` | `BTC \| ETH \| SOL \| XRP` | _(unset)_ | Compatibility fallback for live trading when `TRADING_SYMBOL` is unset; not a V4 setting. |
 | `GAMMA_API_BASE_URL`     | `string`                   | `https://gamma-api.polymarket.com`                     | Base URL for the Gamma REST API used to resolve market metadata.                   |
 | `POLYMARKET_WS_URL`      | `string`                   | `wss://ws-subscriptions-clob.polymarket.com/ws/market` | WebSocket endpoint for the market orderbook feed.                                  |
 | `POLYMARKET_USER_WS_URL` | `string`                   | `wss://ws-subscriptions-clob.polymarket.com/ws/user`   | WebSocket endpoint for the authenticated user feed (fills, order status).          |
@@ -137,16 +137,11 @@ All four variables are required when any command that reads from or writes to My
 
 ---
 
-## Recorder
+## Recorder V4
 
-| Variable                      | Type           | Default              | Description                                                                                                                                                            |
-| ----------------------------- | -------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RECORD_BASE_DIR`             | `string`       | `data/events`        | Root directory for Parquet output files. Symbol subdirectories are created automatically: `<RECORD_BASE_DIR>/<symbol>/`.                                               |
-| `RECORD_STATS_INTERVAL_MS`    | `integer (ms)` | _(internal default)_ | Interval at which the recorder logs throughput statistics to stdout.                                                                                                   |
-| `RECORD_MAX_INFLIGHT_APPENDS` | `integer`      | `10000`              | Maximum number of Parquet row-group appends queued before backpressure is applied.                                                                                     |
-| `RECORD_SKIP_IF_OLDER_MS`     | `integer (ms)` | _(internal default)_ | Discard any incoming WebSocket message whose `ts_exchange_ms` timestamp is older than this threshold. Prevents stale data from polluting recordings during reconnects. |
-| `RECORD_LIVE_INSERT_DB`       | `boolean`      | `false`              | When `true`, each newly opened Parquet file is also inserted into the `markets` database table via the Gamma API.                                                      |
-| `RECORD_TEST_MODE`            | `boolean`      | `false`              | When `true`, the recorder runs in test mode (shorter rotation windows, reduced output). For development use only.                                                      |
+Recorder V4 uses `RECORDER_*` settings and a dedicated configuration file. See the [complete V4 configuration reference](/datasets/recording/recorder-v4#configuration) for spool limits, timeframes, feed credentials, R2, and optional dashboard status. Use the [worker-2 operating guide](/datasets/recording/recorder-v4-worker-2) for the deployed service.
+
+The old standalone recorder settings are no longer used. `RECORD_SYMBOL` remains only as a compatibility fallback for the live trading CLI; V4 does not read it.
 
 ---
 

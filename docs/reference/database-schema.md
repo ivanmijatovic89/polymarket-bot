@@ -26,7 +26,7 @@ Required environment variables: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER
 
 ## Table: `markets`
 
-Stores one row per 15-minute Polymarket market window. Populated either by `npm run db:insert-parquet` (from existing Parquet filenames) or automatically during recording when `RECORD_LIVE_INSERT_DB=true`.
+Stores one row per 15-minute Polymarket market window. Populated by `npm run db:insert-parquet` from historical raw-event Parquet filenames. Recorder V4 selects packages by their manifests and does not seed this table.
 
 | Column                  | MySQL Type     | Nullable | Default        | Description                                                                                                                                                                |
 | ----------------------- | -------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

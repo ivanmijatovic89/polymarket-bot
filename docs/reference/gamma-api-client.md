@@ -49,7 +49,7 @@ fetchGammaMarketBySlugAndMapApiResponseToMarketTable(args: {
 }): Promise<MarketDataForTable | null>
 ```
 
-Combines `fetchGammaMarketBySlug` and `mapApiResponseToMarket` in a single call. Returns `null` on any error (network failure, mapping failure, or market not found). Used by the seed-from-parquet script and the recorder when `RECORD_LIVE_INSERT_DB=true`.
+Combines `fetchGammaMarketBySlug` and `mapApiResponseToMarket` in a single call. Returns `null` on any error (network failure, mapping failure, or market not found). Used by the historical seed-from-parquet script. Recorder V4 stores its own discovery and resolution observations in archive packages.
 
 ---
 

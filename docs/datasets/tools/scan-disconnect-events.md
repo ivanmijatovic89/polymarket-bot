@@ -5,11 +5,13 @@ description: How to inspect parquet recording files for WebSocket disconnect eve
 
 # Scan and Clean Parquet Disconnect Events
 
+This tool applies to historical raw-event files, not Recorder V4 packages. For current recording, archive selection, coverage checks, and replay, use [Recorder V4](/datasets/recording/recorder-v4). V4 packages do not need these file-indexing or deletion steps.
+
 This guide explains how to use the `scan-disconnect-events` CLI to inspect your parquet recording files for WebSocket disconnect events, interpret the output, and selectively delete files that would produce unreliable backtest results.
 
 ## Why disconnects matter
 
-When the bot records live market data, it writes every incoming WebSocket message to a parquet file. If the connection drops, a synthetic `disconnect` row is written — marking the moment the bot lost visibility into the order book.
+Historical raw-event recordings can contain synthetic `disconnect` rows marking lost orderbook visibility. V4 instead supplies per-feed coverage evidence in each package.
 
 During backtest replay, those gaps become blind spots: the engine replays the recorded sequence as-is, which means the strategy operates on a stale order book for however long the connection was down. Two metrics determine how much this affects a file:
 
