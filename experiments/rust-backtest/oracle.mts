@@ -63,6 +63,7 @@ const def = await ensureArtifactLoaded({
 const s = manifest.settings
 // Output logging costs are excluded consistently. No live execution adapter is constructed.
 console.log = () => {}
+const progressEvery = Number(process.env.BENCHMARK_PROGRESS_EVERY ?? 0)
 const results = []
 const start = performance.now()
 const cpuStart = process.cpuUsage()
@@ -256,6 +257,10 @@ for (const m of indexArg === undefined ? manifest.markets : [manifest.markets[Nu
           }
         : {}),
     })
+    if (progressEvery > 0 && results.length % progressEvery === 0)
+      console.error(
+        `Progress: ${results.length} markets, ${((performance.now() - start) / 1000).toFixed(1)} s, last=${m.slug}`,
+      )
   } finally {
     Math.random = oldRandom
   }

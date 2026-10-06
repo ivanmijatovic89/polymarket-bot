@@ -130,3 +130,39 @@ It must not be presented as a pure language benchmark or as evidence that
 optimized TypeScript could not recover part of the gain.
 
 See [REPORT.md](REPORT.md) for the measured results and remaining migration work.
+
+## June 1,000-market scaling test
+
+The larger local experiment keeps the strategy artifact and parameters from run
+9657, but selects resolved, locally available BTC 15-minute markets in
+chronological order from June 1, 2026 UTC. Missing strike/resolution metadata is
+ineligible. Windows rejected by the production Chainlink gap check are recorded
+and excluded; the checker remains enabled. Selection continues until exactly
+1,000 valid markets have been prepared. Other feed errors remain fatal.
+
+```sh
+"$NODE20" --import tsx experiments/rust-backtest/prepare.mts \
+  "$DATA_CHECKOUT" 9657 1000 --from-date 2026-06-01 \
+  --output-dir experiments/rust-backtest/fixtures/june-1000
+
+python3 -u experiments/rust-backtest/scaling.py \
+  --manifest experiments/rust-backtest/fixtures/june-1000/manifest.json \
+  --node "$NODE20" --workers 1 4 8 --trace-workers 8 --rounds 1 \
+  --production-workers 4
+```
+
+The runner verifies full traces for every market using eight independent
+processes for each engine, before any timings are accepted. Timed configurations
+use the same worker count and fixed market chunks for both engines. Every timed
+output must match the reference market statistics and event counts. Input hashes
+are verified before and after the run. Worker limits refer to process counts,
+not CPU affinity or background-thread counts.
+
+`--rounds 1` is an initial large-batch measurement, not a repeated-run median.
+The full trace passes warm the input files before timing; this runner does not
+add separate workload warm-ups. Increase `--rounds` for repeated measurements.
+A progress line is written every 25 completed markets in both implementations.
+Results are checkpointed in ignored `results/june-1000/scaling.json` after each
+configuration. `--production-workers 4` also checks the unmodified production
+TypeScript replay, including raw daily-feed loading. Rust still consumes
+prepared feeds, so this production baseline is contextual.

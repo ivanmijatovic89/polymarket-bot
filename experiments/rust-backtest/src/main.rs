@@ -523,6 +523,10 @@ fn main() -> Result<()> {
     let trace = args.get(3).is_some_and(|v| v == "trace");
     let started = Instant::now();
     let mut results = Vec::new();
+    let progress_every = std::env::var("BENCHMARK_PROGRESS_EVERY")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
     let chosen = args.get(4).map(|v| v.parse::<usize>()).transpose()?;
     for (i, m) in manifest.markets.iter().enumerate() {
         if chosen.is_some_and(|x| x != i) {
@@ -536,6 +540,14 @@ fn main() -> Result<()> {
             run(m, s, &manifest.params, trace, depth)
                 .with_context(|| format!("Replay failed for {}", m.slug))?,
         );
+        if progress_every > 0 && results.len() % progress_every == 0 {
+            eprintln!(
+                "Progress: {} markets, {:.1} s, last={}",
+                results.len(),
+                started.elapsed().as_secs_f64(),
+                m.slug
+            );
+        }
     }
     ensure!(!results.is_empty(), "No market selected");
     serde_json::to_writer(

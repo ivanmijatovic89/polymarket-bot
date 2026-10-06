@@ -28,4 +28,4 @@ jobs:
       - name: Reference harness typecheck
         run: node node_modules/typescript/bin/tsc -p experiments/rust-backtest/tsconfig.json
       - name: Python comparator and runner syntax
-        run: python3 -m py_compile experiments/rust-backtest/benchmark.py experiments/rust-backtest/compare.py
+        run: python3 -m py_compile experiments/rust-backtest/benchmark.py experiments/rust-backtest/compare.py experiments/rust-backtest/scaling.py
