@@ -170,12 +170,21 @@ and event hashes. Scanning all 275,526 frames and 2,201,674 feed receipt timesta
 no future observations; requested feeds appeared at their recorded arrival. Both simulator
 processes exited and removed their temporary input downloads.
 
-Worker-2's recorder remained on its original V4 release during this rollout. Its next
-pinned release was installed separately and passed 18 supervisor/updater checks, typecheck,
-native DuckDB and exact plist validation. The concrete administrator activation command is
-in the [worker-2 runbook](./recorder-v4-worker-2#prepared-october-6-bounded-log-update).
-Service preparation does not prove activation; the operator's command and subsequent
-heartbeat/capture verification remain the final recorder service step.
+Worker-2's recorder remained on its original V4 release during the consumer rollout. Its
+next pinned release was installed separately and passed 18 supervisor/updater checks,
+typecheck, native DuckDB and exact plist validation. The operator completed the V4-only
+service update at 15:44 UTC on October 6. Post-activation checks confirmed the merged
+release, one supervisor and one recorder child, a fresh dashboard heartbeat and all six
+feeds receiving for both durations. See the
+[completed activation record](./recorder-v4-worker-2#completed-october-6-bounded-log-update).
+
+By 15:47 UTC, four uploads had completed after startup, with no backlog or archive error.
+Both new restart-spanning recordings had verified archive receipts and no remaining local
+event file. They were correctly marked incomplete. The active 15m market had no gap at
+that check; the active 5m market had one detected gap and remains excluded from ordinary
+backtests. Website PTB and the captured opening TWAP matched in both active markets.
+The bounded logger was active with a 1,023-byte log. These are startup checks, not a claim
+that a full post-restart 15m recording had already completed.
 
 A follow-up in this chat is scheduled to review the 24–48-hour production observation
 period, including gaps, eligibility, uploads, resolution tracking, free disk and log growth.
