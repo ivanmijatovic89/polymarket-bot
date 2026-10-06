@@ -48,39 +48,39 @@ Set up the database:
 npm run db:migrate
 ```
 
-## Step 1 — Record live market data
+## Step 1 — Record BTC 5m and 15m market data
 
-The bot trades on 15-minute UP/DOWN markets for BTC, ETH, SOL, and XRP. Before backtesting, you need recorded data.
-
-```bash
-RECORD_SYMBOL=BTC npm run record:live:btc
-```
-
-Data is written to `data/events/btc/` as `.parquet` files, one per 15-minute window. Let it run for at least one full window (15 minutes) to capture a complete episode.
-
-::: tip
-Press `Ctrl+C` to stop the recorder cleanly. The current file is renamed to `*-terminated.parquet` and is valid for backtesting.
-:::
-
-## Step 2 — Seed the database
-
-After recording, register the new files in the database so the backtest runner can find them:
+Use [Recorder V4](/datasets/recording/recorder-v4#configuration) with its dedicated configuration file. It requires feed credentials and, for archival, R2 credentials; it does not require a wallet private key or load the trading `.env`.
 
 ```bash
-npm run db:insert-parquet
+npm run record:v4 -- --env-file /absolute/path/to/.env.recorder-v4
 ```
+
+The recorder captures both durations, including Binance, Chainlink, and price-to-beat observations. It archives self-contained packages to R2 and removes recorder-local event files only after upload verification. Let it run long enough for a complete market and the finalization grace. The market already in progress at startup is marked incomplete.
+
+For the existing deployment, use the [worker-2 service commands](/datasets/recording/recorder-v4-worker-2) rather than starting a second instance. `Ctrl+C` stops a foreground instance cleanly and preserves unfinished work for recovery.
+
+## Step 2 — Download and verify a package
+
+Use the [V4 list/download commands](/datasets/recording/recorder-v4#r2-object-layout) to select a timeframe/date range or an exact R2 manifest. A downloaded cache is separate from the recorder spool. Verify a selected package:
+
+```bash
+npm run record:v4:verify -- /absolute/path/to/downloaded-package
+```
+
+V4 packages carry their own market metadata and resolution sidecars. They do not need `db:insert-parquet` registration.
 
 ## Step 3 — Run a backtest
 
 ```bash
-npm run backtest -- --strategy basicFak.v1 --symbol btc --limit 5 --latest
+npm run backtest -- --strategy basicFak.v1 \
+  --input-mode recorder-v4 --dir /absolute/path/to/recorder-cache \
+  --timeframe 15m --latest --limit 5 --sequential
 ```
 
-This replays the 5 most recent BTC recordings with the `basicFak.v1` strategy and prints per-market and aggregate statistics.
+This replays up to five selected 15-minute packages locally and saves results to MySQL. Check the saved market statuses: incomplete required-feed coverage is skipped, and missing official resolution is reported. Omit `--sequential` to use the [backtest fleet](/backtest/fleet/overview); workers must have access to the package path, or receive an R2 manifest input they can download.
 
-::: tip
-`DRY_RUN` has no effect in backtests — execution is always simulated. Safe to run at any time.
-:::
+`DRY_RUN` has no effect in backtests — execution is always simulated. For older data, use the [Telonex workflow](/datasets/telonex/backtest).
 
 ## Step 4 — Run the live trading bot
 
@@ -110,7 +110,7 @@ Before going live, confirm:
 
 - [ ] The CLOB V2/signing and collateral migration in #249 is complete and verified
 - [ ] `npm run code:eslint` passes
-- [ ] `npm run record:live:btc` writes valid `.parquet` files
+- [ ] `npm run record:v4:verify -- <package>` verifies a complete V4 package
 - [ ] `npm run backtest` runs at least one file end-to-end without errors
 - [ ] `npm run trade:bot:btc` starts, connects to market WebSocket, and logs ticks in dry-run mode
 - [ ] `npm run check:balances` shows sufficient USDC and correct approvals

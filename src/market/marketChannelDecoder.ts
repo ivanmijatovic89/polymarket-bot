@@ -5,7 +5,7 @@ import type { AnyMarketMessage } from './orderbook/index.js'
 // ('binance_agg_trade' / 'chainlink_round', src/market/syntheticTick.ts),
 // which never enter the decoder path at all.
 export const SYNTHETIC_EVENT_TYPES = new Set<string>([
-  // Synthetic markers recorded by record-live.ts
+  // Synthetic markers retained in historical raw-event recordings.
   'disconnect',
   'window_end',
   'writer_lag_disconnect',

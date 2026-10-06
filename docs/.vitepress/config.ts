@@ -46,19 +46,13 @@ export default withMermaid(
             { text: 'Machine Roles & Sync', link: '/datasets/sync' },
             { text: 'Data Coverage (epochs)', link: '/datasets/data-coverage' },
             {
-              text: 'Live Recording',
+              text: 'Recorder V4',
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/recording/overview' },
                 { text: 'Recorder v4 (BTC 5m + 15m)', link: '/datasets/recording/recorder-v4' },
                 { text: 'Recorder v4 on worker-2', link: '/datasets/recording/recorder-v4-worker-2' },
                 { text: 'Recorder v4 validation', link: '/datasets/recording/recorder-v4-validation' },
-                { text: 'Recording Live Events', link: '/datasets/recording/recording-live-events' },
-                { text: 'Parquet Event Writer', link: '/engine/parquet-event-writer' },
-                { text: 'Parquet Event Schema', link: '/engine/parquet-event-schema' },
-                { text: 'List Backtest Files', link: '/datasets/recording/list-backtest-files' },
-                { text: 'Seed Database from Parquet', link: '/datasets/recording/insert-parquet-to-db' },
-                { text: 'Scan Disconnect Events', link: '/datasets/recording/scan-disconnect-events' },
               ],
             },
             {
@@ -115,7 +109,7 @@ export default withMermaid(
                   text: 'Synthetic Feed Ticks',
                   link: '/datasets/price-feeds/synthetic-ticks',
                 },
-                { text: 'Parity Harness (Calibration)', link: '/datasets/price-feeds/parity-harness' },
+                { text: 'Historical Feed Calibration', link: '/datasets/price-feeds/parity-harness' },
               ],
             },
             {
@@ -133,6 +127,10 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Verify Parquet File', link: '/datasets/tools/verify-parquet' },
+                { text: 'Raw-Event Schema (Historical / Converted)', link: '/engine/parquet-event-schema' },
+                { text: 'List Historical Files', link: '/datasets/tools/list-backtest-files' },
+                { text: 'Index Historical Files in DB', link: '/datasets/tools/insert-parquet-to-db' },
+                { text: 'Scan Historical Disconnects', link: '/datasets/tools/scan-disconnect-events' },
               ],
             },
             {

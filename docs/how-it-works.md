@@ -9,17 +9,19 @@ description: The core architecture of the Polymarket Bot — three operating mod
 
 The bot's most important design property is this: **live trading and backtesting run the exact same strategy code over the exact same event stream.**
 
-When the recorder captures live WebSocket messages, it writes every raw event to a Parquet file. When the backtester runs, it replays those files through the identical `MarketEngine → StrategyRunner → OrderManager` pipeline that processes live data. The only difference is what sits at the end of the pipeline — a real CLOB API call or a fill simulator.
+Recorder V4 captures market and external-feed observations with their local receipt order and times. Backtests replay supported observations through the shared `MarketEngine → StrategyRunner → OrderManager` pipeline. Execution uses a simulator; it cannot reproduce actual exchange fills. A separate live connection can receive different observations or receive them at different times.
 
-This means a backtest is not an approximation of live behavior. It is a deterministic replay of what actually happened.
+The live trading CLI rejects requests for V4-only feed capabilities it cannot supply. Sharing strategy logic does not make an unsupported live feed available. See the [V4 replay contract](/datasets/recording/recorder-v4#coverage-and-backtests).
 
 ## Three operating modes
 
 ```mermaid
-graph LR
+%%{init: {"htmlLabels": false}}%%
+graph TD
     subgraph Record
-        WS[Polymarket WebSocket] --> REC[record-live.ts]
-        REC --> PQ[Parquet Files\ndata/events/]
+        WS[Polymarket, Binance, Chainlink and PTB] --> REC[record-v4.ts]
+        REC --> WAL[Durable journals]
+        WAL --> PQ[Compact Parquet and manifest in R2]
     end
 
     subgraph Backtest
@@ -40,7 +42,7 @@ graph LR
 
 | Mode         | Entry point      | Data source          | Execution         |
 | ------------ | ---------------- | -------------------- | ----------------- |
-| **Record**   | `record-live.ts` | Polymarket WebSocket | Writes to Parquet |
+| **Record** | `record-v4.ts` | Polymarket, Binance, Chainlink, PTB | Verified Parquet/R2 packages |
 | **Backtest** | `backtest.ts`    | Parquet replay       | Simulated fills   |
 | **Live**     | `trading-bot.ts` | Polymarket WebSocket | Real CLOB orders  |
 

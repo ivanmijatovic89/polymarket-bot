@@ -8,7 +8,8 @@ import {
   decodeMarketChannelFrame,
   decodeMarketChannelMessage,
 } from '../../market/marketChannelDecoder.js'
-import { RotatingParquetEventRecorder } from '../../parquet/io/eventWriter.js'
+import * as parquet from '@dsnp/parquetjs'
+import { rawMarketEventParquetSchema } from '../../parquet/io/eventSchema.js'
 import { replayOrderBookForMarket } from '../../parquet/replay/replayOrderBookForMarket.js'
 
 const book = (timestamp: number, asset = 'up', market = 'market') => ({
@@ -167,28 +168,28 @@ test('concurrent websocket frames keep array children contiguous for synchronous
 test('legacy recorded replay emits every initial array child and retains the first-market selection rule', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'legacy-array-parity-'))
   try {
-    const recorder = new RotatingParquetEventRecorder({ baseDir: directory })
+    const fixturePath = path.join(directory, 'fixture.parquet')
+    const writer = await parquet.ParquetWriter.openFile(rawMarketEventParquetSchema, fixturePath)
     const frames = [
       JSON.stringify([book(1), book(2, 'down')]),
       JSON.stringify(book(3, 'foreign-token', 'foreign-market')),
       JSON.stringify(book(4)),
     ]
-    for (const [index, rawJson] of frames.entries())
-      await recorder.append({
-        marketId: 'market',
-        fileKey: 'fixture',
-        row: {
+    try {
+      for (const [index, rawJson] of frames.entries())
+        await writer.appendRow({
           ingest_seq: BigInt(index + 1),
           ts_local_ms: BigInt(index + 1),
           ts_exchange_ms: BigInt(index + 1),
           event_type: 'book',
           raw_json: rawJson,
-        },
-      })
-    await recorder.closeAll()
+        })
+    } finally {
+      await writer.close()
+    }
     const seen: string[] = []
     await replayOrderBookForMarket({
-      filePaths: [path.join(directory, 'fixture.parquet')],
+      filePaths: [fixturePath],
       onSnapshot: (snapshot, event) => {
         seen.push(event.msg.timestamp)
         assert.equal(snapshot.market, 'market')

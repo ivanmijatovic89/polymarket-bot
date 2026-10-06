@@ -5,7 +5,9 @@ description: How to populate the markets database from parquet recording files o
 
 # Seed the Database from Local Parquet Files
 
-This guide explains how to sync the markets database with the parquet files currently on disk. Run this tool after recording new market data, after moving or deleting parquet files, or when setting up a fresh database.
+This tool applies to historical raw-event files, not Recorder V4 packages. For current recording, archive selection, coverage checks, and replay, use [Recorder V4](/datasets/recording/recorder-v4). V4 packages do not need these file-indexing or deletion steps.
+
+This guide explains how to sync the markets database with the parquet files currently on disk. Use it when indexing existing historical raw-event files or reconciling their database records.
 
 ## Why the database needs to know about parquet files
 
@@ -15,7 +17,7 @@ When the two fall out of sync — files on disk that are not in the database, or
 
 ## When to run this
 
-- After recording new parquet files with `npm run record:live:*`
+- After importing historical raw-event Parquet files into the expected directory layout
 - After manually moving or deleting parquet files from `data/events/`
 - After setting up a fresh database (first run)
 - Periodically to keep the index consistent with what is on disk

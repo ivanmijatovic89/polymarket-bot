@@ -11,13 +11,15 @@ Three dataset sources are currently supported:
 
 | Source | Format | Historical reach | Setup effort | Replay speed |
 | --- | --- | --- | --- | --- |
-| [Live Recording](/datasets/recording/overview) | Raw WS events (Parquet) | From the moment you start recording | Run the recorder yourself | Baseline |
+| [Recorder V4](/datasets/recording/overview) | Compact mixed-feed Parquet + manifest/resolution sidecars | From the moment you start recording | Run the isolated recorder | See [measured validation](/datasets/recording/recorder-v4-validation) |
 | [Telonex](/datasets/telonex/overview) | Delta (book/price_change) or paired snapshots (Parquet) | Pre-collected historical data | Pipeline-managed: sync + download + convert | Same as baseline (delta) or ~3× slower (paired) |
 | [PMXT](/datasets/pmxt/overview) | Hourly orderbook archive (Parquet), converted to native format | Pre-collected historical data (v1: Feb–Apr 2026, v2: Apr 2026 onward) | Pipeline-managed: sync catalogue + download & convert (v1) or build master (v2) | Same as baseline (converted to native format) |
 
 ## Live Recording
 
-The recorder subscribes to Polymarket's WebSocket and writes every valid market event to a Parquet file in real time. This is the highest-fidelity source — it captures the exact event stream the live trading engine sees, including disconnect markers when connectivity is lost.
+Recorder V4 captures BTC 5m and 15m markets with Polymarket, Binance aggregate trades and quotes, Chainlink spot/TWAP, and website price-to-beat observations. One receipt sequence preserves their arrival order in each self-contained market package. Durable journals support recovery; verified R2 upload precedes local event-file cleanup. Coverage and resolution evidence travel with the package.
+
+This records what the recorder process received. Another host or WebSocket session can observe different timing or gaps.
 
 The tradeoff is that you can only record from the moment you start. There is no historical backfill — if you want data from last week, you needed to be recording last week.
 
@@ -54,25 +56,24 @@ Two converters are available:
 
 ## From dataset to backtest: the full workflow
 
-Regardless of source, the path from raw data to a runnable backtest follows the same steps.
+Preparation depends on the source. V4 uses verified packages; historical pipelines use their catalogues and conversions.
 
-### Live Recording
+### Recorder V4
 
+```bash
+# Capture with a dedicated configuration (both BTC durations by default).
+npm run record:v4 -- --env-file /absolute/path/to/.env.recorder-v4
+
+# After downloading a selected package from R2:
+npm run record:v4:verify -- /absolute/path/to/downloaded-package
+npm run backtest -- --strategy YOUR_STRATEGY \
+  --input-mode recorder-v4 --dir /absolute/path/to/recorder-cache \
+  --timeframe 15m --sequential
 ```
-1. Record         npm run record:live:btc
-2. Scan           npm run scan:disconnect-events -- data/events/btc
-3. Verify         npm run verify:parquet -- <file.parquet>
-4. Seed database  npm run db:insert-parquet
-5. Backtest       npm run backtest -- --strategy <id> --symbol btc
-```
 
-- **Record** — capture the live WebSocket stream to Parquet files. One file per 15-minute market window.
-- **Scan** — inspect files for WebSocket disconnect gaps and remove files that would degrade backtest quality.
-- **Verify** — confirm a file is fully readable and its schema looks correct before running a backtest.
-- **Seed database** — index the files on disk into the `markets` table so the backtest CLI can query them by symbol, slug, or date range.
-- **Backtest** — replay the files through your strategy.
+Use [V4 list/download](/datasets/recording/recorder-v4#r2-object-layout) to select archives. V4 supplies its own market metadata; it does not use the raw-file database seeding or disconnect-deletion workflow. Ordinary replay skips markets with gaps in required feeds, retaining the data for explicit outage experiments.
 
-→ [Scan Disconnect Events](/datasets/recording/scan-disconnect-events) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Seed Database from Parquet](/datasets/recording/insert-parquet-to-db) · [Running Backtests](/backtest/running-backtests)
+→ [V4 capture, archive, and replay diagrams](/datasets/recording/recorder-v4) · [Worker-2 operations](/datasets/recording/recorder-v4-worker-2)
 
 ### Telonex (pipeline)
 
