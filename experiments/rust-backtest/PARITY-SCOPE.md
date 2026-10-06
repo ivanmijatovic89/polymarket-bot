@@ -52,3 +52,15 @@ python3 experiments/rust-backtest/full-benchmark.py \
 ```
 
 The private strategy/data manifests and generated results stay local and ignored. Historical reports retain their original evidence and scope; their ratios are superseded for decisions about the expanded local path.
+
+## Completed measurement
+
+All gates passed for implementation commit `a40f99848bdbaebc048f89cebfef66e1b4a4af81`:
+1,000 full replay outputs (196,834,457 events), complete batch/segment statistics,
+162 portable engine scenarios, 5 aggregation fixtures and 2,077 decimal-format
+cases. Three trace-free runs per engine at eight workers passed output checks
+and final input/source/binary hashes. Median wall time was 577.960 seconds for
+production TypeScript and 103.346 seconds for native Rust: **5.59x**.
+
+See [REPORT-JUNE-1000-FULL.md](REPORT-JUNE-1000-FULL.md) for measured ranges,
+provenance, hardware conditions and the bounded migration scope.

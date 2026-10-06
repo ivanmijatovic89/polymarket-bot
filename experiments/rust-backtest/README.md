@@ -1,4 +1,4 @@
-> Current work: [expanded local-engine parity contract](PARITY-SCOPE.md). Historical ratios below measured the earlier prototype. Use `full-benchmark.py` for fresh full-output parity and original-file batch timings.
+> Current result: [complete local-path benchmark — 5.59x median](REPORT-JUNE-1000-FULL.md), with the [expanded local-engine parity contract](PARITY-SCOPE.md). Use `full-benchmark.py` for full-output parity and original-file batch timings. The sections below document earlier prototype measurements and their original limitations; they do not describe the expanded engine.
 
 # Rust backtest experiment
 
@@ -12,7 +12,35 @@ entry points continue to use the same TypeScript engine. The experiment is not
 registered as a strategy or connected to the execution fleet. A production Rust
 migration must provide one shared core for live and replay before activation.
 
-## Supported path
+## Expanded local engine
+
+The native replay now includes the general local order manager, BUY/SELL
+FOK/GTC/GTD execution and cancellation, complete portfolio/event accounting,
+full cached snapshots, position/orderbook metrics, normal diagnostic calculations,
+market statistics, and batch/calendar/tail aggregation. The scope and independent
+correctness gates are documented in [PARITY-SCOPE.md](PARITY-SCOPE.md).
+
+For a fresh complete local-path measurement with the existing private sample:
+
+```sh
+cargo build --release --locked --manifest-path experiments/rust-backtest/Cargo.toml
+python3 experiments/rust-backtest/core-parity.py --node /absolute/path/to/node20
+python3 experiments/rust-backtest/full-benchmark.py \
+  --manifest experiments/rust-backtest/fixtures/june-1000/raw-manifest.json \
+  --node /absolute/path/to/node20 --workers 8 --rounds 3
+```
+
+The full benchmark generates production TypeScript and native traces, compares
+complete output structures and statistics, then times three alternating runs
+per engine using the original input files. Each timed output is checked against
+the verified reference. Final results are accepted only after the source, input
+and binary hashes remain unchanged. The portable differential fixtures do not
+require private market data or the frozen strategy artifact.
+
+The remaining sections describe the historical prototype and its original
+benchmark commands. Their omitted work is not the current parity contract.
+
+## Historical prototype path
 
 - Original Parquet row order, without timestamp re-sorting or tick sampling.
 - Full depth for both outcome books, including level insertion/deletion.
@@ -26,8 +54,8 @@ migration must provide one shared core for live and replay before activation.
 - Per-market stats, including markets with zero trades.
 - Independent simulation state for every market and worker.
 
-The native executable deliberately accepts only the pinned artifact and fixture
-format. It does not support other strategies, input modes, SELL/GTC/GTD orders,
+The initial prototype accepted only the pinned artifact and fixture
+format. It did not support other strategies, input modes, SELL/GTC/GTD orders,
 market rotation within one simulation, user-WebSocket reconciliation, or live
 execution. Passing sample parity does not certify those unimplemented paths.
 
@@ -95,7 +123,7 @@ CPU is summed across workers; reported memory is the **sum of worker peak RSS**,
 not a simultaneously sampled fleet peak. No cold-disk or four-machine fleet claim
 is made by these warm-cache measurements.
 
-## Parity contract
+## Historical prototype parity contract
 
 The TypeScript reference imports production market replay, strategy artifact,
 strategy runner, order manager, execution adapter, portfolio, feed provider, and
@@ -133,7 +161,7 @@ optimized TypeScript could not recover part of the gain.
 
 See [REPORT.md](REPORT.md) for the measured results and remaining migration work.
 
-## June 1,000-market scaling test
+## Historical June 1,000-market scaling test
 
 The larger local experiment keeps the strategy artifact and parameters from run
 9657, but selects resolved, locally available BTC 15-minute markets in
@@ -181,7 +209,7 @@ The completed 1,000-market measurements and migration limits are in
 [REPORT-JUNE-1000.md](REPORT-JUNE-1000.md), with raw observations in
 [measurements-june-1000.json](measurements-june-1000.json).
 
-## Original daily-feed file benchmark
+## Historical original daily-feed file benchmark
 
 `raw-inputs.mts` adds original Binance and Chainlink daily Parquet paths, hashes
 and frozen lookback/outage settings to the existing market selection. It does
