@@ -65,8 +65,34 @@ a wallet-phase sample; API latency varied between runs, and the first run also
 overlapped local dependency installation. It does not establish a fixed full-job
 speedup. Evidence: `logs/nightly-finish-20261006/queue-comparison/summary.json`.
 
-The full nightly-refresh measurement is recorded separately when validation
-completes under `logs/nightly-finish-20261006/`.
+## Full seven-day refresh
+
+On October 6, the updater refreshed **September 29 through October 5**: seven
+complete days and **672 markets**. The complete invocation took **24 minutes
+57 seconds**, including download, recalculation, independent per-day verification,
+publication and temporary-cache cleanup. It made **40,046 requests**. There were
+no HTTP 429 responses or server errors; nine transient network/response errors
+were retried successfully.
+
+The shared queue covered all 26,593 daily wallet jobs with 17,495 combined batches;
+no wallet job needed the independent fallback. The earlier independent downloads
+of those same dates recorded 34 minutes 38 seconds and 58,271 requests. This is a
+useful operational comparison, not a controlled full-job speedup: the observations
+were made at different times, and the older per-day timers excluded subsequent
+verification. The four-run comparison above separately checks identical source
+facts under both fetching methods.
+
+Budget roughly **half an hour for a week-sized BTC 15-minute refresh** on this
+machine under similar conditions. A routine night downloads the new day first
+and refreshes the six already stored days in its seven-day window, so its exact
+duration can differ. Larger trading volumes, API latency, source discrepancies
+or catch-up after several missed nights can extend the run.
+
+Evidence in the dataset root: `logs/nightly-finish-20261006/weekly-update.json`,
+`weekly-baseline.json` and `release-audit.json` in that same directory. This first
+run's report timer stopped just before cache cleanup; the measured 24:57 uses the
+completed command's output-file timestamp. The released updater includes cache
+cleanup in its elapsed-time report and only marks the run complete afterwards.
 
 ## Future workload
 

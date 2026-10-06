@@ -168,6 +168,10 @@ export async function updateDataset(
     for (const day of state.refresh) await completeDay(day, walletBatches)
     const retention = await pruneSnapshots(options.root, await loadIndex(options.root))
     const removedStaging = await pruneManagedWork(options.root, await loadIndex(options.root))
+    // Cleanup can take noticeable time for a full week of cursor pages. Keep the
+    // run active, and include it in elapsed time, until those files are removed.
+    // Original API row payloads remain in Parquet.
+    await rm(path.join(options.root, 'work', 'updates'), { recursive: true, force: true })
     state.status = 'complete'
     state.finishedAt = new Date().toISOString()
     const report = {
@@ -185,8 +189,6 @@ export async function updateDataset(
     }
     await writeJson(path.join(options.root, 'logs', 'updates', `${state.id}.json`), report)
     await writeJson(stateFile, report)
-    // Only temporary update caches are removed. Source payloads remain in Parquet.
-    await rm(path.join(options.root, 'work', 'updates'), { recursive: true, force: true })
     const logs = path.join(options.root, 'logs', 'updates')
     const history = await Promise.all(
       (await readdir(logs))
