@@ -5,7 +5,7 @@ description: Isolated compact recorder installation with a new R2 namespace and 
 
 # Recorder v4 on worker-2
 
-V4 replaces the recorder's format and service, while reusing worker-2's existing Node 20 and SSH setup. It does not update the fleet checkout or restart backtest workers. The [V4 guide](./recorder-v4) describes the format, feed coverage and commands. Previous V3 deployment evidence remains in the [historical worker-2 report](./recorder-v3-worker-2-validation).
+V4 replaces the recorder's format and service, while reusing worker-2's existing Node 20 and SSH setup. Its isolated installation does not update the fleet checkout or restart backtest workers. The [V4 guide](./recorder-v4) describes the format, diagrams, feed coverage and commands. Previous V3 guides and deployment evidence remain in Git history; the supported operating instructions are on this page.
 
 V4 is installed and starts automatically when worker-2 boots. For normal operation, use the commands below; the initial V3-to-V4 activation procedure is already complete. On October 6, the operator manually deleted the retired `recorder-v3/` and `recorder-v3-validation/` R2 prefixes. V4 does not depend on those recordings. Keep V3 disabled: its retained local spool can contain pending uploads that would recreate old objects if restarted.
 
@@ -96,11 +96,17 @@ The operator completed administrator activation at 10:55 UTC on October 6 using:
 ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-recorder-v4.zsh'
 ```
 
-V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The primary dashboard and fleet checkouts were left unchanged and require the merged V4 code before displaying V4 status or dispatching V4 backtests. Do not rerun the initial activation command on an already loaded service.
+V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The initial activation left the primary dashboard and fleet checkouts unchanged; their separate rollout must load the merged V4 code before displaying V4 status or dispatching V4 backtests. Do not rerun the initial activation command on an already loaded service.
 
 The one-time installer included rollback to V3 on a failed initial switch. That behavior is historical and must not be used for routine operation or future V4 updates now that the V3 archives have been retired. Keep the original installation files as deployment evidence.
 
 ## Updates and rollback
+
+### Log maintenance
+
+The LaunchDaemon does not rotate `recorder.log`. Inspect it during release updates and at least monthly; rotate it at 32 MiB or before keeping a second large log. Use the routine stop command and wait for the process to exit before renaming/compressing the closed log, then start V4 and verify its heartbeat. This planned pause creates a recorded coverage gap. Keep at most three compressed historical logs. Log retention is separate from event-file cleanup and the spool disk limit; never remove spool state or R2 data to rotate a log.
+
+### Changing the pinned release
 
 Prepare a new pinned V4 release, install its dependencies and validate it before changing the service. Stop the service before replacing the rendered plist. Keep the V4 spool outside releases so it survives updates.
 
