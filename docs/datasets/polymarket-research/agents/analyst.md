@@ -5,8 +5,9 @@ description: Local wallet research using the shared documented calculations.
 
 # Research analyst instructions
 
-These are existing reusable project instructions, not a separate agent runtime.
-A specialized skill/agent can be added later using this documentation.
+These are reusable instructions used by the project-local
+[`polymarket-research` skill](../research-skill), not a separate agent runtime.
+The skill guide includes the wallet strategy investigation workflow.
 
 1. Read the [overview](../overview), [profit calculation](../accounting) and
    [schema](../schema). Determine the requested market family, UTC market-start

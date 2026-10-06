@@ -118,9 +118,41 @@ launchctl bootout "gui/$(id -u)/com.polymarket.research.btc-15m"
 Also remove its plist from `~/Library/LaunchAgents/` if it should remain disabled
 after the next login. This does not erase Parquet or terminate unrelated jobs.
 
+## Backups and restore
+
+Retaining old generations on the same disk is not a backup. The local operational
+check on October 6, 2026 found no configured Time Machine destination; the research
+directory itself was not excluded. No separate backup of this API dataset was
+identified in the project's configuration. Recorder V4's R2 archive contains
+separate recording data and must not be assumed to protect these research files.
+A backup destination still needs to be selected before a second copy can be set up.
+
+A consistent data backup needs `dataset.json` (if present), a captured `index.json`,
+and the complete snapshot directories referenced by that index. Include any
+additional generations pinned for studies, the pin file and study SQL/reports.
+Capture from a filesystem snapshot, or pause the schedule and wait until the
+writer has finished while making the copy, so retention cannot remove files
+mid-copy. `raw_json`, checksums and query provenance reside within each generation;
+temporary request caches are unnecessary for restoring published research.
+
+Save `update-config.json` and `schedule.json` as operational records. Restore into
+a separate root, keep its schedule disabled, and run coverage, verification and
+a small local query there before using it. When moving to a new path or machine,
+install the schedule anew with the new absolute root and supported Node 20;
+do not blindly reactivate copied absolute paths. Do not copy a running
+`sync.lock`, reader leases or an in-progress update state into an active restore.
+
+A local restore smoke test on October 6 copied the October 5 published generation
+and a one-day index into a separate temporary root. All 96 markets passed
+verification and all 3,073 observed wallets remained queryable. This checks the
+restore procedure for one day; it is not an off-device backup of the full dataset.
+
+A refresh from the API may rebuild data after a disk loss, but cannot guarantee
+recovery of the exact historical source observations used by a previous study.
+
 ## Follow-up scope
 
-After this system and its docs are complete, create the specialized research
-skill and agent. Both should reference the overview, schema, calculations and
-research commands. Additional market families remain a later, separately tested
-rollout. Do not duplicate calculation rules in agent prompts.
+The [project research skill](./research-skill) is available for wallet studies
+and strategy investigations. A separate agent runtime is optional future work.
+Additional market families remain a later, separately tested rollout. Keep
+calculation rules in these docs rather than copying them into agent prompts.

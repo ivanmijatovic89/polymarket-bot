@@ -50,7 +50,12 @@ The installer checks Node 20 and the Mac's Europe/Belgrade system timezone. It
 builds a versioned runtime inside the permanent dataset root, installs its pinned
 DuckDB dependency, smoke-tests the bundle and validates the launchd plist. The
 job does not depend on keeping a Codex worktree open. Omitting `--activate`
-prepares and validates the runtime without registering the job.
+prepares and validates a separate runtime without registering the job or changing
+its active configuration. An invalid configuration or failed build leaves the
+installed release unchanged. Activation refuses to unload an active downloader;
+handled activation failures restore its previous configuration, plist and
+schedule metadata. A process kill or machine crash can interrupt rollback:
+inspect those files and `launchctl print` before retrying installation.
 
 The saved job is `com.polymarket.research.btc-15m`. It runs at 03:00 local time,
 and also checks at login. A completed scheduled date is skipped, so login does
