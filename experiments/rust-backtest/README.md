@@ -147,7 +147,7 @@ and excluded; the checker remains enabled. Selection continues until exactly
 
 python3 -u experiments/rust-backtest/scaling.py \
   --manifest experiments/rust-backtest/fixtures/june-1000/manifest.json \
-  --node "$NODE20" --workers 1 4 8 --trace-workers 8 --rounds 1 \
+  --node "$NODE20" --workers 4 8 1 --trace-workers 8 --rounds 1 \
   --production-workers 4
 ```
 
@@ -166,3 +166,15 @@ Results are checkpointed in ignored `results/june-1000/scaling.json` after each
 configuration. `--production-workers 4` also checks the unmodified production
 TypeScript replay, including raw daily-feed loading. Rust still consumes
 prepared feeds, so this production baseline is contextual.
+
+The TypeScript trace pass writes `typescript-trace-provenance.json`, binding the
+reference input manifest, source/dependency declarations, runtime version and
+trace output bytes. `--reuse-typescript-traces` reuses that reference only after
+those hashes and each worker manifest header match. Rust traces are always
+regenerated and compared in full before timing. Rerun the reference after any
+dependency installation/change; dependency declarations cannot detect edits
+inside a shared `node_modules` directory.
+
+The completed 1,000-market measurements and migration limits are in
+[REPORT-JUNE-1000.md](REPORT-JUNE-1000.md), with raw observations in
+[measurements-june-1000.json](measurements-june-1000.json).
