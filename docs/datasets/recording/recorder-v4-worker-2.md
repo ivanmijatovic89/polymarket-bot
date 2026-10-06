@@ -37,16 +37,32 @@ The SSH alias is `worker-2-ansible`. The existing Node binary is `/Users/worker-
 
 A system LaunchDaemon needs administrator installation. Prepare the concrete rendered file first. Supply the administrator password only in the user's own terminal.
 
-Stop the existing `com.polymarket.recorder-v3` LaunchDaemon gracefully before starting V4. Preserve its configuration, release, local spool, retry tasks and all R2 objects. A stopped V3 service will no longer process its pending resolution/upload tasks; inspect and report that backlog before stopping it. This is a fresh V4 capture, not an in-place spool migration.
+Disable the existing V3 label persistently with `sudo launchctl disable system/com.polymarket.recorder-v3`, then stop it with `sudo launchctl bootout system/com.polymarket.recorder-v3` before starting V4. Disabling is essential: its preserved `RunAtLoad` plist must not start a second recorder after a reboot. Preserve its configuration, release, local spool, retry tasks and all R2 objects. A stopped V3 service will no longer process its pending resolution/upload tasks; inspect and report that backlog before stopping it. This is a fresh V4 capture, not an in-place spool migration.
 
-Install the V4 plist as `/Library/LaunchDaemons/com.polymarket.recorder-v4.plist`, owned by `root:wheel`, mode 0644, then bootstrap it in the system launchd domain. Confirm that it runs as `worker-2`, points to the intended commit and configuration, and is the only continuous recorder taking new observations. Do not unload or modify the fleet services.
+Install the V4 plist as `/Library/LaunchDaemons/com.polymarket.recorder-v4.plist`, owned by `root:wheel`, mode 0644, enable `system/com.polymarket.recorder-v4`, then bootstrap its plist in the system launchd domain. Confirm that it runs as `worker-2`, points to the intended commit and configuration, and is the only continuous recorder taking new observations. Do not unload or modify the fleet services.
 
 After activation, check the V4 dashboard heartbeat, both durations, every feed, free space, ingestion plus finalizer CPU/RSS, upload read-back, fresh download and replay. A startup message alone does not establish success. Keep a validation record of the first full markets and any gaps. Internet/provider outages remain visible incomplete coverage; no service configuration can guarantee no missing upstream messages.
+
+The dashboard must also run the merged V4 code: V4 publishes `recorder:v4:*` Redis status, and the old V3 dashboard reader does not consume that namespace. Update the dashboard's own checkout through its normal workflow, preserving any user work. Updating the recorder's isolated release does not update a dashboard running from another checkout. Before dispatching V4 backtests, update the producer and backtest workers to a revision containing PR #290 through the normal fleet workflow. This recorder installation leaves their current checkouts and running jobs unchanged.
+
+## Activated October 6 installation
+
+Release `c90ac75dcdf3f5c4d113c9b2a69eca7268bcca05` is installed at the V4 release root and has completed controlled collection, verified uploads, cross-Mac replay and dashboard-reader validation. See the [validation report](./recorder-v4-validation). The rendered plist and guarded activation script are in `/Users/worker-2/Services/polymarket-recorder-v4/`. The script checks its validation marker, pinned checkout, configuration ownership, stopped validation process and automatic-clock setting before switching only the recorder services.
+
+The operator completed administrator activation at 10:55 UTC on October 6 using:
+
+```bash
+ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-recorder-v4.zsh'
+```
+
+V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The primary dashboard and fleet checkouts were left unchanged and require the merged V4 code before displaying V4 status or dispatching V4 backtests. Do not rerun the initial activation command on an already loaded service.
+
+For a future prepared installation, enter the administrator password only in the terminal. Command failure or HUP/INT/TERM during the switch attempts to disable V4 and restore the prior V3 service. Preserve both spools and inspect launchd status if installation fails; do not resolve a service issue by deleting R2 data.
 
 ## Updates and rollback
 
 Prepare a new pinned V4 release, install its dependencies and validate it before changing the service. Stop the service before replacing the rendered plist. Keep the V4 spool outside releases so it survives updates.
 
-If V4 startup or validation fails, stop V4 and preserve its spool and objects. Restart the previous V3 service with its original pinned release and original V3 spool only if temporary V3 capture is desired. V4 intentionally does not read those old archives. Never point either version at the other's state.
+If V4 startup or validation fails, first run `sudo launchctl disable system/com.polymarket.recorder-v4` and boot out its loaded service. Preserve its spool, plist and objects. If temporary V3 capture is desired, run `sudo launchctl enable system/com.polymarket.recorder-v3` and bootstrap `/Library/LaunchDaemons/com.polymarket.recorder-v3.plist` with its original pinned release and original V3 spool. Explicitly disabling V4 and enabling V3 also makes that rollback persist across reboots. V4 intentionally does not read those old archives. Never point either version at the other's state.
 
 Do not use `rclone sync`, `aws s3 sync --delete`, bucket-wide cleanup, lifecycle changes, or an R2 delete command for this rollout. V4's storage adapter exposes GET/LIST/conditional PUT only, confined to `recorder-v4/`. Existing data outside that prefix is not part of the installation or rollback.

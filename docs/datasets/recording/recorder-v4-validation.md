@@ -13,6 +13,8 @@ The rollout creates new objects only beneath `recorder-v4/`. Local validation us
 
 The network adapter rejects operations outside the V4 namespace before making a request. Conditional PUT prevents replacement of an existing object. Publication and local event cleanup still require complete read-back with matching SHA-256 and byte count. Tests cover prefix escapes, sibling prefixes, conflicting objects, interrupted uploads, corrupted manifests and mismatched local receipts. The catalog excludes child validation namespaces unless explicitly selected.
 
+A live R2 test created one new 47-byte object under this run's `safety-probe/` child, then attempted a conditional replacement of that test object only. R2 returned HTTP 412 and a fresh GET matched the original checksum. The original test object remains; no deletion was attempted. This tests actual endpoint behavior in addition to mocked SDK requests.
+
 V4 requires a separate spool and rejects V3 sequence state. Interrupted compact intermediates are removed only under the spool lock or from a verified archived package, with schema, filename and entry-type guards. Durable journals, V3 state, unrelated files and symlinks are preserved.
 
 ## Retained data and strategy parity
@@ -39,6 +41,15 @@ The unchanged `SplitSellRedeem.v5` strategy ran through production `runSingleMar
 
 All-feed snapshots include Binance aggregate trades, Binance best bid/ask, Chainlink spot, Chainlink TWAP, website PTB and the selected opening reference. The clean 5m fixture passes ordinary admission; the known incomplete 15m fixture uses explicit outage replay. Diagnostic hashing is deliberately excluded from performance timings.
 
+The final production reader was timed separately against the same August 25 Telonex reference used in earlier experiments. One warm-up per case was discarded, then three fresh processes per case were interleaved with correctness instrumentation disabled. Builds and other replay tests had finished; the bounded local recorder remained running in the background.
+
+| 15m workload | Market-file size | Median replay time | Range |
+| --- | ---: | ---: | ---: |
+| Telonex reference plus its ordinary Binance/PTB inputs | 4.68 MB, excluding separate feed files | 5.33 s | 5.25–5.35 s |
+| V4 production compact reader, all captured feeds in its file | 6.89 MB | 6.96 s | 6.90–7.07 s |
+
+The unchanged V5 strategy requests Binance and website PTB in both cases; it does not request Chainlink. Timing includes integrity/admission, feed loading, replay and strategy/execution work, but excludes process imports, downloads and database persistence. These are different markets, so the approximately 31% longer V4 run is a workload comparison, not an equal-data codec penalty or a fleet throughput forecast. Production timing must not be replaced with the faster earlier scratch-decoder measurements. The all-feed correctness tests above cover the additional feeds separately.
+
 Offline proof processes block network connections, environment-file reads and live execution imports. These tests place no real orders and do not access trading credentials. The shared `MarketEngine` normalizes only the recognized unused change hashes, so live and backtest strategy messages remain aligned. The dashboard market simulator remains unsupported for recorder input; this work validates the normal backtest runner and CLI package path.
 
 ## Tests and review
@@ -53,4 +64,57 @@ An initial full-size conversion using a global SQL sort exceeded the finalizer's
 
 Local controlled capture receives both durations and all six feeds. Startup partials and Polymarket reconnects are retained with coverage gaps. Validation uploads have passed read-back and local event cleanup under the dedicated validation prefix. The local test uses a 15 GiB free-space floor and 2 GiB spool limit because this laptop had less than the production 20 GiB floor available; production defaults remain unchanged.
 
-Worker-2 still uses a separately pinned V3 release until the reviewed V4 service switch. Existing V3 configuration, spool, release and archives are preserved. A stopped V3 service no longer advances its old resolution backlog. No long-term reliability or gap-free-provider guarantee follows from these bounded tests.
+Fresh downloads of the following complete live captures passed every-row verification and ordinary all-feed backtest admission. The no-order observer returns `no_activity` after replay; that is not a coverage rejection. Recorded official outcomes were available before these final checks.
+
+| Live market | Rows | Bytes | Replay callbacks | Official outcome |
+| --- | ---: | ---: | ---: | --- |
+| `btc-updown-15m-1791281700` | 337,241 | 5,383,590 | 256,980 | Down |
+| `btc-updown-5m-1791282000` | 158,970 | 2,904,008 | 129,391 | Up |
+
+Their deterministic replay hashes are `558399e83e1b303764a43cb8bda608b01cf878806d3e35e97acef034eeda05b4` and `0f2b2767479cd7e32dc2717f07846debcfcf4c40364acf44d78cb677cdcc49fb`. An independently captured 5m market, `btc-updown-5m-1791281700`, has one recorded gap: ordinary replay produced zero callbacks and `incomplete_capture`; explicit outage replay processed 105,776 callbacks. A later clean market replayed its ticks but reported `unresolved_outcome` while the official resolution was still pending. The recorder does not invent a settlement to make a validation run pass.
+
+The unchanged `SplitSellRedeem.v5` also completed ordinary backtests on the two settled complete live files: 248,044 and 126,218 market callbacks respectively. Both executed the expected 10-share split and received Binance and website PTB snapshots. These are additional live-file integration checks, not a profitability evaluation.
+
+Local validation stopped cleanly. Two partial packages whose upload was aborted by shutdown were subsequently uploaded and verified through a bounded maintenance pass on the stopped validation spool. The event files and journals were removed only after matching archive receipts; remote objects remain. That pass also continued the independent resolution outbox.
+
+Worker-2 switched from its separately pinned V3 release to V4 at 10:55 UTC after controlled host validation. Existing V3 configuration, spool, release and archives are preserved. The stopped V3 service no longer advances its old resolution backlog. No long-term reliability or gap-free-provider guarantee follows from these bounded tests.
+
+The implementation merged in [PR #290](https://github.com/ivanmijatovic89/polymarket-bot/pull/290), with all four required CI jobs passing. The reviewed release is `c90ac75dcdf3f5c4d113c9b2a69eca7268bcca05`, included by merge commit `c4deb7416d3b6908901e40b446aab8250a108770`. Its lockfile SHA-256 is `7f6808f6e5218cfff7ec4c79469108c0dde85be0ec5c6235a64d7b160d40e002`. Worker-2 installed that exact checkout with Node 20.20.2 and passed its compact/R2 boundary tests. No fleet checkout or backtest worker was updated.
+
+The service switch persistently disables V3 before unloading it, preserving its plist for rollback. Error and HUP/INT/TERM handlers attempt to restore the prior service while preserving both spools and all R2 objects. Six mocked-command tests cover command failure, each signal, failure before the switch and failure after a committed switch. The rendered plist and shell syntax were checked locally and on worker-2. The operator subsequently completed administrator activation.
+
+## Worker-2 controlled validation
+
+The pinned V4 release completed a 10-second no-upload smoke test, followed by a bounded capture from 10:29:22 to 10:48:03 UTC. Both exited with code zero. The continuous V3 service remained running during this test. V4 used only `recorder-v4/validation/worker-2-f6c9d9a3-fcc3-4610-9540-a9865e3d6cf7/`, a separate spool, and a separate dashboard identity. A maintenance pass on the stopped validation spool completed two partial uploads and continued resolution tracking.
+
+All four full-duration archives below passed every-row verification on worker-2. Independent downloads and offline replay on the control Mac produced identical bytes, sequence bounds, row counts, tick counts and deterministic replay hashes.
+
+| Worker-2 market | Rows | Parquet bytes | Coverage | Ordinary all-feed replay |
+| --- | ---: | ---: | --- | --- |
+| `btc-updown-15m-1791282600` | 356,196 | 6,275,499 | Complete | 279,381 callbacks; settled Up |
+| `btc-updown-5m-1791282600` | 167,869 | 3,084,638 | Two Polymarket disconnect gaps | Rejected with zero callbacks; explicit outage replay processes 139,859 |
+| `btc-updown-5m-1791282900` | 144,254 | 2,707,664 | Complete | 115,904 callbacks; settled Down |
+| `btc-updown-5m-1791283200` | 73,048 | 1,320,803 | Complete | 52,557 callbacks; official outcome still pending at download |
+
+The complete 15m and selected complete 5m replay hashes are `9167f1e84dab39ff68658a2f0db3e8116e6b105e6caf52535fbd4ff7db11b23c` and `6512074c8ebd47f9088ba82abb5a8e10920306fbe21f1f9d1f4176145604c6fa`. Archive receipts were present and the corresponding local Parquet, WAL and conversion intermediates were absent after verified upload. Separate validation download caches were used only for replay verification.
+
+Across 209 samples taken every 2.5 seconds near the end of collection, peak observed ingestion RSS was 183.3 MiB and finalizer RSS 263.0 MiB. Median ingestion CPU was 15.2% of one core, maximum sampled event-loop lag 11.6 ms, and free space remained above 90.4 GiB. Sampling can miss brief peaks; these figures do not establish performance under every future market or concurrent backtest load. The production dashboard reader successfully read the validation identity from Redis, classified it online, and showed all six feeds receiving data.
+
+The validation-approved marker identifies the tested release. These bounded tests preceded the administrator activation documented below. The stopped validation identity was removed only from the Redis dashboard membership set after confirming its stopped status and PID; its local status, Redis status record and R2 data remain.
+
+## Continuous production activation
+
+The operator ran `/Users/worker-2/Services/polymarket-recorder-v4/activate-recorder-v4.zsh` with administrator privileges. V4 started at 10:55:00 UTC on October 6, with PID 43225, using the exact tested release. Inspection confirmed `com.polymarket.recorder-v4` running as `worker-2`, V4 persistently enabled, and V3 unloaded and persistently disabled. Both old configuration and spool remain. V3 stopped with two pending partial uploads and 503 scheduled resolution/confirmation follow-ups; those retained tasks are not processed by V4.
+
+All six production feeds are receiving data, and the V4 dashboard reader successfully consumed the production Redis status. The primary control-Mac checkout and its running dashboard remain unchanged pending the separately requested checkout update; that dashboard needs the merged V4 code to display the new namespace. Fleet checkouts and active backtest jobs were not changed.
+
+The first production archives use `recorder-v4/btc/<timeframe>/<slug>/<recording-id>/`. Both startup markets are incomplete because observation began after their required boundaries. Downloads on worker-2 and the control Mac passed every-row verification with identical bytes, receive-sequence bounds, replay callback counts and deterministic hashes. Ordinary all-feed backtests rejected both with `incomplete_capture` and zero callbacks; explicit outage replay read the captured feeds using the recorded website PTB. Their exact Chainlink opening reference is unavailable, as expected for these startup partials.
+
+| Production startup market | Rows | Parquet bytes | Outage replay callbacks | Replay SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| `btc-updown-15m-1791283500` | 144,563 | 2,348,462 | 118,845 | `777bc3fb48a9d5420e089152f49cf829842a98e024a7d50539ed7dca86fe93d4` |
+| `btc-updown-5m-1791284100` | 164,158 | 3,018,708 | 135,592 | `1b543cfd09be85150d17391ce4d698f0339bd2e818fd4e55d0ac2fe9e41c7cb4` |
+
+Matching archive receipts were present on worker-2, and these packages' local event Parquet, WAL and conversion intermediates had been removed after verified upload. Their metadata and resolution tasks remain. Official outcomes were still pending at the first independent download; resolution tracking continues separately. Existing R2 objects were neither deleted nor overwritten.
+
+The first complete production 5m market, `btc-updown-5m-1791284400` (11:00–11:05 UTC), subsequently uploaded with zero coverage gaps: 132,119 rows and 2,509,534 Parquet bytes. Independent verification on both Macs matched 109,076 replay callbacks and hash `ce0bb61e26bff834e0997cca35694f38d30700a34e3a536085253c9b6e20fbe1`; its verified local event files were cleaned up. Ordinary all-feed replay admitted the capture and exposed the recorded Chainlink opening reference, Chainlink spot/TWAP, Binance trades/book ticker and PTB. It returned `unresolved_outcome` after replay because official settlement was still pending in that download. The complete 15m controlled capture above establishes full-duration validation; the first full 15m continuous-service market was still recording at this check.
