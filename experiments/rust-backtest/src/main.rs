@@ -1,6 +1,11 @@
 use sha2::{Digest as ShaDigest, Sha256};
+mod context;
+mod engine;
 mod feeds;
+mod fixtures;
+mod portfolio;
 mod raw_feeds;
+mod stats;
 mod strategy;
 mod types;
 use anyhow::{bail, ensure, Context, Result};
@@ -186,11 +191,17 @@ struct Sim<'a> {
     books: [Book; 2],
     book_ts: Option<i64>,
     strategy: Strategy,
-    portfolio: Portfolio,
+    engine: engine::LocalEngine,
+    snapshots: [context::BookSnapshot; 2],
+    trades: Vec<Value>,
+    splits: Vec<Value>,
+    seen_fills: std::collections::HashSet<String>,
+    seen_splits: std::collections::HashSet<String>,
+    context_digest: Digest,
+    cached_context: Option<context::Metrics>,
+    cached_feeds: FeedSnapshot,
     provider: FeedProvider,
-    random: Random,
-    pending: Vec<(i64, usize)>,
-    order_seq: u32,
+
     schedule_index: usize,
     counts: BTreeMap<&'static str, u64>,
     trace: bool,
@@ -216,11 +227,24 @@ impl<'a> Sim<'a> {
             books: [Book::default(), Book::default()],
             book_ts: None,
             strategy: Strategy::new(),
-            portfolio: Portfolio::new(s.starting_capital),
+            engine: engine::LocalEngine::new(
+                s.starting_capital,
+                m.market_id.clone(),
+                [m.up_id.clone(), m.down_id.clone()],
+                s.delay_ms,
+                if s.delay_ms > 0 { s.jitter_ms } else { 0 },
+                s.seed,
+            ),
+            snapshots: std::array::from_fn(|_| context::BookSnapshot::new(&Book::default(), depth)),
+            trades: Vec::new(),
+            splits: Vec::new(),
+            seen_fills: std::collections::HashSet::new(),
+            seen_splits: std::collections::HashSet::new(),
+            context_digest: Digest::new(),
+            cached_context: None,
+            cached_feeds: FeedSnapshot::default(),
             provider: FeedProvider::new(feeds, m, s),
-            random: Random::new(s.seed),
-            pending: Vec::new(),
-            order_seq: 0,
+
             schedule_index: 0,
             counts: BTreeMap::new(),
             trace,
@@ -231,165 +255,56 @@ impl<'a> Sim<'a> {
             events: Vec::new(),
         }
     }
-    fn event(
-        &mut self,
-        kind: &str,
-        ts: i64,
-        index: Option<usize>,
-        reason: Option<&str>,
-        status: Option<&str>,
-        fill: Option<&Fill>,
-    ) {
-        self.portfolio.now = Some(self.portfolio.now.unwrap_or(ts).max(ts));
-        if kind == "order_done" || kind == "order_rejected" {
-            self.strategy.pending = false;
-        }
-        if !self.trace {
-            return;
-        }
-        let client = kind != "ws_order_update";
-        let order_id = kind != "order_submitted";
-        let o = index.map(|i| &self.portfolio.orders[i]);
-        self.events.push(json!({"kind":kind,"tsMs":ts,"clientOrderId":if client{o.map(|o|&o.client)}else{None},"orderId":if order_id{o.and_then(|o|o.order_id.as_ref())}else{None},"reason":reason,"status":status,
-   "fill":fill.map(|f|json!({"id":f.id,"assetId":if f.asset==0{&self.m.up_id}else{&self.m.down_id},"side":"BUY","price":f.price,"size":f.size,"liquidity":"TAKER","feeRateBps":700})),"state":self.portfolio.state(self.m)}));
-    }
-    fn execute(&mut self, index: usize, ts: i64) {
-        let id = format!(
-            "bt-{}-{}",
-            self.order_seq, self.portfolio.orders[index].client
-        );
-        self.order_seq += 1;
-        let o = &mut self.portfolio.orders[index];
-        o.order_id = Some(id.clone());
-        o.state = "open";
-        self.event("order_accepted", ts, Some(index), None, None, None);
-        self.event(
-            "ws_order_update",
-            ts,
-            Some(index),
-            None,
-            Some("MATCHED"),
-            None,
-        );
-        let o = &self.portfolio.orders[index];
-        let asset = o.asset;
-        let limit = o.price;
-        let size = o.size;
-        let fillable: f64 = self.books[asset]
-            .asks
-            .iter()
-            .take_while(|l| l.price <= limit)
-            .map(|l| l.size)
-            .sum();
-        if fillable < size {
-            self.portfolio.orders[index].final_filled = Some(0.0);
-            self.event(
-                "ws_order_update",
-                ts,
-                Some(index),
-                None,
-                Some("CANCELED"),
-                None,
+    fn process_events(&mut self, events: Vec<Value>) {
+        // Match StrategyRunner: drop queued events after the configured drain limit.
+        for event in events.into_iter().take(4200) {
+            if portfolio::s(&event, "kind") == "fill" {
+                let fill = &event["fill"];
+                let notional =
+                    portfolio::r(portfolio::n(fill, "price") * portfolio::n(fill, "size"));
+                let mut diagnostic = fill.clone();
+                diagnostic["timeIso"] = json!(context::iso(portfolio::n(fill, "tsMs") as i64));
+                diagnostic["notional"] = json!(notional);
+                diagnostic["cashDelta"] = json!(if portfolio::s(fill, "side") == "BUY" {
+                    portfolio::r(-notional)
+                } else {
+                    notional
+                });
+                diagnostic["feePaid"] = json!(if portfolio::s(fill, "liquidity") == "TAKER" {
+                    portfolio::r(portfolio::taker_fee(
+                        portfolio::n(fill, "price"),
+                        portfolio::n(fill, "size"),
+                        portfolio::n(fill, "feeRateBps"),
+                    ))
+                } else {
+                    0.0
+                });
+                std::hint::black_box(diagnostic);
+            }
+            self.engine.ledger.apply(&event);
+            self.engine.reconcile(&event);
+            let metrics = context::Metrics::new(
+                &self.engine.ledger,
+                &self.engine.assets,
+                &self.snapshots,
+                self.depth,
             );
-            let o = &mut self.portfolio.orders[index];
-            o.open = false;
-            o.remaining = 0.0;
-            o.state = "killed";
-            self.event("order_done", ts, Some(index), Some("killed"), None, None);
-            return;
-        }
-        let mut remaining = size;
-        let mut fill_seq = 0;
-        // Execution consumes visible depth without mutating the historical book, as in BacktestExecution.
-        let mut fills = Vec::new();
-        for l in &self.books[asset].asks {
-            if l.price > limit || remaining <= 0.0 {
-                break;
+            std::hint::black_box(&metrics);
+            if self.trace {
+                self.events.push(json!({"event":event,"portfolio":self.engine.decision_snapshot(),"metrics":metrics.value()}));
             }
-            let take = remaining.min(l.size);
-            if take <= 0.0 {
-                continue;
-            }
-            fill_seq += 1;
-            fills.push(Fill {
-                id: format!("{id}:{fill_seq}"),
-                asset,
-                price: l.price,
-                size: take,
-            });
-            remaining -= take;
+            // The frozen strategy's account callback returns no intents.
+            self.strategy.on_account_event(&event);
         }
-        for fill in fills {
-            self.portfolio.apply_fill(index, fill.clone());
-            self.event("fill", ts, Some(index), None, None, Some(&fill));
-        }
-        let o = &mut self.portfolio.orders[index];
-        o.final_filled = Some(size.max(o.filled));
-        o.open = false;
-        o.remaining = 0.0;
-        self.event("order_done", ts, Some(index), Some("filled"), None, None);
-        self.event(
-            "ws_order_update",
-            ts,
-            Some(index),
-            None,
-            Some("CONFIRMED"),
-            None,
-        );
     }
     fn submit(&mut self, d: Decision, ts: i64) {
-        let client = format!("{STRATEGY}:{}:{}", self.m.slug, d.seq);
+        let intent = json!({"kind":"place_limit","clientOrderId":format!("{STRATEGY}:{}:{}",self.m.slug,d.seq),"assetId":if d.asset==0{&self.m.up_id}else{&self.m.down_id},"side":"BUY","price":d.price,"size":d.size,"orderType":"FOK","meta":d.meta,"reason":d.reason});
         if self.trace {
-            self.decisions.push(json!({"origin":"market","tsMs":ts,"clientOrderId":client,"assetId":if d.asset==0{&self.m.up_id}else{&self.m.down_id},"price":d.price,"size":d.size}));
+            self.decisions
+                .push(json!({"origin":"market","tsMs":ts,"intent":intent}));
         }
-        let error = if d.size > 2000.0 {
-            Some("risk_max_order_size(max=2000)".to_owned())
-        } else if self.portfolio.orders.iter().filter(|o| o.open).count() >= 100 {
-            Some("risk_max_open_orders(max=100)".to_owned())
-        } else if self.portfolio.positions[d.asset].qty + d.size > 2000.0 {
-            Some("risk_max_abs_position(max=2000)".to_owned())
-        } else if commitment(d.price, d.size) > self.portfolio.available() + 1e-8 {
-            Some(format!(
-                "insufficient_capital(required={},available={})",
-                commitment(d.price, d.size),
-                self.portfolio.available()
-            ))
-        } else {
-            None
-        };
-        if let Some(reason) = error {
-            self.portfolio.now = Some(self.portfolio.now.unwrap_or(ts).max(ts));
-            self.strategy.pending = false;
-            if self.trace {
-                self.events.push(json!({"kind":"order_rejected","tsMs":ts,"clientOrderId":client,"orderId":null,"reason":reason,"status":null,"fill":null,"state":self.portfolio.state(self.m)}));
-            }
-            return;
-        }
-        let index = self.portfolio.orders.len();
-        self.portfolio.orders.push(Order {
-            client,
-            order_id: None,
-            asset: d.asset,
-            price: d.price,
-            size: d.size,
-            filled: 0.0,
-            remaining: d.size,
-            state: "requested",
-            final_filled: None,
-            open: true,
-        });
-        self.event("order_submitted", ts, Some(index), None, None, None);
-        let jitter = if self.s.delay_ms > 0 && self.s.jitter_ms > 0 {
-            ((self.random.next() * 2.0 - 1.0) * self.s.jitter_ms as f64).trunc() as i64
-        } else {
-            0
-        };
-        let execute_at = ts.max(ts + self.s.delay_ms + jitter);
-        if execute_at <= ts {
-            self.execute(index, ts);
-        } else {
-            self.pending.push((execute_at, index));
-        }
+        let events = self.engine.handle(vec![intent], ts, &self.books, false);
+        self.process_events(events);
     }
     fn dispatch(&mut self, kind: u8, ts: i64, seq: f64, local: Option<i64>) {
         let name = [
@@ -406,18 +321,26 @@ impl<'a> Sim<'a> {
             self.digest
                 .tick(kind, ts, seq, local, &self.books, self.depth);
         }
-        if self.portfolio.now.is_none() {
-            self.portfolio.now = Some(ts);
-        }
+        self.engine.ledger.initialize(ts);
         if kind < 2 {
-            self.pending.sort_by_key(|p| *p);
-            while self.pending.first().is_some_and(|v| v.0 <= ts) {
-                let (_, index) = self.pending.remove(0);
-                self.execute(index, ts);
-            }
+            let events = self.engine.tick(ts, &self.books);
+            self.process_events(events);
         }
+        self.engine.ledger.snapshot();
+        let metrics = context::Metrics::new(
+            &self.engine.ledger,
+            &self.engine.assets,
+            &self.snapshots,
+            self.depth,
+        );
+        std::hint::black_box(&metrics);
+        if self.trace {
+            metrics.digest(&mut self.context_digest);
+        }
+        self.cached_context = Some(metrics);
         let clock = ts.max(local.unwrap_or(ts));
         let f = self.provider.snapshot(clock, self.m, self.s);
+        self.cached_feeds = f;
         if self.trace {
             for v in [
                 f.binance,
@@ -425,15 +348,47 @@ impl<'a> Sim<'a> {
                 f.chainlink,
                 f.chainlink_received,
                 f.price_to_beat,
+                f.binance_ts,
+                f.chainlink_ts,
+                f.ptb_received,
             ] {
                 self.feed_digest.number(v.unwrap_or(f64::NAN));
             }
         }
-        if let Some(d) = self
-            .strategy
-            .tick(ts, &self.books, f, &self.portfolio, self.c, self.m)
+        if let Some(d) =
+            self.strategy
+                .tick(ts, &self.snapshots, f, &self.engine.ledger, self.c, self.m)
         {
             self.submit(d, ts);
+        }
+        self.engine.ledger.snapshot();
+        for fill in &self.engine.ledger.fills {
+            let id = portfolio::s(fill, "id");
+            if portfolio::s(fill, "market") == self.m.market_id
+                && self.seen_fills.insert(id.to_owned())
+            {
+                let mut trade = fill.clone();
+                if let Some(order) = self
+                    .engine
+                    .ledger
+                    .history
+                    .get(portfolio::s(fill, "clientOrderId"))
+                {
+                    if let Some(meta) = order.get("meta") {
+                        trade["intentMeta"] = meta.clone();
+                    }
+                }
+                self.trades.push(trade);
+            }
+        }
+        for split in &self.engine.ledger.splits {
+            if portfolio::s(split, "market") == self.m.market_id
+                && self
+                    .seen_splits
+                    .insert(portfolio::s(split, "id").to_owned())
+            {
+                self.splits.push(split.clone());
+            }
         }
     }
     fn flush(&mut self, clock: i64) {
@@ -461,12 +416,17 @@ impl<'a> Sim<'a> {
             self.books[asset].change(buy, price, size);
             self.books[asset].ts = e.ts;
         }
+        self.snapshots =
+            std::array::from_fn(|i| context::BookSnapshot::new(&self.books[i], self.depth));
         self.book_ts = Some(e.ts);
         self.dispatch(e.kind, e.ts, e.seq, e.local);
     }
 }
 fn run(m: &Market, s: &Settings, c: &Params, trace: bool, depth: usize) -> Result<Value> {
     let started = Instant::now();
+    let started_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_millis();
     let feeds: Feeds = match &m.raw_feeds {
         Some(files) => raw_feeds::load(files, m)?,
         None => serde_json::from_reader(BufReader::new(File::open(&m.feeds)?))?,
@@ -482,7 +442,21 @@ fn run(m: &Market, s: &Settings, c: &Params, trace: bool, depth: usize) -> Resul
         }
     }
     sim.flush(i64::MAX);
-    let mut out = json!({"slug":m.slug,"eventsProcessed":sim.counts.values().sum::<u64>(),"eventsByType":sim.counts,"stats":sim.portfolio.stats(m),"durationMs":started.elapsed().as_secs_f64()*1000.0});
+    let snapshot = sim.engine.ledger.snapshot().clone();
+    let mut market_stats = stats::market(
+        &m.slug,
+        &m.market_id,
+        &sim.engine.assets,
+        &m.outcome,
+        &snapshot,
+        &sim.trades,
+        &sim.splits,
+    );
+    if sim.trades.is_empty() && sim.splits.is_empty() && sim.engine.ledger.positions.is_empty() {
+        market_stats["skipReason"] = json!("no_in_window_activity");
+    }
+    market_stats["execution"] = json!({"machineId":"rust-experiment","workerChildId":null,"startedAtMs":started_at,"finishedAtMs":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis(),"durationMs":started.elapsed().as_secs_f64()*1000.0,"eventsProcessed":sim.counts.values().sum::<u64>(),"eventsByType":sim.counts,"commitSha":"42bcc992"});
+    let mut out = json!({"slug":m.slug,"eventsProcessed":sim.counts.values().sum::<u64>(),"eventsByType":sim.counts,"stats":market_stats,"durationMs":started.elapsed().as_secs_f64()*1000.0});
     if trace {
         out["tickDigest"] = json!(sim.digest.value);
         out["feedDigest"] = json!(sim.feed_digest.value);
@@ -490,7 +464,10 @@ fn run(m: &Market, s: &Settings, c: &Params, trace: bool, depth: usize) -> Resul
         out["feedSha256"] = json!(sim.feed_digest.sha256());
         out["decisions"] = json!(sim.decisions);
         out["events"] = json!(sim.events);
-        out["finalState"] = sim.portfolio.state(m);
+        out["finalState"] = snapshot;
+        out["finalContext"] = json!({"plugins":{"externalFeeds":sim.cached_feeds.value(m)},"market":context::market_meta(m),"metrics":sim.cached_context.as_ref().map(|v|v.value())});
+        out["contextDigest"] = json!(sim.context_digest.value);
+        out["contextSha256"] = json!(sim.context_digest.sha256());
     }
     Ok(out)
 }
@@ -500,6 +477,21 @@ fn main() -> Result<()> {
         args.len() >= 3,
         "Usage: rust-backtest-experiment manifest.json output.json [trace|no-trace|verify-feeds] [market-index]"
     );
+    if args[1] == "fixtures" || args[1] == "aggregate" {
+        let input: Value = serde_json::from_reader(BufReader::new(File::open(&args[2])?))?;
+        let out = if args[1] == "fixtures" {
+            fixtures::run(&input)
+        } else {
+            let markets = input["markets"].as_array().context("Missing stats")?;
+            let initial = portfolio::n(&input, "initialCapital");
+            json!({"batch":stats::batch(markets,initial),"segments":stats::segments(markets,initial)})
+        };
+        serde_json::to_writer(
+            BufWriter::new(File::create(args.get(3).context("Missing output")?)?),
+            &out,
+        )?;
+        return Ok(());
+    }
     let manifest: Manifest = serde_json::from_reader(BufReader::new(File::open(&args[1])?))?;
     ensure!(
         manifest.format_version == 1
@@ -614,8 +606,8 @@ mod tests {
     }
     #[test]
     fn fee_per_fill() {
-        assert_eq!(fee(0.5, 10.0), 0.175);
-        assert_eq!(commitment(0.5, 10.0), 5.175);
+        assert_eq!(portfolio::taker_fee(0.5, 10.0, 700.0), 0.175);
+        assert_eq!(portfolio::buy_cost(0.5, 10.0, false), 5.175);
     }
     #[test]
     fn sorted_delta_replacement_and_deletion() {
@@ -674,22 +666,19 @@ mod tests {
     #[test]
     fn pnl_cent_boundary_matches_shared_statistics_operation_order() {
         let (m, _, _) = test_inputs();
-        let mut portfolio = Portfolio::new(100.0);
-        portfolio.positions = [
-            Position {
-                exists: true,
-                qty: 149.23,
-                cost: 78.7178,
-                avg: 0.52749313,
-            },
-            Position {
-                exists: true,
-                qty: 40.82,
-                cost: 20.6072,
-                avg: 0.50483097,
-            },
-        ];
-        assert_eq!(portfolio.stats(&m)["pnl"], json!(49.91));
+        let p = json!({"positionsByAssetId":{"up":{"qty":149.23,"costBasis":78.7178},"down":{"qty":40.82,"costBasis":20.6072}}});
+        assert_eq!(
+            stats::market(
+                &m.slug,
+                &m.market_id,
+                &[m.up_id, m.down_id],
+                &m.outcome,
+                &p,
+                &[],
+                &[]
+            )["pnl"],
+            json!(49.91)
+        );
     }
     #[test]
     fn delayed_fok_waits_for_real_tick_and_fills_once() {
@@ -726,25 +715,33 @@ mod tests {
                 price: 0.5,
                 size: 10.0,
                 seq: 1,
+                meta: json!({}),
+                reason: String::new(),
             },
             1000,
         );
-        assert_eq!(sim.portfolio.reserved(), 5.175);
+        assert_eq!(sim.engine.ledger.reserved(), 5.175);
         sim.dispatch(2, 1500, 0.0, Some(1500));
-        assert_eq!(sim.portfolio.cash, 100.0);
-        assert!(sim.portfolio.fills.is_empty());
+        assert_eq!(sim.engine.ledger.cash, 100.0);
+        assert!(sim.engine.ledger.fills.is_empty());
         sim.dispatch(0, 1600, 2.0, Some(1600));
-        assert_eq!(sim.portfolio.fills.len(), 2);
-        assert_eq!(sim.portfolio.cash, 95.4292);
-        assert_eq!(sim.portfolio.positions[0].qty, 10.0);
-        assert_eq!(sim.portfolio.positions[0].cost, 4.5708);
-        assert_eq!(sim.portfolio.reserved(), 0.0);
+        assert_eq!(sim.engine.ledger.fills.len(), 2);
+        assert_eq!(sim.engine.ledger.cash, 95.4292);
+        assert_eq!(
+            portfolio::n(&sim.engine.ledger.positions[&m.up_id], "qty"),
+            10.0
+        );
+        assert_eq!(
+            portfolio::n(&sim.engine.ledger.positions[&m.up_id], "costBasis"),
+            4.5708
+        );
+        assert_eq!(sim.engine.ledger.reserved(), 0.0);
         sim.dispatch(0, 1700, 3.0, Some(1700));
-        assert_eq!(sim.portfolio.fills.len(), 2);
+        assert_eq!(sim.engine.ledger.fills.len(), 2);
         assert_eq!(
             sim.events
                 .iter()
-                .map(|v| v["kind"].as_str().unwrap())
+                .map(|v| v["event"]["kind"].as_str().unwrap())
                 .collect::<Vec<_>>(),
             vec![
                 "order_submitted",
@@ -756,7 +753,7 @@ mod tests {
                 "ws_order_update"
             ]
         );
-        assert_eq!(sim.events[3]["tsMs"], json!(1600));
+        assert_eq!(sim.events[3]["event"]["fill"]["tsMs"], json!(1600));
     }
     #[test]
     fn insufficient_fok_releases_reservation_without_partial_fill() {
@@ -787,15 +784,20 @@ mod tests {
                 price: 0.5,
                 size: 10.0,
                 seq: 1,
+                meta: json!({}),
+                reason: String::new(),
             },
             1000,
         );
         sim.dispatch(0, 1500, 2.0, Some(1500));
-        assert_eq!(sim.portfolio.cash, 100.0);
-        assert_eq!(sim.portfolio.reserved(), 0.0);
-        assert!(sim.portfolio.fills.is_empty());
-        assert!(!sim.portfolio.orders[0].open);
-        assert_eq!(sim.events.last().unwrap()["reason"], json!("killed"));
+        assert_eq!(sim.engine.ledger.cash, 100.0);
+        assert_eq!(sim.engine.ledger.reserved(), 0.0);
+        assert!(sim.engine.ledger.fills.is_empty());
+        assert!(sim.engine.ledger.open.is_empty());
+        assert_eq!(
+            sim.events.last().unwrap()["event"]["reason"],
+            json!("killed")
+        );
     }
     #[test]
     fn risk_rejection_does_not_create_execution_obligation() {
@@ -817,14 +819,15 @@ mod tests {
                 price: 0.5,
                 size: 2001.0,
                 seq: 1,
+                meta: json!({}),
+                reason: String::new(),
             },
             1000,
         );
-        assert!(sim.portfolio.orders.is_empty());
-        assert!(sim.pending.is_empty());
-        assert_eq!(sim.events[0]["kind"], json!("order_rejected"));
+        assert!(sim.engine.ledger.open.is_empty());
+        assert_eq!(sim.events[0]["event"]["kind"], json!("order_rejected"));
         assert_eq!(
-            sim.events[0]["reason"],
+            sim.events[0]["event"]["reason"],
             json!("risk_max_order_size(max=2000)")
         );
     }

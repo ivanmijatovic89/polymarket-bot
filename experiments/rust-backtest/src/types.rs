@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde_json::{json, Value};
 use sha2::{Digest as ShaDigest, Sha256};
 
 #[derive(Clone, Deserialize)]
@@ -114,15 +113,6 @@ impl Book {
             }
         }
     }
-    pub fn top(&self) -> Option<(f64, f64)> {
-        let b = self.bids.first()?.price;
-        let a = self.asks.first()?.price;
-        if a <= 0.0 || a >= 1.0 || b <= 0.0 || b >= 1.0 {
-            None
-        } else {
-            Some((b, a))
-        }
-    }
 }
 pub fn js_round(n: f64) -> f64 {
     (n + 0.5).floor()
@@ -130,133 +120,6 @@ pub fn js_round(n: f64) -> f64 {
 pub fn round(n: f64, places: u32) -> f64 {
     let f = 10_f64.powi(places as i32);
     js_round(n * f) / f
-}
-pub fn fee(price: f64, size: f64) -> f64 {
-    round(0.07 * price * (1.0 - price) * size, 4)
-}
-pub fn commitment(price: f64, size: f64) -> f64 {
-    round(price * size + fee(price, size), 8)
-}
-#[derive(Clone, Copy, Default)]
-pub struct Position {
-    pub exists: bool,
-    pub qty: f64,
-    pub avg: f64,
-    pub cost: f64,
-}
-#[derive(Clone)]
-pub struct Order {
-    pub client: String,
-    pub order_id: Option<String>,
-    pub asset: usize,
-    pub price: f64,
-    pub size: f64,
-    pub filled: f64,
-    pub remaining: f64,
-    pub state: &'static str,
-    pub final_filled: Option<f64>,
-    pub open: bool,
-}
-#[derive(Clone)]
-pub struct Fill {
-    pub id: String,
-    pub asset: usize,
-    pub price: f64,
-    pub size: f64,
-}
-pub struct Portfolio {
-    pub starting: f64,
-    pub cash: f64,
-    pub now: Option<i64>,
-    pub positions: [Position; 2],
-    pub orders: Vec<Order>,
-    pub fills: Vec<Fill>,
-}
-impl Portfolio {
-    pub fn new(starting: f64) -> Self {
-        Self {
-            starting,
-            cash: starting,
-            now: None,
-            positions: [Position::default(); 2],
-            orders: Vec::new(),
-            fills: Vec::new(),
-        }
-    }
-    pub fn reserved(&self) -> f64 {
-        round(
-            self.orders
-                .iter()
-                .map(|o| {
-                    commitment(
-                        o.price,
-                        ((o.final_filled.unwrap_or(o.size)) - o.filled).max(0.0),
-                    )
-                })
-                .sum(),
-            8,
-        )
-    }
-    pub fn available(&self) -> f64 {
-        round(self.cash - self.reserved(), 8)
-    }
-    pub fn state(&self, m: &Market) -> Value {
-        json!({"nowMs":self.now,"capital":{"startingCapital":self.starting,"cash":self.cash,"reservedCash":self.reserved(),"availableCash":self.available()},"realizedPnlTotal":0,
-        "positions":self.positions.map(|p|if p.exists{json!({"qty":p.qty,"avgEntryPrice":p.avg,"costBasis":p.cost})}else{Value::Null}),
-        "openOrders":self.orders.iter().filter(|o|o.open).map(|o|json!({"clientOrderId":o.client,"orderId":o.order_id,"assetId":if o.asset==0{&m.up_id}else{&m.down_id},"side":"BUY","price":o.price,"size":o.size,"remaining":o.remaining,"filled":o.filled,"state":o.state})).collect::<Vec<_>>()})
-    }
-    pub fn apply_fill(&mut self, index: usize, f: Fill) {
-        self.cash = round(
-            self.cash + round(-f.price * f.size - fee(f.price, f.size), 8),
-            8,
-        );
-        let p = &mut self.positions[f.asset];
-        let qty = p.qty + f.size;
-        let cost = p.cost + f.price * f.size + fee(f.price, f.size);
-        *p = Position {
-            exists: true,
-            qty: round(qty, 8),
-            cost: round(cost, 8),
-            avg: round(cost / qty, 8),
-        };
-        let o = &mut self.orders[index];
-        o.filled = round(o.filled + f.size, 8);
-        o.remaining = round((o.size - o.filled).max(0.0), 8);
-        o.state = if o.remaining > 0.0 {
-            "partially_filled"
-        } else {
-            "filled"
-        };
-        if o.state == "filled" {
-            o.open = false;
-        }
-        self.fills.push(f);
-    }
-    pub fn stats(&self, m: &Market) -> Value {
-        let mut sizes = [0.0; 2];
-        let mut costs = [0.0; 2];
-        let mut fees = 0.0;
-        for f in &self.fills {
-            sizes[f.asset] += f.size;
-            costs[f.asset] += f.price * f.size;
-            fees += fee(f.price, f.size);
-        }
-        let [u, d] = self.positions;
-        let merged = u.qty.min(d.qty);
-        let redeemed = if m.outcome == "UP" {
-            u.qty - merged
-        } else {
-            d.qty - merged
-        };
-        // Match computeMarketStats operation grouping before cent rounding.
-        let remaining_cost = u.cost + d.cost;
-        let pnl = merged + redeemed - remaining_cost;
-        let mut out = json!({"slug":m.slug,"marketId":m.market_id,"finalOutcome":m.outcome,"pnl":round(pnl,2),"tradeCount":self.fills.len(),"tradeAsMaker":0,"tradeAsTaker":self.fills.len(),"feesPaid":round(fees,2),"avgEntryPriceUp":if sizes[0]>0.0{Some(round(costs[0]/sizes[0],4))}else{None},"avgEntryPriceDown":if sizes[1]>0.0{Some(round(costs[1]/sizes[1],4))}else{None},"upShares":round(u.qty,2),"downShares":round(d.qty,2),"mergableShares":round(merged,2),"cost":round(u.cost+d.cost,2),"splitCost":0});
-        if self.fills.is_empty() {
-            out["skipReason"] = json!("no_in_window_activity");
-        }
-        out
-    }
 }
 pub struct Random {
     state: u32,

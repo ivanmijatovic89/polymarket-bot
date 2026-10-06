@@ -172,5 +172,8 @@ export class Digest {
     this.number(c?.value)
     this.number(c?.receivedAtMs)
     this.number(f?.polymarketPriceToBeat?.openPrice)
+    this.number(b?.tsMs)
+    this.number(c?.tsMs)
+    this.number(f?.polymarketPriceToBeat?.receivedAtMs)
   }
 }

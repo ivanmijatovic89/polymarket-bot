@@ -1,4 +1,9 @@
+use crate::{
+    context::BookSnapshot,
+    portfolio::{n, Ledger},
+};
 use crate::{feeds::FeedSnapshot, types::*};
+use serde_json::{json, Value};
 use std::collections::VecDeque;
 
 pub struct Decision {
@@ -6,6 +11,8 @@ pub struct Decision {
     pub price: f64,
     pub size: f64,
     pub seq: u32,
+    pub meta: Value,
+    pub reason: String,
 }
 pub struct Strategy {
     pub pending: bool,
@@ -93,12 +100,17 @@ impl Strategy {
             vol_n: 0.0,
         }
     }
+    pub fn on_account_event(&mut self, event: &Value) {
+        if ["order_done", "order_rejected"].contains(&crate::portfolio::s(event, "kind")) {
+            self.pending = false;
+        }
+    }
     pub fn tick(
         &mut self,
         now: i64,
-        books: &[Book; 2],
+        books: &[BookSnapshot; 2],
         f: FeedSnapshot,
-        p: &Portfolio,
+        p: &Ledger,
         c: &Params,
         m: &Market,
     ) -> Option<Decision> {
@@ -125,12 +137,10 @@ impl Strategy {
         }
         let up = books[0].top();
         let down = books[1].top();
-        if let Some((bid, ask)) = up {
-            if ask - bid <= c.max_spread {
-                let mid = (ask + bid) / 2.0;
-                if self.mid.back().is_none_or(|v| v.1 != mid) {
-                    self.mid.push_back((now, mid));
-                }
+        if up.is_some() && books[0].spread.unwrap() <= c.max_spread {
+            let mid = books[0].mid.unwrap();
+            if self.mid.back().is_none_or(|v| v.1 != mid) {
+                self.mid.push_back((now, mid));
             }
         }
         let keep = c.lookback_ms.max(c.trend_ms) + 5000.0;
@@ -197,8 +207,17 @@ impl Strategy {
             return None;
         }
         let edge = fair - ask - 0.07 * ask * (1.0 - ask);
-        let qs = p.positions[asset].qty;
-        let qo = p.positions[1 - asset].qty;
+        let ids = [&m.up_id, &m.down_id];
+        let qs = p
+            .positions
+            .get(ids[asset])
+            .map(|v| n(v, "qty"))
+            .unwrap_or(0.0);
+        let qo = p
+            .positions
+            .get(ids[1 - asset])
+            .map(|v| n(v, "qty"))
+            .unwrap_or(0.0);
         let need = if qo > qs && c.rev_edge > -1.0 {
             c.rev_edge
         } else if qo <= qs && qs > 0.0 && c.add_edge > -1.0 {
@@ -296,6 +315,59 @@ impl Strategy {
             price: limit,
             size,
             seq: self.seq,
+            meta: json!({"side":if asset==0{"up"}else{"down"},"ask":ask,"fair":fixed_number(fair,4),"m0":fixed_number(m0,3),"move":fixed_number(movement,2),"edge":fixed_number(edge,4),"lim":limit,"kind":if qo>qs{"rev"}else if qs>0.0{"add"}else{"new"},"remSec":js_round(rem),"trig":fixed_number(trigger,1),"rv":rv.map(|v|fixed_number(v*1e5,2)),"abs":abs_fair.map(|v|fixed_number(v,4)),"tr":tr.map(|v|fixed_number(v,2)),"imb":imb.map(|v|fixed_number(v,3))}),
+            reason: format!(
+                "snipe {} move={} fair={} ask={}",
+                if asset == 0 { "up" } else { "down" },
+                fixed(movement, 1),
+                fixed(fair, 3),
+                ask
+            ),
         })
     }
+}
+
+// Match ECMAScript toFixed by rounding the exact binary float, not a multiplied float.
+pub fn fixed(v: f64, places: u32) -> String {
+    assert!(v.is_finite() && v.abs() < 1e21 && places <= 6);
+    let bits = v.abs().to_bits();
+    let exponent = ((bits >> 52) & 2047) as i32;
+    let mantissa = if exponent == 0 {
+        bits & ((1_u64 << 52) - 1)
+    } else {
+        (bits & ((1_u64 << 52) - 1)) | (1_u64 << 52)
+    };
+    let e = if exponent == 0 {
+        -1074
+    } else {
+        exponent - 1023 - 52
+    };
+    let scale = 10_u128.pow(places);
+    let scaled = mantissa as u128 * scale;
+    let integer = if e >= 0 {
+        scaled << e
+    } else {
+        let shift = (-e) as u32;
+        if shift >= 128 {
+            0
+        } else {
+            let floor = scaled >> shift;
+            let rest = scaled - (floor << shift);
+            floor + u128::from(rest >= (1_u128 << (shift - 1)))
+        }
+    };
+    let sign = if v < 0.0 { "-" } else { "" };
+    if places == 0 {
+        format!("{sign}{integer}")
+    } else {
+        format!(
+            "{sign}{}.{:0width$}",
+            integer / scale,
+            integer % scale,
+            width = places as usize
+        )
+    }
+}
+fn fixed_number(v: f64, places: u32) -> f64 {
+    fixed(v, places).parse().unwrap()
 }

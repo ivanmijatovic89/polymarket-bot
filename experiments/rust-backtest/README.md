@@ -1,3 +1,5 @@
+> Current work: [expanded local-engine parity contract](PARITY-SCOPE.md). Historical ratios below measured the earlier prototype. Use `full-benchmark.py` for fresh full-output parity and original-file batch timings.
+
 # Rust backtest experiment
 
 An isolated, local experiment for `overnight-opus55-lagsnipe.v15` on Telonex

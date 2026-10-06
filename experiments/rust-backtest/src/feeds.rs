@@ -8,6 +8,9 @@ pub struct Feeds {
 #[derive(Clone, Copy, Default)]
 pub struct FeedSnapshot {
     pub binance: Option<f64>,
+    pub binance_ts: Option<f64>,
+    pub chainlink_ts: Option<f64>,
+    pub ptb_received: Option<f64>,
     pub binance_received: Option<f64>,
     pub chainlink: Option<f64>,
     pub chainlink_received: Option<f64>,
@@ -64,6 +67,13 @@ impl FeedProvider {
             .map(|i| self.feeds.chainlink[i]);
         FeedSnapshot {
             binance: b.map(|v| v[1]),
+            binance_ts: b.map(|v| v[0]),
+            chainlink_ts: c.map(|v| v[0]),
+            ptb_received: if t >= m.start_ms + s.price_to_beat_latency_ms {
+                Some((m.start_ms + s.price_to_beat_latency_ms) as f64)
+            } else {
+                None
+            },
             binance_received: b.map(|v| v[0] + s.binance_latency_ms as f64),
             chainlink: c.map(|v| v[2]),
             chainlink_received: c.map(|v| v[1] + s.chainlink_latency_ms as f64),
@@ -73,5 +83,22 @@ impl FeedProvider {
                 None
             },
         }
+    }
+}
+
+impl FeedSnapshot {
+    pub fn value(&self, m: &Market) -> serde_json::Value {
+        use serde_json::json;
+        let mut f = json!({"rtdsPolymarketCryptoPrices":{}});
+        if let Some(b) = self.binance {
+            f["binanceWsSpotPrice"] = json!({"symbol":"btcusdt","tsMs":self.binance_ts,"value":b,"receivedAtMs":self.binance_received});
+        }
+        if let Some(c) = self.chainlink {
+            f["rtdsPolymarketCryptoPrices"]["chainlink"] = json!({"symbol":"btc/usd","tsMs":self.chainlink_ts,"value":c,"receivedAtMs":self.chainlink_received});
+        }
+        if let Some(ptb) = self.price_to_beat {
+            f["polymarketPriceToBeat"] = json!({"symbol":"BTC","eventStartTimeIso":crate::context::iso(m.start_ms),"endDateIso":crate::context::iso(m.end_ms),"openPrice":ptb,"receivedAtMs":self.ptb_received});
+        }
+        f
     }
 }

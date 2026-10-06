@@ -14,6 +14,9 @@ import {
 import { buildSyntheticFeedTick } from '../../src/market/syntheticTick.js'
 import { feedClockMs } from '../../src/backtest/feeds/wireBacktestExternalFeeds.js'
 import { isExternalFeedsRequestPlugin } from '../../src/strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { Portfolio } from '../../src/trading/Portfolio.js'
+import { computePositionMetricsFromMarket } from '../../src/trading/positionMetrics.js'
+import { computeOrderbookMetricsFromMarket } from '../../src/trading/orderbookMetrics.js'
 import { computeMarketStats } from '../../src/backtest/stats/marketStats.js'
 import type {
   MarketTick,
@@ -30,8 +33,6 @@ import {
   loadManifest,
   seededRandom,
   marketMeta,
-  accountTrace,
-  portfolioState,
   type Feeds,
   type Market,
 } from './common.mjs'
@@ -64,6 +65,13 @@ const s = manifest.settings
 // Output logging costs are excluded consistently. No live execution adapter is constructed.
 console.log = () => {}
 const progressEvery = Number(process.env.BENCHMARK_PROGRESS_EVERY ?? 0)
+let observedPortfolio: PortfolioSnapshot | undefined
+const originalSnapshot = Portfolio.prototype.snapshot
+if (trace)
+  Portfolio.prototype.snapshot = function () {
+    observedPortfolio = originalSnapshot.call(this)
+    return observedPortfolio
+  }
 const results = []
 const start = performance.now()
 const cpuStart = process.cpuUsage()
@@ -75,31 +83,74 @@ for (const m of indexArg === undefined ? manifest.markets : [manifest.markets[Nu
   Math.random = rng
   let current: MarketTick | undefined
   const digest = new Digest(),
-    feedDigest = new Digest()
-  const events: ReturnType<typeof accountTrace>[] = []
+    feedDigest = new Digest(),
+    contextDigest = new Digest()
+  let finalContext: StrategyContext | undefined
+  const events: unknown[] = []
   const decisions: unknown[] = []
-  let finalState: ReturnType<typeof portfolioState> | undefined
+  let finalState: PortfolioSnapshot | undefined
   const observer = trace
     ? {
-        onContext: (ctx: StrategyContext | undefined) =>
-          feedDigest.feeds(ctx?.plugins?.externalFeeds as ExternalFeedsSnapshot | undefined),
+        onContext: (ctx: StrategyContext | undefined) => {
+          finalContext = ctx
+          feedDigest.feeds(ctx?.plugins?.externalFeeds as ExternalFeedsSnapshot | undefined)
+          const p = ctx?.metrics?.position
+          for (const key of [
+            'shares_mergeable',
+            'pair_avg',
+            'total_cost',
+            'pnl_merge',
+            'pnl_if_up_wins',
+            'pnl_if_down_wins',
+            'imbalance',
+          ] as const)
+            contextDigest.number(p?.[key])
+          const b = ctx?.metrics?.orderbook
+          contextDigest.number(b ? 1 : 0)
+          if (b) {
+            contextDigest.number(b.depthLevels)
+            for (let i = 0; i < b.depthLevels; i++) {
+              contextDigest.number(['NONE', 'UP', 'DOWN'].indexOf(b.weakBidSideByLevel[i]!))
+              contextDigest.number(b.weakBidRatioByLevel[i])
+              contextDigest.number(['NONE', 'UP', 'DOWN'].indexOf(b.weakAskSideByLevel[i]!))
+              contextDigest.number(b.weakAskRatioByLevel[i])
+            }
+          }
+        },
         onDecision: (origin: 'market' | 'account', intents: readonly Intent[]) => {
           for (const i of intents) {
             if (i.kind !== 'place_limit' || i.side !== 'BUY' || i.orderType !== 'FOK')
               throw new Error('Unsupported strategy intent')
-            decisions.push({
-              origin,
-              tsMs: current!.snapshot.timestamp,
-              clientOrderId: i.clientOrderId,
-              assetId: i.assetId,
-              price: i.price,
-              size: i.size,
-            })
+            decisions.push({ origin, tsMs: current!.snapshot.timestamp, intent: i })
           }
         },
         onAccountEvent: (ev: AccountEvent, p: PortfolioSnapshot) => {
-          events.push(accountTrace(ev, p, m))
-          finalState = portfolioState(p, m)
+          events.push(
+            JSON.parse(
+              JSON.stringify({
+                event: ev,
+                portfolio: p,
+                metrics: {
+                  position: computePositionMetricsFromMarket({
+                    portfolio: p,
+                    market: marketMeta(m),
+                  }),
+                  ...(computeOrderbookMetricsFromMarket({
+                    marketBooks: current!.snapshot,
+                    market: marketMeta(m),
+                  })
+                    ? {
+                        orderbook: computeOrderbookMetricsFromMarket({
+                          marketBooks: current!.snapshot,
+                          market: marketMeta(m),
+                        }),
+                      }
+                    : {}),
+                },
+              }),
+            ),
+          )
+          finalState = p
         },
         onTickStart: (t: MarketTick) => {
           current = t
@@ -134,8 +185,7 @@ for (const m of indexArg === undefined ? manifest.markets : [manifest.markets[Nu
         ...(observer ? { observer } : {}),
       })
       if (!out.marketStats) throw new Error(`Production replay failed: ${out.skipReason}`)
-      const { execution, intentMeta, ...rest } = out.marketStats
-      stats = rest
+      stats = out.marketStats
       eventsProcessed = out.eventsProcessed
       Object.assign(counts, out.eventsByType)
     } else {
@@ -227,8 +277,8 @@ for (const m of indexArg === undefined ? manifest.markets : [manifest.markets[Nu
       })
       await flusher.flushTail()
       const p = runner.getPortfolio().snapshot()
-      finalState = portfolioState(p, m)
-      const { intentMeta, ...rest } = computeMarketStats({
+      finalState = p
+      const rest = computeMarketStats({
         slug: m.slug,
         marketId: m.marketId,
         trades: fills,
@@ -253,7 +303,10 @@ for (const m of indexArg === undefined ? manifest.markets : [manifest.markets[Nu
             feedSha256: feedDigest.sha256(),
             decisions,
             events,
-            finalState,
+            finalState: observedPortfolio ?? finalState,
+            finalContext,
+            contextDigest: contextDigest.value,
+            contextSha256: contextDigest.sha256(),
           }
         : {}),
     })

@@ -28,4 +28,8 @@ jobs:
       - name: Reference harness typecheck
         run: node node_modules/typescript/bin/tsc -p experiments/rust-backtest/tsconfig.json
       - name: Python comparator and runner syntax
-        run: python3 -m py_compile experiments/rust-backtest/benchmark.py experiments/rust-backtest/compare.py experiments/rust-backtest/scaling.py experiments/rust-backtest/raw-benchmark.py
+        run: python3 -m py_compile experiments/rust-backtest/benchmark.py experiments/rust-backtest/compare.py experiments/rust-backtest/scaling.py experiments/rust-backtest/raw-benchmark.py experiments/rust-backtest/full-benchmark.py experiments/rust-backtest/raw_benchmark_helpers.py experiments/rust-backtest/core-fixtures.py experiments/rust-backtest/core-parity.py
+      - name: Build full local engine
+        run: cargo +1.89.0 build --release --locked --manifest-path experiments/rust-backtest/Cargo.toml
+      - name: Full-output differential order, portfolio, metrics and batch tests
+        run: python3 experiments/rust-backtest/core-parity.py --node node

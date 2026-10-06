@@ -26,8 +26,14 @@ def compare(a, b, path='$'):
 
 
 def normalized(document):
-    return [{key: value for key, value in result.items() if key != 'durationMs'}
-            for result in document['results']]
+    results = json.loads(json.dumps(document['results']))
+    for result in results:
+        result.pop('durationMs', None)
+        execution = result.get('stats', {}).get('execution')
+        if execution:
+            for key in ['startedAtMs', 'finishedAtMs', 'durationMs']:
+                execution.pop(key, None)
+    return results
 
 
 if __name__ == '__main__':
