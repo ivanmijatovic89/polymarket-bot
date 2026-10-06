@@ -39,7 +39,7 @@ import {
   resolveCaptureInputs,
   resolveCapturePackage,
   type ResolvedCapturePackage,
-} from '../recorder-v3/replay/package.js'
+} from '../recorder-v4/replay/package.js'
 import {
   AGGREGATE_JOB_OPTS,
   AGGREGATE_QUEUE,
@@ -336,7 +336,7 @@ async function main(): Promise<void> {
   const effectiveInputMode = isExtend
     ? (planOk!.parent.inputMode as 'telonex-delta' | 'telonex-paired')
     : parsed.inputMode
-  const isCapture = effectiveInputMode === 'recorder-v3'
+  const isCapture = effectiveInputMode === 'recorder-v4'
   const isTelonex =
     effectiveInputMode === 'telonex-delta' || effectiveInputMode === 'telonex-paired'
   const converter: Converter | null = isTelonex
@@ -598,9 +598,9 @@ async function main(): Promise<void> {
         '    tsx src/cli/backtest.ts --strategy <id> --symbol <btc|eth|sol|...> [--limit N] [--random|--latest]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --slug <slug1[,slug2,...]>\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --dir <dir1> [--dir <dir2> ...]\n' +
-        '  Recorder v3 (verified mixed-feed market packages):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v3 --dir <package-cache> [--allow-capture-gaps]\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v3 r2://bucket/prefix/slug/recording/manifest-<sha256>.json\n' +
+        '  Recorder v4 (verified mixed-feed market packages):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v4 --dir <package-cache> [--allow-capture-gaps]\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v4 r2://bucket/recorder-v4/btc/15m/slug/recording/manifest-<sha256>.json\n' +
         '  Telonex (telonex_markets table, requires --read-from local|r2):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-delta --read-from local --symbol btc [--timeframe 15m] [--limit N]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-paired --read-from r2 --slug <slug>\n',
@@ -727,7 +727,7 @@ async function main(): Promise<void> {
      * (the canonical local path) is not present on the worker's disk.
      */
     r2Fallback?: string
-    recorderV3?: import('../backtest/runSingleMarket.js').RunSingleMarketInput['recorderV3']
+    recorderV4?: import('../backtest/runSingleMarket.js').RunSingleMarketInput['recorderV4']
     /** Set only when the strategy requests the priceToBeat feed. */
     gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
   }
@@ -867,7 +867,7 @@ async function main(): Promise<void> {
       strategyWindow,
       ...(captured
         ? {
-            recorderV3: {
+            recorderV4: {
               manifest: captured.manifest,
               ...(parsed.allowCaptureGaps ? { allowGaps: true } : {}),
               ...(captured.manifestUrl ? { manifestUrl: captured.manifestUrl } : {}),
@@ -1053,7 +1053,7 @@ async function main(): Promise<void> {
             strategyParams: built.params as Record<string, unknown>,
             ...(built.definition ? { strategyDefinition: built.definition } : {}),
             inputMode: effectiveInputMode,
-            ...(ctx.recorderV3 ? { recorderV3: ctx.recorderV3 } : {}),
+            ...(ctx.recorderV4 ? { recorderV4: ctx.recorderV4 } : {}),
             order: parsed.order,
             timeDriven: parsed.timeDriven,
             latency: { delayMs: latencyMs, jitterMs },
@@ -1326,7 +1326,7 @@ async function main(): Promise<void> {
       strategyParams: built.params as Record<string, unknown>,
       ...(built.artifact ? { strategyArtifact: built.artifact.ref } : {}),
       inputMode: effectiveInputMode,
-      ...(ctx.recorderV3 ? { recorderV3: ctx.recorderV3 } : {}),
+      ...(ctx.recorderV4 ? { recorderV4: ctx.recorderV4 } : {}),
       order: parsed.order,
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },

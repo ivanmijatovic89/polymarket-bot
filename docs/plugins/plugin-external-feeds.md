@@ -12,7 +12,7 @@ description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugi
 The External Feeds Plugin exposes external market data to strategies through `ctx.plugins.externalFeeds`. Supported live runtimes populate it from feed clients; backtests populate it from their configured historical or recorded data. Snapshots are bound to individual strategy ticks.
 
 ::: warning Runtime support and missing observations
-Recorder v3 replays captured Binance aggregate trades, best bid/ask, Chainlink spot/TWAP, and reference prices in recorded receipt order. Historical input modes have different available sources. Unsupported new capabilities fail explicitly. Any individual observation can be absent before its first receipt or during a gap; strategies must handle that absence.
+Recorder v4 replays captured Binance aggregate trades, best bid/ask, Chainlink spot/TWAP, and reference prices in recorded receipt order. Historical input modes have different available sources. Unsupported new capabilities fail explicitly. Any individual observation can be absent before its first receipt or during a gap; strategies must handle that absence.
 :::
 
 ---
@@ -57,7 +57,7 @@ export const definition = {
 
 Only the declared feeds are started. Feeds not listed in `requiredFeeds` remain inactive and absent from the snapshot.
 
-Use `ExternalFeedsRequestPlugin` for Recorder v3 source selection, TWAP, and best bid/ask. These capabilities are not added to the legacy `requiredFeeds` interface.
+Use `ExternalFeedsRequestPlugin` for Recorder v4 source selection, TWAP, and best bid/ask. These capabilities are not added to the legacy `requiredFeeds` interface.
 
 ---
 
@@ -87,13 +87,13 @@ The `ExternalFeedsRequestPlugin` and `ExternalFeedsPlugin` share the plugin ID `
 | ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `rtdsCryptoPrices`      | `{ binanceSymbols?: string[]; chainlinkSymbols?: string[] }`            | Request RTDS price data for specified symbols via Binance and/or Chainlink feeds.               |
 | `binanceWsSpotPrice`    | `{ symbol?: string }`                                                   | Request the Binance WebSocket spot price for a specific symbol (e.g. `'BTCUSDT'`).              |
-| `polymarketPriceToBeat` | `{ enabled?: boolean; source?: 'website' \| 'chainlink-opening-twap' }` | Website is the unchanged default. Opening TWAP requires Recorder v3 and exact opening evidence. |
-| `binanceBookTicker`     | `{ symbol?: string }`                                                   | Captured BTCUSDT best bid/ask; Recorder v3 only.                                                |
-| `chainlinkTwap`         | `{ symbol?: string; windowSeconds?: number }`                           | Captured BTC/USD TWAP; Recorder v3 only.                                                        |
+| `polymarketPriceToBeat` | `{ enabled?: boolean; source?: 'website' \| 'chainlink-opening-twap' }` | Website is the unchanged default. Opening TWAP requires Recorder v4 and exact opening evidence. |
+| `binanceBookTicker`     | `{ symbol?: string }`                                                   | Captured BTCUSDT best bid/ask; Recorder v4 only.                                                |
+| `chainlinkTwap`         | `{ symbol?: string; windowSeconds?: number }`                           | Captured BTC/USD TWAP; Recorder v4 only.                                                        |
 
-`binanceWsSpotPrice` and `rtdsCryptoPrices` also accept `tickOnUpdate` for supported synthetic feed ticks. See [synthetic feed ticks](/datasets/price-feeds/synthetic-ticks). Recorder v3 supplies the Chainlink subfeed under the existing `rtdsPolymarketCryptoPrices.chainlink` key using captured PolyBolt observations; it does not contain the RTDS Binance subfeed.
+`binanceWsSpotPrice` and `rtdsCryptoPrices` also accept `tickOnUpdate` for supported synthetic feed ticks. See [synthetic feed ticks](/datasets/price-feeds/synthetic-ticks). Recorder v4 supplies the Chainlink subfeed under the existing `rtdsPolymarketCryptoPrices.chainlink` key using captured PolyBolt observations; it does not contain the RTDS Binance subfeed.
 
-For `source: 'chainlink-opening-twap'`, `polymarketPriceToBeat` contains the selected exact opening observation, `websitePriceToBeat` retains the independent website observation, and `openingReference` exposes provenance/comparison diagnostics. The full decimal string is retained. Later website corrections never overwrite the selected TWAP. Missing or conflicting boundary evidence rejects ordinary backtests; explicit outage replay preserves its actual availability. See [opening reference configuration](/datasets/recording/recorder-v3#selecting-the-opening-chainlink-twap) for the contract and CLI example.
+For `source: 'chainlink-opening-twap'`, `polymarketPriceToBeat` contains the selected exact opening observation, `websitePriceToBeat` retains the independent website observation, and `openingReference` exposes provenance/comparison diagnostics. The full decimal string is retained. Later website corrections never overwrite the selected TWAP. Missing or conflicting boundary evidence rejects ordinary backtests; explicit outage replay preserves its actual availability. See [opening reference configuration](/datasets/recording/recorder-v4#selecting-the-opening-chainlink-twap) for the contract and CLI example.
 
 ---
 
@@ -171,7 +171,7 @@ Type: `RtdsPricePoint | undefined` (same type as above).
 
 ### `polymarketPriceToBeat`
 
-The selected reference open price for the current Polymarket event. Recorder v3 defaults to captured website responses and can explicitly select the exact opening Chainlink TWAP. Legacy historical replay retains its existing Gamma-backed behavior; legacy live trading uses its website price client. An omitted snapshot `source` field retains legacy semantics. Selective source support is documented above; selecting the new source in an unsupported runtime fails rather than falling back.
+The selected reference open price for the current Polymarket event. Recorder v4 defaults to captured website responses and can explicitly select the exact opening Chainlink TWAP. Legacy historical replay retains its existing Gamma-backed behavior; legacy live trading uses its website price client. An omitted snapshot `source` field retains legacy semantics. Selective source support is documented above; selecting the new source in an unsupported runtime fails rather than falling back.
 
 Type: `object | undefined`.
 

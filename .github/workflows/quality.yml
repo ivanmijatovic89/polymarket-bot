@@ -58,8 +58,8 @@ jobs:
       - name: Research dataset tests
         run: npm run research:data:test
 
-      - name: Recorder v3 tests
-        run: npm run record:v3:test
+      - name: Recorder v4 tests
+        run: npm run record:v4:test
 
       - name: Research protocol check
         run: npm run research:check

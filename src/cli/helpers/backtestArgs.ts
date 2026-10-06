@@ -5,14 +5,14 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
   return 'recorded'
 }
 
-const INPUT_MODES = ['recorded', 'recorder-v3', 'telonex-delta', 'telonex-paired'] as const
+const INPUT_MODES = ['recorded', 'recorder-v4', 'telonex-delta', 'telonex-paired'] as const
 
 type InputMode = (typeof INPUT_MODES)[number]
 
 function parseInputMode(raw: string | undefined): InputMode {
   if (
     raw === 'recorded' ||
-    raw === 'recorder-v3' ||
+    raw === 'recorder-v4' ||
     raw === 'telonex-delta' ||
     raw === 'telonex-paired'
   ) {
@@ -52,7 +52,7 @@ export type BacktestArgs = {
   //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='delta-typed').
   inputMode: InputMode
   allowCaptureGaps?: boolean
-  /** Manifest-duration filter, applied to Recorder v3 inputs before ordering and limiting. */
+  /** Manifest-duration filter, applied to Recorder v4 inputs before ordering and limiting. */
   captureTimeframe?: '5m' | '15m'
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
@@ -477,14 +477,14 @@ export function parseArgs(argv: string[]): BacktestArgs {
   }
 
   const isTelonex = inputMode === 'telonex-delta' || inputMode === 'telonex-paired'
-  if (allowCaptureGaps && inputMode !== 'recorder-v3')
-    throw new Error('--allow-capture-gaps requires --input-mode recorder-v3')
-  if (inputMode === 'recorder-v3') {
+  if (allowCaptureGaps && inputMode !== 'recorder-v4')
+    throw new Error('--allow-capture-gaps requires --input-mode recorder-v4')
+  if (inputMode === 'recorder-v4') {
     if (order !== 'recorded' || timeDriven)
-      throw new Error('Recorder v3 requires recorded receive order without --time-driven')
+      throw new Error('Recorder v4 requires recorded receive order without --time-driven')
     if (symbol || slugs.length > 0 || readFrom)
       throw new Error(
-        'Recorder v3 accepts package paths / --dir or r2:// manifest URLs; symbol/slug/read-from selection is not supported',
+        'Recorder v4 accepts package paths / --dir or r2:// manifest URLs; symbol/slug/read-from selection is not supported',
       )
   }
 
@@ -498,14 +498,14 @@ export function parseArgs(argv: string[]): BacktestArgs {
   }
 
   if (
-    inputMode === 'recorder-v3' &&
+    inputMode === 'recorder-v4' &&
     timeframeExplicit &&
     timeframe !== '5m' &&
     timeframe !== '15m'
   ) {
-    throw new Error('Recorder v3 --timeframe must be 5m or 15m')
+    throw new Error('Recorder v4 --timeframe must be 5m or 15m')
   }
-  if (timeframeExplicit && !symbol && inputMode !== 'recorder-v3') {
+  if (timeframeExplicit && !symbol && inputMode !== 'recorder-v4') {
     throw new Error('[backtest] --timeframe is only valid together with --symbol')
   }
 
@@ -593,7 +593,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(dirs.length > 0 ? { dirs } : {}),
     inputMode,
     ...(allowCaptureGaps ? { allowCaptureGaps } : {}),
-    ...(inputMode === 'recorder-v3' && timeframeExplicit
+    ...(inputMode === 'recorder-v4' && timeframeExplicit
       ? { captureTimeframe: timeframe as '5m' | '15m' }
       : {}),
     order,

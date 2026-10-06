@@ -5,6 +5,8 @@ description: Mixed-feed capture, crash recovery, verified R2 archival, determini
 
 # Recorder v3 — BTC 5m and 15m
 
+> Historical documentation. New capture and replay use [Recorder v4](./recorder-v4). V3 commands and archive compatibility have been retired; existing R2 objects remain untouched.
+
 Recorder v3 collects both BTC market durations on one host and writes **one self-contained mixed-feed Parquet per market**. Shared feed observations are intentionally copied into overlapping markets. The copies retain identical event IDs, receipt times, and sequence numbers.
 
 The recorder runs independently of backtest workers and the trading bot. It does not initialize a wallet, an execution adapter, or order submission. Its default output is an R2 archive; local storage is a durable spool for active recordings and uploads awaiting verification.
