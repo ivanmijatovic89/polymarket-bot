@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { coerceIndexedMarketStats, computeExtendedFailureCount } from './backtests.js'
+import {
+  coerceIndexedMarketStats,
+  computeExtendedFailureCount,
+  recorderResultTimeframe,
+} from './backtests.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 
 function marketStats(slug: string): MarketStats {
@@ -55,4 +59,10 @@ test('computeExtendedFailureCount subtracts failures resolved by successful retr
   assert.equal(computeExtendedFailureCount(3, 2, 1), 4)
   assert.equal(computeExtendedFailureCount(1, 0, 1), 0)
   assert.equal(computeExtendedFailureCount(0, 0, 2), 0)
+})
+
+test('V4 extension metadata reports mixed durations without narrowing the saved selection universe', () => {
+  assert.equal(recorderResultTimeframe(['btc-updown-5m-100', 'btc-updown-5m-400']), '5m')
+  assert.equal(recorderResultTimeframe(['btc-updown-5m-100', 'btc-updown-15m-900']), null)
+  assert.equal(recorderResultTimeframe([]), null)
 })

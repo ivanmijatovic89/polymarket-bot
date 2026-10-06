@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { runSingleMarket } from '../runSingleMarket.js'
 import { resolveSimulatorMarket } from './resolveMarket.js'
@@ -12,10 +12,48 @@ export async function captureTrace(
   progress: (ticks: number) => void = () => {},
 ): Promise<TraceManifest> {
   mkdirSync(directory, { recursive: true })
-  const resolved = await resolveSimulatorMarket(runId, slug)
+  const inputDirectory = path.join(directory, 'input')
+  mkdirSync(inputDirectory, { recursive: true })
+  try {
+    const resolved = await resolveSimulatorMarket(runId, slug, inputDirectory)
+    return await captureResolvedTrace(resolved, directory, progress)
+  } finally {
+    // Only this session's downloads; original local datasets are never copied here or deleted.
+    rmSync(inputDirectory, { recursive: true, force: true })
+  }
+}
+
+/** Shared CLI/simulator execution; injectable resolved inputs make parity testable without a database. */
+export async function captureResolvedTrace(
+  resolved: Pick<
+    Awaited<ReturnType<typeof resolveSimulatorMarket>>,
+    'input' | 'provenance' | 'tokens'
+  > & {
+    expected: {
+      [K in
+        | 'pnl'
+        | 'cost'
+        | 'upShares'
+        | 'downShares'
+        | 'mergableShares'
+        | 'feesPaid'
+        | 'splitCost'
+        | 'tradeCount'
+        | 'tradeAsMaker'
+        | 'tradeAsTaker']: number | string
+    } & { eventsProcessed: number | null }
+  },
+  directory: string,
+  progress: (ticks: number) => void = () => {},
+): Promise<TraceManifest> {
   const writer = new TraceWriter(directory, resolved.tokens, progress)
   const result = await runSingleMarket({ ...resolved.input, observer: writer.observer })
   writer.finish()
+  if (result.skipReason && result.skipReason !== 'no_activity') {
+    throw new Error(
+      `Replay skipped: ${result.skipReason}${result.coverageReasons?.length ? ` (${result.coverageReasons.join('; ')})` : ''}. Use an explicitly admitted outage backtest to inspect incomplete captures.`,
+    )
+  }
   const fields = [
     'pnl',
     'cost',
@@ -36,9 +74,9 @@ export async function captureTrace(
   if (resolved.expected.eventsProcessed !== null)
     comparison.push({
       field: 'eventsProcessed',
-      saved: resolved.expected.eventsProcessed,
+      saved: Number(resolved.expected.eventsProcessed),
       replay: result.eventsProcessed,
-      matches: resolved.expected.eventsProcessed === result.eventsProcessed,
+      matches: Number(resolved.expected.eventsProcessed) === result.eventsProcessed,
     })
   const manifest: TraceManifest = {
     version: 1,

@@ -52,6 +52,10 @@ export type BacktestArgs = {
   //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='delta-typed').
   inputMode: InputMode
   allowCaptureGaps?: boolean
+  /** R2 namespace for V4 catalog selection; never a deletion or write target. */
+  capturePrefix?: string
+  /** Print the same eligible selection without running or enqueueing a backtest. */
+  listEligible?: boolean
   /** Manifest-duration filter, applied to Recorder v4 inputs before ordering and limiting. */
   captureTimeframe?: '5m' | '15m'
   order: 'recorded' | 'exchange_time'
@@ -147,6 +151,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
   let allowCaptureGaps = false
+  let capturePrefix: string | undefined
+  let listEligible = false
+  let strategyFileRequested = false
   let symbol: string | undefined
   let timeframe = '15m'
   let timeframeExplicit = false
@@ -173,6 +180,14 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (!arg) continue
 
     switch (arg) {
+      case '--list-eligible':
+        listEligible = true
+        break
+      case '--capture-prefix':
+        capturePrefix = argv[++i]?.trim()
+        if (!capturePrefix || capturePrefix.startsWith('--'))
+          throw new Error('Missing value for --capture-prefix')
+        break
       case '--allow-capture-gaps':
         allowCaptureGaps = true
         break
@@ -347,11 +362,23 @@ export function parseArgs(argv: string[]): BacktestArgs {
       // (path) don't start with '-' — without these cases they would be
       // swallowed as parquet paths.
       case '--strategy-artifact':
+        i += 1
+        break
       case '--strategy-file':
+        strategyFileRequested = true
         i += 1
         break
 
       default:
+        if (arg.startsWith('--strategy-file=')) {
+          strategyFileRequested = true
+          break
+        }
+        if (arg.startsWith('--capture-prefix=')) {
+          capturePrefix = arg.slice('--capture-prefix='.length).trim()
+          if (!capturePrefix) throw new Error('Missing value for --capture-prefix')
+          break
+        }
         if (arg.startsWith('--starting-capital=')) {
           startingCapital = parseStartingCapital(arg.slice('--starting-capital='.length))
           break
@@ -454,6 +481,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
     }
   }
 
+  if (listEligible && strategyFileRequested)
+    throw new Error(
+      '[backtest] --list-eligible cannot be combined with --strategy-file because that option auto-publishes an artifact. Use a registry --strategy or an already published --strategy-artifact instead.',
+    )
+
   if (random && limit === undefined) {
     throw new Error(
       '[backtest] --random requires --limit N (how many random parquet files to sample)',
@@ -464,15 +496,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --latest requires --limit N (how many latest markets to fetch)')
   }
 
-  if (slugs.length > 0 && symbol) {
+  if (slugs.length > 0 && symbol && inputMode !== 'recorder-v4') {
     throw new Error('[backtest] --slug and --symbol are mutually exclusive')
   }
 
-  if (dirs.length > 0 && symbol) {
+  if (dirs.length > 0 && symbol && inputMode !== 'recorder-v4') {
     throw new Error('[backtest] --dir and --symbol are mutually exclusive')
   }
 
-  if (dirs.length > 0 && slugs.length > 0) {
+  if (dirs.length > 0 && slugs.length > 0 && inputMode !== 'recorder-v4') {
     throw new Error('[backtest] --dir and --slug are mutually exclusive')
   }
 
@@ -482,16 +514,30 @@ export function parseArgs(argv: string[]): BacktestArgs {
   if (inputMode === 'recorder-v4') {
     if (order !== 'recorded' || timeDriven)
       throw new Error('Recorder v4 requires recorded receive order without --time-driven')
-    if (symbol || slugs.length > 0 || readFrom)
-      throw new Error(
-        'Recorder v4 accepts package paths / --dir or r2:// manifest URLs; symbol/slug/read-from selection is not supported',
-      )
+    if (symbol && symbol.toLowerCase() !== 'btc')
+      throw new Error('Recorder v4 currently supports --symbol btc only')
+    if (readFrom === 'local-or-download-from-r2-to-local')
+      throw new Error('Recorder v4 uses --read-from r2 with verified local worker caches')
+    if (readFrom === 'local' && !dirs.length && !filePaths.length)
+      throw new Error('Recorder v4 --read-from local requires --dir or package paths')
+    if (readFrom === 'r2' && (dirs.length || filePaths.length))
+      throw new Error('Use either Recorder v4 R2 catalog selection or explicit package inputs')
+    if (capturePrefix && (dirs.length || filePaths.length))
+      throw new Error('--capture-prefix applies only to Recorder v4 R2 catalog selection')
+    for (const slug of slugs)
+      if (!/^btc-updown-(5m|15m)-\d+$/.test(slug))
+        throw new Error(`Unsupported Recorder v4 market slug: ${slug}`)
   }
+  if (
+    (capturePrefix !== undefined || (listEligible && extend === undefined)) &&
+    inputMode !== 'recorder-v4'
+  )
+    throw new Error('--capture-prefix and --list-eligible require --input-mode recorder-v4')
 
   if (isTelonex && readFrom === undefined) {
     throw new Error(`[backtest] --input-mode=${inputMode} requires --read-from (local|r2)`)
   }
-  if (!isTelonex && readFrom !== undefined) {
+  if (!isTelonex && inputMode !== 'recorder-v4' && readFrom !== undefined) {
     throw new Error(
       `[backtest] --read-from is only valid with --input-mode=telonex-delta|telonex-paired`,
     )
@@ -528,6 +574,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     )
     if (inputModeFlagPresent) conflicting.push('--input-mode')
     if (readFrom !== undefined) conflicting.push('--read-from')
+    if (allowCaptureGaps) conflicting.push('--allow-capture-gaps')
+    if (capturePrefix !== undefined) conflicting.push('--capture-prefix')
     if (slugs.length > 0) conflicting.push('--slug')
     if (dirs.length > 0) conflicting.push('--dir')
     if (filePaths.length > 0) conflicting.push('<positional file path>')
@@ -593,6 +641,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(dirs.length > 0 ? { dirs } : {}),
     inputMode,
     ...(allowCaptureGaps ? { allowCaptureGaps } : {}),
+    ...(capturePrefix !== undefined ? { capturePrefix } : {}),
+    ...(listEligible ? { listEligible } : {}),
     ...(inputMode === 'recorder-v4' && timeframeExplicit
       ? { captureTimeframe: timeframe as '5m' | '15m' }
       : {}),

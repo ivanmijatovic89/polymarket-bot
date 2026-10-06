@@ -6,7 +6,10 @@ import { MarketEngine } from '../market/MarketEngine.js'
 import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
-import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
+import {
+  resolveCurrentUpDown15mAssets,
+  type ResolvedUpDown15mAssets,
+} from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { resolveMaxEventsPerDrain } from '../trading/runnerConfig.js'
@@ -20,6 +23,13 @@ import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { createBalanceTracker } from '../blockchain/balanceTracker.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
+import {
+  createLiveCapturedFeeds,
+  resolveLiveFeedMode,
+  resolveLiveTimeframe,
+} from '../trading/feeds/liveCapturedFeeds.js'
+import { captureMarketMetadata } from '../recorder-v4/replay/package.js'
+import { timeframeMs } from '../recorder-v4/markets.js'
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
@@ -199,10 +209,15 @@ async function main(): Promise<void> {
     pluginSet = new PluginSet()
     for (const p of built.plugins) pluginSet.register(p)
   }
-  assertLegacyPriceToBeatSource(
-    pluginSet?.list().find(isExternalFeedsRequestPlugin)?.config,
-    'trading-bot',
+  const externalFeedsReqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
+  const feedMode = resolveLiveFeedMode(
+    process.env.TRADING_FEED_MODE,
+    externalFeedsReqPlugin?.config ?? {},
   )
+  const useV4Feeds = feedMode === 'recorder-v4'
+  const tradingTimeframe = resolveLiveTimeframe(process.env.TRADING_TIMEFRAME, feedMode, symbol)
+  const tradingWindowMs = timeframeMs(tradingTimeframe)
+  if (!useV4Feeds) assertLegacyPriceToBeatSource(externalFeedsReqPlugin?.config, 'trading-bot')
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // Optional per-run JSONL logging
@@ -264,7 +279,7 @@ async function main(): Promise<void> {
     logger.info(`[trading-bot][⚙️] LOG_TO_FILE enabled -> ${logFilePath}`)
   }
 
-  logger.info(`[trading-bot][⚙️] symbol=${symbol}`)
+  logger.info(`[trading-bot][⚙️] symbol=${symbol} timeframe=${tradingTimeframe} feeds=${feedMode}`)
   logger.info(`[trading-bot][⚙️] wsUrl=${wsUrl}`)
   logger.info(`[trading-bot][⚙️] dryRun=${dryRun}`)
   if (!dryRun) {
@@ -293,14 +308,10 @@ async function main(): Promise<void> {
   // detection: strategyRegistry loads strategies via CJS require, so the
   // plugin instance comes from a different class identity than this file's
   // ESM import — `instanceof` alone would silently miss it.
-  const externalFeedsReqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
-  if (
-    externalFeedsReqPlugin?.config.chainlinkTwap ||
-    externalFeedsReqPlugin?.config.binanceBookTicker
-  ) {
+  if (useV4Feeds && !externalFeedsReqPlugin && strategy.requiredFeeds) {
     throw new Error(
-      'The current trading runtime does not supply captured TWAP/bookTicker feeds; use Recorder v4 replay until the live dispatcher is integrated',
+      'V4 live feeds require ExternalFeedsRequestPlugin; legacy requiredFeeds is not replayable',
     )
   }
 
@@ -331,7 +342,12 @@ async function main(): Promise<void> {
       : []
   const rtdsEnabled = rtdsBinanceSymbols.length > 0 || rtdsChainlinkSymbols.length > 0
 
-  if (rtdsReq && !rtdsReq.binanceSymbols?.length && !rtdsReq.chainlinkSymbols?.length) {
+  if (
+    !useV4Feeds &&
+    rtdsReq &&
+    !rtdsReq.binanceSymbols?.length &&
+    !rtdsReq.chainlinkSymbols?.length
+  ) {
     logger.info(
       `[trading-bot] rtdsCryptoPrices symbols derived from TRADING_SYMBOL: binance=[${rtdsBinanceSymbols.join(', ')}] chainlink=[${rtdsChainlinkSymbols.join(', ')}]`,
     )
@@ -364,18 +380,24 @@ async function main(): Promise<void> {
 
   const feedsEnabled =
     (rtdsReq && rtdsEnabled) || (binanceWsReq && binanceWsEnabled) || priceToBeatEnabled
-  const feedsStore = feedsEnabled ? createExternalFeedsStore() : null
-  if (feedsStore) {
-    if (!pluginSet) pluginSet = new PluginSet()
-    if (externalFeedsReqPlugin) {
-      externalFeedsReqPlugin.fulfill(() => feedsStore.snapshot())
-    } else {
-      pluginSet.register(new ExternalFeedsPlugin(() => feedsStore.snapshot()))
+  const feedsStore = !useV4Feeds && feedsEnabled ? createExternalFeedsStore() : null
+  let capturedLiveFeeds: ReturnType<typeof createLiveCapturedFeeds> | null = null
+  const fulfillFeeds = (plugins: PluginSet): void => {
+    const request = plugins.list().find(isExternalFeedsRequestPlugin)
+    if (useV4Feeds && request) {
+      request.fulfill((tick) => capturedLiveFeeds?.snapshotForTick(tick) ?? {})
+    } else if (feedsStore) {
+      if (request) request.fulfill(() => feedsStore.snapshot())
+      else plugins.register(new ExternalFeedsPlugin(() => feedsStore.snapshot()))
     }
+  }
+  if (feedsStore || useV4Feeds) {
+    if (!pluginSet) pluginSet = new PluginSet()
+    fulfillFeeds(pluginSet)
   }
 
   const rtdsClient =
-    rtdsReq && rtdsEnabled
+    !useV4Feeds && rtdsReq && rtdsEnabled
       ? createRtdsCryptoPricesClient({
           binanceSymbols: rtdsBinanceSymbols,
           chainlinkSymbols: rtdsChainlinkSymbols,
@@ -397,7 +419,7 @@ async function main(): Promise<void> {
       : null
 
   const binanceWsClient =
-    binanceWsReq && binanceWsEnabled
+    !useV4Feeds && binanceWsReq && binanceWsEnabled
       ? createBinanceWsSpotPriceClient({
           symbol: binanceWsSymbol,
           onPrice: (u) => feedsStore!.updateBinanceWsSpotPrice(u),
@@ -568,11 +590,7 @@ async function main(): Promise<void> {
       const fresh = definition.create(built.params)
       pluginSet = fresh.pluginSet ?? new PluginSet()
       if (!fresh.pluginSet) for (const plugin of fresh.plugins ?? []) pluginSet.register(plugin)
-      if (feedsStore) {
-        const request = pluginSet.list().find(isExternalFeedsRequestPlugin)
-        if (request) request.fulfill(() => feedsStore.snapshot())
-        else pluginSet.register(new ExternalFeedsPlugin(() => feedsStore.snapshot()))
-      }
+      fulfillFeeds(pluginSet)
       return { strategy: fresh.strategy, pluginSet }
     },
     strategyId: built.strategyId,
@@ -648,19 +666,22 @@ async function main(): Promise<void> {
     }
   }
 
-  const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
-    const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+  const resolveAssetsIds = async (
+    resolved?: ResolvedUpDown15mAssets,
+  ): Promise<{ assetsIds: string[]; label?: string }> => {
+    const r = resolved ?? (await resolveCurrentUpDown15mAssets({ symbol, date: new Date() }))
 
     // Avoid subscribing to the previous-window market around boundaries.
     // If Gamma is behind, retry soon instead of connecting to the old slug.
     try {
-      throwIfPreviousWindowSlug({
-        slug: r.slug,
-        symbol,
-        windowMs: FIFTEEN_MIN_MS,
-        nowMs: Date.now(),
-        messagePrefix: '[trading-bot]',
-      })
+      if (!resolved)
+        throwIfPreviousWindowSlug({
+          slug: r.slug,
+          symbol,
+          windowMs: FIFTEEN_MIN_MS,
+          nowMs: Date.now(),
+          messagePrefix: '[trading-bot]',
+        })
     } catch (err) {
       // Only reset if we haven't successfully set the market yet.
       // This avoids a race condition where a second connect() call (e.g. from
@@ -738,7 +759,7 @@ async function main(): Promise<void> {
       }
     }
 
-    if (priceToBeatEnabled) {
+    if (!useV4Feeds && priceToBeatEnabled) {
       const m = currentMarket as Record<string, unknown> | undefined
       const eventStartTimeIso =
         typeof m?.eventStartTime === 'string' && m.eventStartTime.length > 0
@@ -782,6 +803,47 @@ async function main(): Promise<void> {
     }
 
     return { assetsIds: r.assetsIds, label: r.label }
+  }
+
+  if (useV4Feeds) {
+    capturedLiveFeeds = createLiveCapturedFeeds({
+      timeframe: tradingTimeframe,
+      config: externalFeedsReqPlugin?.config ?? {},
+      ...(cfg.creds ? { credentials: cfg.creds } : {}),
+      marketWsUrl: wsUrl,
+      onMarket: async (recorded) => {
+        const market = captureMarketMetadata({ market: recorded })
+        await resolveAssetsIds({
+          market: { ...market, slug: recorded.slug } as ResolvedUpDown15mAssets['market'],
+          slug: recorded.slug,
+          assetsIds: [...recorded.tokenIds],
+          tokenMap: Object.fromEntries(
+            recorded.outcomes.map((name, index) => [name, recorded.tokenIds[index]!]),
+          ),
+          label: `gamma:${recorded.slug}`,
+        })
+      },
+      onTick: async (tick) => {
+        if (shouldStop) return
+        if (
+          tick.msg.event_type === 'binance_agg_trade' ||
+          tick.msg.event_type === 'chainlink_round'
+        )
+          totalSyntheticTicks++
+        else totalWsEvents++
+        await runner.onMarketTick(tick)
+      },
+      onStatus: (status) => {
+        logger.info(
+          `[feeds][v4][${status.source}] ${status.kind}${status.reason ? ` ${status.reason}` : ''}`,
+        )
+      },
+      onFatal: (err) => {
+        shouldStop = true
+        logger.error('[trading-bot] V4 feed processing stopped', { err })
+        process.exit(1)
+      },
+    })
   }
 
   const source = createLiveMarketEventSource({
@@ -964,9 +1026,9 @@ async function main(): Promise<void> {
   let statsInterval: NodeJS.Timeout | undefined
   if (!enableWebUi) {
     statsInterval = setInterval(() => {
-      const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+      const candleLeft = msUntilNextBoundary(Date.now(), tradingWindowMs)
       logger.info(
-        `[trading-bot] stats ws_events_total=${totalWsEvents}${totalSyntheticTicks > 0 ? ` synthetic_ticks_total=${totalSyntheticTicks}` : ''} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
+        `[trading-bot] stats ${useV4Feeds ? 'market_ticks_total' : 'ws_events_total'}=${totalWsEvents}${totalSyntheticTicks > 0 ? ` synthetic_ticks_total=${totalSyntheticTicks}` : ''} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
       )
     }, 10_000)
   }
@@ -989,7 +1051,7 @@ async function main(): Promise<void> {
   }
 
   const boundaryScheduler = createWindowBoundaryScheduler({
-    windowMs: FIFTEEN_MIN_MS,
+    windowMs: tradingWindowMs,
     onBoundary: () => {
       if (shouldStop) return
       rotateAndReconnect()
@@ -1006,13 +1068,14 @@ async function main(): Promise<void> {
     userWs?.stop()
     poller?.stop()
     source.stop()
+    void capturedLiveFeeds?.stop()
     rtdsClient?.stop()
     binanceWsClient?.stop()
     priceToBeatClient?.stop()
     webUi?.stop()
     restoreConsole?.()
     closeJsonl?.()
-    process.exit(0)
+    process.exit(process.exitCode ?? 0)
   }
   installSignalHandlers({ onSignal: shutdown })
 
@@ -1129,7 +1192,7 @@ async function main(): Promise<void> {
         })()
         return {
           symbol: String(symbol),
-          candleLeftMs: msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS),
+          candleLeftMs: msUntilNextBoundary(Date.now(), tradingWindowMs),
           wsAttempt,
           wsEventsTotal: totalWsEvents,
           ...(typeof slug === 'string' ? { slug } : {}),
@@ -1205,8 +1268,11 @@ async function main(): Promise<void> {
     logger.info(`[trading-bot][⚙️] web-ui http://${host}:${port} ws=ws://${host}:${port}/ws`)
   }
 
-  source.start()
-  boundaryScheduler.start()
+  if (capturedLiveFeeds) capturedLiveFeeds.start()
+  else {
+    source.start()
+    boundaryScheduler.start()
+  }
   userWs?.start()
   poller?.start()
   rtdsClient?.start()

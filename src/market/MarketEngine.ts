@@ -4,7 +4,14 @@ import { normalizePriceChangeHashes } from './priceChangeHashes.js'
 import { decodeMarketChannelFrame } from './marketChannelDecoder.js'
 
 export type EngineSource =
-  | { kind: 'live'; attempt: number }
+  | {
+      kind: 'live'
+      attempt: number
+      /** Present for the receipt-ordered V4 live feed runtime. */
+      ingestSeq?: bigint
+      frameIndex?: number
+      tsLocalMs?: number
+    }
   | {
       kind: 'parquet'
       filePath: string
@@ -134,7 +141,7 @@ export class MarketEngine {
         this.ob.applyAny(msg)
         if (!args.bootstrap && (msg.event_type === 'book' || msg.event_type === 'price_change')) {
           const source =
-            args.source.kind === 'parquet' && messages.length > 1
+            'ingestSeq' in args.source && messages.length > 1
               ? { ...args.source, frameIndex }
               : args.source
           const result = this.onTick?.({ source, msg, snapshot: this.ob.snapshot() })

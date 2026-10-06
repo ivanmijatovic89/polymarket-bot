@@ -5,12 +5,20 @@ import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 import { ExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import * as z from 'zod'
 
+const optionalFeedFlag = z
+  .union([z.boolean(), z.enum(['true', 'false'])])
+  .transform((value) => value === true || value === 'true')
+  .default(false)
+
 export const ConfigSchema = z.strictObject({
   /**
    * Log throttling. Keeps the strategy cheap even at high tick rates.
    */
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
   priceToBeatSource: z.enum(['website', 'chainlink-opening-twap']).default('website'),
+  /** Opt-in V4 feeds; historical runtimes retain the existing default request. */
+  binanceBookTicker: optionalFeedFlag,
+  chainlinkTwap: optionalFeedFlag,
 })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -65,8 +73,13 @@ export function createStrategy(cfg: Config): {
         ? `${ptb.openPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
         : 'n/a'
 
+    const bookTicker = cfg.binanceBookTicker
+      ? ` binanceBid=${feeds?.binanceBookTicker?.bidPrice ?? 'n/a'} binanceAsk=${feeds?.binanceBookTicker?.askPrice ?? 'n/a'}`
+      : ''
+    const twap = cfg.chainlinkTwap ? ` chainlinkTwap=${feeds?.chainlinkTwap?.value ?? 'n/a'}` : ''
+
     console.log(
-      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} priceToBeatRequestedSource=${cfg.priceToBeatSource} priceToBeatSource=${ptbSource} priceToBeatComparison=${ptbComparison} diff=${priceDiff}`,
+      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} priceToBeatRequestedSource=${cfg.priceToBeatSource} priceToBeatSource=${ptbSource} priceToBeatComparison=${ptbComparison} diff=${priceDiff}${bookTicker}${twap}`,
     )
   }
 
@@ -102,9 +115,17 @@ export function createStrategy(cfg: Config): {
     strategy,
     plugins: [
       new ExternalFeedsRequestPlugin({
-        rtdsCryptoPrices: {}, // symbols follow the traded market in supported live/replay runtimes
+        // V4 provides Chainlink here; Binance comes from the direct Binance feed.
+        rtdsCryptoPrices:
+          cfg.binanceBookTicker ||
+          cfg.chainlinkTwap ||
+          cfg.priceToBeatSource === 'chainlink-opening-twap'
+            ? { binanceSymbols: [] }
+            : {},
         binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
         polymarketPriceToBeat: { enabled: true, source: cfg.priceToBeatSource },
+        ...(cfg.binanceBookTicker ? { binanceBookTicker: {} } : {}),
+        ...(cfg.chainlinkTwap ? { chainlinkTwap: { windowSeconds: 60 } } : {}),
       }),
     ],
   }

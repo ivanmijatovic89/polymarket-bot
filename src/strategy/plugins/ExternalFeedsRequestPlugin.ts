@@ -3,9 +3,9 @@ import type { Plugin } from './PluginSet.js'
 
 // New recorder capabilities are plugin-only; do not add them to Strategy.requiredFeeds.
 export type ExternalFeedsRequestConfig = {
-  /** Recorder v4 captured feed; unsupported runtimes fail explicitly. */
+  /** V4 receipt-ordered live/replay feed; historical runtimes fail explicitly. */
   binanceBookTicker?: { symbol?: string }
-  /** Recorder v4 captured feed; unsupported runtimes fail explicitly. */
+  /** V4 receipt-ordered live/replay feed; historical runtimes fail explicitly. */
   chainlinkTwap?: { symbol?: string; windowSeconds?: number }
   rtdsCryptoPrices?: {
     binanceSymbols?: string[]
@@ -29,7 +29,7 @@ export type ExternalFeedsRequestConfig = {
   }
   polymarketPriceToBeat?: {
     enabled?: boolean
-    /** Website observations remain the default; the opening TWAP requires Recorder v4. */
+    /** Website observations remain the default; opening TWAP requires the V4 live/replay runtime. */
     source?: 'website' | 'chainlink-opening-twap'
   }
 }
@@ -54,8 +54,8 @@ export function assertLegacyPriceToBeatSource(
  * - Runtime then fulfills this plugin by injecting a snapshot provider.
  * - Backtests fulfill it the same strategy-driven way with a point-in-time
  *   provider that reads the current tick
- *   (`src/backtest/feeds/wireBacktestExternalFeeds.ts`); the live provider
- *   ignores the tick argument. Unfulfilled (e.g. no backtest data source for
+ *   (`src/backtest/feeds/wireBacktestExternalFeeds.ts`). V4 live/replay providers
+ *   both return the snapshot bound to that exact tick. Unfulfilled (e.g. no backtest data source for
  *   the requested sub-feed), it stays absent from `ctx.plugins`.
  */
 export class ExternalFeedsRequestPlugin implements Plugin {

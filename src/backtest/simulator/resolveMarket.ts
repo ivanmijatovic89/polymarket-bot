@@ -10,7 +10,6 @@ import { resolveStrategyFromArtifact } from '../../cli/helpers/strategyArgs.js'
 import { parseRecordedBacktestArgs } from '../../cli/helpers/backtestArgs.js'
 import { resolveStartingCapital } from '../../cli/helpers/capitalArgs.js'
 import { getStrategyDefinition } from '../../strategy/strategyRegistry.js'
-import { localOutputPath } from '../../telonex/localOutputPath.js'
 import { downloadR2ToLocal, fileExists } from '../../telonex/fetchConvertedToLocal.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../../polymarket/gammaMarketMeta.js'
 import { windowFromSlug } from '../../polymarket/upDownSlugWindow.js'
@@ -19,6 +18,14 @@ import { resolveMaxEventsPerDrain } from '../../trading/runnerConfig.js'
 import { binanceFeedLatencyMs, rtdsChainlinkLatencyMs } from '../feeds/wireBacktestExternalFeeds.js'
 import type { RunSingleMarketInput } from '../runSingleMarket.js'
 import type { ReplayProvenance } from './contracts.js'
+import { externalFeedsRequest } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { resolveCapturePackage } from '../../recorder-v4/replay/package.js'
+import {
+  createCaptureReference,
+  resolveCaptureReference,
+  type RecorderV4Capture,
+  canonicalJson,
+} from '../../recorder-v4/replay/provenance.js'
 
 async function hashFile(file: string): Promise<string> {
   const hash = createHash('sha256')
@@ -35,7 +42,7 @@ function sourceFiles(directory: string): string[] {
   })
 }
 
-export async function resolveSimulatorMarket(runId: number, slug: string) {
+export async function resolveSimulatorMarket(runId: number, slug: string, inputDirectory: string) {
   if (!Number.isSafeInteger(runId) || runId < 1 || !/^[a-zA-Z0-9_-]{1,255}$/.test(slug)) {
     throw new Error('Invalid run or market identifier')
   }
@@ -50,7 +57,6 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
   const { run, market } = row
   const warnings = [
     'Reconstructed replay: this run saved final statistics, not its original tick/order trace. Matching totals do not prove an identical historical path.',
-    'Original dataset hashes and environment settings were not saved. Current input bytes are fingerprinted below.',
   ]
   const parsed = parseRecordedBacktestArgs(run.cmd)
   if (!parsed)
@@ -107,17 +113,67 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
     unknown
   >
   const inputMode = run.inputMode ?? parsed?.inputMode ?? 'recorded'
-  if (!['recorded', 'telonex-delta', 'telonex-paired'].includes(inputMode))
+  if (!['recorded', 'recorder-v4', 'telonex-delta', 'telonex-paired'].includes(inputMode))
     throw new Error(`Unsupported input mode: ${inputMode}`)
   let filePath: string, dataset: string, meta: GammaMarketMeta | undefined
   const window = windowFromSlug(slug)
-  if (inputMode === 'recorded') {
+  let capture: RecorderV4Capture | undefined
+  if (inputMode === 'recorder-v4') {
+    capture = market.recorderV4Capture ?? undefined
+    if (!capture) {
+      const exact = (parsed?.filePaths ?? []).filter(
+        (file) =>
+          file.startsWith('r2://') &&
+          file.includes(`/${slug}/`) &&
+          /\/manifest-[a-f0-9]{64}\.json$/.test(file),
+      )
+      if (exact.length !== 1) {
+        throw new Error(
+          'This older V4 run did not save an exact recording reference. Run the backtest again to save its recording identity; the simulator will not guess a capture from the market slug.',
+        )
+      }
+      const restored = await resolveCapturePackage(exact[0]!)
+      if (restored.manifest.market.slug !== slug)
+        throw new Error('Saved capture URL belongs to another market.')
+      capture = createCaptureReference({
+        manifest: restored.manifest,
+        input: exact[0]!,
+        marketResolution: {
+          tokenMap: restored.marketResolution.tokenMap,
+          outcome: market.finalOutcome,
+        },
+        allowGaps: parsed?.allowCaptureGaps ?? false,
+        requiredFeeds: externalFeedsRequest(definition.create(params)),
+      })
+      warnings.push(
+        'Older V4 run: recovered the unique content-addressed manifest URL from its saved command. Feed requirements use the reconstructed strategy; settlement uses the saved market outcome.',
+      )
+    }
+    if (
+      capture.manifest.market.slug !== slug ||
+      capture.marketResolution.outcome !== market.finalOutcome
+    )
+      throw new Error('Saved V4 recording identity or settlement differs from this market result.')
+    if (
+      canonicalJson(externalFeedsRequest(definition.create(params))) !==
+      canonicalJson(capture.requiredFeeds)
+    )
+      throw new Error(
+        'The reconstructed strategy requests different feeds than this saved V4 backtest. Use its original strategy artifact or run a new backtest.',
+      )
+    if (capture.input.startsWith('r2://') && capture.manifest.events.bytes > 2 * 1024 ** 3)
+      throw new Error('Simulator download exceeds the 2 GiB per-session input limit.')
+    const restored = await resolveCaptureReference(capture, { cacheDirectory: inputDirectory })
+    filePath = restored.filePath
+    dataset = capture.input
+    meta = restored.marketMeta
+  } else if (inputMode === 'recorded') {
     const recorded = await getRecordedMarket(slug)
     if (!recorded?.dataset)
       throw new Error('The original recorded dataset is no longer in the market catalog.')
     dataset = recorded.dataset
     filePath = dataset.startsWith('r2://')
-      ? path.resolve('data/simulator-inputs', `${slug}.parquet`)
+      ? path.join(inputDirectory, `${slug}.parquet`)
       : path.resolve(dataset)
     meta = recorded.rawJson
       ? (buildGammaMarketMeta(recorded.rawJson as Record<string, unknown>, slug) ?? undefined)
@@ -131,10 +187,7 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
     }
     dataset = catalog.dataset
     filePath =
-      readFrom === 'local'
-        ? path.resolve(dataset)
-        : localOutputPath({ converter, symbol: catalog.symbol, timeframe: catalog.timeframe, slug })
-            .absolute
+      readFrom === 'local' ? path.resolve(dataset) : path.join(inputDirectory, `${slug}.parquet`)
     const up = catalog.assetId0,
       down = catalog.assetId1
     meta = {
@@ -159,7 +212,11 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
       throw new Error('Historical parquet is missing on this dashboard host.')
     await downloadR2ToLocal(dataset, filePath)
   }
-  const gamma = (await getGammaMetadataBySlugs([slug])).get(slug) ?? null
+  if (!capture)
+    warnings.push(
+      'Original dataset hashes and environment settings were not saved. Current input bytes are fingerprinted below.',
+    )
+  const gamma = capture ? null : ((await getGammaMetadataBySlugs([slug])).get(slug) ?? null)
   const tokens = { UP: meta.upAssetId, DOWN: meta.downAssetId }
   const input: RunSingleMarketInput = {
     startingCapital,
@@ -167,11 +224,17 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
     slug,
     filePath,
     marketMeta: meta,
-    marketResolution: { tokenMap: tokens, outcome: market.finalOutcome },
+    marketResolution: capture?.marketResolution ?? {
+      tokenMap: tokens,
+      outcome: market.finalOutcome,
+    },
     strategyId: artifact?.strategyId ?? run.strategy,
     strategyParams: params,
     strategyDefinition: definition,
     inputMode: inputMode as RunSingleMarketInput['inputMode'],
+    ...(capture
+      ? { recorderV4: { manifest: capture.manifest, allowGaps: capture.allowGaps } }
+      : {}),
     order: parsed?.order ?? 'recorded',
     timeDriven: parsed?.timeDriven ?? false,
     latency,
@@ -205,10 +268,25 @@ export async function resolveSimulatorMarket(runId: number, slug: string) {
       riskLimits: DEFAULT_RISK_LIMITS,
       makerFillMode: 'worst_queue',
       cancelLatency: true,
-      binanceFeedLatencyMs: binanceFeedLatencyMs(),
-      chainlinkFeedLatencyMs: rtdsChainlinkLatencyMs(),
+      ...(capture
+        ? { feedTiming: 'captured-receipt-order', requiredFeeds: capture.requiredFeeds }
+        : {
+            binanceFeedLatencyMs: binanceFeedLatencyMs(),
+            chainlinkFeedLatencyMs: rtdsChainlinkLatencyMs(),
+          }),
       gammaPriceToBeat: gamma,
     },
+    ...(capture
+      ? {
+          capture: {
+            recordingId: capture.manifest.recordingId,
+            manifestSha256: capture.manifestSha256,
+            coverage: capture.manifest.coverage,
+            allowGaps: capture.allowGaps,
+            requiredFeeds: capture.requiredFeeds,
+          },
+        }
+      : {}),
     warnings,
   }
   return { input, provenance, expected: market, tokens }

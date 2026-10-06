@@ -68,15 +68,15 @@ Backtest results are normalized across four tables. The old monolithic `backtest
 
 Important indexes:
 
-| Table                    | Index/Constraint                 | Purpose                                  |
-| ------------------------ | -------------------------------- | ---------------------------------------- |
-| `backtest_runs`          | index `batch_uid`, unique `submission_uid` | Group lookup by label; unique per-submission identity |
-| `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)` | Dashboard history and filter queries     |
-| `backtest_runs`          | `(protocol, model, created_at)` | Protocol/model provenance analysis and chronological lookup |
-| `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
-| `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)` | Detail, search, slow-market and chronological views |
-| `backtest_run_failures`  | `(run_id, idx)`, `(run_id, slug)` | Failure detail views                     |
-| `backtest_run_segments`  | unique `(run_id, segment_kind, segment_key)`, `(segment_kind, segment_key)`, `(run_id, segment_kind, segment_ord)` | Per-run segment list and cross-run bucket compare |
+| Table                   | Index/Constraint                                                                                                   | Purpose                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `backtest_runs`         | index `batch_uid`, unique `submission_uid`                                                                         | Group lookup by label; unique per-submission identity       |
+| `backtest_runs`         | `created_at`, `(strategy, created_at)`, `(symbol, created_at)`                                                     | Dashboard history and filter queries                        |
+| `backtest_runs`         | `(protocol, model, created_at)`                                                                                    | Protocol/model provenance analysis and chronological lookup |
+| `backtest_run_markets`  | unique `(run_id, idx)`                                                                                             | Deterministic per-run order                                 |
+| `backtest_run_markets`  | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)`                    | Detail, search, slow-market and chronological views         |
+| `backtest_run_failures` | `(run_id, idx)`, `(run_id, slug)`                                                                                  | Failure detail views                                        |
+| `backtest_run_segments` | unique `(run_id, segment_kind, segment_key)`, `(segment_kind, segment_key)`, `(run_id, segment_kind, segment_ord)` | Per-run segment list and cross-run bucket compare           |
 
 See [Backtest Result Storage](/backtest/statistics/result-storage),
 [Backtest Run Statistics](/backtest/statistics/run-statistics), and
@@ -97,11 +97,11 @@ Migration: `drizzle/0030_global_runtime.sql`.
 
 Helpers are split into three modules, each exporting its own functions (no wildcard re-export from `src/db/index.ts` to avoid name collisions between the recorded and telonex families):
 
-| Module                      | Purpose                                                                    |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `src/db/markets.ts`         | Helpers for the `markets` table (recorded flow).                           |
-| `src/db/telonexMarkets.ts`  | Helpers for `telonex_markets` ⋈ `telonex_market_conversions` (telonex flow). Exports the same function names as `markets.ts` — alias on import when both are needed. |
-| `src/db/backtests.ts`       | `insertBacktestRun` — shared across both flows.                            |
+| Module                     | Purpose                                                                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/db/markets.ts`        | Helpers for the `markets` table (recorded flow).                                                                                                                     |
+| `src/db/telonexMarkets.ts` | Helpers for `telonex_markets` ⋈ `telonex_market_conversions` (telonex flow). Exports the same function names as `markets.ts` — alias on import when both are needed. |
+| `src/db/backtests.ts`      | `insertBacktestRun` — shared across both flows.                                                                                                                      |
 
 `src/db/index.ts` continues to export `getDb` / `closeDb` and all Drizzle schema tables.
 
@@ -283,11 +283,11 @@ listEligibleTelonexMarkets(
 
 Returns eligible telonex markets for the filter, ordered `market_start_ms ASC` (or `RAND()` when `random=true`). `random` and `latest` are mutually exclusive. Companion helpers: `listEligibleTelonexSlugs(opts)` (slugs only) and `countEligibleTelonexMarkets(opts)`.
 
-| Option     | Behaviour                                                                                          |
-| ---------- | -------------------------------------------------------------------------------------------------- |
-| `limit`    | Cap the result set size. Default: `1000`.                                                          |
-| `random`   | When `true`, rows are returned in `RAND()` order.                                                  |
-| `latest`   | When `true` and `limit` is set, returns the `limit` most recent rows by `market_start_ms`.         |
+| Option   | Behaviour                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------ |
+| `limit`  | Cap the result set size. Default: `1000`.                                                  |
+| `random` | When `true`, rows are returned in `RAND()` order.                                          |
+| `latest` | When `true` and `limit` is set, returns the `limit` most recent rows by `market_start_ms`. |
 
 ---
 
@@ -350,3 +350,28 @@ import type { Market as TelonexMarket } from './src/db/telonexMarkets.js'
 | -------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `Market`       | Inferred select type for a `markets` row — all columns present, nullable columns typed as `T \| null`.           |
 | `MarketInsert` | Inferred insert type for a `markets` row — required fields are non-optional, columns with defaults are optional. |
+
+## Recorder V4 replay identity
+
+Migration `0039_recorder_v4_replay_provenance` adds two nullable JSON columns:
+
+| Column                                     | Purpose                                                                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `backtest_runs.recorder_v4_selection`      | Original archive/local source, explicit duration/date filters, required feeds, gap policy and verified selection counts.                 |
+| `backtest_run_markets.recorder_v4_capture` | Exact input location, manifest, canonical manifest SHA-256, required feeds, gap policy and the settlement/token map used by that replay. |
+
+The capture reference also exists on zero-trade result rows and extension rows.
+Event-file hashes stay in the manifest. Canonical JSON sorts object keys before
+hashing because MySQL may reorder JSON properties. The simulator checks that the
+available manifest and event bytes still match and uses the saved settlement;
+a later catalog update or resolution correction cannot silently rewrite the
+original input. Historical rows remain null and are labeled appropriately.
+
+An extension preserves the original selection universe. In particular, an
+unspecified V4 timeframe continues to mean both durations, even when an initial
+limited selection happened to contain only 5m recordings. The run's display
+`timeframe` describes actual result rows and becomes null when the union is mixed.
+
+Apply this additive migration before running the updated dashboard or workers.
+The new aggregate job protocol is version 6: finish existing queued work before
+updating workers and enqueue new jobs only after all workers are updated.

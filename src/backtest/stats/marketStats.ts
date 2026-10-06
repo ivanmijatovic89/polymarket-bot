@@ -1,3 +1,4 @@
+import type { RecorderV4Capture } from '../../recorder-v4/replay/provenance.js'
 import type { Fill, Position, PositionsSplit } from '../../strategy/Strategy.js'
 import { computePolymarketTakerFee } from '../../trading/fees.js'
 
@@ -24,6 +25,7 @@ export type MarketExecutionMeta = {
 }
 
 export type MarketStats = {
+  recorderV4Capture?: RecorderV4Capture
   marketId: string
   slug: string
   finalOutcome: 'UP' | 'DOWN'
