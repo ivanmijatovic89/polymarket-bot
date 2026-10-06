@@ -139,6 +139,7 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/polymarket-research/overview' },
+                { text: 'Research Skill and Wallet Strategies', link: '/datasets/polymarket-research/research-skill' },
                 { text: 'Nightly Download', link: '/datasets/polymarket-research/downloading' },
                 { text: 'Operations and Upgrades', link: '/datasets/polymarket-research/operations' },
                 { text: 'Performance', link: '/datasets/polymarket-research/performance' },

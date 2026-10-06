@@ -1,14 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { build } from 'esbuild'
 import { marketFamily } from '../src/research-data/family.js'
-import { atomicWrite, readJson } from '../src/research-data/files.js'
-import { claimLock } from '../src/research-data/sync.js'
-import { readUpdateConfig, type UpdateConfig } from '../src/research-data/update.js'
+import { activateResearchSchedule, prepareUpdateConfig } from '../src/research-data/installation.js'
 import { launchAgentPlist } from '../src/research-data/schedule.js'
 
 const { values } = parseArgs({
@@ -42,27 +40,16 @@ const revision = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: project,
   encoding: 'utf8',
 }).trim()
-const runtime = path.join(root, 'runtime', revision)
+const releases = path.join(root, 'runtime')
+await mkdir(releases, { recursive: true })
+// A preparation of the same commit must never overwrite a running release.
+const runtime = await mkdtemp(path.join(releases, `${revision}-`))
 const configFile = path.join(root, 'update-config.json')
-await mkdir(runtime, { recursive: true })
-const previous = await readJson<UpdateConfig>(configFile)
-await writeFile(
-  configFile,
-  JSON.stringify(
-    {
-      version: 1,
-      root,
-      from: values.from,
-      market: family.id,
-      concurrency: previous?.concurrency ?? 16,
-      requestsPerSecond: previous?.requestsPerSecond ?? 60,
-      minFreeGiB: previous?.minFreeGiB ?? 5,
-    },
-    null,
-    2,
-  ) + '\n',
-)
-await readUpdateConfig(configFile)
+const candidateConfig = await prepareUpdateConfig(runtime, {
+  root,
+  from: values.from,
+  market: family.id,
+})
 const duck = JSON.parse(
   await readFile(path.join(project, 'node_modules', '@duckdb', 'node-api', 'package.json'), 'utf8'),
 ) as { version: string }
@@ -108,55 +95,48 @@ execFileSync('/usr/bin/plutil', ['-lint', prepared], { stdio: 'inherit' })
 if (values.activate) {
   const destination = path.join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`)
   await mkdir(path.dirname(destination), { recursive: true })
-  const release = await claimLock(root)
-  await release() // Refuse an upgrade while the current downloader is active.
-  const previousPlist = await readFile(destination, 'utf8').catch(
-    (error: NodeJS.ErrnoException) => {
-      if (error.code === 'ENOENT') return null
-      throw error
-    },
-  )
-  spawnSync('/bin/launchctl', ['bootout', `gui/${process.getuid!()}/${label}`], { stdio: 'pipe' })
-  try {
-    await atomicWrite(destination, plist)
-    execFileSync('/bin/launchctl', ['bootstrap', `gui/${process.getuid!()}`, destination], {
-      stdio: 'inherit',
-    })
-  } catch (error) {
-    if (previousPlist !== null) {
-      await atomicWrite(destination, previousPlist)
-      spawnSync('/bin/launchctl', ['bootstrap', `gui/${process.getuid!()}`, destination], {
+  const domain = `gui/${process.getuid!()}`
+  await activateResearchSchedule({
+    root,
+    candidateConfig,
+    plistPath: destination,
+    plist,
+    stop: () => {
+      const stopped = spawnSync('/bin/launchctl', ['bootout', `${domain}/${label}`], {
         stdio: 'pipe',
       })
-    } else await rm(destination, { force: true })
-    throw error
-  }
-  await writeFile(
-    path.join(root, 'schedule.json'),
-    JSON.stringify(
-      {
-        label,
-        timezone: 'Europe/Belgrade',
-        hour: 3,
-        minute: 0,
-        revision,
-        runtime,
-        config: configFile,
-        plist: destination,
-        node: process.execPath,
-        installed_at: new Date().toISOString(),
-      },
-      null,
-      2,
-    ) + '\n',
-  )
+      if (stopped.error) throw stopped.error
+      if (stopped.status !== 0) {
+        const existing = spawnSync('/bin/launchctl', ['print', `${domain}/${label}`], {
+          stdio: 'pipe',
+        })
+        if (existing.error) throw existing.error
+        if (existing.status === 0) throw new Error('Unable to unload the existing research job')
+      }
+    },
+    start: () => {
+      execFileSync('/bin/launchctl', ['bootstrap', domain, destination], { stdio: 'inherit' })
+    },
+    metadata: {
+      label,
+      timezone: 'Europe/Belgrade',
+      hour: 3,
+      minute: 0,
+      revision,
+      runtime,
+      config: configFile,
+      plist: destination,
+      node: process.execPath,
+      installed_at: new Date().toISOString(),
+    },
+  })
 }
 console.log(
   JSON.stringify(
     {
       activated: values.activate,
       runtime,
-      config: configFile,
+      config: values.activate ? configFile : candidateConfig,
       prepared_plist: prepared,
       schedule: '03:00 Europe/Belgrade; catch up at wake/login',
     },

@@ -48,10 +48,11 @@ logic or provide a substitute for its tick stream.
 4. [Commands and research examples](./commands): rankings, wallet history and SQL.
 5. [Operations and upgrades](./operations): failures, disk space, retention and releases.
 6. [Performance](./performance): measured running time and request limits.
+7. [Research skill](./research-skill): rankings, comparisons and wallet strategy investigations.
 
-The [existing analyst instructions](./agents/analyst) use these same definitions.
-A specialized skill and research agent are a later stage; they should reference
-these docs rather than maintain separate calculation rules.
+The project-local `polymarket-research` skill uses these same definitions and the
+[analyst instructions](./agents/analyst). Invoke it for local wallet studies,
+including investigating possible trading strategies.
 
 ## Research periods
 

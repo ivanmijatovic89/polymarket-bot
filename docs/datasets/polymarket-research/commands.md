@@ -5,6 +5,8 @@ description: Download, inspect and query local wallet data.
 
 # Research commands
 
+For agent-led studies, use the [project research skill](./research-skill).
+
 Use Node 20 and the repository dependencies. Set the permanent root once:
 
 ```bash
