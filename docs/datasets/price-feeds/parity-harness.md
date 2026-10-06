@@ -1,35 +1,22 @@
-# Feeds Parity Harness
+# Historical Feed Calibration
 
-Measures — and tunes — how closely backtests track live trading at the exact
-boundary strategies consume: `ctx.plugins.externalFeeds` + the orderbook
-snapshot. The same probe strategy (`feedsParityProbe.v1`, zero intents) runs
-in the LIVE bot (DRY_RUN=true) and in REPLAY over a parallel recording; the
-harness compares the two per-tick views and suggests tuned latency envs.
-Re-run it whenever fidelity needs re-checking (new feed, infra change, new
-machine) — it is also the measuring instrument for the future
-synthetic-feed-ticks work ([ADR](/backtest/adr-binance-driven-ticks)).
+This tool replays and compares existing calibration runs under `data/feeds-parity/<runId>/`. It preserves the evidence behind the historical Binance/Chainlink latency defaults and synthetic-tick measurements. The capture command was retired with the standalone recorder.
 
-## The loop
+For new capture, use [Recorder V4](/datasets/recording/recorder-v4). V4 records actual receipt order and does not apply these historical feed-latency offsets. This harness does not accept V4 packages; use V4 verification and its replay parity tests for those.
+
+## Analyze an existing run
 
 ```bash
-# 1. Capture (default 6h): DRY_RUN=true bot + record:live in parallel
-npm run feeds:parity -- capture --symbol btc --minutes 360
-
-# 2. Same evening: replay the recording with the same probe
-npm run feeds:parity -- replay --run <runId>                # --base recorded (default)
-
-# 3. Compare + tune loop
+npm run feeds:parity -- replay --run <runId> # recorded base
 npm run feeds:parity -- compare --run <runId>
-npm run feeds:parity -- tune --run <runId> --apply          # re-replays with suggested envs, prints residual
+npm run feeds:parity -- tune --run <runId> --apply
 
-# 4. Next day (canonical dataset): after telonex sync/convert of the covered slugs
+# Requires the run's covered Telonex slugs synced and converted locally.
 npm run feeds:parity -- replay --run <runId> --base telonex
 npm run feeds:parity -- compare --run <runId> --replay-file replay-telonex.jsonl
 ```
 
-Everything lands in `data/feeds-parity/<runId>/`: `manifest.json` (symbol,
-window, latency-env snapshot, covered recordings, every replay's exact envs),
-`live.jsonl`, `replay-*.jsonl`, child logs, and `report-*.json`.
+The existing run must include its `manifest.json`, `live.jsonl`, and covered recording files. Replay/compare writes `replay-*.jsonl`, child logs, and `report-*.json` alongside that evidence.
 
 For the telonex base, run the comparison **twice** — the two cuts answer
 different questions:
@@ -89,10 +76,7 @@ Unit tests: `npx tsx --test src/cli/research/feedsParityCompare.test.ts src/stra
 
 ## Measuring synthetic feed ticks
 
-Runs that opt into synthetic ticks pass the probe params through capture and
-replay: `npm run feeds:parity -- capture --symbol btc --minutes 75
---probe-param tickOnUpdate=true --probe-param logEveryTick=true` (replay reuses
-them from the manifest automatically). `logEveryTick=true` is required —
+Historical runs that captured `tickOnUpdate=true` and `logEveryTick=true` retain those probe parameters in their manifests, and replay reuses them automatically. `logEveryTick=true` was required —
 default sampling would fold a synthetic tick into the value-change row it
 usually coincides with. Probe rows carry `eventType` and `synthetic: true`,
 and the report gains a `synthetic ticks` line: live vs replay counts and
@@ -124,11 +108,6 @@ baked into the defaults by the follow-up commit:
   ticks landed differently), ~24% of all transitions — quantifies what
   synthetic feed ticks ([ADR](/backtest/adr-binance-driven-ticks)) would recover.
 
-## Safety
+## Replay prerequisites
 
-Capture forces `DRY_RUN=true` into the bot's env AND aborts unless the bot's
-startup log confirms `dryRun=true` (this repo runs on a live-trading machine).
-The probe emits no intents by construction; dry-run execution is a no-op stub
-regardless. Prerequisites: MySQL + Gamma reachable for replay meta; the
-telonex base additionally needs the covered slugs synced+converted locally
-(the replay error names the commands).
+The probe emits no intents. Existing-run replay needs MySQL and Gamma access for historical market metadata; the Telonex base additionally needs its covered slugs synced and converted locally. The CLI no longer starts a live bot or recorder.

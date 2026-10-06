@@ -11,10 +11,10 @@ the same tick stream semantics. Any live/backtest divergence is a bug.
 
 ## Start Here
 
-- New setup or first run: [Quickstart](docs/quickstart-new.md)
+- New setup or first run: [Quickstart](docs/quickstart.md)
 - System overview: [How It Works](docs/how-it-works.md)
 - Domain vocabulary: [Key Concepts](docs/key-concepts.md)
-- Full docs inventory: [Docs Inventory](docs/docs-inventory.md)
+- Dataset sources and preparation: [Datasets](docs/datasets/index.md)
 
 ## Task Routing
 
@@ -30,9 +30,9 @@ the same tick stream semantics. Any live/backtest divergence is a bug.
 | Work on run, market, or segment stats              | [Run Statistics](docs/backtest/statistics/run-statistics.md), [Run Markets](docs/backtest/statistics/run-markets.md), [Backtest Segments](docs/backtest/statistics/backtest-segments.md)                                                   |
 | Run or debug live trading                          | [Live Trading Bot](docs/live-trading/live-trading-bot.md)                                                                                                                                                                                  |
 | Change market-window or token discovery            | [Resolve UP/DOWN 15m Assets](docs/live-trading/resolve-updown-15m-assets.md)                                                                                                                                                               |
-| Record market data                                 | [Recording Live Events](docs/datasets/recording/recording-live-events.md)                                                                                                                                                                  |
-| Inspect, verify, or list Parquet files             | [Verify Parquet File](docs/datasets/tools/verify-parquet.md), [List Backtest Files](docs/datasets/recording/list-backtest-files.md)                                                                                                        |
-| Seed DB rows from local recordings                 | [Seed Database from Parquet](docs/datasets/recording/insert-parquet-to-db.md)                                                                                                                                                              |
+| Record market data                                 | [Recorder V4](docs/datasets/recording/recorder-v4.md), [Worker-2 Operations](docs/datasets/recording/recorder-v4-worker-2.md)                                                                                                              |
+| Inspect, verify, or list Parquet files             | [Verify Parquet File](docs/datasets/tools/verify-parquet.md), [List Backtest Files](docs/datasets/tools/list-backtest-files.md)                                                                                                            |
+| Seed DB rows from local recordings                 | [Seed Database from Parquet](docs/datasets/tools/insert-parquet-to-db.md)                                                                                                                                                                  |
 | Work with Telonex datasets                         | [Telonex Overview](docs/datasets/telonex/overview.md)                                                                                                                                                                                      |
 | Change Telonex sync or conversion                  | [Telonex Sync Design](docs/datasets/telonex/sync-design.md), [Convert](docs/datasets/telonex/convert.md)                                                                                                                                   |
 | Verify Telonex replay/data parity                  | [Telonex Verification ADR](docs/adr/telonex-verification-replay-parity.md), [Verify Telonex Conversions](docs/datasets/telonex/verify.md)                                                                                                  |
@@ -44,7 +44,7 @@ the same tick stream semantics. Any live/backtest divergence is a bug.
 | Work on market decoding or orderbooks              | [Market Engine](docs/engine/market-engine.md), [Orderbook Engine](docs/engine/orderbook-engine.md)                                                                                                                                         |
 | Change tick/intent/account-event orchestration     | [Strategy Runner](docs/engine/strategy-runner.md), [Order Manager](docs/engine/order-manager.md)                                                                                                                                           |
 | Change fills, positions, or idempotency            | [Portfolio](docs/engine/portfolio.md), [Backtest Execution](docs/engine/backtest-execution.md), [Live Execution](docs/engine/live-execution.md)                                                                                            |
-| Change Parquet schema or writer behavior           | [Parquet Event Schema](docs/engine/parquet-event-schema.md), [Parquet Event Writer](docs/engine/parquet-event-writer.md)                                                                                                                   |
+| Change Parquet schema or writer behavior           | [Recorder V4 Format](docs/datasets/recording/recorder-v4.md), [Historical Raw-Event Schema](docs/engine/parquet-event-schema.md)                                                                                                           |
 | Work on EOA, SAFE, relayer, balances, or approvals | [EOA vs Relayer](docs/blockchain/eoa-vs-relayer.md), [SAFE Relayer CLI](docs/blockchain/relayer-cli.md), [Check Balances](docs/blockchain/check-balances.md)                                                                               |
 | Create or debug CLOB credentials                   | [Create CLOB API Key](docs/blockchain/create-clob-api-key.md), [CLOB Client](docs/reference/clob-client.md)                                                                                                                                |
 | Change database schema or query helpers            | [Database Schema](docs/reference/database-schema.md)                                                                                                                                                                                       |

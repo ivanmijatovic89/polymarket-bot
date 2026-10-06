@@ -3,11 +3,12 @@
 ## System Architecture Diagram
 
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 graph TB
     subgraph "CLI Entry Points"
         TradingBot[ trading-bot.ts<br/>Live Trading ]
         Backtest[ backtest.ts<br/>Backtesting ]
-        RecordLive[ record-live.ts<br/>Data Recording ]
+        RecorderV4[ record-v4.ts<br/>Data Recording ]
     end
 
     subgraph "Data Sources Layer"
@@ -47,8 +48,8 @@ graph TB
     end
 
     subgraph "Data Storage"
-        ParquetWriter[ RotatingParquetEventRecorder<br/>Parquet File Writer ]
-        ParquetFiles[ Parquet Files<br/>data/events/ ]
+        ParquetWriter[ V4 Journal and Finalizer<br/>Compact Mixed-Feed Parquet ]
+        ParquetFiles[ V4 Packages<br/>R2 and Verified Local Cache ]
     end
 
     subgraph "External Services"
@@ -63,8 +64,8 @@ graph TB
     TradingBot --> RestPoll
     TradingBot --> GammaAPI
     Backtest --> ParquetReplay
-    RecordLive --> LiveWS
-    RecordLive --> GammaAPI
+    RecorderV4 --> CaptureFeeds[Polymarket, Binance, Chainlink and PTB]
+    RecorderV4 --> Discovery[5m and 15m Discovery and Resolution]
 
     %% Data Sources to Market Processing
     LiveWS --> MarketEngine
@@ -96,7 +97,7 @@ graph TB
     Portfolio --> StrategyRunner
 
     %% Data Storage
-    RecordLive --> ParquetWriter
+    RecorderV4 --> ParquetWriter
     ParquetWriter --> ParquetFiles
     ParquetFiles --> ParquetReplay
 
@@ -108,7 +109,7 @@ graph TB
 
     style TradingBot fill:#e1f5ff
     style Backtest fill:#fff4e1
-    style RecordLive fill:#e8f5e9
+    style RecorderV4 fill:#e8f5e9
     style MarketEngine fill:#f3e5f5
     style StrategyRunner fill:#fff9c4
     style OrderManager fill:#fce4ec
@@ -118,6 +119,7 @@ graph TB
 ## System Flow Diagram
 
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 flowchart TD
     Start([Start]) --> Mode{Mode?}
 
@@ -152,9 +154,9 @@ flowchart TD
     NextTick1 --> ReceiveEvents1
 
     %% Backtesting Flow
-    BacktestMode --> LoadParquet[Load Parquet Files<br/>Heap-Merge by ingest_seq]
-    LoadParquet --> ReadRow[Read Next Row<br/>from Heap]
-    ReadRow --> ParseRow[Parse Row JSON]
+    BacktestMode --> LoadParquet[Load Selected Dataset<br/>V4: Verified Package and Coverage Admission]
+    LoadParquet --> ReadRow[Read Next Observation<br/>in Source Replay Order]
+    ReadRow --> ParseRow[Decode Observation and Update Feed State]
     ParseRow --> UpdateOrderBook2[Update OrderBook State]
     UpdateOrderBook2 --> Tick2{Book or<br/>Price Change?}
     Tick2 -->|Yes| StrategyTick2[Strategy.onMarketTick]
@@ -180,18 +182,15 @@ flowchart TD
     NextFile -->|No| EndBacktest([End Backtest])
 
     %% Recording Flow
-    RecordMode --> ResolveAssets2[Resolve Current Market<br/>via Gamma API]
-    ResolveAssets2 --> ConnectWS2[Connect to Polymarket WS]
-    ConnectWS2 --> ReceiveEvents2[Receive Raw JSON Events]
-    ReceiveEvents2 --> ParseEvents2[Parse & Index Events]
-    ParseEvents2 --> WriteParquet[Write to Parquet File<br/>Rotating by 15min Window]
-    WriteParquet --> ReceiveEvents2
-
-    WriteParquet --> Boundary{15min<br/>Boundary?}
-    Boundary -->|Yes| RotateFile[Close Current File<br/>Open New File]
-    RotateFile --> ResolveAssets2
-
-    Boundary -->|No| ReceiveEvents2
+    RecordMode --> ResolveAssets2[Discover BTC 5m and 15m Markets]
+    ResolveAssets2 --> ConnectWS2[Subscribe to Six Feeds]
+    ConnectWS2 --> ReceiveEvents2[Assign Shared Receipt Sequence and Clocks]
+    ReceiveEvents2 --> Journal[Durable Per-Market Journals and Coverage]
+    Journal --> ReceiveEvents2
+    Journal --> Finalize[Market End plus Grace: Compact Parquet]
+    Finalize --> Archive[Conditional R2 Upload and Checksum Read-back]
+    Archive --> Manifest[Publish and Verify Manifest]
+    Manifest --> Cleanup[Save Receipt then Remove Local Event Files]
 
     %% Common Components
     UpdateOrderBook1 -.-> OrderBook[OrderBook State<br/>Bids/Asks/Best Prices]
@@ -218,7 +217,7 @@ flowchart TD
 
 - `trading-bot.ts`: Live trading bot that connects to Polymarket and executes strategies
 - `backtest.ts`: Backtesting engine that replays recorded market data
-- `record-live.ts`: Data recording tool that captures live market events to Parquet files
+- `record-v4.ts`: BTC 5m/15m mixed-feed capture with durable journals and verified R2 archival
 
 **2. Data Sources Layer**
 
@@ -255,13 +254,13 @@ flowchart TD
 
 **8. Data Storage**
 
-- **Parquet Writer**: Rotating file writer that creates one file per 15-minute market episode
-- **Parquet Files**: Persistent storage in `data/events/{symbol}/` directory
+- **Recorder V4**: Durable journals followed by one compact mixed-feed Parquet per BTC 5m/15m episode
+- **Archive**: Immutable R2 packages; verified event-file cleanup on the recorder and independent download caches for backtests
 
 ### Key Design Principles
 
 1. **Shared Logic**: Both live trading and backtesting use the same `MarketEngine`, `StrategyRunner`, `OrderManager`, and `Portfolio` components
-2. **Tick-by-Tick Accuracy**: Backtesting replays events in exact order (`ingest_seq`) to match live behavior
+2. **Tick-by-Tick Accuracy**: V4 replay preserves captured receipt sequence; historical modes retain their source ordering
 3. **Event-Driven Architecture**: Strategies react to market ticks and account events through cascading event handlers
 4. **15-Minute Market Episodes**: System rotates markets every 15 minutes, aligning with Polymarket's Up/Down market structure
 5. **Separation of Concerns**: Clear boundaries between data sources, market processing, strategy logic, and execution
@@ -280,7 +279,7 @@ flowchart TD
 
 **Backtesting:**
 
-1. Load Parquet files → heap-merge by `ingest_seq`
+1. Load the selected dataset; V4 verifies the package and required-feed coverage, then replays receipt sequence
 2. Replay events tick-by-tick → update orderbook
 3. Strategy evaluates → generates intents
 4. BacktestExecution simulates fills against orderbook
@@ -290,8 +289,11 @@ flowchart TD
 
 **Recording:**
 
-1. Resolve current market via Gamma API
-2. Connect WebSocket and subscribe
-3. Receive events → parse → write to Parquet file
-4. Rotate file every 15 minutes at market boundary
-5. Handle disconnects with synthetic markers
+1. Discover BTC 5m and 15m markets and preserve initial book/feed state
+2. Capture six feeds with one receipt sequence and local clocks
+3. Persist durable journals and coverage evidence
+4. Finalize compact per-market Parquet after market end and grace
+5. Upload and verify R2 objects and immutable manifests before local event cleanup
+6. Follow official resolution in sidecars and report health to the dashboard
+
+See the [canonical V4 capture/archive and replay diagrams](/datasets/recording/recorder-v4) and [worker-2 service guide](/datasets/recording/recorder-v4-worker-2).

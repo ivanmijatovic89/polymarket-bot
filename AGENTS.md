@@ -40,7 +40,7 @@ Do not rely on memory for third-party API behavior when Context7 can confirm it.
 - `src/cli/`
   - `trading-bot.ts` (live)
   - `backtest.ts` (parquet replay)
-  - `record-live.ts` (WS -> parquet)
+  - `record-v4.ts` (mixed-feed capture -> verified Parquet/R2 packages)
 - `src/market/`
   - shared market decoding + orderbook engine (`MarketEngine`)
 - `src/trading/`
@@ -52,7 +52,7 @@ Do not rely on memory for third-party API behavior when Context7 can confirm it.
 - `src/polymarket/`
   - WS clients, Gamma, CLOB helpers, relayer integrations
 - `src/parquet/`
-  - schema/writer/indexer + parquet CLI tools
+  - historical replay schemas/readers + parquet CLI tools
 - `src/backtest/stats/`
   - market/batch/chunked stats
 - `src/db/`
@@ -118,14 +118,15 @@ When adding/updating strategy:
 
 ## External Feeds and Plugins
 
-- External feeds are live-only; strategy must tolerate absence in backtest.
+- External-feed availability depends on the input mode. Recorder V4 replays captured feed observations in receipt order; historical modes use their supported feed datasets. Strategies must tolerate a feed value being absent before it arrives.
 - Plugin snapshots are tick-scoped and should remain cheap to access from strategy context.
 
 ## Commands (common)
 
 - `npm run trade:bot:btc -- --strategy <id> ...`
 - `npm run backtest -- --strategy <id> ...`
-- `npm run record:live:btc`
+- `npm run record:v4 -- --env-file /absolute/path/to/.env.recorder-v4`
+- Recorder configuration, diagrams, and replay: `docs/datasets/recording/recorder-v4.md`. Worker-2 service operations: `docs/datasets/recording/recorder-v4-worker-2.md`. V4 is the supported recorder; do not recreate retired capture commands.
 - `npm run lint`
 - `npm run webui:dev`
 

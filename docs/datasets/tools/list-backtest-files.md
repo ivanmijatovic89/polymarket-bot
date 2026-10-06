@@ -5,6 +5,8 @@ description: How to enumerate and filter the recorded Parquet files available fo
 
 # List Backtest Files
 
+This tool applies to historical raw-event files, not Recorder V4 packages. For current recording, archive selection, coverage checks, and replay, use [Recorder V4](/datasets/recording/recorder-v4). V4 packages do not need these file-indexing or deletion steps.
+
 The `list:backtest-files` tool scans the `data/events/<symbol>/` directory, filters for `.parquet` files, sorts them chronologically by window epoch, and prints their relative paths to stdout on a single line. The output is formatted so it can be pasted directly into a `backtest` command or used in shell pipelines.
 
 ## Running the tool
@@ -81,10 +83,10 @@ npm run backtest -- --strategy myStrat $files
 
 | Error                                | Cause                                                                                                                              |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `failed to read "<dir>": ENOENT`     | The symbol directory does not exist. Verify the symbol name and that the recorder has written at least one file.                   |
+| `failed to read "<dir>": ENOENT`     | The symbol directory does not exist. Verify the symbol name and that historical files exist at that path.                   |
 | `no .parquet files found in "<dir>"` | The directory exists but contains no `.parquet` files. Files still being written have a `.parquet.tmp` extension and are excluded. |
 | Invalid `--limit` value              | Non-integer, zero, or negative values cause the tool to print usage and exit with code `2`.                                        |
 
 ::: warning Temporary files are excluded
-Files currently being written by the recorder carry a `.parquet.tmp` extension and are not listed. Wait for the 15-minute window to rotate (or for a graceful shutdown) before listing files if you want to include the most recent window.
+Historical `.parquet.tmp` files are excluded because they may lack a complete footer. This listing does not discover V4 packages; use `record:v4:data list` for those.
 :::

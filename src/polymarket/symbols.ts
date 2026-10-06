@@ -11,7 +11,7 @@ export function requireUpDown15mSymbolFromEnv(args: {
   fallbackEnv?: string
   /** Name to mention in error messages (keeps existing script wording). */
   requiredName: string
-  /** Script prefix for error messages, e.g. 'record-live'. */
+  /** Script prefix for error messages, e.g. 'trading-bot'. */
   script: string
 }): UpDown15mSymbol {
   const raw =
