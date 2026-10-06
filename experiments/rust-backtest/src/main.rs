@@ -625,6 +625,26 @@ mod tests {
         (market, settings, params)
     }
     #[test]
+    fn pnl_cent_boundary_matches_shared_statistics_operation_order() {
+        let (m, _, _) = test_inputs();
+        let mut portfolio = Portfolio::new(100.0);
+        portfolio.positions = [
+            Position {
+                exists: true,
+                qty: 149.23,
+                cost: 78.7178,
+                avg: 0.52749313,
+            },
+            Position {
+                exists: true,
+                qty: 40.82,
+                cost: 20.6072,
+                avg: 0.50483097,
+            },
+        ];
+        assert_eq!(portfolio.stats(&m)["pnl"], json!(49.91));
+    }
+    #[test]
     fn delayed_fok_waits_for_real_tick_and_fills_once() {
         let (m, s, c) = test_inputs();
         let mut sim = Sim::new(

@@ -63,6 +63,42 @@ def run_workers(engine, chunks, label, directory, node, trace):
             log.close()
 
 
+def load_reference_trace(chunks, directory, manifest_path, node_version):
+    previous = json.loads((directory/'typescript-trace-provenance.json').read_text())
+    if (previous['manifestSha256'] != hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            or previous['node'] != node_version):
+        raise RuntimeError('Cached reference inputs or runtime changed')
+    for relative, expected in previous['sourceSha256'].items():
+        if hashlib.sha256((HERE.parent.parent/relative).read_bytes()).hexdigest() != expected:
+            raise RuntimeError(f'Reference source changed: {relative}')
+    merged = {}
+    for index, chunk in enumerate(chunks):
+        output = directory / f'trace-typescript-{index}.json'
+        if previous['outputsSha256'].get(output.name) != hashlib.sha256(output.read_bytes()).hexdigest():
+            raise RuntimeError(f'Reference output changed: {output.name}')
+        document = json.loads(output.read_text())
+        if (document.get('manifestSha256') != hashlib.sha256(chunk.read_bytes()).hexdigest()
+                or not document.get('trace') or document.get('mode') != 'prepared'
+                or document.get('node') != node_version or document.get('engine') != 'typescript'):
+            raise RuntimeError(f'Stale reference trace: {output.name}')
+        for record in normalized(document):
+            if record['slug'] in merged:
+                raise RuntimeError('Duplicate reference market')
+            merged[record['slug']] = record
+    return merged
+
+
+def save_reference_provenance(chunks, directory, manifest_path, node_version):
+    root = HERE.parent.parent
+    sources = sorted(list((root/'src').rglob('*.ts')) +
+                     [HERE/'common.mts', HERE/'oracle.mts', root/'package.json', root/'package-lock.json'])
+    metadata = {'manifestSha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                'node': node_version,
+                'sourceSha256': {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
+                'outputsSha256': {f'trace-typescript-{i}.json': hashlib.sha256((directory/f'trace-typescript-{i}.json').read_bytes()).hexdigest() for i in range(len(chunks))}}
+    (directory/'typescript-trace-provenance.json').write_text(json.dumps(metadata, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--manifest', type=Path, required=True)
@@ -72,6 +108,7 @@ def main():
     parser.add_argument('--rounds', type=int, default=1)
     parser.add_argument('--trace-workers', type=int, default=4)
     parser.add_argument('--production-workers', type=int)
+    parser.add_argument('--reuse-typescript-traces', action='store_true')
     args = parser.parse_args()
     if args.rounds < 1 or args.trace_workers < 1 or any(w < 1 for w in args.workers):
         parser.error('Positive rounds and worker counts required')
@@ -89,7 +126,12 @@ def main():
     load_start = os.getloadavg()
     print(f'Verifying full traces for {len(manifest["markets"])} markets with {args.trace_workers} workers per engine', flush=True)
     chunks = chunks_for(manifest, args.trace_workers, directory)
-    expected, _ = run_workers('typescript', chunks, 'trace-typescript', directory, args.node, 'trace')
+    if args.reuse_typescript_traces:
+        expected = load_reference_trace(chunks, directory, args.manifest, node_version)
+        print('Reused TypeScript traces after input, source and output hash checks', flush=True)
+    else:
+        expected, _ = run_workers('typescript', chunks, 'trace-typescript', directory, args.node, 'trace')
+        save_reference_provenance(chunks, directory, args.manifest, node_version)
     native, _ = run_workers('rust', chunks, 'trace-rust', directory, args.node, 'trace')
     slugs = [m['slug'] for m in manifest['markets']]
     if set(expected) != set(slugs) or set(native) != set(slugs):
@@ -111,6 +153,7 @@ def main():
                    'decisions': sum(len(expected[s]['decisions']) for s in slugs),
                    'accountEvents': sum(len(expected[s]['events']) for s in slugs), 'numericTolerance': 1e-10},
         'measurements': {}, 'scope': 'Prepared-feed local replay. Market Parquet decoding, strategy, FOK, portfolio and per-market stats included. No fleet, queue/network/DB output or native daily-feed loading. Worker counts limit processes, not CPU affinity or background threads. RSS is sum of worker peaks.',
+        'traceWorkers': args.trace_workers, 'reusedTypeScriptTraces': args.reuse_typescript_traces,
         'warmup': 'Full trace passes read all sample inputs before timing; no separate timed-workload warmups.',
         'sourceSha256': {str(p.relative_to(HERE)): hashlib.sha256(p.read_bytes()).hexdigest()
                          for p in sorted(list((HERE/'src').glob('*.rs')) + list(HERE.glob('*.mts')) + [HERE/'scaling.py'])},

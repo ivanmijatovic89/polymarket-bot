@@ -246,7 +246,10 @@ impl Portfolio {
         } else {
             d.qty - merged
         };
-        let mut out = json!({"slug":m.slug,"marketId":m.market_id,"finalOutcome":m.outcome,"pnl":round(merged+redeemed-u.cost-d.cost,2),"tradeCount":self.fills.len(),"tradeAsMaker":0,"tradeAsTaker":self.fills.len(),"feesPaid":round(fees,2),"avgEntryPriceUp":if sizes[0]>0.0{Some(round(costs[0]/sizes[0],4))}else{None},"avgEntryPriceDown":if sizes[1]>0.0{Some(round(costs[1]/sizes[1],4))}else{None},"upShares":round(u.qty,2),"downShares":round(d.qty,2),"mergableShares":round(merged,2),"cost":round(u.cost+d.cost,2),"splitCost":0});
+        // Match computeMarketStats operation grouping before cent rounding.
+        let remaining_cost = u.cost + d.cost;
+        let pnl = merged + redeemed - remaining_cost;
+        let mut out = json!({"slug":m.slug,"marketId":m.market_id,"finalOutcome":m.outcome,"pnl":round(pnl,2),"tradeCount":self.fills.len(),"tradeAsMaker":0,"tradeAsTaker":self.fills.len(),"feesPaid":round(fees,2),"avgEntryPriceUp":if sizes[0]>0.0{Some(round(costs[0]/sizes[0],4))}else{None},"avgEntryPriceDown":if sizes[1]>0.0{Some(round(costs[1]/sizes[1],4))}else{None},"upShares":round(u.qty,2),"downShares":round(d.qty,2),"mergableShares":round(merged,2),"cost":round(u.cost+d.cost,2),"splitCost":0});
         if self.fills.is_empty() {
             out["skipReason"] = json!("no_in_window_activity");
         }
