@@ -17,7 +17,7 @@ The live trading CLI rejects requests for V4-only feed capabilities it cannot su
 
 ```mermaid
 %%{init: {"htmlLabels": false}}%%
-graph LR
+graph TD
     subgraph Record
         WS[Polymarket, Binance, Chainlink and PTB] --> REC[record-v4.ts]
         REC --> WAL[Durable journals]
