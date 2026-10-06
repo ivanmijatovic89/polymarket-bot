@@ -43,19 +43,21 @@ Install the V4 plist as `/Library/LaunchDaemons/com.polymarket.recorder-v4.plist
 
 After activation, check the V4 dashboard heartbeat, both durations, every feed, free space, ingestion plus finalizer CPU/RSS, upload read-back, fresh download and replay. A startup message alone does not establish success. Keep a validation record of the first full markets and any gaps. Internet/provider outages remain visible incomplete coverage; no service configuration can guarantee no missing upstream messages.
 
-The dashboard must also run the merged V4 code: V4 publishes `recorder:v4:*` Redis status, and the old V3 dashboard reader does not consume that namespace. Update the dashboard's own checkout through its normal workflow, preserving any user work. Updating the recorder's isolated release does not update a dashboard running from another checkout.
+The dashboard must also run the merged V4 code: V4 publishes `recorder:v4:*` Redis status, and the old V3 dashboard reader does not consume that namespace. Update the dashboard's own checkout through its normal workflow, preserving any user work. Updating the recorder's isolated release does not update a dashboard running from another checkout. Before dispatching V4 backtests, update the producer and backtest workers to a revision containing PR #290 through the normal fleet workflow. This recorder installation leaves their current checkouts and running jobs unchanged.
 
-## Prepared October 6 installation
+## Activated October 6 installation
 
 Release `c90ac75dcdf3f5c4d113c9b2a69eca7268bcca05` is installed at the V4 release root and has completed controlled collection, verified uploads, cross-Mac replay and dashboard-reader validation. See the [validation report](./recorder-v4-validation). The rendered plist and guarded activation script are in `/Users/worker-2/Services/polymarket-recorder-v4/`. The script checks its validation marker, pinned checkout, configuration ownership, stopped validation process and automatic-clock setting before switching only the recorder services.
 
-Administrator activation is the remaining manual operation for this prepared release:
+The operator completed administrator activation at 10:55 UTC on October 6 using:
 
 ```bash
 ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4/activate-recorder-v4.zsh'
 ```
 
-Enter the administrator password only in the terminal. Command failure or HUP/INT/TERM during the switch attempts to disable V4 and restore the prior V3 service. Preserve both spools and inspect launchd status if installation fails; do not resolve a service issue by deleting R2 data.
+V4 is running from the tested release; V3 is unloaded and persistently disabled. Both durations, all six feeds, the production R2 paths, archive read-back, local event cleanup and replay were checked after activation. See the validation report for startup partials and complete controlled captures. The primary dashboard and fleet checkouts were left unchanged and require the merged V4 code before displaying V4 status or dispatching V4 backtests. Do not rerun the initial activation command on an already loaded service.
+
+For a future prepared installation, enter the administrator password only in the terminal. Command failure or HUP/INT/TERM during the switch attempts to disable V4 and restore the prior V3 service. Preserve both spools and inspect launchd status if installation fails; do not resolve a service issue by deleting R2 data.
 
 ## Updates and rollback
 
