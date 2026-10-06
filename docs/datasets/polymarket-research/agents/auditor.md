@@ -5,7 +5,8 @@ description: Reusable instructions for checking local research data and accounti
 
 # Data auditor instructions
 
-Use this page as instructions for an agent auditing the research dataset.
+Use this page for an explicitly requested maintenance audit. Normal research
+includes all observed wallets and omits these diagnostic columns.
 
 1. Read the accounting guide and the requested date/market scope. Inspect
    `index.json`, coverage and each relevant day report. Run `research:verify`
@@ -21,9 +22,9 @@ Use this page as instructions for an agent auditing the research dataset.
    discrepancy was accepted.
    For `unresolved_source_volume_disagreement`, check that the repeat feeds match,
    the aggregate discrepancy remains recorded, and every observed market participant
-   carries the unresolved issue. Verify whole-wallet exclusion and preservation of
+   carries the unresolved issue. Verify optional strict-view exclusion and preservation of
    the flag after rebuild. File integrity passing does not reconcile this aggregate.
-4. Verify that strict rankings exclude entire incomplete wallet cohorts, rather
+4. Verify that explicitly requested `--strict` rankings exclude entire incomplete wallet cohorts, rather
    than dropping only their problematic market rows.
 5. Recalculate selected wallet cash legs and settlement-valued holdings with
    decimal arithmetic. Check splits, merges, legacy/new redemption shapes, fees

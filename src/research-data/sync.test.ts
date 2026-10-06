@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { ApiClient } from './api.js'
 import { normalizeMarket, parseDate } from './catalog.js'
-import { coverageReport, leaderboard, querySql } from './query.js'
+import { coverageReport, strictLeaderboard as leaderboard, querySql } from './query.js'
 import { openDataset } from './storage.js'
 import { benchmarkDataset } from './benchmark.js'
 import { rebuildDataset } from './rebuild.js'
@@ -178,7 +178,7 @@ test('full day sync, offline queries, no-op rerun and refresh publish consistent
     await coverageReport(root, options.from, options.to)
     const months = (await querySql(
       root,
-      'SELECT cohort_complete, economic_pnl_usdc FROM wallet_months',
+      'SELECT cohort_complete, economic_pnl_usdc FROM wallet_months_audit',
     )) as { cohort_complete: boolean; economic_pnl_usdc: unknown }[]
     assert.equal(months[0]!.cohort_complete, false, 'one day must not look like a complete June')
     assert.equal(months[0]!.economic_pnl_usdc, null)

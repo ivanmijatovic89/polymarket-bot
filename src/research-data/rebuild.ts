@@ -11,6 +11,7 @@ import { loadIndex, publish, TABLES, writeParquet, type DaySnapshot } from './st
 import { claimLock, ensureDisk } from './sync.js'
 import { activityRow, feedRow, positionRow, type ApiRow, type WalletMarket } from './types.js'
 import { createResearchDatabase } from './database.js'
+import { datasetFamily } from './family.js'
 
 async function rawRows(
   connection: DuckDBConnection,
@@ -34,6 +35,7 @@ export async function rebuildDataset(
   const release = await claimLock(root)
   try {
     const index = await loadIndex(root)
+    const family = await datasetFamily(root)
     const missing = required.filter((date) => !index.days[date])
     if (missing.length) throw new Error(`Cannot rebuild missing days: ${missing.join(', ')}`)
     const output: DaySnapshot[] = []
@@ -73,6 +75,7 @@ export async function rebuildDataset(
           const market = normalizeMarket(
             JSON.parse(String(row.raw_json)) as ApiRow,
             JSON.parse(String(row.resolution_json)) as ApiRow | undefined,
+            family.id,
           )
           market.source_warnings = (row.source_warnings as string[] | null) ?? []
           // At most one market's raw history is loaded at a time.

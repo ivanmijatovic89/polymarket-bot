@@ -11,7 +11,9 @@ import {
 } from './volume.js'
 import { readJson } from './files.js'
 import { checkDigests, type FileDigest } from './integrity.js'
-import { loadIndex, TABLES } from './storage.js'
+import { loadIndex, TABLES, type DatasetIndex } from './storage.js'
+import { claimReader } from './retention.js'
+import { datasetFamily } from './family.js'
 import { abs, units } from './decimal.js'
 import { createResearchDatabase } from './database.js'
 
@@ -27,7 +29,17 @@ interface VerificationDay {
 
 /** Independent SQL identities validate persisted facts, without network calls. */
 export async function verifyDataset(root: string, from: string, to: string) {
-  const index = await loadIndex(root)
+  const release = await claimReader(root)
+  try {
+    return await verifySnapshots(root, await loadIndex(root), from, to)
+  } finally {
+    release()
+  }
+}
+
+/** Also validates unpublished generations before an atomic index switch. */
+export async function verifySnapshots(root: string, index: DatasetIndex, from: string, to: string) {
+  const family = await datasetFamily(root)
   const result: VerificationDay[] = []
   for (const date of dates(from, to)) {
     const snapshot = index.days[date]
@@ -77,16 +89,20 @@ export async function verifyDataset(root: string, from: string, to: string) {
         day.checks[name] = actual
         if (actual !== expected) day.errors.push(`${name}: expected ${expected}, got ${actual}`)
       }
-      await check('scheduled_windows', 'SELECT count(*) AS n FROM coverage', 96)
-      await check('unique_windows', 'SELECT count(DISTINCT market_start) AS n FROM coverage', 96)
+      await check('scheduled_windows', 'SELECT count(*) AS n FROM coverage', family.windowsPerDay)
+      await check(
+        'unique_windows',
+        'SELECT count(DISTINCT market_start) AS n FROM coverage',
+        family.windowsPerDay,
+      )
       await check(
         'invalid_window_boundaries',
-        `SELECT count(*) AS n FROM coverage WHERE market_start < ${parseDate(date)} OR market_start >= ${parseDate(date) + 86400} OR market_start % 900 <> 0`,
+        `SELECT count(*) AS n FROM coverage WHERE market_start < ${parseDate(date)} OR market_start >= ${parseDate(date) + 86400} OR market_start % ${family.windowSeconds} <> 0`,
       )
       await check(
         'market_rows',
         'SELECT count(*) AS n FROM markets',
-        96 - snapshot.missing_markets.length,
+        family.windowsPerDay - snapshot.missing_markets.length,
       )
       await check('trade_rows', 'SELECT count(*) AS n FROM trades', Number(report.trade_rows))
       await check(
@@ -219,6 +235,7 @@ export async function verifyDataset(root: string, from: string, to: string) {
         const market = normalizeMarket(
           JSON.parse(String(savedMarket.raw_json)) as ApiRow,
           JSON.parse(String(savedMarket.resolution_json)) as ApiRow,
+          family.id,
         )
         const raw = async (table: string) =>
           (

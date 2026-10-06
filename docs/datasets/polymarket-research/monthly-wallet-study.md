@@ -3,6 +3,12 @@ title: Monthly Wallet Research
 description: June through September wallet rankings, source limitations and reproducible local strategy investigations.
 ---
 
+
+> Historical evidence: the studies below used the original strict audit population.
+> Normal research now includes all observed wallets. See the [current overview](./overview)
+> and [profit calculation](./accounting); use `--strict` and `audit-*.sql` only to
+> reproduce the earlier reconciliation-based selections.
+
 # Monthly wallet research
 
 The June 2026 BTC 15-minute cohort is complete: all 30 UTC market-start days and

@@ -4,8 +4,8 @@ export interface Market {
   slug: string
   condition_id: string
   event_id: string
-  symbol: 'btc'
-  timeframe: '15m'
+  symbol: 'btc' | 'eth'
+  timeframe: '15m' | '5m'
   market_start: number
   market_end: number
   token_ids: string[]

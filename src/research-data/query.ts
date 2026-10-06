@@ -1,6 +1,7 @@
 import { sqlQuote } from '../utils/duckdb.js'
 import { dates, parseDate } from './catalog.js'
-import { openDataset } from './storage.js'
+import { openDataset, type DatasetIndex } from './storage.js'
+import { datasetFamily } from './family.js'
 
 export async function querySql(root: string, sql: string): Promise<unknown[]> {
   const { connection, close } = await openDataset(root)
@@ -11,7 +12,43 @@ export async function querySql(root: string, sql: string): Promise<unknown[]> {
   }
 }
 
+function requireCoverage(index: DatasetIndex, from: string, to: string) {
+  const required = dates(from, to)
+  const missingDays = required.filter((day) => !index.days[day])
+  const missingMarkets = required.flatMap((day) => index.days[day]?.missing_markets ?? [])
+  if (missingDays.length || missingMarkets.length)
+    throw new Error(
+      `Requested range is not fully downloaded. Missing days: ${missingDays.join(', ') || 'none'}; missing market windows: ${missingMarkets.length}. Run research:update or inspect research:coverage.`,
+    )
+}
+
+/** Normal research includes every observed wallet and every selected market row. */
 export async function leaderboard(
+  root: string,
+  from: string,
+  to: string,
+  limit = 100,
+): Promise<unknown> {
+  const { connection, index, close } = await openDataset(root)
+  try {
+    requireCoverage(index, from, to)
+    const family = await datasetFamily(root)
+    const rows = (
+      await connection.runAndReadAll(`SELECT wallet,
+      CASE WHEN count(*) FILTER (WHERE economic_pnl_usdc IS NULL) = 0
+        THEN sum(economic_pnl_usdc) END AS profit_usdc,
+      count(*) AS markets, sum(trade_count) AS trades
+      FROM wallet_markets WHERE market_start >= ${parseDate(from)} AND market_start < ${parseDate(to)}
+      GROUP BY wallet ORDER BY profit_usdc DESC NULLS LAST, wallet
+      LIMIT ${Math.max(1, Math.min(10000, Math.floor(limit)))}`)
+    ).getRowObjectsJson()
+    return { market: family.id, from, to_exclusive: to, rows }
+  } finally {
+    close()
+  }
+}
+
+export async function strictLeaderboard(
   root: string,
   from: string,
   to: string,
@@ -49,7 +86,7 @@ export async function leaderboard(
       ORDER BY economic_pnl_usdc DESC, wallet LIMIT ${Math.max(1, Math.min(10000, Math.floor(limit)))}`)
     ).getRowObjectsJson()
     return {
-      market: 'btc:15m',
+      market: (await datasetFamily(root)).id,
       source_warnings: required.flatMap((day) => index.days[day]?.source_warnings ?? []),
       from,
       to_exclusive: to,
@@ -70,15 +107,20 @@ export async function walletReport(
   from: string,
   to: string,
   limit = 200,
+  audit = false,
 ): Promise<unknown> {
   if (!/^0x[a-f\d]{40}$/i.test(wallet)) throw new Error('Expected a wallet address')
   const address = sqlQuote(wallet.toLowerCase())
   const range = `market_start >= ${parseDate(from)} AND market_start < ${parseDate(to)}`
   const { connection, index, close } = await openDataset(root)
   try {
+    requireCoverage(index, from, to)
+    const columns = audit
+      ? '*'
+      : '* EXCLUDE(quality, issues, notes, api_pnl_status, api_position_pnl_usdc, api_pnl_difference_usdc, modeled_api_pnl_usdc)'
     const markets = (
       await connection.runAndReadAll(
-        `SELECT * FROM wallet_markets WHERE wallet = ${address} AND ${range} ORDER BY market_start`,
+        `SELECT ${columns} FROM wallet_markets WHERE wallet = ${address} AND ${range} ORDER BY market_start`,
       )
     ).getRowObjectsJson()
     const activities = (
@@ -89,14 +131,18 @@ export async function walletReport(
     ).getRowObjectsJson()
     return {
       wallet: wallet.toLowerCase(),
-      source_warnings: dates(from, to).flatMap((day) => index.days[day]?.source_warnings ?? []),
+      ...(audit
+        ? {
+            source_warnings: dates(from, to).flatMap(
+              (day) => index.days[day]?.source_warnings ?? [],
+            ),
+          }
+        : {}),
       from,
       to_exclusive: to,
-      missing_days: dates(from, to).filter((day) => !index.days[day]),
       markets,
       activity_limit: limit,
       activities,
-      ordering_note: 'Timestamp and source row order; not an exact matching-engine timeline.',
     }
   } finally {
     close()
@@ -123,7 +169,7 @@ export async function coverageReport(root: string, from: string, to: string): Pr
     return {
       from,
       to_exclusive: to,
-      expected_windows: required.length * 96,
+      expected_windows: required.length * (await datasetFamily(root)).windowsPerDay,
       source_warnings: required.flatMap((day) => index.days[day]?.source_warnings ?? []),
       missing_days: required.filter((day) => !index.days[day]),
       windows: windows[0],
