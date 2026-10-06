@@ -11,6 +11,8 @@ This report covers the October 6, 2026 V4 implementation. The [format guide](./r
 
 The rollout creates new objects only beneath `recorder-v4/`. Local validation uses `recorder-v4/validation/local-2ec6ad8d-f63d-4b64-8ec1-6eae8c606fa3/`. No existing R2 object is deleted, migrated, renamed or overwritten, and no bucket or lifecycle configuration is changed.
 
+After the completed rollout, the operator reported manually deleting `recorder-v3/` and `recorder-v3-validation/` on October 6. This was a separate retirement of the old trial recordings, not an action of the V4 installer or recorder. V4 uses neither prefix. The historical preservation statements below describe the deployment itself; keep the old V3 service disabled so its retained local backlog cannot recreate retired data. Current operating commands are in the [worker-2 guide](./recorder-v4-worker-2#routine-status-stop-and-start).
+
 The network adapter rejects operations outside the V4 namespace before making a request. Conditional PUT prevents replacement of an existing object. Publication and local event cleanup still require complete read-back with matching SHA-256 and byte count. Tests cover prefix escapes, sibling prefixes, conflicting objects, interrupted uploads, corrupted manifests and mismatched local receipts. The catalog excludes child validation namespaces unless explicitly selected.
 
 A live R2 test created one new 47-byte object under this run's `safety-probe/` child, then attempted a conditional replacement of that test object only. R2 returned HTTP 412 and a fresh GET matched the original checksum. The original test object remains; no deletion was attempted. This tests actual endpoint behavior in addition to mocked SDK requests.
