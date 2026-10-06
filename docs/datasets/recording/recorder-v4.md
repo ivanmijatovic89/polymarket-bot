@@ -9,6 +9,24 @@ Recorder v4 collects both BTC market durations on one host and writes **one self
 
 The recorder runs independently of backtest workers and the trading bot. It does not initialize a wallet, an execution adapter, or order submission. Its default output is an R2 archive; local storage is a durable spool for active recordings and uploads awaiting verification.
 
+## Capture and archive diagram
+
+```mermaid
+%%{init: {"htmlLabels": false}}%%
+flowchart TD
+    FEEDS["Six feeds: Polymarket, Binance trades/quotes,<br/>Chainlink spot/TWAP, website PTB"] --> SEQ
+    SEQ["One receipt sequence, wall clock and monotonic clock"] --> WAL["Durable local journals for each 5m and 15m market"]
+    WAL --> FINAL["Market end plus finalization grace"]
+    FINAL --> PQ["One compact mixed-feed Parquet per market"]
+    PQ --> UPLOAD["Conditional R2 upload and complete checksum read-back"]
+    UPLOAD --> MANIFEST["Publish and verify the immutable manifest"]
+    MANIFEST --> RECEIPT["Save local archive receipt"]
+    RECEIPT --> CLEAN["Remove verified local event files and journals"]
+    SEQ -. "feed health and gaps" .-> STATUS["Redis status and Recorders dashboard"]
+```
+
+The recorder on worker-2 owns capture and its temporary spool. R2 holds the durable packages. The dashboard and backtest fleet use their own checkouts; updating them does not restart the pinned recorder. Shared observations are duplicated into overlapping market files with the same identity and receive sequence. Official outcomes remain separate sidecars because they can arrive after the event file is uploaded.
+
 ## What is recorded
 
 | Source                                | Observations                                                                                                            |
@@ -41,7 +59,7 @@ Recorder v4 also derives an explicitly named `chainlink-opening-twap` reference 
 
 The value becomes available only when that frame was received locally. Its snapshot preserves the full decimal string, provider timestamp, receipt time, and event/session/connection identity. Duplicate confirmations keep the original receipt; a correction in a later frame becomes visible at that frame's receipt. Conflicting values for the same boundary within one frame withhold the reference. A subsequent unambiguous observation can restore it during explicit outage replay, but ordinary admission rejects the market if any such conflict occurred.
 
-This is a selectable stream-derived reference, not a promise that Polymarket will never apply another publication or correction rule. In the local comparison, the exact opening TWAP matched later website PTB in seven full-duration recordings and all six available official Gamma PTBs. Some initial website values differed before being corrected. A website mismatch therefore stays visible as a diagnostic; it neither changes the selected source nor invalidates TWAP mode by itself. See the [opening-reference validation report](./recorder-v3-opening-reference).
+This is a selectable stream-derived reference, not a promise that Polymarket will never apply another publication or correction rule. Some initial website values differ before being corrected. A website mismatch therefore stays visible as a diagnostic; it neither changes the selected source nor invalidates TWAP mode by itself. See the [V4 validation report](./recorder-v4-validation) for all-feed replay and captured opening-reference evidence.
 
 Website polling and raw responses continue regardless of the strategy's selection. Existing strategies default to website PTB. A strategy opts in through its external-feed request:
 
@@ -205,7 +223,7 @@ The manifest version and explicit Parquet `recorder_format=recorder-v4-compact-1
 
 The adapter has no remote delete operation. Every GET, PUT and LIST is restricted to `recorder-v4/`; sibling prefixes, V3 paths, traversal components and unbounded listings are rejected before any network request. A PUT uses `If-None-Match: *`, so it cannot overwrite an existing object. An existing object is accepted only after a complete checksum/size read-back.
 
-`RECORDER_R2_PREFIX` accepts `recorder-v4` or a child namespace, such as `recorder-v4/validation/<run-id>`. The production catalog excludes child namespaces; select a validation prefix explicitly when inspecting its data. No rollout command deletes, migrates, renames, or rewrites existing R2 objects, changes bucket settings, or changes lifecycle rules. Old V3 trials remain untouched. Any later cleanup is a separate operation with its own exact scope.
+`RECORDER_R2_PREFIX` accepts `recorder-v4` or a child namespace, such as `recorder-v4/validation/<run-id>`. The production catalog excludes child namespaces; select a validation prefix explicitly when inspecting its data. No rollout command deletes, migrates, renames, or rewrites existing R2 objects, changes bucket settings, or changes lifecycle rules. The operator separately retired the old V3 R2 prefixes after rollout; V4 does not depend on them.
 
 Use a fresh V4 spool and configuration. V4 refuses V3's unversioned sequence state and version-3 manifests rather than attempting an in-place migration. Local event deletion still requires the exact manifest's verified archive receipt.
 
@@ -247,6 +265,26 @@ npm run record:v4:data -- download \
 Downloads are sequential and verified, refresh resolution observations, and reuse already verified local Parquet files. A failed download exits unsuccessfully and is safe to retry. Source objects in R2 are never deleted by these commands. Keep 5m and 15m download selections in separate cache directories when you want to backtest them independently.
 
 ## Coverage and backtests
+
+```mermaid
+%%{init: {"htmlLabels": false}}%%
+flowchart TD
+    R2["V4 R2 package: manifest, event Parquet and resolutions"] --> CACHE["Download and verify bytes and checksums"]
+    CACHE --> GATE{"Required feed coverage and reference evidence complete?"}
+    GATE -- "Yes" --> REPLAY["Replay observations in recorded receive order"]
+    GATE -- "No, ordinary backtest" --> SKIP["Skip market and report the coverage problem"]
+    GATE -- "No, explicit outage replay" --> REPLAY
+    REPLAY --> FEEDS["Update tick-scoped external-feed state"]
+    REPLAY --> ENGINE["Shared MarketEngine applies market events"]
+    ENGINE --> TICK["Meaningful market ticks and requested feed ticks"]
+    FEEDS --> TICK
+    TICK --> STRATEGY["Shared StrategyRunner and strategy logic"]
+    STRATEGY --> EXEC["OrderManager and backtest execution adapter"]
+    CACHE -. "official result, never injected into earlier ticks" .-> SETTLE["Settlement and statistics"]
+    EXEC --> SETTLE
+```
+
+Bootstrap restores the recorded initial state without fabricating historical ticks. Missing official settlement can still leave a replay result unresolved after ticks have been processed. Replay reproduces the captured observations; execution simulation and another machine's network timing are separate concerns.
 
 Coverage records both confirmed loss and uncertainty: reconnect intervals, provider sequence gaps, missing initial books, stale feeds, late startup, interrupted capture, and observed clock/event-loop discontinuities. A connected socket alone does not prove complete upstream data. In particular, an unsequenced Polymarket stream cannot prove that no message was ever lost upstream.
 
@@ -329,4 +367,4 @@ Before deployment, also validate real feed subscriptions, a complete market for 
 
 See the [V4 validation report](./recorder-v4-validation) for format parity, namespace protection and current rollout evidence.
 
-These earlier reports document V3 behavior and compact-format experiments, not V4 deployment evidence: [initial validation report](./recorder-v3-validation), [second audit](./recorder-v3-second-audit), [archive/coverage hardening report](./recorder-v3-hardening), and [opening-reference validation](./recorder-v3-opening-reference) for measured local results and remaining deployment checks.
+Retired V3 guides and audit reports are preserved in Git history, outside the current documentation. The V4 report above is the release and deployment evidence for the supported format.
