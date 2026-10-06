@@ -1,0 +1,374 @@
+{
+  "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "loadStart": [6.09619140625, 6.03076171875, 5.8603515625],
+  "loadEnd": [6.69482421875, 5.1337890625, 5.09765625],
+  "nice": 10,
+  "node": "v20.11.0",
+  "rust": "rustc 1.89.0 (29483883e 2025-08-04)",
+  "engineCommit": "42bcc9923c4ee073fea8b909e1194d1a5f5a1e97",
+  "marketCount": 24,
+  "ticks": 3793987,
+  "workers": 4,
+  "artifactSha256": "304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8",
+  "sourceRunId": 9657,
+  "settings": {
+    "startingCapital": 100,
+    "delayMs": 500,
+    "jitterMs": 20,
+    "binanceLatencyMs": 110,
+    "chainlinkLatencyMs": 320,
+    "priceToBeatLatencyMs": 2700,
+    "seed": 123456789
+  },
+  "parity": {
+    "tickAndFeedDigests": true,
+    "decisions": 101,
+    "accountEvents": 612,
+    "numericTolerance": 1e-10,
+    "traceDisabledForTiming": true
+  },
+  "measurements": {
+    "single": {
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 4756.891207998706,
+            "cpuMs": 6003.552,
+            "peakRssBytes": 394133504,
+            "replayMs": 4276.281292000001
+          },
+          {
+            "wallMs": 3563.138292000076,
+            "cpuMs": 4783.172,
+            "peakRssBytes": 369721344,
+            "replayMs": 3086.603666
+          },
+          {
+            "wallMs": 3572.3943749999307,
+            "cpuMs": 4854.384999999999,
+            "peakRssBytes": 417415168,
+            "replayMs": 3125.789625
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 3572.3943749999307,
+            "min": 3563.138292000076,
+            "max": 4756.891207998706
+          },
+          "cpuMs": {
+            "median": 4854.384999999999,
+            "min": 4783.172,
+            "max": 6003.552
+          },
+          "peakRssBytes": {
+            "median": 394133504,
+            "min": 369721344,
+            "max": 417415168
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 416.01149999951303,
+            "cpuMs": 412.823,
+            "peakRssBytes": 18726912,
+            "replayMs": 409.833583
+          },
+          {
+            "wallMs": 404.2190000000119,
+            "cpuMs": 401.726,
+            "peakRssBytes": 20299776,
+            "replayMs": 398.701125
+          },
+          {
+            "wallMs": 399.1695829990931,
+            "cpuMs": 397.221,
+            "peakRssBytes": 16252928,
+            "replayMs": 393.432542
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 404.2190000000119,
+            "min": 399.1695829990931,
+            "max": 416.01149999951303
+          },
+          "cpuMs": {
+            "median": 401.726,
+            "min": 397.221,
+            "max": 412.823
+          },
+          "peakRssBytes": {
+            "median": 18726912,
+            "min": 16252928,
+            "max": 20299776
+          }
+        }
+      },
+      "typescript-production": {
+        "samples": [
+          {
+            "wallMs": 3353.448458001367,
+            "cpuMs": 4669.559,
+            "peakRssBytes": 396214272,
+            "replayMs": 2899.201333
+          },
+          {
+            "wallMs": 3318.7671249997948,
+            "cpuMs": 4641.039999999999,
+            "peakRssBytes": 448675840,
+            "replayMs": 2856.314791
+          },
+          {
+            "wallMs": 3296.3172910003777,
+            "cpuMs": 4584.064,
+            "peakRssBytes": 403226624,
+            "replayMs": 2848.4130419999997
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 3318.7671249997948,
+            "min": 3296.3172910003777,
+            "max": 3353.448458001367
+          },
+          "cpuMs": {
+            "median": 4641.039999999999,
+            "min": 4584.064,
+            "max": 4669.559
+          },
+          "peakRssBytes": {
+            "median": 403226624,
+            "min": 396214272,
+            "max": 448675840
+          }
+        }
+      }
+    },
+    "batch-sequential": {
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 69444.66970800022,
+            "cpuMs": 85262.57199999999,
+            "peakRssBytes": 695156736,
+            "replayMs": 68959.86454200001
+          },
+          {
+            "wallMs": 70034.65929099912,
+            "cpuMs": 85372.95300000001,
+            "peakRssBytes": 710295552,
+            "replayMs": 69558.948792
+          },
+          {
+            "wallMs": 69103.96829099955,
+            "cpuMs": 84708.80699999999,
+            "peakRssBytes": 567263232,
+            "replayMs": 68637.67762500001
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 69444.66970800022,
+            "min": 69103.96829099955,
+            "max": 70034.65929099912
+          },
+          "cpuMs": {
+            "median": 85262.57199999999,
+            "min": 84708.80699999999,
+            "max": 85372.95300000001
+          },
+          "peakRssBytes": {
+            "median": 695156736,
+            "min": 567263232,
+            "max": 710295552
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 9634.868791001281,
+            "cpuMs": 9557.122,
+            "peakRssBytes": 48529408,
+            "replayMs": 9625.814959
+          },
+          {
+            "wallMs": 9685.750417000236,
+            "cpuMs": 9544.112000000001,
+            "peakRssBytes": 45563904,
+            "replayMs": 9678.899042
+          },
+          {
+            "wallMs": 9461.807874999067,
+            "cpuMs": 9399.767,
+            "peakRssBytes": 51036160,
+            "replayMs": 9452.39725
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 9634.868791001281,
+            "min": 9461.807874999067,
+            "max": 9685.750417000236
+          },
+          "cpuMs": {
+            "median": 9544.112000000001,
+            "min": 9399.767,
+            "max": 9557.122
+          },
+          "peakRssBytes": {
+            "median": 48529408,
+            "min": 45563904,
+            "max": 51036160
+          }
+        }
+      },
+      "typescript-production": {
+        "samples": [
+          {
+            "wallMs": 63418.19154100085,
+            "cpuMs": 78968.096,
+            "peakRssBytes": 893665280,
+            "replayMs": 62822.368540999996
+          },
+          {
+            "wallMs": 64379.758874998515,
+            "cpuMs": 80207.14,
+            "peakRssBytes": 604897280,
+            "replayMs": 63754.239333000005
+          },
+          {
+            "wallMs": 64514.06058400062,
+            "cpuMs": 79429.046,
+            "peakRssBytes": 631717888,
+            "replayMs": 63863.998875000005
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 64379.758874998515,
+            "min": 63418.19154100085,
+            "max": 64514.06058400062
+          },
+          "cpuMs": {
+            "median": 79429.046,
+            "min": 78968.096,
+            "max": 80207.14
+          },
+          "peakRssBytes": {
+            "median": 631717888,
+            "min": 604897280,
+            "max": 893665280
+          }
+        }
+      }
+    },
+    "batch-parallel": {
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 20707.31599999999,
+            "cpuMs": 94973.842,
+            "peakRssBytes": 2061058048
+          },
+          {
+            "wallMs": 22528.456167001423,
+            "cpuMs": 97871.98999999999,
+            "peakRssBytes": 1898725376
+          },
+          {
+            "wallMs": 20649.16304199869,
+            "cpuMs": 94580.848,
+            "peakRssBytes": 1795964928
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 20707.31599999999,
+            "min": 20649.16304199869,
+            "max": 22528.456167001423
+          },
+          "cpuMs": {
+            "median": 94973.842,
+            "min": 94580.848,
+            "max": 97871.98999999999
+          },
+          "peakRssBytes": {
+            "median": 1898725376,
+            "min": 1795964928,
+            "max": 2061058048
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 2703.4155830006057,
+            "cpuMs": 9455.412999999999,
+            "peakRssBytes": 110542848
+          },
+          {
+            "wallMs": 2728.5142079999787,
+            "cpuMs": 9473.74,
+            "peakRssBytes": 115654656
+          },
+          {
+            "wallMs": 2710.114417001023,
+            "cpuMs": 9477.694,
+            "peakRssBytes": 117637120
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 2710.114417001023,
+            "min": 2703.4155830006057,
+            "max": 2728.5142079999787
+          },
+          "cpuMs": {
+            "median": 9473.74,
+            "min": 9455.412999999999,
+            "max": 9477.694
+          },
+          "peakRssBytes": {
+            "median": 115654656,
+            "min": 110542848,
+            "max": 117637120
+          }
+        }
+      }
+    }
+  },
+  "scope": "Prepared-feed comparison includes market Parquet decoding, ordered real/synthetic ticks, strategy, FOK execution, portfolio and per-market stats. Raw daily-feed extraction, queue/DB/network/fleet overhead are excluded. Optional production baseline includes the production feed loaders. Parallel RSS is sum of worker peaks, not measured simultaneous peak.",
+  "hardware": {
+    "chip": "Apple M1 Pro",
+    "cpuCores": 10,
+    "ramGiB": 16
+  },
+  "finalSourceVerification": {
+    "full24MarketTraceParity": true,
+    "singleMarketLatencyVariants": [
+      {
+        "delayMs": 0,
+        "jitterMs": 0,
+        "seed": 987654321
+      },
+      {
+        "delayMs": 300,
+        "jitterMs": 20,
+        "seed": 987654321
+      }
+    ],
+    "sanityBatchWallMs": 9377.85299999814,
+    "sanityNotIncludedInRepeatedMedians": true,
+    "releaseBinarySha256": "d29b1e7776f7c37971f4475a4c76b0a40aec7eea6252f66fce5b56fe0e692c88",
+    "sourcesSha256": {
+      "src/feeds.rs": "d2ed276658f6d645d02c51d2b5b4bc93c6a6eff2d4036f2aa2d6dc69bf3c7498",
+      "src/main.rs": "3d8551f5eb473006ffba7a635cbf35667e1d6a53166997384b0bee784cb28af3",
+      "src/strategy.rs": "0eb7684e2ca0569e6aa588f43b6fa51f02b33eeebf7429677dbea835937a3e21",
+      "src/types.rs": "dd530d2f217071c32ec719c2d507191acf295303cc09f01b55b04c1dfe1c3f76"
+    }
+  }
+}
