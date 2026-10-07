@@ -24,7 +24,7 @@ Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migr
 ## Progress
 
 - Specification, dependency-ordered plan and expanding acceptance manifest recorded: 16 audited areas, 40 integration requirements and individual pending entries for 73 registered strategies.
-- Captured pinned strategy inventory: 73 tracked definitions and 73 loaded catalog entries. External artifacts and complete schemas remain pending.
+- Captured pinned strategy inventory: 73 tracked definitions and 73 loaded catalog entries. A subsequent read-only DB audit observed 372 saved immutable artifact rows across 316 strategy IDs, with 155 primary-cache files and one isolated-cache file. Those are preliminary observations, not complete required coverage: orphaned run/queue references, source availability and full validation contracts remain pending.
 - Added a standalone native crate advertising description/aggregation only, strict bounded JSONL contracts and a Unix parent-loss watchdog.
 - Added a coarse-operation TS client with identified errors, output/input validation, backpressure, cancellation/timeout and process cleanup.
 - Ported native authoritative batch/tail/calendar calculations and established a pinned independent TS oracle.

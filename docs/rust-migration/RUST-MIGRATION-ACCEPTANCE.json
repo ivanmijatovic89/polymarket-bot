@@ -18,7 +18,17 @@
     "inputModes": ["recorded", "telonex-delta", "telonex-paired", "recorder-v4"],
     "inventoryPath": "docs/rust-migration/strategy-inventory.json",
     "staticSnapshotSha256": "12165740dafbf842d174a8572b16fe2ec35a5cbd230609e67ced73495ea5f13d",
-    "registrySnapshotSha256": "398777357f5ffa35cc65754845b530913512c4321cb035ee2821af4ae2a2a732"
+    "registrySnapshotSha256": "398777357f5ffa35cc65754845b530913512c4321cb035ee2821af4ae2a2a732",
+    "externalArtifactObservations": {
+      "status": "preliminary_incomplete",
+      "databaseArtifactRows": 372,
+      "databaseStrategyIds": 316,
+      "primaryCacheFiles": 155,
+      "isolatedCacheFiles": 1,
+      "runOrphanReferences": "pending",
+      "queueReferences": "pending",
+      "notes": "Reported by read-only artifact audit; per-hash inventory and completeness verification remain in progress. The 73-definition baseline is not the full required strategy denominator."
+    }
   },
   "checks": [
     {
