@@ -12,6 +12,8 @@ entry points continue to use the same TypeScript engine. The experiment is not
 registered as a strategy or connected to the execution fleet. A production Rust
 migration must provide one shared core for live and replay before activation.
 
+The [final production-path audit](FINAL-PRODUCTION-AUDIT.md) also checks the current production market processor and Node-to-Rust job handoff. It preserves the local-engine measurement while identifying the unmeasured queue/database/fleet stages.
+
 ## Expanded local engine
 
 The native replay now includes the general local order manager, BUY/SELL
