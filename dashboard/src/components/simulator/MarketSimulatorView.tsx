@@ -19,6 +19,7 @@ import {
 } from '@bot/backtest/simulator/contracts'
 import { TraceCache, fetchJson, type Cursor, type DisplayFrame } from './playback'
 import { PriceChart } from './PriceChart'
+import type { ExternalFeedsSnapshot } from '@bot/trading/feeds/externalFeeds'
 
 const control =
   'inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed'
@@ -512,6 +513,7 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
               </p>
             </section>
           </div>
+          <FeedValues snapshot={display.context as ExternalFeedsSnapshot | null} />
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
             <section className="min-w-0 rounded-xl border bg-card">
               <div className="border-b px-4 py-3 text-sm font-medium">
@@ -653,6 +655,31 @@ export function MarketSimulatorView({ runId, slug }: { runId: number; slug: stri
             </span>
           </summary>
           <div className="mt-4 space-y-4 text-xs">
+            {manifest.provenance.capture && (
+              <div className="space-y-2 rounded-md border p-3">
+                <p className="font-medium">
+                  Recorder V4 · {manifest.provenance.capture.recordingId}
+                </p>
+                <p>
+                  Captured receipt order ·{' '}
+                  {manifest.provenance.capture.allowGaps
+                    ? 'Outage replay explicitly allowed'
+                    : 'Required-feed gaps rejected'}
+                </p>
+                <p>
+                  {manifest.provenance.capture.coverage.gaps.length} recorded feed gaps ·{' '}
+                  {manifest.provenance.capture.coverage.missingInitialBook
+                    ? 'Initial book missing'
+                    : 'Initial book available'}
+                </p>
+                <details>
+                  <summary className="cursor-pointer">Capture coverage and gaps</summary>
+                  <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap">
+                    {JSON.stringify(manifest.provenance.capture.coverage, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
             <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
               {manifest.provenance.warnings.map((w) => (
                 <li key={w}>{w}</li>
@@ -769,5 +796,46 @@ function Book({ name, book }: { name: string; book: DisplayBook | null }) {
       ))}
       {book && <p className="mt-2 text-[9px] text-muted-foreground">{clock(book.timestamp)}</p>}
     </div>
+  )
+}
+
+function FeedValues({ snapshot }: { snapshot: ExternalFeedsSnapshot | null }) {
+  const value = (number: number | undefined) =>
+    number === undefined ? 'Unavailable' : money(number)
+  const quote = snapshot?.binanceBookTicker
+  const selected = snapshot?.polymarketPriceToBeat
+  const rows = [
+    ['Binance aggregate trades', value(snapshot?.binanceWsSpotPrice?.value)],
+    ['Binance bid / ask', quote ? `${quote.bidPrice} / ${quote.askPrice}` : 'Unavailable'],
+    ['Chainlink spot', value(snapshot?.rtdsPolymarketCryptoPrices?.chainlink?.value)],
+    ['Chainlink TWAP', value(snapshot?.chainlinkTwap?.value)],
+    [
+      'Website PTB',
+      value(
+        snapshot?.websitePriceToBeat?.openPrice ??
+          (selected?.source !== 'chainlink-opening-twap' ? selected?.openPrice : undefined),
+      ),
+    ],
+    [
+      'Selected PTB',
+      selected ? `${value(selected.openPrice)} · ${selected.source ?? 'website'}` : 'Unavailable',
+    ],
+  ]
+  return (
+    <section className="rounded-xl border bg-card p-4" aria-label="External feeds at cursor">
+      <h2 className="text-sm font-medium">External feeds at this point</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Only values requested and seen by the strategy are shown. Unavailable means not requested or
+        not yet received.
+      </p>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map(([label, text]) => (
+          <div key={label}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="mt-1 font-mono text-xs">{text}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }

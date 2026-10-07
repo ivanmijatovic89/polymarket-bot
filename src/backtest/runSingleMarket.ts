@@ -1,3 +1,8 @@
+import {
+  canonicalJson,
+  createCaptureReference,
+  type RecorderV4Capture,
+} from '../recorder-v4/replay/provenance.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -32,11 +37,11 @@ import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
 import type { MarketTick } from '../strategy/Strategy.js'
 import type { MarketManifest } from '../recorder-v4/storage/manifest.js'
 import { readManifest } from '../recorder-v4/storage/manifest.js'
-import { readCapturedEvents, readOpeningReferenceEvents } from '../recorder-v4/storage/parquet.js'
+import { readCapturedEvents } from '../recorder-v4/storage/parquet.js'
 import { digestFile } from '../recorder-v4/storage/files.js'
-import { capturedMarketGapReasons, replayCapturedEvents } from '../recorder-v4/replay/dispatcher.js'
+import { replayCapturedEvents } from '../recorder-v4/replay/dispatcher.js'
 import { cloneExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
-import { inspectOpeningReference } from '../recorder-v4/replay/openingReference.js'
+import { inspectCaptureEligibility } from '../recorder-v4/replay/eligibility.js'
 import { validateCapturedFeedRequest } from '../recorder-v4/replay/feedState.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { downloadCaptureForReplay } from '../recorder-v4/replay/package.js'
@@ -221,6 +226,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   const startedAtMs = Date.now()
   const eventsByType: Record<string, number> = {}
   let eventsProcessed = 0
+  let recorderV4Capture: RecorderV4Capture | undefined
 
   const buildExecutionMeta = (extra?: Partial<MarketExecutionMeta>): MarketExecutionMeta => {
     const finishedAtMs = Date.now()
@@ -387,7 +393,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       input.recorderV4.manifestUrl,
       path.resolve(REPO_ROOT, process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v4-cache'),
     )
-    if (JSON.stringify(downloaded.manifest) !== JSON.stringify(input.recorderV4.manifest)) {
+    if (canonicalJson(downloaded.manifest) !== canonicalJson(input.recorderV4.manifest)) {
       throw new Error('Downloaded capture manifest differs from producer metadata')
     }
     filePath = downloaded.filePath
@@ -423,18 +429,11 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     const reqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
     const config = reqPlugin?.config ?? {}
     validateCapturedFeedRequest(config, manifest.market)
-    const coverageReasons = capturedMarketGapReasons(manifest.market, manifest.coverage, config)
-    if (
-      config.polymarketPriceToBeat?.enabled &&
-      config.polymarketPriceToBeat.source === 'chainlink-opening-twap'
-    ) {
-      const reference = await inspectOpeningReference(
-        manifest.market,
-        readOpeningReferenceEvents(filePath),
-      )
-      coverageReasons.push(...reference.reasons)
-    }
-    if (coverageReasons.length > 0 && !input.recorderV4?.allowGaps) {
+    const coverageReasons = await inspectCaptureEligibility(manifest, config, {
+      filePath,
+      allowGaps: input.recorderV4?.allowGaps ?? false,
+    })
+    if (coverageReasons.length > 0) {
       return {
         idx: input.idx,
         slug: input.slug,
@@ -446,6 +445,16 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
         coverageReasons,
       }
     }
+    if (input.marketResolution)
+      recorderV4Capture = createCaptureReference({
+        manifest,
+        input:
+          input.recorderV4?.manifestUrl ??
+          (isR2Url(input.filePath) ? input.filePath : path.resolve(REPO_ROOT, input.filePath)),
+        marketResolution: input.marketResolution,
+        allowGaps: input.recorderV4?.allowGaps ?? false,
+        requiredFeeds: config,
+      })
     await replayCapturedEvents({
       market: manifest.market,
       filePath,
@@ -542,6 +551,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     const taggedZero: MarketStats = {
       ...zeroStats,
       skipReason: 'no_in_window_activity',
+      ...(recorderV4Capture ? { recorderV4Capture } : {}),
       execution: buildExecutionMeta(),
     }
     return {
@@ -567,6 +577,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   })
 
   stats.execution = buildExecutionMeta()
+  if (recorderV4Capture) stats.recorderV4Capture = recorderV4Capture
 
   return {
     idx: input.idx,

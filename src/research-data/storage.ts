@@ -6,6 +6,8 @@ import path from 'node:path'
 import { sqlQuote } from '../utils/duckdb.js'
 import { readJson, writeJson } from './files.js'
 import { createResearchDatabase } from './database.js'
+import { claimReader } from './retention.js'
+import { datasetFamily } from './family.js'
 
 export const SCHEMAS = {
   markets: {
@@ -181,9 +183,21 @@ export async function writeParquet(
 export async function openDataset(
   root: string,
 ): Promise<{ connection: DuckDBConnection; index: DatasetIndex; close: () => void }> {
-  const index = await loadIndex(root)
-  const { connection, close } = await createResearchDatabase()
+  const releaseReader = await claimReader(root)
+  let closeDatabase = () => {}
+  const close = () => {
+    try {
+      closeDatabase()
+    } finally {
+      releaseReader()
+    }
+  }
   try {
+    const index = await loadIndex(root)
+    const family = await datasetFamily(root)
+    const database = await createResearchDatabase()
+    const { connection } = database
+    closeDatabase = database.close
     await connection.run("SET TimeZone = 'UTC'")
     for (const table of TABLES) {
       const files = Object.values(index.days).map((day) =>
@@ -203,10 +217,10 @@ export async function openDataset(
           )
       }
     }
-    await connection.run(`CREATE VIEW wallet_months AS WITH month_coverage AS (
+    await connection.run(`CREATE VIEW wallet_months_audit AS WITH month_coverage AS (
     SELECT strftime(to_timestamp(market_start), '%Y-%m') AS month,
       count(*) FILTER (WHERE found) AS found_windows,
-      96 * date_diff('day', date_trunc('month', min(to_timestamp(market_start))),
+      ${family.windowsPerDay} * date_diff('day', date_trunc('month', min(to_timestamp(market_start))),
         date_trunc('month', min(to_timestamp(market_start))) + INTERVAL 1 MONTH) AS expected_windows
     FROM coverage GROUP BY month)
     SELECT wallet, strftime(to_timestamp(market_start), '%Y-%m') AS month,
@@ -217,6 +231,14 @@ export async function openDataset(
       sum(cash_pnl_usdc) AS observed_cash_pnl_usdc, sum(rewards_usdc) AS observed_rewards_usdc
     FROM wallet_markets w JOIN month_coverage c ON strftime(to_timestamp(w.market_start), '%Y-%m') = c.month
     GROUP BY wallet, strftime(to_timestamp(market_start), '%Y-%m')`)
+    await connection.run(`CREATE VIEW wallet_months AS
+      SELECT w.wallet, strftime(to_timestamp(w.market_start), '%Y-%m') AS month,
+        count(*) AS market_count, sum(w.trade_count) AS trade_count,
+        CASE WHEN bool_and(c.cohort_complete) AND count(*) FILTER (WHERE w.economic_pnl_usdc IS NULL) = 0
+          THEN sum(w.economic_pnl_usdc) END AS profit_usdc
+      FROM wallet_markets w JOIN wallet_months_audit c
+        ON w.wallet = c.wallet AND strftime(to_timestamp(w.market_start), '%Y-%m') = c.month
+      GROUP BY w.wallet, strftime(to_timestamp(w.market_start), '%Y-%m')`)
     return {
       connection,
       index,

@@ -62,10 +62,15 @@ Do not rely on memory for third-party API behavior when Context7 can confirm it.
 
 ## Data + File Handling Rules
 
-For local wallet research, read `docs/datasets/polymarket-research/overview.md`
-and the reusable analyst/auditor instructions in that directory's `agents/`.
+For local wallet rankings, cohort comparisons and wallet strategy investigations,
+use the project skill [polymarket-research](.agents/skills/polymarket-research/SKILL.md).
+Its usage and investigation workflow are documented in
+[Research skill](docs/datasets/polymarket-research/research-skill.md).
+Read the shared overview, schema, accounting and analyst instructions linked there;
+load auditor instructions only for explicit audits or data diagnosis.
 Use the `research:coverage` and `research:verify` commands before interpreting
-rankings. The API research dataset is separate from strategy tick replay; never
+rankings. Normal research includes all observed wallets, without audit filters.
+The API research dataset is separate from strategy tick replay; never
 substitute its timestamp/source-row ordering for `MarketEngine` tick semantics.
 Use `POLYMARKET_RESEARCH_DATA_DIR` or `--root` to locate the permanent dataset.
 

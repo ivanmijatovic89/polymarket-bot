@@ -6,7 +6,7 @@ description: How to replay recorded Parquet files through strategy logic to eval
 # Running Backtests
 
 The backtest CLI replays Parquet files through the exact same `MarketEngine`
-and `StrategyRunner` code used for live trading. Each 15-minute market episode
+and `StrategyRunner` code used for live trading. Each market episode
 runs in full isolation (fresh `Runner` / `Portfolio` / `OrderManager`) and the
 strategy receives identical tick-by-tick snapshots to what it would see in
 production.
@@ -24,21 +24,55 @@ stats (`backtest_run_segments`) are written to the database automatically.
 
 ## Input modes
 
-`--input-mode` picks both the replayer and the database source:
+`--input-mode` picks the replay format and dataset source:
 
 | Input mode       | Data source                                                                  | Reference                                      |
 | ---------------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `recorded`       | `markets` table + WS-recorded parquet under `data/events/<symbol>/`          | This page                                      |
+| `recorder-v4`    | Verified mixed-feed BTC 5m/15m packages from R2 or local directories         | [Recorder V4](/datasets/recording/recorder-v4) |
 | `telonex-delta`  | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='delta-typed'`) | [Telonex backtest](/datasets/telonex/backtest) |
 | `telonex-paired` | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)      | [Telonex backtest](/datasets/telonex/backtest) |
 
-This page focuses on the default `recorded` mode. For telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — the file-selection flags (`--symbol`, `--slug`, `--dir`, `--limit`, `--random`, `--latest`) work identically; telonex modes additionally require `--read-from local|r2|local-or-download-from-r2-to-local`.
+The historical file-selection examples below use the default `recorded` mode. For Telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest); Telonex requires `--read-from local|r2|local-or-download-from-r2-to-local`.
+
+### Recorder V4 eligible-market selection
+
+Use the strategy's actual parameters when listing eligibility: they can change its required feeds and PTB source.
+
+`--list-eligible` accepts a registry `--strategy` or an already published `--strategy-artifact`. It rejects `--strategy-file`, whose automatic artifact publication would violate the preview's read-only contract. Publish a strategy file separately before previewing its eligibility.
+
+```bash
+# Read the R2 catalog, report counts and exclusions, and launch no jobs.
+npm run backtest -- --strategy readExternalFeedsExample.v1 \
+  --input-mode recorder-v4 --read-from r2 --symbol btc \
+  --timeframe 5m --latest --limit 100 --list-eligible
+
+# Remove --list-eligible to run the same selection policy.
+npm run backtest -- --strategy readExternalFeedsExample.v1 \
+  --input-mode recorder-v4 --read-from r2 --symbol btc \
+  --timeframe 5m --latest --limit 100
+
+# A local package collection uses the same eligibility policy.
+npm run backtest -- --strategy readExternalFeedsExample.v1 \
+  --input-mode recorder-v4 --dir /absolute/path/to/packages \
+  --timeframe 15m --from-ms 1791244800000 --list-eligible
+```
+
+The R2 catalog defaults to `R2_BUCKET` and `RECORDER_R2_PREFIX` (or `recorder-v4`). Override the namespace with `--capture-prefix recorder-v4/validation`. Catalog selection reads R2 without changing objects. A package path or exact R2 manifest URL selects that recording directly; `--slug` selects market names within the catalog or local collection.
+
+Eligibility requires a finalized, nonempty package, an official outcome, Polymarket coverage and coverage of the strategy's requested feeds. Website PTB requires a captured website observation; opening TWAP requires the exact Chainlink boundary observation. An unused feed's outage does not disqualify the market. V4 uses recorded outage evidence, without the historical Telonex ten-second gap tolerance.
+
+Eligibility and ambiguity checks run **before** random/latest ordering and `--limit`. Ordinary execution with `--limit 100` fails before dispatch if fewer than 100 markets qualify; `--list-eligible` reports the available count without launching jobs or failing solely for a shortfall. Multiple recordings of one market are excluded as ambiguous; pass one exact manifest to choose explicitly. No recordings are combined or selected by performance.
+
+`--from-ms` and `--to-ms` are inclusive opening-time filters. `--timeframe 5m|15m` also works with a directory or exact inputs. Omitting it permits both durations. `--allow-capture-gaps` explicitly admits affected feed intervals or missing PTB evidence for outage experiments; it still requires valid packages and official outcomes.
+
+PTB preflight needs recorded evidence that older manifests do not contain. On its first inspection, the CLI downloads each otherwise eligible package to an owned temporary directory, verifies it, reads the reference columns, and removes the temporary files. Later inspections reuse a small admission-evidence cache keyed by immutable manifest hash (bounded to approximately 16 MiB). Large first-time date ranges can require substantial downloads; use a date filter when exploring coverage. Replay independently verifies its package again and never injects preflight's final feed state into earlier ticks.
 
 ## Prerequisites
 
 - Node.js v20
-- A populated `markets` table (run `npm run db:insert-parquet` to seed from existing Parquet filenames)
-- At least one Parquet file under `data/events/<symbol>/`
+- For historical `recorded` mode: a populated `markets` table (`npm run db:insert-parquet`) and a Parquet file under `data/events/<symbol>/`.
+- For Recorder V4: local finalized packages or R2 read credentials, plus the existing database connection for saving results. It does not use the historical `markets` catalog.
 - For the **default** (BullMQ) execution path:
   - Redis running locally (`brew services start redis`)
   - At least one worker daemon up — launch via `npm run worker:markets` (self-updating wrapper) so it
@@ -121,13 +155,16 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | `--random`       | Draw `--limit` markets at random from the database. Takes precedence over `--latest`.           |
 | `--latest`       | Fetch the `--limit` most recently recorded markets. Takes precedence when `--random` is absent. |
 
-### Input-mode / data-source (telonex)
+### Input-mode / data-source
 
-| Flag                  | Description                                                                                                                                                                                                                                         |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--input-mode <mode>` | `recorded` (default), `telonex-delta`, or `telonex-paired`. See [Telonex backtest](/datasets/telonex/backtest).                                                                                                                                     |
-| `--read-from <mode>`  | **Required** for telonex modes. `local` (read `local_path`), `r2` (stream `r2_url`), or `local-or-download-from-r2-to-local` (read local if present, else download `r2_url` to the canonical local path then read local). Rejected with `recorded`. |
-| `--timeframe <value>` | Symbol-filter timeframe segment (e.g. `15m`, `5m`). Default `15m`. Only valid with `--symbol`.                                                                                                                                                      |
+| Flag                        | Description                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `--input-mode <mode>`       | `recorded` (default), `recorder-v4`, `telonex-delta`, or `telonex-paired`.                                                                                                           |
+| `--read-from <mode>`        | **Required** for Telonex: `local`, `r2`, or `local-or-download-from-r2-to-local`. V4: `r2` selects the catalog; `local` requires package paths or `--dir`. Rejected with `recorded`. |
+| `--timeframe <value>`       | Historical symbol-filter timeframe (default `15m`, requires `--symbol`); V4 supports `5m                                                                                             | 15m` independently, with both durations allowed when omitted. |
+| `--capture-prefix <prefix>` | V4 R2 catalog namespace, default `RECORDER_R2_PREFIX` or `recorder-v4`.                                                                                                              |
+| `--list-eligible`           | V4 counts, selected package references and exclusion reasons; no replay, queue jobs or result writes.                                                                                |
+| `--allow-capture-gaps`      | Explicit V4 outage replay; preserve recorded gaps rather than supplying replacement data.                                                                                            |
 
 ### Replay options
 

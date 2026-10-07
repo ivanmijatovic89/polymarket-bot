@@ -1,6 +1,6 @@
 # Extending a Backtest Run
 
-`--extend <runId>` takes an existing telonex backtest run and adds more
+`--extend <runId>` takes an existing Telonex or Recorder V4 backtest run and adds more
 markets to it — re-using the same strategy and parameters. The parent
 row in `backtest_runs` keeps the same identity while new per-market results
 are appended and `backtest_run_segments` rows are deleted and rewritten over
@@ -21,6 +21,26 @@ first, or set `BACKTEST_ALLOW_DIRTY=1` to override.
 :::
 
 ## The mechanics
+
+### Recorder V4
+
+V4 extensions inherit the original strategy, parameters, recording source (R2 bucket/prefix or local roots), requested feeds and outage policy. They use the same eligibility gate as a new V4 selection. Covered market slugs are excluded, so a newer recording never silently replaces an existing result.
+
+```bash
+# Preview additional V4 markets without queueing them.
+npm run backtest -- --extend 103 --from-ms 1791244800000 --list-eligible
+
+# Add the closest eligible markets after the covered range.
+npm run backtest -- --extend 103 --latest --limit 100
+```
+
+Backward, forward, explicit date ranges and random selection follow the same directions described below. The original launch date bounds do not prevent expansion; explicit extension bounds replace the automatic direction. An explicit duration remains fixed; a mixed-duration run retains both. Local roots must remain accessible to the producer and workers. A source consisting only of exact manifest paths can discover only those paths; start a new catalog/directory run to select a wider source.
+
+V4 runs require saved `recorderV4Selection` metadata. Older runs without it cannot be safely extended by guessing the source. Changed feed requirements also require a new run. Multiple recordings for an uncovered market are excluded as ambiguous, and incomplete required-feed coverage is filtered before `--limit`. A requested limit larger than the available eligible count fails before dispatch. `--allow-capture-gaps` and `--capture-prefix` cannot override the parent's policy during extension.
+
+The planner never executes strategy code to choose markets based on PnL. It rebuilds the saved strategy configuration to determine the required feeds, then applies capture-quality rules. Each appended result saves its own exact recording reference for the simulator.
+
+### Telonex example
 
 You start with an existing run. Suppose it's run **#103**, originally
 launched as:
@@ -149,7 +169,7 @@ then a fresh `latest 1000`, then `latest 3000`, then `latest 6000`).
 Each is a separate `backtest_runs` row covering the newest N markets.
 
 When you're satisfied at `latest 6000` and want that same run to
-cover *all* history, `--extend <runId>` grows it **backward** in chunks:
+cover _all_ history, `--extend <runId>` grows it **backward** in chunks:
 
 ```bash
 npm run backtest -- --extend 103 --limit 500    # adds previous 500
@@ -192,17 +212,17 @@ npm run backtest -- --extend 103 \
 
 When the Telonex sync brings in new eligible markets weeks after the
 parent run was launched, just re-run `--extend 103` — the planner
-re-computes the uncovered set against the *current* eligibility
+re-computes the uncovered set against the _current_ eligibility
 universe and picks up whatever's new.
 
 ## What's inherited from the parent, what isn't
 
 The parent run defines the **strategy** and the **eligible universe**:
 
-| Source            | What it contributes                                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| Parent run        | `strategy`, `params`, `symbol`, `timeframe`, `input_mode`, `converter`, `read_from`                          |
-| `--extend` invocation | `--limit`, `--latest`, `--random`, `--from-ms`, `--to-ms`                                                |
+| Source                | What it contributes                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| Parent run            | `strategy`, `params`, `symbol`, `timeframe`, `input_mode`, `converter`, `read_from` |
+| `--extend` invocation | `--limit`, `--latest`, `--random`, `--from-ms`, `--to-ms`                           |
 
 Trying to combine `--extend` with any of the inherited flags fails loudly:
 
@@ -232,13 +252,13 @@ succeeds, its old failure row is removed from the parent run.
 
 The flags compose:
 
-| Invocation                                       | Resulting candidate set                              |
-| ------------------------------------------------ | ---------------------------------------------------- |
-| `--extend N`                                     | All eligible markets minus the ones the parent ran   |
-| `--extend N --limit M`                           | M oldest-missing                                     |
-| `--extend N --from-ms X --to-ms Y`               | All missing with `market_start_ms` in `[X, Y]`       |
-| `--extend N --from-ms X --to-ms Y --limit M`     | M oldest-missing within `[X, Y]`                     |
-| `--extend N --latest --limit M`                  | M newest-missing                                     |
+| Invocation                                   | Resulting candidate set                            |
+| -------------------------------------------- | -------------------------------------------------- |
+| `--extend N`                                 | All eligible markets minus the ones the parent ran |
+| `--extend N --limit M`                       | M oldest-missing                                   |
+| `--extend N --from-ms X --to-ms Y`           | All missing with `market_start_ms` in `[X, Y]`     |
+| `--extend N --from-ms X --to-ms Y --limit M` | M oldest-missing within `[X, Y]`                   |
+| `--extend N --latest --limit M`              | M newest-missing                                   |
 
 `market_start_ms` is the slug-derived window-start epoch in milliseconds,
 indexed on `telonex_markets`. See

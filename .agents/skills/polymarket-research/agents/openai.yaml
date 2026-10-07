@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Polymarket Research'
+  short_description: 'Analyze local wallets and investigate trading strategies'
+  default_prompt: 'Use $polymarket-research to analyze the requested wallets and period from the local dataset, checking coverage first and separating observed behavior from strategy hypotheses.'

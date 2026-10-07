@@ -1,4 +1,6 @@
 /** JSON-only display data. Nothing in this module runs or restores a strategy. */
+import type { MarketCoverage } from '../../recorder-v4/types.js'
+import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import type { CapitalSnapshot } from '../../strategy/Strategy.js'
 
 export type Outcome = 'UP' | 'DOWN'
@@ -113,6 +115,13 @@ export type ReplayProvenance = {
   initialCapital: number
   outcome: Outcome
   settings: Record<string, unknown>
+  capture?: {
+    recordingId: string
+    manifestSha256: string
+    coverage: MarketCoverage
+    allowGaps: boolean
+    requiredFeeds: ExternalFeedsRequestConfig
+  }
   warnings: string[]
 }
 export type ComparisonRow = {
@@ -143,6 +152,8 @@ export type SimulatorStatus = {
   ticks: number
   message: string
   createdAt: number
+  /** Child lease protects downloads during a dashboard restart. */
+  workerPid?: number
 }
 
 export function emptyDisplayState(): DisplayState {

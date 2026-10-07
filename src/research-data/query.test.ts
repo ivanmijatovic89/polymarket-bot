@@ -4,7 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { dates, parseDate } from './catalog.js'
-import { leaderboard, querySql, walletReport } from './query.js'
+import {
+  strictLeaderboard as leaderboard,
+  leaderboard as allWallets,
+  querySql,
+  walletReport,
+} from './query.js'
 import { openDataset, publish, TABLES, writeParquet, type TableName } from './storage.js'
 import type { WalletMarket } from './types.js'
 
@@ -153,7 +158,7 @@ test('monthly research requires the whole calendar and excludes the entire incom
   const months = async () =>
     (await querySql(
       root,
-      'SELECT wallet, month, cohort_complete, incomplete_markets, economic_pnl_usdc FROM wallet_months ORDER BY month, wallet',
+      'SELECT wallet, month, cohort_complete, incomplete_markets, economic_pnl_usdc FROM wallet_months_audit ORDER BY month, wallet',
     )) as {
       wallet: string
       month: string
@@ -168,7 +173,7 @@ test('monthly research requires the whole calendar and excludes the entire incom
     }
   const example = (name: string) =>
     readFile(
-      new URL(`../../docs/datasets/polymarket-research/sql/${name}.sql`, import.meta.url),
+      new URL(`../../docs/datasets/polymarket-research/sql/audit-${name}.sql`, import.meta.url),
       'utf8',
     )
   try {
@@ -217,6 +222,36 @@ test('monthly research requires the whole calendar and excludes the entire incom
       june.coverage.excluded_wallets,
       '1',
       'do not rank the incomplete wallet using only its +100 market',
+    )
+    const normal = (await allWallets(root, '2026-06-01', '2026-07-01')) as {
+      rows: { wallet: string; profit_usdc: string }[]
+    }
+    assert.equal(normal.rows.length, 3, 'all observed wallets are retained')
+    assert.equal(
+      normal.rows.find((row) => row.wallet === incomplete)!.profit_usdc,
+      '-400.000000',
+      'both the positive and problematic negative markets must contribute',
+    )
+    assert.deepEqual(Object.keys(normal.rows[0]!).sort(), [
+      'markets',
+      'profit_usdc',
+      'trades',
+      'wallet',
+    ])
+    assert.equal('coverage' in normal, false, 'normal output has no exclusion/warning metadata')
+    const normalMonths = (await querySql(
+      root,
+      "SELECT wallet, profit_usdc FROM wallet_months WHERE month = '2026-06'",
+    )) as { wallet: string; profit_usdc: string }[]
+    assert.equal(normalMonths.find((row) => row.wallet === incomplete)!.profit_usdc, '-400.000000')
+    const normalSql = await readFile(
+      new URL('../../docs/datasets/polymarket-research/sql/monthly-rankings.sql', import.meta.url),
+      'utf8',
+    )
+    const normalSqlRows = (await querySql(root, normalSql)) as { month: string; wallet: string }[]
+    assert.deepEqual(
+      normalSqlRows.filter((row) => row.month === '2026-06').map((row) => row.wallet),
+      [steady, late, incomplete],
     )
     const july = await ranking('2026-07-01', '2026-08-01')
     assert.deepEqual(

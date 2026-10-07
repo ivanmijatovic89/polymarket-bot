@@ -50,6 +50,8 @@ export class CapturedMarketDispatcher {
   private readonly openingReference: OpeningReferenceTracker
   private state: ExternalFeedsSnapshot = {}
   private sequence = -1n
+  private liveConnectionId: string | undefined
+  private liveAttempt = 0
   private captureId: string | undefined
   private bootstrapSession: string | undefined
   private tail: Promise<void> = Promise.resolve()
@@ -59,6 +61,8 @@ export class CapturedMarketDispatcher {
     private readonly args: {
       market: RecordedMarket
       filePath: string
+      /** Only source metadata differs; decoding and dispatch are shared. */
+      sourceKind?: 'live' | 'parquet'
       config: ExternalFeedsRequestConfig
       onTick: (tick: MarketTick) => void | Promise<void>
     },
@@ -106,12 +110,15 @@ export class CapturedMarketDispatcher {
       throw new Error('Cannot combine independent capture clocks')
     this.captureId = event.captureId
     this.sequence = sequence
-    const source = {
-      kind: 'parquet' as const,
-      filePath: this.args.filePath,
-      ingestSeq: sequence,
-      tsLocalMs: event.receivedAtMs,
+    if (event.source === 'polymarket' && event.connectionId !== this.liveConnectionId) {
+      this.liveConnectionId = event.connectionId
+      this.liveAttempt++
     }
+    const receipt = { ingestSeq: sequence, tsLocalMs: event.receivedAtMs }
+    const source =
+      this.args.sourceKind === 'live'
+        ? { kind: 'live' as const, attempt: Math.max(1, this.liveAttempt), ...receipt }
+        : { kind: 'parquet' as const, filePath: this.args.filePath, ...receipt }
     const market = this.args.market
 
     if (event.source === 'bootstrap') {

@@ -18,7 +18,7 @@
   "scripts": {
     "prepare": "husky",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "trading:test": "tsx --test src/trading/*.test.ts src/trading/execution/*.test.ts src/cli/helpers/capitalArgs.test.ts src/cli/helpers/backtestArgs.test.ts src/backtest/capitalConfiguration.test.ts src/backtest/simulator/*.test.ts",
+    "trading:test": "tsx --test src/trading/*.test.ts src/trading/feeds/*.test.ts src/trading/execution/*.test.ts src/cli/helpers/capitalArgs.test.ts src/cli/helpers/backtestArgs.test.ts src/backtest/capitalConfiguration.test.ts src/backtest/simulator/*.test.ts src/backtest/extendPlanner.test.ts src/db/backtests.test.ts src/cli/backtest-simulator.test.ts src/strategies/readExternalFeedsExample.v1.test.ts",
     "data:sync:main": "tsx src/cli/data-sync.ts --role main",
     "data:sync:worker": "tsx src/cli/data-sync.ts --role worker",
     "fleet:status": "./scripts/fleet-status.sh",
@@ -30,7 +30,7 @@
     "fleet:runtime:status": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-status.yml",
     "fleet:runtime:start": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-start.yml",
     "fleet:runtime:stop": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-stop.yml",
-    "test:fleet-ops": "node --test scripts/tests/fleet-ops.test.mjs",
+    "test:fleet-ops": "node --test scripts/tests/fleet-ops.test.mjs scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs",
     "fable:night-shift": "./scripts/fable-night-shift.sh",
     "record:v4": "tsx src/cli/record-v4.ts",
     "record:v4:data": "tsx src/cli/record-v4-data.ts",
@@ -147,7 +147,10 @@
     "research:leaderboard": "tsx src/cli/research-data.ts leaderboard",
     "research:wallet": "tsx src/cli/research-data.ts wallet",
     "research:sql": "tsx src/cli/research-data.ts sql",
-    "research:data:test": "tsx --test src/research-data/*.test.ts"
+    "research:data:test": "tsx --test src/research-data/*.test.ts",
+    "research:update": "tsx src/cli/research-data.ts update",
+    "research:status": "tsx src/cli/research-data.ts status",
+    "research:schedule": "tsx scripts/install-research-update.mts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",

@@ -12,6 +12,9 @@ export interface ApiStats {
   response_bytes: number
   request_ms: number
   cache_pages: number
+  rate_limited_responses: number
+  server_error_responses: number
+  network_errors: number
   endpoints: Record<string, number>
 }
 interface Checkpoint {
@@ -42,6 +45,9 @@ export class ApiClient {
     response_bytes: 0,
     request_ms: 0,
     cache_pages: 0,
+    rate_limited_responses: 0,
+    server_error_responses: 0,
+    network_errors: 0,
     endpoints: {},
   }
   private nextRequest = 0
@@ -125,6 +131,8 @@ export class ApiClient {
         this.stats.response_bytes += Buffer.byteLength(body)
         this.stats.request_ms += Date.now() - started
         if (response.ok) return JSON.parse(body) as unknown
+        if (response.status === 429) this.stats.rate_limited_responses++
+        if (response.status >= 500) this.stats.server_error_responses++
         const error = new HttpError(
           response.status,
           `${endpoint}: HTTP ${response.status} ${body.slice(0, 300)}`,
@@ -147,6 +155,7 @@ export class ApiClient {
         }
       } catch (error) {
         if (error instanceof HttpError) throw error
+        this.stats.network_errors++
         lastError = error
         if (attempt + 1 < attempts) {
           this.stats.retries++

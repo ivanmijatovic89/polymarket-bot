@@ -1,3 +1,5 @@
+import type { RecorderV4Capture } from '../recorder-v4/replay/provenance.js'
+import type { RecorderV4SelectionMetadata } from '../recorder-v4/replay/eligibility.js'
 import type { TelonexFeedEligibility } from './telonexEligibility.js'
 import {
   mysqlTable,
@@ -102,6 +104,7 @@ export const backtestRuns = mysqlTable(
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
     params: json('params').$type<Record<string, unknown>>().notNull(),
+    recorderV4Selection: json('recorder_v4_selection').$type<RecorderV4SelectionMetadata | null>(),
     feedEligibility: json('feed_eligibility').$type<TelonexFeedEligibility | null>(),
     // External strategy artifact provenance (issue #211). Null for registry
     // strategies. The sha is what `--extend` needs to reload the exact code;
@@ -206,6 +209,7 @@ export const backtestRunMarkets = mysqlTable(
     cost: decimal('cost', { precision: 14, scale: 4 }).notNull(),
     splitCost: decimal('split_cost', { precision: 14, scale: 4 }).notNull(),
 
+    recorderV4Capture: json('recorder_v4_capture').$type<RecorderV4Capture | null>(),
     intentMeta: json('intent_meta').$type<Array<Record<string, unknown>>>().notNull(),
 
     machineId: varchar('machine_id', { length: 32 }),

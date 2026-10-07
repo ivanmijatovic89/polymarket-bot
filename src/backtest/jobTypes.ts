@@ -1,3 +1,4 @@
+import type { RecorderV4SelectionMetadata } from '../recorder-v4/replay/eligibility.js'
 import type { TelonexFeedEligibility } from '../db/telonexEligibility.js'
 import type { MarketStats } from './stats/marketStats.js'
 import type { MarketResolution } from './stats/marketResolution.js'
@@ -51,7 +52,7 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
-export const AGGREGATE_JOB_PROTOCOL_VERSION = 5
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 6
 
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
@@ -68,6 +69,7 @@ export type AggregateJobData = {
   expectedMarkets: Array<{ idx: number; slug: string | null }>
   initialCapital: number
   insertMeta: {
+    recorderV4Selection?: RecorderV4SelectionMetadata | null
     feedEligibility?: TelonexFeedEligibility | null
     baselineId: string | null
     cmd: string

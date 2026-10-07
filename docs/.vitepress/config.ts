@@ -53,6 +53,7 @@ export default withMermaid(
                 { text: 'Recorder v4 (BTC 5m + 15m)', link: '/datasets/recording/recorder-v4' },
                 { text: 'Recorder v4 on worker-2', link: '/datasets/recording/recorder-v4-worker-2' },
                 { text: 'Recorder v4 validation', link: '/datasets/recording/recorder-v4-validation' },
+                { text: 'V4 integration validation', link: '/datasets/recording/recorder-v4-integrations-validation' },
               ],
             },
             {
@@ -138,6 +139,11 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/polymarket-research/overview' },
+                { text: 'Research Skill and Wallet Strategies', link: '/datasets/polymarket-research/research-skill' },
+                { text: 'Nightly Download', link: '/datasets/polymarket-research/downloading' },
+                { text: 'Operations and Upgrades', link: '/datasets/polymarket-research/operations' },
+                { text: 'Performance', link: '/datasets/polymarket-research/performance' },
+                { text: 'Accounting Audit Reference', link: '/datasets/polymarket-research/accounting-audit' },
                 { text: 'Completion Evidence', link: '/datasets/polymarket-research/completion-evidence' },
                 { text: 'Sync and Query', link: '/datasets/polymarket-research/commands' },
                 { text: 'Accounting', link: '/datasets/polymarket-research/accounting' },

@@ -112,10 +112,7 @@ test('recorder-v4 accepts package inputs and explicit outage replay only in rece
     /receive order/,
   )
   assert.throws(() => parseArgs(['--input-mode', 'recorder-v4', '--time-driven']), /receive order/)
-  assert.throws(
-    () => parseArgs(['--input-mode', 'recorder-v4', '--symbol', 'btc']),
-    /package paths/,
-  )
+  assert.equal(parseArgs(['--input-mode', 'recorder-v4', '--symbol', 'btc']).symbol, 'btc')
 })
 
 test('parseArgs requires --read-from for telonex modes', () => {
@@ -123,6 +120,68 @@ test('parseArgs requires --read-from for telonex modes', () => {
     () => parseArgs(['--input-mode', 'telonex-delta', '--symbol', 'btc']),
     /\[backtest\] --input-mode=telonex-delta requires --read-from \(local\|r2\)/,
   )
+})
+
+test('eligible listing rejects auto-publishing strategy files before resolution but permits read-only strategy selection', () => {
+  const preview = ['--input-mode', 'recorder-v4', '--list-eligible']
+  for (const strategyFile of [
+    ['--strategy-file', '/tmp/strategy.ts'],
+    ['--strategy-file=/tmp/strategy.ts'],
+  ])
+    assert.throws(
+      () => parseArgs([...preview, ...strategyFile]),
+      /--list-eligible cannot be combined with --strategy-file.*already published --strategy-artifact/,
+    )
+  assert.equal(parseArgs([...preview, '--strategy', 'example']).listEligible, true)
+  assert.equal(parseArgs([...preview, '--strategy-artifact', 'a'.repeat(64)]).listEligible, true)
+  assert.equal(
+    parseArgs([
+      ...preview,
+      '--strategy',
+      'example',
+      '--comment',
+      '--strategy-file=/tmp/not-an-option.ts',
+    ]).listEligible,
+    true,
+  )
+  assert.doesNotThrow(() =>
+    parseArgs(['--input-mode', 'recorder-v4', '--strategy-file', '/tmp/strategy.ts']),
+  )
+})
+
+test('Recorder v4 catalog selection supports timeframe, namespace, eligible listing and local slug filters', () => {
+  const catalog = parseArgs([
+    '--input-mode',
+    'recorder-v4',
+    '--read-from',
+    'r2',
+    '--symbol',
+    'btc',
+    '--timeframe',
+    '15m',
+    '--capture-prefix',
+    'recorder-v4/validation',
+    '--list-eligible',
+  ])
+  assert.equal(catalog.capturePrefix, 'recorder-v4/validation')
+  assert.equal(catalog.listEligible, true)
+  assert.equal(catalog.captureTimeframe, '15m')
+  assert.deepEqual(
+    parseArgs(['--input-mode', 'recorder-v4', '--dir', '/packages', '--slug', 'btc-updown-5m-1'])
+      .slugs,
+    ['btc-updown-5m-1'],
+  )
+  assert.equal(parseArgs(['--extend', '1', '--list-eligible']).listEligible, true)
+  assert.throws(
+    () => parseArgs(['--input-mode', 'recorder-v4', '--read-from', 'r2', '--dir', '/packages']),
+    /either/,
+  )
+  assert.throws(
+    () => parseArgs(['--input-mode', 'recorder-v4', '--read-from', 'local']),
+    /requires --dir/,
+  )
+  assert.throws(() => parseArgs(['--input-mode', 'recorder-v4', '--symbol', 'eth']), /btc only/)
+  assert.throws(() => parseArgs(['--list-eligible']), /require --input-mode/)
 })
 
 test('parseArgs forbids --read-from for recorded mode', () => {

@@ -96,10 +96,7 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     ctx?: StrategyContext,
   ): Intent[] => {
     const liveMode = tick.source.kind === 'live'
-    const seenAtMs = liveMode
-      ? Date.now()
-      : ((tick.source.kind === 'parquet' ? tick.source.tsLocalMs : undefined) ??
-        tick.snapshot.timestamp)
+    const seenAtMs = tick.source.tsLocalMs ?? (liveMode ? Date.now() : tick.snapshot.timestamp)
 
     if (!outPath) {
       if (!warned) {

@@ -1,5 +1,5 @@
 -- Edit these three values. The date range selects market starts, not cash dates.
--- This report retains unresolved rows and labels coverage; it is not a ranking.
+-- All observed market rows are included. Inspect coverage separately before research.
 WITH params AS (
     SELECT '0x0000000000000000000000000000000000000000' AS wallet,
         DATE '2026-06-01' AS from_date, DATE '2026-10-01' AS to_date
@@ -41,11 +41,8 @@ WITH params AS (
     FROM outcome_executions GROUP BY condition_id
 )
 SELECT w.wallet, w.slug, w.condition_id, w.market_start,
-    s.found_windows, s.expected_windows,
-    s.found_windows = s.expected_windows AS cohort_complete,
-    w.quality, w.issues, w.notes, w.trade_count, w.activity_count,
+    w.trade_count, w.activity_count,
     w.economic_pnl_usdc, w.cash_pnl_usdc, w.unredeemed_value_usdc, w.rewards_usdc,
-    w.api_position_pnl_usdc, w.api_pnl_difference_usdc, w.api_pnl_status,
     e.taker_rows, e.maker_rows, e.unknown_role_rows,
     e.first_trade_offset_seconds, e.last_trade_offset_seconds,
     m.token_ids, m.outcomes, e.outcome_execution_summary

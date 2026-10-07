@@ -61,6 +61,14 @@ jobs:
       - name: Recorder v4 tests
         run: npm run record:v4:test
 
+      - name: Install zsh for mocked macOS service tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
+      - name: Recorder service log and guarded update tests
+        run: node --test scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs
+
       - name: Research protocol check
         run: npm run research:check
 

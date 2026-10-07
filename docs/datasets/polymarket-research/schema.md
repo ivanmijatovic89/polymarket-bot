@@ -1,160 +1,114 @@
 ---
-title: Research SQL Schema
-description: Parquet tables and offline SQL examples for wallet research.
+title: Stored Data and SQL
+description: What the Parquet files contain and how agents query them.
 ---
 
-# Research SQL schema
+# Stored data and SQL
 
-The SQL CLI opens these local views:
+Each published day contains six Parquet tables. DuckDB opens them together as
+views, so an agent can query a day, week, month or several months in one statement.
+No separate database server is required.
 
-| View | Grain | Main fields |
+| Table/view | What one row represents | Why it is stored |
 | --- | --- | --- |
-| `markets` | One condition | slug, condition_id, token_ids, outcomes, market_start/end, payouts, resolved |
-| `trades` | One served trade occurrence | proxy_wallet, condition_id, token_id, timestamp, side, size, price, is_taker |
-| `activities` | One served activity occurrence | trade identity fields, type, usdc_size |
-| `positions` | Served position snapshot (OPEN/CLOSED may overlap) | current_size, realized_pnl, unrealized_pnl, total_pnl, entry_fees_usdc |
-| `wallet_markets` | Trading wallet/condition | cash/economic PnL, rewards, API comparison, quality, issues, notes |
-| `wallet_months` | Trading wallet/calendar month | market/trade counts, cohort_complete, incomplete_markets, monthly economic PnL |
-| `coverage` | Scheduled market window | found, trade count, complete/unresolved/pending wallet counts |
+| `markets` | One market/condition | BTC/timeframe identity, window, outcomes, final payouts and resolution. |
+| `trades` | One participant trade occurrence | Which wallet traded, when, what outcome, side, shares, price and maker/taker role. |
+| `activities` | One wallet activity occurrence | Actual purchase/sale cash, splits, merges, redemptions and other served activity. |
+| `positions` | One served wallet/market/outcome position snapshot | Polymarket's reported holdings, profit and fees at fetch time. |
+| `wallet_markets` | One observed trading wallet in one market | Calculated cash, settlement value, profit, rewards and execution counts; internal audit fields also remain stored. |
+| `coverage` | One scheduled market window | Whether the market was found and the recorded participant/trade counts. |
+| `wallet_months` | One observed wallet in one calendar month | A calculated view: `wallet`, `month`, `market_count`, `trade_count`, `profit_usdc`. |
+| `wallet_months_audit` | One observed wallet in one calendar month | Optional internal reconciliation and historical strict ranking fields. |
 
-`market_start`, `market_end` and activity/trade `timestamp` are epoch seconds.
-Money and share quantities use `DECIMAL(38,6)`. Prices use `DECIMAL(38,18)`.
-`payouts` contains micro-dollar amounts per share in outcome order.
+The last two are SQL views, not additional Parquet files. Daily and weekly totals
+are ordinary queries over `wallet_markets`; they are not precomputed copies.
 
-The source fact tables preserve `raw_json` for fields not promoted to columns.
-`row_index` identifies an occurrence within a day's source table and generation;
-it is not a blockchain log index or a permanent global event ID. `is_taker` is
-assigned by multiset matching against the separately downloaded taker feed.
+## What positions mean
 
-For broad analytical scans, select the typed columns you need. Reserve
-`raw_json` for narrowly scoped source inspection. In a 155-history audit, scanning
-and sorting raw activity payloads exceeded the reader's 512 MB memory budget;
-the required typed fields completed successfully with one query thread. A small
-result set does not guarantee a small intermediate scan or sort.
+A position identifies a wallet, market and outcome token. Typed fields include
+`current_size`, `realized_pnl`, `unrealized_pnl`, `total_pnl` and `entry_fees_usdc`.
+The original status and additional API fields remain in `raw_json`.
 
-## Compare monthly profitability
+These are **snapshots**, not profit payments. Do not sum the same position across
+refresh versions or add API position profit to calculated activity profit. OPEN
+and CLOSED can overlap. The accounting layer handles their comparison while the
+normal profit follows [activity cash plus final settlement value](./accounting).
+
+## Types and identity
+
+Market and activity times are Unix seconds. Money and share quantities use
+`DECIMAL(38,6)`; prices use `DECIMAL(38,18)`. Payouts are micro-dollar amounts in
+outcome order. Source tables retain original payloads in `raw_json`.
+
+`row_index` distinguishes occurrences within a table and snapshot generation. It
+is not a permanent event ID. A transaction can contain multiple identical-looking
+fills; never deduplicate trades by transaction hash. `is_taker` comes from
+multiset matching against the separate taker feed.
+
+Prefer typed columns when scanning large ranges. Selecting and sorting every raw
+JSON payload can consume much more memory than the small final result suggests.
+Each query has a private DuckDB connection and spill directory.
+
+## Monthly leaders
 
 ```sql
-SELECT wallet, month, market_count, trade_count, economic_pnl_usdc
-FROM wallet_months
-WHERE month >= '2026-06' AND month <= '2026-09'
-  AND cohort_complete AND incomplete_markets = 0
-ORDER BY month, economic_pnl_usdc DESC;
-```
-
-## Find traders present in all four months
-
-```sql
-SELECT wallet, count(*) AS months, sum(economic_pnl_usdc) AS pnl_usdc,
-       min(economic_pnl_usdc) AS weakest_month_usdc
+SELECT month, wallet, profit_usdc, market_count, trade_count
 FROM wallet_months
 WHERE month BETWEEN '2026-06' AND '2026-09'
-  AND cohort_complete AND incomplete_markets = 0
-GROUP BY wallet
-HAVING count(*) = 4
-ORDER BY weakest_month_usdc DESC;
+QUALIFY row_number() OVER (
+  PARTITION BY month ORDER BY profit_usdc DESC NULLS LAST, wallet
+) <= 20
+ORDER BY month, profit_usdc DESC NULLS LAST, wallet;
 ```
 
-This selects traders with activity in every month. An absent row means no
-observed trading for that wallet/month, not an unknown zero-valued PnL snapshot.
-The coverage report must establish that the underlying month is present.
+All observed wallets remain present. A full-calendar-month total is null until
+its market coverage and final payouts are available. For month-to-date research,
+use the leaderboard command with the available exclusive end date.
 
-## Runnable research queries
+## Daily results
 
-Four SQL files in `docs/datasets/polymarket-research/sql/` support the initial
-June–September workflow. Run them from the repository root with the permanent
-data directory configured:
-
-```bash
-npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/monthly-rankings.sql
-npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/monthly-population.sql
-npm run research:sql -- --sql-file docs/datasets/polymarket-research/sql/june-candidates-across-months.sql
+```sql
+SELECT strftime(to_timestamp(market_start), '%Y-%m-%d') AS day, wallet,
+  CASE WHEN count(*) FILTER (WHERE economic_pnl_usdc IS NULL) = 0
+    THEN sum(economic_pnl_usdc) END AS profit_usdc,
+  count(*) AS markets, sum(trade_count) AS trades
+FROM wallet_markets
+WHERE market_start >= epoch(DATE '2026-09-01')
+  AND market_start < epoch(DATE '2026-10-01')
+GROUP BY day, wallet
+QUALIFY row_number() OVER (PARTITION BY day ORDER BY profit_usdc DESC NULLS LAST, wallet) <= 20
+ORDER BY day, profit_usdc DESC NULLS LAST, wallet;
 ```
 
-`monthly-rankings.sql` returns up to 20 eligible wallets for each month, with
-found/expected windows and observed/unresolved wallet counts. An incomplete
-month has a coverage row with null wallet, rank and PnL. A complete month can also
-have no eligible wallets; inspect its population counts. Ranks use profit then
-wallet address, so tied profits have a deterministic display order.
+## Follow June's leaders through later months
 
-`monthly-population.sql` reports observed wallets, unresolved wallet/market
-pairs, and the share of participant trade rows belonging to excluded wallets.
-It counts every trade of an excluded wallet in that month, including its
-reconciled markets. A small unresolved-pair count can therefore accompany a
-large excluded-trade share. These are participant occurrences, not a count of
-unique matched executions or a claim about unseen upstream data. Source-warning
-markets are reported separately. Incomplete months retain their coverage flag;
-their observed populations can grow as additional days arrive. A month with no
-observed trades has a null exclusion percentage, not zero.
+Run `sql/june-candidates-across-months.sql`. It chooses wallets using June alone
+and preserves their later results, including losses. No observed trading is left
+null rather than replaced with invented zero profit. Do not use later outcomes
+to choose June candidates when testing a strategy hypothesis.
 
-`june-candidates-across-months.sql` selects the June candidates once and follows
-those same wallets through September. It retains later losses and distinguishes
-an incomplete month, unresolved wallet accounting and no observed trading. An
-absent trading record is not replaced with a made-up PnL of zero. An incomplete
-June yields no candidates; inspect the monthly coverage query first.
+`sql/wallet-market-profile.sql` provides per-market profit, outcome execution
+prices, maker/taker counts and timing. Replace its example wallet and date range.
+Market profit appears once per market; expanding outcome details must not multiply
+that profit when aggregating.
 
-This differs from selecting wallets that traded in all four months: it keeps
-June candidates even if they subsequently stop trading. When investigating a
-strategy, form hypotheses from the selection period and test them on later data;
-using the later results to choose the June candidates would introduce hindsight.
-
-Copy `wallet-market-profile.sql`, replace the wallet and dates in its `params`
-CTE, then pass that file to `research:sql --sql-file`. It reports each market's
-PnL, quality flags, maker/taker counts, execution prices and timing relative to
-the market window. It keeps unresolved rows for diagnosis and includes full-range
-coverage on every row. Raw trade-price VWAP is separate from fee-inclusive
-activity cash. Execution prices and volumes are grouped by outcome inside each
-market row; `token_ids` and `outcomes` give the corresponding names. Market PnL
-appears once per row, so expanding outcome details requires care when aggregating.
-
-Keep the `research:coverage` output and snapshot timestamps with these query
-results. These files are reusable analyses, not evidence that the four-month
-backfill has already completed.
-
-## Inspect execution timing and trade role
+## Inspect trade timing
 
 ```sql
 SELECT m.slug, t.timestamp - m.market_start AS seconds_from_window_start,
-       t.side, t.token_id, t.size, t.price, t.is_taker, t.transaction_hash
-FROM trades t JOIN markets m USING (condition_id)
+  t.side, t.token_id, t.size, t.price, t.is_taker, t.transaction_hash
+FROM trades t JOIN markets m USING(condition_id)
 WHERE t.proxy_wallet = '0x...'
 ORDER BY m.market_start, t.timestamp, t.row_index;
 ```
 
-Negative offsets are legitimate pre-window trades. Same-second ordering is
-source traversal order; it does not establish exact matching-engine chronology.
+Negative offsets are legitimate pre-window trading. Within a second, the source
+traversal order does not establish matching-engine chronology. Research data
+cannot reveal canceled orders or reconstruct the historical orderbook.
 
-## Audit excluded results
+## Maintenance fields
 
-```sql
-SELECT wallet, slug, economic_pnl_usdc, api_position_pnl_usdc,
-       api_pnl_difference_usdc, modeled_api_pnl_usdc, api_pnl_status, issues, notes
-FROM wallet_markets
-WHERE quality <> 'complete'
-ORDER BY market_start, wallet;
-```
-
-Avoid summing only the good rows of an otherwise incomplete wallet. That can
-exclude losses and produce a misleading ranking. Use the leaderboard command or
-require all selected wallet/market rows to be complete.
-
-## Source aggregate warnings
-
-New market Parquet files include `source_warnings` (`VARCHAR[]`). A null or empty
-list means no source warning was recorded for that snapshot; older snapshots
-were published under the strict aggregate-match rule. The local dataset reader
-adds an empty field when reading only older files. Use:
-
-```sql
-SELECT slug, source_warnings
-FROM markets
-WHERE coalesce(len(source_warnings), 0) > 0;
-```
-
-`corroborated_source_volume_disagreement` preserves an API aggregate mismatch
-that passed the narrow repeat-feed and counterparty checks described in
-[API limitations](./api-limitations). Its original and downloaded quantities
-remain in `report.json` (`volume_checks`); repeated rows are in checksummed
-`volume-evidence.json`. Coverage, leaderboard and wallet reports expose
-`source_warnings` with the exact share difference. `verify` distinguishes
-`all_source_aggregates_reconciled` from wallet accounting and file validity.
+`quality`, `issues`, `notes`, API PnL comparisons and market `source_warnings`
+remain stored for diagnosis and upgrades. They are not filters for ordinary
+research. The [audit reference](./accounting-audit) and `audit-*.sql` examples
+explain explicit diagnostic use. Normal result tables do not repeat these fields.

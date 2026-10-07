@@ -11,6 +11,8 @@ import {
 } from '../schema'
 import { computeCoverage, type CoverageReport } from '@polymarket-bot/stats/coverage'
 import { resolveCoverageScope } from './backtestCoverageScope'
+import type { RecorderV4SelectionSummary } from '@bot/recorder-v4/replay/eligibility'
+import { readRecorderV4Catalog } from './recorderV4Catalog'
 
 const DEFAULT_ELIGIBLE_FROM_ISO = '2025-12-01T00:00:00Z'
 
@@ -27,11 +29,16 @@ function parseEligibleFromMs(): number {
 export type BacktestCoverageMeta = {
   symbol: string
   timeframe: string
-  converter: 'delta-typed' | 'paired'
+  converter: 'delta-typed' | 'paired' | 'recorder-v4'
   readFrom: 'local' | 'r2'
   inputMode: string
   eligibleFromMs: number
   feedRequirementsRecorded: boolean
+  unverifiedReferences?: number
+  exclusions?: Record<string, number>
+  metadataOnly?: boolean
+  selectionSummary?: RecorderV4SelectionSummary
+  completedMarkets?: number
 }
 
 export type BacktestCoverageResponse = {
@@ -52,6 +59,7 @@ export async function getBacktestCoverage(
     .select({
       id: backtestRuns.id,
       feedEligibility: backtestRuns.feedEligibility,
+      recorderV4Selection: backtestRuns.recorderV4Selection,
       symbol: backtestRuns.symbol,
       timeframe: backtestRuns.timeframe,
       slugs: backtestRuns.slugs,
@@ -64,6 +72,46 @@ export async function getBacktestCoverage(
     .limit(1)
 
   if (!run) return null
+  if (run.inputMode === 'recorder-v4') {
+    const selection = run.recorderV4Selection
+    if (!selection) return null
+    const timeframe = selection.filters.timeframe
+    if (timeframe !== undefined && timeframe !== '5m' && timeframe !== '15m') return null
+    const available = await readRecorderV4Catalog(
+      selection.source,
+      { ...selection.filters, ...(timeframe ? { timeframe } : {}) },
+      selection.requiredFeeds,
+      selection.allowGaps,
+    )
+    const covered = await db
+      .select({ slug: backtestRunMarkets.slug })
+      .from(backtestRunMarkets)
+      .where(eq(backtestRunMarkets.runId, backtestId))
+    const eligibleFromMs =
+      selection.filters.fromMs ?? Math.min(...available.rows.map((row) => row.startMs), Date.now())
+    return {
+      meta: {
+        symbol: 'btc',
+        timeframe: timeframe ?? '5m + 15m',
+        converter: 'recorder-v4',
+        readFrom: selection.source.kind === 'r2' ? 'r2' : 'local',
+        inputMode: 'recorder-v4',
+        eligibleFromMs,
+        feedRequirementsRecorded: true,
+        metadataOnly: true,
+        selectionSummary: selection.summary,
+        completedMarkets: covered.length,
+        unverifiedReferences: available.summary.exclusions.ptb_unverified ?? 0,
+        exclusions: available.summary.exclusions,
+      },
+      report: computeCoverage(
+        available.rows
+          .filter((row) => row.eligible)
+          .map((row) => ({ slug: row.slug, marketStartMs: row.startMs })),
+        new Set(covered.map((row) => row.slug)),
+      ),
+    }
+  }
   if (
     run.inputMode === null ||
     run.inputMode === 'recorded' ||

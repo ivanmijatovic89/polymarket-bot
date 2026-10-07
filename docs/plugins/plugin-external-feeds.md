@@ -12,7 +12,7 @@ description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugi
 The External Feeds Plugin exposes external market data to strategies through `ctx.plugins.externalFeeds`. Supported live runtimes populate it from feed clients; backtests populate it from their configured historical or recorded data. Snapshots are bound to individual strategy ticks.
 
 ::: warning Runtime support and missing observations
-Recorder v4 replays captured Binance aggregate trades, best bid/ask, Chainlink spot/TWAP, and reference prices in recorded receipt order. Historical input modes have different available sources. Unsupported new capabilities fail explicitly. Any individual observation can be absent before its first receipt or during a gap; strategies must handle that absence.
+V4 live ingestion and Recorder v4 replay share receipt ordering and snapshot processing for Binance aggregate trades, best bid/ask, Chainlink spot/TWAP, and reference prices in receipt order. Historical input modes have different available sources. Unsupported new capabilities fail explicitly. Any individual observation can be absent before its first receipt or during a gap; strategies must handle that absence.
 :::
 
 ---
@@ -83,15 +83,15 @@ The `ExternalFeedsRequestPlugin` and `ExternalFeedsPlugin` share the plugin ID `
 
 ### `ExternalFeedsRequestConfig`
 
-| Field                   | Type                                                                    | Description                                                                                     |
-| ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `rtdsCryptoPrices`      | `{ binanceSymbols?: string[]; chainlinkSymbols?: string[] }`            | Request RTDS price data for specified symbols via Binance and/or Chainlink feeds.               |
-| `binanceWsSpotPrice`    | `{ symbol?: string }`                                                   | Request the Binance WebSocket spot price for a specific symbol (e.g. `'BTCUSDT'`).              |
-| `polymarketPriceToBeat` | `{ enabled?: boolean; source?: 'website' \| 'chainlink-opening-twap' }` | Website is the unchanged default. Opening TWAP requires Recorder v4 and exact opening evidence. |
-| `binanceBookTicker`     | `{ symbol?: string }`                                                   | Captured BTCUSDT best bid/ask; Recorder v4 only.                                                |
-| `chainlinkTwap`         | `{ symbol?: string; windowSeconds?: number }`                           | Captured BTC/USD TWAP; Recorder v4 only.                                                        |
+| Field                   | Type                                                                    | Description                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `rtdsCryptoPrices`      | `{ binanceSymbols?: string[]; chainlinkSymbols?: string[] }`            | Request RTDS price data for specified symbols via Binance and/or Chainlink feeds.                  |
+| `binanceWsSpotPrice`    | `{ symbol?: string }`                                                   | Request the Binance WebSocket spot price for a specific symbol (e.g. `'BTCUSDT'`).                 |
+| `polymarketPriceToBeat` | `{ enabled?: boolean; source?: 'website' \| 'chainlink-opening-twap' }` | Website is the unchanged default. Opening TWAP requires V4 live/replay and exact opening evidence. |
+| `binanceBookTicker`     | `{ symbol?: string }`                                                   | BTCUSDT best bid/ask; V4 live/replay.                                                              |
+| `chainlinkTwap`         | `{ symbol?: string; windowSeconds?: number }`                           | BTC/USD TWAP; V4 live/replay.                                                                      |
 
-`binanceWsSpotPrice` and `rtdsCryptoPrices` also accept `tickOnUpdate` for supported synthetic feed ticks. See [synthetic feed ticks](/datasets/price-feeds/synthetic-ticks). Recorder v4 supplies the Chainlink subfeed under the existing `rtdsPolymarketCryptoPrices.chainlink` key using captured PolyBolt observations; it does not contain the RTDS Binance subfeed.
+`binanceWsSpotPrice` and `rtdsCryptoPrices` also accept `tickOnUpdate` for supported synthetic feed ticks. See [synthetic feed ticks](/datasets/price-feeds/synthetic-ticks). V4 live/replay supplies the Chainlink subfeed under the existing `rtdsPolymarketCryptoPrices.chainlink` key using captured PolyBolt observations; it does not contain the RTDS Binance subfeed.
 
 For `source: 'chainlink-opening-twap'`, `polymarketPriceToBeat` contains the selected exact opening observation, `websitePriceToBeat` retains the independent website observation, and `openingReference` exposes provenance/comparison diagnostics. The full decimal string is retained. Later website corrections never overwrite the selected TWAP. Missing or conflicting boundary evidence rejects ordinary backtests; explicit outage replay preserves its actual availability. See [opening reference configuration](/datasets/recording/recorder-v4#selecting-the-opening-chainlink-twap) for the contract and CLI example.
 
@@ -200,9 +200,8 @@ onMarketTick(tick, portfolio, ctx?): Intent[] {
   // RTDS Binance price
   const rtdsBinance = feeds.rtdsPolymarketCryptoPrices?.binance
   if (rtdsBinance) {
-    const nowMs = tick.source.kind === 'parquet'
-      ? (tick.source.tsLocalMs ?? tick.snapshot.timestamp)
-      : Date.now()
+    const nowMs = tick.source.tsLocalMs ??
+      (tick.source.kind === 'live' ? Date.now() : tick.snapshot.timestamp)
     const staleMs = nowMs - rtdsBinance.receivedAtMs
     if (staleMs > 30_000) return []  // reject stale data
     const price = rtdsBinance.value
@@ -259,12 +258,12 @@ If a strategy requires a reference to make a valid decision, skip that tick when
 
 All `RtdsPricePoint` values include a `receivedAtMs` field. Because feeds are updated asynchronously and the snapshot is captured once per tick, data may be seconds or minutes old if a feed client experiences connectivity issues.
 
-Strategies should use the runtime clock for current-price freshness: recorded local receipt time during v3 replay, and the wall clock during legacy live processing. Older Parquet inputs without receipt time fall back to the market snapshot timestamp. An opening PTB is a fixed boundary reference, so applying a rolling-price staleness limit to it would usually be inappropriate:
+Strategies should use the runtime clock for current-price freshness: recorded local receipt time during V4 live ingestion and replay, and the wall clock during legacy live processing. Older Parquet inputs without receipt time fall back to the market snapshot timestamp. An opening PTB is a fixed boundary reference, so applying a rolling-price staleness limit to it would usually be inappropriate:
 
 ```typescript
 const MAX_STALE_MS = 30_000
 const nowMs =
-  tick.source.kind === 'parquet' ? (tick.source.tsLocalMs ?? tick.snapshot.timestamp) : Date.now()
+  tick.source.tsLocalMs ?? (tick.source.kind === 'live' ? Date.now() : tick.snapshot.timestamp)
 
 const binancePrice = feeds?.rtdsPolymarketCryptoPrices?.binance
 if (!binancePrice || nowMs - binancePrice.receivedAtMs > MAX_STALE_MS) {
@@ -277,7 +276,11 @@ if (!binancePrice || nowMs - binancePrice.receivedAtMs > MAX_STALE_MS) {
 
 ## Store Architecture
 
-The `ExternalFeedsStore` (defined in `src/trading/feeds/externalFeeds.ts`) is the in-process state container. It is populated by individual feed client callbacks and read by `ExternalFeedsPlugin.snapshot()` on each tick. The store exposes the following update methods (used internally by feed clients):
+V4 live/replay uses `CapturedMarketDispatcher` to serialize observations and bind
+each feed snapshot to its tick. Live mode keeps a bounded in-memory queue and
+reuses the recorder transport adapters. See [live feed configuration](/live-trading/live-trading-bot#v4-receipt-ordered-live-feeds).
+
+The legacy runtime uses `ExternalFeedsStore` (defined in `src/trading/feeds/externalFeeds.ts`) as its in-process state container. It is populated by individual feed client callbacks and read by `ExternalFeedsPlugin.snapshot()` on each tick. The store exposes the following update methods (used internally by feed clients):
 
 | Method                           | Description                                        |
 | -------------------------------- | -------------------------------------------------- |

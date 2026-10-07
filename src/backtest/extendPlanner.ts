@@ -6,6 +6,13 @@ import {
   type ResolveStrategyResult,
 } from '../cli/helpers/strategyArgs.js'
 import { externalFeedsRequest } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import type { RecorderV4SelectionMetadata } from '../recorder-v4/replay/eligibility.js'
+import type { ResolvedCapturePackage } from '../recorder-v4/replay/package.js'
+import {
+  discoverCapturePackages,
+  selectEligibleCapturePackages,
+  requireCaptureSelectionSize,
+} from '../recorder-v4/replay/selection.js'
 /**
  * Plans a `backtest --extend <runId>` invocation.
  *
@@ -66,12 +73,16 @@ export type ExtensionPlanOptions = {
   latest?: boolean
   /** Pick randomly from the missing universe (overrides any direction). */
   random?: boolean
+  /** Report the available selection without failing solely for a requested-size shortfall. */
+  preview?: boolean
 }
 
 export type ExtensionDirection = 'backward' | 'forward' | 'explicit-range' | 'random'
 
 export type ExtensionPlan = {
-  feedEligibility: TelonexFeedEligibility
+  feedEligibility: TelonexFeedEligibility | null
+  recorderV4Selection?: RecorderV4SelectionMetadata
+  captureCandidates?: ResolvedCapturePackage[]
   built: ResolveStrategyResult
   parent: ExtensibleRun
   /** Markets to run, sorted by `market_start_ms` ASC for chronological replay. */
@@ -97,8 +108,24 @@ export type ExtensionPlanResult =
   | { kind: 'extend-in-progress'; since: Date }
   | { kind: 'nothing-to-extend'; direction: ExtensionDirection; hint: string }
 
-export async function planExtension(opts: ExtensionPlanOptions): Promise<ExtensionPlanResult> {
-  const lookup = await getRunForExtension(opts.parentRunId)
+const plannerDependencies = {
+  getRunForExtension,
+  getCoveredSlugsForRun,
+  getCoveredRangeForRun,
+  resolveStrategyFromArtifact,
+  buildStrategyFromConfig,
+  discoverCapturePackages,
+  selectEligibleCapturePackages,
+  countEligibleTelonexMarkets,
+  selectEligibleTelonexMarkets,
+}
+
+export async function planExtension(
+  opts: ExtensionPlanOptions,
+  overrides: Partial<typeof plannerDependencies> = {},
+): Promise<ExtensionPlanResult> {
+  const dependencies = { ...plannerDependencies, ...overrides }
+  const lookup = await dependencies.getRunForExtension(opts.parentRunId)
   if (lookup.kind === 'not-found') return { kind: 'parent-not-found' }
   if (lookup.kind === 'not-telonex') {
     return { kind: 'parent-not-telonex', inputMode: lookup.inputMode }
@@ -113,13 +140,16 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   }
 
   const built = parent.strategyArtifactSha256
-    ? await resolveStrategyFromArtifact({
+    ? await dependencies.resolveStrategyFromArtifact({
         sha256: parent.strategyArtifactSha256,
         rawParams: parent.params,
         allowRegistryIdCollision: true,
         fallbackMeta: parent.strategyArtifactMeta,
       })
-    : buildStrategyFromConfig({ strategyId: parent.strategy, rawParams: parent.params })
+    : dependencies.buildStrategyFromConfig({
+        strategyId: parent.strategy,
+        rawParams: parent.params,
+      })
   const requiredFeeds = externalFeedsRequest(built)
   if (
     parent.feedEligibility &&
@@ -129,8 +159,16 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
       'The strategy feed requirements changed since this run. Start a new run instead of extending a different eligible universe.',
     )
   }
+  if (
+    parent.inputMode === 'recorder-v4' &&
+    (!parent.recorderV4Selection ||
+      !isDeepStrictEqual(parent.recorderV4Selection.requiredFeeds, requiredFeeds))
+  )
+    throw new Error(
+      'Recorder v4 extension requires the original selection metadata and unchanged strategy feed requirements. Start a new run instead of guessing its recording universe.',
+    )
 
-  const coveredSet = await getCoveredSlugsForRun(parent.id)
+  const coveredSet = await dependencies.getCoveredSlugsForRun(parent.id)
   const excludeSlugs = coveredSet.size > 0 ? Array.from(coveredSet) : undefined
 
   // Resolve direction + auto fromMs/toMs.
@@ -145,7 +183,7 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   let effectiveToMs: number | undefined = opts.toMs
 
   if (direction === 'backward' || direction === 'forward') {
-    const range = await getCoveredRangeForRun(parent.id)
+    const range = await dependencies.getCoveredRangeForRun(parent.id)
     if (range.minMs === null || range.maxMs === null) {
       // Parent has zero covered markets (unusual — pre-completion or
       // explicit-skip parent). Default direction has no anchor; fall back
@@ -157,6 +195,57 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
     } else {
       // direction === 'forward': just after the newest covered market.
       effectiveFromMs = range.maxMs + 1
+    }
+  }
+
+  if (parent.inputMode === 'recorder-v4') {
+    const original = parent.recorderV4Selection!
+    const timeframe = original.filters.timeframe
+    const packages = await dependencies.discoverCapturePackages(original.source, {
+      ...(timeframe ? { timeframe } : {}),
+    })
+    const universe = await dependencies.selectEligibleCapturePackages({
+      packages,
+      requiredFeeds,
+      allowGaps: original.allowGaps,
+    })
+    const selection = await dependencies.selectEligibleCapturePackages({
+      packages: universe.packages,
+      requiredFeeds,
+      allowGaps: original.allowGaps,
+      ...(effectiveFromMs !== undefined ? { fromMs: effectiveFromMs } : {}),
+      ...(effectiveToMs !== undefined ? { toMs: effectiveToMs } : {}),
+      ...(excludeSlugs ? { excludeSlugs } : {}),
+      ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+      ...(opts.random ? { random: true } : direction === 'backward' ? { latest: true } : {}),
+      // The universe was inspected above; do not repeat downloads or reference scans.
+      inspect: async () => [],
+    })
+    if (!opts.preview) requireCaptureSelectionSize(opts.limit, selection.summary.eligible)
+    if (!selection.packages.length)
+      return { kind: 'nothing-to-extend', direction, hint: directionHint(direction) }
+    if (!opts.random)
+      selection.packages.sort((a, b) => a.manifest.market.startMs - b.manifest.market.startMs)
+    return {
+      kind: 'ok',
+      plan: {
+        built,
+        feedEligibility: null,
+        recorderV4Selection: {
+          ...original,
+          filters: { ...original.filters, ...(timeframe ? { timeframe } : {}) },
+          summary: selection.summary,
+        },
+        captureCandidates: selection.packages,
+        parent,
+        candidates: [],
+        parentCoveredCount: universe.packages.filter((pkg) =>
+          coveredSet.has(pkg.manifest.market.slug),
+        ).length,
+        eligibleTotal: universe.summary.eligible,
+        availableCount: selection.summary.eligible,
+        direction,
+      },
     }
   }
 
@@ -190,7 +279,7 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   // the top of planExtension: "Without --limit, all matching uncovered
   // markets are included."
   const effectiveLimit = opts.limit ?? Number.MAX_SAFE_INTEGER
-  const selection = await selectEligibleTelonexMarkets({
+  const selection = await dependencies.selectEligibleTelonexMarkets({
     ...baseQueryOpts,
     ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
     ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
@@ -225,9 +314,9 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   // avoid hydrating the full Market rows just to call .length on them.
   // Count the eligible universe and its intersection with the covered set.
   const [eligibleTotal, parentEligibleCoveredCount] = await Promise.all([
-    countEligibleTelonexMarkets(baseQueryOpts),
+    dependencies.countEligibleTelonexMarkets(baseQueryOpts),
     coveredSet.size > 0
-      ? countEligibleTelonexMarkets({ ...baseQueryOpts, slugs: [...coveredSet] })
+      ? dependencies.countEligibleTelonexMarkets({ ...baseQueryOpts, slugs: [...coveredSet] })
       : Promise.resolve(0),
   ])
 

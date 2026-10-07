@@ -3,6 +3,12 @@ title: June–September Completion Evidence
 description: Full-range coverage, quality limits, benchmarks and verified local research.
 ---
 
+
+> Historical evidence: the studies below used the original strict audit population.
+> Normal research now includes all observed wallets. See the [current overview](./overview)
+> and [profit calculation](./accounting); use `--strict` and `audit-*.sql` only to
+> reproduce the earlier reconciliation-based selections.
+
 # June–September completion evidence
 
 The initial BTC 15-minute backfill is complete for market windows starting

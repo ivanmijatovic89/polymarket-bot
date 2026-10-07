@@ -5,7 +5,7 @@ description: Step-by-step guide to launching the Polymarket live trading bot, co
 
 # Running the Live Trading Bot
 
-The trading bot connects to the Polymarket market WebSocket, resolves the current 15-minute UP/DOWN market for the selected symbol, and runs your chosen strategy against a live order book. Dry-run is the default — set `DRY_RUN=false` explicitly to place real orders.
+The trading bot connects to the Polymarket market WebSocket, resolves the current UP/DOWN market for the selected symbol (15m by default; V4 also supports BTC 5m), and runs your chosen strategy against a live order book. Dry-run is the default — set `DRY_RUN=false` explicitly to place real orders.
 
 ::: danger Live execution requires migration
 The current implementation still uses the legacy CLOB SDK. Polymarket's [CLOB V2 migration guide](https://docs.polymarket.com/v2-migration) states that V1-signed orders are no longer supported in production. Keep live trading disabled until the signing and collateral migration in [issue #249](https://github.com/ivanmijatovic89/polymarket-bot/issues/249) is complete and verified. Post-only support does not resolve this compatibility blocker.
@@ -52,6 +52,55 @@ For full control, invoke the script directly:
 ```bash
 tsx src/cli/trading-bot.ts --strategy <id> [--param key=value ...]
 ```
+
+## V4 receipt-ordered live feeds
+
+Set `TRADING_FEED_MODE=recorder-v4` to use the same transport adapters, bootstrap
+coordinator, market decoder and feed dispatcher as Recorder V4 replay. A strategy
+requesting `binanceBookTicker`, `chainlinkTwap` or the opening Chainlink TWAP
+reference selects this mode automatically. Existing strategies remain on the
+legacy feed runtime unless explicitly opted in. `TRADING_FEED_MODE=legacy` rejects
+these new requests instead of silently substituting another feed.
+
+The V4 runtime supports one BTC timeframe per bot: `TRADING_TIMEFRAME=5m` or `15m`
+(default). It discovers and subscribes to the next market before its boundary,
+restores the observed book/feed state without synthetic history, and changes
+strategy context after the preceding tick has completed. Missing data remains
+absent; a Polymarket disconnect resets the books while preserving the independent
+feed observations and their actual receipt times.
+
+```bash
+DRY_RUN=true TRADING_FEED_MODE=recorder-v4 TRADING_TIMEFRAME=5m \
+  npm run trade:bot:btc -- --strategy readExternalFeedsExample.v1 \
+  --param priceToBeatSource=chainlink-opening-twap
+```
+
+Use `TRADING_TIMEFRAME=15m` for 15-minute markets, or
+`--param priceToBeatSource=website` for independent website PTB observations.
+The opening TWAP is available only from an exact boundary observation under an
+explicit 60-second TWAP market configuration. There is no nearest-price fallback.
+The website observation continues to populate comparison diagnostics when the
+opening TWAP is selected.
+
+Request feeds using [`ExternalFeedsRequestPlugin`](/plugins/plugin-external-feeds):
+Binance aggregate trades and best bid/ask, PolyBolt Chainlink spot and 60-second
+TWAP, plus PTB. Chainlink subscriptions require the three CLOB API credentials;
+dry-run does not require a private key. The legacy RTDS Binance subfeed is not
+supplied by V4: use `binanceWsSpotPrice`. Other symbols and timeframes fail explicitly.
+
+Each strategy tick carries its receipt timestamp and sequence. The runtime binds
+feed snapshots to that tick before asynchronous strategy/account processing.
+A 16 MiB input-queue limit stops the bot with an error if it cannot keep up; it
+never continues after silently dropping observations. This runtime writes no
+recordings or R2 objects. Run the recorder separately for durable captures.
+Separate bot and recorder connections can still receive different real-world
+streams; shared processing guarantees equivalent results for identical inputs,
+not identical delivery on independent sockets.
+
+Validation covers controlled dry-run live/replay feed snapshots, strategy decisions,
+batched frames, reconnects, missing initial prices and rotation for both durations
+and both PTB sources. It does not remove the CLOB execution migration blocker above
+or establish real-money execution readiness.
 
 ## Selecting a strategy
 
@@ -129,6 +178,8 @@ Live rotation creates fresh strategy/plugin state and a fresh Portfolio, request
 | Variable                                   | Default                   | Description                                                                         |
 | ------------------------------------------ | ------------------------- | ----------------------------------------------------------------------------------- |
 | `DRY_RUN`                                  | `true`                    | Real orders ONLY when set to exactly `false`; anything else (incl. unset) = dry-run |
+| `TRADING_FEED_MODE`                        | Automatic                 | `legacy` or `recorder-v4`; new feed requests automatically select V4                |
+| `TRADING_TIMEFRAME`                        | `15m`                     | V4 BTC: `5m` or `15m`; legacy runtime: `15m`                                        |
 | `TRADING_SYMBOL`                           | —                         | Required. `BTC`, `ETH`, `SOL`, or `XRP`                                             |
 | `RECORD_SYMBOL`                            | —                         | Fallback if `TRADING_SYMBOL` is unset                                               |
 | `BOT_ENV`                                  | —                         | If set, loads `.env.<BOT_ENV>` with override priority over `.env`                   |

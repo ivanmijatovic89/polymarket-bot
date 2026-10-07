@@ -3,6 +3,12 @@ title: Local Wallet Study Example
 description: A reproducible first-week BTC 15-minute wallet study using saved Parquet only.
 ---
 
+
+> Historical evidence: the studies below used the original strict audit population.
+> Normal research now includes all observed wallets. See the [current overview](./overview)
+> and [profit calculation](./accounting); use `--strict` and `audit-*.sql` only to
+> reproduce the earlier reconciliation-based selections.
+
 # Local wallet study example
 
 This example investigates wallet
@@ -107,7 +113,7 @@ calendar coverage and retain later losses and unresolved histories.
 ## Reproduce and audit
 
 Use `research:coverage` for `--from 2026-06-01 --to 2026-06-08`, then copy
-`sql/wallet-market-profile.sql` from this documentation directory and set its
+`sql/audit-wallet-market-profile.sql` from this documentation directory and set its
 wallet and dates to this study's scope. The
 [SQL guide](./schema#runnable-research-queries) explains the command and
 outcome-level fields.

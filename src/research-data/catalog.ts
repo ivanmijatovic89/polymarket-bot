@@ -1,6 +1,7 @@
 import { windowFromSlug } from '../polymarket/upDownSlugWindow.js'
 import { HttpError, type ApiClient } from './api.js'
 import type { ApiRow, Market } from './types.js'
+import { marketFamily, DEFAULT_FAMILY, type MarketFamilyId } from './family.js'
 
 export const DAY_SECONDS = 86_400
 export const WINDOW_SECONDS = 900
@@ -36,8 +37,16 @@ function stringArray(value: unknown): string[] {
   return array as string[]
 }
 
-export function normalizeMarket(raw: ApiRow, resolution: ApiRow | undefined): Market {
-  if (typeof raw.slug !== 'string' || !/^btc-updown-15m-\d+$/.test(raw.slug))
+export function normalizeMarket(
+  raw: ApiRow,
+  resolution: ApiRow | undefined,
+  familyId: MarketFamilyId = DEFAULT_FAMILY,
+): Market {
+  const family = marketFamily(familyId)
+  if (
+    typeof raw.slug !== 'string' ||
+    !new RegExp(`^${family.symbol}-updown-${family.timeframe}-\\d+$`).test(raw.slug)
+  )
     throw new Error('Unexpected market slug')
   const window = windowFromSlug(raw.slug)
   if (!window || typeof raw.conditionId !== 'string' || !/^0x[a-f\d]{64}$/i.test(raw.conditionId))
@@ -62,8 +71,8 @@ export function normalizeMarket(raw: ApiRow, resolution: ApiRow | undefined): Ma
     slug: raw.slug,
     condition_id: raw.conditionId.toLowerCase(),
     event_id: String(events?.[0]?.id ?? ''),
-    symbol: 'btc',
-    timeframe: '15m',
+    symbol: family.symbol,
+    timeframe: family.timeframe,
     market_start: window.startMs / 1000,
     market_end: window.endMs / 1000,
     token_ids: tokens,
@@ -82,11 +91,16 @@ export interface Catalog {
   markets: Market[]
 }
 
-export async function discoverDay(client: ApiClient, day: string): Promise<Catalog> {
+export async function discoverDay(
+  client: ApiClient,
+  day: string,
+  familyId: MarketFamilyId = DEFAULT_FAMILY,
+): Promise<Catalog> {
+  const family = marketFamily(familyId)
   const start = parseDate(day)
   const expected = Array.from(
-    { length: 96 },
-    (_, i) => `btc-updown-15m-${start + i * WINDOW_SECONDS}`,
+    { length: family.windowsPerDay },
+    (_, i) => `${family.symbol}-updown-${family.timeframe}-${start + i * family.windowSeconds}`,
   )
   const found = new Map<string, ApiRow>()
   // The existing Gamma helper on main demonstrates batch slug selection.
@@ -136,7 +150,7 @@ export async function discoverDay(client: ApiClient, day: string): Promise<Catal
     markets: expected.flatMap((slug) => {
       const raw = found.get(slug)
       return raw
-        ? [normalizeMarket(raw, resolutions.get(String(raw.conditionId).toLowerCase()))]
+        ? [normalizeMarket(raw, resolutions.get(String(raw.conditionId).toLowerCase()), familyId)]
         : []
     }),
   }

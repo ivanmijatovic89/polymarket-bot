@@ -35,11 +35,18 @@ import {
 } from '../backtest/stats/marketResolution.js'
 import { getMarketResolution as getTelonexMarketResolution } from '../backtest/stats/telonexMarketResolution.js'
 import { runSingleMarket } from '../backtest/runSingleMarket.js'
+import { type ResolvedCapturePackage } from '../recorder-v4/replay/package.js'
+import type {
+  RecorderV4SelectionMetadata,
+  RecorderV4SelectionSource,
+} from '../recorder-v4/replay/eligibility.js'
 import {
-  resolveCaptureInputs,
-  resolveCapturePackage,
-  type ResolvedCapturePackage,
-} from '../recorder-v4/replay/package.js'
+  discoverCapturePackages,
+  selectEligibleCapturePackages,
+  requireCaptureSelectionSize,
+} from '../recorder-v4/replay/selection.js'
+import { validateArchivePrefix } from '../recorder-v4/storage/catalog.js'
+import path from 'node:path'
 import {
   AGGREGATE_JOB_OPTS,
   AGGREGATE_QUEUE,
@@ -230,6 +237,7 @@ async function main(): Promise<void> {
       ...(parsed.limit !== undefined && { limit: parsed.limit }),
       ...(parsed.latest ? { latest: true } : {}),
       ...(parsed.random ? { random: true } : {}),
+      ...(parsed.listEligible ? { preview: true } : {}),
     })
     if (extensionPlan.kind === 'parent-not-found') {
       console.error(`[backtest] --extend ${parsed.extend}: run not found`)
@@ -238,7 +246,7 @@ async function main(): Promise<void> {
     }
     if (extensionPlan.kind === 'parent-not-telonex') {
       console.error(
-        `[backtest] --extend ${parsed.extend}: run is not a telonex run (input_mode=${extensionPlan.inputMode ?? 'null'}); cannot extend`,
+        `[backtest] --extend ${parsed.extend}: run does not support extension (input_mode=${extensionPlan.inputMode ?? 'null'}); cannot extend`,
       )
       await closeDb()
       process.exit(2)
@@ -286,14 +294,42 @@ async function main(): Promise<void> {
     console.log(
       `[backtest] Direction: ${plan.direction}${plan.direction === 'backward' ? ' (just before covered)' : plan.direction === 'forward' ? ' (just after covered)' : ''}`,
     )
-    console.log(`[backtest] Extending by ${plan.candidates.length} markets${limitTag}`)
-    console.log('[backtest] feed eligibility:', JSON.stringify(plan.feedEligibility.summary))
-    const firstMs = plan.candidates[0]?.marketStartMs
-    const lastMs = plan.candidates[plan.candidates.length - 1]?.marketStartMs
+    console.log(
+      `[backtest] Extending by ${plan.captureCandidates?.length ?? plan.candidates.length} markets${limitTag}`,
+    )
+    console.log(
+      '[backtest] feed eligibility:',
+      JSON.stringify(plan.recorderV4Selection?.summary ?? plan.feedEligibility?.summary),
+    )
+    const firstMs =
+      plan.captureCandidates?.[0]?.manifest.market.startMs ?? plan.candidates[0]?.marketStartMs
+    const lastMs =
+      plan.captureCandidates?.at(-1)?.manifest.market.startMs ??
+      plan.candidates[plan.candidates.length - 1]?.marketStartMs
     if (firstMs !== undefined && lastMs !== undefined) {
       console.log(
         `[backtest] First market: ${new Date(firstMs).toISOString()}, last: ${new Date(lastMs).toISOString()}`,
       )
+    }
+    if (parsed.listEligible) {
+      if (plan.parent.inputMode !== 'recorder-v4')
+        throw new Error('--list-eligible currently supports Recorder v4 runs only')
+      console.log(
+        JSON.stringify(
+          {
+            selection: plan.recorderV4Selection,
+            markets: plan.captureCandidates?.map((pkg) => ({
+              slug: pkg.manifest.market.slug,
+              recordingId: pkg.manifest.recordingId,
+              input: pkg.manifestUrl ?? pkg.filePath,
+            })),
+          },
+          null,
+          2,
+        ),
+      )
+      await closeDb()
+      return
     }
   }
 
@@ -330,11 +366,15 @@ async function main(): Promise<void> {
 
   const requiredFeeds = externalFeedsRequest(built)
   let feedEligibility: TelonexFeedEligibility | null = planOk?.feedEligibility ?? null
+  let recorderV4Selection: RecorderV4SelectionMetadata | null = planOk?.recorderV4Selection ?? null
+  const allowCaptureGaps = isExtend
+    ? recorderV4Selection?.allowGaps === true
+    : parsed.allowCaptureGaps === true
 
   // Override the effective input shape for extend so downstream code (logging,
   // per-market loop, marketContexts builder) sees what the parent run is.
   const effectiveInputMode = isExtend
-    ? (planOk!.parent.inputMode as 'telonex-delta' | 'telonex-paired')
+    ? (planOk!.parent.inputMode as 'telonex-delta' | 'telonex-paired' | 'recorder-v4')
     : parsed.inputMode
   const isCapture = effectiveInputMode === 'recorder-v4'
   const isTelonex =
@@ -355,7 +395,12 @@ async function main(): Promise<void> {
   const telonexBySlug = new Map<string, TelonexMarket>()
   const capturedPackages = new Map<string, ResolvedCapturePackage>()
 
-  if (isExtend) {
+  if (isExtend && isCapture) {
+    for (const pkg of planOk!.captureCandidates ?? []) {
+      filePaths.push(pkg.filePath)
+      capturedPackages.set(pkg.filePath, pkg)
+    }
+  } else if (isExtend) {
     // Skip the normal selection logic entirely — candidates already come
     // from the extension planner.
     for (const m of planOk!.candidates) {
@@ -364,35 +409,83 @@ async function main(): Promise<void> {
       telonexBySlug.set(m.slug, m)
     }
   } else if (isCapture) {
-    const inputs = await resolveCaptureInputs(parsed.filePaths, parsed.dirs ?? [])
-    let packages = await Promise.all(inputs.map(resolveCapturePackage))
-    packages = packages.filter(
-      (p) =>
-        (parsed.captureTimeframe === undefined ||
-          p.manifest.market.timeframe === parsed.captureTimeframe) &&
-        (parsed.fromMs === undefined || p.manifest.market.startMs >= parsed.fromMs) &&
-        (parsed.toMs === undefined || p.manifest.market.startMs <= parsed.toMs),
-    )
-    packages.sort(
-      (a, b) =>
-        a.manifest.market.startMs - b.manifest.market.startMs ||
-        a.manifest.market.slug.localeCompare(b.manifest.market.slug),
-    )
-    if (parsed.latest) packages.reverse()
-    if (parsed.random) {
-      for (let i = packages.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[packages[i], packages[j]] = [packages[j]!, packages[i]!]
+    let source: RecorderV4SelectionSource
+    if (parsed.filePaths.length) {
+      source = {
+        kind: 'explicit',
+        inputs: [
+          ...parsed.filePaths.map((input) =>
+            input.startsWith('r2://') ? input : path.resolve(input),
+          ),
+          ...(parsed.dirs ?? []).map((root) => path.resolve(root)),
+        ],
+      }
+    } else if (parsed.dirs?.length) {
+      source = { kind: 'local', roots: parsed.dirs.map((root) => path.resolve(root)) }
+    } else {
+      const bucket = process.env.R2_BUCKET?.trim()
+      if (!bucket)
+        throw new Error(
+          'Recorder v4 catalog selection requires R2_BUCKET; alternatively pass --dir or an exact package path',
+        )
+      source = {
+        kind: 'r2',
+        bucket,
+        prefix: validateArchivePrefix(
+          parsed.capturePrefix ?? process.env.RECORDER_R2_PREFIX ?? 'recorder-v4',
+        ),
       }
     }
-    if (parsed.limit !== undefined) packages = packages.slice(0, parsed.limit)
-    const seenSlugs = new Set<string>()
-    for (const pkg of packages) {
-      if (seenSlugs.has(pkg.manifest.market.slug))
-        throw new Error(
-          `Multiple capture packages for ${pkg.manifest.market.slug}; select one recording explicitly`,
-        )
-      seenSlugs.add(pkg.manifest.market.slug)
+    const filters = {
+      ...(parsed.captureTimeframe ? { timeframe: parsed.captureTimeframe } : {}),
+      ...(parsed.fromMs !== undefined ? { fromMs: parsed.fromMs } : {}),
+      ...(parsed.toMs !== undefined ? { toMs: parsed.toMs } : {}),
+      ...(parsed.slugs ? { slugs: parsed.slugs } : {}),
+    }
+    const packages = await discoverCapturePackages(source, filters)
+    const selection = await selectEligibleCapturePackages({
+      packages,
+      requiredFeeds,
+      allowGaps: allowCaptureGaps,
+      ...filters,
+      ...(parsed.limit !== undefined ? { limit: parsed.limit } : {}),
+      ...(parsed.latest ? { latest: true } : {}),
+      ...(parsed.random ? { random: true } : {}),
+    })
+    recorderV4Selection = {
+      version: 1,
+      source,
+      requiredFeeds,
+      allowGaps: allowCaptureGaps,
+      filters: { symbol: 'btc', ...filters },
+      summary: selection.summary,
+    }
+    console.log('[backtest] Recorder v4 eligibility:', JSON.stringify(selection.summary))
+    for (const excluded of selection.excluded)
+      console.warn(
+        `[backtest] Excluded ${excluded.slug} / ${excluded.recordingId}: ${excluded.reasons.join('; ')}`,
+      )
+    if (parsed.listEligible) {
+      console.log(
+        JSON.stringify(
+          {
+            selection: recorderV4Selection,
+            markets: selection.packages.map((pkg) => ({
+              slug: pkg.manifest.market.slug,
+              recordingId: pkg.manifest.recordingId,
+              input: pkg.manifestUrl ?? pkg.filePath,
+            })),
+            excluded: selection.excluded,
+          },
+          null,
+          2,
+        ),
+      )
+      await closeDb()
+      return
+    }
+    requireCaptureSelectionSize(parsed.limit, selection.summary.eligible)
+    for (const pkg of selection.packages) {
       filePaths.push(pkg.filePath)
       capturedPackages.set(pkg.filePath, pkg)
     }
@@ -599,6 +692,7 @@ async function main(): Promise<void> {
         '    tsx src/cli/backtest.ts --strategy <id> --slug <slug1[,slug2,...]>\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --dir <dir1> [--dir <dir2> ...]\n' +
         '  Recorder v4 (verified mixed-feed market packages):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v4 --read-from r2 --symbol btc --timeframe 5m --latest --limit 100 [--list-eligible]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v4 --dir <package-cache> [--allow-capture-gaps]\n' +
         '    tsx src/cli/backtest.ts --strategy <id> --input-mode recorder-v4 r2://bucket/recorder-v4/btc/15m/slug/recording/manifest-<sha256>.json\n' +
         '  Telonex (telonex_markets table, requires --read-from local|r2):\n' +
@@ -869,7 +963,7 @@ async function main(): Promise<void> {
         ? {
             recorderV4: {
               manifest: captured.manifest,
-              ...(parsed.allowCaptureGaps ? { allowGaps: true } : {}),
+              ...(allowCaptureGaps ? { allowGaps: true } : {}),
               ...(captured.manifestUrl ? { manifestUrl: captured.manifestUrl } : {}),
             },
           }
@@ -1189,13 +1283,20 @@ async function main(): Promise<void> {
         strategy: built.strategyId,
         params: built.params as Record<string, unknown>,
         feedEligibility,
+        recorderV4Selection,
         strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
         strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
-        symbol: parsed.symbol ?? null,
+        symbol: isCapture ? 'btc' : (parsed.symbol ?? null),
         timeframe: effectiveTimeframe,
         inputMode: parsed.inputMode ?? null,
         converter: converter ?? null,
-        readFrom: readFrom ?? null,
+        readFrom: isCapture
+          ? recorderV4Selection?.source.kind === 'r2' ||
+            (recorderV4Selection?.source.kind === 'explicit' &&
+              recorderV4Selection.source.inputs.every((input) => input.startsWith('r2://')))
+            ? 'r2'
+            : 'local'
+          : (readFrom ?? null),
         slugs: parsed.slugs ?? null,
         limit: parsed.limit ?? null,
         inputMarketsTotal: totalMarkets,
@@ -1297,13 +1398,20 @@ async function main(): Promise<void> {
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
       feedEligibility,
+      recorderV4Selection,
       strategyArtifactSha256: built.artifact?.ref.sha256 ?? null,
       strategyArtifactMeta: built.artifact ? built.artifact.meta : null,
-      symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
+      symbol: isCapture ? 'btc' : isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
       timeframe: effectiveTimeframe,
       inputMode: effectiveInputMode ?? null,
       converter: converter ?? null,
-      readFrom: readFrom ?? null,
+      readFrom: isCapture
+        ? recorderV4Selection?.source.kind === 'r2' ||
+          (recorderV4Selection?.source.kind === 'explicit' &&
+            recorderV4Selection.source.inputs.every((input) => input.startsWith('r2://')))
+          ? 'r2'
+          : 'local'
+        : (readFrom ?? null),
       slugs: parsed.slugs ?? null,
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
