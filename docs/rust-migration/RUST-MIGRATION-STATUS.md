@@ -7,7 +7,7 @@ description: Durable progress, decisions and outstanding requirements.
 
 ## Current state
 
-Overall goal: active and incomplete. Production services unchanged. Work occurs in the attached isolated `codex/rust-backtest-benchmark` worktree. Current goal turn classification: progress (durable requirements, pinned catalog, native protocol/client/statistics foundation and independent review).
+Overall goal: active and incomplete. Production services unchanged. Work occurs in the attached isolated `codex/rust-backtest-benchmark` worktree. Current goal turn classification: progress (native arithmetic, market and Portfolio work, expanded immutable artifact scope and independent reviews).
 
 Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migration worktree revision: `190787ac`. The benchmark branch originally used an older TS baseline; merge `84f3a838` brought the pinned production revision into the isolated worktree without changing the user's primary checkout. Its existing untracked simulator idea document remains untouched.
 
@@ -23,8 +23,8 @@ Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migr
 
 ## Progress
 
-- Specification, dependency-ordered plan and expanding acceptance manifest recorded: 16 audited areas, 40 integration requirements and individual pending entries for 73 registered strategies.
-- Captured pinned strategy inventory: 73 tracked definitions and 73 loaded catalog entries. A subsequent read-only DB audit observed 372 saved immutable artifact rows across 316 strategy IDs, with 155 primary-cache files and one isolated-cache file. Those are preliminary observations, not complete required coverage: orphaned run/queue references, source availability and full validation contracts remain pending.
+- Specification, dependency-ordered plan and expanding acceptance manifest recorded: 16 audited areas, 52 integration requirements, individual pending entries for 73 registered strategies and 374 observed immutable artifact hashes.
+- Captured pinned strategy inventory: 73 tracked definitions and 73 loaded catalog entries. A subsequent read-only DB audit observed 372 saved immutable artifact rows across 316 strategy IDs, with 155 primary-cache files and one isolated-cache file. The completed static inventory observes 374 unique hashes including two cache-only versions and 219 catalog hashes without local bytes, plus 85 tracked external source candidates. This is not complete required coverage: run/queue/live/fleet references, source recovery and full validation contracts remain pending.
 - Added a standalone native crate advertising description/aggregation only, strict bounded JSONL contracts and a Unix parent-loss watchdog.
 - Added a coarse-operation TS client with identified errors, output/input validation, backpressure, cancellation/timeout and process cleanup.
 - Ported native authoritative batch/tail/calendar calculations and established a pinned independent TS oracle.
@@ -36,9 +36,16 @@ Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migr
 
 1. Native market decoding/orderbooks/tick semantics and full-output reference fixtures.
 2. Native Portfolio/capital/account-event semantics and adverse-order/idempotency fixtures.
-3. External immutable strategy/artifact compatibility inventory and remaining schema/reference requirements.
+3. Fresh independent math/market/Portfolio review and immutable artifact/schema/reference requirements.
 
 Lead owns integration, shared interfaces, acceptance evidence and sequencing. No existing production CLI, queue, DB or fleet caller has yet switched to native execution.
+
+## Shared-core work in progress
+
+- Shared arithmetic matches pinned TS in 9,090 bit-aware cases, including omitted/null fee-rate and post-only selectors, and four native regressions. The runner builds current sources before freezing the executable and records native input/toolchain hashes. Release-profile evidence and fresh review are being finalized; this is bounded helper evidence, not strategy-runtime acceptance.
+- Typed Portfolio passed its earlier 145-case/173,798-step reference suite. Fresh review found metadata integer conversion and terminal-reason typing gaps being repaired. Retained object aliases and mutations remain required SDK/consumer integration work; full production parity is not claimed.
+- Native market decoding/orderbooks passed ordinary reference cases, but full parity remains incomplete for lossless UTF16 and radix-string numeric rounding. The author is fixing those cases and resource-depth policy; failing cases remain in the suite.
+- The immutable artifact inventory and all ART-01 through ART-12 requirements are now recorded. No strategy port is certified by static discovery.
 
 ## Blockers and unknowns
 

@@ -13,7 +13,7 @@ This is a living execution plan for the agreed specification. Continue from the 
 | --- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------ |
 | M0  | Consolidate specification, inventory, manifests and pinned reference            | All audited areas recorded; supported catalog and exact fixtures mapped                         | In progress                                |
 | M1  | Native crate/process protocol, neutral DTOs and baseline differential runner    | Strict framing/capabilities/errors; protocol tests and TS fixture provenance                    | Foundation verified; DTO expansion pending |
-| M2  | Reusable native core plus authoritative batch/calendar stats                    | Port reusable experiment modules; configurable generic sessions; full trace and stats parity    | Pending                                    |
+| M2  | Reusable native core plus authoritative batch/calendar stats                    | Port reusable experiment modules; configurable generic sessions; full trace and stats parity    | In progress                                |
 | M3  | One whole native market through CLI/queue/worker/stats/DB/dashboard             | Real job inputs, plain DTO persistence, native identity, retry/cancel tests                     | Pending                                    |
 | M4  | Complete supported strategies, plugins, inputs, staging, recorder and traces    | Per-capability fixture coverage; immutable artifact compatibility; simulator/verification tools | Pending                                    |
 | M5  | Full native live adapters/session/reconciliation and UI controls                | Shared core; wire signing and failure fixtures, dry-run/shadow tests, rotation/late events      | Pending                                    |
@@ -25,7 +25,7 @@ This is a living execution plan for the agreed specification. Continue from the 
 
 Use up to three child agents on independent files/workstreams. Lead owns protocol crate boundaries, contract decisions, integration, acceptance ledger and final evidence. Assign module/file ownership before writes; no competing edits to entry points or common types. Require each agent to return changed files, exact checks and limitations. Fresh reviewers must review integrated final code and acceptance coverage separately from authors.
 
-The initial planning audits are complete. The protocol/client/statistics foundation passed independent review. Current independent work covers native market semantics, portfolio/accounting and external artifact compatibility. The pinned catalog contains 73 loadable definitions; each has a pending acceptance entry. External artifacts and full schema contracts remain required inventory work.
+The initial planning audits are complete. The protocol/client/statistics foundation passed independent review. Current independent work covers native market semantics, portfolio/accounting and external artifact compatibility. The pinned catalog contains 73 loadable definitions; each has a pending acceptance entry. 374 observed immutable hashes and 85 static external source candidates have separate pending requirements; exhaustive reference reconciliation and full schema contracts remain required inventory work.
 
 ## Validation environment
 
