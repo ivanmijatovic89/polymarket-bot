@@ -205,6 +205,7 @@ struct Sim<'a> {
     schedule_index: usize,
     counts: BTreeMap<&'static str, u64>,
     trace: bool,
+    log_events: bool,
     depth: usize,
     digest: Digest,
     feed_digest: Digest,
@@ -248,6 +249,7 @@ impl<'a> Sim<'a> {
             schedule_index: 0,
             counts: BTreeMap::new(),
             trace,
+            log_events: std::env::var("RUST_BACKTEST_LOG_EVENTS").as_deref() == Ok("1"),
             depth,
             digest: Digest::new(),
             feed_digest: Digest::new(),
@@ -279,6 +281,9 @@ impl<'a> Sim<'a> {
                 } else {
                     0.0
                 });
+                if self.log_events {
+                    println!("{{\"message\":\"[trade]\",\"extra\":{diagnostic}}}");
+                }
                 std::hint::black_box(diagnostic);
             }
             self.engine.ledger.apply(&event);
@@ -436,6 +441,12 @@ fn run(m: &Market, s: &Settings, c: &Params, trace: bool, depth: usize) -> Resul
         None => serde_json::from_reader(BufReader::new(File::open(&m.feeds)?))?,
     };
     let mut sim = Sim::new(m, s, c, feeds, trace, depth);
+    if sim.log_events {
+        println!(
+            "{}",
+            json!({"message":"feed_summary","extra":{"slug":m.slug,"binanceCount":sim.provider.feeds.binance.len(),"chainlinkCount":sim.provider.feeds.chainlink.len(),"priceToBeat":m.price_to_beat,"syntheticCount":sim.provider.schedule.len()}})
+        );
+    }
     let reader = SerializedFileReader::new(File::open(&m.file_path)?)?;
     let mut decoder = None;
     for row in reader.get_row_iter(None)? {
