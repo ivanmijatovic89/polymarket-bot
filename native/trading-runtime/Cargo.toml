@@ -1,0 +1,16 @@
+[package]
+name = "polymarket-runtime"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = { version = "=1.0.141", features = ["float_roundtrip", "preserve_order"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.190"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

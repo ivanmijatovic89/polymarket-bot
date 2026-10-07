@@ -1,3 +1,5 @@
+> **Superseded architecture proposal:** The active migration uses a standalone Rust runtime with full native live connections/signing/execution and authoritative aggregation. See [the agreed specification](../../docs/rust-migration/RUST-MIGRATION-SPEC.md). The earlier Node-binding/TypeScript live execution split below is retained as historical analysis only.
+
 # Rust migration architecture and remaining work
 
 The recommended target is a shared Rust trading and replay core surrounded by the existing TypeScript services. Keep Parquet on disk. Reuse the native implementation and differential checks, and turn them into the production implementation that subsequent benchmarks measure. Do not discard them and start a separate rewrite after benchmarking.

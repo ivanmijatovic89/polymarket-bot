@@ -1,0 +1,1324 @@
+{
+  "schemaVersion": 1,
+  "referenceRevision": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "goal": "Complete shared native live/backtest runtime migration and all required integrations",
+  "completionPolicy": {
+    "allRequiredChecksMustPass": true,
+    "newDependenciesMustBeAdded": true,
+    "scopeReductionRequiresExplicitUserAgreement": true,
+    "selectedBenchmarkIsNotFullAcceptance": true,
+    "missingExternalAccessIsNotPass": true,
+    "productionActivationExcluded": true
+  },
+  "supportedInventory": {
+    "status": "in_progress",
+    "trackedCandidates": 73,
+    "registeredStrategies": 73,
+    "externalArtifacts": null,
+    "inputModes": ["recorded", "telonex-delta", "telonex-paired", "recorder-v4"],
+    "inventoryPath": "docs/rust-migration/strategy-inventory.json",
+    "staticSnapshotSha256": "12165740dafbf842d174a8572b16fe2ec35a5cbd230609e67ced73495ea5f13d",
+    "registrySnapshotSha256": "398777357f5ffa35cc65754845b530913512c4321cb035ee2821af4ae2a2a732"
+  },
+  "checks": [
+    {
+      "id": "core.01",
+      "area": "core",
+      "requirement": "Identical normalized tick, context, decision, order/account-event and portfolio traces against pinned TS fixtures.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/StrategyRunner.ts",
+        "src/trading/OrderManager.ts",
+        "src/trading/Portfolio.ts",
+        "src/market/MarketEngine.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "core.02",
+      "area": "core",
+      "requirement": "Account callbacks may create intents; immediate/queued ordering and pending commitments preserved.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/StrategyRunner.ts",
+        "src/trading/OrderManager.ts",
+        "src/trading/Portfolio.ts",
+        "src/market/MarketEngine.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "core.03",
+      "area": "core",
+      "requirement": "Late/repeated/out-of-order fills and old-market portfolio routing verified.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/StrategyRunner.ts",
+        "src/trading/OrderManager.ts",
+        "src/trading/Portfolio.ts",
+        "src/market/MarketEngine.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "live-execution.01",
+      "area": "live-execution",
+      "requirement": "Native signing/auth and normalized requests/responses for single/batch orders, post-only, FOK/GTC/GTD and cancellation.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/execution/LiveExecution.ts",
+        "src/polymarket/clobClient.ts",
+        "src/polymarket/relayerClient.ts",
+        "src/blockchain/conditionalTokens.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "live-execution.02",
+      "area": "live-execution",
+      "requirement": "Direct and relayer split/merge failure and accounting fixtures; no production real-money orders.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/execution/LiveExecution.ts",
+        "src/polymarket/clobClient.ts",
+        "src/polymarket/relayerClient.ts",
+        "src/blockchain/conditionalTokens.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "sessions.01",
+      "area": "sessions",
+      "requirement": "Discovery, readiness/warmup, balances, reconnect, rotation and previous-window guard verified.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/trading-bot.ts",
+        "src/polymarket/liveMarketEventSource.ts",
+        "src/polymarket/ws/userWsAccountSource.ts",
+        "src/polymarket/restPollAccountSource.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "sessions.02",
+      "area": "sessions",
+      "requirement": "WS/REST visibility/dedup, outstanding I/O serial ordering and late old-market events covered.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/trading-bot.ts",
+        "src/polymarket/liveMarketEventSource.ts",
+        "src/polymarket/ws/userWsAccountSource.ts",
+        "src/polymarket/restPollAccountSource.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "feeds.01",
+      "area": "feeds",
+      "requirement": "Every supported plugin/feed request has native behavior or explicit agreed compatibility treatment.",
+      "status": "pending",
+      "sourcePaths": ["src/trading/feeds", "src/strategy/plugins", "src/market/syntheticTick.ts"],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "feeds.02",
+      "area": "feeds",
+      "requirement": "Receipt-scoped snapshots, absence before arrival, synthetic ticks and stale-book exclusions match.",
+      "status": "pending",
+      "sourcePaths": ["src/trading/feeds", "src/strategy/plugins", "src/market/syntheticTick.ts"],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "replay.01",
+      "area": "replay",
+      "requirement": "Recorded, telonex-delta, telonex-paired and recorder-v4 covered.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/runSingleMarket.ts",
+        "src/parquet/replay",
+        "src/recorder-v4/replay/dispatcher.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "replay.02",
+      "area": "replay",
+      "requirement": "Preserve actual heap precedence, stable ties, paired atomic book callback, bigint source sequences and invalid-row treatment.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/runSingleMarket.ts",
+        "src/parquet/replay",
+        "src/recorder-v4/replay/dispatcher.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "replay.03",
+      "area": "replay",
+      "requirement": "V4 receive sequence, half-open windows, bootstrap without history, gap resets and opening-reference/TWAP semantics covered.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/runSingleMarket.ts",
+        "src/parquet/replay",
+        "src/recorder-v4/replay/dispatcher.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "staging.01",
+      "area": "staging",
+      "requirement": "Local, relative paths, R2 fallback/cache/download and integrity failures preserve supported behavior.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/helpers/openParquetReader.ts",
+        "src/recorder-v4/replay/package.ts",
+        "src/backtest/feeds"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "staging.02",
+      "area": "staging",
+      "requirement": "Rust opens original Parquet market and feed data; no Arrow conversion substitution.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/helpers/openParquetReader.ts",
+        "src/recorder-v4/replay/package.ts",
+        "src/backtest/feeds"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "recorder.01",
+      "area": "recorder",
+      "requirement": "Native shared books/bootstrap/gap/coverage processing replaces deleted runtime dependencies.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/recorder-v4/coordinator.ts",
+        "src/recorder-v4/verify.ts",
+        "src/recorder-v4/marketFrame.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "recorder.02",
+      "area": "recorder",
+      "requirement": "Retained recording storage/transport/verification workflow functions with correct capture evidence.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/recorder-v4/coordinator.ts",
+        "src/recorder-v4/verify.ts",
+        "src/recorder-v4/marketFrame.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "strategies.01",
+      "area": "strategies",
+      "requirement": "Inventory tracked candidates, actual registered definitions and external saved immutable artifacts separately.",
+      "status": "in_progress",
+      "sourcePaths": [
+        "src/strategy/strategyRegistry.ts",
+        "src/strategy/protocolStrategyDiscovery.ts",
+        "src/strategy/artifacts",
+        "src/cli/helpers/strategyArgs.ts"
+      ],
+      "validationCommands": [
+        "node --import tsx scripts/rust-migration/inventory-strategies.mts --capture-registry --output docs/rust-migration/strategy-inventory.json",
+        "node --import tsx --test scripts/rust-migration/inventory-strategies.test.ts"
+      ],
+      "evidence": ["docs/rust-migration/strategy-inventory.json"],
+      "verifiedRevision": null,
+      "notes": "73 tracked definitions and 73 registered entries captured against pinned TS Git blobs. External artifacts and complete schema/default/coercion contracts remain pending."
+    },
+    {
+      "id": "strategies.02",
+      "area": "strategies",
+      "requirement": "Each required strategy has native source/params/plugin support and behavioral evidence or explicit agreed treatment.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy/strategyRegistry.ts",
+        "src/strategy/protocolStrategyDiscovery.ts",
+        "src/strategy/artifacts",
+        "src/cli/helpers/strategyArgs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "strategies.03",
+      "area": "strategies",
+      "requirement": "Preserve strictness/coercion/defaults; native source/core/target/binary identity and legacy reference hash mappings.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy/strategyRegistry.ts",
+        "src/strategy/protocolStrategyDiscovery.ts",
+        "src/strategy/artifacts",
+        "src/cli/helpers/strategyArgs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "strategies.04",
+      "area": "strategies",
+      "requirement": "Build/publish/check/load, historical reconstruction and missing-capability failures verified; no arbitrary .mjs-native claim.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy/strategyRegistry.ts",
+        "src/strategy/protocolStrategyDiscovery.ts",
+        "src/strategy/artifacts",
+        "src/cli/helpers/strategyArgs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "cli.01",
+      "area": "cli",
+      "requirement": "All launcher modes, params/feed discovery, symbols/window/lookback/capital validation use canonical native descriptions.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/backtest.ts",
+        "src/cli/helpers/strategyArgs.ts",
+        "src/backtest/extendPlanner.ts",
+        "src/backtest/generate-jobs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "cli.02",
+      "area": "cli",
+      "requirement": "Sequential and distributed execution expose equivalent outcomes and cancellation semantics.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/backtest.ts",
+        "src/cli/helpers/strategyArgs.ts",
+        "src/backtest/extendPlanner.ts",
+        "src/backtest/generate-jobs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "contracts.01",
+      "area": "contracts",
+      "requirement": "Versioned neutral DTOs replace factories, closures and observer/class-method wire dependencies.",
+      "status": "in_progress",
+      "sourcePaths": [
+        "src/backtest/jobTypes.ts",
+        "src/backtest/queue.ts",
+        "src/backtest/marketProcessor.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/evidence/foundation-validation.json",
+        "docs/rust-migration/FOUNDATION-REVIEW.md"
+      ],
+      "verifiedRevision": null,
+      "notes": "Bounded protocol/client/statistics foundation verified; full requirement scope and final-revision production integration remain in progress."
+    },
+    {
+      "id": "contracts.02",
+      "area": "contracts",
+      "requirement": "Explicit capability/strategy/runtime identity, usable result vs skip vs failure, retry classification and submission/candidate identities.",
+      "status": "in_progress",
+      "sourcePaths": [
+        "src/backtest/jobTypes.ts",
+        "src/backtest/queue.ts",
+        "src/backtest/marketProcessor.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/evidence/foundation-validation.json",
+        "docs/rust-migration/FOUNDATION-REVIEW.md"
+      ],
+      "verifiedRevision": null,
+      "notes": "Bounded protocol/client/statistics foundation verified; full requirement scope and final-revision production integration remain in progress."
+    },
+    {
+      "id": "fleet.01",
+      "area": "fleet",
+      "requirement": "Verified native releases per actual machine target; atomic activation/rollback and loaded binary reporting.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/backtestWorker.ts",
+        "src/cli/backtestWorkerChild.ts",
+        "src/backtest/commitGate.ts",
+        "scripts/run-worker.sh",
+        "ops/ansible/update-workers.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "fleet.02",
+      "area": "fleet",
+      "requirement": "One CPU budget across Node concurrency and Rust threads; drain/update/retry/stall/orphan/cancel behavior verified.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/backtestWorker.ts",
+        "src/cli/backtestWorkerChild.ts",
+        "src/backtest/commitGate.ts",
+        "scripts/run-worker.sh",
+        "ops/ansible/update-workers.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "fleet.03",
+      "area": "fleet",
+      "requirement": "Isolated jobs and recovery scenarios validated on all four fleet devices without replacing active services.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/cli/backtestWorker.ts",
+        "src/cli/backtestWorkerChild.ts",
+        "src/backtest/commitGate.ts",
+        "scripts/run-worker.sh",
+        "ops/ansible/update-workers.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "aggregation.01",
+      "area": "aggregation",
+      "requirement": "Rust owns batch/calendar/tail calculations including rounding, flat/no-activity counters, streak ties, quality guards and busy-time union.",
+      "status": "in_progress",
+      "sourcePaths": [
+        "src/backtest/aggregateProcessor.ts",
+        "src/backtest/stats/batchStats.ts",
+        "src/backtest/stats/backtestSegments.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/evidence/foundation-validation.json",
+        "docs/rust-migration/FOUNDATION-REVIEW.md"
+      ],
+      "verifiedRevision": null,
+      "notes": "Bounded protocol/client/statistics foundation verified; full requirement scope and final-revision production integration remain in progress."
+    },
+    {
+      "id": "aggregation.02",
+      "area": "aggregation",
+      "requirement": "Fresh queued and sequential callers use native plain fields; no TS formula fallback on completed native path.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/aggregateProcessor.ts",
+        "src/backtest/stats/batchStats.ts",
+        "src/backtest/stats/backtestSegments.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "persistence.01",
+      "area": "persistence",
+      "requirement": "Extensions recompute chronologically ordered existing/new union without stale commits and preserve rollback/overlap locks.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/db/backtests.ts",
+        "src/db/schema.ts",
+        "src/cli/rebuild-backtest-segments.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "persistence.02",
+      "area": "persistence",
+      "requirement": "Native DTO-to-SQL mapping, identity/provenance and duplicate-safe grouped partial ingestion verified.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/db/backtests.ts",
+        "src/db/schema.ts",
+        "src/cli/rebuild-backtest-segments.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "persistence.03",
+      "area": "persistence",
+      "requirement": "Rebuild and historical result readers preserve contracts; retained display analytics remain operational.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/db/backtests.ts",
+        "src/db/schema.ts",
+        "src/cli/rebuild-backtest-segments.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "simulator.01",
+      "area": "simulator",
+      "requirement": "Native trace capture produces equivalent tick/action/context/capital/state ordering and bounded chunks.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/simulator",
+        "src/cli/backtest-simulator.ts",
+        "dashboard/src/lib/server/simulatorJobs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "simulator.02",
+      "area": "simulator",
+      "requirement": "Simulator progress/cancel/storage/restart leases, comparisons and native provenance verified.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/backtest/simulator",
+        "src/cli/backtest-simulator.ts",
+        "dashboard/src/lib/server/simulatorJobs.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "live-ui.01",
+      "area": "live-ui",
+      "requirement": "TS UI consumes native snapshots/metrics and sends commands; Rust resolves order identities and owns risk/state.",
+      "status": "pending",
+      "sourcePaths": ["src/cli/webui", "webui/src", "src/cli/trading-bot.ts"],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "live-ui.02",
+      "area": "live-ui",
+      "requirement": "Cancellation/refresh/ACK semantics and reconnecting clients verified without TS portfolio/strategy execution.",
+      "status": "pending",
+      "sourcePaths": ["src/cli/webui", "webui/src", "src/cli/trading-bot.ts"],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "tooling.01",
+      "area": "tooling",
+      "requirement": "Every required executable consumer mapped; replay/verification/probe tools use native computations.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/telonex/verify-conversion.ts",
+        "protocols/pair-fable/tools",
+        "src/cli/research",
+        "package.json",
+        ".github/workflows/quality.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "tooling.02",
+      "area": "tooling",
+      "requirement": "Independent reviewers assess behavior and scope coverage; findings resolved; required Node/Rust/UI/docs CI passes.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/telonex/verify-conversion.ts",
+        "protocols/pair-fable/tools",
+        "src/cli/research",
+        "package.json",
+        ".github/workflows/quality.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "tooling.03",
+      "area": "tooling",
+      "requirement": "Final alternating production-wiring benchmarks, release/runbook/rollback and requirement-by-requirement evidence report.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/telonex/verify-conversion.ts",
+        "protocols/pair-fable/tools",
+        "src/cli/research",
+        "package.json",
+        ".github/workflows/quality.yml"
+      ],
+      "validationCommands": [],
+      "evidence": [],
+      "verifiedRevision": null,
+      "notes": "Commands and scenario expansion are required before implementation acceptance."
+    },
+    {
+      "id": "contracts.03",
+      "area": "contracts",
+      "requirement": "Bounded strict JSON framing, Unicode/nesting consistency, cancellation/timeout, clean-close success and abrupt parent-loss termination verified against the real native executable.",
+      "status": "in_progress",
+      "sourcePaths": [
+        "native/trading-runtime/src/protocol.rs",
+        "native/trading-runtime/src/main.rs",
+        "native/trading-runtime/src/parent_watch.rs",
+        "src/runtime/contracts.ts",
+        "src/runtime/nativeClient.ts"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/evidence/foundation-validation.json",
+        "docs/rust-migration/FOUNDATION-REVIEW.md"
+      ],
+      "verifiedRevision": null,
+      "notes": "Bounded protocol/client/statistics foundation verified; full requirement scope and final-revision production integration remain in progress."
+    }
+  ],
+  "strategyAcceptance": [
+    {
+      "strategyId": "BuyLowPrice.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/BuyLowPrice.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.exitSweep",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/experiments/SplitSellRedeem.exitSweep.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.gateSweep",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/experiments/SplitSellRedeem.gateSweep.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v2",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v2.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v3",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v3.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v4",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v4.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.1-research-metrics",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.1-research-metrics.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.2-netChange",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.2-netChange.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.3-technical-indicators",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.3-technical-indicators.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.4-research-metrics-and-technical-indicators",
+      "status": "pending",
+      "referenceSourcePaths": [
+        "src/strategies/split/SplitSellRedeem.v5.4-research-metrics-and-technical-indicators.ts"
+      ],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex",
+      "status": "pending",
+      "referenceSourcePaths": [
+        "src/strategies/split/SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex.ts"
+      ],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-highLowRange",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.gate-highLowRange.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-netChange",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.gate-netChange.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio",
+      "status": "pending",
+      "referenceSourcePaths": [
+        "src/strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.ts"
+      ],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-orderbookImbalance",
+      "status": "pending",
+      "referenceSourcePaths": [
+        "src/strategies/split/SplitSellRedeem.v5.gate-orderbookImbalance.ts"
+      ],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-ta-tf15mWickRatio",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.gate-ta-tf15mWickRatio.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.gate-ta-tf1hWickRatio",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v5.unwind",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v5.unwind.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "SplitSellRedeem.v6",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/split/SplitSellRedeem.v6.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "Template.ResearchIntentMetrics",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/templates/TemplateResearchIntentMetrics.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "TemplateDwellGate",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/templates/TemplateDwellGate.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "TemplateTimeWindowGate",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/templates/TemplateTimeWindowGate.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "basicFak.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/basicFak.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "buyBatchLimitGTC.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/BuyBatchLimitGTC.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "buyBoth.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/BuyBoth.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "buyBothSidesAndMerge.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/buyBothSidesAndMerge.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "endgame-panic-bid.000-baseline",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/endgame-panic-bid/000-baseline.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "endgame-panic-bid.001-cancel-on-adverse-move",
+      "status": "pending",
+      "referenceSourcePaths": [
+        "src/strategies/research/endgame-panic-bid/001-cancel-on-adverse-move.ts"
+      ],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "endgame-panic-bid.002-path-stability",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/endgame-panic-bid/002-path-stability.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/feedsParityProbe.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "imbalance-hold.000-baseline",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/imbalance-hold/000-baseline.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "imbalance-hold.001-persistence-filter",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/imbalance-hold/001-persistence-filter.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "imbalance-hold.002-flow-trigger",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/imbalance-hold/002-flow-trigger.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.000-baseline",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/000-baseline.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.001-entry-window",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/001-entry-window.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.002-underdog-mirror",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/002-underdog-mirror.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.003-delayed-favorite",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/003-delayed-favorite.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.005-take-profit",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/005-take-profit.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.006-cancel-weakening",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/006-cancel-weakening.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.007-confirm-stable",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/007-confirm-stable.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.010-tight-spread",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/010-tight-spread.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.011-book-imbalance",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/011-book-imbalance.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.012-cancel-take-profit",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/012-cancel-take-profit.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.013-momentum-confirm",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/013-momentum-confirm.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.014-volatility-guard",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/014-volatility-guard.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "maker-favorite.015-stop-loss-exit",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/maker-favorite/015-stop-loss-exit.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "measureLatency.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/MeasureLatency.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "momentum-hold.000-baseline",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/momentum-hold/000-baseline.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "orderbook.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/signals/Orderbook.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-probe-capital-v0",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/probe-capital.v0.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v0",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v0.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v1",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v10",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v10.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v12",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v12.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v15",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v15.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v16",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v16.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v17",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v17.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v17m",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v17m.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v17o",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v17o.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v17t",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v17t.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v2",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v2.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v4",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v4.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "pair-fable-v9",
+      "status": "pending",
+      "referenceSourcePaths": ["protocols/pair-fable/strategies/pair.v9.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "placeLimitOrderAndCancelAfterFewSec.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/placeLimitOrderAndCancelAfterFewSec.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "readExternalFeedsExample.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/readExternalFeedsExample.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "readVolatilityIndicator.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/readVolatilityIndicator.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "scalp.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/scalp/Scalp.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "spread-capture.000-baseline",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/spread-capture/000-baseline.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "spread-capture.001-pair-completion",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/spread-capture/001-pair-completion.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "spread-capture.002-inventory-stop",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/research/spread-capture/002-inventory-stop.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    },
+    {
+      "strategyId": "template.v1",
+      "status": "pending",
+      "referenceSourcePaths": ["src/strategies/templates/Template.v1.ts"],
+      "validationContractStatus": "pending",
+      "nativeBehaviorEvidence": [],
+      "liveBacktestSharedCoreEvidence": [],
+      "verifiedRevision": null
+    }
+  ],
+  "foundationEvidence": [
+    "docs/rust-migration/evidence/foundation-validation.json",
+    "docs/rust-migration/evidence/foundation-stats.json"
+  ]
+}

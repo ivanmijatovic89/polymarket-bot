@@ -1,0 +1,5206 @@
+{
+  "formatVersion": 1,
+  "referenceRevision": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "referenceTree": "46d530ccf5025a06a9272d63e74d371107c66da4",
+  "packageLockSha256": "7f6808f6e5218cfff7ec4c79469108c0dde85be0ec5c6235a64d7b160d40e002",
+  "staticSnapshotSha256": "12165740dafbf842d174a8572b16fe2ec35a5cbd230609e67ced73495ea5f13d",
+  "registrySnapshotSha256": "398777357f5ffa35cc65754845b530913512c4321cb035ee2821af4ae2a2a732",
+  "inventoryStatus": "incomplete-external-artifacts-and-validation-contracts",
+  "method": "Pinned tracked sources parsed with TypeScript AST without executing strategy factories. Loaded catalog is a separate optional reviewed Node 20 probe.",
+  "limitations": [
+    "Static candidates are not proof of runtime registration or native implementation.",
+    "An ID present in the catalog does not prove which duplicate candidate won; preserve discovery warnings.",
+    "Schema field names and source identity are not a complete defaults/coercions/refinement compatibility contract.",
+    "Only tracked baseline candidates are inventoried; subsequent strategy additions require reconciliation.",
+    "External immutable .mjs artifacts and external strategy repositories remain a required pending inventory; zero coverage is not assumed."
+  ],
+  "counts": {
+    "trackedCandidateFiles": 73,
+    "categories": {
+      "core": 30,
+      "research": 23,
+      "template": 4,
+      "experiment": 2,
+      "protocol": 14
+    },
+    "loadedCatalogEntries": 73
+  },
+  "candidates": [
+    {
+      "file": "protocols/pair-fable/strategies/pair.v0.ts",
+      "sourceSha256": "787f52c37b560fbce26610dc3a61f85811b90ddd513a228257960ed0affa6a31",
+      "sourceBytes": 7959,
+      "definitionLine": 56,
+      "literalId": "pair-fable-v0",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "025f9e734c6cd7185028eb8a5d13521ffde5ca710df09e22a0cf225dc5e6cc10",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxImbalance",
+          "maxPairCost",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v1.ts",
+      "sourceSha256": "a73694eccbacb9644aeb061ed2cb9dd469e4650ecbdf729c611b39186d0191c4",
+      "sourceBytes": 9034,
+      "definitionLine": 60,
+      "literalId": "pair-fable-v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "5c754ea2f90caa88f29258da9705d827b45e73e620f8508c26a7b64fd0a96ac6",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxImbalance",
+          "maxPairCost",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v10.ts",
+      "sourceSha256": "70a8b13f16113f0a0bc030ef113577fb98c00e70648b78c863a87e6ce0987888",
+      "sourceBytes": 12805,
+      "definitionLine": 62,
+      "literalId": "pair-fable-v10",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "5b99904e7fb3d089ac972e768efd74efaab60920de0b73c0888caf0c5129ff9a",
+        "fieldNames": [
+          "capPerMarket",
+          "completeCapTotal",
+          "doomBid",
+          "incrementSize",
+          "maxPairCost"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v12.ts",
+      "sourceSha256": "06e41565f785adf4fe2bcc1083277e373e7d403b517bae56f19a75d77a3fff90",
+      "sourceBytes": 11196,
+      "definitionLine": 60,
+      "literalId": "pair-fable-v12",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "c85cd5c58bcd0a2fd01fee52ec13998f613417ff8c9063d01175435859c1f3fc",
+        "fieldNames": [
+          "avgDownDiscount",
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxImbalance",
+          "maxPairCost",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v15.ts",
+      "sourceSha256": "6d08e690288dc6c7236ef81f45ec0e4b5abb049cf9e7dfdfc7911dfab42b234c",
+      "sourceBytes": 18903,
+      "definitionLine": 90,
+      "literalId": "pair-fable-v15",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "dc3d664f0cdf3c5e63c0a6c2fc2b5a72af6b1146b081ca1dfd722ca3f4dedf0a",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "doomUnitMax",
+          "imbalanceBand",
+          "lagAggr",
+          "orderSize",
+          "pairTarget",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v16.ts",
+      "sourceSha256": "0d6a74b98f58e79706b4a9b72b3d901bfcde526610bc18217763d3348bae9a59",
+      "sourceBytes": 20399,
+      "definitionLine": 87,
+      "literalId": "pair-fable-v16",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "4e8b3d033ebc9f2e4e8e0ebbb21d4d95669153fa78bce72ae2a51df0c12a17e1",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "doomUnitMax",
+          "imbalanceBand",
+          "lagAggr",
+          "leadGap",
+          "leadPersistTicks",
+          "orderSize",
+          "pairTarget",
+          "tiltShares",
+          "tiltUnitMax",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v17.ts",
+      "sourceSha256": "86b48df5ae9f311d43652f063a3d4d669aa44686894f1f058727b2e9e9a0b1e3",
+      "sourceBytes": 20730,
+      "definitionLine": 78,
+      "literalId": "pair-fable-v17",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "0ecab95cb1d1c6906b34f5f95b3cb526623bae0b259143d0b44bb6099d6cf568",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "doomUnitMax",
+          "imbalanceBand",
+          "lagAggr",
+          "leadPersistTicks",
+          "orderSize",
+          "pairTarget",
+          "spotLeadBps",
+          "tiltShares",
+          "tiltUnitMax",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../src/trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v17m.ts",
+      "sourceSha256": "bea439632787ebf7d14263266185105cc9f617eefab276a9d7e7514f5abcd1ef",
+      "sourceBytes": 20490,
+      "definitionLine": 76,
+      "literalId": "pair-fable-v17m",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "b75e7dddccbc83bf8e138add96a969662460c24394357412f46cdf7f8c0aab76",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "doomUnitMax",
+          "imbalanceBand",
+          "lagAggr",
+          "leadPersistTicks",
+          "orderSize",
+          "pairTarget",
+          "spotLeadBps",
+          "tiltShares",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../src/trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v17o.ts",
+      "sourceSha256": "ecc4c382d59e052871738d9a8914dc8fc74bd094a11d499c8ef7e8814e0a9420",
+      "sourceBytes": 23078,
+      "definitionLine": 88,
+      "literalId": "pair-fable-v17o",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "d12f554bdfdc76b32f379c69cf7f6fcdd19be4a8662fe622f711b3fd890424f3",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "doomUnitMax",
+          "imbalanceBand",
+          "lagAggr",
+          "leadPersistTicks",
+          "oGraceMin",
+          "oRefRate",
+          "oSticky",
+          "oTighten",
+          "orderSize",
+          "pairTarget",
+          "spotLeadBps",
+          "tiltShares",
+          "tiltUnitMax",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../src/trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v17t.ts",
+      "sourceSha256": "b2661cde9e9d0144dcd327420a126b7a8c0ba3d6a4a2821b057a0f7c4f51b95e",
+      "sourceBytes": 25383,
+      "definitionLine": 83,
+      "literalId": "pair-fable-v17t",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50e472eb663bd70249f9297283af0aadc781bd6f853ff1d366326ffe51935d51",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "disagreeTighten",
+          "doomUnitMax",
+          "earlyTighten",
+          "imbalanceBand",
+          "lagAggr",
+          "lateBandTighten",
+          "lateTighten",
+          "leadPersistTicks",
+          "orderSize",
+          "pairTarget",
+          "spotLeadBps",
+          "tiltShares",
+          "tiltUnitMax",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../src/trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../src/strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v2.ts",
+      "sourceSha256": "2889ac6ab9b2394d0765e65a0d7fae1af065ad1c184aaa9e632b0119a08eb810",
+      "sourceBytes": 9995,
+      "definitionLine": 63,
+      "literalId": "pair-fable-v2",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "2667b685b623ba12eed95da36645caf716110936ac0cdf0cf03bc7f0b24a1607",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxImbalance",
+          "maxPairCost",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v4.ts",
+      "sourceSha256": "d90f77d8407da41b62c3812cc23eb6df1671c408f7706cbd1c4966a66326a5e5",
+      "sourceBytes": 12135,
+      "definitionLine": 56,
+      "literalId": "pair-fable-v4",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "94bf1306f20be8a20bb99ea3aa0b50336c22b85f376651f925f668f887f07860",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxImbalance",
+          "maxPairCost",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/pair.v9.ts",
+      "sourceSha256": "1a44a717c9805260129037aa5e42795b477ec3577a909320fe8faa7713a17355",
+      "sourceBytes": 8937,
+      "definitionLine": 52,
+      "literalId": "pair-fable-v9",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "bfc97a432dab021d4d988ba0df0371bd908fd6af246d1e40fabbacde13f2d349",
+        "fieldNames": [
+          "capPerMarket",
+          "cooldownTicks",
+          "incrementSize",
+          "maxEntryPrice",
+          "maxImbalance",
+          "ttlSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "protocols/pair-fable/strategies/probe-capital.v0.ts",
+      "sourceSha256": "ae114c7cd80767acd03087574581a50df6af6c07417a96db52226b8ab67b1f82",
+      "sourceBytes": 4930,
+      "definitionLine": 32,
+      "literalId": "pair-fable-probe-capital-v0",
+      "staticDefinitionStatus": "object-found",
+      "category": "protocol",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "cc7ccf03449e3477229be3dcdba99d9b3ff8408063ccb222f654ca983091a912",
+        "fieldNames": [
+          "everyNTicks",
+          "fokOrders",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../src/strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../src/strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../src/strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/BuyBatchLimitGTC.v1.ts",
+      "sourceSha256": "1ff4b6a8699ae5dfb39c4d76ffcf88eddd2458cf4a67db50dc458e34e0e52125",
+      "sourceBytes": 3641,
+      "definitionLine": 11,
+      "literalId": "buyBatchLimitGTC.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "fc703e2df3aa773e72a773b9e9fa02a989305681eb0606c36e8770cd9a03068a",
+        "fieldNames": [],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/BuyBoth.v1.ts",
+      "sourceSha256": "c8bf9937b338d4fadb7d8917505d7fcad5b90826d5b530c783138011cc0cf018",
+      "sourceBytes": 4082,
+      "definitionLine": 14,
+      "literalId": "buyBoth.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "10f0852ae059f208d9ee16d70862df7db12490847d0693ed1f575378b5b348f8",
+        "fieldNames": [
+          "logEveryMs"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/BuyLowPrice.v1.ts",
+      "sourceSha256": "67f69650cec791f9f65e4cad74846a32c5be010f1283a6bb0bc55073ec6cbc2e",
+      "sourceBytes": 5520,
+      "definitionLine": 19,
+      "literalId": "BuyLowPrice.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "4c71510863c74a0d799e76372607e5e1b6c30666c4e90a05e62851bcc14e7711",
+        "fieldNames": [
+          "price",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  AccountEvent,\n  Intent,\n  MarketTick,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/MeasureLatency.v1.ts",
+      "sourceSha256": "6e252793b2d50679a7831b68f537512a49bdafb04a1015e0eb884ee249cd23b2",
+      "sourceBytes": 10659,
+      "definitionLine": 17,
+      "literalId": "measureLatency.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "f14114f1b47cc1c20d7749244bd148a437aec265ac73bec841a3c22581439c43",
+        "fieldNames": [
+          "delayMs",
+          "price",
+          "side",
+          "size",
+          "totalCycles"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/basicFak.v1.ts",
+      "sourceSha256": "a0e9a19df85e9a2e46dc16b115ce58e37c1e306137dfaa096bf8d8726e7c85ef",
+      "sourceBytes": 6779,
+      "definitionLine": 40,
+      "literalId": "basicFak.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "6e8fd37bd5611e0c196ad02c9915b18a3a1469be70589d3e34dfc13c0f7f9635",
+        "fieldNames": [
+          "assetId",
+          "requirePositionBeforeSell",
+          "sellWhenStatus",
+          "size",
+          "takeProfitPct",
+          "targetPrice"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "* as strategyToolkit"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/buyBothSidesAndMerge.v1.ts",
+      "sourceSha256": "c6b1d08699a3bfce4eb9da9f180e1a45dac0d3c50599667e29204d21c14626a0",
+      "sourceBytes": 4341,
+      "definitionLine": 16,
+      "literalId": "buyBothSidesAndMerge.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "89ceb0425b79fc109a5a63698aecb1beb85d3e9522a492a63aa47b3bd54114ff",
+        "fieldNames": [
+          "assetId",
+          "buyPriceBump",
+          "mergeWhenStatus",
+          "size",
+          "triggerPrice"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "* as strategyToolkit"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/feedsParityProbe.v1.ts",
+      "sourceSha256": "77f3121ed20e48b03b730d04ba24885df123a9d80ecd37913c480f9396cd7e70",
+      "sourceBytes": 7049,
+      "definitionLine": 167,
+      "literalId": "feedsParityProbe.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "db8a2cc0f5fd9b64e6c4fbdcab435b206f19828ec1199f347bce25596c69018b",
+        "fieldNames": [
+          "heartbeatMs",
+          "logEveryTick",
+          "tickOnUpdate"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "node:fs",
+          "typeOnly": false,
+          "importedNames": "{ appendFileSync, mkdirSync }"
+        },
+        {
+          "module": "node:path",
+          "typeOnly": false,
+          "importedNames": "path"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        },
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ MarketTick, PortfolioSnapshot, Strategy, Intent }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../market/syntheticTick.js",
+          "typeOnly": false,
+          "importedNames": "{ isSyntheticFeedTick }"
+        },
+        {
+          "module": "../trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/placeLimitOrderAndCancelAfterFewSec.ts",
+      "sourceSha256": "24c07585b9a84cd6e523c7e87f3de9f6d727e0941eeadac17e9f46ec273197e7",
+      "sourceBytes": 5545,
+      "definitionLine": 19,
+      "literalId": "placeLimitOrderAndCancelAfterFewSec.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "bd7115f95370401a847e7e57c5a9906a07e15ca8da8e3564b9a0ef7871a9ab35",
+        "fieldNames": [
+          "assetId",
+          "cancelAfterMs",
+          "orderPrice",
+          "size",
+          "triggerPrice"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/readExternalFeedsExample.v1.ts",
+      "sourceSha256": "101c15cfa3007a15dc35c6117ed4a89a65c63005ad2c3e53fd136f93d9a0bf24",
+      "sourceBytes": 5303,
+      "definitionLine": 26,
+      "literalId": "readExternalFeedsExample.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "d0a3fb6333623c2b27ec20d962e814050982a49f1999f1da18d82de26296d233",
+        "fieldNames": [
+          "binanceBookTicker",
+          "chainlinkTwap",
+          "logEveryMs",
+          "priceToBeatSource"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/readVolatilityIndicator.v1.ts",
+      "sourceSha256": "97207f72faf974e4f1c386de1acd3f569290017a3814f9e3ba88ea808410038f",
+      "sourceBytes": 4389,
+      "definitionLine": 23,
+      "literalId": "readVolatilityIndicator.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "bc18adc996d454bfd66c40ec2e0a055fccd4ae2f4bda31c4d325c485bb0a348c",
+        "fieldNames": [
+          "assetId",
+          "logEveryMs"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": true,
+          "importedNames": "{ VolatilitySnapshot }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": true,
+          "importedNames": "{ VolatilitySnapshot }"
+        },
+        {
+          "module": "../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/endgame-panic-bid/000-baseline.ts",
+      "sourceSha256": "ae76df0def502a41671caec076e1ed83732348bc81c26372b04a90e69f0f8738",
+      "sourceBytes": 5224,
+      "definitionLine": 31,
+      "literalId": "endgame-panic-bid.000-baseline",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "2bb375e0523dc6050b1e5efa29938e1adebd6e98bdb3c1422e7f6290c4062eb4",
+        "fieldNames": [
+          "bidPrice",
+          "certaintyThreshold",
+          "entryTimeSec",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/endgame-panic-bid/001-cancel-on-adverse-move.ts",
+      "sourceSha256": "b79ded59e1a20bc4e3e9cf93121416b5601ae0bc877c5b6d678416d42b1d0f09",
+      "sourceBytes": 7165,
+      "definitionLine": 38,
+      "literalId": "endgame-panic-bid.001-cancel-on-adverse-move",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "b50c6939411073b63d007c3be7e3a01124bc23934fa56d68b4745f96ae297fa0",
+        "fieldNames": [
+          "bidPrice",
+          "cancelDrop",
+          "certaintyThreshold",
+          "entryTimeSec",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/endgame-panic-bid/002-path-stability.ts",
+      "sourceSha256": "db69896478ff66db7fe3f2c1473ba3037ff6983881f452cbdee5d490da15a34d",
+      "sourceBytes": 7633,
+      "definitionLine": 43,
+      "literalId": "endgame-panic-bid.002-path-stability",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "4c62af2672b04301562b4bc46b7f0a878a5a916cdc7b7d5fc675b4beec89856b",
+        "fieldNames": [
+          "bidPrice",
+          "certaintyThreshold",
+          "entryTimeSec",
+          "maxFavBidRange",
+          "size",
+          "stabilityWindowSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/imbalance-hold/000-baseline.ts",
+      "sourceSha256": "1f0f1c04f6445c0c85c86d1e400e332bd5a6f4464b289c41fbe11ee6ac1b50db",
+      "sourceBytes": 5686,
+      "definitionLine": 42,
+      "literalId": "imbalance-hold.000-baseline",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "0f0f038d88c391323d3724e68fb10168ed13bdb2d82d2cf44ac5b711dc2a362c",
+        "fieldNames": [
+          "imbLevels",
+          "maxEntryPrice",
+          "minImbalance",
+          "size",
+          "slippageTol",
+          "startSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/imbalance-hold/001-persistence-filter.ts",
+      "sourceSha256": "93347f96dce1ef8c61ff4c23fb44efc2e7fbcdc402695b18a89458f2db698fcb",
+      "sourceBytes": 6726,
+      "definitionLine": 47,
+      "literalId": "imbalance-hold.001-persistence-filter",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "9bbeaef7084078a9e2b8755881d03847ccae4d647f08ba2cc53e36764c8696d3",
+        "fieldNames": [
+          "imbLevels",
+          "maxEntryPrice",
+          "minImbalance",
+          "persistSec",
+          "size",
+          "slippageTol",
+          "startSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/imbalance-hold/002-flow-trigger.ts",
+      "sourceSha256": "cbf581163ce5961ecc42a9dfce865d763257cea742ec03fc1b049b932156e5af",
+      "sourceBytes": 6798,
+      "definitionLine": 45,
+      "literalId": "imbalance-hold.002-flow-trigger",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "ac73819722214452fe814c088c3f9579cec90a22d8f362f95ca052e6faba1a0f",
+        "fieldNames": [
+          "flowWindowSec",
+          "imbLevels",
+          "maxEntryPrice",
+          "minFlow",
+          "size",
+          "slippageTol",
+          "startSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/000-baseline.ts",
+      "sourceSha256": "63e269731534adcfacca448b2fbd69fe91e3b799312e1884c3ddf3842cec83db",
+      "sourceBytes": 3441,
+      "definitionLine": 22,
+      "literalId": "maker-favorite.000-baseline",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "a91f79eacdf7d68e0f5d5f3869c0be904b39553930ba7a296dc77125c651ac00",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/001-entry-window.ts",
+      "sourceSha256": "c109108043994bb5bd91eda0ebddb497abc3150fa07f7947210a7118a4c8c40f",
+      "sourceBytes": 4543,
+      "definitionLine": 28,
+      "literalId": "maker-favorite.001-entry-window",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "21a000fdff1fca1ea607087d0d307349f4799acd6c3a0ccc22063fe80417accd",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/002-underdog-mirror.ts",
+      "sourceSha256": "d199504c543035a70de53e759f99d5036a83329131f0fd224a9a4d8b48805b64",
+      "sourceBytes": 3500,
+      "definitionLine": 22,
+      "literalId": "maker-favorite.002-underdog-mirror",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "b010af4e0a55a99e3d66ee557f6cc68c56f3bae0c9c6d583e6a4f6f73cda0057",
+        "fieldNames": [
+          "discount",
+          "maxUnderdogMid",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/003-delayed-favorite.ts",
+      "sourceSha256": "9e0d78af07e9462bede3faf2669b3f60f5d8854719050491fd8aec50e7a3c0a8",
+      "sourceBytes": 4566,
+      "definitionLine": 28,
+      "literalId": "maker-favorite.003-delayed-favorite",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "f9408cc808624486babf82e19957bd88a0ae0a612408874f2bc8dcd8836405b0",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/005-take-profit.ts",
+      "sourceSha256": "02b3b3b120a5f457c8c72d9f6e6525f6fb4953406b56530f8c94cde2f172a9d1",
+      "sourceBytes": 6230,
+      "definitionLine": 41,
+      "literalId": "maker-favorite.005-take-profit",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "39e17ec0b7f65015502c5c803627bfbae63880d683ee6ce8f6cdb8b1b8df547a",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopSec",
+          "takeProfit"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/006-cancel-weakening.ts",
+      "sourceSha256": "45e858f917833e7cad0ff39c77de93945e414813f0a1bca07a0997c0eae3b010",
+      "sourceBytes": 5977,
+      "definitionLine": 41,
+      "literalId": "maker-favorite.006-cancel-weakening",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "95590a3bce5b41b712816c7f733cabab2f7d739ef895150cf3d594922667404c",
+        "fieldNames": [
+          "cancelDelta",
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/007-confirm-stable.ts",
+      "sourceSha256": "d9318d859bb93545a1df91ed937b48ca54dbd161784632c1a9a2de37eeda3f47",
+      "sourceBytes": 5334,
+      "definitionLine": 30,
+      "literalId": "maker-favorite.007-confirm-stable",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "d8e61cf4181c609b6d93a42a54b1a56607c8df49945ee4ade133ff2dda33b785",
+        "fieldNames": [
+          "confirmSec",
+          "discount",
+          "favThreshold",
+          "maxWeakening",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/010-tight-spread.ts",
+      "sourceSha256": "131c42552b761f99b587339035c3c70c79e778ce75b3cfa023819a154c59ac5e",
+      "sourceBytes": 6211,
+      "definitionLine": 42,
+      "literalId": "maker-favorite.010-tight-spread",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "f5bf4986f17200fbcf791afe07056f32452462b24c78a5f38a120535ebf22c17",
+        "fieldNames": [
+          "cancelDelta",
+          "discount",
+          "favThreshold",
+          "maxFavSpread",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/011-book-imbalance.ts",
+      "sourceSha256": "4023ba2e1128e9cb24a72d31447e44312c65ade077c8de2f354b393c11dfaeba",
+      "sourceBytes": 7949,
+      "definitionLine": 47,
+      "literalId": "maker-favorite.011-book-imbalance",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "d5d3afb7afbe41b0baa706037fe18665cb302d0a1b9cf69b63997c6cec8dfbac",
+        "fieldNames": [
+          "cancelDelta",
+          "discount",
+          "favThreshold",
+          "imbLevels",
+          "minFavBidRatio",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/012-cancel-take-profit.ts",
+      "sourceSha256": "866c256e56655b3ce51480525a345e7d4488626bc762eddb5d809f52c477f033",
+      "sourceBytes": 7478,
+      "definitionLine": 42,
+      "literalId": "maker-favorite.012-cancel-take-profit",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "6744560b47fe56d174b7867625d0a4c9d1ccfda566a639d84c28f79aad429ff3",
+        "fieldNames": [
+          "cancelDelta",
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopSec",
+          "takeProfit"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/013-momentum-confirm.ts",
+      "sourceSha256": "ebf9cf55c2c1442eb96e2af464eb9db6d02301d169ac68919fca4661962793db",
+      "sourceBytes": 5383,
+      "definitionLine": 37,
+      "literalId": "maker-favorite.013-momentum-confirm",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "ec5ffeb35b7c0ff9ff92d8954b6cdec0046e35b41c4c81879db74395d8583585",
+        "fieldNames": [
+          "confirmSec",
+          "discount",
+          "favThreshold",
+          "minMomentum",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/014-volatility-guard.ts",
+      "sourceSha256": "00426f3c5d1e160e28f7fd8ed19d70ba17afeb517591607f4f294c927ed28930",
+      "sourceBytes": 6125,
+      "definitionLine": 38,
+      "literalId": "maker-favorite.014-volatility-guard",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "74bb80ede4d0686d5f69b144136cd7c70a2f0db390e5c1f271e3d529e3a8f0bf",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "lookbackSec",
+          "maxRange",
+          "minSamples",
+          "size",
+          "startSec",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/maker-favorite/015-stop-loss-exit.ts",
+      "sourceSha256": "ea256a884c9ee2cbe6a4bf8286562c485ebafb7853697e003fb95c2a6333dd94",
+      "sourceBytes": 6395,
+      "definitionLine": 41,
+      "literalId": "maker-favorite.015-stop-loss-exit",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "4c7f44e503daa594a87678a2ce4073d652329aecd23f66b2ba4907aa3eb1424b",
+        "fieldNames": [
+          "discount",
+          "favThreshold",
+          "size",
+          "startSec",
+          "stopLoss",
+          "stopSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{\n  isWarmed,\n  parseGammaMarketStartMs,\n  safeProbabilityPrice,\n}"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/momentum-hold/000-baseline.ts",
+      "sourceSha256": "02f73f0b712fafc60684c64d1879119937e41dae759299f36cb4b719bfb593ca",
+      "sourceBytes": 5458,
+      "definitionLine": 37,
+      "literalId": "momentum-hold.000-baseline",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "b28e69e8142bdd7074dd535069d1fa90046c7e350776700436b01281a2498220",
+        "fieldNames": [
+          "lookbackSec",
+          "maxEntryPrice",
+          "minMomentum",
+          "size",
+          "slippageTol",
+          "startSec"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/spread-capture/000-baseline.ts",
+      "sourceSha256": "875bd7b42c4131850fbfb8122945858c6de8b5831f116e0a1aab2cb501d1ee17",
+      "sourceBytes": 6171,
+      "definitionLine": 28,
+      "literalId": "spread-capture.000-baseline",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "c63686482c4e006ef60d3a7c62ef986f3fc7f883dcf67ad26c912a80d0709baf",
+        "fieldNames": [
+          "offset",
+          "quoteStopSec",
+          "repriceDelta",
+          "sizeUsd"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/spread-capture/001-pair-completion.ts",
+      "sourceSha256": "94a7f6dc5a80c2e058025c2faf7ed676c103f792f009ba2ba9e22d21ce2b6be4",
+      "sourceBytes": 7221,
+      "definitionLine": 34,
+      "literalId": "spread-capture.001-pair-completion",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "ad7bc3f4642b558f59174e36cdd2775c7d06736930f96c0fe6a2a37f1eb2b5fd",
+        "fieldNames": [
+          "completionOffset",
+          "offset",
+          "quoteStopSec",
+          "repriceDelta",
+          "sizeUsd"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/research/spread-capture/002-inventory-stop.ts",
+      "sourceSha256": "9bd5194ca3197a5fc4196bbd3079921cb145cba7a0943f1df2c921f3f7880c46",
+      "sourceBytes": 7512,
+      "definitionLine": 34,
+      "literalId": "spread-capture.002-inventory-stop",
+      "staticDefinitionStatus": "object-found",
+      "category": "research",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "c13948dbbf40f86835f10ef96cc435f28b37d5f7e0ddc36c1a511317ac065f33",
+        "fieldNames": [
+          "offset",
+          "quoteStopSec",
+          "reArmBand",
+          "repriceDelta",
+          "sizeUsd"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{\n  Intent,\n  MarketTick,\n  OpenOrder,\n  PortfolioSnapshot,\n  Strategy,\n}"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/scalp/Scalp.v1.ts",
+      "sourceSha256": "788dde732e9b99642412b334b6ccd74bea354a6c7503af04fd1f1979b2e34921",
+      "sourceBytes": 6562,
+      "definitionLine": 16,
+      "literalId": "scalp.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "e634fe92328d7b4a1998b358602d560372ae04d8543e5042809c240593038740",
+        "fieldNames": [
+          "buyPrice",
+          "sellPrice",
+          "size"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed, safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/signals/Orderbook.v1.ts",
+      "sourceSha256": "463e026a741bfb11d9f69feff8b49a3d2040abb12911ffdee6e2969e7184f599",
+      "sourceBytes": 3669,
+      "definitionLine": 15,
+      "literalId": "orderbook.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "10f0852ae059f208d9ee16d70862df7db12490847d0693ed1f575378b5b348f8",
+        "fieldNames": [
+          "logEveryMs"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        },
+        {
+          "module": "../../market/orderbook/types.js",
+          "typeOnly": true,
+          "importedNames": "{ OrderBookSnapshot }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v1.ts",
+      "sourceSha256": "3f2733162a47f32b13b2376b10ceee398384c508b6625f50ba9f51659fb1401a",
+      "sourceBytes": 4073,
+      "definitionLine": 15,
+      "literalId": "SplitSellRedeem.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "aadb40388cd77469026621a2e0fc7ff883c9a6e4e7b2dd9e184b535d2730e2b9",
+        "fieldNames": [
+          "sellPrice",
+          "sellSize",
+          "splitShares",
+          "triggerBidBelow"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "* as strategyToolkit"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v2.ts",
+      "sourceSha256": "2185a8636d120dba8fb761afcc3b46ad2f6dbae7784dc7bcea33d5cedf74ff48",
+      "sourceBytes": 4387,
+      "definitionLine": 14,
+      "literalId": "SplitSellRedeem.v2",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "33cc01b2c6a7695f02de9d2558ab94546208ad95bc5016f71f7a6dcf3bef2ed8",
+        "fieldNames": [
+          "sellSize",
+          "splitShares",
+          "triggerBidBelow"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "* as strategyToolkit"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v3.ts",
+      "sourceSha256": "c989cdde63c7fa41ac9c27ffef4cf875f2ccd528223ff135124f0c60a96dc067",
+      "sourceBytes": 5396,
+      "definitionLine": 25,
+      "literalId": "SplitSellRedeem.v3",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "01ec0c89c2716197a7389df48e81de0ed8b2d9f7b3120f870970f64343eb84de",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v4.ts",
+      "sourceSha256": "c2297a048b300e5a6bb1e7095ec9b68cbbed0b8b0b48a94dae9b2185fd869d25",
+      "sourceBytes": 3520,
+      "definitionLine": 21,
+      "literalId": "SplitSellRedeem.v4",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "2380102fba8927510f5bb1aa9d5c25f6cc35c887aa755bdf76cb9f5c928342ad",
+        "fieldNames": [
+          "splitShares"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.1-research-metrics.ts",
+      "sourceSha256": "976337e03f97227d383d450d2d35c98c08ac6cb033a14ff3d5601662a96b8908",
+      "sourceBytes": 10342,
+      "definitionLine": 30,
+      "literalId": "SplitSellRedeem.v5.1-research-metrics",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.2-netChange.ts",
+      "sourceSha256": "1e777aabbf41f7975b1f6205171bc6b0d20b0412dd0403a175abb052e4d9af23",
+      "sourceBytes": 8199,
+      "definitionLine": 32,
+      "literalId": "SplitSellRedeem.v5.2-netChange",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "a93fc7a02774781d662732922ad3c00df935cd6eae4ac3fe22ed8f957abd6b46",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "netChangeThreshold",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.3-technical-indicators.ts",
+      "sourceSha256": "6f7e156ab86692c4c4ba0a2ee9668b6ed7fa77746201d0171c8684257eb7c184",
+      "sourceBytes": 7860,
+      "definitionLine": 27,
+      "literalId": "SplitSellRedeem.v5.3-technical-indicators",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.4-research-metrics-and-technical-indicators.ts",
+      "sourceSha256": "17a8812caffd4e13472dde7b39d905c71da0c0056397dcb122f5b6e290ccbc33",
+      "sourceBytes": 10677,
+      "definitionLine": 31,
+      "literalId": "SplitSellRedeem.v5.4-research-metrics-and-technical-indicators",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex.ts",
+      "sourceSha256": "fe39560ed186429395518c691ad2f3010254e147a13591146a684de5515bb05a",
+      "sourceBytes": 8935,
+      "definitionLine": 34,
+      "literalId": "SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "122ffa84deeb516735f05c5c1332cb6d12142166d46a3c5de0b331a86402896d",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "netChangeMax",
+          "netChangeMin",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds",
+          "wickRatioMin"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-highLowRange.ts",
+      "sourceSha256": "84a73d4c23d8eeba39640283898147c49c7a3303fd513a86a313994fb6ce4455",
+      "sourceBytes": 8255,
+      "definitionLine": 32,
+      "literalId": "SplitSellRedeem.v5.gate-highLowRange",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "cd55df8be3541cd9af3fcf35358e4c76078fdf1c3bca2c4f9a96a570d2d084bf",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.ts",
+      "sourceSha256": "79923c6a50b18ad635ea2835c498c337a58ae7515e9eebfc2e7879a951b909f6",
+      "sourceBytes": 8752,
+      "definitionLine": 30,
+      "literalId": "SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-netChange.ts",
+      "sourceSha256": "20540bd070af78ba10fcafe8307f4c53cf1bed65d5b51edf6b51854d41dfea2e",
+      "sourceBytes": 8357,
+      "definitionLine": 32,
+      "literalId": "SplitSellRedeem.v5.gate-netChange",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "cd55df8be3541cd9af3fcf35358e4c76078fdf1c3bca2c4f9a96a570d2d084bf",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-orderbookImbalance.ts",
+      "sourceSha256": "bb3cd2ca9b3cb1c4daa7fd186d4cb1e243f7fd9c5b11d5397406be30a1bf251d",
+      "sourceBytes": 8380,
+      "definitionLine": 29,
+      "literalId": "SplitSellRedeem.v5.gate-orderbookImbalance",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "cd55df8be3541cd9af3fcf35358e4c76078fdf1c3bca2c4f9a96a570d2d084bf",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-ta-tf15mWickRatio.ts",
+      "sourceSha256": "e55c52bf07d7f2119d1522384a34464c10b88fd00bd394948a69c5f7c2970113",
+      "sourceBytes": 7855,
+      "definitionLine": 26,
+      "literalId": "SplitSellRedeem.v5.gate-ta-tf15mWickRatio",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.ts",
+      "sourceSha256": "e092fa8ab0d61f4a29000ad55e47460901659caafe995640e166db9f6d6ce265",
+      "sourceBytes": 8814,
+      "definitionLine": 26,
+      "literalId": "SplitSellRedeem.v5.gate-ta-tf1hWickRatio",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TechnicalIndicatorsPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TechnicalIndicatorsPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.ts",
+      "sourceSha256": "ede47d26753799dd535b116792dcd9856f5ada50607886c9e0ce7bc14b02bae5",
+      "sourceBytes": 7271,
+      "definitionLine": 26,
+      "literalId": "SplitSellRedeem.v5",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v5.unwind.ts",
+      "sourceSha256": "373ecb5bb2986b2bae0704e2c1c413939b17b51a917c70d822b03daf333e64bc",
+      "sourceBytes": 8591,
+      "definitionLine": 27,
+      "literalId": "SplitSellRedeem.v5.unwind",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "e6a4fd485a634b56efa3d2cd6d9362e16996ca0ebe6127acb588c59e8c0adcf5",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds",
+          "unwindPriceX"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/SplitSellRedeem.v6.ts",
+      "sourceSha256": "f08e6e541df120c629f6ed18a8f70b8f853a52f43497c3b5b70459447ac894fa",
+      "sourceBytes": 7416,
+      "definitionLine": 30,
+      "literalId": "SplitSellRedeem.v6",
+      "staticDefinitionStatus": "object-found",
+      "category": "core",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "9ee5974f8bbe7448ca5db1c172db7166bbfdeccd8b31dca18f0490c77416f3df",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "tickPriceOffset",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/experiments/SplitSellRedeem.exitSweep.ts",
+      "sourceSha256": "662cc8cdf68910bcf1b9236eac56cbbddacb2256abcfdead80024bc8b825a0db",
+      "sourceBytes": 8925,
+      "definitionLine": 47,
+      "literalId": "SplitSellRedeem.exitSweep",
+      "staticDefinitionStatus": "object-found",
+      "category": "experiment",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "72471ab6168a2707eaba542328a3f507c36afe5761e6672046d07ee553b823f9",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "forceUnwindBeforeCloseSeconds",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds",
+          "unwindPriceX"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/split/experiments/SplitSellRedeem.gateSweep.ts",
+      "sourceSha256": "0d80f7534d21cb42c4e5839cfe9d34087d2ce0c70241a049e314bc92431aa451",
+      "sourceBytes": 7584,
+      "definitionLine": 38,
+      "literalId": "SplitSellRedeem.gateSweep",
+      "staticDefinitionStatus": "object-found",
+      "category": "experiment",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "384250027c67abfefc3ca58b3f3a6fc6d16399b2248e6f5d52d585bea5fd71c0",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "imbalanceGateMax",
+          "imbalanceGateMin",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/templates/Template.v1.ts",
+      "sourceSha256": "5375e1e5e795f3d60a9b8e2391ca4fb950c1a12afe3dd73b92b00de2b84c24cd",
+      "sourceBytes": 3717,
+      "definitionLine": 19,
+      "literalId": "template.v1",
+      "staticDefinitionStatus": "object-found",
+      "category": "template",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "10f0852ae059f208d9ee16d70862df7db12490847d0693ed1f575378b5b348f8",
+        "fieldNames": [
+          "logEveryMs"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ isWarmed }"
+        },
+        {
+          "module": "../../trading/feeds/externalFeeds.js",
+          "typeOnly": true,
+          "importedNames": "{ ExternalFeedsSnapshot }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowVolatility }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/templates/TemplateDwellGate.ts",
+      "sourceSha256": "26e97daf7735a4d1a938b786f7763b453ce60d75762594cb55a9445c0525a782",
+      "sourceBytes": 2940,
+      "definitionLine": 17,
+      "literalId": "TemplateDwellGate",
+      "staticDefinitionStatus": "object-found",
+      "category": "template",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "cccaf590d1a7502be36a1832804bb5ecac65014849770b945f656273885fde4b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/templates/TemplateResearchIntentMetrics.ts",
+      "sourceSha256": "d94bb14b6d72c70139b60d4e25cc01a2303bbf0dab7b73912636759a7f2b3294",
+      "sourceBytes": 8333,
+      "definitionLine": 30,
+      "literalId": "Template.ResearchIntentMetrics",
+      "staticDefinitionStatus": "object-found",
+      "category": "template",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "50d56baf784d9cfad3f11adb7196d10ccf8f958f025e7cbfe1e5cb3dc950579b",
+        "fieldNames": [
+          "dwellRangeFrom",
+          "dwellRangeTo",
+          "dwellSecondsRequired",
+          "dwellTrackPrice",
+          "sellSize",
+          "splitShares",
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        },
+        {
+          "module": "../../strategy/strategyToolkit.js",
+          "typeOnly": false,
+          "importedNames": "{ safeProbabilityPrice }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/DwellGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ DwellGatePlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/ExternalFeedsRequestPlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ ExternalFeedsRequestPlugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowVolatility.js",
+          "typeOnly": false,
+          "importedNames": "{\n  TimeWindowVolatility,\n  type VolatilitySnapshot,\n}"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    },
+    {
+      "file": "src/strategies/templates/TemplateTimeWindowGate.ts",
+      "sourceSha256": "6d22bd66257677a1d0db25ce9e22947ab0b894cbd58918db0c113a2ec69943f9",
+      "sourceBytes": 1926,
+      "definitionLine": 15,
+      "literalId": "TemplateTimeWindowGate",
+      "staticDefinitionStatus": "object-found",
+      "category": "template",
+      "schema": {
+        "binding": "ConfigSchema",
+        "sourceSha256": "e5e6dc3c4ed659613277345c4ea52aa6d44514a33c840fbd3a4e13e629de5428",
+        "fieldNames": [
+          "timeFilterAllowTradingAfterSeconds",
+          "timeFilterDisableTradingAfterSeconds"
+        ],
+        "validationContractCaptured": false
+      },
+      "imports": [
+        {
+          "module": "../../strategy/Strategy.js",
+          "typeOnly": true,
+          "importedNames": "{ Intent, MarketTick, PortfolioSnapshot, Strategy }"
+        },
+        {
+          "module": "../../strategy/strategyDefinition.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyDefinition }"
+        },
+        {
+          "module": "../../strategy/StrategyContext.js",
+          "typeOnly": true,
+          "importedNames": "{ StrategyContext }"
+        },
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        },
+        {
+          "module": "zod",
+          "typeOnly": false,
+          "importedNames": "* as z"
+        }
+      ],
+      "pluginImports": [
+        {
+          "module": "../../strategy/plugins/PluginSet.js",
+          "typeOnly": true,
+          "importedNames": "{ Plugin }"
+        },
+        {
+          "module": "../../strategy/plugins/TimeWindowGatePlugin.js",
+          "typeOnly": false,
+          "importedNames": "{ TimeWindowGatePlugin }"
+        }
+      ],
+      "runtimeCatalogStatus": "id-present-in-loaded-catalog"
+    }
+  ],
+  "loadedCatalog": {
+    "status": "captured",
+    "entries": [
+      {
+        "id": "BuyLowPrice.v1",
+        "title": "BuyLowPrice v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.exitSweep",
+        "title": "SplitSellRedeem v5 base + price unwind + time-forced unwind (sweep)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.gateSweep",
+        "title": "SplitSellRedeem v5 base + order-book imbalance band gate (sweep)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v1",
+        "title": "Split + sell GTC on bid drop v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v2",
+        "title": "Split + sell TAKER on bid drop v2",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v3",
+        "title": "Split + sell with dwell + time filters v3",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v4",
+        "title": "Split test",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5",
+        "title": "Split + sell with dwell + time filters v5",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.1-research-metrics",
+        "title": "Split + sell with dwell + time filters v5.1-research-metrics",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.2-netChange",
+        "title": "Split + sell with dwell + time filters v5.2-netChange",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.3-technical-indicators",
+        "title": "Split + sell with dwell + time filters v5.3 + technical indicators",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.4-research-metrics-and-technical-indicators",
+        "title": "Split + sell with dwell + time filters v5.4-research-metrics-and-technical-indicators",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex",
+        "title": "Split + sell with dwell + time filters v5.5 gate netChange + TA wickRatio (flex)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-highLowRange",
+        "title": "Split + sell with dwell + time filters v5.gate-highLowRange",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-netChange",
+        "title": "Split + sell with dwell + time filters v5.gate-netChange",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio",
+        "title": "Split + sell with dwell + time filters v5.gate-netChange-and-ta-tf15mWickRatio",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-orderbookImbalance",
+        "title": "Split + sell with dwell + time filters v5.gate-orderbookImbalance",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-ta-tf15mWickRatio",
+        "title": "Split + sell with dwell + time filters v5.gate-ta-tf15mWickRatio",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.gate-ta-tf1hWickRatio",
+        "title": "Split + sell with dwell + time filters v5.gate-ta-tf1hWickRatio",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v5.unwind",
+        "title": "Split + sell with dwell + time filters v5 + unwind",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "SplitSellRedeem.v6",
+        "title": "Split + sell with dwell + time filters v6",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "Template.ResearchIntentMetrics",
+        "title": "Template: research intent metrics",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "TemplateDwellGate",
+        "title": "Template dwell gate",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "TemplateTimeWindowGate",
+        "title": "Template time window gate",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "basicFak.v1",
+        "title": "Basic FAK v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "buyBatchLimitGTC.v1",
+        "title": "Buy Batch Limit GTC v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "buyBoth.v1",
+        "title": "BuyBoth v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "buyBothSidesAndMerge.v1",
+        "title": "Buy both sides + merge v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "endgame-panic-bid.000-baseline",
+        "title": "Endgame panic bid baseline",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "endgame-panic-bid.001-cancel-on-adverse-move",
+        "title": "Endgame panic bid with cancel-on-adverse-move",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "endgame-panic-bid.002-path-stability",
+        "title": "Endgame panic bid with pre-entry path stability qualifier",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "feedsParityProbe.v1",
+        "title": "Feeds parity probe (observability only)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "imbalance-hold.000-baseline",
+        "title": "Imbalance hold baseline",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "imbalance-hold.001-persistence-filter",
+        "title": "Imbalance hold persistence filter",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "imbalance-hold.002-flow-trigger",
+        "title": "Imbalance hold flow trigger",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.000-baseline",
+        "title": "Maker favorite baseline",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.001-entry-window",
+        "title": "Maker favorite entry window",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.002-underdog-mirror",
+        "title": "Maker favorite underdog mirror",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.003-delayed-favorite",
+        "title": "Maker favorite delayed entry",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.005-take-profit",
+        "title": "Maker favorite take profit",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.006-cancel-weakening",
+        "title": "Maker favorite cancel weakening",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.007-confirm-stable",
+        "title": "Maker favorite confirm stable",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.010-tight-spread",
+        "title": "Maker favorite tight spread",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.011-book-imbalance",
+        "title": "Maker favorite book imbalance",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.012-cancel-take-profit",
+        "title": "Maker favorite cancel take profit",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.013-momentum-confirm",
+        "title": "Maker favorite momentum confirm",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.014-volatility-guard",
+        "title": "Maker favorite volatility guard",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "maker-favorite.015-stop-loss-exit",
+        "title": "Maker favorite stop-loss exit",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "measureLatency.v1",
+        "title": "Measure Latency v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "momentum-hold.000-baseline",
+        "title": "Momentum hold baseline",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "orderbook.v1",
+        "title": "Orderbook v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-probe-capital-v0",
+        "title": "pair-fable capital probe v0",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v0",
+        "title": "pair-fable baseline v0",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v1",
+        "title": "pair-fable v1 (entry discipline + repair + end cutoff)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v10",
+        "title": "pair-fable v10 (v1 + taker-completion module)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v12",
+        "title": "pair-fable v12 (v1 + averaging-down accumulation)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v15",
+        "title": "pair-fable v15 (continuous two-sided inventory controller)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v16",
+        "title": "pair-fable v16 (directional two-sided inventory controller)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v17",
+        "title": "pair-fable v17 (directional controller, spot-vs-priceToBeat leader)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v17m",
+        "title": "pair-fable v17m (directional controller, maker-only tilt acquisition)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v17o",
+        "title": "pair-fable v17o (state-conditioned maker quote ceiling)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v17t",
+        "title": "pair-fable v17t (time-varying maker quote ceiling)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v2",
+        "title": "pair-fable v2 (repair persistence: chase-to-breakeven, no blackout, taker guard)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v4",
+        "title": "pair-fable v4 (both-sides start quoting)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "pair-fable-v9",
+        "title": "pair-fable v9 (absolute entry-price ceiling)",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "placeLimitOrderAndCancelAfterFewSec.v1",
+        "title": "Place GTC limit then cancel after few sec (test) v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "readExternalFeedsExample.v1",
+        "title": "Read external feed BTC price (Binance + Chainlink) v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "readVolatilityIndicator.v1",
+        "title": "Read volatility indicator (example) v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "scalp.v1",
+        "title": "Scalp v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "spread-capture.000-baseline",
+        "title": "Spread capture baseline",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "spread-capture.001-pair-completion",
+        "title": "Spread capture with pair-completion repricing",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "spread-capture.002-inventory-stop",
+        "title": "Spread capture with inventory stop",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      },
+      {
+        "id": "template.v1",
+        "title": "Template v1",
+        "hasSchemaSafeParse": true,
+        "hasCreate": true
+      }
+    ],
+    "warnings": [],
+    "errors": [],
+    "nodeVersion": "20.19.6",
+    "processExitCode": 0,
+    "referenceArchiveSha256": "04c399d43057c87a44c1427efe6ed48cf635d86fd814fea304c149bbe929d226"
+  },
+  "comparison": {
+    "loadedWithoutStaticId": [],
+    "duplicateLiteralIds": []
+  },
+  "consumerPaths": [
+    "protocols/README.md",
+    "scripts/pte",
+    "src/backtest/marketProcessor.ts",
+    "src/backtest/runSingleMarket.ts",
+    "src/backtest/simulator/resolveMarket.ts",
+    "src/cli/backtest.ts",
+    "src/cli/helpers/backtestArgs.test.ts",
+    "src/cli/helpers/backtestArgs.ts",
+    "src/cli/helpers/strategyArgs.ts",
+    "src/cli/helpers/strategySelection.test.ts",
+    "src/cli/strategy-publish.ts",
+    "src/cli/trading-bot.ts",
+    "src/db/schema.ts",
+    "src/strategy/artifacts/artifactParity.test.ts",
+    "src/strategy/artifacts/loader.test.ts",
+    "src/strategy/artifacts/loader.ts",
+    "src/strategy/artifacts/publish.ts",
+    "src/strategy/artifacts/types.ts",
+    "src/strategy/plugins/ExternalFeedsRequestPlugin.ts",
+    "src/strategy/protocolStrategyDiscovery.ts",
+    "src/strategy/strategyDefinition.ts",
+    "src/strategy/strategyRegistry.ts"
+  ],
+  "externalArtifacts": {
+    "status": "pending",
+    "references": null,
+    "sourceAvailability": null,
+    "nextAction": "Enumerate immutable references from queued/historical runs and structurally inspect local/R2 artifact catalogs; identify required external sources and native equivalents."
+  }
+}

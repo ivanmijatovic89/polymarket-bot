@@ -1,0 +1,87 @@
+{
+  "formatVersion": 1,
+  "scope": "Protocol/client/statistics foundation only; entire production migration incomplete",
+  "referenceRevision": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "worktreeBaselineRevision": "84f3a8388f40af7e1f5734f1a8be42da40a9c64e",
+  "nodeExecutable": "/Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+  "nodeVersion": "v20.19.6",
+  "nativeBinarySha256": "a049e39599694d09a88cd3eaae2bb64917f6db80867522c52a2501c6f4b6a9ba",
+  "sourceSha256": {
+    "native/trading-runtime/.gitignore": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+    "native/trading-runtime/Cargo.toml": "ded05873bfccf680f1f26704a9a5df9909d7f3b00459280bca6ca6a4f24527d7",
+    "native/trading-runtime/Cargo.lock": "1770c4bded9749e8d423b64769a76cd5cc66f470452014acb080954e1f01cebf",
+    "native/trading-runtime/src/lib.rs": "4d9ad1f6c6444a3296f2d03b1c490fb1398ee2f6a31c532d2605222d939a4e71",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc",
+    "native/trading-runtime/tests/protocol.rs": "38c1af900e901bb948505e4937091617d0cd416bb8119e59223c0912cdc4076c",
+    "native/trading-runtime/tests/stats.rs": "d9b95826ae829769444e3e6a5eaec58cc7a9d3efdd891cbe90b9f7e8beea963b",
+    "src/runtime/contracts.ts": "fba407e758c8183a8218adda6b108ffe9a5090a6fabe72369f82cecfeb9f254e",
+    "src/runtime/nativeClient.ts": "e9803cda09a6a6311d2d0e7fab041c8f59e7047bce861928796ac6e69df7b287",
+    "src/runtime/nativeClient.test.ts": "2fb67175592d6276ffb258744eb815ae257b555b43f0ffcc184f0a2e0c32ebc0",
+    "src/runtime/nativeClient.integration.test.ts": "dc74c5397b2fffcffb1cb8ac61dea38b93aa9057780f9e58c8c5b5815aeac088",
+    "src/runtime/fixtures/fakeRuntime.mjs": "2c2c0a6d0d3aea6b920c636fdef9a1d069e329a9aacd4bf4ee5e69e80e6b468e",
+    "src/runtime/fixtures/exitingParent.mts": "c0915604929bb48c98221b366094439dac32386cb5eae821b54f61b5db3bf111",
+    "src/runtime/fixtures/nativeParent.mts": "cdca6ecc3a6ed991965e8d4341d00f0493328fa4d82fd660deea33068d276de3",
+    "scripts/rust-migration/inventory-strategies.mts": "a3cab86f5f9ea60345889b20a4e24d2a76db959c257d97a727d11af4e64e5100",
+    "scripts/rust-migration/inventory-strategies.test.ts": "94d12aae3263dc34c8e3cc4a5b9ebef59342f960d199ebe9e232513a8aada76d",
+    "scripts/rust-migration/stats-oracle.mts": "d171315419e178aeae9ae4512735a68a258198c8f2fa9fe9d0c20787ad05d9a6",
+    "scripts/rust-migration/stats-differential.py": "45ea8eb34768601d41ee557555c8018745cf7987da7a2b0b5bb4907b72fc9098",
+    "docs/rust-migration/strategy-inventory.json": "7d41c7f29dcfdd383f8d7f59ebb86be6af913bc2c541ec53e89fb584b8affe17"
+  },
+  "checks": [
+    {
+      "command": "cargo test --offline --manifest-path native/trading-runtime/Cargo.toml",
+      "result": "passed",
+      "tests": 16,
+      "scope": "6 protocol and 10 statistics tests; no market or portfolio port certification"
+    },
+    {
+      "command": "cargo clippy --locked --offline --manifest-path native/trading-runtime/Cargo.toml --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "node20 --import tsx --test src/runtime/nativeClient.test.ts src/runtime/nativeClient.integration.test.ts",
+      "result": "passed",
+      "tests": 47,
+      "scope": "40 adversarial client fixtures plus 7 actual native executable integration tests; independently rerun by non-author reviewer"
+    },
+    {
+      "command": "node20 --import tsx --test scripts/rust-migration/inventory-strategies.test.ts",
+      "result": "passed",
+      "tests": 4,
+      "scope": "Catalog inventory agent verification"
+    },
+    {
+      "command": "node20 node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --pretty false",
+      "result": "passed"
+    },
+    {
+      "command": "node20 node_modules/eslint/bin/eslint.js src/runtime/contracts.ts src/runtime/nativeClient.ts src/runtime/nativeClient.test.ts src/runtime/nativeClient.integration.test.ts",
+      "result": "passed",
+      "scope": "Client agent verification after final edits"
+    },
+    {
+      "command": "python3 scripts/rust-migration/stats-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --report /private/tmp/rust-migration-stats-final.json",
+      "result": "passed",
+      "cases": 94,
+      "marketRows": 28899,
+      "comparatorMutationChecks": 10,
+      "evidence": "docs/rust-migration/evidence/foundation-stats.json"
+    },
+    {
+      "command": "node20 node_modules/vitepress/bin/vitepress.js build (cwd=docs)",
+      "result": "passed",
+      "scope": "Rendered final foundation specification, plan, status and independent review pages; existing highlighting/chunk warnings remain."
+    }
+  ],
+  "review": "docs/rust-migration/FOUNDATION-REVIEW.md",
+  "limitations": [
+    "No native strategy/replay/live capabilities advertised or accepted.",
+    "No production caller, database, queue or fleet adoption certified.",
+    "External saved strategy inventory and complete schema validation compatibility remain pending.",
+    "No performance measurement or speed multiplier established by this milestone.",
+    "Source changes invalidate affected evidence; final revision requires revalidation."
+  ]
+}

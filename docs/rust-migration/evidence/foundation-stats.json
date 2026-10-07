@@ -1,0 +1,18 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "oracleSourceSha256": {
+    "src/backtest/stats/batchStats.ts": "653e7ad19f376ef6e8bd7c7e32394e3db54462cd81b5fa6a0d2021eeeb3d0020",
+    "src/backtest/stats/backtestSegments.ts": "6026763825f003d8bcb04333ba556c64b21fa967821355d3a931b736750d658a",
+    "src/backtest/stats/wallClock.ts": "75175d12bf130f11c72e3024a9cc4e4eb6efa79734e5d6dc52e3cb484906309f"
+  },
+  "node": "v20.19.6",
+  "nativeBinarySha256": "a049e39599694d09a88cd3eaae2bb64917f6db80867522c52a2501c6f4b6a9ba",
+  "nativeBinaryFrozenForExecution": true,
+  "oracleWrapperSha256": "d171315419e178aeae9ae4512735a68a258198c8f2fa9fe9d0c20787ad05d9a6",
+  "differentialRunnerSha256": "45ea8eb34768601d41ee557555c8018745cf7987da7a2b0b5bb4907b72fc9098",
+  "booleanNumberMutationChecks": 10,
+  "fixturesSha256": "be945873e59734a3039dc1ce66ccf94692482a1db42f5390fb82d7634d57681f",
+  "cases": 94,
+  "marketRows": 28899,
+  "fullOutputParity": true
+}
