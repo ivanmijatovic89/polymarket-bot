@@ -1,5 +1,6 @@
 import { readRemoteManifest } from '../recorder-v4/storage/archive.js'
 import { R2BlobStore } from '../recorder-v4/storage/blobStore.js'
+import { CatalogReadinessError } from '../recorder-v4/catalog/errors.js'
 import { loadCatalogDatabaseEnv } from '../recorder-v4/catalog/config.js'
 import { RecorderCliError } from '../recorder-v4/cliError.js'
 import {
@@ -83,7 +84,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  if (error instanceof RecorderCliError) {
+  if (error instanceof RecorderCliError || error instanceof CatalogReadinessError) {
     console.error(`[recorder-data] ${error.message}`)
     process.exitCode = 1
     return

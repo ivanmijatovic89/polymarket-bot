@@ -2,6 +2,7 @@ import { and, eq, gte, lte, inArray, notInArray, sql } from 'drizzle-orm'
 import { canonicalJson } from '../recorder-v4/replay/provenance.js'
 import { getDb } from './index.js'
 import { recorderV4Recordings as recordings, recorderV4CatalogSyncs as syncs } from './schema.js'
+import { CatalogReadinessError } from '../recorder-v4/catalog/errors.js'
 import { catalogScopeId, validateCatalogRecording } from '../recorder-v4/catalog/identity.js'
 import type {
   CatalogRecording,
@@ -149,11 +150,11 @@ export async function queryCatalogRecordings(
 ): Promise<CatalogRecording[]> {
   const status = await readCatalogStatus(scope)
   if (!status?.initializedAtMs)
-    throw new Error(
+    throw new CatalogReadinessError(
       'Recorder V4 MySQL catalog is not initialized. Run npm run record:v4:catalog -- sync with the catalog service configuration.',
     )
   if (!status.lastCompletedAtMs || Date.now() - status.lastCompletedAtMs > CATALOG_MAX_AGE_MS)
-    throw new Error(
+    throw new CatalogReadinessError(
       'Recorder V4 MySQL catalog is stale (over 15 minutes). Restore its sync service before selecting markets.',
     )
   const rows = await getDb()

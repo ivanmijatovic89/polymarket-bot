@@ -15,13 +15,15 @@ All observations receive one shared sequence and local arrival timestamps. Each 
 2. Capture into durable local journals. Record connection changes, uncertainty intervals, and other coverage evidence alongside market data.
 3. Finalize a market after its end and diagnostic grace, then upload its Parquet and immutable manifest to R2 under `recorder-v4/btc/<5m|15m>/<slug>/<recording-id>/`.
 4. Verify the uploaded bytes and checksums before removing local event files. Keep unfinished work for retry/recovery. Track official resolution in later sidecars.
-5. Download verified packages for backtests and select `--input-mode recorder-v4`. Required-feed gaps skip the whole market by default; explicit outage replay keeps those gaps visible.
+5. Index verified packages, coverage, reference availability, and official outcomes in MySQL with the independent catalog service.
+6. Select recordings from MySQL and download verified packages for backtests and select `--input-mode recorder-v4`. Required-feed gaps skip the whole market by default; explicit outage replay keeps those gaps visible.
 
 See the [capture/archive and replay diagrams](/datasets/recording/recorder-v4#capture-and-archive-diagram). Arrival times represent this recorder process; another machine or WebSocket session can receive a different stream. Replay does not reproduce actual exchange fills or recover events never received.
 
 ## Operations
 
 - [V4 configuration, capture, download, and backtests](/datasets/recording/recorder-v4)
+- [MySQL catalog, eligibility, and fleet downloads](/datasets/recording/recorder-v4-mysql-catalog)
 - [Worker-2 installation and service commands](/datasets/recording/recorder-v4-worker-2)
 - [Validation and rollout evidence](/datasets/recording/recorder-v4-validation)
 

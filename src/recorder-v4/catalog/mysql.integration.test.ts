@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { CatalogReadinessError } from './errors.js'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import mysql from 'mysql2/promise'
@@ -44,7 +45,11 @@ test(
       if (statement.trim()) await connection.execute(statement)
     const repository = new MysqlRecorderCatalog()
     const r = recording()
-    await assert.rejects(queryCatalogRecordings(scope), /not initialized/)
+    await assert.rejects(
+      queryCatalogRecordings(scope),
+      (error: unknown) =>
+        error instanceof CatalogReadinessError && /not initialized/.test(error.message),
+    )
     await Promise.all([repository.put(r), repository.put(r)])
     assert.equal((await repository.listKnown(scope)).length, 1)
     const row = (await repository.get(r.id))!
@@ -74,7 +79,11 @@ test(
       failures: [],
     }
     await repository.saveStatus(status)
-    await assert.rejects(queryCatalogRecordings(scope), /not initialized/)
+    await assert.rejects(
+      queryCatalogRecordings(scope),
+      (error: unknown) =>
+        error instanceof CatalogReadinessError && /not initialized/.test(error.message),
+    )
     await repository.saveStatus({ ...status, remaining: 0 })
     assert.ok((await readCatalogStatus(scope))?.initializedAtMs)
     assert.equal((await queryCatalogRecordings(scope, { timeframe: '15m' })).length, 0)
@@ -92,6 +101,9 @@ test(
     )
     assert.equal(packages[0]!.marketResolution.outcome, 'UP')
     await connection.execute('UPDATE recorder_v4_catalog_syncs SET last_completed_at_ms = 1')
-    await assert.rejects(queryCatalogRecordings(scope), /stale/)
+    await assert.rejects(
+      queryCatalogRecordings(scope),
+      (error: unknown) => error instanceof CatalogReadinessError && /stale/.test(error.message),
+    )
   },
 )
