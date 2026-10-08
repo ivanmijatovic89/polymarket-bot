@@ -7,7 +7,7 @@ description: Durable progress, decisions and outstanding requirements.
 
 ## Current state
 
-Overall goal: active and incomplete. Production services unchanged. Work occurs in the attached isolated `codex/rust-backtest-benchmark` worktree. Current goal turn classification: progress (native arithmetic, market and Portfolio work, expanded immutable artifact scope and independent reviews).
+Overall goal: active and incomplete. Production services unchanged. Work occurs in the attached isolated `codex/rust-backtest-benchmark` worktree. Current goal turn classification: progress (draft PR publication, native CI gates, stronger executable provenance, historical snapshots and intent/metadata implementation with independent review).
 
 Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migration worktree revision: `190787ac`. The benchmark branch originally used an older TS baseline; merge `84f3a838` brought the pinned production revision into the isolated worktree without changing the user's primary checkout. Its existing untracked simulator idea document remains untouched.
 
@@ -31,6 +31,9 @@ Reference TS revision: `07245602d6ff9bca0dcdf772134cba3dd227526c`. Starting migr
 - All five independent foundation review findings fixed and rechecked. Final validation includes 16 native tests, 47 client/process tests and 94 full-output statistics scenarios over 28,899 market rows.
 - Root Node 20 typecheck, targeted ESLint, strict native Clippy and documentation build passed. Full final CI remains required.
 - Preserved historical experimental files and ignored handoff archive. Earlier measurements do not certify the new production runtime.
+- Opened draft PR [#300](https://github.com/ivanmijatovic89/polymarket-bot/pull/300). Its first dashboard, WebUI, documentation and prototype checks passed. Root quality failed on one experiment document's formatting; the exact document is repaired locally and the full local Prettier check passes. Publication and remote revalidation of the repair remain pending.
+- Added native quality gates for Ubuntu and macOS with pinned Rust 1.89.0, Node 20, full pinned reference history, unit/process/inventory tests and complete debug/release differential suites. The new matrix remains unverified until its remote jobs pass.
+- The statistics runner now builds the current native executable, freezes the Cargo-reported artifact and binds native source membership/content plus wrapper/input identities. Eight output-count mutations and ten boolean/number mutations are rejected. Its refreshed 94-case execution remains pending the shared source freeze.
 
 ## Active parallel work
 

@@ -75,6 +75,66 @@ jobs:
       - name: Research index freshness
         run: npm run research:build-index -- --check
 
+  native-quality:
+    name: Native runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      RUSTUP_TOOLCHAIN: '1.89.0'
+    steps:
+      - name: Checkout pinned reference history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install pinned Rust tooling
+        run: rustup toolchain install 1.89.0 --profile minimal --component rustfmt --component clippy
+
+      - name: Rust formatting
+        run: cargo fmt --manifest-path native/trading-runtime/Cargo.toml -- --check
+
+      - name: Rust lint
+        run: cargo clippy --locked --manifest-path native/trading-runtime/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rust unit tests and executable
+        run: |
+          cargo test --locked --manifest-path native/trading-runtime/Cargo.toml
+          cargo build --locked --manifest-path native/trading-runtime/Cargo.toml
+
+      - name: Native process lifecycle and contract tests
+        run: node --import tsx --test src/runtime/nativeClient.test.ts src/runtime/nativeClient.integration.test.ts
+
+      - name: Strategy and artifact inventory tests
+        run: node --import tsx --test scripts/rust-migration/inventory-strategies.test.ts scripts/rust-migration/inventory-artifacts.test.ts
+
+      - name: Full market and portfolio reference comparisons
+        run: |
+          python3 scripts/rust-migration/market-differential.py --node node
+          python3 scripts/rust-migration/portfolio-differential.py --node node
+
+      - name: Debug and release arithmetic and metric reference comparisons
+        run: |
+          python3 scripts/rust-migration/math-differential.py --node node
+          python3 scripts/rust-migration/metrics-differential.py --node node
+          python3 scripts/rust-migration/math-differential.py --node node --release
+          python3 scripts/rust-migration/metrics-differential.py --node node --release
+
+      - name: Full batch and calendar reference comparisons
+        run: python3 scripts/rust-migration/stats-differential.py --node node
+
   webui-quality:
     name: WebUI (Typecheck + Build)
     runs-on: ubuntu-latest

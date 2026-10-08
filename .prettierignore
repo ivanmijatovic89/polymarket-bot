@@ -21,3 +21,7 @@ src/strategies/research/INDEX.json
 experiments/rust-backtest/fixtures/
 experiments/rust-backtest/results/
 experiments/rust-backtest/target/
+
+# Native runtime build output and Python bytecode are generated artifacts.
+native/trading-runtime/target/
+scripts/rust-migration/__pycache__/

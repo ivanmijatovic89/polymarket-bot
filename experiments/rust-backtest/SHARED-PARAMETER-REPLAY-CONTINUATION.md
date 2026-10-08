@@ -17,13 +17,13 @@ The prototype's nine core modules are byte-identical to the current benchmark: s
 The reported sixteen tests and ten full standalone-versus-shared traces provide reusable checks for strict-before synthetic-feed timestamp ties, out-of-window provider behavior and candidate independence. Reversing candidate order preserved outputs. The ten candidates produced 41 decisions, 245 account events and six distinct final portfolio states.
 
 | Candidate count | Separate sequential Rust runs | Shared replay | Measured speedup |
-| ---: | ---: | ---: | ---: |
-| 1 | 1.666 s | 1.711 s | 0.974x |
-| 3 | 4.933 s | 2.346 s | 2.103x |
-| 5 | 8.289 s | 3.022 s | 2.743x |
-| 10 | 16.898 s | 5.314 s | 3.180x |
-| 20 | 34.033 s | 9.553 s | 3.563x |
-| 100 | 171.018 s | 43.019 s | 3.975x |
+| --------------: | ----------------------------: | ------------: | ---------------: |
+|               1 |                       1.666 s |       1.711 s |           0.974x |
+|               3 |                       4.933 s |       2.346 s |           2.103x |
+|               5 |                       8.289 s |       3.022 s |           2.743x |
+|              10 |                      16.898 s |       5.314 s |           3.180x |
+|              20 |                      34.033 s |       9.553 s |           3.563x |
+|             100 |                     171.018 s |      43.019 s |           3.975x |
 
 These scaling values are medians across three rounds. The separate baseline sums freshly measured standalone native-process times for each nested subset. An earlier five-pair ten-candidate experiment measured 17.094 versus 5.213 seconds, or 3.279x. Both exclude Python driver/parsing time and queue/database/batch work; they compare sequential candidate execution, not standalone candidates already running concurrently across workers.
 
