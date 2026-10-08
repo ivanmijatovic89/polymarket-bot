@@ -98,6 +98,31 @@ and bounded logs (8 MiB × four files). The prepared plist checksum is
 The checksum-guarded activation wrapper is
 `/Users/worker-2/Services/polymarket-recorder-v4-catalog/activate-catalog.zsh`.
 
-Administrator installation requires an interactive password; noninteractive sudo reported
-that a password is required. Preparation is not proof of a running LaunchDaemon. Verify its
-actual activation separately using the [worker-2 operations guide](./recorder-v4-worker-2#independent-mysql-catalog-service).
+## Completed October 8 catalog activation
+
+The operator completed the prepared administrator installation. Read-only verification at
+11:52 UTC confirmed `system/com.polymarket.recorder-v4-catalog` running as worker-2 from the
+pinned `f4d970ac8fc2a0c44f17cc394bb14b117249cff7` release. Supervisor PID 30435 started at
+11:48:46 UTC, with one launch and no previous exit.
+
+The daemon's startup full scan indexed four new recordings and refreshed four resolution
+histories. Subsequent automatic scans refreshed another resolution and indexed another new
+recording. At 11:52:16 UTC, MySQL held 785 recordings: 588 BTC 5m and 197 BTC 15m. The latest
+completed scan was at 11:51:57 UTC, with zero remaining imports and no failures. This verifies
+ongoing automatic indexing after the initial manual import.
+
+The running dashboard API returned HTTP 200 for October 8 BTC 5m coverage and exposed the same
+fresh catalog scan, zero pending imports, and zero failures. Its newest recording still awaited
+an official outcome and was excluded accordingly; an empty import backlog does not mean every
+market has already resolved.
+
+Capture supervisor PID 95492 and child PID 95498 were unchanged. The recorder heartbeat was
+fresh, both market durations were active, and all six feeds were receiving. Archive status
+reported zero pending uploads and no archive error. Catalog logging used the bounded supervisor;
+the active log was approximately 1.3 KiB, within its separate 32 MiB retention limit.
+
+This activation verification used read-only process, log, recorder-status, MySQL, and dashboard
+checks. It did not restart capture or fleet workers or change R2 objects. Historical gaps and
+strategy eligibility rules remain unchanged. The installation is complete; use the
+[worker-2 operations guide](./recorder-v4-worker-2#independent-mysql-catalog-service)
+for routine status and maintenance, rather than repeating the initial installer.

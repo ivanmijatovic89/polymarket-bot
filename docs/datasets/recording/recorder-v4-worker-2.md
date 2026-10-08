@@ -201,3 +201,18 @@ A database outage stops/retries indexing while the independent recorder continue
 For catalog maintenance, disable/bootout only `system/com.polymarket.recorder-v4-catalog`,
 wait for exit, then update its pinned plist and bootstrap that label. Keep the previous
 catalog plist for rollback. Do not run a second importer while its service holds the lock.
+
+### Completed October 8 catalog activation
+
+The operator activated the prepared catalog service at 11:48 UTC on October 8 using:
+
+```bash
+ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4-catalog/activate-catalog.zsh'
+```
+
+This initial installation is complete; do not repeat that command on the loaded service.
+The daemon runs from release `f4d970ac8fc2a0c44f17cc394bb14b117249cff7`. Post-activation
+checks confirmed automatic indexing, a fresh MySQL scan, 785 indexed recordings, no import
+backlog or failures, and unchanged recorder processes. See the
+[activation evidence](./recorder-v4-mysql-validation#completed-october-8-catalog-activation).
+Use the read-only status commands above for routine verification.
