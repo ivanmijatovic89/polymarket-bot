@@ -211,11 +211,13 @@ ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recor
 ```
 
 This initial installation is complete; do not repeat that command on the loaded service.
-The daemon runs from release `f4d970ac8fc2a0c44f17cc394bb14b117249cff7`. Post-activation
+The initial daemon used release `f4d970ac8fc2a0c44f17cc394bb14b117249cff7`. Post-activation
 checks confirmed automatic indexing, a fresh MySQL scan, 785 indexed recordings, no import
 backlog or failures, and unchanged recorder processes. See the
 [activation evidence](./recorder-v4-mysql-validation#completed-october-8-catalog-activation).
-Use the read-only status commands above for routine verification.
+Use the read-only status commands above for routine verification. The catalog was subsequently
+updated to recovery release `7f8021e926a27cd67e3a1cc7bf150ba3723b591e` at 14:33 UTC; see the
+[recovery activation evidence](./recorder-v4-mysql-validation#completed-october-8-recovery-activation).
 
 ### Updating the independent catalog
 
@@ -237,6 +239,8 @@ overlapping importer. It does not control the capture or fleet services. Verify 
 scan completion afterward; a running PID alone is not enough. The shared mocked updater
 tests cover both service labels separately, including rollback and failure before stopping.
 
-The recovery fix introduces a 30-second database-operation deadline and a five-second
-shutdown bound. It becomes active only after switching to a release containing that fix;
-the original October 8 `f4d970ac` catalog release does not contain it.
+The active recovery release applies a 30-second database-operation deadline and a five-second
+shutdown bound. Its October 8 activation was verified with fresh automatic MySQL scans, no
+import backlog or failures, and unchanged recorder processes. The original `f4d970ac` release
+does not contain these fixes; use the current pinned release for routine catalog commands.
+No further activation is pending for this update.
