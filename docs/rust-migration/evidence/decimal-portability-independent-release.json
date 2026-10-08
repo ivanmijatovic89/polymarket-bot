@@ -153,7 +153,7 @@
     "scripts/rust-migration/fixtures/decimal-pow10-darwin-arm64.json": "02c0f01de4af6002c33db7c1a5ce98590cf103e2ba63fccbf2b52c67cf056119",
     "scripts/rust-migration/fixtures/decimal-pow10-linux-x64.json": "d8b27e9671a8d0ca3c403bae571b699e5805937d9e8acddcaeb7387e2e3ff210"
   },
-  "nativeBinarySha256": "6d62ca6e0fe0e2f556598bec5603ba4a9a6276fe15ac0ea734bbadf4dce32b7a",
+  "nativeBinarySha256": "c19a97b42a082e31806d8e01b95c27407b3375e6518a75847c51714646ab8d4d",
   "fixtureSha256": "303c74cae48ff53b5fe9f47c410167acdc366568f9759606b07642831959cd04",
   "buildProfile": "release",
   "nodeVersion": "v20.19.6",
