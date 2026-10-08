@@ -16,6 +16,57 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE = "07245602d6ff9bca0dcdf772134cba3dd227526c"
 CODEC_SHA = "cdcedb1b1e641a2041161fac300129c1c8fcf399449d749735ad7e7b810f22cd"
+POWER_CAPTURE_FILES = [ROOT/"scripts/rust-migration/fixtures"/f"decimal-pow10-{target}.json"
+                       for target in ["darwin-arm64", "linux-x64"]]
+
+
+def power_identity(node):
+    script = """const bits = value => { const b = Buffer.alloc(8); b.writeDoubleBE(value); return b.toString('hex'); };
+const powers = () => Array.from({length:310}, (_,scale) => bits(Math.pow(10,scale)));
+const cold = powers(); for(let i=0;i<1000;i++) powers(); const hot = powers();
+console.log(JSON.stringify({platform:process.platform,architecture:process.arch,versions:process.versions,cold,hot}));"""
+    return json.loads(subprocess.check_output([node,"--eval",script],cwd=ROOT,text=True))
+
+
+def validate_power_reference(identity, native_target):
+    profile = f"{identity['platform']}-{identity['architecture']}"
+    if profile not in ["darwin-arm64", "linux-x64"]:
+        raise RuntimeError("Unverified development Node20 DECIMAL target profile; deployment coverage remains pending")
+    expected = json.loads((ROOT/"scripts/rust-migration/fixtures"/f"decimal-pow10-{profile}.json").read_text())
+    if expected["platform"] != identity["platform"] or expected["architecture"] != identity["architecture"]:
+        raise RuntimeError("Reference capture target identity differs")
+    if not expected["coldEqualsHot"] or len(expected["cold"]) != 310 or expected["cold"] != expected["hot"]:
+        raise RuntimeError("Invalid reviewed reference power capture")
+    if identity["cold"] != expected["cold"] or identity["hot"] != expected["cold"]:
+        raise RuntimeError("Actual Node20 powers differ from the reviewed target capture; new runtime evidence required")
+    expected_native = {"darwin-arm64":dict(os="macos",arch="aarch64",powerProfile=profile),
+                       "linux-x64":dict(os="linux",arch="x86_64",powerProfile=profile)}[profile]
+    if native_target != expected_native:
+        raise RuntimeError("Native and Node reference target profiles differ")
+    return dict(profile=profile,capturedRuntime=expected["versions"],
+                capturedExecutableSha256=expected["nodeExecutableSha256"],
+                captureProvenance=expected["captureProvenance"],currentRuntime=identity["versions"],
+                all310ColdHotPowerBitsMatch=True)
+
+
+def power_guard_mutation_checks(identity, native_target):
+    validate_power_reference(identity,native_target)
+    wrong_bits=copy.deepcopy(identity)
+    wrong_bits["cold"][218]=wrong_bits["hot"][218]="0000000000000000"
+    wrong_hot=copy.deepcopy(identity);wrong_hot["hot"][218]="0000000000000000"
+    short=copy.deepcopy(identity);short["cold"]=short["cold"][:-1];short["hot"]=short["hot"][:-1]
+    unknown=copy.deepcopy(identity);unknown["architecture"]="unverified"
+    wrong_native=dict(native_target,powerProfile="unverified")
+    mutants=[(wrong_bits,native_target),(wrong_hot,native_target),(short,native_target),
+             (unknown,native_target),(identity,wrong_native)]
+    for current,target in mutants:
+        try:
+            validate_power_reference(current,target)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("DECIMAL power-profile guard accepted deliberate mismatch")
+    return len(mutants)
 
 
 def sha(data):
@@ -220,9 +271,10 @@ def main():
     package_version = json.loads((ROOT/"node_modules/@dsnp/parquetjs/package.json").read_text())["version"]
     if package_version != "1.8.7":
         raise RuntimeError("Installed reference package version changed")
+    power_before = power_identity(args.node)
     native_before = hash_files(native_files())
     dependency_before = hash_files(dependencies())
-    wrappers = hash_files([Path(__file__).resolve(), ROOT/"scripts/rust-migration/parquet-decimal-oracle.mts"])
+    wrappers = hash_files([Path(__file__).resolve(), ROOT/"scripts/rust-migration/parquet-decimal-oracle.mts",*POWER_CAPTURE_FILES])
     command = [args.cargo,"build","--locked","--offline","--manifest-path","native/trading-runtime/Cargo.toml",
                "--example","parquet_decimal_fixtures","--message-format=json"]
     if args.release:
@@ -239,6 +291,9 @@ def main():
         directory=Path(directory);binary=directory/"parquet_decimal_fixtures";shutil.copy2(original,binary)
         if sha(binary.read_bytes())!=binary_sha or sha(original.read_bytes())!=binary_sha:
             raise RuntimeError("Native binary changed while freezing")
+        native_target=json.loads(subprocess.check_output([str(binary),"--reference-target"],cwd=ROOT,text=True))
+        power_reference=validate_power_reference(power_before,native_target)
+        power_guard_mutations=power_guard_mutation_checks(power_before,native_target)
         fixture=directory/"fixtures.json";fixture.write_text(payload)
         expected=json.loads(subprocess.check_output([args.node,"--import","tsx",str(ROOT/"scripts/rust-migration/parquet-decimal-oracle.mts"),str(fixture)],cwd=ROOT,text=True))
         actual=json.loads(subprocess.check_output([str(binary)],input=payload,cwd=ROOT,text=True))
@@ -248,6 +303,8 @@ def main():
         raise RuntimeError("Native/reference/dependency/wrapper source set changed during DECIMAL evidence")
     if tooling(args.node,args.cargo) != tooling_before:
         raise RuntimeError("Compiler/runtime binary or version changed during evidence")
+    if power_identity(args.node) != power_before:
+        raise RuntimeError("Actual Node power identity changed during DECIMAL evidence")
     compare(expected,actual,rows);mutations=mutation_checks()
     report=dict(referenceRevision=REFERENCE,installedReferencePackage="@dsnp/parquetjs@1.8.7",
                 installedReferenceCodecSha256=CODEC_SHA,nativeInputsSha256=native_before,
@@ -260,12 +317,14 @@ def main():
                 actualFooterDictionaryCases=sum(bool(row.get("dictionary")) and not row.get("schema_undefined") for row in rows),
                 statisticsCodecParityClaimed=False,
                 rawAnnotationHelperCases=sum(bool(row.get("raw_descriptor")) for row in rows),
-                rawScaleMathPowNode20BitsParity=True,
+                rawScaleMathPowNode20BitsParity=True,numericPowerReference=power_reference,
+                developmentTargetProfilesOnly=True,referencePowerGuardMutationChecks=power_guard_mutations,
                 actualParquetReaderDecimalParity=False,wholeReplayParity=False,
                 pending=["Reader integration with original physical data/dictionary cursor bytes",
                          "Definition/repetition/dictionary index materialization and Buffer shared identity",
                          "Actual DECIMAL Parquet file corpus including exception timing",
                          "Negative raw schema typeLength cursor domain and SDK Buffer mutation/prototype semantics",
+                         "Complete deployment/fleet target inventory and reference power profiles beyond reviewed macOS ARM64/Linux x64",
                          "Other logical conversions and complete historical/live runtime"])
     if args.report:
         Path(args.report).write_text(json.dumps(report,indent=2)+"\n")

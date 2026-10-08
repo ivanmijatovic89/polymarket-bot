@@ -292,3 +292,91 @@ fn raw_scale_preserves_reference_pow_rounding_and_signed_zero_overflow() {
         );
     }
 }
+
+#[test]
+fn raw_scale_218_preserves_target_reference_bit_pattern() {
+    let raw = RawDecimalDescriptor {
+        physical_type: PhysicalType::INT64,
+        precision: 218,
+        scale: 218,
+        type_length: None,
+    };
+    let expected = match reference_power_profile() {
+        Some("darwin-arm64") => (0x6d3221563a9b7323_u64, 0x12ac3d79c9b8fe2d_u64),
+        Some("linux-x64") => (0x6d3221563a9b7322_u64, 0x12ac3d79c9b8fe2f_u64),
+        _ => {
+            assert!(raw_plan(&raw).is_err());
+            return;
+        }
+    };
+    let DecimalPlan::Number { divisor, .. } = raw_plan(&raw).unwrap() else {
+        panic!()
+    };
+    assert_eq!(divisor.to_bits(), expected.0);
+    let bytes = numeric(&[-1, 0, 1]);
+    let result = decode_raw_plain(
+        &bytes,
+        3,
+        &raw,
+        0,
+        Some(bytes.len()),
+        PlainLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        numbers(&result)
+            .iter()
+            .map(|v| v.to_bits())
+            .collect::<Vec<_>>(),
+        vec![expected.1 | (1_u64 << 63), 0, expected.1]
+    );
+}
+
+#[test]
+fn every_power_matches_reviewed_same_version_target_capture() {
+    let darwin: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../scripts/rust-migration/fixtures/decimal-pow10-darwin-arm64.json"
+    ))
+    .unwrap();
+    let linux: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../scripts/rust-migration/fixtures/decimal-pow10-linux-x64.json"
+    ))
+    .unwrap();
+    assert_eq!(darwin["versions"]["node"], "20.20.2");
+    assert_eq!(darwin["versions"]["v8"], linux["versions"]["v8"]);
+    assert_eq!(darwin["versions"]["node"], linux["versions"]["node"]);
+    for capture in [&darwin, &linux] {
+        assert_eq!(capture["coldEqualsHot"], true);
+        assert_eq!(capture["cold"], capture["hot"]);
+        assert_eq!(capture["cold"].as_array().unwrap().len(), 310);
+    }
+    assert_eq!(darwin["cold"][218], "6d3221563a9b7323");
+    assert_eq!(linux["cold"][218], "6d3221563a9b7322");
+    assert_eq!(
+        (0..310)
+            .filter(|i| darwin["cold"][*i] != linux["cold"][*i])
+            .collect::<Vec<_>>(),
+        vec![218]
+    );
+    let capture = match reference_power_profile() {
+        Some("darwin-arm64") => darwin,
+        Some("linux-x64") => linux,
+        _ => return,
+    };
+    for scale in 0..310 {
+        let raw = RawDecimalDescriptor {
+            physical_type: PhysicalType::INT64,
+            precision: scale.max(20),
+            scale,
+            type_length: None,
+        };
+        let DecimalPlan::Number { divisor, .. } = raw_plan(&raw).unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            format!("{:016x}", divisor.to_bits()),
+            capture["cold"][scale as usize].as_str().unwrap(),
+            "scale{scale}"
+        );
+    }
+}

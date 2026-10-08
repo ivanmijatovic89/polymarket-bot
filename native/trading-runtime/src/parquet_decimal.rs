@@ -90,9 +90,13 @@ pub struct RawDecimalDescriptor {
     pub type_length: Option<i32>,
 }
 
-// Generated from Node v20.19.6 Math.pow(10, integer_scale), not native powi.
-// The differential oracle independently calls the pinned installed JS codec
-// for every scale; this table is bound with the compiled source fingerprints.
+// Captured from Node20 on macOS/aarch64; Linux/x86_64 differs at scale218.
+// The extracted V8 fdlibm implementation matches these captures with ARM
+// contraction enabled vs disabled. The bits come from actual Node captures,
+// not an assumption about another compiler or target's floating-point behavior.
+// Evidence fixtures retain full runtime and executable identities.
+// All scales are independently checked through the actual installed JS codec.
+// Further deployment targets remain an explicit migration acceptance dependency.
 const JS_POW10_BITS: [u64; 309] = [
     0x3ff0000000000000,
     0x4024000000000000,
@@ -404,12 +408,32 @@ const JS_POW10_BITS: [u64; 309] = [
     0x7fac7b1f3cac7433,
     0x7fe1ccf385ebc8a0,
 ];
-fn raw_divisor(scale: i32) -> f64 {
-    JS_POW10_BITS
-        .get(scale as usize)
-        .copied()
-        .map(f64::from_bits)
-        .unwrap_or(f64::INFINITY)
+/// Development evidence profiles; this is not a completed fleet target inventory.
+pub fn reference_power_profile() -> Option<&'static str> {
+    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        Some("darwin-arm64")
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        Some("linux-x64")
+    } else {
+        None
+    }
+}
+fn raw_divisor(scale: i32) -> Result<f64, String> {
+    let Some(mut bits) = JS_POW10_BITS.get(scale as usize).copied() else {
+        return Ok(f64::INFINITY);
+    };
+    if scale > 18 {
+        match reference_power_profile() {
+            Some("darwin-arm64") => (),
+            Some("linux-x64") => {
+                if scale == 218 {
+                    bits = 0x6d3221563a9b7322;
+                }
+            }
+            _ => return Err("Unverified development Node20 DECIMAL power target profile".into()),
+        }
+    }
+    Ok(f64::from_bits(bits))
 }
 fn validate_raw(descriptor: &RawDecimalDescriptor) -> Result<(), String> {
     if descriptor.precision <= 0 || descriptor.scale < 0 || descriptor.scale > descriptor.precision
@@ -428,7 +452,7 @@ pub fn raw_plan(descriptor: &RawDecimalDescriptor) -> Result<DecimalPlan, String
                 8
             },
             value_width: if descriptor.precision > 9 { 8 } else { 4 },
-            divisor: raw_divisor(descriptor.scale),
+            divisor: raw_divisor(descriptor.scale)?,
         }),
         PhysicalType::BYTE_ARRAY => Ok(DecimalPlan::ByteArray),
         PhysicalType::FIXED_LEN_BYTE_ARRAY => {

@@ -131,6 +131,14 @@ fn run(case: Fixture) -> Result<Value, Box<dyn std::error::Error>> {
     })
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().nth(1).as_deref() == Some("--reference-target") {
+        println!(
+            "{}",
+            json!({"os":std::env::consts::OS,"arch":std::env::consts::ARCH,
+            "powerProfile":polymarket_runtime::parquet_decimal::reference_power_profile()})
+        );
+        return Ok(());
+    }
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
     let cases: Vec<Fixture> = serde_json::from_str(&input)?;
