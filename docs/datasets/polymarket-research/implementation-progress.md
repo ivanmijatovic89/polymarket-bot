@@ -339,7 +339,7 @@ measurements. Use current coverage and generation-bound verification for analysi
   `72032083` during final review.
 - Worktree: `/Users/mijat/.codex/worktrees/polymarket-v2-research-data/polymarket-bot`.
 - Runtime: `/Users/mijat/.nvm/versions/node/v20.19.6/bin` (host default is Node 26).
-- Permanent dataset: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
+- Permanent dataset: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`.
 - Available disk at planning: approximately 29 GiB; measure again before backfill.
 
 ## Observations, 2026-10-04
@@ -459,13 +459,13 @@ The latest formatter, TypeScript/ESLint, feature tests and docs build pass. Draf
   `logs/query-previews-20261004/`. All 22 tests, type checking, lint and docs build
   pass. These previews do not satisfy the pending full-month demonstration.
 
-Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
+Permanent root: `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`.
 Active log: `logs/june-september-progress.log`. The process PID is in `sync.lock`;
 always inspect the actual process before treating a tool observation timeout as
 process failure. On failure, repair the bounded issue and resume the same command:
 
 ```bash
-npm run research:sync -- --root /Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2 --from 2026-06-01 --to 2026-10-01 --concurrency 16 --rps 60
+npm run research:sync -- --root /Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m --from 2026-06-01 --to 2026-10-01 --concurrency 16 --rps 60
 ```
 
 Verification evidence for the samples is under `logs/2026-06-01-accounting-v5.json`,

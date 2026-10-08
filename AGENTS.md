@@ -72,7 +72,10 @@ Use the `research:coverage` and `research:verify` commands before interpreting
 rankings. Normal research includes all observed wallets, without audit filters.
 The API research dataset is separate from strategy tick replay; never
 substitute its timestamp/source-row ordering for `MarketEngine` tick semantics.
-Use `POLYMARKET_RESEARCH_DATA_DIR` or `--root` to locate the permanent dataset.
+Use `POLYMARKET_RESEARCH_DATA_DIR` or `--root` to locate one symbol/timeframe dataset.
+The local BTC 15-minute root is
+`/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`.
+The parent `polymarket-research-v2` is a collection, not a query/download root.
 
 Large artifacts exist in this repo. Read intentionally:
 

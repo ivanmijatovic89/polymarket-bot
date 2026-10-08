@@ -14,7 +14,7 @@ import { verifyDataset } from '../research-data/verify.js'
 import { benchmarkDataset } from '../research-data/benchmark.js'
 import { syncDataset, SyncBusyError } from '../research-data/sync.js'
 import { readUpdateConfig, updateDataset } from '../research-data/update.js'
-import { marketFamily } from '../research-data/family.js'
+import { assertDatasetRoot, marketFamily } from '../research-data/family.js'
 import { readJson } from '../research-data/files.js'
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
@@ -48,7 +48,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     console.log(`Polymarket research data (API v2, BTC 15-minute)
 
 Commands: sync, update, status, rebuild, verify, benchmark, coverage, leaderboard, wallet, sql
---root PATH           Permanent data directory (or POLYMARKET_RESEARCH_DATA_DIR)
+--root PATH           Family dataset directory, e.g. .../btc/15m (or POLYMARKET_RESEARCH_DATA_DIR)
 --market btc:15m       Only supported market family
 --from YYYY-MM-DD      UTC market-window start, inclusive
 --to YYYY-MM-DD        UTC market-window start, exclusive (default: today)
@@ -81,6 +81,7 @@ No trading credentials needed.`)
       'Set --root or POLYMARKET_RESEARCH_DATA_DIR to a permanent directory outside disposable worktrees',
     )
   const root = path.resolve(rootValue)
+  await assertDatasetRoot(root)
   const family = marketFamily(config?.market ?? values.market)
   const integer = (raw: string, name: string, min: number, max: number) => {
     const n = Number(raw)

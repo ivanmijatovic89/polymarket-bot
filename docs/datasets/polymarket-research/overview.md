@@ -19,6 +19,30 @@ backfill contains 122 days, 11,712 markets and 37.12 million participant trade r
 The [nightly updater](./downloading) keeps later days current. Use `research:status`
 and `research:coverage` for the actual current endpoint of your local dataset.
 
+## Where the files live
+
+The permanent collection is organized by symbol and timeframe:
+
+```text
+polymarket-research-v2/
+  collection.json
+  btc/
+    15m/
+      dataset.json
+      index.json
+      snapshots/YYYY-MM-DD/<generation>/*.parquet
+      logs/
+      runtime/
+      update-config.json
+      update-state.json
+```
+
+Pass the `btc/15m` directory to `--root` or `POLYMARKET_RESEARCH_DATA_DIR`.
+Each future family will have its own directory and index, for example `btc/5m`
+or `eth/15m`. These additional families are still disabled. The parent collection
+is never a dataset; commands reject it with a message pointing to the family root.
+See [operations](./operations#moving-an-existing-dataset) for moving existing files.
+
 ## How it works
 
 ```mermaid

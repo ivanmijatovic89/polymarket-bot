@@ -17,7 +17,16 @@ export function marketFamily(id: string = DEFAULT_FAMILY) {
   return { id: id as MarketFamilyId, ...family, windowsPerDay: 86400 / family.windowSeconds }
 }
 
+/** A collection contains family roots; it must never become a dataset itself. */
+export async function assertDatasetRoot(root: string): Promise<void> {
+  if (await readJson(path.join(root, 'collection.json')))
+    throw new Error(
+      `Research collection root: ${root}. Set --root or POLYMARKET_RESEARCH_DATA_DIR to a symbol/timeframe directory, for example ${path.join(root, 'btc', '15m')}`,
+    )
+}
+
 export async function datasetFamily(root: string) {
+  await assertDatasetRoot(root)
   const config = await readJson<{ version: number; market: string }>(
     path.join(root, 'dataset.json'),
   )
@@ -28,6 +37,7 @@ export async function datasetFamily(root: string) {
 
 /** Called while holding the dataset writer lock. One root belongs to one family. */
 export async function ensureDatasetFamily(root: string, requested = DEFAULT_FAMILY) {
+  await assertDatasetRoot(root)
   const family = marketFamily(requested)
   const hasIdentity = await readJson(path.join(root, 'dataset.json'))
   const hasLegacyData = await readJson(path.join(root, 'index.json'))

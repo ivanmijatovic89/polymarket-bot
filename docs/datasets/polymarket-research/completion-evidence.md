@@ -87,7 +87,7 @@ measurements, working-disk samples and initial planning estimates.
 ## Verification and reproducibility
 
 The permanent root is
-`/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2`.
+`/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`.
 No blockchain download, enrichment or verification was used. Live/backtest
 strategy and tick paths are outside this feature's diff.
 

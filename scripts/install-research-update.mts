@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { build } from 'esbuild'
-import { marketFamily } from '../src/research-data/family.js'
+import { assertDatasetRoot, marketFamily } from '../src/research-data/family.js'
 import { activateResearchSchedule, prepareUpdateConfig } from '../src/research-data/installation.js'
 import { launchAgentPlist } from '../src/research-data/schedule.js'
 
@@ -33,6 +33,7 @@ if (Intl.DateTimeFormat().resolvedOptions().timeZone !== 'Europe/Belgrade')
   )
 const family = marketFamily(values.market)
 const root = path.resolve(values.root)
+await assertDatasetRoot(root)
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 execFileSync('git', ['diff', '--quiet'], { cwd: project })
 execFileSync('git', ['diff', '--cached', '--quiet'], { cwd: project })

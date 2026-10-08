@@ -16,7 +16,9 @@ All paths below are relative to the repository root (three levels above this fil
    Use `commands.md` for command syntax.
 2. Establish the market family, UTC market-window-start range and permanent root
    from `--root` or `POLYMARKET_RESEARCH_DATA_DIR`. Only BTC 15-minute is currently
-   enabled. Do not accidentally use a worktree's empty default data directory.
+   enabled. The local root is
+   `/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`;
+   its parent is a collection, not a dataset. Do not use a worktree's empty data directory.
 3. Run `research:coverage` and `research:verify` for the requested range before
    interpreting results. Genuine missing inputs or failed integrity checks need
    an accurate explanation; an unavailable month is not a zero-profit month.
