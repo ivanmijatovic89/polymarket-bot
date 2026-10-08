@@ -6,7 +6,42 @@ import { MarketEngine } from '../../src/market/MarketEngine.js'
 import { StrategyRunner } from '../../src/trading/StrategyRunner.js'
 const document = JSON.parse(readFileSync(process.argv[2]!, 'utf8'))
 const copy = (value: any): any =>
-  JSON.parse(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? String(v) : v)))
+  JSON.parse(
+    JSON.stringify(value, (_, v) => {
+      if (typeof v === 'bigint') return String(v)
+      if (typeof v === 'string' && /[\uD800-\uDFFF]/u.test(v)) {
+        // Neutral fixture tag for lone code units; paired astral characters do
+        // not match this Unicode-mode expression. Typed source probes use slots.
+        return { $utf16: Array.from({ length: v.length }, (_, i) => v.charCodeAt(i)) }
+      }
+      return v
+    }),
+  )
+function sourceMutation(source: any, spec: any) {
+  if (spec.localTimeBits) source.tsLocalMs = Buffer.from(spec.localTimeBits, 'hex').readDoubleBE()
+  if (spec.sequence !== undefined) source.ingestSeq = BigInt(spec.sequence)
+  if (spec.removeSequence) delete source.ingestSeq
+  if (spec.undefinedSequence) source.ingestSeq = undefined
+  if (spec.filePathUnits) source.filePath = String.fromCharCode(...spec.filePathUnits)
+  if (spec.nestedValue !== undefined) source.extra.value = spec.nestedValue
+}
+function sourceProbe(source: any) {
+  const units = (s: string) => Array.from({ length: s.length }, (_, i) => s.charCodeAt(i))
+  const bits = Buffer.alloc(8)
+  if (typeof source.tsLocalMs === 'number') bits.writeDoubleBE(source.tsLocalMs)
+  return {
+    keys: Object.keys(source).map(units),
+    sequenceType: typeof source.ingestSeq,
+    sequence: typeof source.ingestSeq === 'bigint' ? String(source.ingestSeq) : null,
+    localTimeBits:
+      typeof source.tsLocalMs === 'number'
+        ? Number.isNaN(source.tsLocalMs)
+          ? 'NaN'
+          : bits.toString('hex')
+        : null,
+    filePathUnits: typeof source.filePath === 'string' ? units(source.filePath) : null,
+  }
+}
 const results = []
 for (const c of document.cases) {
   const input = c.input,
@@ -20,6 +55,7 @@ for (const c of document.cases) {
     serialReceipts: any[] = []
   let provider: any = 'initial'
   const originals = new Map<string, any>()
+  const sources = new Map<string, any>()
   const gates = new Map<
     string,
     { promise: Promise<void>; resolve: () => void; reject: (e: any) => void }
@@ -125,8 +161,10 @@ for (const c of document.cases) {
     for (const op of input.operations) {
       if (op.kind === 'submit') {
         events.push({ kind: 'receipt', id: op.id })
-        const source = copy(op.source ?? { kind: 'live', attempt: 1 })
-        if ('ingestSeq' in source) source.ingestSeq = BigInt(source.ingestSeq)
+        const source = op.sourceId
+          ? sources.get(op.sourceId)
+          : copy(op.source ?? { kind: 'live', attempt: 1 })
+        if (!op.sourceId && 'ingestSeq' in source) source.ingestSeq = BigInt(source.ingestSeq)
         if (input.identityProbe)
           for (const message of op.messages) originals.set(String(message.timestamp), message)
         receipt(
@@ -137,6 +175,13 @@ for (const c of document.cases) {
           false,
           input.identityProbe ? op.messages.at(-1) : undefined,
         )
+      } else if (op.kind === 'source_create') {
+        const source = copy(op.source ?? { kind: 'live', attempt: 1 })
+        if ('ingestSeq' in source) source.ingestSeq = BigInt(source.ingestSeq)
+        sourceMutation(source, op)
+        sources.set(op.id, source)
+      } else if (op.kind === 'source_mutate') {
+        sourceMutation(sources.get(op.id), op)
       } else if (op.kind === 'account') {
         receipt(
           op.id,
@@ -163,7 +208,19 @@ for (const c of document.cases) {
             : null,
       })
     }
-    results.push({ name: c.name, result: { observations, retained: retained.map(copy) } })
+    const result: any = { observations, retained: retained.map(copy) }
+    if (input.sourceProbe) {
+      const ids = [...sources.keys()].sort()
+      result.sourceProbes = {
+        sources: ids.map((id) => ({ id, probe: sourceProbe(sources.get(id)) })),
+        ticks: retained.map((tick) => ({
+          probe: sourceProbe(tick.source),
+          sameSources: ids.map((id) => tick.source === sources.get(id)),
+          sameTickSources: retained.map((other) => tick.source === other.source),
+        })),
+      }
+    }
+    results.push({ name: c.name, result })
   } finally {
     console.error = realError
     console.warn = realWarn

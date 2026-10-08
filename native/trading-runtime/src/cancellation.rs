@@ -111,34 +111,48 @@ pub fn resolve_cancel_batch(
         let cid = reference.client_order_id.valid();
         let oid = reference.order_id.valid();
         let snapshot = portfolio.map(|p| p.snapshot);
-        let by_client = cid.and_then(|c| snapshot.and_then(|p| p.open_orders_by_client_id.get(c)));
+        let by_client = cid
+            .and_then(|c| snapshot.and_then(|p| p.open_orders_by_client_id.get(c)))
+            .map(|r| crate::portfolio::open_order_view(r).expect("typed open-order slots"));
         let by_exchange = oid.and_then(|id| {
             snapshot.and_then(|p| {
                 p.open_orders_by_client_id
                     .object_iter()
-                    .find(|(_, o)| o.order_id.as_ref() == Some(id))
-                    .map(|(_, o)| o)
+                    .map(|(_, r)| {
+                        crate::portfolio::open_order_view(r).expect("typed open-order slots")
+                    })
+                    .find(|o| o.order_id.as_ref() == Some(id))
             })
         });
-        if cid.is_some_and(|c| by_exchange.is_some_and(|o| &o.client_order_id != c)) {
+        if cid.is_some_and(|c| {
+            by_exchange
+                .as_ref()
+                .is_some_and(|o| &o.client_order_id != c)
+        }) {
             result
                 .events
                 .push(fail("conflicting_order_reference", Some(reference)));
             continue;
         }
-        let bot = by_client.or(by_exchange);
+        let bot_owned = by_client.or(by_exchange);
+        let bot = bot_owned.as_ref();
         let previous = if let Some(c) = cid {
-            snapshot.and_then(|p| p.orders_by_client_id.get(c))
+            snapshot
+                .and_then(|p| p.orders_by_client_id.get(c))
+                .map(|r| crate::portfolio::order_history_view(r).expect("typed history slots"))
         } else {
             oid.and_then(|id| {
                 snapshot.and_then(|p| {
                     p.orders_by_client_id
                         .object_iter()
-                        .find(|(_, o)| o.order_id.as_ref() == Some(id))
-                        .map(|(_, o)| o)
+                        .map(|(_, r)| {
+                            crate::portfolio::order_history_view(r).expect("typed history slots")
+                        })
+                        .find(|o| o.order_id.as_ref() == Some(id))
                 })
             })
         };
+        let previous = previous.as_ref();
         let known_id = bot
             .and_then(|o| o.order_id.as_ref())
             .or_else(|| previous.and_then(|o| o.order_id.as_ref()));

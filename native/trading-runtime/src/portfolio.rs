@@ -1,5 +1,13 @@
 //! Shared, typed account ledger, ported from the pinned TypeScript Portfolio.
 //! JSON decoding belongs to adapters; applying an event does not inspect JSON.
+use crate::{
+    metadata::{MetadataError, MetadataGraph, MetadataValue},
+    portfolio_records::{
+        fill as fill_fields, positions_split as split_fields, FillRecord, ManagedAccountEvent,
+        OpenOrderRecord, OrderSnapshotRecord, PositionRecord, PositionsSplitRecord,
+    },
+    record::{FieldId, RecordHandle},
+};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -101,15 +109,6 @@ fn extensions_json<'de, D: Deserializer<'de>>(
     match crate::market_json::normalize_control_value(Value::Object(raw)) {
         Value::Object(normalized) => Ok(normalized),
         _ => unreachable!("object normalization preserves its type"),
-    }
-}
-fn json_truthy(value: &Value) -> bool {
-    match value {
-        Value::Null => false,
-        Value::Bool(v) => *v,
-        Value::Number(v) => v.as_f64().is_some_and(|n| n != 0.0 && !n.is_nan()),
-        Value::String(v) => !v.is_empty(),
-        _ => true,
     }
 }
 
@@ -540,13 +539,13 @@ pub struct PortfolioSnapshot {
     pub capital: CapitalSnapshot,
     pub now_ms: f64,
     pub realized_pnl_total: f64,
-    pub positions_by_asset_id: OrderedMap<Position>,
-    pub open_orders_by_client_id: OrderedMap<OpenOrder>,
+    pub positions_by_asset_id: OrderedMap<PositionRecord>,
+    pub open_orders_by_client_id: OrderedMap<OpenOrderRecord>,
     pub ws_open_orders_by_order_id: OrderedMap<WsOpenOrder>,
-    pub orders_by_client_id: OrderedMap<OrderSnapshot>,
-    pub recent_fills: VecDeque<Fill>,
+    pub orders_by_client_id: OrderedMap<OrderSnapshotRecord>,
+    pub recent_fills: VecDeque<FillRecord>,
     #[serde(skip_serializing_if = "VecDeque::is_empty")]
-    pub recent_splits: VecDeque<PositionsSplit>,
+    pub recent_splits: VecDeque<PositionsSplitRecord>,
     pub market_by_asset_id: OrderedMap<String>,
 }
 
@@ -620,15 +619,462 @@ struct TradeStatus {
     updated_at_ms: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PortfolioIngressError {
+    Graph(MetadataError),
+    UnsupportedKind,
+    UnsupportedField(&'static str),
+}
+impl From<MetadataError> for PortfolioIngressError {
+    fn from(error: MetadataError) -> Self {
+        Self::Graph(error)
+    }
+}
+impl std::fmt::Display for PortfolioIngressError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Graph(error) => std::fmt::Display::fmt(error, f),
+            Self::UnsupportedKind => {
+                f.write_str("managed account event kind is outside the integrated stage")
+            }
+            Self::UnsupportedField(field) => write!(
+                f,
+                "managed account field {field} requires pending generic SDK coercion"
+            ),
+        }
+    }
+}
+impl std::error::Error for PortfolioIngressError {}
+enum RetainedPayload {
+    Order(OpenOrderRecord),
+    Fill(FillRecord),
+    Split(PositionsSplitRecord),
+}
+fn payload_record(
+    event: &ManagedAccountEvent,
+    key: &str,
+) -> Result<RecordHandle, PortfolioIngressError> {
+    let MetadataValue::Reference(handle) = event.envelope().get(key)? else {
+        return Err(PortfolioIngressError::UnsupportedKind);
+    };
+    Ok(RecordHandle::try_from_handle(handle)?)
+}
+fn required_string(record: &RecordHandle, field: FieldId) -> Result<String, PortfolioIngressError> {
+    match record.get_field(field)? {
+        MetadataValue::String(value) => value
+            .as_str()
+            .map(str::to_owned)
+            .ok_or(PortfolioIngressError::UnsupportedField(field.name())),
+        _ => Err(PortfolioIngressError::UnsupportedField(field.name())),
+    }
+}
+fn optional_string(
+    record: &RecordHandle,
+    field: FieldId,
+) -> Result<Option<String>, PortfolioIngressError> {
+    match record.get_field(field)? {
+        MetadataValue::Missing | MetadataValue::Null => Ok(None),
+        MetadataValue::String(value) => value
+            .as_str()
+            .map(|x| Some(x.to_owned()))
+            .ok_or(PortfolioIngressError::UnsupportedField(field.name())),
+        _ => Err(PortfolioIngressError::UnsupportedField(field.name())),
+    }
+}
+fn required_number(record: &RecordHandle, field: FieldId) -> Result<f64, PortfolioIngressError> {
+    record
+        .number(field)?
+        .ok_or(PortfolioIngressError::UnsupportedField(field.name()))
+}
+fn fill_view(raw: &FillRecord) -> Result<Fill, PortfolioIngressError> {
+    let record = raw.handle();
+    let side = match required_string(record, fill_fields::SIDE)?.as_str() {
+        "BUY" => Side::Buy,
+        "SELL" => Side::Sell,
+        _ => return Err(PortfolioIngressError::UnsupportedField("side")),
+    };
+    let liquidity = match optional_string(record, fill_fields::LIQUIDITY)?.as_deref() {
+        Some("MAKER") => Some(Liquidity::Maker),
+        Some("TAKER") => Some(Liquidity::Taker),
+        None => None,
+        _ => return Err(PortfolioIngressError::UnsupportedField("liquidity")),
+    };
+    Ok(Fill {
+        id: required_string(record, fill_fields::ID)?,
+        ts_ms: required_number(record, fill_fields::TS_MS)?,
+        market: optional_string(record, fill_fields::MARKET)?,
+        asset_id: required_string(record, fill_fields::ASSET_ID)?,
+        side,
+        price: required_number(record, fill_fields::PRICE)?,
+        size: required_number(record, fill_fields::SIZE)?,
+        fee_rate_bps: record.number(fill_fields::FEE_RATE_BPS)?,
+        client_order_id: optional_string(record, fill_fields::CLIENT_ORDER_ID)?,
+        order_id: optional_string(record, fill_fields::ORDER_ID)?,
+        liquidity,
+        intent_meta: None,
+        extensions: serde_json::Map::new(),
+    })
+}
+fn split_view(raw: &PositionsSplitRecord) -> Result<PositionsSplit, PortfolioIngressError> {
+    let record = raw.handle();
+    Ok(PositionsSplit {
+        id: required_string(record, split_fields::ID)?,
+        ts_ms: required_number(record, split_fields::TS_MS)?,
+        market: optional_string(record, split_fields::MARKET)?,
+        asset_id_a: required_string(record, split_fields::ASSET_ID_A)?,
+        asset_id_b: required_string(record, split_fields::ASSET_ID_B)?,
+        size: required_number(record, split_fields::SIZE)?,
+        split_cost: required_number(record, split_fields::SPLIT_COST)?,
+        reason: None,
+        extensions: serde_json::Map::new(),
+    })
+}
+
+/// Typed numeric reads from the one current graph record, never a retained mirror.
+/// Arbitrary JavaScript coercion/throw behavior remains the generic SDK boundary.
+pub fn position_view(raw: &PositionRecord) -> Result<Position, PortfolioIngressError> {
+    let h = raw.handle().as_handle();
+    let qty = handle_number(h, "qty")?;
+    let avg_entry_price = handle_optional_number(h, "avgEntryPrice")?;
+    let cost_basis = match h.get("costBasis")? {
+        MetadataValue::Number(value) => value,
+        _ => avg_entry_price.map_or(0.0, |avg| avg * qty),
+    };
+    Ok(Position {
+        asset_id: handle_string(h, "assetId")?,
+        qty,
+        avg_entry_price,
+        cost_basis,
+    })
+}
+fn handle_string(
+    handle: &crate::metadata::MetadataHandle,
+    key: &'static str,
+) -> Result<String, PortfolioIngressError> {
+    match handle.get(key)? {
+        MetadataValue::String(value) => value
+            .as_str()
+            .map(str::to_owned)
+            .ok_or(PortfolioIngressError::UnsupportedField(key)),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn handle_optional_string(
+    handle: &crate::metadata::MetadataHandle,
+    key: &'static str,
+) -> Result<Option<String>, PortfolioIngressError> {
+    match handle.get(key)? {
+        MetadataValue::Missing | MetadataValue::Null => Ok(None),
+        MetadataValue::String(value) => value
+            .as_str()
+            .map(|v| Some(v.to_owned()))
+            .ok_or(PortfolioIngressError::UnsupportedField(key)),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn handle_number(
+    handle: &crate::metadata::MetadataHandle,
+    key: &'static str,
+) -> Result<f64, PortfolioIngressError> {
+    match handle.get(key)? {
+        MetadataValue::Number(value) => Ok(value),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn handle_optional_number(
+    handle: &crate::metadata::MetadataHandle,
+    key: &'static str,
+) -> Result<Option<f64>, PortfolioIngressError> {
+    match handle.get(key)? {
+        MetadataValue::Missing | MetadataValue::Null => Ok(None),
+        MetadataValue::Number(value) => Ok(Some(value)),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn handle_optional_bool(
+    handle: &crate::metadata::MetadataHandle,
+    key: &'static str,
+) -> Result<Option<bool>, PortfolioIngressError> {
+    match handle.get(key)? {
+        MetadataValue::Missing | MetadataValue::Null => Ok(None),
+        MetadataValue::Bool(value) => Ok(Some(value)),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn read_side(value: &str) -> Result<Side, PortfolioIngressError> {
+    match value {
+        "BUY" => Ok(Side::Buy),
+        "SELL" => Ok(Side::Sell),
+        _ => Err(PortfolioIngressError::UnsupportedField("side")),
+    }
+}
+fn read_state(value: &str) -> Result<OrderState, PortfolioIngressError> {
+    match value {
+        "requested" => Ok(OrderState::Requested),
+        "open" => Ok(OrderState::Open),
+        "partially_filled" => Ok(OrderState::PartiallyFilled),
+        "filled" => Ok(OrderState::Filled),
+        "canceled" => Ok(OrderState::Canceled),
+        "rejected" => Ok(OrderState::Rejected),
+        "expired" => Ok(OrderState::Expired),
+        "killed" => Ok(OrderState::Killed),
+        _ => Err(PortfolioIngressError::UnsupportedField("state")),
+    }
+}
+pub fn open_order_view(
+    raw: &crate::portfolio_records::OpenOrderRecord,
+) -> Result<OpenOrder, PortfolioIngressError> {
+    let h = raw.handle().as_handle();
+    let order_type = handle_optional_string(h, "orderType")?
+        .map(|v| match v.as_str() {
+            "FOK" => Ok(OrderType::Fok),
+            "GTC" => Ok(OrderType::Gtc),
+            "GTD" => Ok(OrderType::Gtd),
+            _ => Err(PortfolioIngressError::UnsupportedField("orderType")),
+        })
+        .transpose()?;
+    Ok(OpenOrder {
+        client_order_id: handle_string(h, "clientOrderId")?,
+        order_id: handle_optional_string(h, "orderId")?,
+        market: handle_optional_string(h, "market")?,
+        asset_id: handle_string(h, "assetId")?,
+        side: read_side(&handle_string(h, "side")?)?,
+        price: handle_number(h, "price")?,
+        size: handle_number(h, "size")?,
+        remaining: handle_number(h, "remaining")?,
+        filled: handle_number(h, "filled")?,
+        order_type,
+        post_only: handle_optional_bool(h, "postOnly")?,
+        meta: None,
+        expire_at_ms: handle_optional_number(h, "expireAtMs")?,
+        state: read_state(&handle_string(h, "state")?)?,
+        created_at_ms: handle_number(h, "createdAtMs")?,
+        updated_at_ms: handle_number(h, "updatedAtMs")?,
+        last_error: handle_optional_string(h, "lastError")?,
+        extensions: serde_json::Map::new(),
+    })
+}
+pub fn order_history_view(
+    raw: &OrderSnapshotRecord,
+) -> Result<OrderSnapshot, PortfolioIngressError> {
+    let h = raw.handle().as_handle();
+    Ok(OrderSnapshot {
+        client_order_id: handle_string(h, "clientOrderId")?,
+        order_id: handle_optional_string(h, "orderId")?,
+        asset_id: handle_string(h, "assetId")?,
+        side: read_side(&handle_string(h, "side")?)?,
+        price: handle_optional_number(h, "price")?,
+        original_size: handle_optional_number(h, "originalSize")?,
+        size_matched: handle_optional_number(h, "sizeMatched")?,
+        remaining: handle_optional_number(h, "remaining")?,
+        lifecycle_state: handle_optional_string(h, "lifecycleState")?
+            .map(|v| read_state(&v))
+            .transpose()?,
+        post_only: handle_optional_bool(h, "postOnly")?,
+        meta: None,
+        trade_status_raw: handle_optional_string(h, "tradeStatusRaw")?,
+        trade_status_rank: handle_number(h, "tradeStatusRank")? as u8,
+        updated_at_ms: handle_number(h, "updatedAtMs")?,
+    })
+}
+fn state_wire(state: OrderState) -> &'static str {
+    match state {
+        OrderState::Requested => "requested",
+        OrderState::Open => "open",
+        OrderState::PartiallyFilled => "partially_filled",
+        OrderState::Filled => "filled",
+        OrderState::Canceled => "canceled",
+        OrderState::Rejected => "rejected",
+        OrderState::Expired => "expired",
+        OrderState::Killed => "killed",
+    }
+}
+fn ws_order_view(
+    raw: &crate::portfolio_records::WsOrderUpdateRecord,
+) -> Result<WsOrderUpdate, PortfolioIngressError> {
+    let h = raw.handle().as_handle();
+    let side = handle_optional_string(h, "side")?
+        .map(|v| read_side(&v))
+        .transpose()?;
+    let event = match handle_string(h, "event")?.as_str() {
+        "PLACEMENT" => WsOrderEvent::Placement,
+        "UPDATE" => WsOrderEvent::Update,
+        "CANCELLATION" => WsOrderEvent::Cancellation,
+        _ => return Err(PortfolioIngressError::UnsupportedField("event")),
+    };
+    Ok(WsOrderUpdate {
+        order_id: handle_string(h, "orderId")?,
+        owner: handle_optional_string(h, "owner")?,
+        market: handle_optional_string(h, "market")?,
+        asset_id: handle_optional_string(h, "assetId")?,
+        side,
+        price: handle_optional_number(h, "price")?,
+        original_size: handle_optional_number(h, "originalSize")?,
+        size_matched: handle_optional_number(h, "sizeMatched")?,
+        status: handle_optional_string(h, "status")?,
+        order_type: handle_optional_string(h, "orderType")?,
+        outcome: handle_optional_string(h, "outcome")?,
+        expiration_sec: handle_optional_number(h, "expirationSec")?,
+        created_at_sec: handle_optional_number(h, "createdAtSec")?,
+        event,
+    })
+}
+/// One ephemeral scalar view, built from CURRENT original-envelope fields.
+/// Opaque graph payloads remain on the admitted event; they are never JSON-decoded here.
+fn managed_event_view(
+    event: &ManagedAccountEvent,
+) -> Result<(AccountEvent, Option<RetainedPayload>), PortfolioIngressError> {
+    let h = event.envelope();
+    let kind = event.kind()?;
+    if kind.matches("fill") {
+        let raw = FillRecord::try_from_handle(payload_record(event, "fill")?)?;
+        return Ok((
+            AccountEvent::Fill {
+                fill: fill_view(&raw)?,
+            },
+            Some(RetainedPayload::Fill(raw)),
+        ));
+    }
+    if kind.matches("positions_split") {
+        let raw = PositionsSplitRecord::try_from_handle(payload_record(event, "split")?)?;
+        return Ok((
+            AccountEvent::PositionsSplit {
+                split: split_view(&raw)?,
+            },
+            Some(RetainedPayload::Split(raw)),
+        ));
+    }
+    let ts_ms = handle_number(h, "tsMs")?;
+    let decoded = if kind.matches("order_submitted") {
+        let raw = crate::portfolio_records::OpenOrderRecord::try_from_handle(payload_record(
+            event, "order",
+        )?)?;
+        return Ok((
+            AccountEvent::OrderSubmitted {
+                ts_ms,
+                order: open_order_view(&raw)?,
+            },
+            Some(RetainedPayload::Order(raw)),
+        ));
+    } else if kind.matches("order_accepted") {
+        AccountEvent::OrderAccepted {
+            ts_ms,
+            client_order_id: handle_string(h, "clientOrderId")?,
+            order_id: handle_optional_string(h, "orderId")?,
+            market: handle_optional_string(h, "market")?,
+        }
+    } else if kind.matches("order_open") {
+        AccountEvent::OrderOpen {
+            ts_ms,
+            client_order_id: handle_optional_string(h, "clientOrderId")?,
+            order_id: handle_optional_string(h, "orderId")?,
+        }
+    } else if kind.matches("order_rejected") {
+        AccountEvent::OrderRejected {
+            ts_ms,
+            client_order_id: handle_string(h, "clientOrderId")?,
+            reason: handle_string(h, "reason")?,
+            market: handle_optional_string(h, "market")?,
+        }
+    } else if kind.matches("order_done") {
+        let reason = match handle_string(h, "reason")?.as_str() {
+            "filled" => OrderDoneReason::Filled,
+            "canceled" => OrderDoneReason::Canceled,
+            "expired" => OrderDoneReason::Expired,
+            "killed" => OrderDoneReason::Killed,
+            _ => return Err(PortfolioIngressError::UnsupportedField("reason")),
+        };
+        AccountEvent::OrderDone {
+            ts_ms,
+            client_order_id: handle_optional_string(h, "clientOrderId")?,
+            order_id: handle_optional_string(h, "orderId")?,
+            reason,
+            filled_size: handle_optional_number(h, "filledSize")?,
+        }
+    } else if kind.matches("positions_merged") {
+        AccountEvent::PositionsMerged {
+            ts_ms,
+            id: handle_string(h, "id")?,
+            market: handle_optional_string(h, "market")?,
+            asset_id_a: handle_string(h, "assetIdA")?,
+            asset_id_b: handle_string(h, "assetIdB")?,
+            size: handle_number(h, "size")?,
+            reason: handle_optional_string(h, "reason")?,
+        }
+    } else if kind.matches("ws_order_update") {
+        let raw = crate::portfolio_records::WsOrderUpdateRecord::try_from_handle(payload_record(
+            event, "order",
+        )?)?;
+        AccountEvent::WsOrderUpdate {
+            ts_ms,
+            order: ws_order_view(&raw)?,
+        }
+    } else if kind.matches("cancel_failed") {
+        let operation = match handle_string(h, "operation")?.as_str() {
+            "cancel_order" => CancelOperation::Order,
+            "cancel_batch" => CancelOperation::Batch,
+            "cancel_market" => CancelOperation::Market,
+            "cancel_all" => CancelOperation::All,
+            _ => return Err(PortfolioIngressError::UnsupportedField("operation")),
+        };
+        AccountEvent::CancelFailed {
+            ts_ms,
+            operation,
+            client_order_id: handle_optional_string(h, "clientOrderId")?,
+            order_id: handle_optional_string(h, "orderId")?,
+            market: handle_optional_string(h, "market")?,
+            asset_id: handle_optional_string(h, "assetId")?,
+            reason: handle_string(h, "reason")?,
+        }
+    } else if kind.matches("merge_failed") {
+        AccountEvent::MergeFailed {
+            ts_ms,
+            asset_id_a: handle_string(h, "assetIdA")?,
+            asset_id_b: handle_string(h, "assetIdB")?,
+            requested_size: handle_number(h, "requestedSize")?,
+            reason: handle_string(h, "reason")?,
+        }
+    } else if kind.matches("split_failed") {
+        AccountEvent::SplitFailed {
+            ts_ms,
+            asset_id_a: handle_string(h, "assetIdA")?,
+            asset_id_b: handle_string(h, "assetIdB")?,
+            requested_size: handle_number(h, "requestedSize")?,
+            reason: handle_string(h, "reason")?,
+        }
+    } else if kind.matches("account_stream_status") {
+        let source = match handle_string(h, "source")?.as_str() {
+            "user_ws" => AccountStreamSource::UserWs,
+            "rest_poll" => AccountStreamSource::RestPoll,
+            _ => return Err(PortfolioIngressError::UnsupportedField("source")),
+        };
+        let status = match handle_string(h, "status")?.as_str() {
+            "connected" => AccountStreamStatus::Connected,
+            "disconnected" => AccountStreamStatus::Disconnected,
+            _ => return Err(PortfolioIngressError::UnsupportedField("status")),
+        };
+        AccountEvent::AccountStreamStatus {
+            ts_ms,
+            source,
+            status,
+            info: handle_optional_string(h, "info")?,
+        }
+    } else {
+        return Err(PortfolioIngressError::UnsupportedKind);
+    };
+    Ok((decoded, None))
+}
+
 pub struct Portfolio {
+    graph: MetadataGraph,
     now_ms: f64,
     clock_initialized: bool,
     starting_capital: f64,
     cash: f64,
     realized_pnl_total: f64,
-    positions: OrderedMap<Position>,
-    open: OrderedMap<OpenOrder>,
-    history: OrderedMap<OrderSnapshot>,
+    positions: OrderedMap<PositionRecord>,
+    open: OrderedMap<OpenOrderRecord>,
+    history: OrderedMap<OrderSnapshotRecord>,
     ws: OrderedMap<WsOpenOrder>,
     markets: OrderedMap<String>,
     index: HashMap<String, String>,
@@ -637,8 +1083,8 @@ pub struct Portfolio {
     pending_fills: HashMap<String, f64>,
     pending_status: OrderedMap<TradeStatus>,
     seen: OrderedMap<f64>,
-    fills: VecDeque<Fill>,
-    splits: VecDeque<PositionsSplit>,
+    fills: VecDeque<FillRecord>,
+    splits: VecDeque<PositionsSplitRecord>,
     max_recent_fills: f64,
     cash_orders: Vec<CashOrder>,
     cash_client: HashMap<String, usize>,
@@ -650,8 +1096,18 @@ pub struct Portfolio {
 impl Portfolio {
     /// initial_now_ms is the construction-time display clock, replaced once by observations.
     pub fn new(options: PortfolioOptions, initial_now_ms: f64) -> Result<Self, &'static str> {
+        Self::new_in_graph(&MetadataGraph::new(), options, initial_now_ms)
+    }
+    /// Production sessions supply the same graph used by account admission,
+    /// strategy metadata and retained records. No per-event graph is created.
+    pub fn new_in_graph(
+        graph: &MetadataGraph,
+        options: PortfolioOptions,
+        initial_now_ms: f64,
+    ) -> Result<Self, &'static str> {
         let starting = validate_starting_capital(options.starting_capital)?;
         Ok(Self {
+            graph: graph.clone(),
             now_ms: initial_now_ms,
             clock_initialized: false,
             starting_capital: starting,
@@ -687,7 +1143,12 @@ impl Portfolio {
         self.clock_initialized = true;
         self.cached = None;
     }
-    pub fn get_open_order(&self, client_order_id: &str) -> Option<&OpenOrder> {
+    pub fn get_open_order(&self, client_order_id: &str) -> Option<OpenOrder> {
+        self.open
+            .get(client_order_id)
+            .map(|record| open_order_view(record).expect("typed open-order slots"))
+    }
+    pub fn get_open_order_record(&self, client_order_id: &str) -> Option<&OpenOrderRecord> {
         self.open.get(client_order_id)
     }
     pub fn reserved_cash(&self) -> f64 {
@@ -712,8 +1173,9 @@ impl Portfolio {
     pub fn snapshot_rebuilds(&self) -> u64 {
         self.snapshot_rebuilds
     }
-    /// The borrow prevents mutation while a snapshot is in use. Clone explicitly
-    /// when retaining a historical snapshot; no stale mutable-object aliases exist.
+    /// Fill/split membership is captured when the cache builds, while cloned
+    /// record handles preserve payload mutations across retained snapshots.
+    /// Order/position maps remain staged value projections until their port.
     pub fn snapshot(&mut self) -> &PortfolioSnapshot {
         if self.cached.is_none() {
             let reserved = self.reserved_cash();
@@ -773,8 +1235,9 @@ impl Portfolio {
         }
         true
     }
-    fn upsert(&mut self, client_id: &str, next: OrderSnapshot) {
-        if let Some(id) = truthy(&next.order_id) {
+    fn upsert(&mut self, client_id: &str, next: OrderSnapshotRecord) {
+        let view = order_history_view(&next).expect("typed history slots");
+        if let Some(id) = truthy(&view.order_id) {
             self.persistent.remove(id);
             self.persistent.insert(id.to_owned(), client_id.to_owned());
             if self.persistent.len() > 50000 {
@@ -787,12 +1250,19 @@ impl Portfolio {
             self.history.prune_oldest(1000);
         }
     }
-    fn order_snapshot(&self, order: &OpenOrder, keep_status: bool) -> OrderSnapshot {
+    fn order_snapshot(
+        &self,
+        history_client_id: &str,
+        order: &OpenOrder,
+        raw: &OpenOrderRecord,
+        keep_status: bool,
+    ) -> OrderSnapshotRecord {
         let previous = keep_status
-            .then(|| self.history.get(&order.client_order_id))
-            .flatten();
-        OrderSnapshot {
-            client_order_id: order.client_order_id.clone(),
+            .then(|| self.history.get(history_client_id))
+            .flatten()
+            .map(|record| order_history_view(record).expect("typed history slots"));
+        let view = OrderSnapshot {
+            client_order_id: history_client_id.to_owned(),
             order_id: nonempty(&order.order_id),
             asset_id: order.asset_id.clone(),
             side: order.side,
@@ -802,11 +1272,20 @@ impl Portfolio {
             remaining: Some(order.remaining),
             lifecycle_state: Some(order.state),
             post_only: order.post_only,
-            meta: order.meta.clone().filter(json_truthy),
-            trade_status_raw: previous.and_then(|p| p.trade_status_raw.clone()),
-            trade_status_rank: previous.map(|p| p.trade_status_rank).unwrap_or(0),
+            meta: None,
+            trade_status_raw: previous.as_ref().and_then(|p| p.trade_status_raw.clone()),
+            trade_status_rank: previous.as_ref().map(|p| p.trade_status_rank).unwrap_or(0),
             updated_at_ms: self.now_ms,
-        }
+        };
+        OrderSnapshotRecord::from_snapshot(
+            &self.graph,
+            &view,
+            raw.handle()
+                .as_handle()
+                .get("meta")
+                .expect("record metadata"),
+        )
+        .expect("history allocation")
     }
     fn merge_status(&mut self, client_id: &str, order_id: Option<&str>) {
         let Some(order_id) = order_id.filter(|id| !id.is_empty()) else {
@@ -816,19 +1295,38 @@ impl Portfolio {
             self.pending_status.get(order_id),
             self.history.get(client_id),
         ) {
-            let mut next = previous.clone();
-            next.trade_status_raw = pending.raw.clone().or(next.trade_status_raw);
-            next.trade_status_rank = next.trade_status_rank.max(pending.rank);
-            next.updated_at_ms = max(next.updated_at_ms, pending.updated_at_ms);
+            let view = order_history_view(previous).expect("typed history slots");
+            let next = previous.spread(&self.graph).expect("history spread");
+            if let Some(status) = pending.raw.as_ref().or(view.trade_status_raw.as_ref()) {
+                next.handle()
+                    .as_handle()
+                    .set("tradeStatusRaw", status.as_str().into())
+                    .expect("history patch");
+            }
+            next.handle()
+                .as_handle()
+                .set(
+                    "tradeStatusRank",
+                    f64::from(view.trade_status_rank.max(pending.rank)).into(),
+                )
+                .expect("history patch");
+            next.handle()
+                .as_handle()
+                .set(
+                    "updatedAtMs",
+                    max(view.updated_at_ms, pending.updated_at_ms).into(),
+                )
+                .expect("history patch");
             self.upsert(client_id, next);
         }
     }
     fn link_cash(&mut self, client_id: &str, order_id: &str) {
-        if self
-            .open
-            .get(client_id)
-            .is_some_and(|o| self.earlier(o, Some(order_id)))
-        {
+        if self.open.get(client_id).is_some_and(|o| {
+            self.earlier(
+                &open_order_view(o).expect("typed open-order slots"),
+                Some(order_id),
+            )
+        }) {
             return;
         }
         let Some(&local) = self.cash_client.get(client_id) else {
@@ -1012,7 +1510,8 @@ impl Portfolio {
             self.unlinked.insert(id.to_owned(), n);
         }
     }
-    fn update_order_fill(&mut self, mut order: OpenOrder, size: f64) {
+    fn update_order_fill(&mut self, raw: OpenOrderRecord, resolved_client_id: &str, size: f64) {
+        let mut order = open_order_view(&raw).expect("typed open-order slots");
         order.filled = round8(order.filled + size);
         order.remaining = round8(max(0.0, order.size - order.filled));
         order.updated_at_ms = self.now_ms;
@@ -1021,28 +1520,36 @@ impl Portfolio {
         } else {
             OrderState::Filled
         };
+        let h = raw.handle().as_handle();
+        h.set("filled", order.filled.into()).expect("order patch");
+        h.set("remaining", order.remaining.into())
+            .expect("order patch");
+        h.set("updatedAtMs", order.updated_at_ms.into())
+            .expect("order patch");
+        h.set("state", state_wire(order.state).into())
+            .expect("order patch");
         if order.state == OrderState::Filled {
-            self.open.remove(&order.client_order_id);
+            self.open.remove(resolved_client_id);
             self.unindex_order(&order);
         } else {
-            self.open.insert(order.client_order_id.clone(), order);
+            self.open.insert(resolved_client_id.to_owned(), raw);
         }
-        // Reference history deliberately updates on lifecycle/WS, not on every fill.
+        // History updates on lifecycle/WS, not on every fill.
     }
     fn pending_order_fill(&mut self, id: &str) {
         let Some(pending) = self.pending_fills.get(id).copied() else {
             return;
         };
-        let Some(client) = self.index.get(id).filter(|s| !s.is_empty()) else {
+        let Some(client) = self.index.get(id).filter(|s| !s.is_empty()).cloned() else {
             return;
         };
-        let Some(order) = self.open.get(client).cloned() else {
+        let Some(order) = self.open.get(&client).cloned() else {
             return;
         };
         let size = max(0.0, finite(pending));
         self.pending_fills.remove(id);
         if size > 0.0 {
-            self.update_order_fill(order, size);
+            self.update_order_fill(order, &client, size);
         }
     }
     fn fill_order(&mut self, fill: &Fill) {
@@ -1055,16 +1562,19 @@ impl Portfolio {
             .filter(|s| !s.is_empty())
             .and_then(|client| self.open.get(client))
             .cloned();
-        if order
-            .as_ref()
-            .is_some_and(|o| self.earlier(o, fill.order_id.as_deref()))
-        {
+        if order.as_ref().is_some_and(|o| {
+            self.earlier(
+                &open_order_view(o).expect("typed open-order slots"),
+                fill.order_id.as_deref(),
+            )
+        }) {
             return;
         }
         if client.as_deref().is_none_or(|s| s.is_empty())
-            || order
-                .as_ref()
-                .is_some_and(|o| truthy(&o.order_id).is_none() && truthy(&fill.order_id).is_some())
+            || order.as_ref().is_some_and(|o| {
+                truthy(&open_order_view(o).expect("typed open-order slots").order_id).is_none()
+                    && truthy(&fill.order_id).is_some()
+            })
         {
             if let Some(id) = truthy(&fill.order_id) {
                 let size = max(0.0, finite(fill.size));
@@ -1076,14 +1586,18 @@ impl Portfolio {
             return;
         }
         if let Some(order) = order {
-            self.update_order_fill(order, fill.size);
+            self.update_order_fill(
+                order,
+                client.as_deref().expect("resolved fill client"),
+                fill.size,
+            );
         }
     }
     fn fill_position(&mut self, fill: &Fill) {
         let previous = self
             .positions
             .get(&fill.asset_id)
-            .cloned()
+            .map(|record| position_view(record).expect("typed numeric position slots"))
             .unwrap_or(Position {
                 asset_id: fill.asset_id.clone(),
                 qty: 0.0,
@@ -1105,16 +1619,20 @@ impl Portfolio {
             let cost = previous.cost_basis + price * size + fee;
             self.positions.insert(
                 fill.asset_id.clone(),
-                Position {
-                    asset_id: fill.asset_id.clone(),
-                    qty: round8(qty),
-                    avg_entry_price: if qty > 0.0 {
-                        Some(round8(cost / qty))
-                    } else {
-                        None
+                PositionRecord::from_position(
+                    &self.graph,
+                    &Position {
+                        asset_id: fill.asset_id.clone(),
+                        qty: round8(qty),
+                        avg_entry_price: if qty > 0.0 {
+                            Some(round8(cost / qty))
+                        } else {
+                            None
+                        },
+                        cost_basis: round8(cost),
                     },
-                    cost_basis: round8(cost),
-                },
+                )
+                .expect("position allocation"),
             );
         } else {
             let sold = crate::math::js_min(size, previous.qty);
@@ -1132,16 +1650,22 @@ impl Portfolio {
             if qty > 0.0 {
                 self.positions.insert(
                     fill.asset_id.clone(),
-                    Position {
-                        asset_id: fill.asset_id.clone(),
-                        qty: round8(qty),
-                        avg_entry_price: Some(round8(basis / qty)),
-                        cost_basis: round8(basis),
-                    },
+                    PositionRecord::from_position(
+                        &self.graph,
+                        &Position {
+                            asset_id: fill.asset_id.clone(),
+                            qty: round8(qty),
+                            avg_entry_price: Some(round8(basis / qty)),
+                            cost_basis: round8(basis),
+                        },
+                    )
+                    .expect("position allocation"),
                 );
             } else {
                 self.positions.remove(&fill.asset_id);
-                if !self.open.iter().any(|(_, o)| o.asset_id == fill.asset_id) {
+                if !self.open.iter().any(|(_, o)| {
+                    open_order_view(o).expect("typed open-order slots").asset_id == fill.asset_id
+                }) {
                     self.markets.remove(&fill.asset_id);
                 }
             }
@@ -1193,55 +1717,125 @@ impl Portfolio {
         let Some(client) = client.filter(|s| !s.is_empty()) else {
             return;
         };
-        let previous = self.history.get(&client);
-        let bot = self.open.get(&client);
-        let current_id = bot
+        let previous = self.history.get(&client).cloned();
+        let bot = self.open.get(&client).cloned();
+        let previous_view = previous
+            .as_ref()
+            .map(|p| order_history_view(p).expect("typed history slots"));
+        let bot_view = bot
+            .as_ref()
+            .map(|p| open_order_view(p).expect("typed open-order slots"));
+        let current_id = bot_view
+            .as_ref()
             .and_then(|o| o.order_id.as_deref())
-            .or_else(|| previous.and_then(|o| o.order_id.as_deref()));
+            .or_else(|| previous_view.as_ref().and_then(|o| o.order_id.as_deref()));
         if current_id != Some(id) {
             return;
         }
-        let mut next = if let Some(previous) = previous {
-            previous.clone()
-        } else if let Some(bot) = bot {
-            let mut base = self.order_snapshot(bot, false);
-            base.meta = None;
-            base.order_id = Some(truthy(&bot.order_id).unwrap_or(id).to_owned());
+        let next = if let Some(previous) = &previous {
+            previous.spread(&self.graph).expect("history spread")
+        } else if let (Some(raw), Some(view)) = (&bot, &bot_view) {
+            let base = self.order_snapshot(&view.client_order_id, view, raw, false);
+            base.handle()
+                .as_handle()
+                .delete("meta")
+                .expect("history patch");
+            base.handle()
+                .as_handle()
+                .set("orderId", truthy(&view.order_id).unwrap_or(id).into())
+                .expect("history patch");
             base
         } else {
             return;
         };
-        let old_matched = next.size_matched.unwrap_or(0.0);
+        let view = order_history_view(&next).expect("typed history slots");
+        let h = next.handle().as_handle();
         if !id.is_empty() {
-            next.order_id = Some(id.clone());
+            h.set("orderId", id.as_str().into()).expect("history patch");
         }
         if let Some(asset) = nonempty(&order.asset_id) {
-            next.asset_id = asset;
+            h.set("assetId", asset.as_str().into())
+                .expect("history patch");
         }
         if let Some(side) = order.side {
-            next.side = side;
+            h.set(
+                "side",
+                if side == Side::Buy { "BUY" } else { "SELL" }.into(),
+            )
+            .expect("history patch");
         }
-        if order.price.is_some() {
-            next.price = order.price;
+        if let Some(price) = order.price {
+            h.set("price", price.into()).expect("history patch");
         }
-        if order.original_size.is_some() {
-            next.original_size = order.original_size;
+        if let Some(original) = order.original_size {
+            h.set("originalSize", original.into())
+                .expect("history patch");
         }
         if let (Some(original), Some(matched)) = (order.original_size, order.size_matched) {
-            next.remaining = Some(round8(max(0.0, original - matched)));
+            h.set("remaining", round8(max(0.0, original - matched)).into())
+                .expect("history patch");
         }
-        if order.status.is_some() {
-            next.trade_status_raw = order.status.clone();
+        if let Some(status) = &order.status {
+            h.set("tradeStatusRaw", status.as_str().into())
+                .expect("history patch");
         }
-        next.trade_status_rank = next.trade_status_rank.max(rank);
-        next.updated_at_ms = self.now_ms;
-        next.size_matched = Some(max(old_matched, order.size_matched.unwrap_or(0.0)));
+        h.set(
+            "tradeStatusRank",
+            f64::from(view.trade_status_rank.max(rank)).into(),
+        )
+        .expect("history patch");
+        h.set("updatedAtMs", self.now_ms.into())
+            .expect("history patch");
+        h.set(
+            "sizeMatched",
+            max(
+                view.size_matched.unwrap_or(0.0),
+                order.size_matched.unwrap_or(0.0),
+            )
+            .into(),
+        )
+        .expect("history patch");
         if self.terminal.contains_key(id) {
-            next.remaining = Some(0.0);
+            h.set("remaining", 0.0.into()).expect("history patch");
         }
         self.upsert(&client, next);
     }
+    /// Typed compatibility ingress for fixtures/adapters. Each invocation creates
+    /// a fresh fill/split identity; queued production events use apply_managed.
     pub fn apply(&mut self, event: &AccountEvent) {
+        let payload = match event {
+            AccountEvent::OrderSubmitted { order, .. } => Some(RetainedPayload::Order(
+                OpenOrderRecord::from_order(&self.graph, order).expect("typed order ingress"),
+            )),
+            AccountEvent::Fill { fill } => Some(RetainedPayload::Fill(
+                FillRecord::from_fill(&self.graph, fill).expect("typed fill ingress"),
+            )),
+            AccountEvent::PositionsSplit { split } => Some(RetainedPayload::Split(
+                PositionsSplitRecord::from_split(&self.graph, split).expect("typed split ingress"),
+            )),
+            _ => None,
+        };
+        self.apply_core(event, payload);
+    }
+    pub fn graph(&self) -> &MetadataGraph {
+        &self.graph
+    }
+    /// Resolve current slots from the original admitted envelope. The temporary
+    /// scalar view feeds the same transition as typed compatibility callers.
+    /// All known lifecycle kinds use typed current-field views; generic coercion
+    /// and prototype behavior remain separate SDK requirements.
+    pub fn apply_managed(
+        &mut self,
+        event: &ManagedAccountEvent,
+    ) -> Result<(), PortfolioIngressError> {
+        if !self.graph.owns(event.envelope()) {
+            return Err(MetadataError::WrongGraph.into());
+        }
+        let (view, payload) = managed_event_view(event)?;
+        self.apply_core(&view, payload);
+        Ok(())
+    }
+    fn apply_core(&mut self, event: &AccountEvent, payload: Option<RetainedPayload>) {
         self.cached = None;
         let timestamp = event.timestamp_ms();
         self.initialize_clock(timestamp);
@@ -1250,13 +1844,18 @@ impl Portfolio {
         match event {
             AccountEvent::WsOrderUpdate { order, .. } => self.ws_update(order),
             AccountEvent::OrderSubmitted { order, .. } => {
-                self.open
-                    .insert(order.client_order_id.clone(), order.clone());
+                let Some(RetainedPayload::Order(raw)) = payload else {
+                    unreachable!("order ingress identity")
+                };
+                self.open.insert(order.client_order_id.clone(), raw.clone());
                 self.index_order(order);
                 if let Some(market) = nonempty(&order.market) {
                     self.markets.insert(order.asset_id.clone(), market);
                 }
-                self.upsert(&order.client_order_id, self.order_snapshot(order, false));
+                self.upsert(
+                    &order.client_order_id,
+                    self.order_snapshot(&order.client_order_id, order, &raw, false),
+                );
                 self.merge_status(&order.client_order_id, order.order_id.as_deref());
             }
             AccountEvent::OrderAccepted {
@@ -1281,15 +1880,22 @@ impl Portfolio {
                 reason,
                 ..
             } => {
-                let Some(mut order) = self.open.remove(client_order_id) else {
+                let Some(raw) = self.open.remove(client_order_id) else {
                     return;
                 };
-                order.state = OrderState::Rejected;
-                order.last_error = Some(reason.clone());
-                order.remaining = 0.0;
-                order.updated_at_ms = self.now_ms;
+                let h = raw.handle().as_handle();
+                h.set("state", "rejected".into()).expect("order patch");
+                h.set("lastError", reason.as_str().into())
+                    .expect("order patch");
+                h.set("remaining", 0.0.into()).expect("order patch");
+                h.set("updatedAtMs", self.now_ms.into())
+                    .expect("order patch");
+                let order = open_order_view(&raw).expect("typed open-order slots");
                 self.unindex_order(&order);
-                self.upsert(client_order_id, self.order_snapshot(&order, true));
+                self.upsert(
+                    client_order_id,
+                    self.order_snapshot(client_order_id, &order, &raw, true),
+                );
                 self.merge_status(client_order_id, order.order_id.as_deref());
             }
             AccountEvent::OrderDone {
@@ -1308,7 +1914,10 @@ impl Portfolio {
                     return;
                 }
                 self.cash_fill(fill);
-                self.fills.push_back(fill.clone());
+                let Some(RetainedPayload::Fill(raw)) = payload else {
+                    unreachable!("fill ingress identity")
+                };
+                self.fills.push_back(raw);
                 if self.max_recent_fills > 0.0 && self.fills.len() as f64 > self.max_recent_fills {
                     // Array.splice truncates its deleteCount toward zero, retaining ceil(limit).
                     let drop = (self.fills.len() as f64 - self.max_recent_fills).trunc() as usize;
@@ -1334,19 +1943,33 @@ impl Portfolio {
                 }
                 self.cash = round8(self.cash - split.split_cost);
                 for asset in [&split.asset_id_a, &split.asset_id_b] {
-                    let mut position = self.positions.get(asset).cloned().unwrap_or(Position {
-                        asset_id: asset.clone(),
-                        qty: 0.0,
-                        avg_entry_price: None,
-                        cost_basis: 0.0,
-                    });
-                    position.qty = round8(position.qty + size);
-                    self.positions.insert(asset.clone(), position);
+                    let next = if let Some(previous) = self.positions.get(asset) {
+                        let position =
+                            position_view(previous).expect("typed numeric position slots");
+                        previous
+                            .with_quantity(&self.graph, round8(position.qty + size))
+                            .expect("spread position")
+                    } else {
+                        PositionRecord::from_position(
+                            &self.graph,
+                            &Position {
+                                asset_id: asset.clone(),
+                                qty: round8(size),
+                                avg_entry_price: None,
+                                cost_basis: 0.0,
+                            },
+                        )
+                        .expect("position allocation")
+                    };
+                    self.positions.insert(asset.clone(), next);
                     if let Some(market) = nonempty(&split.market) {
                         self.markets.insert(asset.clone(), market);
                     }
                 }
-                self.splits.push_back(split.clone());
+                let Some(RetainedPayload::Split(raw)) = payload else {
+                    unreachable!("split ingress identity")
+                };
+                self.splits.push_back(raw);
                 if self.splits.len() > 500 {
                     self.splits.pop_front();
                 }
@@ -1371,17 +1994,35 @@ impl Portfolio {
                     return;
                 }
                 self.cash = round8(self.cash + requested);
-                let qa = finite(self.positions.get(asset_id_a).map(|p| p.qty).unwrap_or(0.0));
-                let qb = finite(self.positions.get(asset_id_b).map(|p| p.qty).unwrap_or(0.0));
+                let qa = finite(
+                    self.positions
+                        .get(asset_id_a)
+                        .map(|p| position_view(p).expect("typed numeric position slots").qty)
+                        .unwrap_or(0.0),
+                );
+                let qb = finite(
+                    self.positions
+                        .get(asset_id_b)
+                        .map(|p| position_view(p).expect("typed numeric position slots").qty)
+                        .unwrap_or(0.0),
+                );
                 let actual = crate::math::js_min(crate::math::js_min(requested, qa), qb);
                 if !actual.is_finite() || actual <= 0.0 {
                     return;
                 }
                 for asset in [asset_id_a, asset_id_b] {
-                    if let Some(mut position) = self.positions.get(asset).cloned() {
-                        position.qty = round8(position.qty - actual);
-                        if position.qty > 0.0 {
-                            self.positions.insert(asset.clone(), position);
+                    if let Some(previous) = self.positions.get(asset) {
+                        let qty = round8(
+                            position_view(previous)
+                                .expect("typed numeric position slots")
+                                .qty
+                                - actual,
+                        );
+                        if qty > 0.0 {
+                            let next = previous
+                                .with_quantity(&self.graph, qty)
+                                .expect("spread position");
+                            self.positions.insert(asset.clone(), next);
                         } else {
                             self.positions.remove(asset);
                         }
@@ -1392,23 +2033,38 @@ impl Portfolio {
         }
     }
     fn accept_order(&mut self, client_id: &str, order_id: &Option<String>, force_open: bool) {
-        let Some(mut order) = self.open.get(client_id).cloned() else {
+        let Some(raw) = self.open.get(client_id).cloned() else {
             return;
         };
+        let mut order = open_order_view(&raw).expect("typed open-order slots");
         if self.earlier(&order, order_id.as_deref()) {
             return;
         }
-        if order_id.is_some() {
-            order.order_id = order_id.clone();
+        if let Some(id) = order_id {
+            raw.handle()
+                .as_handle()
+                .set("orderId", id.as_str().into())
+                .expect("order patch");
+            order.order_id = Some(id.clone());
         }
         self.index_order(&order);
         if force_open || order.state == OrderState::Requested {
             order.state = OrderState::Open;
         }
+        raw.handle()
+            .as_handle()
+            .set("state", state_wire(order.state).into())
+            .expect("order patch");
+        raw.handle()
+            .as_handle()
+            .set("updatedAtMs", self.now_ms.into())
+            .expect("order patch");
         order.updated_at_ms = self.now_ms;
-        self.open
-            .insert(order.client_order_id.clone(), order.clone());
-        self.upsert(&order.client_order_id, self.order_snapshot(&order, true));
+        self.open.insert(order.client_order_id.clone(), raw.clone());
+        self.upsert(
+            &order.client_order_id,
+            self.order_snapshot(&order.client_order_id, &order, &raw, true),
+        );
         self.merge_status(&order.client_order_id, order.order_id.as_deref());
         if let Some(id) = truthy(order_id) {
             self.pending_order_fill(id);
@@ -1435,43 +2091,63 @@ impl Portfolio {
             return;
         };
         let previous = self.history.get(&client).cloned();
-        let Some(mut order) = self.open.get(&client).cloned() else {
-            if let Some(mut previous) = previous {
-                if (truthy(order_id).is_none() || previous.order_id == *order_id)
+        let Some(raw) = self.open.get(&client).cloned() else {
+            if let Some(previous) = previous {
+                let view = order_history_view(&previous).expect("typed history slots");
+                if (truthy(order_id).is_none() || view.order_id == *order_id)
                     && matches!(
-                        previous.lifecycle_state,
+                        view.lifecycle_state,
                         None | Some(
                             OrderState::Requested | OrderState::Open | OrderState::PartiallyFilled
                         )
                     )
                 {
-                    previous.lifecycle_state = Some(reason);
-                    previous.remaining = Some(0.0);
-                    if reason == OrderState::Filled && previous.original_size.is_some() {
-                        previous.size_matched = previous.original_size;
+                    let next = previous.spread(&self.graph).expect("history spread");
+                    let h = next.handle().as_handle();
+                    h.set("lifecycleState", state_wire(reason).into())
+                        .expect("history patch");
+                    h.set("remaining", 0.0.into()).expect("history patch");
+                    if reason == OrderState::Filled {
+                        if let Some(original) = view.original_size {
+                            h.set("sizeMatched", original.into())
+                                .expect("history patch");
+                        }
                     }
-                    previous.updated_at_ms = self.now_ms;
-                    self.upsert(&client, previous);
+                    h.set("updatedAtMs", self.now_ms.into())
+                        .expect("history patch");
+                    self.upsert(&client, next);
                 }
             }
             return;
         };
+        let mut order = open_order_view(&raw).expect("typed open-order slots");
         if self.earlier(&order, order_id.as_deref()) {
             return;
         }
         if let Some(id) = truthy(&order.order_id) {
             self.mark_terminal(id);
         }
+        let h = raw.handle().as_handle();
+        h.set("state", state_wire(reason).into())
+            .expect("order patch");
+        h.set("remaining", 0.0.into()).expect("order patch");
+        h.set("updatedAtMs", self.now_ms.into())
+            .expect("order patch");
         order.state = reason;
         order.remaining = 0.0;
         order.updated_at_ms = self.now_ms;
         self.open.remove(&client);
         self.unindex_order(&order);
-        let mut next = self.order_snapshot(&order, true);
-        next.size_matched = Some(max(
-            order.filled,
-            previous.and_then(|p| p.size_matched).unwrap_or(0.0),
-        ));
+        let next = self.order_snapshot(&client, &order, &raw, true);
+        let previous_matched = previous
+            .as_ref()
+            .map(|p| order_history_view(p).expect("typed history slots"))
+            .and_then(|p| p.size_matched)
+            .unwrap_or(0.0);
+        next.handle()
+            .as_handle()
+            .set("sizeMatched", max(order.filled, previous_matched).into())
+            .expect("history patch");
         self.upsert(&client, next);
         self.merge_status(&client, order.order_id.as_deref());
     }

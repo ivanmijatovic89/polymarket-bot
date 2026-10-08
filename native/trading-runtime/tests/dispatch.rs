@@ -12,13 +12,23 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
+fn diagnostic_decoded(messages: Vec<JsValue>, source: Value, bootstrap: bool) -> FrameInput {
+    FrameInput::decoded(
+        messages,
+        polymarket_runtime::source::SourceHandle::from_diagnostic(
+            &polymarket_runtime::metadata::MetadataGraph::new(),
+            source,
+        )
+        .unwrap(),
+        bootstrap,
+    )
+}
 fn book(ts: i32) -> Value {
     json!({"event_type":"book","market":"m","asset_id":"up","timestamp":ts.to_string(),"bids":[{"price":"0.4","size":"3"}],"asks":[]})
 }
 fn frame(messages: Vec<Value>) -> FrameInput {
-    FrameInput::decoded(
+    diagnostic_decoded(
         messages.into_iter().map(JsValue::from_value).collect(),
         json!({"kind":"live","attempt":1,"ingestSeq":"900719925474099312345"}),
         false,
@@ -39,8 +49,8 @@ fn cursor_retains_history_and_partial_error_terminates_frame() {
     };
     assert_eq!(first.snapshot.timestamp, 1.0);
     assert_eq!(second.snapshot.timestamp, 2.0);
-    assert_eq!(first.source["frameIndex"], 0);
-    assert_eq!(second.source["frameIndex"], 1);
+    assert_eq!(first.source.diagnostic_value().unwrap()["frameIndex"], 0);
+    assert_eq!(second.source.diagnostic_value().unwrap()["frameIndex"], 1);
     assert!(cursor.next(&mut engine).is_err());
     assert!(matches!(
         cursor.next(&mut engine).unwrap(),
@@ -58,7 +68,7 @@ fn compact_hash_normalization_creates_fresh_nodes_but_returns_original_message()
         let original = JsValue::from_value(
             json!({"event_type":"price_change","market":"m","timestamp":"1","price_changes":[{"asset_id":"up","price":"0.4","size":"2","side":"BUY","hash":hash,"best_bid":"","best_ask":""},{"asset_id":"down","price":"0.3","size":"1","side":"BUY","hash":"","best_bid":"","best_ask":""}]}),
         );
-        let mut cursor = FrameCursor::new(FrameInput::decoded(
+        let mut cursor = FrameCursor::new(diagnostic_decoded(
             vec![original.clone()],
             json!({"kind":"live","attempt":1}),
             false,
@@ -96,14 +106,14 @@ fn void_is_atomic_but_ready_deferred_yields_and_reset_keeps_pending_chain() {
     let mut admission = FrameAdmission::<String>::new(MarketEngine::new(None, 10.0).unwrap());
     let seen = Rc::new(RefCell::new(Vec::new()));
     let copy = Rc::clone(&seen);
-    let mut cb = move |t: Arc<MarketTick>| {
+    let mut cb = move |t: Rc<MarketTick>| {
         copy.borrow_mut().push(t);
         Ok(TickDisposition::Void)
     };
     let receipt = admission.submit(frame(vec![book(1), book(2)]), &mut cb);
     assert!(receipt.is_ready());
     assert_eq!(seen.borrow().len(), 2);
-    let mut cb = |t: Arc<MarketTick>| {
+    let mut cb = |t: Rc<MarketTick>| {
         seen.borrow_mut().push(t);
         Ok(TickDisposition::Deferred(Completion::ready(Ok(()))))
     };
@@ -123,17 +133,17 @@ fn void_is_atomic_but_ready_deferred_yields_and_reset_keeps_pending_chain() {
 #[test]
 fn direct_throw_recovers_but_deferred_rejection_poisons_already_queued_frames() {
     let mut admission = FrameAdmission::new(MarketEngine::new(None, 10.0).unwrap());
-    let mut cb = |_: Arc<MarketTick>| Err::<TickDisposition<String>, _>("direct".into());
+    let mut cb = |_: Rc<MarketTick>| Err::<TickDisposition<String>, _>("direct".into());
     assert!(matches!(
         admission
             .submit(frame(vec![book(1), book(2)]), &mut cb)
             .result(),
         Some(Err(FrameFailure::Callback(_)))
     ));
-    let mut cb = |_: Arc<MarketTick>| Ok(TickDisposition::Void);
+    let mut cb = |_: Rc<MarketTick>| Ok(TickDisposition::Void);
     assert!(admission.submit(frame(vec![book(3)]), &mut cb).is_ready());
     let (gate, resolver) = Completion::pending();
-    let mut cb = |_: Arc<MarketTick>| Ok(TickDisposition::Deferred(gate.clone()));
+    let mut cb = |_: Rc<MarketTick>| Ok(TickDisposition::Deferred(gate.clone()));
     let first = admission.submit(frame(vec![book(4), book(5)]), &mut cb);
     let queued = admission.submit(frame(vec![book(6)]), &mut cb);
     resolver.complete(Err("rejection".into()));
@@ -143,14 +153,14 @@ fn direct_throw_recovers_but_deferred_rejection_poisons_already_queued_frames() 
         assert!(matches!(receipt.result(),Some(Err(FrameFailure::Callback(e))) if e=="rejection"));
     }
     assert_eq!(admission.engine().snapshot().unwrap().timestamp, 4.0);
-    let mut cb = |_: Arc<MarketTick>| Ok(TickDisposition::Void);
+    let mut cb = |_: Rc<MarketTick>| Ok(TickDisposition::Void);
     assert!(admission.submit(frame(vec![book(7)]), &mut cb).is_ready());
 }
 #[test]
 fn tracked_frames_settle_one_continuation_at_a_time() {
     let mut admission = FrameAdmission::<String>::new(MarketEngine::new(None, 10.0).unwrap());
     let (gate, resolver) = Completion::pending();
-    let mut cb = |_: Arc<MarketTick>| Ok(TickDisposition::Deferred(gate.clone()));
+    let mut cb = |_: Rc<MarketTick>| Ok(TickDisposition::Deferred(gate.clone()));
     let a = admission.submit(frame(vec![book(1)]), &mut cb);
     let b = admission.submit(frame(vec![book(2)]), &mut cb);
     let c = admission.submit(frame(vec![book(3)]), &mut cb);
@@ -173,7 +183,7 @@ fn tracked_frames_settle_one_continuation_at_a_time() {
 fn async_adapter_preserves_void_and_supports_session_local_future() {
     let state = Rc::new(RefCell::new(Vec::new()));
     let mut admission = FutureFrameAdmission::<String>::new(MarketEngine::new(None, 10.0).unwrap());
-    let mut cb = |t: Arc<MarketTick>| {
+    let mut cb = |t: Rc<MarketTick>| {
         let state = Rc::clone(&state);
         Ok(FutureDisposition::Deferred(Box::pin(async move {
             state.borrow_mut().push(t.snapshot.timestamp);
@@ -307,25 +317,132 @@ type Gate = (
 type Gates = Rc<RefCell<HashMap<String, Gate>>>;
 #[derive(Clone)]
 struct Envelope {
-    tick: Option<Arc<MarketTick>>,
+    tick: Option<Rc<MarketTick>>,
     id: String,
     captured: Value,
 }
 fn tick_value(tick: &MarketTick) -> Value {
-    // Diagnostics only. Native envelopes retain typed history throughout.
-    serde_json::from_str(
-        &JsValue::object(vec![
-            ("source".into(), JsValue::from_value(tick.source.clone())),
-            ("msg".into(), tick.msg.clone()),
-            ("snapshot".into(), tick.snapshot.trace_value()),
-        ])
-        .to_json_string(),
-    )
-    .unwrap()
+    // Diagnostic encoding only: UTF-16 strings outside Unicode scalar values
+    // use an explicit code-unit tag; sourceProbe still reads the original slot.
+    let mut diagnostic = JsValue::object(vec![
+        ("source".into(), tick.source.diagnostic_value().unwrap()),
+        ("msg".into(), tick.msg.clone()),
+        ("snapshot".into(), tick.snapshot.trace_value()),
+    ]);
+    let mut pending = vec![&mut diagnostic];
+    while let Some(value) = pending.pop() {
+        match value {
+            JsValue::String(text) if text.as_str().is_none() => {
+                *value = JsValue::object(vec![(
+                    "$utf16".into(),
+                    JsValue::array(
+                        text.units()
+                            .into_iter()
+                            .map(|unit| JsValue::Number(f64::from(unit)))
+                            .collect(),
+                    ),
+                )]);
+            }
+            JsValue::Object(object) => {
+                pending.extend(object.values.iter_mut().map(|(_, value)| value))
+            }
+            JsValue::Array(array) => pending.extend(array.values.iter_mut()),
+            _ => {}
+        }
+    }
+    serde_json::from_str(&diagnostic.to_json_string()).unwrap()
 }
+fn source_spec(
+    graph: &polymarket_runtime::metadata::MetadataGraph,
+    spec: &Value,
+) -> polymarket_runtime::source::SourceHandle {
+    use polymarket_runtime::source::SourceHandle;
+    let source = SourceHandle::from_diagnostic(
+        graph,
+        spec.get("source")
+            .cloned()
+            .unwrap_or_else(|| json!({"kind":"live","attempt":1})),
+    )
+    .unwrap();
+    source_mutation(&source, spec);
+    source
+}
+fn source_mutation(source: &polymarket_runtime::source::SourceHandle, spec: &Value) {
+    use polymarket_runtime::{metadata::MetadataValue, source::*};
+    if let Some(bits) = spec["localTimeBits"].as_str() {
+        source
+            .set(
+                LOCAL_TIME_MS,
+                f64::from_bits(u64::from_str_radix(bits, 16).unwrap()).into(),
+            )
+            .unwrap();
+    }
+    if let Some(sequence) = spec["sequence"].as_str() {
+        source
+            .set(INGEST_SEQ, MetadataValue::BigInt(sequence.parse().unwrap()))
+            .unwrap();
+    }
+    if spec["removeSequence"].as_bool().unwrap_or(false) {
+        source.delete(INGEST_SEQ).unwrap();
+    }
+    if spec["undefinedSequence"].as_bool().unwrap_or(false) {
+        source.set(INGEST_SEQ, MetadataValue::Missing).unwrap();
+    }
+    if let Some(units) = spec["filePathUnits"].as_array() {
+        source
+            .set(
+                FILE_PATH,
+                MetadataValue::String(polymarket_runtime::market_json::JsString::from_units(
+                    units.iter().map(|v| v.as_u64().unwrap() as u16).collect(),
+                )),
+            )
+            .unwrap();
+    }
+    if let Some(value) = spec["nestedValue"].as_f64() {
+        let MetadataValue::Reference(nested) = source.record().as_handle().get("extra").unwrap()
+        else {
+            panic!("extra")
+        };
+        nested.set("value", value.into()).unwrap();
+    }
+}
+fn source_probe(source: &polymarket_runtime::source::SourceHandle) -> Value {
+    use polymarket_runtime::{metadata::MetadataValue, source::*};
+    let sequence = source.get(INGEST_SEQ).unwrap();
+    let local = source.get(LOCAL_TIME_MS).unwrap();
+    let bits = match local {
+        MetadataValue::Number(value) => Some(if value.is_nan() {
+            "NaN".into()
+        } else {
+            format!("{:016x}", value.to_bits())
+        }),
+        _ => None,
+    };
+    let path = match source.get(FILE_PATH).unwrap() {
+        MetadataValue::String(value) => Some(value.units()),
+        _ => None,
+    };
+    let seq_type = match &sequence {
+        MetadataValue::BigInt(_) => "bigint",
+        MetadataValue::Missing => "undefined",
+        MetadataValue::Null => "object",
+        MetadataValue::Number(_) => "number",
+        MetadataValue::String(_) => "string",
+        MetadataValue::Bool(_) => "boolean",
+        MetadataValue::Reference(_) => "object",
+    };
+    let seq = match sequence {
+        MetadataValue::BigInt(value) => Some(value.to_string()),
+        _ => None,
+    };
+    json!({"keys":source.record().as_handle().keys().unwrap().iter().map(|key|key.units()).collect::<Vec<_>>(),"sequenceType":seq_type,"sequence":seq,"localTimeBits":bits,"filePathUnits":path})
+}
+
 fn run_case(case: &Value) -> Value {
     use polymarket_runtime::event_dispatch::CompletionResolver;
     let input = &case["input"];
+    let graph = polymarket_runtime::metadata::MetadataGraph::new();
+    let sources = RefCell::new(HashMap::<String, polymarket_runtime::source::SourceHandle>::new());
     let combined = input["combined"].as_bool().unwrap_or(false);
     let awaited = input["awaited"].as_bool().unwrap_or(false);
     let mut frames = FrameAdmission::<String>::new(MarketEngine::new(None, 10.0).unwrap());
@@ -339,12 +456,12 @@ fn run_case(case: &Value) -> Value {
             CompletionResolver<Result<(), String>>,
         ),
     >::new()));
-    let retained = Rc::new(RefCell::new(Vec::<Arc<MarketTick>>::new()));
+    let retained = Rc::new(RefCell::new(Vec::<Rc<MarketTick>>::new()));
     let plans = &input["callbacks"];
     let originals = Rc::new(RefCell::new(HashMap::<String, JsValue>::new()));
-    let mut callback = |tick: Arc<MarketTick>| -> Result<TickDisposition<String>, String> {
+    let mut callback = |tick: Rc<MarketTick>| -> Result<TickDisposition<String>, String> {
         let id = tick.snapshot.timestamp.to_string();
-        retained.borrow_mut().push(Arc::clone(&tick));
+        retained.borrow_mut().push(Rc::clone(&tick));
         let mut event = json!({"kind":"capture","id":id,"provider":provider.borrow().clone(),"tick":tick_value(&tick)});
         if input["identityProbe"].as_bool().unwrap_or(false) {
             let originals = originals.borrow();
@@ -391,6 +508,12 @@ fn run_case(case: &Value) -> Value {
                     .cloned()
                     .unwrap_or_else(|| json!({"kind":"live","attempt":1}));
                 let bootstrap = op["bootstrap"].as_bool().unwrap_or(false);
+                let source = if let Some(id) = op["sourceId"].as_str() {
+                    sources.borrow()[id].clone()
+                } else {
+                    polymarket_runtime::source::SourceHandle::from_diagnostic(&graph, source)
+                        .unwrap()
+                };
                 let frame = if let Some(raw) = op["rawJson"].as_str() {
                     FrameInput::raw(raw, source, bootstrap)
                 } else {
@@ -412,6 +535,12 @@ fn run_case(case: &Value) -> Value {
                 };
                 receipts.push((op["id"].clone(), frames.submit(frame, &mut callback)));
             }
+            "source_create" => {
+                sources
+                    .borrow_mut()
+                    .insert(op["id"].as_str().unwrap().into(), source_spec(&graph, op));
+            }
+            "source_mutate" => source_mutation(&sources.borrow()[op["id"].as_str().unwrap()], op),
             "account" => {
                 serial_receipts.push((
                     op["id"].clone(),
@@ -481,7 +610,18 @@ fn run_case(case: &Value) -> Value {
         };
         observations.push(json!({"state":serde_json::from_str::<Value>(&frames.engine().snapshot().unwrap().trace_value().to_json_string()).unwrap(),"events":events.borrow().clone(),"statuses":statuses}));
     }
-    json!({"name":case["name"],"result":{"observations":observations,"retained":retained.borrow().iter().map(|t|tick_value(t)).collect::<Vec<_>>()}})
+    let mut result = json!({"observations":observations,"retained":retained.borrow().iter().map(|t|tick_value(t)).collect::<Vec<_>>()});
+    if input["sourceProbe"].as_bool().unwrap_or(false) {
+        let sources = sources.borrow();
+        let retained = retained.borrow();
+        let mut ids = sources.keys().collect::<Vec<_>>();
+        ids.sort();
+        result["sourceProbes"] = json!({
+            "sources":ids.iter().map(|id|json!({"id":id,"probe":source_probe(&sources[*id])})).collect::<Vec<_>>(),
+            "ticks":retained.iter().map(|tick|json!({"probe":source_probe(&tick.source),"sameSources":ids.iter().map(|id|tick.source==sources[*id]).collect::<Vec<_>>(),"sameTickSources":retained.iter().map(|other|tick.source==other.source).collect::<Vec<_>>() })).collect::<Vec<_>>()
+        });
+    }
+    json!({"name":case["name"],"result":result})
 }
 fn disposition(plan: &Value, id: &str, gates: &Gates) -> Result<TickDisposition<String>, String> {
     if plan["throw"].as_bool().unwrap_or(false) {

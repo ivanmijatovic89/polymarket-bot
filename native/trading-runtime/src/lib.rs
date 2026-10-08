@@ -8,12 +8,15 @@ pub mod market_json;
 pub mod math;
 pub mod metadata;
 pub mod metrics;
+pub mod parquet_decimal;
+pub mod parquet_decimal_column;
 pub mod parquet_input;
 pub mod portfolio;
 pub mod portfolio_records;
 pub mod protocol;
 pub mod record;
 pub mod risk;
+pub mod source;
 pub mod stats;
 
 use protocol::{ProtocolError, Request, Response};

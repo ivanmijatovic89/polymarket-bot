@@ -1,12 +1,13 @@
 //! Historical frame admission. Synchronous callbacks consume all children in
 //! one admission; deferred callbacks suspend the frame, including ready futures.
 use crate::event_dispatch::{Completion, CompletionResolver, FutureDisposition, TickDisposition};
-use crate::market::{decode_frame, normalize_source, MarketEngine, MarketError, MarketTick};
+use crate::market::{decode_frame, MarketEngine, MarketError, MarketTick};
 use crate::market_json::JsValue;
-use serde_json::Value;
+use crate::source::SourceHandle;
 use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -18,18 +19,18 @@ pub enum FrameMessages {
 }
 pub struct FrameInput {
     pub messages: FrameMessages,
-    pub source: Value,
+    pub source: SourceHandle,
     pub bootstrap: bool,
 }
 impl FrameInput {
-    pub fn raw(raw: impl Into<String>, source: Value, bootstrap: bool) -> Self {
+    pub fn raw(raw: impl Into<String>, source: SourceHandle, bootstrap: bool) -> Self {
         Self {
             messages: FrameMessages::Raw(raw.into()),
             source,
             bootstrap,
         }
     }
-    pub fn decoded(messages: Vec<JsValue>, source: Value, bootstrap: bool) -> Self {
+    pub fn decoded(messages: Vec<JsValue>, source: SourceHandle, bootstrap: bool) -> Self {
         Self {
             messages: FrameMessages::Decoded(messages),
             source,
@@ -38,12 +39,12 @@ impl FrameInput {
     }
 }
 pub enum CursorStep {
-    Tick(Arc<MarketTick>),
+    Tick(Rc<MarketTick>),
     Done(Option<JsValue>),
 }
 pub struct FrameCursor {
     messages: Vec<JsValue>,
-    source: Value,
+    source: SourceHandle,
     bootstrap: bool,
     next: usize,
     done: bool,
@@ -57,7 +58,7 @@ impl FrameCursor {
         };
         Ok(Self {
             messages,
-            source: normalize_source(&input.source)?,
+            source: input.source,
             bootstrap: input.bootstrap,
             next: 0,
             done: false,
@@ -80,7 +81,7 @@ impl FrameCursor {
                 self.messages.len(),
             );
             match result {
-                Ok(Some(tick)) => return Ok(CursorStep::Tick(Arc::new(tick))),
+                Ok(Some(tick)) => return Ok(CursorStep::Tick(Rc::new(tick))),
                 Ok(None) => {}
                 Err(error) => {
                     self.done = true;
@@ -137,7 +138,7 @@ impl<E: Clone> FrameAdmission<E> {
     }
     pub fn submit<F>(&mut self, input: FrameInput, callback: &mut F) -> FrameReceipt<E>
     where
-        F: FnMut(Arc<MarketTick>) -> Result<TickDisposition<E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<TickDisposition<E>, E>,
     {
         let (receipt, resolver) = Completion::pending();
         if self.is_pending() {
@@ -153,7 +154,7 @@ impl<E: Clone> FrameAdmission<E> {
         resolver: CompletionResolver<Result<Option<JsValue>, FrameFailure<E>>>,
         callback: &mut F,
     ) where
-        F: FnMut(Arc<MarketTick>) -> Result<TickDisposition<E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<TickDisposition<E>, E>,
     {
         match FrameCursor::new(input) {
             Ok(cursor) => self.drive(cursor, resolver, callback),
@@ -168,7 +169,7 @@ impl<E: Clone> FrameAdmission<E> {
         resolver: CompletionResolver<Result<Option<JsValue>, FrameFailure<E>>>,
         callback: &mut F,
     ) where
-        F: FnMut(Arc<MarketTick>) -> Result<TickDisposition<E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<TickDisposition<E>, E>,
     {
         loop {
             match cursor.next(&mut self.engine) {
@@ -215,7 +216,7 @@ impl<E: Clone> FrameAdmission<E> {
     /// A newly returned Deferred always suspends, even if it is already ready.
     pub fn poll_ready<F>(&mut self, cx: &mut Context<'_>, callback: &mut F) -> Poll<()>
     where
-        F: FnMut(Arc<MarketTick>) -> Result<TickDisposition<E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<TickDisposition<E>, E>,
     {
         if let Some(failure) = self.poisoned.take() {
             if let Some(queued) = self.queued.pop_front() {
@@ -287,7 +288,7 @@ impl<'a, E: Clone> FutureFrameAdmission<'a, E> {
     }
     pub fn submit<F>(&mut self, input: FrameInput, callback: &mut F) -> FrameReceipt<E>
     where
-        F: FnMut(Arc<MarketTick>) -> Result<FutureDisposition<'a, E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<FutureDisposition<'a, E>, E>,
     {
         let futures = &mut self.futures;
         self.admission
@@ -300,13 +301,13 @@ impl<'a, E: Clone> FutureFrameAdmission<'a, E> {
         callback: &'s mut F,
     ) -> impl Future<Output = ()> + 's + use<'s, 'a, F, E>
     where
-        F: FnMut(Arc<MarketTick>) -> Result<FutureDisposition<'a, E>, E> + 's,
+        F: FnMut(Rc<MarketTick>) -> Result<FutureDisposition<'a, E>, E> + 's,
     {
         std::future::poll_fn(move |cx| self.poll_ready(cx, callback))
     }
     pub fn poll_ready<F>(&mut self, cx: &mut Context<'_>, callback: &mut F) -> Poll<()>
     where
-        F: FnMut(Arc<MarketTick>) -> Result<FutureDisposition<'a, E>, E>,
+        F: FnMut(Rc<MarketTick>) -> Result<FutureDisposition<'a, E>, E>,
     {
         if let Some((mut future, resolver)) = self.futures.pop_front() {
             match future.as_mut().poll(cx) {

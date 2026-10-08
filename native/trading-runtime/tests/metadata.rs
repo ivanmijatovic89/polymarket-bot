@@ -363,3 +363,58 @@ fn public_utf16_representation_has_identical_key_order_and_string_semantics() {
         assert_eq!(direct, JsString::from(text));
     }
 }
+
+#[test]
+fn session_ownership_is_pure_and_distinguishes_same_slot_across_arenas() {
+    let graph = MetadataGraph::new();
+    let same_session = graph.clone();
+    let other_session = MetadataGraph::new();
+    let owned = graph.object().unwrap();
+    let foreign = other_session.object().unwrap();
+    let retained = owned.clone();
+    let before = graph.stats();
+    let foreign_before = other_session.stats();
+    assert!(graph.owns(&owned));
+    assert!(same_session.owns(&retained));
+    assert!(owned.graph().owns(&retained));
+    assert!(!graph.owns(&foreign));
+    assert!(!other_session.owns(&owned));
+    assert_eq!(graph.stats(), before);
+    assert_eq!(other_session.stats(), foreign_before);
+    assert!(owned.keys().unwrap().is_empty());
+    drop(owned);
+    graph.collect_full().unwrap();
+    assert!(graph.owns(&retained));
+}
+
+#[test]
+fn present_array_index_keys_distinguish_undefined_from_holes_without_mutation() {
+    let graph = MetadataGraph::new();
+    let array = graph.array().unwrap();
+    array.set_length(6).unwrap();
+    assert!(array.index_keys().unwrap().is_empty());
+    array.set_index(4, MetadataValue::Null).unwrap();
+    array.set_index(1, MetadataValue::Missing).unwrap();
+    let before = graph.stats();
+    assert_eq!(array.index_keys().unwrap(), vec![1, 4]);
+    assert!(matches!(
+        array.get_index(1).unwrap(),
+        MetadataValue::Missing
+    ));
+    assert!(matches!(
+        array.get_index(2).unwrap(),
+        MetadataValue::Missing
+    ));
+    assert_eq!(graph.stats(), before);
+    assert_eq!(array.length().unwrap(), 6);
+    array.delete_index(1).unwrap();
+    assert_eq!(array.index_keys().unwrap(), vec![4]);
+    array.set_length(4).unwrap();
+    assert!(array.index_keys().unwrap().is_empty());
+    array.set_index(3, MetadataValue::Missing).unwrap();
+    assert_eq!(array.index_keys().unwrap(), vec![3]);
+    assert_eq!(
+        graph.object().unwrap().index_keys().unwrap_err(),
+        MetadataError::WrongKind
+    );
+}

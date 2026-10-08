@@ -1,8 +1,8 @@
-"""Pinned full-output account-ledger parity; test-only native typed-event adapter.
+"""Pinned full-output account-ledger parity with direct current numeric probes.
 
-Run with Node 20. This verifies current snapshots and insertion order, not stale
-TypeScript mutable OpenOrder aliases: those are reported as a remaining SDK and
-consumer integration dependency, with an explicit reference probe.
+Typed compatibility fixtures and managed graph scenarios test the one native
+accounting core. Bounded record identity/current-field parity does not certify
+whole SDK coercion, prototypes, descriptors or the production frozen root.
 """
 import argparse
 import copy
@@ -216,6 +216,167 @@ def fixtures():
             else: e=fill(str(rng.randrange(35)),rng.choice([1,2,3]),timestamp,clientOrderId=cid,orderId=oid,assetId=rng.choice(['up','down']),side=rng.choice(['BUY','SELL']),price=rng.choice([.1,.5,.6,.9]),liquidity=rng.choice(['MAKER','TAKER']))
             events.append(e)
         add(f'seeded-adverse-events-{n}',events,options={'startingCapital':rng.choice([0,500,1000.12345678]),'maxRecentFills':rng.choice([0,3,500])})
+    add('managed-all-known-lifecycle-variants', [submitted(size=10),accepted(),
+        {'kind':'order_open','tsMs':1002,'orderId':'x'},ws(status='MATCHED',originalSize=10,sizeMatched=2),
+        fill(size=2,clientOrderId='a',liquidity='MAKER'),split(size=2),merge(size=1),
+        {'kind':'cancel_failed','tsMs':1005,'clientOrderId':'a'},
+        {'kind':'merge_failed','tsMs':1006},{'kind':'split_failed','tsMs':1007},
+        {'kind':'account_stream_status','tsMs':1008},done('canceled',tsMs=1009,filledSize=2),
+        submitted('b',1,time=1010),{'kind':'order_rejected','tsMs':1011,'clientOrderId':'b','reason':'adapter_error'}],
+        managedEvents=True)
+    def raw_case(name,operations,options=None):
+        add(name,steps=[],rawAliasOperations=operations,options=options)
+    def alloc(identity,event):return {'op':'allocate','id':identity,'event':event}
+    def set_field(identity,path,value):return {'op':'set','id':identity,'path':path,'value':value}
+    def apply_raw(identity):return {'op':'apply','id':identity}
+    def retain(identity):return {'op':'retain','id':identity}
+    def observe(label):return {'op':'observe','label':label}
+    def selection(root,identity,path):return {'root':root,'id':identity,'path':path}
+    def same(label,left,right):return {'op':'same','label':label,'left':left,'right':right}
+    raw_case('raw-fill-current-slots-before-admission-processing',[
+        alloc('f',fill('original',2,time=10,price=.5,liquidity='MAKER',intentMeta={'stage':'admitted'})),
+        set_field('f',['fill','id'],'changed-before-processing'),set_field('f',['fill','size'],3),set_field('f',['fill','price'],.4),
+        apply_raw('f'),retain('old'),observe('after-processing'),
+        same('raw-fill-retained-identity',selection('event','f',['fill']),selection('snapshot','old',['recentFills','0'])),
+    ])
+    raw_case('raw-fill-retained-mutation-and-requeue-new-id',[
+        alloc('f',fill('first',2,time=10,price=.5,liquidity='MAKER',intentMeta={'probe':'original'})),apply_raw('f'),retain('old'),
+        set_field('f',['fill','id'],'second'),set_field('f',['fill','size'],3),set_field('f',['fill','price'],.4),set_field('f',['fill','intentMeta','probe'],'mutated'),
+        observe('cached-after-mutation'),apply_raw('f'),retain('new'),observe('after-requeue'),
+        same('repeated-history-payload-identity',selection('snapshot','new',['recentFills','0']),selection('snapshot','new',['recentFills','1'])),
+    ])
+    raw_case('raw-fill-same-id-requeue-does-not-account-twice',[
+        alloc('f',fill('duplicate',2,time=10,price=.5,liquidity='MAKER')),apply_raw('f'),retain('old'),
+        set_field('f',['fill','size'],100),set_field('f',['fill','price'],.9),apply_raw('f'),observe('duplicate-current-payload'),
+    ])
+    duplicate=fill('same-id',2,time=10,price=.5,liquidity='MAKER')
+    raw_case('raw-distinct-equal-events-preserve-separate-identities',[
+        alloc('first',duplicate),alloc('second',duplicate),apply_raw('first'),retain('old'),apply_raw('second'),
+        same('distinct-equal-payloads',selection('event','first',['fill']),selection('event','second',['fill'])),
+        set_field('second',['fill','id'],'second-id'),apply_raw('second'),retain('new'),observe('distinct-records'),
+    ])
+    raw_case('raw-split-retained-mutation-and-requeue-new-id',[
+        alloc('s',split('first',2,tsMs=10,reason='original',executionReceipt={'status':'original'})),apply_raw('s'),retain('old'),
+        set_field('s',['split','reason'],'mutated'),set_field('s',['split','executionReceipt','status'],'mutated'),
+        set_field('s',['split','id'],'second'),set_field('s',['split','size'],3),set_field('s',['split','splitCost'],1),
+        observe('cached-split-mutation'),apply_raw('s'),retain('new'),observe('split-requeue'),
+        same('raw-split-retained-identity',selection('event','s',['split']),selection('snapshot','old',['recentSplits','0'])),
+        same('repeated-split-history-identity',selection('snapshot','new',['recentSplits','0']),selection('snapshot','new',['recentSplits','1'])),
+    ])
+    raw_case('raw-fill-split-shared-metadata-reference',[
+        alloc('f',fill('f',2,time=10,liquidity='MAKER',intentMeta={'probe':'original'})),alloc('s',split('s',1,tsMs=11)),
+        {'op':'link','id':'s','path':['split','executionReceipt'],'source':selection('event','f',['fill','intentMeta'])},
+        apply_raw('f'),apply_raw('s'),retain('old'),set_field('f',['fill','intentMeta','probe'],'shared-mutation'),observe('shared-meta'),
+        same('metadata-shared-between-records',selection('snapshot','old',['recentFills','0','intentMeta']),selection('snapshot','old',['recentSplits','0','executionReceipt'])),
+    ])
+    raw_case('raw-envelope-current-kind-and-payload-switch',[
+        alloc('a',fill('f',1,time=10,liquidity='MAKER')),alloc('b',split('s',2,tsMs=11)),
+        apply_raw('a'),retain('old'),set_field('a',['kind'],'positions_split'),
+        {'op':'link','id':'a','path':['split'],'source':selection('event','b',['split'])},
+        apply_raw('a'),retain('new'),observe('switched-envelope-kind'),
+        same('original-fill-retained-after-kind-switch',selection('event','a',['fill']),selection('snapshot','old',['recentFills','0'])),
+    ])
+    raw_case('raw-current-fill-payload-replaced-before-processing',[
+        alloc('a',fill('a',2,time=1,price=.5,liquidity='MAKER')),
+        alloc('b',fill('b',4,time=2,price=.25,liquidity='MAKER')),
+        {'op':'link','id':'a','path':['fill'],'source':selection('event','b',['fill'])},
+        apply_raw('a'),retain('old'),set_field('b',['fill','price'],.75),observe('same-replaced-payload'),
+    ])
+    raw_case('raw-fill-id-cycle-retains-prior-dedupe-identity',[
+        alloc('a',fill('a',2,time=1,price=.5,liquidity='MAKER')),apply_raw('a'),retain('old'),
+        set_field('a',['fill','id'],'b'),apply_raw('a'),set_field('a',['fill','id'],'a'),apply_raw('a'),observe('original-id-still-seen'),
+    ])
+    raw_case('raw-pruned-fill-kept-alive-by-old-snapshot',[
+        alloc('first',fill('first',1,time=10,liquidity='MAKER')),alloc('second',fill('second',1,time=11,liquidity='MAKER')),
+        apply_raw('first'),retain('old'),apply_raw('second'),retain('new'),set_field('first',['fill','size'],44),observe('old-membership-survives-prune'),
+    ],options={'maxRecentFills':1})
+    raw_case('raw-null-undefined-delete-reinsert-presence',[
+        alloc('f',fill('f',1,time=10,liquidity='MAKER',intentMeta=None,feeRateBps=None,opaqueFill={'present':None})),apply_raw('f'),retain('old'),
+        {'op':'set','id':'f','path':['fill','intentMeta']},{'op':'set','id':'f','path':['fill','opaqueFill','undefined']},observe('own-undefined'),
+        {'op':'delete','id':'f','path':['fill','intentMeta']},set_field('f',['fill','intentMeta'],None),observe('reinsert-null'),
+    ])
+    raw_case('raw-invalid-fill-not-seen-until-current-fields-valid',[
+        alloc('f',fill('f',0,time=10,price=-0.0,liquidity='MAKER')),apply_raw('f'),retain('empty'),
+        set_field('f',['fill','size'],2),set_field('f',['fill','price'],.5),apply_raw('f'),retain('filled'),observe('corrected-raw-fill'),
+    ])
+    holder={'kind':'account_stream_status','tsMs':1,'source':'user_ws','status':'connected'}
+    raw_case('position-current-mutation-cache-and-replacement',[
+        alloc('f',fill('first',2,time=1,price=.5,liquidity='MAKER')),alloc('holder',holder),apply_raw('f'),retain('old'),
+        {'op':'link','id':'holder','path':['probe'],'source':selection('snapshot','old',['positionsByAssetId','up'])},
+        set_field('holder',['probe','qty'],8),set_field('holder',['probe','costBasis'],6),set_field('holder',['probe','avgEntryPrice'],.75),
+        observe('external-record-mutation-does-not-invalidate-capital-cache'),
+        alloc('next',fill('second',2,time=2,price=.5,liquidity='MAKER')),apply_raw('next'),retain('new'),observe('fill-reads-current-record-and-replaces-position'),
+        same('fill-replaces-position-identity',selection('snapshot','old',['positionsByAssetId','up']),selection('snapshot','new',['positionsByAssetId','up'])),
+    ])
+    raw_case('position-split-and-merge-spreads-own-fields-and-references',[
+        alloc('f',fill('first',2,time=1,price=.5,liquidity='MAKER')),alloc('holder',holder),apply_raw('f'),retain('old'),
+        {'op':'link','id':'holder','path':['probe'],'source':selection('snapshot','old',['positionsByAssetId','up'])},
+        set_field('holder',['probe','executionReceipt'],{'marker':'original'}),
+        {'op':'set','id':'holder','path':['probe','ownUndefined']},
+        alloc('s',split('s',2,tsMs=2)),apply_raw('s'),retain('minted'),observe('split-spreads-own-undefined-and-shared-reference'),
+        same('split-replaces-position-identity',selection('snapshot','old',['positionsByAssetId','up']),selection('snapshot','minted',['positionsByAssetId','up'])),
+        same('split-shares-nested-reference',selection('snapshot','old',['positionsByAssetId','up','executionReceipt']),selection('snapshot','minted',['positionsByAssetId','up','executionReceipt'])),
+        alloc('m',merge('m',1,tsMs=3)),apply_raw('m'),retain('merged'),set_field('holder',['probe','executionReceipt','marker'],'later'),observe('merge-retains-spread-reference'),
+    ])
+    raw_case('position-missing-basis-falls-back-to-current-average',[
+        alloc('f',fill('first',2,time=1,price=.5,liquidity='MAKER')),alloc('holder',holder),apply_raw('f'),retain('old'),
+        {'op':'link','id':'holder','path':['probe'],'source':selection('snapshot','old',['positionsByAssetId','up'])},
+        {'op':'delete','id':'holder','path':['probe','costBasis']},set_field('holder',['probe','avgEntryPrice'],.75),
+        alloc('next',fill('second',2,time=2,price=.25,liquidity='MAKER')),apply_raw('next'),observe('fallback-current-average'),
+    ])
+    raw_case('order-original-payload-in-place-lifecycle-and-old-membership',[
+        alloc('o',submitted(size=4,meta={'phase':'initial'})),apply_raw('o'),retain('submitted'),
+        same('submission-keeps-original-order',selection('event','o',['order']),selection('snapshot','submitted',['openOrdersByClientId','a'])),
+        alloc('ack',accepted()),apply_raw('ack'),retain('accepted'),observe('ack-mutates-old-order-reference'),
+        same('accept-keeps-order-identity',selection('snapshot','submitted',['openOrdersByClientId','a']),selection('snapshot','accepted',['openOrdersByClientId','a'])),
+        same('history-is-new-record',selection('snapshot','submitted',['ordersByClientId','a']),selection('snapshot','accepted',['ordersByClientId','a'])),
+        alloc('f',fill('f',4,clientOrderId='a',liquidity='MAKER')),apply_raw('f'),retain('filled'),observe('fill-mutates-original-and-drops-current-membership'),
+        alloc('done',done('filled',tsMs=1006)),apply_raw('done'),observe('terminal-history-update-after-full-fill'),
+    ])
+    raw_case('order-rejection-and-cancellation-mutate-retained-record',[
+        alloc('o',submitted(size=4)),apply_raw('o'),retain('first'),
+        alloc('reject',{'kind':'order_rejected','tsMs':1001,'clientOrderId':'a','reason':'adapter_error'}),apply_raw('reject'),observe('rejected-original-payload'),
+        alloc('replacement',submitted(size=8,time=1002,meta={'generation':'second'})),apply_raw('replacement'),retain('replacement'),
+        alloc('ack',accepted(time=1003)),apply_raw('ack'),
+        alloc('cancel',done('canceled',tsMs=1004,filledSize=0)),apply_raw('cancel'),observe('canceled-original-payload'),
+        same('replacement-has-new-identity',selection('snapshot','first',['openOrdersByClientId','a']),selection('snapshot','replacement',['openOrdersByClientId','a'])),
+    ])
+    raw_case('order-metadata-shares-history-until-reference-replacement',[
+        alloc('o',submitted(size=4,meta={'phase':'initial'})),apply_raw('o'),retain('submitted'),
+        alloc('ack',accepted()),apply_raw('ack'),retain('accepted'),
+        same('initial-history-metadata-shared',selection('event','o',['order','meta']),selection('snapshot','submitted',['ordersByClientId','a','meta'])),
+        set_field('o',['order','meta','phase'],'mutated'),observe('old-and-new-history-retain-shared-meta'),
+        set_field('o',['order','meta'],{'phase':'replacement'}),
+        alloc('open',{'kind':'order_open','tsMs':1002,'clientOrderId':'a','orderId':'x'}),apply_raw('open'),retain('opened'),observe('future-history-selects-new-meta-old-history-keeps-old-ref'),
+        same('replacement-does-not-change-old-history-meta-identity',selection('snapshot','accepted',['ordersByClientId','a','meta']),selection('snapshot','opened',['ordersByClientId','a','meta'])),
+    ])
+    raw_case('current-order-mutations-drive-fills-without-changing-private-commitments',[
+        alloc('o',submitted(size=10)),apply_raw('o'),alloc('ack',accepted()),apply_raw('ack'),retain('old'),
+        set_field('o',['order','filled'],2),set_field('o',['order','size'],6),set_field('o',['order','remaining'],4),set_field('o',['order','price'],.25),
+        observe('cached-order-fields-change-capital-keeps-copied-obligation'),
+        alloc('f',fill('f',1,clientOrderId='a',liquidity='MAKER')),apply_raw('f'),retain('partial'),observe('current-filled-size-read'),
+        alloc('d',done('canceled',tsMs=1006,filledSize=3)),apply_raw('d'),observe('cancel-current-order'),
+    ])
+    raw_case('current-history-mutations-spread-through-status-and-terminal',[
+        alloc('o',submitted(size=4,meta={'phase':'initial'})),apply_raw('o'),alloc('ack',accepted()),apply_raw('ack'),retain('accepted'),alloc('holder',holder),
+        {'op':'link','id':'holder','path':['history'],'source':selection('snapshot','accepted',['ordersByClientId','a'])},
+        set_field('holder',['history','tradeStatusRank'],3),set_field('holder',['history','sizeMatched'],3),set_field('holder',['history','executionReceipt'],{'phase':'external'}),
+        {'op':'set','id':'holder','path':['history','ownUndefined']},
+        alloc('w',ws(status='MATCHED',originalSize=4,sizeMatched=1)),apply_raw('w'),retain('updated'),observe('ws-spreads-current-history-fields'),
+        same('ws-new-history-record',selection('snapshot','accepted',['ordersByClientId','a']),selection('snapshot','updated',['ordersByClientId','a'])),
+        same('ws-history-shares-opaque-extra-reference',selection('snapshot','accepted',['ordersByClientId','a','executionReceipt']),selection('snapshot','updated',['ordersByClientId','a','executionReceipt'])),
+        alloc('d',done('canceled',tsMs=1006,filledSize=0)),apply_raw('d'),observe('terminal-reads-current-history-matched-size'),
+    ])
+    for name,next_event in [
+        ('partial-fill',fill('f',1,clientOrderId='a')),
+        ('complete-fill',fill('f',3,clientOrderId='a')),
+        ('order-done',done()),
+        ('order-rejected',{'kind':'order_rejected','tsMs':1002,'clientOrderId':'a','reason':'fixture-reject'}),
+    ]:
+        raw_case(f'order-mutated-client-id-keeps-resolved-map-key-{name}',[
+            alloc('s',submitted(size=3,orderId='x')),apply_raw('s'),retain('before'),
+            set_field('s',['order','clientOrderId'],'renamed'),alloc('next',next_event),apply_raw('next'),observe('after-current-client-id-mutation'),
+        ])
     return cases
 
 
@@ -227,6 +388,8 @@ def is_nan_bits(value):
 
 
 def assert_snapshot_number_bits(expected,actual,path):
+    if isinstance(expected,dict) and isinstance(actual,dict):
+        expected,actual=[expected],[actual]
     if not isinstance(expected,list) or not isinstance(actual,list) or len(expected)!=len(actual):
         raise AssertionError(f'{path}: numeric snapshot count/type differs')
     for index,(left,right) in enumerate(zip(expected,actual)):
@@ -326,11 +489,13 @@ def main():
         subprocess.run([str(frozen),'differential_fixture_driver','--ignored','--exact'],cwd=ROOT,env=environment,check=True,capture_output=True,text=True)
         actual=json.loads(target.read_text())
         if digest(frozen)!=before: raise RuntimeError('Frozen native test executable changed')
+    final_native_sources=[p for folder in ['src','tests','examples'] for p in sorted((crate/folder).rglob('*.rs'))]+[crate/'Cargo.toml',crate/'Cargo.lock']
+    if set(final_native_sources)!=set(native_sources): raise RuntimeError('Native source file set changed during comparison')
     for path,original in {**fingerprints,**wrapper_hashes}.items():
         if digest(ROOT/path)!=original: raise RuntimeError(f'Source changed during comparison: {path}')
     if len(actual)!=len(cases) or len(expected)!=len(cases): raise AssertionError('Fixture response count differs from source case count')
-    for left,right in zip(expected,actual):
-        if left['name']!=right['name']: raise AssertionError('Fixture identity/order differs')
+    for source_case,left,right in zip(cases,expected,actual):
+        if left['name']!=source_case['name'] or right['name']!=source_case['name']: raise AssertionError('Fixture identity/order differs from source')
         assert_equal(left['result'],right['result'],left['name'])
         source_case=next(c for c in cases if c['name']==left['name'])
         if 'expectedClockBits' in source_case['input']:
@@ -357,8 +522,8 @@ def main():
         'cases':len(cases),'eventCount':sum(len(c['input']['steps']) for c in cases),
         'fullCurrentSnapshotParity':True,'mapInsertionAndArrayOrderParity':True,
         'fixedPruneBoundariesIncluded':not args.quick,'comparatorMutationChecks':mutation_count,'fullKnownAccountEventEncodingParity':True,'opaqueJsonObjectKeyOrderParity':True,'opaqueMetadataBinary64BitsParity':True,'directTypedCurrentSnapshotNumberParity':True,'exactFiniteInfinityAndSignedZeroBits':True,'derivedNaNClassParity':True,'derivedNonfiniteSnapshotProbeParity':True,'nanEncodingComparisonDomain':'NaN classes compare equally; NaN payload/sign are implementation-chosen and no reviewed Portfolio strategy consumer inspects them. All finite/Infinity/signed-zero bits and numeric paths remain exact.','nanEncodingSpecification':['https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-number-type','https://tc39.es/ecma262/multipage/structured-data.html#sec-numerictorawbytes'],'snapshotNumberBitsDomain':'Current typed snapshot numbers captured before JSON projection, including finite values, signed zero and derived Infinity/NaN in the reviewed corpus; raw UTF16/overflow metadata and mutable record aliases remain separate SDK requirements','nativeBuildLockedOffline':True,'numericComparison':'JavaScript binary64 with rejection of unnormalized native integer precision','opaqueControlDomain':'Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement',
-        'staleOpenOrderAliasParity':False,'remainingDependency':'Audit strategy/runner/SDK consumers for retained or mutated OpenOrder, Position, raw Fill/PositionsSplit and metadata aliases; preserve observable behavior or prove native consumers use current borrowed snapshots without such mutation.',
-        'referenceAliasingProbe':alias,'referenceMutablePayloadAliasesProbe':mutable_alias,'mutableRawPayloadPositionMetadataAliasParity':False}
+        'staleOpenOrderAliasParity':False,'remainingDependency':'Complete graph-backed WS records, the single shallow-frozen snapshot/capital root and mutable memberships, generic coercion/exception/prototype/descriptor behavior, and actual runner/OrderManager/strategy integration. Current managed numeric/string record parity is bounded to the declared oracle cases.',
+        'referenceAliasingProbe':alias,'referenceMutablePayloadAliasesProbe':mutable_alias,'mutableRawPayloadPositionMetadataAliasParity':False,'rawFillSplitPayloadIdentityParity':True,'rawFillSplitCurrentSlotAccountingParity':True,'retainedRawFillSplitCacheMembershipParity':True,'rawFillSplitAliasScenarioCount':sum(c['name'].startswith('raw-') and 'rawAliasOperations' in c['input'] for c in cases),'rawFillSplitAliasOperationCount':sum(len(c['input'].get('rawAliasOperations',[])) for c in cases if c['name'].startswith('raw-')),'managedGraphAliasScenarioCount':sum('rawAliasOperations' in c['input'] for c in cases),'managedGraphAliasOperationCount':sum(len(c['input'].get('rawAliasOperations',[])) for c in cases),'boundedManagedAccountLifecycleCurrentFieldParity':True,'boundedAuthoritativePositionOpenOrderHistoryParity':True,'boundedRecordDomain':'Schema-bound original envelope/payload records, numeric financial slots, Unicode-scalar string IDs/enums, data properties and shared opaque graph references in the declared fixtures. Generic JS coercion/prototype/descriptor and full production snapshot root semantics remain required.','nativeSourceFileSetGuarded':True,'responseSourceIdentityBound':True}
     if args.report: args.report.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 

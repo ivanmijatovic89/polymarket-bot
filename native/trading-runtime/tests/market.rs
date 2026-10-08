@@ -13,13 +13,13 @@ fn bootstrap_reset_and_metadata_ticks_preserve_warm_state() {
     let mut engine = MarketEngine::new(Some(["up".into(), "down".into()]), 10.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
     let result = engine
-        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, true)
+        .handle_decoded_diagnostic(&[book("1", "up"), book("2", "down")], &source, true)
         .expect("bootstrap");
     assert!(result.ticks.is_empty());
     assert_eq!(engine.inspection().expect("inspection")["isWarm"], true);
     let trade = json!({"event_type":"last_trade_price","market":"m","asset_id":"up","timestamp":"3","price":"0.9","size":"7","side":"SELL"});
     let result = engine
-        .handle_decoded(&[trade], &source, false)
+        .handle_decoded_diagnostic(&[trade], &source, false)
         .expect("trade");
     assert!(result.ticks.is_empty());
     assert_eq!(
@@ -37,11 +37,11 @@ fn a_multi_asset_delta_emits_one_tick_after_both_books_change() {
     let mut engine = MarketEngine::new(None, 2.0).expect("config");
     let source = json!({"kind":"parquet","filePath":"fixture","ingestSeq":"900719925474099312345"});
     engine
-        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up"), book("2", "down")], &source, false)
         .expect("books");
     let msg = json!({"event_type":"price_change","market":"m","timestamp":"3","price_changes":[change("up","0.45","4","BUY"),change("down","0.55","5","SELL")]});
     let frame = engine
-        .handle_decoded(&[msg], &source, false)
+        .handle_decoded_diagnostic(&[msg], &source, false)
         .expect("delta");
     assert_eq!(frame.ticks.len(), 1);
     assert_eq!(
@@ -52,18 +52,21 @@ fn a_multi_asset_delta_emits_one_tick_after_both_books_change() {
         frame.ticks[0].snapshot.trace_value()["byAssetId"]["down"]["bestAsk"],
         0.55
     );
-    assert_eq!(frame.ticks[0].source["ingestSeq"], "900719925474099312345");
+    assert_eq!(
+        frame.ticks[0].source.diagnostic_value().unwrap()["ingestSeq"],
+        "900719925474099312345"
+    );
 }
 #[test]
 fn invalid_later_change_retains_partial_state_without_emitting_a_tick() {
     let mut engine = MarketEngine::new(None, 10.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
     engine
-        .handle_decoded(&[book("1", "up")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up")], &source, false)
         .expect("book");
     let msg = json!({"event_type":"price_change","market":"m","timestamp":"2","price_changes":[change("up","0.5","6","BUY"),change("up","bad","7","BUY")]});
     let error = engine
-        .handle_decoded(&[msg], &source, false)
+        .handle_decoded_diagnostic(&[msg], &source, false)
         .expect_err("invalid delta");
     assert!(error.ticks.is_empty());
     let bids = &engine.snapshot().expect("snapshot").trace_value()["byAssetId"]["up"]["bids"];
@@ -142,7 +145,7 @@ fn raw_numeric_literals_preserve_js_number_domain_and_ordinary_reserved_keys() {
     );
     assert_eq!(extra.get("underflow"), Some(&market::JsValue::Number(-0.0)));
     let mut engine = MarketEngine::new(None, 10.0).expect("config");
-    let result=engine.handle_raw(r#"{"event_type":"book","market":"m","asset_id":"up","timestamp":1,"bids":[],"asks":[],"extra":1e400}"#,&json!({"kind":"live","attempt":1}),false).expect("book");
+    let result=engine.handle_raw_diagnostic(r#"{"event_type":"book","market":"m","asset_id":"up","timestamp":1,"bids":[],"asks":[],"extra":1e400}"#,&json!({"kind":"live","attempt":1}),false).expect("book");
     assert_eq!(
         result.ticks[0].msg.get("extra"),
         Some(&market::JsValue::Number(f64::INFINITY))
@@ -198,7 +201,7 @@ fn borrowed_book_depth_preserves_partial_mutations_and_nonfinite_derived_metrics
     let mut engine = MarketEngine::new(None, 3.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
     engine
-        .handle_decoded(&[book("1", "up")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up")], &source, false)
         .expect("book");
     let view = engine.book("up").expect("borrowed book");
     assert_eq!(view.depth_levels, 3.0);
@@ -211,13 +214,13 @@ fn borrowed_book_depth_preserves_partial_mutations_and_nonfinite_derived_metrics
     assert_eq!(view.asks[0].size, 2.0);
     let bad = json!({"event_type":"price_change","market":"m","timestamp":"2","price_changes":[change("up","0.5","6","BUY"),change("up","bad","7","BUY")]});
     engine
-        .handle_decoded(&[bad], &source, false)
+        .handle_decoded_diagnostic(&[bad], &source, false)
         .expect_err("partial mutation");
     assert_eq!(engine.book("up").expect("view").bids_depth, &[3.0, 9.0]);
     assert_eq!(engine.books().count(), 1);
     let raw = r#"{"event_type":"book","market":"m","asset_id":"up","timestamp":3,"bids":[{"price":1e308,"size":1e308},{"price":9e307,"size":1e308}],"asks":[{"price":1e308,"size":1}]}"#;
     engine
-        .handle_raw(raw, &source, false)
+        .handle_raw_diagnostic(raw, &source, false)
         .expect("large finite levels");
     assert_eq!(
         engine.book("up").expect("view").bids_depth[1],
@@ -232,7 +235,7 @@ fn borrowed_book_depth_preserves_partial_mutations_and_nonfinite_derived_metrics
 fn map_keys_canonicalize_best_zero_but_keep_level_and_metadata_sign_bits() {
     let mut engine = MarketEngine::new(None, 2.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
-    engine.handle_raw(r#"{"event_type":"book","market":"m","asset_id":"up","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}],"extra":-0}"#,&source,false).expect("book");
+    engine.handle_raw_diagnostic(r#"{"event_type":"book","market":"m","asset_id":"up","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}],"extra":-0}"#,&source,false).expect("book");
     let view = engine.book("up").expect("view");
     assert_eq!(view.bids[0].price.to_bits(), (-0.0f64).to_bits());
     assert_eq!(view.best_bid.expect("best").to_bits(), 0.0f64.to_bits());
@@ -267,15 +270,15 @@ fn retained_ticks_survive_later_frames_metadata_updates_and_reset() {
     let source =
         json!({"kind":"live","attempt":7,"ingestSeq":"900719925474099312345","tsLocalMs":123});
     let frame = engine
-        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up"), book("2", "down")], &source, false)
         .expect("frame");
     let first = &frame.ticks[0];
     let second = &frame.ticks[1];
     assert_eq!(first.snapshot.timestamp, 1.0);
     assert!(first.snapshot.book("down").is_none());
     assert_eq!(second.snapshot.timestamp, 2.0);
-    assert_eq!(second.source["frameIndex"], 1);
-    engine.handle_decoded(&[json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.5","4","BUY")]})], &source, false).expect("later");
+    assert_eq!(second.source.diagnostic_value().unwrap()["frameIndex"], 1);
+    engine.handle_decoded_diagnostic(&[json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.5","4","BUY")]})], &source, false).expect("later");
     assert_eq!(
         engine
             .snapshot()
@@ -309,7 +312,10 @@ fn retained_ticks_survive_later_frames_metadata_updates_and_reset() {
         Some(0.6)
     );
     assert_eq!(first.msg["asset_id"], "up");
-    assert_eq!(first.source["ingestSeq"], "900719925474099312345");
+    assert_eq!(
+        first.source.diagnostic_value().unwrap()["ingestSeq"],
+        "900719925474099312345"
+    );
 }
 #[test]
 fn immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays() {
@@ -317,13 +323,13 @@ fn immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays() {
     let mut engine = MarketEngine::new(None, 2.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
     engine
-        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up"), book("2", "down")], &source, false)
         .expect("books");
     let before = engine.snapshot().expect("before");
     assert!(Arc::ptr_eq(&before, &engine.snapshot().expect("cached")));
     let update = json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.4","9","BUY")]});
     engine
-        .handle_decoded(&[update], &source, false)
+        .handle_decoded_diagnostic(&[update], &source, false)
         .expect("update");
     let after = engine.snapshot().expect("after");
     let old_up = before.book("up").expect("up");
@@ -342,12 +348,12 @@ fn immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays() {
     ));
     let noop = json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.4","9","BUY")]});
     engine
-        .handle_decoded(&[noop], &source, false)
+        .handle_decoded_diagnostic(&[noop], &source, false)
         .expect("noop");
     assert!(Arc::ptr_eq(&after, &engine.snapshot().expect("unchanged")));
     let meta = json!({"event_type":"tick_size_change","market":"m","asset_id":"up","timestamp":4,"new_tick_size":"0.01"});
     engine
-        .handle_decoded(&[meta], &source, false)
+        .handle_decoded_diagnostic(&[meta], &source, false)
         .expect("metadata");
     let metadata = engine.snapshot().expect("metadata snapshot");
     let meta_up = metadata.book("up").expect("up");
@@ -357,7 +363,7 @@ fn immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays() {
     assert_eq!(meta_up.timestamp, 4.0);
     let empty = json!({"event_type":"price_change","market":"m","timestamp":5,"price_changes":[]});
     engine
-        .handle_decoded(&[empty], &source, false)
+        .handle_decoded_diagnostic(&[empty], &source, false)
         .expect("empty");
     let advanced = engine.snapshot().expect("advanced");
     assert!(Arc::ptr_eq(&metadata.by_asset_id, &advanced.by_asset_id));
@@ -368,13 +374,13 @@ fn cache_refreshes_partial_failures_without_changing_retained_ticks() {
     let mut engine = MarketEngine::new(None, 3.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
     let first = engine
-        .handle_decoded(&[book("1", "up")], &source, false)
+        .handle_decoded_diagnostic(&[book("1", "up")], &source, false)
         .expect("book")
         .ticks
         .remove(0);
     let partial = json!({"event_type":"price_change","market":"m","timestamp":2,"price_changes":[change("up","0.5","6","BUY"),change("up","bad","1","BUY")]});
     engine
-        .handle_decoded(&[partial], &source, false)
+        .handle_decoded_diagnostic(&[partial], &source, false)
         .expect_err("partial delta");
     let failed = engine.snapshot().expect("partial state");
     assert_eq!(
@@ -386,7 +392,7 @@ fn cache_refreshes_partial_failures_without_changing_retained_ticks() {
     let mut bad_book = book("bad", "up");
     bad_book["bids"] = json!([{"price":"0.9","size":"7"}]);
     engine
-        .handle_decoded(&[bad_book], &source, false)
+        .handle_decoded_diagnostic(&[bad_book], &source, false)
         .expect_err("timestamp after levels");
     let latest = engine.snapshot().expect("replacement partial");
     assert_eq!(latest.book("up").expect("up").bids[0].price, 0.9);
@@ -399,7 +405,7 @@ fn cache_refreshes_partial_failures_without_changing_retained_ticks() {
 fn retained_typed_snapshots_keep_nonfinite_signed_zero_and_lossless_keys() {
     let mut engine = MarketEngine::new(None, 3.0).expect("config");
     let source = json!({"kind":"live","attempt":1});
-    let first = engine.handle_raw(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}]}"#, &source, false).expect("zero").ticks.remove(0);
+    let first = engine.handle_raw_diagnostic(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}]}"#, &source, false).expect("zero").ticks.remove(0);
     let key = market::JsString::from_units(vec![97, 0xdfff]);
     let frozen = first.snapshot.book_key(&key).expect("UTF16 book");
     assert_eq!(first.snapshot.timestamp.to_bits(), (-0.0f64).to_bits());
@@ -410,7 +416,7 @@ fn retained_typed_snapshots_keep_nonfinite_signed_zero_and_lossless_keys() {
         frozen.market.as_deref().expect("market"),
         &market::JsValue::String(market::JsString::from_units(vec![109, 0xd800]))
     );
-    engine.handle_raw(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":2,"bids":[{"price":1e308,"size":1e308},{"price":9e307,"size":1e308}],"asks":[{"price":1e308,"size":1}]}"#, &source, false).expect("overflow");
+    engine.handle_raw_diagnostic(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":2,"bids":[{"price":1e308,"size":1e308},{"price":9e307,"size":1e308}],"asks":[{"price":1e308,"size":1}]}"#, &source, false).expect("overflow");
     let overflow = engine.snapshot().expect("overflow");
     let book = overflow.book_key(&key).expect("book");
     assert_eq!(book.mid, Some(f64::INFINITY));
@@ -429,7 +435,7 @@ fn typed_entry_keys_preserve_js_collisions_numeric_order_and_identity_metadata()
     let mut object_id = book("2", "x");
     object_id["asset_id"] = json!({"tag":1});
     let result = engine
-        .handle_decoded(
+        .handle_decoded_diagnostic(
             &[
                 numeric,
                 object_id,
@@ -498,4 +504,213 @@ fn differential_driver() {
             .collect(),
     );
     std::fs::write(output, results.to_json_string()).expect("write result");
+}
+
+#[test]
+fn typed_sources_keep_bigint_clock_bits_utf16_and_mutable_identity() {
+    use num_bigint::BigInt;
+    use polymarket_runtime::{
+        metadata::{MetadataGraph, MetadataValue},
+        source::{SourceHandle, FILE_PATH, LOCAL_TIME_MS},
+    };
+    let graph = MetadataGraph::new();
+    let sequence: BigInt = "900719925474099312345678901234567890".parse().unwrap();
+    let path = market_json::JsString::from_units(vec![0x66, 0xd800, 0x70]);
+    let source =
+        SourceHandle::parquet(&graph, path.clone(), sequence.clone(), Some(f64::INFINITY)).unwrap();
+    let mut engine = MarketEngine::new(None, 10.0).unwrap();
+    let tick = engine
+        .handle_decoded(
+            &[market_json::JsValue::from_value(book("1", "up"))],
+            &source,
+            false,
+        )
+        .unwrap()
+        .ticks
+        .remove(0);
+    assert_eq!(tick.source, source);
+    assert_eq!(tick.source.sequence().unwrap(), Some(sequence));
+    assert_eq!(
+        tick.source
+            .number(LOCAL_TIME_MS)
+            .unwrap()
+            .unwrap()
+            .to_bits(),
+        f64::INFINITY.to_bits()
+    );
+    assert!(
+        matches!(tick.source.get(FILE_PATH).unwrap(), MetadataValue::String(value) if value == path)
+    );
+    source
+        .set(LOCAL_TIME_MS, MetadataValue::Number(-0.0))
+        .unwrap();
+    assert_eq!(
+        tick.source
+            .number(LOCAL_TIME_MS)
+            .unwrap()
+            .unwrap()
+            .to_bits(),
+        (-0.0f64).to_bits()
+    );
+    source
+        .set(LOCAL_TIME_MS, MetadataValue::Number(f64::NEG_INFINITY))
+        .unwrap();
+    assert_eq!(
+        tick.source
+            .number(LOCAL_TIME_MS)
+            .unwrap()
+            .unwrap()
+            .to_bits(),
+        f64::NEG_INFINITY.to_bits()
+    );
+    source
+        .set(LOCAL_TIME_MS, MetadataValue::Number(f64::NAN))
+        .unwrap();
+    assert!(tick.source.number(LOCAL_TIME_MS).unwrap().unwrap().is_nan());
+    let projection = tick.source.diagnostic_value().unwrap();
+    assert!(projection.to_json_string().contains("\\ud800"));
+    assert!(projection.to_json_string().contains("\"tsLocalMs\":null"));
+}
+
+#[test]
+fn source_children_spread_current_slots_and_share_nested_edges() {
+    use polymarket_runtime::{
+        metadata::{MetadataGraph, MetadataValue},
+        source::{SourceHandle, FRAME_INDEX, LOCAL_TIME_MS},
+    };
+    let graph = MetadataGraph::new();
+    let nested = graph.object().unwrap();
+    nested.set("value", 1.0.into()).unwrap();
+    let source = SourceHandle::new_in_graph(
+        &graph,
+        vec![
+            ("frameIndex".into(), 99.0.into()),
+            ("kind".into(), "live".into()),
+            ("ingestSeq".into(), MetadataValue::BigInt(9.into())),
+            ("extra".into(), nested.clone().into()),
+            ("tsLocalMs".into(), (-0.0).into()),
+        ],
+    )
+    .unwrap();
+    let one = source.for_frame_child(0, 2).unwrap();
+    assert_ne!(one, source);
+    source.set(LOCAL_TIME_MS, 12.0.into()).unwrap();
+    let two = source.for_frame_child(1, 2).unwrap();
+    assert_ne!(one, two);
+    assert_eq!(
+        one.number(LOCAL_TIME_MS).unwrap().unwrap().to_bits(),
+        (-0.0f64).to_bits()
+    );
+    assert_eq!(two.number(LOCAL_TIME_MS).unwrap(), Some(12.0));
+    assert_eq!(source.number(FRAME_INDEX).unwrap(), Some(99.0));
+    assert_eq!(one.number(FRAME_INDEX).unwrap(), Some(0.0));
+    assert_eq!(two.number(FRAME_INDEX).unwrap(), Some(1.0));
+    assert_eq!(
+        one.record()
+            .as_handle()
+            .keys()
+            .unwrap()
+            .first()
+            .unwrap()
+            .as_str(),
+        Some("frameIndex")
+    );
+    nested.set("value", 7.0.into()).unwrap();
+    for child in [one, two] {
+        let MetadataValue::Reference(alias) = child.record().as_handle().get("extra").unwrap()
+        else {
+            panic!("nested handle")
+        };
+        assert_eq!(alias, nested);
+        assert!(matches!(
+            alias.get("value").unwrap(),
+            MetadataValue::Number(7.0)
+        ));
+    }
+    let legacy = SourceHandle::live(&graph, 1.0, None).unwrap();
+    assert_eq!(legacy.for_frame_child(1, 3).unwrap(), legacy);
+}
+
+#[test]
+fn source_graph_import_order_undefined_slots_cycles_and_ownership_are_explicit() {
+    use polymarket_runtime::{
+        metadata::{MetadataError, MetadataGraph, MetadataValue},
+        source::{SourceHandle, INGEST_SEQ},
+    };
+    let graph = MetadataGraph::new();
+    let other_graph = MetadataGraph::new();
+    let own = SourceHandle::live(&graph, 1.0, None).unwrap();
+    assert_eq!(
+        SourceHandle::from_record_in_graph(&graph, own.record().clone()).unwrap(),
+        own
+    );
+    assert!(matches!(
+        SourceHandle::from_record_in_graph(&other_graph, own.record().clone()),
+        Err(MetadataError::WrongGraph)
+    ));
+    let foreign = other_graph.object().unwrap();
+    assert!(matches!(
+        SourceHandle::new_in_graph(&graph, vec![("extra".into(), foreign.into())]),
+        Err(MetadataError::WrongGraph)
+    ));
+    let source = SourceHandle::from_diagnostic_js(
+        &graph,
+        market_json::parse(
+            r#"{"z":1,"10":2,"2":3,"ingestSeq":"-0009","extra":{"a\ud800":[-0,1e400]}}"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(source.sequence().unwrap(), Some((-9).into()));
+    assert_eq!(
+        source
+            .record()
+            .as_handle()
+            .keys()
+            .unwrap()
+            .iter()
+            .map(|k| k.as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["2", "10", "z", "ingestSeq", "extra"]
+    );
+    let projected = source.diagnostic_value().unwrap();
+    assert!(projected.to_json_string().contains("a\\ud800"));
+    let empty =
+        SourceHandle::new_in_graph(&graph, vec![("ingestSeq".into(), MetadataValue::Missing)])
+            .unwrap();
+    assert!(empty.has(INGEST_SEQ).unwrap());
+    assert_ne!(empty.for_frame_child(1, 2).unwrap(), empty);
+    assert_eq!(empty.diagnostic_value().unwrap().to_json_string(), "{}");
+    source
+        .record()
+        .as_handle()
+        .set("self", source.record().clone().into())
+        .unwrap();
+    assert_eq!(
+        source.diagnostic_value().unwrap_err(),
+        MetadataError::CircularReference
+    );
+}
+
+#[test]
+fn deep_source_diagnostic_import_and_projection_are_iterative() {
+    use polymarket_runtime::{metadata::MetadataGraph, source::SourceHandle};
+    let graph = MetadataGraph::new();
+    let mut value = json!(-0.0);
+    for _ in 0..2000 {
+        value = Value::Array(vec![value]);
+    }
+    let mut properties = serde_json::Map::new();
+    properties.insert("kind".into(), Value::String("live".into()));
+    properties.insert("extra".into(), value);
+    let source = SourceHandle::from_diagnostic(&graph, Value::Object(properties)).unwrap();
+    let value = source.diagnostic_value().unwrap();
+    let mut nested = &value["extra"];
+    for _ in 0..2000 {
+        nested = &nested.as_array().unwrap()[0];
+    }
+    let market_json::JsValue::Number(value) = nested else {
+        panic!("Number")
+    };
+    assert_eq!(value.to_bits(), (-0.0f64).to_bits());
 }

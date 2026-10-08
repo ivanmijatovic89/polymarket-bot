@@ -399,6 +399,10 @@ impl MetadataGraph {
     pub fn new() -> Self {
         Self::default()
     }
+    /// Check session ownership without reading, mutating or serializing nodes.
+    pub fn owns(&self, handle: &MetadataHandle) -> bool {
+        Rc::ptr_eq(&self.inner, &handle.inner)
+    }
     fn allocate(&self, container: Container) -> Result<MetadataHandle, MetadataError> {
         let id = self.inner.borrow_mut().allocate(container)?;
         Ok(MetadataHandle {
@@ -877,6 +881,15 @@ impl MetadataHandle {
             arena.shade(target)
         }
         Ok(())
+    }
+    /// Own present array indices in numeric order, including own undefined.
+    /// Holes are absent even though get_index returns Missing for both cases.
+    pub fn index_keys(&self) -> Result<Vec<u32>, MetadataError> {
+        let arena = self.inner.borrow();
+        let Container::Array(array) = &arena.node(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        Ok(array.entries.keys().copied().collect())
     }
     pub fn get_index(&self, index: u32) -> Result<MetadataValue, MetadataError> {
         let edge = {

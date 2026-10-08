@@ -5,7 +5,9 @@ description: Reviewed typed-record and callback foundations, local Parquet admis
 
 # Native SDK and admission review
 
-This is a bounded implementation checkpoint against TypeScript reference `07245602d6ff9bca0dcdf772134cba3dd227526c`. It does not certify a native strategy, production replay/live job, fleet execution or a speed multiplier. All 64 whole integration requirements, 73 registered strategies and 374 observed artifact versions remain pending or in progress.
+This is the historical `aa6d6fb7` bounded implementation checkpoint against TypeScript reference `07245602d6ff9bca0dcdf772134cba3dd227526c`. It does not certify a native strategy, production replay/live job, fleet execution or a speed multiplier. All 64 whole integration requirements, 73 registered strategies and 374 observed artifact versions remain pending or in progress.
+
+Later shared-record and raw-reader integration is documented separately in `RECORD-INTEGRATION-REVIEW.md`; this historical checkpoint retains its own source identities.
 
 ## Implemented and checked
 
@@ -53,6 +55,6 @@ Complete replay modes, native strategy/schema/artifact execution, full shared ru
 
 ## Evidence
 
-Current reports are under `evidence/admission-*`; integrated commands and hashes are in `admission-validation.json` with six adjacent command logs. Historical `evidence/core-*` reports retain their `6945cad7` checkpoint identities; that revision passed all seven remote checks. The new checkpoint requires its own CI after publication.
+Current reports are under `evidence/admission-*`; integrated commands and hashes are in `admission-validation.json` with six adjacent command logs. Historical `evidence/core-*` reports retain their `6945cad7` checkpoint identities; that revision passed all seven remote checks. Published checkpoint `aa6d6fb7` passes all seven remote checks, including macOS/Ubuntu native suites; see `evidence/admission-ci-aa6d6fb7.json`. Later uncommitted integration changes require new validation.
 
 Run the nine comparison scripts from the isolated worktree with Node 20 and the locked Rust toolchain. Parquet, metadata, arithmetic and metrics have separate debug/release reports. Actual underlying TS sources are checked against the pinned reference. The pending DECIMAL reproduction is a failing compatibility finding, not an acceptance test that counts as passed.

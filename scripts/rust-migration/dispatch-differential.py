@@ -38,6 +38,17 @@ def fixtures():
         add(f'normalization-identity-{name}',[submit('identity',[msg]),flush()],identityProbe=True,expectedIdentitySame=name!='compact')
     msg=copy.deepcopy(msg);msg.pop('extra',None)
     add('normalization-identity-awaited-runner',[submit('identity',[msg]),flush()],identityProbe=True,combined=True,awaited=True,expectedIdentitySame=False)
+    def source_create(**extra):return {'kind':'source_create','id':'s',**extra}
+    def source_submit(id,messages):return submit(id,messages,sourceId='s')
+    for label,bits in [('negative-zero','8000000000000000'),('positive-infinity','7ff0000000000000'),('negative-infinity','fff0000000000000'),('nan','7ff8000000000001')]:
+        add('typed-source-'+label,[source_create(source={'kind':'parquet','filePath':'fixture','ingestSeq':'900719925474099312345678901234567890'},localTimeBits=bits,filePathUnits=[102,55296,112]),source_submit('one',[book(1)]),flush()],sourceProbe=True)
+    add('typed-source-legacy-shared-reference',[source_create(),source_submit('multi',[book(1),book(2)]),{'kind':'source_mutate','id':'s','localTimeBits':'8000000000000000'},flush()],sourceProbe=True)
+    add('typed-source-shallow-child-alias',[source_create(source={'frameIndex':99,'kind':'live','ingestSeq':'9','extra':{'value':1}},localTimeBits='8000000000000000'),source_submit('multi',[book(1),book(2)]),{'kind':'source_mutate','id':'s','nestedValue':7,'localTimeBits':'7ff0000000000000'},flush()],sourceProbe=True)
+    add('typed-source-mutation-between-awaited-children',[source_create(source={'kind':'parquet','filePath':'fixture','ingestSeq':'9'}),source_submit('multi',[book(1),book(2)]),{'kind':'source_mutate','id':'s','sequence':'900719925474099312345','localTimeBits':'fff0000000000000'},{'kind':'resolve','gate':'g'},flush()],sourceProbe=True,callbacks={'1':{'gate':'g'}})
+    add('typed-source-delete-sequence-while-paused',[source_create(source={'kind':'live','ingestSeq':'9','attempt':1}),source_submit('multi',[book(1),book(2)]),{'kind':'source_mutate','id':'s','removeSequence':True},{'kind':'resolve','gate':'g'},flush()],sourceProbe=True,callbacks={'1':{'gate':'g'}})
+    add('typed-source-undefined-own-sequence',[source_create(undefinedSequence=True),source_submit('multi',[book(1),book(2)]),flush()],sourceProbe=True)
+    add('typed-source-live-queued-runner-alias',[source_create(),source_submit('multi',[book(1),book(2)]),{'kind':'source_mutate','id':'s','localTimeBits':'7ff0000000000000'},flush()],sourceProbe=True,combined=True)
+    add('typed-source-shared-record-two-frames',[source_create(source={'kind':'parquet','filePath':'fixture','ingestSeq':'-900719925474099312345'}),source_submit('one',[book(1)]),source_submit('two',[book(2)]),flush()],sourceProbe=True)
     rng=random.Random(733019)
     for n in range(20):
         operations=[];callbacks={};ts=1
@@ -94,10 +105,69 @@ def native_paths(crate):
     return [p for d in ['src','tests','examples'] for p in sorted((crate/d).rglob('*.rs'))]+[crate/'Cargo.toml',crate/'Cargo.lock']
 
 def hash(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def tooling(node,cargo):
+    rustc=os.environ.get('RUSTC') or str(Path(cargo).with_name('rustc'))
+    if not Path(rustc).exists():rustc='rustc'
+    result={}
+    for name,command,args in [('node',node,['--version']),('cargo',cargo,['--version','--verbose']),('rustc',rustc,['--version','--verbose'])]:
+        path=Path(shutil.which(command) or command).resolve()
+        result[name]={'command':command,'path':str(path),'binarySha256':hash(path),'version':subprocess.check_output([command,*args],text=True).strip()}
+    sysroot=Path(subprocess.check_output([rustc,'--print','sysroot'],text=True).strip())
+    for name in ['cargo','rustc']:
+        executable=sysroot/'bin'/name
+        if executable.exists() and Path(result[name]['path']).name in ['rustup','rustup-init']:
+            result[name]['selectedExecutable']={'path':str(executable),'sha256':hash(executable)}
+    return result
+
+def dependency_files(loaded):
+    result=set(loaded)
+    for path in loaded:
+        for parent in path.parents:
+            package=parent/'package.json'
+            if package.is_file():
+                result.add(package)
+                if 'node_modules' in parent.parts:
+                    # Include package helper/data/native files, not just module
+                    # imports. Esbuild executes a platform binary out of process.
+                    result.update(p.resolve() for p in parent.rglob('*') if p.is_file())
+                break
+        for parent in path.parents:
+            if parent.name=='node_modules':
+                platform=parent/'@esbuild'
+                if platform.is_dir():result.update(p.resolve() for p in platform.rglob('*') if p.is_file())
+    override=os.environ.get('ESBUILD_BINARY_PATH')
+    if override:result.add(Path(override).resolve())
+    return result
+
+def dependency_guard(expected_files,hashes,current_files):
+    if current_files!=expected_files:raise RuntimeError('Imported oracle dependency file set changed')
+    if any(hash(Path(p))!=h for p,h in hashes.items()):raise RuntimeError('Imported oracle dependency bytes changed')
+
+def dependency_mutation_checks():
+    with tempfile.TemporaryDirectory(prefix='dispatch-dependency-guards-') as directory:
+        package=Path(directory)/'node_modules'/'fixture';package.mkdir(parents=True)
+        module=package/'index.js';meta=package/'package.json';helper=package/'native.bin'
+        module.write_text('export const value=1;');meta.write_text('{"name":"fixture"}');helper.write_bytes(b'first')
+        loaded={module};baseline=dependency_files(loaded);hashes={str(p):hash(p) for p in baseline}
+        dependency_guard(baseline,hashes,dependency_files(loaded))
+        def rejects():
+            try:dependency_guard(baseline,hashes,dependency_files(loaded))
+            except RuntimeError:return
+            raise AssertionError('Dependency guard accepted a deliberate mutation')
+        module.write_text('export const value=2;');rejects();module.write_text('export const value=1;')
+        meta.write_text('{"name":"changed"}');rejects();meta.write_text('{"name":"fixture"}')
+        helper.write_bytes(b'other');rejects();helper.write_bytes(b'first')
+        extra=package/'added.js';extra.write_text('new file');rejects();extra.unlink()
+        helper.unlink();rejects();helper.write_bytes(b'first')
+        dependency_guard(baseline,hashes,dependency_files(loaded))
+    return 5
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--node',default='/Users/mijat/.nvm/versions/node/v20.11.0/bin/node');parser.add_argument('--report',type=Path);parser.add_argument('--exploratory',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--node',default='node');parser.add_argument('--cargo',default=str(Path.home()/'.cargo/bin/cargo'));parser.add_argument('--release',action='store_true');parser.add_argument('--report',type=Path);parser.add_argument('--exploratory',action='store_true');args=parser.parse_args()
     mutations=mutation_checks()
-    version=subprocess.check_output([args.node,'--version'],text=True).strip();assert version.startswith('v20.')
+    dependency_mutations=dependency_mutation_checks()
+    tools_before=tooling(args.node,args.cargo)
+    version=tools_before['node']['version'];assert version.startswith('v20.')
     # Pin all TS source imports, including the constructor dependencies of the
     # instrumented StrategyRunner. New unrelated native files are hash guarded.
     sources=[p for p in sorted((ROOT/'src').rglob('*.ts')) if subprocess.run(['git','cat-file','-e',f'{REFERENCE}:{p.relative_to(ROOT)}'],cwd=ROOT,capture_output=True).returncode==0]
@@ -106,16 +176,29 @@ def main():
         original=subprocess.check_output(['git','show',f'{REFERENCE}:{p.relative_to(ROOT)}'],cwd=ROOT)
         if p.read_bytes()!=original:raise RuntimeError(f'Pinned source drift: {p.relative_to(ROOT)}')
         source_hashes[str(p.relative_to(ROOT))]=hash(p)
-    crate=ROOT/'native/trading-runtime';owned=native_paths(crate)+[Path(__file__).resolve(),ROOT/'scripts/rust-migration/dispatch-oracle.mts']
+    crate=ROOT/'native/trading-runtime'
+    wrappers=[Path(__file__).resolve(),ROOT/'scripts/rust-migration/dispatch-oracle.mts',ROOT/'scripts/rust-migration/dispatch-dependency-preload.cjs',ROOT/'scripts/rust-migration/dispatch-dependency-loader.mjs',ROOT/'package.json',ROOT/'package-lock.json']
+    owned=native_paths(crate)+wrappers
     hashes={str(p.relative_to(ROOT)):hash(p) for p in owned}
     cases=fixtures();payload=json.dumps({'cases':cases},separators=(',',':'))
-    build=subprocess.run(['cargo','test','--manifest-path',str(crate/'Cargo.toml'),'--test','dispatch','--locked','--offline','--no-run','--message-format=json'],cwd=ROOT,capture_output=True,text=True,check=True)
+    build=subprocess.run([args.cargo,'test','--manifest-path',str(crate/'Cargo.toml'),'--test','dispatch','--locked','--offline','--no-run','--message-format=json',*(['--release'] if args.release else [])],cwd=ROOT,capture_output=True,text=True,check=True)
     binaries=[x['executable'] for l in build.stdout.splitlines() if (x:=json.loads(l)).get('reason')=='compiler-artifact' and x.get('executable') and x['target']['name']=='dispatch'];assert len(binaries)==1
     with tempfile.TemporaryDirectory(prefix='dispatch-parity-') as d:
         d=Path(d);binary=Path(binaries[0]);before=hash(binary);frozen=d/'driver';shutil.copy2(binary,frozen)
         assert hash(frozen)==hash(binary)==before
         source=d/'input.json';target=d/'output.json';source.write_text(payload)
-        expected=json.loads(subprocess.check_output([args.node,'--import','tsx',str(ROOT/'scripts/rust-migration/dispatch-oracle.mts'),str(source)],cwd=ROOT,text=True))
+        preload=ROOT/'scripts/rust-migration/dispatch-dependency-preload.cjs'
+        def oracle(trace):
+            trace.write_text('')
+            return json.loads(subprocess.check_output([args.node,'--require',str(preload),'--import','tsx',str(ROOT/'scripts/rust-migration/dispatch-oracle.mts'),str(source)],cwd=ROOT,env={**os.environ,'PMB_DISPATCH_DEPENDENCY_TRACE':str(trace)},text=True))
+        discovery=d/'discovery.jsonl';oracle(discovery)
+        loaded_dependencies={Path(json.loads(line)) for line in discovery.read_text().splitlines()}-{source}
+        dependency_set=dependency_files(loaded_dependencies)
+        dependency_hashes={str(p):hash(p) for p in dependency_set}
+        trace=d/'authoritative.jsonl';expected=oracle(trace)
+        actual_loaded={Path(json.loads(line)) for line in trace.read_text().splitlines()}-{source}
+        if actual_loaded!=loaded_dependencies:raise RuntimeError('Imported module set changed between discovery and authoritative execution')
+        dependency_guard(dependency_set,dependency_hashes,dependency_files(actual_loaded))
         subprocess.run([str(frozen),'differential_fixture_driver','--ignored','--exact'],cwd=ROOT,env={**os.environ,'PMB_DISPATCH_FIXTURE_INPUT':str(source),'PMB_DISPATCH_FIXTURE_OUTPUT':str(target)},capture_output=True,check=True)
         actual=json.loads(target.read_text());assert hash(frozen)==before
         try:compare_cases(expected,actual,cases)
@@ -130,11 +213,13 @@ def main():
                 identity=captures[0]['identity']
                 if identity!={'messageSame':wanted,'changesSame':wanted,'changeObjectsSame':[wanted,wanted]}:raise AssertionError('Identity fixture did not exercise intended fresh/no-op nodes')
                 if result['observations'][-1]['statuses']['frames'][0]['returnSame'] is not True:raise AssertionError('Frame return lost original message identity')
-    final_paths=native_paths(crate)+[Path(__file__).resolve(),ROOT/'scripts/rust-migration/dispatch-oracle.mts']
+    final_paths=native_paths(crate)+wrappers
     if set(owned)!=set(final_paths):raise RuntimeError('Native source file set changed during comparison')
     drift=[p for p,h in {**source_hashes,**hashes}.items() if hash(ROOT/p)!=h]
     if drift and not args.exploratory:raise RuntimeError(f'Sources moved during comparison: {drift}')
-    report={'referenceCommit':REFERENCE,'node':version,'cases':len(cases),'operationCount':sum(len(c['input']['operations']) for c in cases),'fullDiagnosticOutputParity':True,'actualPinnedMarketEngineCallbacks':True,'actualPinnedStrategyRunnerPublicAdmission':True,'compactHashNodeIdentityParity':True,'unchangedHashNodeIdentityParity':True,'frameOriginalReturnIdentityParity':True,'identityProbeCases':5,'instrumentedRunnerBodies':True,'scope':'Frame/admission/capture/FIFO behavior only; full strategy, execution, plugins, account processing and owning-thread live transport integration remain required. Instrumented runner processing bodies are excluded.','oracleSourceSha256':source_hashes,'compiledSourceSha256':hashes,'sourceDrift':drift,'sourceBound':not drift,'nativeExecutableSha256':before,'nativeExecutableFrozen':True,'fixturesSha256':hashlib.sha256(payload.encode()).hexdigest(),'comparatorMutationChecks':mutations,'responseCountIdentitySourceBound':True,'nativeSourceFileSetGuarded':True}
+    if tooling(args.node,args.cargo)!=tools_before:raise RuntimeError('Node/Cargo/rustc tooling changed during comparison')
+    dependency_guard(dependency_set,dependency_hashes,dependency_files(loaded_dependencies))
+    report={'referenceCommit':REFERENCE,'node':version,'buildProfile':'release' if args.release else 'debug','tooling':tools_before,'importedOracleDependencySha256':dependency_hashes,'importedOracleDependencyCount':len(dependency_set),'importedDependencySetAndBytesGuarded':True,'dependencyMutationChecks':dependency_mutations,'cases':len(cases),'operationCount':sum(len(c['input']['operations']) for c in cases),'fullDiagnosticOutputParity':True,'actualPinnedMarketEngineCallbacks':True,'actualPinnedStrategyRunnerPublicAdmission':True,'compactHashNodeIdentityParity':True,'unchangedHashNodeIdentityParity':True,'frameOriginalReturnIdentityParity':True,'identityProbeCases':5,'typedSourceProbeCases':sum(bool(c['input'].get('sourceProbe')) for c in cases),'sourceBigIntClockBitsIdentityParity':True,'sourceInheritedDescriptorsParity':False,'instrumentedRunnerBodies':True,'scope':'Frame/admission/capture/FIFO behavior only; full strategy, execution, plugins, account processing and owning-thread live transport integration remain required. Instrumented runner processing bodies are excluded.','oracleSourceSha256':source_hashes,'compiledSourceSha256':hashes,'sourceDrift':drift,'sourceBound':not drift,'nativeExecutableSha256':before,'nativeExecutableFrozen':True,'fixturesSha256':hashlib.sha256(payload.encode()).hexdigest(),'comparatorMutationChecks':mutations,'responseCountIdentitySourceBound':True,'nativeSourceFileSetGuarded':True}
     if args.report:args.report.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({k:v for k,v in report.items() if not k.endswith('Sha256')},indent=2))
 if __name__=='__main__':main()

@@ -2,12 +2,18 @@
 //! Admission deliberately separates pop from refill: the caller must finish
 //! the current frame/callback before the next row in that file is read.
 use crate::market_json::{self, JsValue};
+use crate::parquet_decimal::{DecimalValue, RawDecimalDescriptor};
+use crate::parquet_decimal_column;
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use parquet::basic::ConvertedType;
-use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::file::metadata::RowGroupMetaData;
+use parquet::file::properties::ReaderProperties;
+use parquet::file::reader::RowGroupReader;
+use parquet::file::serialized_reader::SerializedRowGroupReader;
 use parquet::record::reader::RowIter;
 use parquet::record::{Field, Row};
+use parquet::schema::types::{SchemaDescriptor, Type};
 use parquet::thrift::TSerializable;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, VecDeque};
@@ -15,6 +21,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thrift::protocol::TCompactInputProtocol;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -77,6 +84,14 @@ fn string_integer(value: &str) -> Option<BigInt> {
 /// Matches toBigInt for production replay primitive columns. BigInt keys never
 /// pass through binary64; numeric columns intentionally truncate like JS.
 pub fn integer_key(value: Option<ColumnValue<'_>>, fallback: &BigInt) -> BigInt {
+    if let Some(ColumnValue::Decimal(value)) = value {
+        return match value {
+            DecimalValue::Number(value) => {
+                BigInt::from_f64(value.trunc()).unwrap_or_else(|| fallback.clone())
+            }
+            DecimalValue::Buffer(_) => fallback.clone(),
+        };
+    }
     if let Some(ColumnValue::Json(value)) = value {
         let parsed = match value {
             JsValue::Number(value) => BigInt::from_f64(value.trunc()),
@@ -112,13 +127,18 @@ pub fn integer_key(value: Option<ColumnValue<'_>>, fallback: &BigInt) -> BigInt 
 pub enum ColumnValue<'a> {
     Physical(&'a Field),
     Json(&'a JsValue),
+    Decimal(&'a DecimalValue),
 }
 #[derive(Debug)]
 pub struct ParquetInputData {
     pub physical: Row,
     pub logical_json: Vec<(String, JsValue)>,
+    pub logical_decimals: Vec<(String, Option<DecimalValue>)>,
 }
 pub fn column<'a>(row: &'a ParquetInputData, name: &str) -> Option<ColumnValue<'a>> {
+    if let Some((_, value)) = row.logical_decimals.iter().find(|(key, _)| key == name) {
+        return value.as_ref().map(ColumnValue::Decimal);
+    }
     if let Some((_, value)) = row.logical_json.iter().find(|(key, _)| key == name) {
         return Some(ColumnValue::Json(value));
     }
@@ -148,6 +168,14 @@ fn decode_json(field: &Field) -> Result<JsValue, InputError> {
 // Normalized Parquet statistics discard deprecated min/max when modern bounds
 // exist. The pinned reader decodes all four raw fields, so preserve them here.
 fn raw_footer(file: &mut File) -> Result<parquet::format::FileMetaData, InputError> {
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| InputError(e.to_string()))?;
+    let mut header = [0; 4];
+    file.read_exact(&mut header)
+        .map_err(|e| InputError(e.to_string()))?;
+    if &header != b"PAR1" {
+        return Err(InputError("Invalid Parquet header".into()));
+    }
     let size = file
         .metadata()
         .map_err(|e| InputError(e.to_string()))?
@@ -181,11 +209,13 @@ fn raw_footer(file: &mut File) -> Result<parquet::format::FileMetaData, InputErr
 fn validate_json_statistics(
     path: &Path,
     raw: &parquet::format::FileMetaData,
-    descriptors: &parquet::schema::types::SchemaDescriptor,
+    converted: &[ConvertedType],
 ) -> Result<(), InputError> {
     for group in &raw.row_groups {
         for (index, column) in group.columns.iter().enumerate() {
-            if descriptors.column(index).converted_type() != ConvertedType::JSON {
+            // DECIMAL footer statistics use the reconstructed BYTE_ARRAY
+            // schema and retain Buffer bytes, without numeric codec reads.
+            if converted[index] != ConvertedType::JSON {
                 continue;
             }
             if let Some(statistics) = column
@@ -314,7 +344,11 @@ fn validate_json_page_statistics(
 /// Owns a file and one decoded row group at a time. No complete input load.
 pub struct ParquetRows {
     path: PathBuf,
-    rows: RowIter<'static>,
+    reader: Arc<File>,
+    reference_groups: Vec<RowGroupMetaData>,
+    next_group: usize,
+    converted: Vec<ConvertedType>,
+    decimal_descriptors: Vec<Option<RawDecimalDescriptor>>,
     json_columns: Vec<String>,
     json_indices: Vec<usize>,
     statistics_file: File,
@@ -328,31 +362,94 @@ impl ParquetRows {
             File::open(&path).map_err(|e| InputError(format!("{}: {e}", path.display())))?;
         let raw =
             raw_footer(&mut file).map_err(|e| InputError(format!("{}: {e}", path.display())))?;
+        if !matches!(raw.version, 1 | 2) {
+            return Err(InputError("Invalid Parquet version".into()));
+        }
+        let mut raw_schema = raw.schema.clone();
+        for field in &mut raw_schema {
+            field.logical_type = None;
+            // Codec width/scale follows raw metadata, not the native library's
+            // physical precision cap. Keep those fields separately below.
+            if field.converted_type == Some(parquet::format::ConvertedType::DECIMAL) {
+                field.converted_type = None;
+            }
+        }
+        let reference_schema = Arc::new(SchemaDescriptor::new(
+            parquet::schema::types::from_thrift(&raw_schema)
+                .map_err(|e| InputError(e.to_string()))?,
+        ));
         let statistics_file = file.try_clone().map_err(|e| InputError(e.to_string()))?;
-        let reader = SerializedFileReader::new(file)
-            .map_err(|e| InputError(format!("{}: {e}", path.display())))?;
-        let descriptors = reader.metadata().file_metadata().schema_descr();
+        // Construct directly from the raw converted-only schema. Opening the
+        // full crate reader would validate ignored logicalType annotations and
+        // could reject files that the reference accepts before any row is read.
+        let reader = Arc::new(file);
+        let descriptors = reference_schema.as_ref();
+        let reference_groups = raw
+            .row_groups
+            .iter()
+            .cloned()
+            .map(|group| {
+                RowGroupMetaData::from_thrift(reference_schema.clone(), group)
+                    .map_err(|e| InputError(e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        // Preserve raw annotation presence. arrow-rs synthesizes a converted
+        // type from logicalType; parquetjs intentionally ignores logicalType.
+        let converted = raw
+            .schema
+            .iter()
+            .filter(|field| field.type_.is_some() && field.num_children.unwrap_or(0) == 0)
+            .map(|field| {
+                ConvertedType::try_from(field.converted_type).map_err(|e| InputError(e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let decimal_descriptors = raw
+            .schema
+            .iter()
+            .filter(|field| field.type_.is_some() && field.num_children.unwrap_or(0) == 0)
+            .map(|field| {
+                if field.converted_type != Some(parquet::format::ConvertedType::DECIMAL) {
+                    return Ok(None);
+                }
+                let precision = field
+                    .precision
+                    .ok_or_else(|| InputError("Missing DECIMAL precision".into()))?;
+                let scale = field
+                    .scale
+                    .ok_or_else(|| InputError("Missing DECIMAL scale".into()))?;
+                if precision <= 0 || scale < 0 || scale > precision {
+                    return Err(InputError("Invalid DECIMAL precision/scale".into()));
+                }
+                Ok(Some(RawDecimalDescriptor {
+                    physical_type: parquet::basic::Type::try_from(field.type_.unwrap())
+                        .map_err(|e| InputError(e.to_string()))?,
+                    precision,
+                    scale,
+                    type_length: field.type_length,
+                }))
+            })
+            .collect::<Result<Vec<_>, InputError>>()?;
+        if converted.len() != descriptors.num_columns() {
+            return Err(InputError("Raw schema/column count mismatch".into()));
+        }
         let json_columns = descriptors
             .columns()
             .iter()
-            .filter(|column| {
-                column.converted_type() == ConvertedType::JSON && column.path().parts().len() == 1
+            .enumerate()
+            .filter(|(index, column)| {
+                converted[*index] == ConvertedType::JSON && column.path().parts().len() == 1
             })
-            .filter_map(|column| column.path().parts().first().cloned())
+            .filter_map(|(_, column)| column.path().parts().first().cloned())
             .collect();
         let json_indices = descriptors
             .columns()
             .iter()
             .enumerate()
-            .filter_map(|(index, column)| {
-                (column.converted_type() == ConvertedType::JSON).then_some(index)
-            })
+            .filter_map(|(index, _)| (converted[index] == ConvertedType::JSON).then_some(index))
             .collect();
         // Validation occurs before any file cursor is primed.
-        validate_json_statistics(&path, &raw, descriptors)?;
-        let group_sizes = reader
-            .metadata()
-            .row_groups()
+        validate_json_statistics(&path, &raw, &converted)?;
+        let group_sizes = reference_groups
             .iter()
             .map(|group| {
                 usize::try_from(group.num_rows())
@@ -361,11 +458,15 @@ impl ParquetRows {
             .collect::<Result<VecDeque<_>, _>>()?;
         Ok(Self {
             path,
+            converted,
+            decimal_descriptors,
             json_columns,
             json_indices,
             statistics_file,
             raw_groups: raw.row_groups.into(),
-            rows: RowIter::from_file_into(Box::new(reader)),
+            reader,
+            reference_groups,
+            next_group: 0,
             group_sizes,
             pending_rows: VecDeque::new(),
         })
@@ -389,6 +490,7 @@ impl ParquetRows {
         Ok(ParquetInputData {
             physical,
             logical_json,
+            logical_decimals: Vec::new(),
         })
     }
     pub fn next_row(&mut self) -> Result<Option<ParquetInputData>, InputError> {
@@ -410,10 +512,50 @@ impl ParquetRows {
             // first row can reach an awaited callback. Discard this entire
             // group's prefix on a read/conversion error, preserving only rows
             // previously admitted from earlier groups.
+            let metadata = self
+                .reference_groups
+                .get(self.next_group)
+                .ok_or_else(|| InputError("Missing native rowgroup metadata".into()))?;
+            let reader = SerializedRowGroupReader::new(
+                self.reader.clone(),
+                metadata,
+                None,
+                Arc::new(ReaderProperties::builder().build()),
+            )
+            .map_err(|e| InputError(e.to_string()))?;
+            self.next_group += 1;
+            // DECIMAL values come from the original JS codec/page contexts.
+            // Do not eagerly run the crate's independent DECIMAL row decoder:
+            // its stricter dictionary checks can reject rows the reference admits.
+            let schema = reader.metadata().schema_descr().root_schema();
+            let fields = schema
+                .get_fields()
+                .iter()
+                .filter(|field| {
+                    !reader
+                        .metadata()
+                        .schema_descr()
+                        .columns()
+                        .iter()
+                        .enumerate()
+                        .any(|(index, column)| {
+                            self.converted[index] == ConvertedType::DECIMAL
+                                && column.path().parts().len() == 1
+                                && column.path().parts()[0] == field.name()
+                                && column.max_rep_level() == 0
+                        })
+                })
+                .cloned()
+                .collect();
+            let projection = Type::group_type_builder(schema.name())
+                .with_fields(fields)
+                .build()
+                .map_err(|e| InputError(e.to_string()))?;
+            let mut rows = RowIter::from_row_group(Some(projection), &reader)
+                .map_err(|e| InputError(format!("{}: {e}", self.path.display())))?;
             let mut group = VecDeque::new();
             for _ in 0..count {
-                let physical = self
-                    .rows
+                let physical = rows
                     .next()
                     .transpose()
                     .map_err(|e| InputError(format!("{}: {e}", self.path.display())))?
@@ -421,6 +563,57 @@ impl ParquetRows {
                         InputError(format!("{}: Truncated row group", self.path.display()))
                     })?;
                 group.push_back(self.decode_row(physical)?);
+            }
+            let descriptors = reader.metadata().schema_descr();
+            for (index, descriptor) in descriptors.columns().iter().enumerate() {
+                if self.converted[index] == ConvertedType::DECIMAL
+                    && descriptor.path().parts().len() == 1
+                    && descriptor.max_rep_level() == 0
+                {
+                    let metadata = raw_group.columns[index]
+                        .meta_data
+                        .as_ref()
+                        .ok_or_else(|| InputError("Missing DECIMAL column metadata".into()))?;
+                    let offset = metadata
+                        .dictionary_page_offset
+                        .unwrap_or(metadata.data_page_offset)
+                        .min(metadata.data_page_offset);
+                    let offset = u64::try_from(offset)
+                        .map_err(|_| InputError("Invalid DECIMAL column offset".into()))?;
+                    let length = usize::try_from(metadata.total_compressed_size)
+                        .map_err(|_| InputError("Invalid DECIMAL column size".into()))?;
+                    let size = self
+                        .statistics_file
+                        .metadata()
+                        .map_err(|e| InputError(e.to_string()))?
+                        .len();
+                    if offset
+                        .checked_add(length as u64)
+                        .is_none_or(|end| end > size)
+                    {
+                        return Err(InputError("Truncated DECIMAL column".into()));
+                    }
+                    self.statistics_file
+                        .seek(SeekFrom::Start(offset))
+                        .map_err(|e| InputError(e.to_string()))?;
+                    let mut raw = vec![0; length];
+                    self.statistics_file
+                        .read_exact(&mut raw)
+                        .map_err(|e| InputError(e.to_string()))?;
+                    let values = parquet_decimal_column::read_flat_column(
+                        &reader,
+                        index,
+                        &raw,
+                        self.decimal_descriptors[index]
+                            .as_ref()
+                            .ok_or_else(|| InputError("Missing raw DECIMAL descriptor".into()))?,
+                    )
+                    .map_err(InputError)?;
+                    let name = descriptor.path().parts()[0].clone();
+                    for (row, value) in group.iter_mut().zip(values) {
+                        row.logical_decimals.push((name.clone(), value));
+                    }
+                }
             }
             self.pending_rows = group;
             if let Some(row) = self.pending_rows.pop_front() {

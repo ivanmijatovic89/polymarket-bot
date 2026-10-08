@@ -1,0 +1,2 @@
+    Checking polymarket-runtime v0.1.0 (/Users/mijat/.codex/worktrees/rust-backtest-benchmark/polymarket-bot/native/trading-runtime)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.55s

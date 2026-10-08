@@ -1,0 +1,20 @@
+scripts/rust-migration/market-oracle.mts(174,44): error TS2379: Argument of type '{ rawJson: string; source: EngineSource; bootstrap: boolean | undefined; }' is not assignable to parameter of type '{ rawJson: string; source: EngineSource; bootstrap?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'bootstrap' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+scripts/rust-migration/market-oracle.mts(180,48): error TS2379: Argument of type '{ messages: AnyMarketMessage[]; source: EngineSource; bootstrap: boolean | undefined; }' is not assignable to parameter of type '{ messages: readonly AnyMarketMessage[]; source: EngineSource; bootstrap?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'bootstrap' are incompatible.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+scripts/rust-migration/math-oracle.mts(45,21): error TS2379: Argument of type '{ id: string; tsMs: number; assetId: string; side: "BUY" | "SELL"; price: number; size: number; liquidity: "MAKER" | "TAKER"; feeRateBps: number | undefined; }' is not assignable to parameter of type 'Fill' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'feeRateBps' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+scripts/rust-migration/metadata-oracle.mts(227,18): error TS2379: Argument of type '{ op: string; id: string | undefined; from: string | undefined; }' is not assignable to parameter of type 'Action' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'id' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/rust-migration/metrics-oracle.mts(43,43): error TS2379: Argument of type '{ portfolio: Parameters<typeof computePositionMetrics>[0]["portfolio"]; upAssetId: string | undefined; downAssetId: string | undefined; }' is not assignable to parameter of type '{ portfolio: PortfolioSnapshot; upAssetId?: string; downAssetId?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'upAssetId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.

@@ -1,0 +1,25 @@
+
+  vitepress v1.6.4
+
+- building client + server bundles...
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'env' is not loaded, falling back to 'txt' for syntax highlighting.
+[32m✓[0m building client + server bundles...
+- rendering pages...
+[32m✓[0m rendering pages...
+build complete in 12.48s.

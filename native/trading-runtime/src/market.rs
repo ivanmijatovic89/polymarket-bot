@@ -54,14 +54,19 @@ impl MarketError {
 /// Session strategy dispatch must consume this typed message, not `msg.view()`.
 #[derive(Debug, Clone)]
 pub struct MarketTick {
-    pub source: Value,
+    pub source: crate::source::SourceHandle,
     pub msg: JsValue,
     pub snapshot: Arc<MarketSnapshot>,
 }
 impl MarketTick {
     fn json_value(&self) -> JsValue {
         object([
-            ("source", js(self.source.clone())),
+            (
+                "source",
+                self.source
+                    .diagnostic_value()
+                    .expect("fixture source is acyclic"),
+            ),
             ("msg", self.msg.clone()),
             ("snapshot", self.snapshot.trace_value()),
         ])
@@ -622,32 +627,6 @@ pub fn decode_frame(raw: &str) -> Vec<JsValue> {
         })
         .collect()
 }
-pub(crate) fn normalize_source(source: &Value) -> Result<Value, MarketError> {
-    let mut source = market_json::normalize_control_value(source.clone());
-    if let Some(seq) = source.get_mut("ingestSeq") {
-        let Some(raw) = seq.as_str() else {
-            return Err(MarketError::error("ingestSeq must be a decimal string"));
-        };
-        let raw = raw.trim_matches(whitespace);
-        let (negative, digits) = if let Some(rest) = raw.strip_prefix('-') {
-            (true, rest)
-        } else {
-            (false, raw.strip_prefix('+').unwrap_or(raw))
-        };
-        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(MarketError::error("ingestSeq must be a decimal string"));
-        }
-        let digits = digits.trim_start_matches('0');
-        *seq = json!(if digits.is_empty() {
-            "0".into()
-        } else if negative {
-            format!("-{digits}")
-        } else {
-            digits.to_owned()
-        });
-    }
-    Ok(source)
-}
 
 /// Stateful shared market core; the enclosing session serializes frame calls.
 pub struct MarketEngine {
@@ -938,30 +917,64 @@ impl MarketEngine {
     pub fn handle_raw(
         &mut self,
         raw: &str,
-        source: &Value,
+        source: &crate::source::SourceHandle,
         bootstrap: bool,
     ) -> Result<FrameResult, FrameError> {
         self.handle_wire(&decode_frame(raw), source, bootstrap)
     }
     pub fn handle_decoded(
         &mut self,
+        messages: &[JsValue],
+        source: &crate::source::SourceHandle,
+        bootstrap: bool,
+    ) -> Result<FrameResult, FrameError> {
+        self.handle_wire(messages, source, bootstrap)
+    }
+    /// Diagnostic fixture seam only; production admits a typed source handle.
+    pub fn handle_raw_diagnostic(
+        &mut self,
+        raw: &str,
+        source: &Value,
+        bootstrap: bool,
+    ) -> Result<FrameResult, FrameError> {
+        let source = crate::source::SourceHandle::from_diagnostic(
+            &crate::metadata::MetadataGraph::new(),
+            source.clone(),
+        )
+        .map_err(|error| FrameError {
+            error: MarketError::error(error.to_string()),
+            ticks: vec![],
+        })?;
+        self.handle_raw(raw, &source, bootstrap)
+    }
+    /// Diagnostic fixture seam only; no production strategy uses Serde messages.
+    pub fn handle_decoded_diagnostic(
+        &mut self,
         messages: &[Value],
         source: &Value,
         bootstrap: bool,
     ) -> Result<FrameResult, FrameError> {
+        let source = crate::source::SourceHandle::from_diagnostic(
+            &crate::metadata::MetadataGraph::new(),
+            source.clone(),
+        )
+        .map_err(|error| FrameError {
+            error: MarketError::error(error.to_string()),
+            ticks: vec![],
+        })?;
         let messages = messages
             .iter()
             .cloned()
             .map(JsValue::from_value)
             .collect::<Vec<_>>();
-        self.handle_wire(&messages, source, bootstrap)
+        self.handle_decoded(&messages, &source, bootstrap)
     }
     /// Apply exactly one child, retaining partial mutation if conversion fails.
     /// Admission owns sequencing; the collector and cursor share this operation.
     pub(crate) fn apply_frame_child(
         &mut self,
         original: &JsValue,
-        source: &Value,
+        source: &crate::source::SourceHandle,
         bootstrap: bool,
         index: usize,
         length: usize,
@@ -982,10 +995,9 @@ impl MarketEngine {
         if bootstrap || !matches!(string(&message, "event_type"), "book" | "price_change") {
             return Ok(None);
         }
-        let mut source = source.clone();
-        if source.get("ingestSeq").is_some() && length > 1 {
-            source["frameIndex"] = json!(index);
-        }
+        let source = source
+            .for_frame_child(index, length)
+            .map_err(|error| MarketError::error(error.to_string()))?;
         Ok(Some(MarketTick {
             source,
             msg: message,
@@ -995,16 +1007,12 @@ impl MarketEngine {
     fn handle_wire(
         &mut self,
         messages: &[JsValue],
-        source: &Value,
+        source: &crate::source::SourceHandle,
         bootstrap: bool,
     ) -> Result<FrameResult, FrameError> {
         let mut ticks = vec![];
-        let source = normalize_source(source).map_err(|error| FrameError {
-            error,
-            ticks: vec![],
-        })?;
         for (index, original) in messages.iter().enumerate() {
-            match self.apply_frame_child(original, &source, bootstrap, index, messages.len()) {
+            match self.apply_frame_child(original, source, bootstrap, index, messages.len()) {
                 Ok(Some(tick)) => ticks.push(tick),
                 Ok(None) => {}
                 Err(error) => return Err(FrameError { error, ticks }),
@@ -1136,7 +1144,7 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
                     ticks: vec![],
                 })
             }
-            "raw" => engine.handle_raw(
+            "raw" => engine.handle_raw_diagnostic(
                 operation
                     .get("rawJson")
                     .and_then(Value::as_str)
@@ -1144,7 +1152,7 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
                 &source,
                 bootstrap,
             ),
-            "decoded" => engine.handle_decoded(
+            "decoded" => engine.handle_decoded_diagnostic(
                 operation
                     .get("messages")
                     .and_then(Value::as_array)

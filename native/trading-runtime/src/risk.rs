@@ -75,7 +75,11 @@ fn check<M>(
         .snapshot
         .positions_by_asset_id
         .get(&order.asset_id)
-        .map_or(0.0, |p| p.qty);
+        .map_or(0.0, |p| {
+            crate::portfolio::position_view(p)
+                .expect("typed numeric position slots")
+                .qty
+        });
     let buys = exposure.buys.get(&order.asset_id).copied().unwrap_or(0.0);
     let sells = exposure.sells.get(&order.asset_id).copied().unwrap_or(0.0);
     let projected = if order.side == Side::Buy {
@@ -134,7 +138,8 @@ pub fn enforce_risk_limits<M: Clone>(
         buys: HashMap::new(),
         sells: HashMap::new(),
     };
-    for (_, o) in view.snapshot.open_orders_by_client_id.object_iter() {
+    for (_, raw) in view.snapshot.open_orders_by_client_id.object_iter() {
+        let o = crate::portfolio::open_order_view(raw).expect("typed open-order slots");
         exposure.count += 1.0;
         let size = if o.remaining.is_finite() && o.remaining > 0.0 {
             o.remaining

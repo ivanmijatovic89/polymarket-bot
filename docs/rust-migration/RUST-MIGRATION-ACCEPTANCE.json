@@ -102,10 +102,13 @@
         "docs/rust-migration/evidence/admission-metadata-independent-release.json",
         "docs/rust-migration/evidence/admission-parquet-debug.json",
         "docs/rust-migration/evidence/admission-parquet-release.json",
-        "docs/rust-migration/evidence/parquet-decimal-pending/finding.json"
+        "docs/rust-migration/evidence/parquet-decimal-pending/finding.json",
+        "docs/rust-migration/evidence/admission-ci-aa6d6fb7.json",
+        "docs/rust-migration/RECORD-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/records-validation.json"
       ],
       "verifiedRevision": null,
-      "notes": "Source-frozen bounded SDK/admission checkpoint passes 89 native and 47 client/process tests, nine strict TS oracles, Portfolio160 direct overflow probes, metadata/records531 per profile, dispatch45 and real Parquet25 per profile. None proves complete runtime acceptance: authoritative mutable Portfolio/ingress, full SDK prototypes/context/plugins, native runner bodies and owner scheduling, source BigInt/nonfinite envelopes, replay JSON-roundtrip seam and complete logical/input modes remain unmet. DECIMAL key decoding is a reproduced pending defect; all strategies/production/fleet/final benchmarks remain required. Prior6945cad7 allsevenCI passed; newcheckpointCI pending publication."
+      "notes": "Published historical aa6d6fb7 passed all seven CI checks. New frozen record integration passes109 native tests,47 client/process tests,10 required strict TS oracles; bounded Source56,Portfolio185,actual Parquet73 and DECIMAL747 comparisons pass with independent reviews and source/tool/dependency identities. Managed record storage and raw reader defects are repaired in their documented domains. Complete SDK/prototypes/coercion/capture, snapshot root/WS maps, runner and OrderManager bindings, complete logical/replay modes/feeds, every strategy/artifact/caller, live/fleet/persistence/four-device/release/final benchmark remain unmet. Reader zero-declared-count/otherphysical/nested/error/Buffer alias and legacy extra optional-property oracle diagnostics remain explicit. New checkpoint remote CI is pending; no complete runtime or speed claim."
     },
     {
       "id": "core.02",
