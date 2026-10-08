@@ -124,3 +124,5 @@ admission without R2 requests. The opt-in `CATALOG_TEST_MYSQL=1` integration tes
 against an empty database named `recorder_v4_catalog_test` (or a suffixed test name); CI runs
 it with MySQL 8.4. It exercises the real migration, concurrent transactions, MySQL JSON
 roundtrips, official outcomes, filtering, and stale-catalog rejection.
+
+See the [October 8 production rollout validation](./recorder-v4-mysql-validation) for tested commits, real package replay, migration evidence, and activation status.
