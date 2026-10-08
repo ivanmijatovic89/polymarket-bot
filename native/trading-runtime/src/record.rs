@@ -230,6 +230,11 @@ impl<V> RecordStorage<V> {
             .next()
             .map(|(order, location)| (*order, self.entry(*order, *location).1))
     }
+    pub(crate) fn last_key(&self) -> Option<JsString> {
+        self.order
+            .last_key_value()
+            .map(|(order, location)| self.entry(*order, *location).0)
+    }
     pub(crate) fn pop_entry(&mut self) -> bool {
         if let Some((order, location)) = self.order.pop_last() {
             match location {

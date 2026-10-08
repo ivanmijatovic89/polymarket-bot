@@ -629,6 +629,43 @@ for (const kind of ['precision', 'scale', 'scale-over-precision']) {
   paths[name] = path
   decimalCases.push(name)
 }
+// Actual thrift Int64 zero is truthy in decodePages' limit condition: no
+// data page is decoded, and the materializer exposes undefined scalar values.
+for (const [name, sourceName, columns, corruptPage] of [
+  ['zero-ingest', 'a', ['ingest_seq'], false],
+  ['zero-local', 'a', ['ts_local_ms'], false],
+  ['zero-raw', 'a', ['raw_json'], false],
+  ['zero-raw-skips-invalid-page', 'a', ['raw_json'], true],
+  ['zero-json-skips-invalid-page', 'jsonRaw', ['raw_json'], true],
+  [
+    'zero-decimal-v1',
+    'decimal-12-UNCOMPRESSED-v1',
+    ['ingest_seq', 'ts_local_ms', 'ts_exchange_ms'],
+    false,
+  ],
+  ['zero-decimal-v2', 'decimal-12-GZIP-v2', ['ingest_seq'], false],
+] as const) {
+  const bytes = await readFile(paths[sourceName]!)
+  const footerOffset = bytes.length - 8 - bytes.readUInt32LE(bytes.length - 8)
+  const metadata = new FileMetaData() as FileMetaDataExt
+  decodeThrift(metadata, bytes.subarray(footerOffset, bytes.length - 8))
+  for (const group of metadata.row_groups)
+    for (const column of group.columns) {
+      const meta = column.meta_data!
+      if (!(columns as readonly string[]).includes(meta.path_in_schema[0]!)) continue
+      meta.num_values = new Int64(0)
+      if (corruptPage) bytes[Number(meta.data_page_offset)] = 0xff
+    }
+  const footer = serializeThrift(metadata),
+    tail = Buffer.alloc(8)
+  tail.writeUInt32LE(footer.length)
+  tail.write('PAR1', 4)
+  const path = resolve(dir, `${name}.parquet`)
+  await writeFile(path, Buffer.concat([bytes.subarray(0, footerOffset), footer, tail]))
+  paths[name] = path
+  decimalCases.push(name)
+}
+
 const cases: Case[] = []
 for (const name of decimalCases) {
   cases.push({ name, filePaths: [paths[name]!], order: 'recorded' })

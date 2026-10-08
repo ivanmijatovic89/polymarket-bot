@@ -103,6 +103,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--node',default='/Users/mijat/.nvm/versions/node/v20.19.6/bin/node')
     parser.add_argument('--report',type=Path)
+    parser.add_argument('--target-dir',type=Path,default=Path(tempfile.gettempdir())/('pmb-rust-integration-proof-'+hashlib.sha256(str(ROOT).encode()).hexdigest()[:12]))
     args=parser.parse_args()
     mutation_count=check_comparator_mutations()
     version=subprocess.check_output([args.node,'--version'],text=True).strip()
@@ -119,7 +120,7 @@ def main():
     wrapper_hashes={str(p.relative_to(ROOT)):digest(p) for p in wrappers+native_sources}
     cases=fixtures()
     payload=json.dumps({'cases':cases},separators=(',',':'))
-    build=subprocess.run(['cargo','test','--manifest-path','native/trading-runtime/Cargo.toml','--test','intents','--locked','--offline','--no-run','--message-format=json'],cwd=ROOT,check=True,capture_output=True,text=True)
+    build=subprocess.run(['cargo','test','--manifest-path','native/trading-runtime/Cargo.toml','--test','intents','--target-dir',str(args.target_dir),'--locked','--offline','--no-run','--message-format=json'],cwd=ROOT,check=True,capture_output=True,text=True)
     binaries=[item['executable'] for line in build.stdout.splitlines() if (item:=json.loads(line)).get('reason')=='compiler-artifact' and item.get('executable') and item['target']['name']=='intents']
     if len(binaries)!=1: raise RuntimeError('Expected one compiled intents test adapter')
     with tempfile.TemporaryDirectory(prefix='rust-intents-parity-') as directory:
@@ -142,7 +143,7 @@ def main():
         'nativeTestAdapterSha256':before,'nativeTestAdapterFrozenForExecution':True,
         'ownedSourceSha256':wrapper_hashes,'fixturesSha256':hashlib.sha256(payload.encode()).hexdigest(),
         'cases':len(cases),'fullOutputAndFieldPresenceParity':True,'internalBinary64BitsParity':True,'opaqueKeyOrderParity':True,
-        'comparatorMutationChecks':mutation_count,'nativeBuildLockedOffline':True,
+        'comparatorMutationChecks':mutation_count,'nativeBuildLockedOffline':True,'privateCargoTarget':str(args.target_dir),
         'scope':'Typed intent required strings/enums, finite Unicode-scalar fixture controls, malformed number/cancel validators; production shared metadata graph and raw UTF16/overflow SDK integration remain pending'}
     if args.report: args.report.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))

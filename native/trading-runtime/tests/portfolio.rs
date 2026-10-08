@@ -4,7 +4,7 @@ use polymarket_runtime::metadata::{MetadataGraph, MetadataHandle, MetadataValue}
 use polymarket_runtime::portfolio::*;
 use polymarket_runtime::portfolio_records::{
     fill as fill_fields, import_control_value, FillRecord, ManagedAccountEvent, OpenOrderRecord,
-    PositionsSplitRecord, WsOrderUpdateRecord,
+    PortfolioSnapshotRecord, PositionsSplitRecord, WsOrderUpdateRecord,
 };
 use serde_json::{json, Value};
 
@@ -192,20 +192,19 @@ fn object_iteration_matches_snapshot_numeric_key_order() {
             json!({"kind":"order_submitted","tsMs":1,"order":order(id,1.0)}),
         );
     }
-    let actual: Vec<_> = p
-        .snapshot()
+    let snapshot = p.snapshot();
+    let actual: Vec<_> = snapshot
         .open_orders_by_client_id
         .object_iter()
         .map(|(key, _)| key)
         .collect();
     assert_eq!(actual, ["0", "2", "10", "a", "01", "4294967295"]);
-    let insertion: Vec<_> = p
-        .snapshot()
+    let insertion: Vec<_> = snapshot
         .open_orders_by_client_id
         .iter()
         .map(|(key, _)| key)
         .collect();
-    assert_eq!(insertion, ["10", "2", "a", "01", "4294967295", "0"]);
+    assert_eq!(insertion, ["0", "2", "10", "a", "01", "4294967295"]);
 }
 
 #[test]
@@ -522,11 +521,6 @@ fn snapshot_number_bits(snapshot: &PortfolioSnapshot) -> Value {
             self.0
                 .insert(path.to_owned(), json!(format!("{:016x}", value.to_bits())));
         }
-        fn optional(&mut self, path: &str, value: Option<f64>) {
-            if let Some(value) = value {
-                self.number(path, value);
-            }
-        }
     }
     let mut probe = Probe(serde_json::Map::new());
     probe.number(
@@ -555,15 +549,12 @@ fn snapshot_number_bits(snapshot: &PortfolioSnapshot) -> Value {
         );
     }
     for (id, order) in snapshot.ws_open_orders_by_order_id.object_iter() {
-        let path = format!("/wsOpenOrdersByOrderId/{}", pointer_key(id));
-        for (field, value) in [
-            ("price", order.price),
-            ("originalSize", order.original_size),
-            ("sizeMatched", order.size_matched),
-        ] {
-            probe.optional(&format!("{path}/{field}"), value);
-        }
-        probe.number(&format!("{path}/updatedAtMs"), order.updated_at_ms);
+        graph_number_bits(
+            order.handle().as_handle().clone().into(),
+            &format!("/wsOpenOrdersByOrderId/{}", pointer_key(id)),
+            true,
+            &mut probe.0,
+        );
     }
     for (id, order) in snapshot.orders_by_client_id.object_iter() {
         graph_number_bits(
@@ -601,7 +592,7 @@ fn derived_nonfinite_snapshot_numbers_are_probed_before_json_projection() {
         "assetId":"up","side":"BUY","price":1e308,"size":1e308,"liquidity":"MAKER"}}),
     );
     let current = portfolio.snapshot();
-    let bits = snapshot_number_bits(current);
+    let bits = snapshot_number_bits(&current);
     for path in ["/capital/cash", "/capital/availableCash"] {
         assert_eq!(bits[path], "fff0000000000000");
     }
@@ -643,70 +634,6 @@ fn graph_property_keys(
             }
         }
     }
-}
-fn all_property_keys(value: &Value) -> serde_json::Map<String, Value> {
-    let mut result = serde_json::Map::new();
-    let mut work = vec![(value, String::new())];
-    while let Some((value, path)) = work.pop() {
-        match value {
-            Value::Object(values) => {
-                result.insert(path.clone(), json!(values.keys().collect::<Vec<_>>()));
-                for (key, value) in values {
-                    work.push((value, format!("{path}/{}", pointer_key(key))));
-                }
-            }
-            Value::Array(values) => {
-                result.insert(
-                    path.clone(),
-                    json!((0..values.len()).map(|n| n.to_string()).collect::<Vec<_>>()),
-                );
-                for (index, value) in values.iter().enumerate() {
-                    work.push((value, format!("{path}/{index}")));
-                }
-            }
-            _ => {}
-        }
-    }
-    result
-}
-fn snapshot_property_keys(snapshot: &PortfolioSnapshot, value: &Value) -> Value {
-    let mut keys = all_property_keys(value);
-    for (id, order) in snapshot.open_orders_by_client_id.object_iter() {
-        graph_property_keys(
-            order.handle().as_handle().clone().into(),
-            &format!("/openOrdersByClientId/{}", pointer_key(id)),
-            &mut keys,
-        );
-    }
-    for (id, order) in snapshot.orders_by_client_id.object_iter() {
-        graph_property_keys(
-            order.handle().as_handle().clone().into(),
-            &format!("/ordersByClientId/{}", pointer_key(id)),
-            &mut keys,
-        );
-    }
-    for (id, position) in snapshot.positions_by_asset_id.object_iter() {
-        graph_property_keys(
-            position.handle().as_handle().clone().into(),
-            &format!("/positionsByAssetId/{}", pointer_key(id)),
-            &mut keys,
-        );
-    }
-    for (index, fill) in snapshot.recent_fills.iter().enumerate() {
-        graph_property_keys(
-            fill.handle().as_handle().clone().into(),
-            &format!("/recentFills/{index}"),
-            &mut keys,
-        );
-    }
-    for (index, split) in snapshot.recent_splits.iter().enumerate() {
-        graph_property_keys(
-            split.handle().as_handle().clone().into(),
-            &format!("/recentSplits/{index}"),
-            &mut keys,
-        );
-    }
-    Value::Object(keys)
 }
 fn allocate_managed(graph: &MetadataGraph, event: &Value) -> ManagedAccountEvent {
     let envelope = graph.object().unwrap();
@@ -798,82 +725,67 @@ impl<T> AliasMap<T> {
 fn alias_selection(
     selection: &Value,
     events: &AliasMap<ManagedAccountEvent>,
-    snapshots: &AliasMap<(PortfolioSnapshot, u64)>,
+    snapshots: &AliasMap<PortfolioSnapshotRecord>,
 ) -> MetadataValue {
     let id = selection["id"].as_str().unwrap();
     let path = selection["path"].as_array().unwrap();
     if selection["root"] == "event" {
         return graph_path(events.get(id).unwrap().envelope().clone().into(), path);
     }
-    let snapshot = &snapshots.get(id).unwrap().0;
-    let name = path[1].as_str().unwrap();
-    let value = match path[0].as_str().unwrap() {
-        "openOrdersByClientId" => snapshot
-            .open_orders_by_client_id
-            .get(name)
+    graph_path(
+        snapshots
+            .get(id)
             .unwrap()
             .handle()
             .as_handle()
             .clone()
             .into(),
-        "ordersByClientId" => snapshot
-            .orders_by_client_id
-            .get(name)
-            .unwrap()
-            .handle()
-            .as_handle()
-            .clone()
-            .into(),
-        "positionsByAssetId" => snapshot
-            .positions_by_asset_id
-            .get(name)
-            .unwrap()
-            .handle()
-            .as_handle()
-            .clone()
-            .into(),
-        "recentFills" => snapshot.recent_fills[name.parse::<usize>().unwrap()]
-            .handle()
-            .as_handle()
-            .clone()
-            .into(),
-        "recentSplits" => snapshot.recent_splits[name.parse::<usize>().unwrap()]
-            .handle()
-            .as_handle()
-            .clone()
-            .into(),
-        _ => panic!("record identity outside first integrated stage"),
-    };
-    graph_path(value, &path[2..])
+        path,
+    )
 }
 fn payload_identities(
-    snapshot: &PortfolioSnapshot,
+    snapshot: &PortfolioSnapshotRecord,
     events: &AliasMap<ManagedAccountEvent>,
 ) -> Value {
-    let identify = |handle: &MetadataHandle, key: &str| {
+    let identify = |value: MetadataValue, key: &str| {
         let expected_kind = if key == "fill" {
             "fill"
         } else {
             "positions_split"
         };
-        events
-            .iter()
-            .filter_map(|(id, event)| {
-                if !matches!(event.envelope().get("kind").unwrap(), MetadataValue::String(kind) if kind.matches(expected_kind)) { return None; }
-                match event.envelope().get(key).unwrap() {
-                    MetadataValue::Reference(payload) if &payload == handle => Some(id),
-                    _ => None,
-                }
-            })
-            .collect::<Vec<_>>()
+        events.iter().filter_map(|(id, event)| {
+            if !matches!(event.envelope().get("kind").unwrap(), MetadataValue::String(kind) if kind.matches(expected_kind)) { return None; }
+            match (event.envelope().get(key).unwrap(), &value) {
+                (MetadataValue::Reference(payload), MetadataValue::Reference(handle)) if &payload == handle => Some(id),
+                _ => None,
+            }
+        }).collect::<Vec<_>>()
     };
-    json!({"fills":snapshot.recent_fills.iter().map(|fill|identify(fill.handle().as_handle(),"fill")).collect::<Vec<_>>(),
-        "splits":snapshot.recent_splits.iter().map(|split|identify(split.handle().as_handle(),"split")).collect::<Vec<_>>()})
+    let array = |name: &str, key: &str| match snapshot.handle().as_handle().get(name).unwrap() {
+        MetadataValue::Reference(handle) => (0..handle.length().unwrap())
+            .map(|index| identify(handle.get_index(index).unwrap(), key))
+            .collect::<Vec<_>>(),
+        MetadataValue::Missing => Vec::new(),
+        _ => panic!("payload identity requires array membership"),
+    };
+    json!({"fills":array("recentFills","fill"),"splits":array("recentSplits","split")})
+}
+fn graph_snapshot_probe(snapshot: &PortfolioSnapshotRecord) -> (Value, Value, Value) {
+    let handle = snapshot.handle().as_handle();
+    let mut bits = serde_json::Map::new();
+    let mut keys = serde_json::Map::new();
+    graph_number_bits(handle.clone().into(), "", true, &mut bits);
+    graph_property_keys(handle.clone().into(), "", &mut keys);
+    (
+        serde_json::to_value(snapshot).unwrap(),
+        Value::Object(bits),
+        Value::Object(keys),
+    )
 }
 fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
     let graph = p.graph().clone();
     let mut events: AliasMap<ManagedAccountEvent> = AliasMap(Vec::new());
-    let mut snapshots: AliasMap<(PortfolioSnapshot, u64)> = AliasMap(Vec::new());
+    let mut snapshots: AliasMap<PortfolioSnapshotRecord> = AliasMap(Vec::new());
     let mut observations = Vec::new();
     for operation in operations {
         match operation["op"].as_str().unwrap() {
@@ -898,7 +810,11 @@ fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
                 };
                 let key = path.last().unwrap().as_str().unwrap();
                 if operation["op"] == "delete" {
-                    handle.delete(key).unwrap();
+                    if handle.is_array() {
+                        handle.delete_index(key.parse().unwrap()).unwrap();
+                    } else {
+                        handle.delete(key).unwrap();
+                    }
                 } else {
                     let value = if operation["op"] == "link" {
                         alias_selection(&operation["source"], &events, &snapshots)
@@ -908,7 +824,18 @@ fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
                             .map(|value| import_control_value(&graph, value).unwrap())
                             .unwrap_or(MetadataValue::Missing)
                     };
-                    handle.set(key, value).unwrap();
+                    if handle.is_array() {
+                        if key == "length" {
+                            let MetadataValue::Number(length) = value else {
+                                panic!("array length number")
+                            };
+                            handle.set_length(length as u32).unwrap();
+                        } else {
+                            handle.set_index(key.parse().unwrap(), value).unwrap();
+                        }
+                    } else {
+                        handle.set(key, value).unwrap();
+                    }
                 }
             }
             "apply" => {
@@ -916,11 +843,8 @@ fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
                     .unwrap();
             }
             "retain" => {
-                let snapshot = p.snapshot().clone();
-                snapshots.insert(
-                    operation["id"].as_str().unwrap().to_owned(),
-                    (snapshot, p.snapshot_rebuilds()),
-                );
+                let snapshot = p.snapshot_record().unwrap();
+                snapshots.insert(operation["id"].as_str().unwrap().to_owned(), snapshot);
             }
             "same" => {
                 let left = alias_selection(&operation["left"], &events, &snapshots);
@@ -932,12 +856,11 @@ fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
                 observations.push(json!({"label":operation["label"],"same":same}));
             }
             "observe" => {
-                let current = p.snapshot().clone();
-                let generation = p.snapshot_rebuilds();
-                let value = serde_json::to_value(&current).unwrap();
-                let retained:serde_json::Map<_,_>=snapshots.iter().map(|(id,(snapshot,retained_generation))|{
-                    let value=serde_json::to_value(snapshot).unwrap();
-                    (id.to_owned(),json!({"snapshot":value,"snapshotNumberBits":snapshot_number_bits(snapshot),"keys":snapshot_property_keys(snapshot,&value),"sameAsCurrent":*retained_generation==generation,"payloadIdentities":payload_identities(snapshot,&events)}))
+                let current = p.snapshot_record().unwrap();
+                let (value, bits, keys) = graph_snapshot_probe(&current);
+                let retained: serde_json::Map<_,_> = snapshots.iter().map(|(id,snapshot)| {
+                    let (value, bits, keys) = graph_snapshot_probe(snapshot);
+                    (id.to_owned(),json!({"snapshot":value,"snapshotNumberBits":bits,"keys":keys,"sameAsCurrent":snapshot.handle()==current.handle(),"payloadIdentities":payload_identities(snapshot,&events)}))
                 }).collect();
                 let event_values: serde_json::Map<_, _> = events
                     .iter()
@@ -955,7 +878,7 @@ fn raw_alias_scenario(p: &mut Portfolio, operations: &[Value]) -> Value {
                         )
                     })
                     .collect();
-                observations.push(json!({"label":operation["label"],"current":value,"currentNumberBits":snapshot_number_bits(&current),"currentKeys":snapshot_property_keys(&current,&value),"currentPayloadIdentities":payload_identities(&current,&events),"retained":retained,"events":event_values}));
+                observations.push(json!({"label":operation["label"],"current":value,"currentNumberBits":bits,"currentKeys":keys,"currentPayloadIdentities":payload_identities(&current,&events),"retained":retained,"events":event_values}));
             }
             _ => panic!("unknown alias operation"),
         }
@@ -1013,8 +936,8 @@ fn run_case(case: &Value) -> Value {
     ) {
         let value = snapshot(p);
         opaque_keys.push(opaque_object_keys(&value));
-        opaque_bits.push(current_opaque_bits(p.snapshot(), &value));
-        snapshot_number_bits.push(self::snapshot_number_bits(p.snapshot()));
+        opaque_bits.push(current_opaque_bits(&p.snapshot(), &value));
+        snapshot_number_bits.push(self::snapshot_number_bits(&p.snapshot()));
         let count = p.snapshot_rebuilds();
         p.snapshot();
         reuse.push(count == p.snapshot_rebuilds());
@@ -1330,8 +1253,141 @@ fn managed_all_lifecycle_kinds_resolve_current_envelope_fields() {
         reference.apply(&event(row));
         assert_eq!(snapshot(&mut managed), snapshot(&mut reference));
         assert_eq!(
-            snapshot_number_bits(managed.snapshot()),
-            snapshot_number_bits(reference.snapshot())
+            snapshot_number_bits(&managed.snapshot()),
+            snapshot_number_bits(&reference.snapshot())
         );
+    }
+}
+
+#[test]
+fn one_snapshot_root_preserves_cache_membership_and_shallow_freeze() {
+    use polymarket_runtime::metadata::MetadataError;
+    let graph = MetadataGraph::new();
+    let mut p = Portfolio::new_in_graph(&graph, PortfolioOptions::default(), 0.0).unwrap();
+    let admitted = allocate_managed(
+        &graph,
+        &json!({"kind":"order_submitted","tsMs":1,"order":order("a", 2.0)}),
+    );
+    p.apply_managed(&admitted).unwrap();
+    let old = p.snapshot_record().unwrap();
+    assert_eq!(old.handle(), p.snapshot_record().unwrap().handle());
+    let root = old.handle().as_handle();
+    assert!(root.is_frozen().unwrap());
+    let descriptor = root.own_property_descriptor("capital").unwrap().unwrap();
+    assert!(descriptor.enumerable);
+    assert!(!descriptor.writable && !descriptor.configurable);
+    assert_eq!(
+        root.set("nowMs", 1.0.into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(root.delete("nowMs"), Err(MetadataError::FrozenProperty));
+    assert_eq!(
+        root.set("extra", MetadataValue::Null),
+        Err(MetadataError::FrozenProperty)
+    );
+    let MetadataValue::Reference(capital) = root.get("capital").unwrap() else {
+        panic!("capital root")
+    };
+    assert!(capital.is_frozen().unwrap());
+    assert_eq!(
+        capital.set("cash", 0.0.into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    let MetadataValue::Reference(members) = root.get("openOrdersByClientId").unwrap() else {
+        panic!("membership")
+    };
+    assert!(!members.is_frozen().unwrap());
+    assert!(members.delete("a").unwrap());
+    members.set("extra", MetadataValue::Null).unwrap();
+    assert_eq!(old.handle(), p.snapshot_record().unwrap().handle());
+    assert!(
+        matches!(p.snapshot_record().unwrap().handle().as_handle().get("openOrdersByClientId").unwrap(), MetadataValue::Reference(current) if current == members)
+    );
+    // Cached membership mutation is observable to SDK callers but does not mutate
+    // the private Map or cash-order ledger that TypeScript keeps separately.
+    assert!(p.get_open_order_record("a").is_some());
+    let reserved = p.reserved_cash();
+    p.apply_managed(&allocate_managed(
+        &graph,
+        &json!({"kind":"account_stream_status","tsMs":2,"source":"user_ws","status":"connected"}),
+    ))
+    .unwrap();
+    let next = p.snapshot_record().unwrap();
+    assert_ne!(old.handle(), next.handle());
+    let MetadataValue::Reference(next_members) = next
+        .handle()
+        .as_handle()
+        .get("openOrdersByClientId")
+        .unwrap()
+    else {
+        panic!("membership")
+    };
+    assert_ne!(members, next_members);
+    let MetadataValue::Reference(admitted_order) = admitted.payload("order").unwrap() else {
+        panic!("order payload")
+    };
+    assert!(
+        matches!(next_members.get("a").unwrap(), MetadataValue::Reference(original) if original == admitted_order)
+    );
+    assert_eq!(p.reserved_cash(), reserved);
+    assert!(matches!(members.get("a").unwrap(), MetadataValue::Missing));
+    assert!(matches!(
+        next_members.get("extra").unwrap(),
+        MetadataValue::Missing
+    ));
+    assert!(matches!(
+        next.handle().as_handle().get("recentSplits").unwrap(),
+        MetadataValue::Missing
+    ));
+}
+
+#[test]
+fn current_history_rank_keeps_f64_domain_before_ws_max() {
+    for rank in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN, -0.0, 1.5] {
+        let graph = MetadataGraph::new();
+        let mut p = Portfolio::new_in_graph(&graph, PortfolioOptions::default(), 0.0).unwrap();
+        for raw in [
+            json!({"kind":"order_submitted","tsMs":1,"order":order("a", 2.0)}),
+            json!({"kind":"order_accepted","tsMs":2,"clientOrderId":"a","orderId":"x"}),
+        ] {
+            p.apply_managed(&allocate_managed(&graph, &raw)).unwrap();
+        }
+        let old = p.snapshot_record().unwrap();
+        let MetadataValue::Reference(history) =
+            old.handle().as_handle().get("ordersByClientId").unwrap()
+        else {
+            panic!("history map")
+        };
+        let MetadataValue::Reference(order) = history.get("a").unwrap() else {
+            panic!("history order")
+        };
+        order.set("tradeStatusRank", rank.into()).unwrap();
+        p.apply_managed(&allocate_managed(&graph, &json!({"kind":"ws_order_update","tsMs":3,"order":{"orderId":"x","event":"UPDATE","status":""}}))).unwrap();
+        let current = p.snapshot_record().unwrap();
+        let MetadataValue::Reference(history) = current
+            .handle()
+            .as_handle()
+            .get("ordersByClientId")
+            .unwrap()
+        else {
+            panic!("history map")
+        };
+        let MetadataValue::Reference(next) = history.get("a").unwrap() else {
+            panic!("history order")
+        };
+        let MetadataValue::Number(actual) = next.get("tradeStatusRank").unwrap() else {
+            panic!("numeric rank")
+        };
+        let expected = math::js_max(rank, 0.0);
+        if expected.is_nan() {
+            assert!(actual.is_nan());
+        } else {
+            assert_eq!(actual.to_bits(), expected.to_bits());
+        }
+        assert_ne!(order, next);
+        let MetadataValue::Number(retained) = order.get("tradeStatusRank").unwrap() else {
+            panic!("retained rank")
+        };
+        assert_eq!(retained.to_bits(), rank.to_bits());
     }
 }

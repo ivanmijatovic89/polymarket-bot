@@ -27,7 +27,7 @@ fn capital_overlay_borrows_the_original_history() {
     let mut capital = snapshot.capital.clone();
     capital.available_cash = 12.0;
     let view = PortfolioView {
-        snapshot,
+        snapshot: &snapshot,
         capital_override: Some(&capital),
     };
     assert_eq!(view.capital().available_cash, 12.0);
@@ -74,7 +74,7 @@ fn metadata_handles_keep_identity_during_risk_filtering() {
     let decision = risk::enforce_risk_limits(
         0.0,
         &[Intent::PlaceBatch(batch)],
-        Some(snapshot.into()),
+        Some((&snapshot).into()),
         Some(&limits),
     );
     let Intent::PlaceBatch(allowed) = &decision.allowed[0] else {

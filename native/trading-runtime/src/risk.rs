@@ -216,3 +216,175 @@ pub fn enforce_risk_limits<M: Clone>(
     }
     result
 }
+
+/// Graph-authoritative decisions for the shared runner. The existing generic
+/// DTO entry point is a bounded control fixture path, not a production cache.
+pub struct ManagedRiskDecision {
+    pub allowed: crate::intent::ManagedIntents,
+    pub rejected_events: Vec<crate::portfolio_records::ManagedAccountEvent>,
+    pub blocked: Vec<(crate::intent::ManagedIntent, String)>,
+}
+#[expect(
+    clippy::mutable_key_type,
+    reason = "JsMapKey hashes immutable primitive bits or arena identity; mutations never change key hash/equality"
+)]
+pub fn enforce_managed_risk_limits(
+    graph: &crate::metadata::MetadataGraph,
+    now_ms: f64,
+    intents: crate::intent::ManagedIntents,
+    portfolio: Option<&crate::portfolio_records::PortfolioSnapshotRecord>,
+    limits: Option<&RiskLimits>,
+) -> Result<ManagedRiskDecision, crate::metadata::JsException> {
+    use crate::intent::{managed as g, ManagedIntents};
+    use crate::metadata::{JsException, MetadataHandle, MetadataValue};
+    let Some(portfolio) = portfolio else {
+        return Ok(ManagedRiskDecision {
+            allowed: intents,
+            rejected_events: Vec::new(),
+            blocked: Vec::new(),
+        });
+    };
+    let defaults = RiskLimits::default();
+    let limits = limits.unwrap_or(&defaults);
+    let root = portfolio.handle().as_handle();
+    let realized = match root.get_property("realizedPnlTotal")? {
+        MetadataValue::Number(n) if n.is_finite() => n,
+        _ => 0.0,
+    };
+    let loss = realized <= -limits.max_loss_stop.abs();
+    let mut count = 0.0;
+    let mut buys: HashMap<crate::sdk_value::JsMapKey, f64> = HashMap::new();
+    let mut sells: HashMap<crate::sdk_value::JsMapKey, f64> = HashMap::new();
+    for order in g::values(&g::members(root, "openOrdersByClientId")?)? {
+        count += 1.0;
+        let size = match order.get_property("remaining")? {
+            MetadataValue::Number(n) if n.is_finite() && n > 0.0 => n,
+            _ => 0.0,
+        };
+        let asset = crate::sdk_value::JsMapKey::from_value(&order.get_property("assetId")?);
+        let values = if g::is_string(&order.get_property("side")?, "BUY") {
+            &mut buys
+        } else {
+            &mut sells
+        };
+        *values.entry(asset).or_insert(0.0) += size;
+    }
+    let positions = g::members(root, "positionsByAssetId")?;
+    let allowed = graph.array()?;
+    let mut rejected_events = Vec::new();
+    let mut blocked = Vec::new();
+    let reject = |order: &MetadataHandle,
+                  reason: &str|
+     -> Result<crate::portfolio_records::ManagedAccountEvent, JsException> {
+        Ok(g::event(
+            graph,
+            [
+                ("kind", "order_rejected".into()),
+                ("tsMs", now_ms.into()),
+                ("clientOrderId", order.get_property("clientOrderId")?),
+                ("reason", reason.into()),
+            ],
+        )?)
+    };
+    let mut check = |order: &MetadataHandle| -> Result<Option<String>, JsException> {
+        let size = match order.get_property("size")? {
+            MetadataValue::Number(n) if n.is_finite() && n > 0.0 => n,
+            _ => return Ok(None),
+        };
+        if size > limits.max_order_size {
+            return Ok(Some(format!(
+                "risk_max_order_size(max={})",
+                js_number_string(limits.max_order_size)
+            )));
+        }
+        if count + 1.0 > limits.max_open_orders {
+            return Ok(Some(format!(
+                "risk_max_open_orders(max={})",
+                js_number_string(limits.max_open_orders)
+            )));
+        }
+        let asset = order.get_property("assetId")?;
+        let key = crate::sdk_value::JsMapKey::from_value(&asset);
+        let qty = match positions.get_property(g::primitive_property_key(asset)?)? {
+            MetadataValue::Missing | MetadataValue::Null => 0.0,
+            value => g::nullish_number(g::object(value)?.get_property("qty")?, 0.0)?,
+        };
+        let buy = buys.get(&key).copied().unwrap_or(0.0);
+        let sell = sells.get(&key).copied().unwrap_or(0.0);
+        let is_buy = g::is_string(&order.get_property("side")?, "BUY");
+        let projected = if is_buy {
+            qty + buy + size
+        } else {
+            qty - (sell + size)
+        };
+        if projected.abs() > limits.max_abs_position {
+            return Ok(Some(format!(
+                "risk_max_abs_position(max={})",
+                js_number_string(limits.max_abs_position)
+            )));
+        }
+        count += 1.0;
+        if is_buy {
+            buys.insert(key, buy + size);
+        } else {
+            sells.insert(key, sell + size);
+        }
+        Ok(None)
+    };
+    let mut index = 0;
+    while index < intents.length()? {
+        let intent = intents.at(index)?;
+        index += 1;
+        if intent.kind_is("place_batch")? {
+            let orders = ManagedIntents::from_handle(g::object(intent.get_property("orders")?)?)?;
+            if loss {
+                let reason = format!("risk_loss_stop(realized={})", js_number_string(realized));
+                blocked.push((intent.clone(), reason.clone()));
+                let mut i = 0;
+                while i < orders.length()? {
+                    rejected_events.push(reject(orders.at(i)?.handle(), &reason)?);
+                    i += 1;
+                }
+                continue;
+            }
+            let valid = graph.array()?;
+            let mut i = 0;
+            while i < orders.length()? {
+                let order = orders.at(i)?;
+                i += 1;
+                if let Some(reason) = check(order.handle())? {
+                    rejected_events.push(reject(order.handle(), &reason)?);
+                } else {
+                    valid.push(order.handle().clone().into())?;
+                }
+            }
+            if valid.length()? > 0 {
+                let batch = g::spread(graph, intent.handle())?;
+                batch.set("orders", valid.into())?;
+                allowed.push(batch.into())?;
+            }
+        } else if intent.kind_is("place_limit")? {
+            let error = if loss {
+                Some(format!(
+                    "risk_loss_stop(realized={})",
+                    js_number_string(realized)
+                ))
+            } else {
+                check(intent.handle())?
+            };
+            if let Some(reason) = error {
+                rejected_events.push(reject(intent.handle(), &reason)?);
+                blocked.push((intent, reason));
+            } else {
+                allowed.push(intent.handle().clone().into())?;
+            }
+        } else {
+            allowed.push(intent.handle().clone().into())?;
+        }
+    }
+    Ok(ManagedRiskDecision {
+        allowed: ManagedIntents::from_handle(allowed)?,
+        rejected_events,
+        blocked,
+    })
+}

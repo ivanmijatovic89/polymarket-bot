@@ -738,12 +738,127 @@ impl OrderSnapshotRecord {
             p.push(("tradeStatusRaw".into(), v.as_str().into()));
         }
         p.extend([
-            (
-                "tradeStatusRank".into(),
-                f64::from(value.trade_status_rank).into(),
-            ),
+            ("tradeStatusRank".into(), value.trade_status_rank.into()),
             ("updatedAtMs".into(), value.updated_at_ms.into()),
         ]);
         Self::new(graph, p)
     }
 }
+
+impl WsOpenOrderRecord {
+    /// WS observations replace this value; retained snapshots keep prior records.
+    pub fn from_order(
+        graph: &MetadataGraph,
+        value: &crate::portfolio::WsOpenOrder,
+    ) -> Result<Self, MetadataError> {
+        let mut p = vec![("orderId".into(), value.order_id.as_str().into())];
+        for (key, value) in [
+            ("owner", &value.owner),
+            ("market", &value.market),
+            ("assetId", &value.asset_id),
+        ] {
+            if let Some(value) = value {
+                p.push((key.into(), value.as_str().into()));
+            }
+        }
+        if let Some(side) = value.side {
+            p.push((
+                "side".into(),
+                if side == crate::portfolio::Side::Buy {
+                    "BUY"
+                } else {
+                    "SELL"
+                }
+                .into(),
+            ));
+        }
+        for (key, value) in [
+            ("price", value.price),
+            ("originalSize", value.original_size),
+            ("sizeMatched", value.size_matched),
+        ] {
+            if let Some(value) = value {
+                p.push((key.into(), value.into()));
+            }
+        }
+        for (key, value) in [
+            ("status", &value.status),
+            ("orderType", &value.order_type),
+            ("outcome", &value.outcome),
+        ] {
+            if let Some(value) = value {
+                p.push((key.into(), value.as_str().into()));
+            }
+        }
+        p.push(("updatedAtMs".into(), value.updated_at_ms.into()));
+        Self::new(graph, p)
+    }
+}
+
+pub mod capital {
+    use super::*;
+    pub static SCHEMA: RecordSchema = RecordSchema::new(
+        "Capital",
+        &["startingCapital", "cash", "reservedCash", "availableCash"],
+    );
+    pub const STARTING_CAPITAL: FieldId = SCHEMA.field(0);
+    pub const CASH: FieldId = SCHEMA.field(1);
+    pub const RESERVED_CASH: FieldId = SCHEMA.field(2);
+    pub const AVAILABLE_CASH: FieldId = SCHEMA.field(3);
+}
+#[derive(Debug)]
+pub struct CapitalKind;
+impl PortfolioRecordKind for CapitalKind {
+    const SCHEMA: &'static RecordSchema = &capital::SCHEMA;
+}
+pub type CapitalRecord = PortfolioRecord<CapitalKind>;
+impl CapitalRecord {
+    pub fn new_capital(
+        graph: &MetadataGraph,
+        value: &crate::portfolio::CapitalSnapshot,
+    ) -> Result<Self, MetadataError> {
+        Self::new(
+            graph,
+            vec![
+                ("startingCapital".into(), value.starting_capital.into()),
+                ("cash".into(), value.cash.into()),
+                ("reservedCash".into(), value.reserved_cash.into()),
+                ("availableCash".into(), value.available_cash.into()),
+            ],
+        )
+    }
+}
+pub mod portfolio_snapshot {
+    use super::*;
+    pub static SCHEMA: RecordSchema = RecordSchema::new(
+        "PortfolioSnapshot",
+        &[
+            "capital",
+            "nowMs",
+            "realizedPnlTotal",
+            "positionsByAssetId",
+            "openOrdersByClientId",
+            "wsOpenOrdersByOrderId",
+            "ordersByClientId",
+            "recentFills",
+            "recentSplits",
+            "marketByAssetId",
+        ],
+    );
+    pub const CAPITAL: FieldId = SCHEMA.field(0);
+    pub const NOW_MS: FieldId = SCHEMA.field(1);
+    pub const REALIZED_PNL_TOTAL: FieldId = SCHEMA.field(2);
+    pub const POSITIONS_BY_ASSET_ID: FieldId = SCHEMA.field(3);
+    pub const OPEN_ORDERS_BY_CLIENT_ID: FieldId = SCHEMA.field(4);
+    pub const WS_OPEN_ORDERS_BY_ORDER_ID: FieldId = SCHEMA.field(5);
+    pub const ORDERS_BY_CLIENT_ID: FieldId = SCHEMA.field(6);
+    pub const RECENT_FILLS: FieldId = SCHEMA.field(7);
+    pub const RECENT_SPLITS: FieldId = SCHEMA.field(8);
+    pub const MARKET_BY_ASSET_ID: FieldId = SCHEMA.field(9);
+}
+#[derive(Debug)]
+pub struct PortfolioSnapshotKind;
+impl PortfolioRecordKind for PortfolioSnapshotKind {
+    const SCHEMA: &'static RecordSchema = &portfolio_snapshot::SCHEMA;
+}
+pub type PortfolioSnapshotRecord = PortfolioRecord<PortfolioSnapshotKind>;

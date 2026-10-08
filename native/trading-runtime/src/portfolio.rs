@@ -3,8 +3,9 @@
 use crate::{
     metadata::{MetadataError, MetadataGraph, MetadataValue},
     portfolio_records::{
-        fill as fill_fields, positions_split as split_fields, FillRecord, ManagedAccountEvent,
-        OpenOrderRecord, OrderSnapshotRecord, PositionRecord, PositionsSplitRecord,
+        fill as fill_fields, positions_split as split_fields, CapitalRecord, FillRecord,
+        ManagedAccountEvent, OpenOrderRecord, OrderSnapshotRecord, PortfolioSnapshotRecord,
+        PositionRecord, PositionsSplitRecord, WsOpenOrderRecord,
     },
     record::{FieldId, RecordHandle},
 };
@@ -291,7 +292,7 @@ pub struct OrderSnapshot {
     pub meta: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trade_status_raw: Option<String>,
-    pub trade_status_rank: u8,
+    pub trade_status_rank: f64,
     pub updated_at_ms: f64,
 }
 
@@ -541,7 +542,7 @@ pub struct PortfolioSnapshot {
     pub realized_pnl_total: f64,
     pub positions_by_asset_id: OrderedMap<PositionRecord>,
     pub open_orders_by_client_id: OrderedMap<OpenOrderRecord>,
-    pub ws_open_orders_by_order_id: OrderedMap<WsOpenOrder>,
+    pub ws_open_orders_by_order_id: OrderedMap<WsOpenOrderRecord>,
     pub orders_by_client_id: OrderedMap<OrderSnapshotRecord>,
     pub recent_fills: VecDeque<FillRecord>,
     #[serde(skip_serializing_if = "VecDeque::is_empty")]
@@ -873,7 +874,7 @@ pub fn order_history_view(
         post_only: handle_optional_bool(h, "postOnly")?,
         meta: None,
         trade_status_raw: handle_optional_string(h, "tradeStatusRaw")?,
-        trade_status_rank: handle_number(h, "tradeStatusRank")? as u8,
+        trade_status_rank: handle_number(h, "tradeStatusRank")?,
         updated_at_ms: handle_number(h, "updatedAtMs")?,
     })
 }
@@ -1065,6 +1066,127 @@ fn managed_event_view(
     Ok((decoded, None))
 }
 
+fn snapshot_member(
+    root: &PortfolioSnapshotRecord,
+    key: &'static str,
+) -> Result<crate::metadata::MetadataHandle, PortfolioIngressError> {
+    match root.handle().as_handle().get(key)? {
+        MetadataValue::Reference(handle) => Ok(handle),
+        _ => Err(PortfolioIngressError::UnsupportedField(key)),
+    }
+}
+fn snapshot_map<K: crate::portfolio_records::PortfolioRecordKind>(
+    handle: crate::metadata::MetadataHandle,
+) -> Result<OrderedMap<crate::portfolio_records::PortfolioRecord<K>>, PortfolioIngressError> {
+    let mut map = OrderedMap::default();
+    for key in handle.keys()? {
+        let name = key
+            .as_str()
+            .ok_or(PortfolioIngressError::UnsupportedField("snapshot map key"))?
+            .to_owned();
+        let MetadataValue::Reference(value) = handle.get(key)? else {
+            return Err(PortfolioIngressError::UnsupportedField(
+                "snapshot map value",
+            ));
+        };
+        map.insert(
+            name,
+            crate::portfolio_records::PortfolioRecord::try_from_handle(
+                RecordHandle::try_from_handle(value)?,
+            )?,
+        );
+    }
+    Ok(map)
+}
+fn snapshot_array<K: crate::portfolio_records::PortfolioRecordKind>(
+    handle: crate::metadata::MetadataHandle,
+) -> Result<VecDeque<crate::portfolio_records::PortfolioRecord<K>>, PortfolioIngressError> {
+    let mut array = VecDeque::new();
+    for index in 0..handle.length()? {
+        let MetadataValue::Reference(value) = handle.get_index(index)? else {
+            return Err(PortfolioIngressError::UnsupportedField(
+                "snapshot array value",
+            ));
+        };
+        array.push_back(crate::portfolio_records::PortfolioRecord::try_from_handle(
+            RecordHandle::try_from_handle(value)?,
+        )?);
+    }
+    Ok(array)
+}
+/// Observational typed fixture view. The graph root, not this value, owns cache
+/// identity, mutable membership, property presence and shallow-freeze semantics.
+pub fn snapshot_view(
+    root: &PortfolioSnapshotRecord,
+) -> Result<PortfolioSnapshot, PortfolioIngressError> {
+    let h = root.handle().as_handle();
+    let capital = snapshot_member(root, "capital")?;
+    let mut markets = OrderedMap::default();
+    let market_map = snapshot_member(root, "marketByAssetId")?;
+    for key in market_map.keys()? {
+        let name = key
+            .as_str()
+            .ok_or(PortfolioIngressError::UnsupportedField(
+                "snapshot market key",
+            ))?
+            .to_owned();
+        let MetadataValue::String(value) = market_map.get(key)? else {
+            return Err(PortfolioIngressError::UnsupportedField(
+                "snapshot market value",
+            ));
+        };
+        let value = value
+            .as_str()
+            .ok_or(PortfolioIngressError::UnsupportedField(
+                "snapshot market value",
+            ))?
+            .to_owned();
+        markets.insert(name, value);
+    }
+    let recent_splits = if root.has(crate::portfolio_records::portfolio_snapshot::RECENT_SPLITS)? {
+        snapshot_array(snapshot_member(root, "recentSplits")?)?
+    } else {
+        VecDeque::new()
+    };
+    Ok(PortfolioSnapshot {
+        capital: CapitalSnapshot {
+            starting_capital: handle_number(&capital, "startingCapital")?,
+            cash: handle_number(&capital, "cash")?,
+            reserved_cash: handle_number(&capital, "reservedCash")?,
+            available_cash: handle_number(&capital, "availableCash")?,
+        },
+        now_ms: handle_number(h, "nowMs")?,
+        realized_pnl_total: handle_number(h, "realizedPnlTotal")?,
+        positions_by_asset_id: snapshot_map(snapshot_member(root, "positionsByAssetId")?)?,
+        open_orders_by_client_id: snapshot_map(snapshot_member(root, "openOrdersByClientId")?)?,
+        ws_open_orders_by_order_id: snapshot_map(snapshot_member(root, "wsOpenOrdersByOrderId")?)?,
+        orders_by_client_id: snapshot_map(snapshot_member(root, "ordersByClientId")?)?,
+        recent_fills: snapshot_array(snapshot_member(root, "recentFills")?)?,
+        recent_splits,
+        market_by_asset_id: markets,
+    })
+}
+fn graph_map<K: crate::portfolio_records::PortfolioRecordKind>(
+    graph: &MetadataGraph,
+    map: &OrderedMap<crate::portfolio_records::PortfolioRecord<K>>,
+) -> Result<crate::metadata::MetadataHandle, MetadataError> {
+    let object = graph.object()?;
+    for (key, value) in map.iter() {
+        object.set(key, value.handle().as_handle().clone().into())?;
+    }
+    Ok(object)
+}
+fn graph_array<K: crate::portfolio_records::PortfolioRecordKind>(
+    graph: &MetadataGraph,
+    values: &VecDeque<crate::portfolio_records::PortfolioRecord<K>>,
+) -> Result<crate::metadata::MetadataHandle, MetadataError> {
+    let array = graph.array()?;
+    for value in values {
+        array.push(value.handle().as_handle().clone().into())?;
+    }
+    Ok(array)
+}
+
 pub struct Portfolio {
     graph: MetadataGraph,
     now_ms: f64,
@@ -1075,7 +1197,7 @@ pub struct Portfolio {
     positions: OrderedMap<PositionRecord>,
     open: OrderedMap<OpenOrderRecord>,
     history: OrderedMap<OrderSnapshotRecord>,
-    ws: OrderedMap<WsOpenOrder>,
+    ws: OrderedMap<WsOpenOrderRecord>,
     markets: OrderedMap<String>,
     index: HashMap<String, String>,
     persistent: OrderedMap<String>,
@@ -1090,7 +1212,7 @@ pub struct Portfolio {
     cash_client: HashMap<String, usize>,
     cash_exchange: HashMap<String, usize>,
     unlinked: HashMap<String, f64>,
-    cached: Option<PortfolioSnapshot>,
+    cached: Option<PortfolioSnapshotRecord>,
     snapshot_rebuilds: u64,
 }
 impl Portfolio {
@@ -1167,38 +1289,82 @@ impl Portfolio {
     pub fn available_cash(&self) -> f64 {
         self.cached
             .as_ref()
-            .map(|s| s.capital.available_cash)
+            .map(|root| {
+                let capital = snapshot_member(root, "capital").expect("frozen capital");
+                handle_number(&capital, "availableCash").expect("frozen numeric capital")
+            })
             .unwrap_or_else(|| round8(self.cash - self.reserved_cash()))
     }
     pub fn snapshot_rebuilds(&self) -> u64 {
         self.snapshot_rebuilds
     }
-    /// Fill/split membership is captured when the cache builds, while cloned
-    /// record handles preserve payload mutations across retained snapshots.
-    /// Order/position maps remain staged value projections until their port.
-    pub fn snapshot(&mut self) -> &PortfolioSnapshot {
-        if self.cached.is_none() {
-            let reserved = self.reserved_cash();
-            self.cached = Some(PortfolioSnapshot {
-                capital: CapitalSnapshot {
-                    starting_capital: self.starting_capital,
-                    cash: self.cash,
-                    reserved_cash: reserved,
-                    available_cash: round8(self.cash - reserved),
-                },
-                now_ms: self.now_ms,
-                realized_pnl_total: self.realized_pnl_total,
-                positions_by_asset_id: self.positions.clone(),
-                open_orders_by_client_id: self.open.clone(),
-                ws_open_orders_by_order_id: self.ws.clone(),
-                orders_by_client_id: self.history.clone(),
-                recent_fills: self.fills.clone(),
-                recent_splits: self.splits.clone(),
-                market_by_asset_id: self.markets.clone(),
-            });
-            self.snapshot_rebuilds += 1;
+    /// The single authoritative cached root. Membership objects and arrays
+    /// capture this epoch; all contained record handles retain original identity.
+    pub fn snapshot_record(&mut self) -> Result<PortfolioSnapshotRecord, MetadataError> {
+        if let Some(root) = &self.cached {
+            return Ok(root.clone());
         }
-        self.cached.as_ref().unwrap()
+        let reserved = self.reserved_cash();
+        let capital = CapitalRecord::new_capital(
+            &self.graph,
+            &CapitalSnapshot {
+                starting_capital: self.starting_capital,
+                cash: self.cash,
+                reserved_cash: reserved,
+                available_cash: round8(self.cash - reserved),
+            },
+        )?;
+        capital.handle().as_handle().freeze()?;
+        let mut properties = vec![
+            (
+                "capital".into(),
+                capital.handle().as_handle().clone().into(),
+            ),
+            ("nowMs".into(), self.now_ms.into()),
+            ("realizedPnlTotal".into(), self.realized_pnl_total.into()),
+            (
+                "positionsByAssetId".into(),
+                graph_map(&self.graph, &self.positions)?.into(),
+            ),
+            (
+                "openOrdersByClientId".into(),
+                graph_map(&self.graph, &self.open)?.into(),
+            ),
+            (
+                "wsOpenOrdersByOrderId".into(),
+                graph_map(&self.graph, &self.ws)?.into(),
+            ),
+            (
+                "ordersByClientId".into(),
+                graph_map(&self.graph, &self.history)?.into(),
+            ),
+            (
+                "recentFills".into(),
+                graph_array(&self.graph, &self.fills)?.into(),
+            ),
+        ];
+        if !self.splits.is_empty() {
+            properties.push((
+                "recentSplits".into(),
+                graph_array(&self.graph, &self.splits)?.into(),
+            ));
+        }
+        let markets = self.graph.object()?;
+        for (key, value) in self.markets.iter() {
+            markets.set(key, value.as_str().into())?;
+        }
+        properties.push(("marketByAssetId".into(), markets.into()));
+        let root = PortfolioSnapshotRecord::new(&self.graph, properties)?;
+        root.handle().as_handle().freeze()?;
+        self.cached = Some(root.clone());
+        self.snapshot_rebuilds += 1;
+        Ok(root)
+    }
+    /// Compatibility diagnostics only. No typed DTO is cached or authoritative.
+    /// Production strategy/OrderManager adapters use snapshot_record directly.
+    pub fn snapshot(&mut self) -> PortfolioSnapshot {
+        snapshot_view(&self.snapshot_record().expect("snapshot allocation"))
+            .expect("typed fixture snapshot domain")
     }
     fn earlier(&self, order: &OpenOrder, order_id: Option<&str>) -> bool {
         let Some(id) = order_id.filter(|id| !id.is_empty()) else {
@@ -1274,7 +1440,10 @@ impl Portfolio {
             post_only: order.post_only,
             meta: None,
             trade_status_raw: previous.as_ref().and_then(|p| p.trade_status_raw.clone()),
-            trade_status_rank: previous.as_ref().map(|p| p.trade_status_rank).unwrap_or(0),
+            trade_status_rank: previous
+                .as_ref()
+                .map(|p| p.trade_status_rank)
+                .unwrap_or(0.0),
             updated_at_ms: self.now_ms,
         };
         OrderSnapshotRecord::from_snapshot(
@@ -1307,7 +1476,7 @@ impl Portfolio {
                 .as_handle()
                 .set(
                     "tradeStatusRank",
-                    f64::from(view.trade_status_rank.max(pending.rank)).into(),
+                    max(view.trade_status_rank, f64::from(pending.rank)).into(),
                 )
                 .expect("history patch");
             next.handle()
@@ -1693,7 +1862,10 @@ impl Portfolio {
         if filled || canceled || self.terminal.contains_key(id) {
             self.mark_terminal(id);
         } else {
-            self.ws.insert(id.clone(), next);
+            self.ws.insert(
+                id.clone(),
+                WsOpenOrderRecord::from_order(&self.graph, &next).expect("WS record allocation"),
+            );
         }
         let rank = trade_rank(order.status.as_deref());
         if truthy(&order.status).is_some() || rank > 0 {
@@ -1781,7 +1953,7 @@ impl Portfolio {
         }
         h.set(
             "tradeStatusRank",
-            f64::from(view.trade_status_rank.max(rank)).into(),
+            max(view.trade_status_rank, f64::from(rank)).into(),
         )
         .expect("history patch");
         h.set("updatedAtMs", self.now_ms.into())

@@ -126,7 +126,7 @@ jobs:
       - name: Full market and portfolio reference comparisons
         run: |
           python3 scripts/rust-migration/market-differential.py --node node
-          python3 scripts/rust-migration/portfolio-differential.py --node node
+          python3 scripts/rust-migration/portfolio-differential.py --node node --target-dir native/trading-runtime/target
 
       - name: Full intent risk and cancellation reference comparisons
         run: python3 scripts/rust-migration/intents-differential.py --node node
@@ -160,6 +160,19 @@ jobs:
         run: |
           python3 scripts/rust-migration/parquet-input-differential.py --node node
           python3 scripts/rust-migration/parquet-input-differential.py --node node --release
+
+      - name: Actual OrderManager and shared runner production-body comparisons
+        run: |
+          python3 scripts/rust-migration/order-manager-differential.py --node node --target-dir native/trading-runtime/target
+          python3 scripts/rust-migration/runner-full-differential.py --node node --target-dir native/trading-runtime/target
+          python3 scripts/rust-migration/runner-full-differential.py --node node --target-dir native/trading-runtime/target --release
+
+      - name: Debug and release actual recorded and Telonex replay body comparisons
+        run: |
+          python3 scripts/rust-migration/recorded-replay-differential.py --node node
+          python3 scripts/rust-migration/recorded-replay-differential.py --node node --release
+          python3 scripts/rust-migration/telonex-replay-differential.py --node node --target-dir native/trading-runtime/target
+          python3 scripts/rust-migration/telonex-replay-differential.py --node node --target-dir native/trading-runtime/target --release
 
       - name: Full batch and calendar reference comparisons
         run: python3 scripts/rust-migration/stats-differential.py --node node

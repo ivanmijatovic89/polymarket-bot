@@ -1,0 +1,245 @@
+TAP version 13
+# Subtest: real executable describes only implemented capabilities and shared limits
+ok 1 - real executable describes only implemented capabilities and shared limits
+  ---
+  duration_ms: 453.045334
+  ...
+# Subtest: real whole-operation aggregation returns batch and chronological segment DTOs
+ok 2 - real whole-operation aggregation returns batch and chronological segment DTOs
+  ---
+  duration_ms: 6.569541
+  ...
+# Subtest: real native validation returns identified deterministic failure
+ok 3 - real native validation returns identified deterministic failure
+  ---
+  duration_ms: 5.421416
+  ...
+# Subtest: real parser accepts the maximum input nesting with a correlated response
+ok 4 - real parser accepts the maximum input nesting with a correlated response
+  ---
+  duration_ms: 4.975417
+  ...
+# Subtest: native guardian exits on watchdog EOF while request stdin remains open
+ok 5 - native guardian exits on watchdog EOF while request stdin remains open
+  ---
+  duration_ms: 5.116667
+  ...
+# Subtest: hard SIGKILL of the parent does not leave a native runtime orphan
+ok 6 - hard SIGKILL of the parent does not leave a native runtime orphan
+  ---
+  duration_ms: 151.788083
+  ...
+# Subtest: parent-loss fixture without a guardian remains alive instead of receiving stdin EOF
+ok 7 - parent-loss fixture without a guardian remains alive instead of receiving stdin EOF
+  ---
+  duration_ms: 243.954541
+  ...
+# Subtest: returns a correlated success envelope and preserves JSON values
+ok 8 - returns a correlated success envelope and preserves JSON values
+  ---
+  duration_ms: 33.27325
+  ...
+# Subtest: JSON validation rejects cycles but permits repeated independent references
+ok 9 - JSON validation rejects cycles but permits repeated independent references
+  ---
+  duration_ms: 31.804458
+  ...
+# Subtest: rejects serialization hooks and accessors without executing them
+ok 10 - rejects serialization hooks and accessors without executing them
+  ---
+  duration_ms: 0.797292
+  ...
+# Subtest: rejects inherited serialization hooks without invoking getters
+ok 11 - rejects inherited serialization hooks without invoking getters
+  ---
+  duration_ms: 0.108875
+  ...
+# Subtest: enforces the shared nesting limit within input/result including reused subtrees
+ok 12 - enforces the shared nesting limit within input/result including reused subtrees
+  ---
+  duration_ms: 35.724208
+  ...
+# Subtest: wire identifiers match Rust Unicode controls, whitespace and UTF-8 byte bounds
+ok 13 - wire identifiers match Rust Unicode controls, whitespace and UTF-8 byte bounds
+  ---
+  duration_ms: 158.468709
+  ...
+# Subtest: rejects lone Unicode surrogates in input values and object keys
+ok 14 - rejects lone Unicode surrogates in input values and object keys
+  ---
+  duration_ms: 0.283833
+  ...
+# Subtest: decodes fragmented multibyte UTF-8 response without corrupting strings
+ok 15 - decodes fragmented multibyte UTF-8 response without corrupting strings
+  ---
+  duration_ms: 36.761792
+  ...
+# Subtest: waits for clean process close after receiving the response
+ok 16 - waits for clean process close after receiving the response
+  ---
+  duration_ms: 153.995875
+  ...
+# Subtest: streams input through a slow reader and drains large diagnostics
+ok 17 - streams input through a slow reader and drains large diagnostics
+  ---
+  duration_ms: 217.973792
+  ...
+# Subtest: rejects malformed output
+ok 18 - rejects malformed output
+  ---
+  duration_ms: 29.823
+  ...
+# Subtest: rejects bom output
+ok 19 - rejects bom output
+  ---
+  duration_ms: 30.63175
+  ...
+# Subtest: rejects invalid_utf8 output
+ok 20 - rejects invalid_utf8 output
+  ---
+  duration_ms: 29.292375
+  ...
+# Subtest: rejects invalid_unicode_result output
+ok 21 - rejects invalid_unicode_result output
+  ---
+  duration_ms: 30.757167
+  ...
+# Subtest: rejects invalid_unicode_key output
+ok 22 - rejects invalid_unicode_key output
+  ---
+  duration_ms: 32.150583
+  ...
+# Subtest: rejects control_identifier output
+ok 23 - rejects control_identifier output
+  ---
+  duration_ms: 29.860708
+  ...
+# Subtest: rejects blank_identifier output
+ok 24 - rejects blank_identifier output
+  ---
+  duration_ms: 35.831333
+  ...
+# Subtest: rejects wrong_protocol output
+ok 25 - rejects wrong_protocol output
+  ---
+  duration_ms: 30.403583
+  ...
+# Subtest: rejects wrong_engine output
+ok 26 - rejects wrong_engine output
+  ---
+  duration_ms: 30.700375
+  ...
+# Subtest: rejects wrong_engine_protocol output
+ok 27 - rejects wrong_engine_protocol output
+  ---
+  duration_ms: 31.410666
+  ...
+# Subtest: rejects extra_field output
+ok 28 - rejects extra_field output
+  ---
+  duration_ms: 30.588625
+  ...
+# Subtest: rejects invalid_error output
+ok 29 - rejects invalid_error output
+  ---
+  duration_ms: 29.205
+  ...
+# Subtest: rejects nonfinite output
+ok 30 - rejects nonfinite output
+  ---
+  duration_ms: 26.977875
+  ...
+# Subtest: rejects wrong_id output
+ok 31 - rejects wrong_id output
+  ---
+  duration_ms: 26.589667
+  ...
+# Subtest: rejects null_id output
+ok 32 - rejects null_id output
+  ---
+  duration_ms: 26.793958
+  ...
+# Subtest: rejects duplicate output
+ok 33 - rejects duplicate output
+  ---
+  duration_ms: 27.052334
+  ...
+# Subtest: rejects blank_line output
+ok 34 - rejects blank_line output
+  ---
+  duration_ms: 26.890333
+  ...
+# Subtest: rejects incomplete output
+ok 35 - rejects incomplete output
+  ---
+  duration_ms: 29.481167
+  ...
+# Subtest: rejects no_response output
+ok 36 - rejects no_response output
+  ---
+  duration_ms: 28.712917
+  ...
+# Subtest: rejects a version different from the explicitly pinned release
+ok 37 - rejects a version different from the explicitly pinned release
+  ---
+  duration_ms: 29.763209
+  ...
+# Subtest: propagates structured deterministic native failure without fallback
+ok 38 - propagates structured deterministic native failure without fallback
+  ---
+  duration_ms: 30.195083
+  ...
+# Subtest: rejects nonzero exit even after a valid response without exposing diagnostics
+ok 39 - rejects nonzero exit even after a valid response without exposing diagnostics
+  ---
+  duration_ms: 29.390458
+  ...
+# Subtest: rejects a missing executable
+ok 40 - rejects a missing executable
+  ---
+  duration_ms: 2.235417
+  ...
+# Subtest: bounds output before parsing it
+ok 41 - bounds output before parsing it
+  ---
+  duration_ms: 27.999042
+  ...
+# Subtest: bounds input and rejects invalid JSON or identifiers before spawning
+ok 42 - bounds input and rejects invalid JSON or identifiers before spawning
+  ---
+  duration_ms: 0.3935
+  ...
+# Subtest: rejects invalid executable and limit configuration before spawning
+ok 43 - rejects invalid executable and limit configuration before spawning
+  ---
+  duration_ms: 0.160959
+  ...
+# Subtest: pre-aborted request does not launch a runtime
+ok 44 - pre-aborted request does not launch a runtime
+  ---
+  duration_ms: 0.098375
+  ...
+# Subtest: cancel kills and reaps a runtime that ignores SIGTERM
+ok 45 - cancel kills and reaps a runtime that ignores SIGTERM
+  ---
+  duration_ms: 61.9535
+  ...
+# Subtest: timeout kills and reaps a runtime that ignores SIGTERM
+ok 46 - timeout kills and reaps a runtime that ignores SIGTERM
+  ---
+  duration_ms: 827.592667
+  ...
+# Subtest: normal parent process exit kills its outstanding runtime
+ok 47 - normal parent process exit kills its outstanding runtime
+  ---
+  duration_ms: 219.906042
+  ...
+1..47
+# tests 47
+# suites 0
+# pass 47
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2621.6365

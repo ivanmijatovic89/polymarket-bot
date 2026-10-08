@@ -217,3 +217,165 @@ impl<'a> PortfolioView<'a> {
         self.capital_override.unwrap_or(&self.snapshot.capital)
     }
 }
+
+/// Original strategy-owned intent object. Cloning retains identity, including
+/// opaque nested objects. Properties are read at their actual processing sites.
+#[derive(Clone, Debug)]
+pub struct ManagedIntent(pub(crate) crate::metadata::MetadataHandle);
+impl ManagedIntent {
+    pub fn from_handle(
+        handle: crate::metadata::MetadataHandle,
+    ) -> Result<Self, crate::metadata::MetadataError> {
+        if handle.is_array() {
+            return Err(crate::metadata::MetadataError::WrongKind);
+        }
+        Ok(Self(handle))
+    }
+    pub fn handle(&self) -> &crate::metadata::MetadataHandle {
+        &self.0
+    }
+    pub fn get(
+        &self,
+        name: &str,
+    ) -> Result<crate::metadata::MetadataValue, crate::metadata::JsException> {
+        self.0.get_property(name)
+    }
+    pub fn get_property(
+        &self,
+        name: &str,
+    ) -> Result<crate::metadata::MetadataValue, crate::metadata::JsException> {
+        self.get(name)
+    }
+    pub fn kind_is(&self, name: &str) -> Result<bool, crate::metadata::JsException> {
+        Ok(
+            matches!(self.get("kind")?, crate::metadata::MetadataValue::String(value) if value.matches(name)),
+        )
+    }
+}
+/// Original array identity, with membership read during iteration rather than
+/// flattened into a detached Vec before asynchronous adapter calls.
+#[derive(Clone, Debug)]
+pub struct ManagedIntents(pub(crate) crate::metadata::MetadataHandle);
+impl ManagedIntents {
+    pub fn from_handle(
+        handle: crate::metadata::MetadataHandle,
+    ) -> Result<Self, crate::metadata::MetadataError> {
+        if !handle.is_array() {
+            return Err(crate::metadata::MetadataError::WrongKind);
+        }
+        Ok(Self(handle))
+    }
+    pub fn handle(&self) -> &crate::metadata::MetadataHandle {
+        &self.0
+    }
+    pub fn length(&self) -> Result<u32, crate::metadata::MetadataError> {
+        self.0.length()
+    }
+    pub fn at(&self, index: u32) -> Result<ManagedIntent, crate::metadata::JsException> {
+        let crate::metadata::MetadataValue::Reference(handle) =
+            self.0.get_property(index.to_string())?
+        else {
+            return Err(crate::metadata::MetadataError::WrongKind.into());
+        };
+        Ok(ManagedIntent::from_handle(handle)?)
+    }
+    pub fn new_in_graph(
+        graph: &crate::metadata::MetadataGraph,
+        values: impl IntoIterator<Item = ManagedIntent>,
+    ) -> Result<Self, crate::metadata::MetadataError> {
+        let array = graph.array()?;
+        for value in values {
+            array.push(value.0.into())?;
+        }
+        Ok(Self(array))
+    }
+}
+
+/// Direct own-property operations shared by the managed consumer paths. These
+/// never serialize a graph or reconstruct authoritative objects from JSON.
+pub(crate) mod managed {
+    use crate::market_json::JsString;
+    use crate::metadata::{
+        JsException, MetadataError, MetadataGraph, MetadataHandle, MetadataValue,
+    };
+    use crate::portfolio_records::ManagedAccountEvent;
+    pub fn object(value: MetadataValue) -> Result<MetadataHandle, MetadataError> {
+        match value {
+            MetadataValue::Reference(h) => Ok(h),
+            _ => Err(MetadataError::WrongKind),
+        }
+    }
+    pub fn string(value: MetadataValue) -> Result<JsString, MetadataError> {
+        match value {
+            MetadataValue::String(s) => Ok(s),
+            _ => Err(MetadataError::WrongKind),
+        }
+    }
+    pub fn number(value: MetadataValue) -> Result<f64, MetadataError> {
+        match value {
+            MetadataValue::Number(n) => Ok(n),
+            _ => Err(MetadataError::WrongKind),
+        }
+    }
+    pub fn nullish_number(value: MetadataValue, fallback: f64) -> Result<f64, MetadataError> {
+        match value {
+            MetadataValue::Missing | MetadataValue::Null => Ok(fallback),
+            value => number(value),
+        }
+    }
+    pub fn is_string(value: &MetadataValue, text: &str) -> bool {
+        matches!(value,MetadataValue::String(s) if s.matches(text))
+    }
+    pub fn strict_equal(a: &MetadataValue, b: &MetadataValue) -> bool {
+        crate::sdk_value::strict_equal(a, b)
+    }
+    pub fn primitive_property_key(value: MetadataValue) -> Result<JsString, JsException> {
+        crate::sdk_value::to_property_key(value)
+    }
+    pub fn pairs(
+        graph: &MetadataGraph,
+        values: impl IntoIterator<Item = (&'static str, MetadataValue)>,
+    ) -> Result<MetadataHandle, MetadataError> {
+        let h = graph.object()?;
+        for (key, value) in values {
+            h.set(key, value)?;
+        }
+        Ok(h)
+    }
+    pub fn spread(
+        graph: &MetadataGraph,
+        source: &MetadataHandle,
+    ) -> Result<MetadataHandle, JsException> {
+        let h = graph.object()?;
+        for key in source.own_property_keys()? {
+            if source
+                .own_descriptor(key.clone())?
+                .is_some_and(|d| d.enumerable())
+            {
+                h.set(key.clone(), source.get_property(key)?)?;
+            }
+        }
+        Ok(h)
+    }
+    pub fn event(
+        graph: &MetadataGraph,
+        values: impl IntoIterator<Item = (&'static str, MetadataValue)>,
+    ) -> Result<ManagedAccountEvent, MetadataError> {
+        Ok(ManagedAccountEvent::from_envelope(pairs(graph, values)?))
+    }
+    pub fn members(root: &MetadataHandle, name: &str) -> Result<MetadataHandle, JsException> {
+        Ok(object(root.get_property(name)?)?)
+    }
+    pub fn values(map: &MetadataHandle) -> Result<Vec<MetadataHandle>, JsException> {
+        let mut out = Vec::new();
+        for key in map.own_property_keys()? {
+            if map
+                .own_descriptor(key.clone())?
+                .is_some_and(|d| d.enumerable())
+            {
+                out.push(object(map.get_property(key)?)?);
+            }
+        }
+        Ok(out)
+    }
+}

@@ -132,10 +132,15 @@ pub enum ColumnValue<'a> {
 #[derive(Debug)]
 pub struct ParquetInputData {
     pub physical: Row,
+    /// Flat columns with no admitted codec value differ from logical null.
+    pub undefined_columns: Vec<String>,
     pub logical_json: Vec<(String, JsValue)>,
     pub logical_decimals: Vec<(String, Option<DecimalValue>)>,
 }
 pub fn column<'a>(row: &'a ParquetInputData, name: &str) -> Option<ColumnValue<'a>> {
+    if row.undefined_columns.iter().any(|key| key == name) {
+        return None;
+    }
     if let Some((_, value)) = row.logical_decimals.iter().find(|(key, _)| key == name) {
         return value.as_ref().map(ColumnValue::Decimal);
     }
@@ -489,6 +494,7 @@ impl ParquetRows {
         }
         Ok(ParquetInputData {
             physical,
+            undefined_columns: Vec::new(),
             logical_json,
             logical_decimals: Vec::new(),
         })
@@ -528,22 +534,36 @@ impl ParquetRows {
             // Do not eagerly run the crate's independent DECIMAL row decoder:
             // its stricter dictionary checks can reject rows the reference admits.
             let schema = reader.metadata().schema_descr().root_schema();
+            // The pinned thrift decoder retains num_values as an Int64
+            // object. It is truthy even at zero; decodePages skips data pages
+            // and materialization obtains undefined codec values. Do not let
+            // the native row decoder read a skipped flat column's pages.
+            let undefined_columns = raw_group
+                .columns
+                .iter()
+                .filter_map(|column| {
+                    let meta = column.meta_data.as_ref()?;
+                    (meta.num_values == 0 && meta.path_in_schema.len() == 1)
+                        .then(|| meta.path_in_schema[0].clone())
+                })
+                .collect::<Vec<_>>();
             let fields = schema
                 .get_fields()
                 .iter()
                 .filter(|field| {
-                    !reader
-                        .metadata()
-                        .schema_descr()
-                        .columns()
-                        .iter()
-                        .enumerate()
-                        .any(|(index, column)| {
-                            self.converted[index] == ConvertedType::DECIMAL
-                                && column.path().parts().len() == 1
-                                && column.path().parts()[0] == field.name()
-                                && column.max_rep_level() == 0
-                        })
+                    !undefined_columns.iter().any(|name| name == field.name())
+                        && !reader
+                            .metadata()
+                            .schema_descr()
+                            .columns()
+                            .iter()
+                            .enumerate()
+                            .any(|(index, column)| {
+                                self.converted[index] == ConvertedType::DECIMAL
+                                    && column.path().parts().len() == 1
+                                    && column.path().parts()[0] == field.name()
+                                    && column.max_rep_level() == 0
+                            })
                 })
                 .cloned()
                 .collect();
@@ -562,7 +582,9 @@ impl ParquetRows {
                     .ok_or_else(|| {
                         InputError(format!("{}: Truncated row group", self.path.display()))
                     })?;
-                group.push_back(self.decode_row(physical)?);
+                let mut row = self.decode_row(physical)?;
+                row.undefined_columns.clone_from(&undefined_columns);
+                group.push_back(row);
             }
             let descriptors = reader.metadata().schema_descr();
             for (index, descriptor) in descriptors.columns().iter().enumerate() {

@@ -15,9 +15,11 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { MAX_JSON_CONTAINER_DEPTH, MAX_NATIVE_REQUEST_BYTES, type JsonValue } from './contracts.js'
 import { NativeRuntimeError, runNativeOperation } from './nativeClient.js'
 
-const executablePath = fileURLToPath(
-  new URL('../../native/trading-runtime/target/debug/polymarket-runtime', import.meta.url),
-)
+const executablePath =
+  process.env.PMB_NATIVE_TEST_BINARY ??
+  fileURLToPath(
+    new URL('../../native/trading-runtime/target/debug/polymarket-runtime', import.meta.url),
+  )
 const parentFixture = fileURLToPath(new URL('./fixtures/nativeParent.mts', import.meta.url))
 const options = { executablePath, expectedEngineVersion: '0.1.0' }
 

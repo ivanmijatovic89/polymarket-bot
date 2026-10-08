@@ -1,0 +1,28 @@
+{
+  "scope": "Independent bounded current-body read-only review and temporary actual TS adversarial fixtures. This functional report does not claim before/after all-source dependency provenance or full replay mode acceptance.",
+  "cases": 61,
+  "originalCases": 43,
+  "additionalCases": 18,
+  "ticks": 88,
+  "fullOutputEquality": true,
+  "nativeBinaryFrozenSha256": "d9933a8c188a481d3a72ddf098532555ad3929c370cc15d015b6c74a6703c117",
+  "temporaryOracleSha256": "ea9bccc1a601ec5410286c4e026e0eb525df148581923083916189533649e223",
+  "extraCasesSha256": "82361c811645b18065afd77a74b58f038c733190fdd88aee9d27f8b17ff33db7",
+  "reviewedSourceSha256": {
+    "src/parquet/replay/replayTelonexPairedParquetForMarket.ts": "de9f53d3922a32a102ef98793f49e36aad67d117aba4c2a7694cd2b3fe95d142",
+    "src/parquet/replay/replayTelonexDeltaParquetForMarket.ts": "8172901c78c68c2bab571828e0b9977ed7b1c96d1d908ed57dd8a935d19b56b4",
+    "native/trading-runtime/src/telonex_replay.rs": "e57169e8c8991dd11615428a0eb0ed31d5dc455d2564fa495d12f6a0d9edf2e1",
+    "native/trading-runtime/src/parquet_input.rs": "ecd1823bc8a6db7cbf332793d241d817d6ca558cebf5ef3cea5ec5ae920407bb",
+    "native/trading-runtime/tests/telonex_replay.rs": "886212aff13fd572db0d0e3bc5167e698dd4761416e0c4d72c98fce264582ad8"
+  },
+  "inputsManifestSha256": "189c58fb3daff5c969f0f6ad5fded435352599fd8ca34f0e412a0c784c4ebc87",
+  "noConcreteBoundedDefectFound": true,
+  "productionReady": false,
+  "unmet": [
+    "Authoritative shared SDK ingress/retained mutation alias parity",
+    "Exact owner nested Promise-job scheduling",
+    "All physical/logical conversions and remote R2/EPERM",
+    "Raw internal Number Infinity and wrapper object identity in actual runner replay mode",
+    "Complete strategy/feed/execution/live/fleet integration"
+  ]
+}

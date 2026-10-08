@@ -105,16 +105,18 @@
         "docs/rust-migration/evidence/parquet-decimal-pending/finding.json",
         "docs/rust-migration/evidence/admission-ci-aa6d6fb7.json",
         "docs/rust-migration/RECORD-INTEGRATION-REVIEW.md",
-        "docs/rust-migration/evidence/records-validation.json"
+        "docs/rust-migration/evidence/records-validation.json",
+        "docs/rust-migration/RUNTIME-REPLAY-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/runtime-validation.json"
       ],
       "verifiedRevision": null,
-      "notes": "Published historical aa6d6fb7 passed all seven CI checks. New frozen record integration passes109 native tests,47 client/process tests,10 required strict TS oracles; bounded Source56,Portfolio185,actual Parquet73 and DECIMAL747 comparisons pass with independent reviews and source/tool/dependency identities. Managed record storage and raw reader defects are repaired in their documented domains. Complete SDK/prototypes/coercion/capture, snapshot root/WS maps, runner and OrderManager bindings, complete logical/replay modes/feeds, every strategy/artifact/caller, live/fleet/persistence/four-device/release/final benchmark remain unmet. Reader zero-declared-count/otherphysical/nested/error/Buffer alias and legacy extra optional-property oracle diagnostics remain explicit. New checkpoint remote CI is pending; no complete runtime or speed claim."
+      "notes": "Current frozen native integration passes164 units/47 client tests, strict Clippy/formatting/oracle checks; bounded PF194/OM160/actualRunner23/reader80/recorded64/Telonex61 comparisons pass with source identities and fresh runner/Telonex review. No complete criterion passes. Authoritative mutable market graph ingress, SDK arrays/prototypes/coercion/ephemeron capture, reentrant callback-aware financial owner, exact Promise jobs, throwing stop callback cleanup, complete physical/nested/Buffer/dictionary/error inputs and R2/EPERM, V4/feeds, all strategies/artifacts, live/callers/fleet/persistence/device/release/final benchmark remain required. New checkpoint remote CI pending; no production speed claim."
     },
     {
       "id": "core.02",
       "area": "core",
       "requirement": "Account callbacks may create intents; immediate/queued ordering and pending commitments preserved.",
-      "status": "pending",
+      "status": "in_progress",
       "sourcePaths": [
         "src/trading/StrategyRunner.ts",
         "src/trading/OrderManager.ts",
@@ -122,15 +124,18 @@
         "src/market/MarketEngine.ts"
       ],
       "validationCommands": [],
-      "evidence": [],
+      "evidence": [
+        "docs/rust-migration/RUNTIME-REPLAY-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/runtime-validation.json"
+      ],
       "verifiedRevision": null,
-      "notes": "Commands and scenario expansion are required before implementation acceptance."
+      "notes": "Current frozen native integration passes164 units/47 client tests, strict Clippy/formatting/oracle checks; bounded PF194/OM160/actualRunner23/reader80/recorded64/Telonex61 comparisons pass with source identities and fresh runner/Telonex review. No complete criterion passes. Authoritative mutable market graph ingress, SDK arrays/prototypes/coercion/ephemeron capture, reentrant callback-aware financial owner, exact Promise jobs, throwing stop callback cleanup, complete physical/nested/Buffer/dictionary/error inputs and R2/EPERM, V4/feeds, all strategies/artifacts, live/callers/fleet/persistence/device/release/final benchmark remain required. New checkpoint remote CI pending; no production speed claim."
     },
     {
       "id": "core.03",
       "area": "core",
       "requirement": "Late/repeated/out-of-order fills and old-market portfolio routing verified.",
-      "status": "pending",
+      "status": "in_progress",
       "sourcePaths": [
         "src/trading/StrategyRunner.ts",
         "src/trading/OrderManager.ts",
@@ -138,9 +143,12 @@
         "src/market/MarketEngine.ts"
       ],
       "validationCommands": [],
-      "evidence": [],
+      "evidence": [
+        "docs/rust-migration/RUNTIME-REPLAY-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/runtime-validation.json"
+      ],
       "verifiedRevision": null,
-      "notes": "Commands and scenario expansion are required before implementation acceptance."
+      "notes": "Current frozen native integration passes164 units/47 client tests, strict Clippy/formatting/oracle checks; bounded PF194/OM160/actualRunner23/reader80/recorded64/Telonex61 comparisons pass with source identities and fresh runner/Telonex review. No complete criterion passes. Authoritative mutable market graph ingress, SDK arrays/prototypes/coercion/ephemeron capture, reentrant callback-aware financial owner, exact Promise jobs, throwing stop callback cleanup, complete physical/nested/Buffer/dictionary/error inputs and R2/EPERM, V4/feeds, all strategies/artifacts, live/callers/fleet/persistence/device/release/final benchmark remain required. New checkpoint remote CI pending; no production speed claim."
     },
     {
       "id": "live-execution.01",
@@ -232,31 +240,51 @@
       "id": "replay.01",
       "area": "replay",
       "requirement": "Recorded, telonex-delta, telonex-paired and recorder-v4 covered.",
-      "status": "pending",
+      "status": "in_progress",
       "sourcePaths": [
         "src/backtest/runSingleMarket.ts",
         "src/parquet/replay",
         "src/recorder-v4/replay/dispatcher.ts"
       ],
-      "validationCommands": [],
-      "evidence": [],
+      "validationCommands": [
+        "python3 scripts/rust-migration/recorded-replay-differential.py --node /absolute/path/to/node20",
+        "python3 scripts/rust-migration/recorded-replay-differential.py --node /absolute/path/to/node20 --release",
+        "cargo test --offline --manifest-path native/trading-runtime/Cargo.toml --test recorded_replay"
+      ],
+      "evidence": [
+        "docs/rust-migration/evidence/replay-body-debug.json",
+        "docs/rust-migration/evidence/replay-body-release.json",
+        "docs/rust-migration/RECORDED-REPLAY-REVIEW.md",
+        "docs/rust-migration/RUNTIME-REPLAY-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/runtime-validation.json"
+      ],
       "verifiedRevision": null,
-      "notes": "Commands and scenario expansion are required before implementation acceptance."
+      "notes": "Current frozen native integration passes164 units/47 client tests, strict Clippy/formatting/oracle checks; bounded PF194/OM160/actualRunner23/reader80/recorded64/Telonex61 comparisons pass with source identities and fresh runner/Telonex review. No complete criterion passes. Authoritative mutable market graph ingress, SDK arrays/prototypes/coercion/ephemeron capture, reentrant callback-aware financial owner, exact Promise jobs, throwing stop callback cleanup, complete physical/nested/Buffer/dictionary/error inputs and R2/EPERM, V4/feeds, all strategies/artifacts, live/callers/fleet/persistence/device/release/final benchmark remain required. New checkpoint remote CI pending; no production speed claim."
     },
     {
       "id": "replay.02",
       "area": "replay",
       "requirement": "Preserve actual heap precedence, stable ties, paired atomic book callback, bigint source sequences and invalid-row treatment.",
-      "status": "pending",
+      "status": "in_progress",
       "sourcePaths": [
         "src/backtest/runSingleMarket.ts",
         "src/parquet/replay",
         "src/recorder-v4/replay/dispatcher.ts"
       ],
-      "validationCommands": [],
-      "evidence": [],
+      "validationCommands": [
+        "python3 scripts/rust-migration/recorded-replay-differential.py --node /absolute/path/to/node20",
+        "python3 scripts/rust-migration/recorded-replay-differential.py --node /absolute/path/to/node20 --release",
+        "cargo test --offline --manifest-path native/trading-runtime/Cargo.toml --test recorded_replay"
+      ],
+      "evidence": [
+        "docs/rust-migration/evidence/replay-body-debug.json",
+        "docs/rust-migration/evidence/replay-body-release.json",
+        "docs/rust-migration/RECORDED-REPLAY-REVIEW.md",
+        "docs/rust-migration/RUNTIME-REPLAY-INTEGRATION-REVIEW.md",
+        "docs/rust-migration/evidence/runtime-validation.json"
+      ],
       "verifiedRevision": null,
-      "notes": "Commands and scenario expansion are required before implementation acceptance."
+      "notes": "Current frozen native integration passes164 units/47 client tests, strict Clippy/formatting/oracle checks; bounded PF194/OM160/actualRunner23/reader80/recorded64/Telonex61 comparisons pass with source identities and fresh runner/Telonex review. No complete criterion passes. Authoritative mutable market graph ingress, SDK arrays/prototypes/coercion/ephemeron capture, reentrant callback-aware financial owner, exact Promise jobs, throwing stop callback cleanup, complete physical/nested/Buffer/dictionary/error inputs and R2/EPERM, V4/feeds, all strategies/artifacts, live/callers/fleet/persistence/device/release/final benchmark remain required. New checkpoint remote CI pending; no production speed claim."
     },
     {
       "id": "replay.03",

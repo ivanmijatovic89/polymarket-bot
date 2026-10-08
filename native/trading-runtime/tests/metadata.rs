@@ -418,3 +418,508 @@ fn present_array_index_keys_distinguish_undefined_from_holes_without_mutation() 
         MetadataError::WrongKind
     );
 }
+
+#[test]
+fn shallow_freeze_enforces_every_data_writer_but_retains_nested_identity() {
+    use polymarket_runtime::record::RecordSchema;
+    static SNAPSHOT: RecordSchema =
+        RecordSchema::new("SnapshotTest", &["capital", "members", "optional"]);
+    let graph = MetadataGraph::new();
+    let capital = graph.object().unwrap();
+    capital.set("cash", 10.0.into()).unwrap();
+    let members = graph.object().unwrap();
+    members.set("a", 1.0.into()).unwrap();
+    let snapshot = graph
+        .record(
+            &SNAPSHOT,
+            vec![
+                ("capital".into(), capital.clone().into()),
+                ("members".into(), members.clone().into()),
+                ("optional".into(), MetadataValue::Missing),
+            ],
+        )
+        .unwrap();
+    capital.freeze().unwrap();
+    snapshot.as_handle().freeze().unwrap();
+    snapshot.as_handle().freeze().unwrap();
+    assert!(snapshot.as_handle().is_frozen().unwrap());
+    for field in [SNAPSHOT.field(0), SNAPSHOT.field(2)] {
+        assert_eq!(
+            snapshot.set_field(field, MetadataValue::Missing),
+            Err(MetadataError::FrozenProperty)
+        );
+        assert_eq!(
+            snapshot.delete_field(field),
+            Err(MetadataError::FrozenProperty)
+        );
+    }
+    assert_eq!(
+        snapshot.as_handle().set("extra", 3.0.into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(
+        snapshot.as_handle().set("members", members.clone().into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(
+        snapshot.as_handle().delete("capital"),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert!(!snapshot.as_handle().delete("absent").unwrap());
+    assert_eq!(
+        capital.set("cash", 10.0.into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(capital.delete("cash"), Err(MetadataError::FrozenProperty));
+    members.set("a", 2.0.into()).unwrap();
+    assert_eq!(
+        reference(snapshot.get_field(SNAPSHOT.field(1)).unwrap()),
+        members
+    );
+    let descriptor = snapshot
+        .as_handle()
+        .own_property_descriptor("members")
+        .unwrap()
+        .unwrap();
+    assert!(!descriptor.writable && descriptor.enumerable && !descriptor.configurable);
+    assert_eq!(reference(descriptor.value), members);
+    assert!(snapshot
+        .as_handle()
+        .own_property_descriptor("absent")
+        .unwrap()
+        .is_none());
+    assert!(matches!(
+        snapshot
+            .as_handle()
+            .own_property_descriptor("optional")
+            .unwrap()
+            .unwrap()
+            .value,
+        MetadataValue::Missing
+    ));
+}
+
+#[test]
+fn frozen_sparse_arrays_protect_length_entries_and_holes() {
+    let graph = MetadataGraph::new();
+    let array = graph.array().unwrap();
+    array.set_length(4).unwrap();
+    array.set_index(1, MetadataValue::Missing).unwrap();
+    array.set_index(3, (-0.0).into()).unwrap();
+    array.freeze().unwrap();
+    assert_eq!(array.set_length(4), Err(MetadataError::FrozenProperty));
+    assert_eq!(array.set_length(0), Err(MetadataError::FrozenProperty));
+    assert_eq!(
+        array.set_index(1, MetadataValue::Missing),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(
+        array.set_index(0, 1.0.into()),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(array.push(1.0.into()), Err(MetadataError::FrozenProperty));
+    assert_eq!(array.delete_index(1), Err(MetadataError::FrozenProperty));
+    assert!(!array.delete_index(2).unwrap());
+    let length = array.own_property_descriptor("length").unwrap().unwrap();
+    assert!(!length.writable && !length.enumerable && !length.configurable);
+    assert!(array.own_property_descriptor("2").unwrap().is_none());
+    let value = array.own_property_descriptor("3").unwrap().unwrap();
+    let MetadataValue::Number(number) = value.value else {
+        panic!()
+    };
+    assert_eq!(number.to_bits(), (-0.0f64).to_bits());
+    assert_eq!(array.index_keys().unwrap(), vec![1, 3]);
+}
+
+#[test]
+// Hash/Eq use immutable session identity and generation, never RefCell contents.
+#[allow(clippy::mutable_key_type)]
+fn handle_hash_preserves_session_and_generation_identity() {
+    use std::collections::HashSet;
+    let graph = MetadataGraph::new();
+    let other = MetadataGraph::new();
+    let handle = graph.object().unwrap();
+    let mut set = HashSet::new();
+    set.insert(handle.clone());
+    assert!(set.contains(&handle.clone()));
+    assert!(!set.contains(&other.object().unwrap()));
+    let old = handle.downgrade();
+    drop(handle);
+    set.clear();
+    graph.collect_full().unwrap();
+    assert!(old.upgrade().is_none());
+    let fresh = graph.object().unwrap();
+    assert!(set.insert(fresh.clone()));
+    assert!(set.contains(&fresh));
+}
+
+#[test]
+fn own_data_definitions_preserve_absence_attributes_same_value_and_visibility() {
+    let graph = MetadataGraph::new();
+    let object = graph.object().unwrap();
+    object
+        .define_data_property(
+            "hidden",
+            DataPropertyDefinition {
+                value: Some(MetadataValue::Number(-0.0)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let descriptor = object.own_property_descriptor("hidden").unwrap().unwrap();
+    assert!(!descriptor.writable && !descriptor.enumerable && !descriptor.configurable);
+    assert_eq!(object.keys().unwrap().len(), 0);
+    assert_eq!(object.stringify().unwrap().unwrap(), "{}");
+    object
+        .define_data_property(
+            "hidden",
+            DataPropertyDefinition {
+                value: Some(MetadataValue::Number(-0.0)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(object
+        .define_data_property(
+            "hidden",
+            DataPropertyDefinition {
+                value: Some(MetadataValue::Number(0.0)),
+                ..Default::default()
+            }
+        )
+        .is_err());
+    assert!(object.delete("hidden").is_err());
+    object
+        .define_data_property("undefined", DataPropertyDefinition::default())
+        .unwrap();
+    assert!(matches!(
+        object.get("undefined").unwrap(),
+        MetadataValue::Missing
+    ));
+    assert!(object
+        .own_property_descriptor("undefined")
+        .unwrap()
+        .is_some());
+    object.set("visible", 1.0.into()).unwrap();
+    object
+        .define_data_property(
+            "visible",
+            DataPropertyDefinition {
+                writable: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let descriptor = object.own_property_descriptor("visible").unwrap().unwrap();
+    assert!(!descriptor.writable && descriptor.enumerable && descriptor.configurable);
+    assert_eq!(object.keys().unwrap(), vec![JsString::from("visible")]);
+    assert_eq!(object.stringify().unwrap().unwrap(), "{\"visible\":1}");
+    object.prevent_extensions().unwrap();
+    assert!(!object.is_extensible().unwrap());
+    assert!(object.set("new", 2.0.into()).is_err());
+    object
+        .define_data_property(
+            "visible",
+            DataPropertyDefinition {
+                value: Some(3.0.into()),
+                enumerable: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(object.stringify().unwrap().unwrap(), "{}");
+    assert!(!object.is_frozen().unwrap());
+    object
+        .define_data_property(
+            "visible",
+            DataPropertyDefinition {
+                configurable: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(object.is_frozen().unwrap());
+    let empty = graph.object().unwrap();
+    empty.prevent_extensions().unwrap();
+    assert!(empty.is_frozen().unwrap());
+}
+
+fn mutate_capture_then_throw(frame: &CallFrame) -> Result<MetadataValue, JsException> {
+    let MetadataValue::Reference(capture) = &frame.captures[0] else {
+        panic!()
+    };
+    capture.set("called", 1.0.into())?;
+    capture.graph().collect_step(1)?;
+    Err(JsException::Thrown(frame.receiver.clone()))
+}
+#[test]
+fn callable_captures_throw_identity_and_prototypes_are_traced_without_root_cycles() {
+    let graph = MetadataGraph::new();
+    let capture = graph.object().unwrap();
+    let function = graph
+        .function(mutate_capture_then_throw, vec![capture.clone().into()])
+        .unwrap();
+    capture.set("function", function.clone().into()).unwrap();
+    let receiver = graph.object().unwrap();
+    let error = function.call(receiver.clone().into(), vec![]).unwrap_err();
+    let JsException::Thrown(MetadataValue::Reference(thrown)) = error else {
+        panic!()
+    };
+    assert_eq!(thrown, receiver);
+    assert!(matches!(
+        capture.get("called").unwrap(),
+        MetadataValue::Number(1.0)
+    ));
+    assert!(matches!(
+        receiver.call(MetadataValue::Missing, vec![]),
+        Err(JsException::Native(MetadataError::NotCallable))
+    ));
+    assert_eq!(function.stringify().unwrap(), None);
+    assert_eq!(capture.stringify().unwrap().unwrap(), "{\"called\":1}");
+    let array = graph.array().unwrap();
+    array.push(function.clone().into()).unwrap();
+    assert_eq!(array.stringify().unwrap().unwrap(), "[null]");
+    let parent = graph.object().unwrap();
+    parent.set("inherited", 7.0.into()).unwrap();
+    receiver.set_prototype(Some(&parent)).unwrap();
+    assert!(matches!(
+        receiver.get_property("inherited").unwrap(),
+        MetadataValue::Number(7.0)
+    ));
+    receiver.set("inherited", MetadataValue::Missing).unwrap();
+    assert!(matches!(
+        receiver.get_property("inherited").unwrap(),
+        MetadataValue::Missing
+    ));
+    assert_eq!(
+        parent.set_prototype(Some(&receiver)),
+        Err(MetadataError::CyclicPrototype)
+    );
+    let weak = parent.downgrade();
+    drop(parent);
+    graph.collect_full().unwrap();
+    assert!(weak.upgrade().is_some());
+    receiver.freeze().unwrap();
+    let current = receiver.prototype().unwrap().unwrap();
+    receiver.set_prototype(Some(&current)).unwrap();
+    assert_eq!(
+        receiver.set_prototype(None),
+        Err(MetadataError::FrozenProperty)
+    );
+    drop(current);
+    drop(thrown);
+    drop(receiver);
+    drop(capture);
+    drop(function);
+    drop(array);
+    graph.collect_full().unwrap();
+    assert_eq!(graph.stats().live_nodes, 0);
+}
+#[test]
+fn callable_capture_reclamation_honors_partial_work_budgets() {
+    let graph = MetadataGraph::new();
+    let function = graph
+        .function(
+            mutate_capture_then_throw,
+            (0..10000).map(|_| MetadataValue::Number(1.0)).collect(),
+        )
+        .unwrap();
+    drop(function);
+    let mut complete = false;
+    for _ in 0..11000 {
+        let step = graph.collect_step(1).unwrap();
+        assert!(step.work <= 1);
+        if step.cycle_complete {
+            complete = true;
+            break;
+        }
+    }
+    assert!(complete);
+    assert_eq!(graph.stats().live_nodes, 0);
+}
+
+fn accessor_read(frame: &CallFrame) -> Result<MetadataValue, JsException> {
+    let MetadataValue::Reference(state) = &frame.captures[0] else {
+        panic!()
+    };
+    state.set("receiver", frame.receiver.clone())?;
+    if let MetadataValue::Reference(error) = state.get("throw")? {
+        return Err(JsException::Thrown(error.into()));
+    }
+    Ok(state.get("value")?)
+}
+fn accessor_write(frame: &CallFrame) -> Result<MetadataValue, JsException> {
+    let MetadataValue::Reference(state) = &frame.captures[0] else {
+        panic!()
+    };
+    state.set("receiver", frame.receiver.clone())?;
+    state.set("value", frame.arguments[0].clone())?;
+    Ok(MetadataValue::Missing)
+}
+#[test]
+fn frozen_inherited_accessors_preserve_receiver_throws_and_descriptor_identity() {
+    let graph = MetadataGraph::new();
+    let state = graph.object().unwrap();
+    state.set("value", 2.0.into()).unwrap();
+    let getter = graph
+        .function(accessor_read, vec![state.clone().into()])
+        .unwrap();
+    let setter = graph
+        .function(accessor_write, vec![state.clone().into()])
+        .unwrap();
+    let prototype = graph.object().unwrap();
+    prototype
+        .define_accessor_property(
+            "value",
+            AccessorPropertyDefinition {
+                get: Some(Some(getter.clone())),
+                set: Some(Some(setter.clone())),
+                enumerable: Some(true),
+                configurable: Some(true),
+            },
+        )
+        .unwrap();
+    let receiver = graph.object().unwrap();
+    receiver.set_prototype(Some(&prototype)).unwrap();
+    assert!(matches!(
+        prototype.own_descriptor("value").unwrap(),
+        Some(OwnPropertyDescriptor::Accessor {
+            get: Some(_),
+            set: Some(_),
+            enumerable: true,
+            configurable: true
+        })
+    ));
+    assert!(matches!(
+        state.get("receiver").unwrap(),
+        MetadataValue::Missing
+    ));
+    receiver.freeze().unwrap();
+    prototype.freeze().unwrap();
+    receiver.set_property("value", 3.0.into()).unwrap();
+    assert!(matches!(
+        receiver.get_property("value").unwrap(),
+        MetadataValue::Number(3.0)
+    ));
+    assert_eq!(reference(state.get("receiver").unwrap()), receiver);
+    assert!(matches!(
+        receiver.set_property("new", 1.0.into()),
+        Err(JsException::Native(MetadataError::FrozenProperty))
+    ));
+    assert_eq!(
+        prototype.define_accessor_property(
+            "value",
+            AccessorPropertyDefinition {
+                get: Some(None),
+                ..Default::default()
+            }
+        ),
+        Err(MetadataError::FrozenProperty)
+    );
+    assert_eq!(
+        prototype.define_data_property(
+            "value",
+            DataPropertyDefinition {
+                value: Some(1.0.into()),
+                ..Default::default()
+            }
+        ),
+        Err(MetadataError::FrozenProperty)
+    );
+    prototype
+        .define_accessor_property(
+            "value",
+            AccessorPropertyDefinition {
+                get: Some(Some(getter.clone())),
+                set: Some(Some(setter.clone())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let error = graph.object().unwrap();
+    state.set("throw", error.clone().into()).unwrap();
+    let JsException::Thrown(MetadataValue::Reference(thrown)) =
+        receiver.get_property("value").unwrap_err()
+    else {
+        panic!()
+    };
+    assert_eq!(thrown, error);
+    let getter_weak = getter.downgrade();
+    let setter_weak = setter.downgrade();
+    drop(getter);
+    drop(setter);
+    graph.collect_full().unwrap();
+    assert!(getter_weak.upgrade().is_some() && setter_weak.upgrade().is_some());
+    drop(thrown);
+    drop(error);
+    drop(receiver);
+    drop(prototype);
+    drop(state);
+    graph.collect_full().unwrap();
+    assert_eq!(graph.stats().live_nodes, 0);
+}
+#[test]
+fn descriptor_kind_replacement_and_strict_assignment_keep_key_order_and_attrs() {
+    let graph = MetadataGraph::new();
+    let state = graph.object().unwrap();
+    let getter = graph
+        .function(accessor_read, vec![state.clone().into()])
+        .unwrap();
+    let object = graph.object().unwrap();
+    object.set("a", 1.0.into()).unwrap();
+    object.set("b", 2.0.into()).unwrap();
+    object
+        .define_accessor_property(
+            "a",
+            AccessorPropertyDefinition {
+                get: Some(Some(getter)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(matches!(
+        object.set_property("a", 2.0.into()),
+        Err(JsException::Native(MetadataError::FrozenProperty))
+    ));
+    object
+        .define_data_property(
+            "a",
+            DataPropertyDefinition {
+                value: Some(3.0.into()),
+                writable: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    object.set_property("a", 4.0.into()).unwrap();
+    assert_eq!(
+        object.keys().unwrap(),
+        vec![JsString::from("a"), JsString::from("b")]
+    );
+    assert_eq!(object.stringify().unwrap().unwrap(), "{\"a\":4,\"b\":2}");
+    assert!(object.delete_property("missing").unwrap());
+    object
+        .define_data_property(
+            "a",
+            DataPropertyDefinition {
+                writable: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let child = graph.object().unwrap();
+    child.set_prototype(Some(&object)).unwrap();
+    assert!(matches!(
+        child.set_property("a", 4.0.into()),
+        Err(JsException::Native(MetadataError::FrozenProperty))
+    ));
+    child.set_property("b", 5.0.into()).unwrap();
+    assert!(matches!(
+        object.get("b").unwrap(),
+        MetadataValue::Number(2.0)
+    ));
+    assert!(matches!(
+        child.get_property("b").unwrap(),
+        MetadataValue::Number(5.0)
+    ));
+}
