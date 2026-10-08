@@ -41,7 +41,7 @@ export function parseCatalogSyncArgs(argv: string[]) {
     watch: false,
     maxFiles: 100,
     intervalMs: 60_000,
-    prefix: 'recorder-v4',
+    prefix: null as string | null,
   }
   const seen = new Set<string>()
   for (let i = 1; i < argv.length; i++) {

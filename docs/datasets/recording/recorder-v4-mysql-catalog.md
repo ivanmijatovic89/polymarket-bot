@@ -53,7 +53,7 @@ npm run record:v4:catalog -- status --env-file /absolute/catalog.env
 The configuration contains database (`DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`,
 `DATABASE_PASSWORD`, `DATABASE_NAME`) and R2 (`R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`,
 `R2_SECRET_ACCESS_KEY`) keys. No wallet/CLOB credentials are required. The prefix defaults to
-`recorder-v4`; `--prefix` selects a specific child namespace. Production scans exclude child
+`RECORDER_R2_PREFIX` when configured, otherwise `recorder-v4`; `--prefix` overrides it. Production scans exclude child
 validation namespaces. Use the dedicated [worker-2 service](./recorder-v4-worker-2#independent-mysql-catalog-service)
 for continuous production synchronization.
 
@@ -71,6 +71,14 @@ continues partial full scans, checks recently opened markets every 60 seconds, a
 the whole archive hourly. This also catches delayed uploads and late outcome corrections
 outside the recent 30-minute range. A failed full scan is retried until complete. There is no
 R2 PUT, DELETE, rename, or lifecycle change in this process. MySQL can be rebuilt from R2.
+
+The standalone catalog bounds each database operation (including lease acquisition) to
+30 seconds. Lease loss or a database deadline stops the importer; a five-second shutdown
+deadline then forces a failed process exit if lock release or pool cleanup is also stuck.
+The LaunchDaemon can restart that process; it may need to wait for the server to release a
+stale advisory lock (up to its five-minute idle timeout). Completed imports are idempotent,
+and abandoned temporary downloads are reclaimed on the next import. These bounds apply to
+the independent catalog, not the trading database pool or recorder process.
 
 Normal discovery requires one complete initial full scan and a successful scan within the
 last 15 minutes. These guards prevent selection from silently using an uninitialized or
@@ -126,3 +134,9 @@ it with MySQL 8.4. It exercises the real migration, concurrent transactions, MyS
 roundtrips, official outcomes, filtering, and stale-catalog rejection.
 
 See the [October 8 production rollout validation](./recorder-v4-mysql-validation) for tested commits, real package replay, migration evidence, and activation status.
+
+The service checks also run `scripts/tests/catalog-recovery.test.mjs` against a local fake
+MySQL protocol server and dummy credentials. The actual CLI must exit on a hung query,
+lease loss, SIGTERM with a hung query, and hung lease acquisition; normal status calls must
+exit cleanly and honor environment/CLI namespace selection. No production database or R2
+objects participate in those failure-injection tests.

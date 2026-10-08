@@ -191,5 +191,8 @@ exclusive. `--plan` prints commands; `--dry-run` queries MySQL and lists candida
 R2 requests or file downloads. Downloads include complete and gapped recordings for deliberate
 local replay; strategy-specific eligibility still runs when a backtest is selected. Each
 job can also download its exact recording lazily without a fleet-wide prefetch. The cache is
-`RECORDER_REPLAY_CACHE_DIR` or `data/recorder-v4-cache`. The independent
+`RECORDER_REPLAY_CACHE_DIR` or `data/recorder-v4-cache`. V4 prefetch loads the same
+`.env` / `BOT_ENV` configuration as backtests before selecting that path. Both use the
+same resolver: absolute paths stay absolute, and relative paths are anchored to the
+repository root. The independent
 [catalog service](/datasets/recording/recorder-v4-mysql-catalog) must be initialized and fresh.

@@ -216,3 +216,27 @@ checks confirmed automatic indexing, a fresh MySQL scan, 785 indexed recordings,
 backlog or failures, and unchanged recorder processes. See the
 [activation evidence](./recorder-v4-mysql-validation#completed-october-8-catalog-activation).
 Use the read-only status commands above for routine verification.
+
+### Updating the independent catalog
+
+Prepare and validate a clean pinned catalog release before switching the service. Render
+`ops/macos/recorder-v4-catalog/com.polymarket.recorder-v4-catalog.plist.template` with the
+new release and existing catalog configuration/log paths; record the rendered SHA-256.
+Copy the reviewed `ops/macos/recorder-v4-catalog/update-service.zsh` to the catalog service
+root, then run this in your own terminal with the prepared values:
+
+```bash
+ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4-catalog/update-service.zsh /ABSOLUTE/RENDERED.plist FULL_40_CHARACTER_COMMIT PLIST_SHA256'
+```
+
+The updater checks the exact catalog command, Node 20, pinned clean release, configuration
+ownership, and bounded logs before stopping only the catalog label. It preserves the
+previous plist and restores it after an installation/start failure or handled interruption.
+If the stopped process stays alive, it leaves the catalog disabled instead of starting an
+overlapping importer. It does not control the capture or fleet services. Verify fresh MySQL
+scan completion afterward; a running PID alone is not enough. The shared mocked updater
+tests cover both service labels separately, including rollback and failure before stopping.
+
+The recovery fix introduces a 30-second database-operation deadline and a five-second
+shutdown bound. It becomes active only after switching to a release containing that fix;
+the original October 8 `f4d970ac` catalog release does not contain it.

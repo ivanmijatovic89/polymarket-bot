@@ -65,6 +65,12 @@ export async function acquireDbAdvisoryLock(
   const sessionTimeoutSeconds = Math.max(120, Math.floor(options.sessionTimeoutSeconds ?? 300))
   const connection = await getPool().getConnection()
   try {
+    // Set the idle bound before acquiring: if GET_LOCK succeeds but its response
+    // is lost, the server must still reap that abandoned lock within this bound.
+    await connection.query('SET SESSION wait_timeout = ?, interactive_timeout = ?', [
+      sessionTimeoutSeconds,
+      sessionTimeoutSeconds,
+    ])
     const [rows] = await connection.query<Array<RowDataPacket & { acquired: number | null }>>(
       "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':', ?), 256), ?) AS acquired",
       [name, waitSeconds],
@@ -73,12 +79,6 @@ export async function acquireDbAdvisoryLock(
       connection.destroy()
       return null
     }
-    // Bounded stale-lease guarantee: the server reaps this connection (and
-    // frees the lock) if it goes silent longer than the session timeout.
-    await connection.query('SET SESSION wait_timeout = ?, interactive_timeout = ?', [
-      sessionTimeoutSeconds,
-      sessionTimeoutSeconds,
-    ])
 
     let released = false
     const handleLost = (error: unknown) => {

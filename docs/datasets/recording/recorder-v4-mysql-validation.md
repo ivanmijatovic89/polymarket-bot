@@ -126,3 +126,33 @@ checks. It did not restart capture or fleet workers or change R2 objects. Histor
 strategy eligibility rules remain unchanged. The installation is complete; use the
 [worker-2 operations guide](./recorder-v4-worker-2#independent-mysql-catalog-service)
 for routine status and maintenance, rather than repeating the initial installer.
+
+## October 8 follow-up review and regression checks
+
+Post-merge review reproduced two issues: a database query could remain pending after lease
+loss and prevent automatic catalog restart, and V4 fleet prefetch did not load the configured
+replay-cache directory from `.env`. The follow-up bounds catalog database operations and
+shutdown, and makes prefetch and replay use one environment-aware cache resolver. A second
+review also found that the catalog CLI's implicit prefix overrode `RECORDER_R2_PREFIX`; the
+CLI now respects that setting unless `--prefix` is supplied. The next recovery review found
+that the server's idle timeout was set after acquiring the advisory lock; it now runs before
+acquisition, so a lost acquisition response cannot leave a lock under the longer default
+server timeout.
+
+Regression coverage uses the real catalog CLI with an isolated local fake MySQL server for
+hung queries, lease loss, SIGTERM, and hung lease acquisition. Clean status exit and explicit
+versus environment prefix selection are checked separately. Cache tests compare the real
+prefetch plan with the shared replay resolver for default, absolute, relative, shell, and
+`BOT_ENV` settings. Guarded update tests verify the catalog can be changed independently,
+reject unsafe candidates before stopping, restore the previous plist on failure, and refuse
+overlapping processes.
+
+Local validation passed 236 Recorder V4 tests (the real-MySQL test runs separately in CI),
+296 trading/backtest tests, 107 Global Runtime tests, and 35 subprocess/service-update checks.
+TypeScript, ESLint, formatting, shell syntax, and diff checks passed. Review was repeated
+after the prefix and advisory-lock fixes; the final pass found no further actionable issue
+in the changed recovery, cache-selection, namespace, or guarded-update paths.
+
+These are code and local failure-injection checks, not evidence that the new release has
+already been activated on worker-2. Record that activation separately after the operator
+switches the pinned catalog service and fresh automatic scans have been verified.

@@ -1,3 +1,4 @@
+import { recorderReplayCacheDirectory } from '../recorder-v4/replay/cacheDirectory.js'
 import {
   canonicalJson,
   createCaptureReference,
@@ -391,7 +392,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   if (input.inputMode === 'recorder-v4' && input.recorderV4?.manifestUrl) {
     const downloaded = await downloadCaptureForReplay(
       input.recorderV4.manifestUrl,
-      path.resolve(REPO_ROOT, process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v4-cache'),
+      recorderReplayCacheDirectory(),
     )
     if (canonicalJson(downloaded.manifest) !== canonicalJson(input.recorderV4.manifest)) {
       throw new Error('Downloaded capture manifest differs from producer metadata')
