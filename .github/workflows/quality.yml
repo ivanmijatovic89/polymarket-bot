@@ -140,6 +140,15 @@ jobs:
           python3 scripts/rust-migration/math-differential.py --node node --release
           python3 scripts/rust-migration/metrics-differential.py --node node --release
 
+      - name: Strict TypeScript reference oracle checking
+        run: node node_modules/typescript/bin/tsc --noEmit --module nodenext --moduleResolution nodenext --target ES2022 --strict --skipLibCheck scripts/rust-migration/*-oracle.mts
+
+      - name: Typed callback admission reference comparisons
+        run: python3 scripts/rust-migration/dispatch-differential.py --node node
+
+      - name: Actual local Parquet admission reference comparisons
+        run: python3 scripts/rust-migration/parquet-input-differential.py --node node
+
       - name: Full batch and calendar reference comparisons
         run: python3 scripts/rust-migration/stats-differential.py --node node
 

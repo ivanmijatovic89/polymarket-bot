@@ -1,6 +1,12 @@
 //! Session-owned mutable metadata. Container edges are arena IDs, never roots.
 //! Collection is incremental; public methods return owned values, not borrows.
-use crate::{market_json::JsString, math::js_number_string};
+use crate::{
+    market_json::JsString,
+    math::js_number_string,
+    record::{FieldId, RecordHandle, RecordSchema, RecordStorage},
+};
+use num_bigint::BigInt;
+use num_traits::Zero;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet, VecDeque},
@@ -15,6 +21,7 @@ pub enum MetadataValue {
     Null,
     Bool(bool),
     Number(f64),
+    BigInt(BigInt),
     String(JsString),
     Reference(MetadataHandle),
 }
@@ -24,6 +31,7 @@ impl MetadataValue {
             Self::Missing | Self::Null => false,
             Self::Bool(x) => *x,
             Self::Number(x) => *x != 0.0 && !x.is_nan(),
+            Self::BigInt(x) => !x.is_zero(),
             Self::String(x) => !x.is_empty(),
             Self::Reference(_) => true,
         }
@@ -53,6 +61,9 @@ pub enum MetadataError {
     CircularReference,
     OutputLimit,
     IdentityExhausted,
+    WrongField,
+    InvalidRecordSchema,
+    BigIntSerialization,
 }
 impl fmt::Display for MetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -64,6 +75,9 @@ impl fmt::Display for MetadataError {
             Self::CircularReference => "Converting circular structure to JSON",
             Self::OutputLimit => "metadata JSON output limit exceeded",
             Self::IdentityExhausted => "metadata identity counter exhausted",
+            Self::WrongField => "record field belongs to another schema",
+            Self::InvalidRecordSchema => "record schema has duplicate fields",
+            Self::BigIntSerialization => "Do not know how to serialize a BigInt",
         })
     }
 }
@@ -79,6 +93,7 @@ enum Edge {
     Null,
     Bool(bool),
     Number(f64),
+    BigInt(BigInt),
     String(JsString),
     Reference(Id),
 }
@@ -97,6 +112,7 @@ struct Array {
 enum Container {
     Object(Object),
     Array(Array),
+    Record(RecordStorage<Edge>),
 }
 impl Container {
     fn next_edge(&self, after: Option<u64>) -> Option<(u64, Option<Id>)> {
@@ -113,6 +129,7 @@ impl Container {
                 .range((after.map_or(Unbounded, Excluded), Unbounded))
                 .next()
                 .map(|(k, (_, v))| (*k, id(v))),
+            Self::Record(x) => x.next(after).map(|(k, v)| (k, id(v))),
             Self::Array(x) => x
                 .entries
                 .range((after.map_or(Unbounded, |n| Excluded(n as u32)), Unbounded))
@@ -131,6 +148,7 @@ impl Container {
                 }
             }
             Self::Array(x) => x.entries.pop_last().is_some(),
+            Self::Record(x) => x.pop_entry(),
         }
     }
 }
@@ -394,6 +412,21 @@ impl MetadataGraph {
     pub fn array(&self) -> Result<MetadataHandle, MetadataError> {
         self.allocate(Container::Array(Array::default()))
     }
+    pub fn record(
+        &self,
+        schema: &'static RecordSchema,
+        properties: Vec<(JsString, MetadataValue)>,
+    ) -> Result<RecordHandle, MetadataError> {
+        schema.validate()?;
+        let mut storage = RecordStorage::new(schema);
+        for (key, value) in properties {
+            let key = JsString::from_units(key.units());
+            storage.set(key, self.edge(&value)?)?;
+        }
+        // Initial reference targets were rooted by the incoming values while converting.
+        // The new root shades itself and all its nonrooted edges during active collection.
+        RecordHandle::try_from_handle(self.allocate(Container::Record(storage))?)
+    }
     pub fn collect_step(&self, budget: usize) -> Result<CollectionProgress, MetadataError> {
         self.inner.borrow_mut().step(budget)
     }
@@ -469,6 +502,7 @@ impl MetadataGraph {
                             out.push_str("null")
                         }
                     }
+                    Edge::BigInt(_) => return Err(MetadataError::BigIntSerialization),
                     Edge::String(x) => out.push_str(&x.json()),
                     Edge::Reference(id) => {
                         if !ancestors.insert(id) {
@@ -497,6 +531,30 @@ impl MetadataGraph {
                                     stack.push(Write::Text(key.json()));
                                     if index != 0 {
                                         stack.push(Write::Text(",".into()))
+                                    }
+                                }
+                            }
+                            Container::Record(record) => {
+                                out.push('{');
+                                stack.push(Write::Close(id, '}'));
+                                let mut entries: Vec<_> = record
+                                    .entries()
+                                    .filter(|(_, _, v)| !matches!(v, Edge::Missing))
+                                    .collect();
+                                entries.sort_by_key(|(order, key, _)| {
+                                    (
+                                        key.array_index().is_none(),
+                                        key.array_index().map(u64::from).unwrap_or(*order),
+                                    )
+                                });
+                                for (index, (_, key, value)) in
+                                    entries.into_iter().enumerate().rev()
+                                {
+                                    stack.push(Write::Value(value.clone()));
+                                    stack.push(Write::Text(":".into()));
+                                    stack.push(Write::Text(key.json()));
+                                    if index != 0 {
+                                        stack.push(Write::Text(",".into()));
                                     }
                                 }
                             }
@@ -533,6 +591,7 @@ impl MetadataGraph {
             MetadataValue::Null => Edge::Null,
             MetadataValue::Bool(x) => Edge::Bool(*x),
             MetadataValue::Number(x) => Edge::Number(*x),
+            MetadataValue::BigInt(x) => Edge::BigInt(x.clone()),
             MetadataValue::String(x) => Edge::String(x.clone()),
             MetadataValue::Reference(x) => {
                 if !Rc::ptr_eq(&self.inner, &x.inner) {
@@ -549,6 +608,7 @@ impl MetadataGraph {
             Edge::Null => MetadataValue::Null,
             Edge::Bool(x) => MetadataValue::Bool(x),
             Edge::Number(x) => MetadataValue::Number(x),
+            Edge::BigInt(x) => MetadataValue::BigInt(x),
             Edge::String(x) => MetadataValue::String(x),
             Edge::Reference(id) => {
                 self.inner.borrow_mut().add_root(id)?;
@@ -650,18 +710,21 @@ impl MetadataHandle {
             None
         };
         let mut arena = self.inner.borrow_mut();
-        let Container::Object(object) = &mut arena.node_mut(self.id)?.container else {
-            return Err(MetadataError::WrongKind);
-        };
-        if let Some(order) = object.keys.get(&units) {
-            object.entries.get_mut(order).expect("object key").1 = edge
-        } else {
-            let order = object.next_order;
-            object.next_order = order
-                .checked_add(1)
-                .ok_or(MetadataError::IdentityExhausted)?;
-            object.keys.insert(units, order);
-            object.entries.insert(order, (key, edge));
+        match &mut arena.node_mut(self.id)?.container {
+            Container::Object(object) => {
+                if let Some(order) = object.keys.get(&units) {
+                    object.entries.get_mut(order).expect("object key").1 = edge;
+                } else {
+                    let order = object.next_order;
+                    object.next_order = order
+                        .checked_add(1)
+                        .ok_or(MetadataError::IdentityExhausted)?;
+                    object.keys.insert(units, order);
+                    object.entries.insert(order, (key, edge));
+                }
+            }
+            Container::Record(record) => record.set(key, edge)?,
+            Container::Array(_) => return Err(MetadataError::WrongKind),
         }
         if let Some(target) = target {
             arena.shade(target)
@@ -669,49 +732,120 @@ impl MetadataHandle {
         Ok(())
     }
     pub fn get(&self, key: impl Into<JsString>) -> Result<MetadataValue, MetadataError> {
-        let key = key.into().units();
+        let key = key.into();
         let edge = {
             let arena = self.inner.borrow();
-            let Container::Object(object) = &arena.node(self.id)?.container else {
-                return Err(MetadataError::WrongKind);
-            };
-            object
-                .keys
-                .get(&key)
-                .and_then(|order| object.entries.get(order))
-                .map_or(Edge::Missing, |(_, v)| v.clone())
+            match &arena.node(self.id)?.container {
+                Container::Object(object) => object
+                    .keys
+                    .get(&key.units())
+                    .and_then(|order| object.entries.get(order))
+                    .map_or(Edge::Missing, |(_, v)| v.clone()),
+                Container::Record(record) => record.get(&key).cloned().unwrap_or(Edge::Missing),
+                Container::Array(_) => return Err(MetadataError::WrongKind),
+            }
         };
         self.graph().value(edge)
     }
     pub fn delete(&self, key: impl Into<JsString>) -> Result<bool, MetadataError> {
-        let units = key.into().units();
+        let key = key.into();
         let mut arena = self.inner.borrow_mut();
-        let Container::Object(object) = &mut arena.node_mut(self.id)?.container else {
-            return Err(MetadataError::WrongKind);
-        };
-        if let Some(order) = object.keys.remove(&units) {
-            object.entries.remove(&order);
-            Ok(true)
-        } else {
-            Ok(false)
+        match &mut arena.node_mut(self.id)?.container {
+            Container::Object(object) => {
+                if let Some(order) = object.keys.remove(&key.units()) {
+                    object.entries.remove(&order);
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            Container::Record(record) => Ok(record.delete(&key)),
+            Container::Array(_) => Err(MetadataError::WrongKind),
         }
     }
     pub fn keys(&self) -> Result<Vec<JsString>, MetadataError> {
         let arena = self.inner.borrow();
-        let Container::Object(object) = &arena.node(self.id)?.container else {
-            return Err(MetadataError::WrongKind);
+        let mut entries: Vec<(u64, JsString)> = match &arena.node(self.id)?.container {
+            Container::Object(object) => object
+                .entries
+                .iter()
+                .map(|(order, (key, _))| (*order, key.clone()))
+                .collect(),
+            Container::Record(record) => record
+                .entries()
+                .map(|(order, key, _)| (order, key))
+                .collect(),
+            Container::Array(_) => return Err(MetadataError::WrongKind),
         };
-        let mut entries: Vec<_> = object.entries.iter().collect();
-        entries.sort_by_key(|(order, (key, _))| {
+        entries.sort_by_key(|(order, key)| {
             (
                 key.array_index().is_none(),
-                key.array_index().map(u64::from).unwrap_or(**order),
+                key.array_index().map(u64::from).unwrap_or(*order),
             )
         });
-        Ok(entries
-            .into_iter()
-            .map(|(_, (key, _))| key.clone())
-            .collect())
+        Ok(entries.into_iter().map(|(_, key)| key).collect())
+    }
+    pub(crate) fn record_schema(&self) -> Result<&'static RecordSchema, MetadataError> {
+        let arena = self.inner.borrow();
+        let Container::Record(record) = &arena.node(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        Ok(record.schema)
+    }
+    pub(crate) fn record_get(&self, field: FieldId) -> Result<MetadataValue, MetadataError> {
+        let edge = {
+            let arena = self.inner.borrow();
+            let Container::Record(record) = &arena.node(self.id)?.container else {
+                return Err(MetadataError::WrongKind);
+            };
+            record.get_field(field)?.cloned().unwrap_or(Edge::Missing)
+        };
+        self.graph().value(edge)
+    }
+    pub(crate) fn record_number(&self, field: FieldId) -> Result<Option<f64>, MetadataError> {
+        let arena = self.inner.borrow();
+        let Container::Record(record) = &arena.node(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        Ok(match record.get_field(field)? {
+            Some(Edge::Number(value)) => Some(*value),
+            _ => None,
+        })
+    }
+    pub(crate) fn record_has(&self, field: FieldId) -> Result<bool, MetadataError> {
+        let arena = self.inner.borrow();
+        let Container::Record(record) = &arena.node(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        Ok(record.get_field(field)?.is_some())
+    }
+    pub(crate) fn record_delete(&self, field: FieldId) -> Result<bool, MetadataError> {
+        let mut arena = self.inner.borrow_mut();
+        let Container::Record(record) = &mut arena.node_mut(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        record.delete_field(field)
+    }
+    pub(crate) fn record_set(
+        &self,
+        field: FieldId,
+        value: MetadataValue,
+    ) -> Result<(), MetadataError> {
+        let edge = self.graph().edge(&value)?;
+        let target = if let Edge::Reference(id) = edge {
+            Some(id)
+        } else {
+            None
+        };
+        let mut arena = self.inner.borrow_mut();
+        let Container::Record(record) = &mut arena.node_mut(self.id)?.container else {
+            return Err(MetadataError::WrongKind);
+        };
+        record.set_field(field, edge)?;
+        if let Some(target) = target {
+            arena.shade(target)
+        }
+        Ok(())
     }
     pub fn length(&self) -> Result<u32, MetadataError> {
         let arena = self.inner.borrow();

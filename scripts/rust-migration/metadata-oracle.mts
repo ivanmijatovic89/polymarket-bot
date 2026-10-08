@@ -10,6 +10,9 @@ type Action = {
   id?: string
   from?: string
   array?: boolean
+  record?: boolean
+  properties?: [number[], Encoded][]
+  field?: number
   key?: number[]
   value?: Encoded
   index?: number
@@ -30,6 +33,8 @@ function decode(value: Encoded, roots: Map<string, Container>): unknown {
       return value.value
     case 'number':
       return Buffer.from(value.bits!, 'hex').readDoubleBE()
+    case 'bigint':
+      return BigInt(String(value.value))
     case 'string':
       return text(value.units!)
     case 'ref':
@@ -50,6 +55,7 @@ function encode(value: unknown, same: Container | undefined): unknown {
     buffer.writeDoubleBE(value)
     return { kind: 'number', bits: buffer.toString('hex') }
   }
+  if (typeof value === 'bigint') return { kind: 'bigint', value: value.toString(10) }
   if (typeof value === 'string') return { kind: 'string', units: units(value) }
   return {
     kind: 'reference',
@@ -63,9 +69,45 @@ function run(row: Case) {
   for (const action of row.actions) {
     const object = roots.get(action.id!) as Record<string, unknown>
     switch (action.op) {
-      case 'new':
-        roots.set(action.id!, action.array ? [] : {})
+      case 'new': {
+        const created = action.array ? [] : {}
+        for (const [key, value] of action.properties ?? []) {
+          Object.defineProperty(created, text(key), {
+            value: decode(value, roots),
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          })
+        }
+        roots.set(action.id!, created)
         break
+      }
+      case 'fieldSet':
+        Object.defineProperty(object, ['id', 'qty', 'meta', '2', 'label'][action.field!]!, {
+          value: decode(action.value!, roots),
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        })
+        break
+      case 'fieldDelete':
+        delete object[['id', 'qty', 'meta', '2', 'label'][action.field!]!]
+        break
+      case 'fieldHas':
+        output.push({
+          kind: 'has',
+          value: Object.hasOwn(object, ['id', 'qty', 'meta', '2', 'label'][action.field!]!),
+        })
+        break
+      case 'fieldProbe': {
+        const value = object[['id', 'qty', 'meta', '2', 'label'][action.field!]!]
+        output.push({
+          kind: 'probe',
+          value: encode(value, action.same === undefined ? undefined : roots.get(action.same)),
+          truthy: Boolean(value),
+        })
+        break
+      }
       // DefineProperty retains a literal __proto__ field rather than invoking
       // Object.prototype's setter; metadata ingestion has data-property semantics.
       case 'set':
@@ -113,13 +155,17 @@ function run(row: Case) {
         } catch (error) {
           if (
             !(error instanceof TypeError) ||
-            !error.message.startsWith('Converting circular structure to JSON')
+            (!error.message.startsWith('Converting circular structure to JSON') &&
+              error.message !== 'Do not know how to serialize a BigInt')
           )
             throw error
           output.push({
             kind: 'error',
             error: 'TypeError',
-            message: 'Converting circular structure to JSON',
+            message:
+              error.message === 'Do not know how to serialize a BigInt'
+                ? error.message
+                : 'Converting circular structure to JSON',
           })
         }
         break

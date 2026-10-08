@@ -80,6 +80,13 @@ def fixtures():
     add('empty')
     for first,second in [(0.0,-0.0),(-0.0,0.0),(-0.0,-0.0)]:
         add(f'public-snapshot-zero-clock-tie-{first!r}-{second!r}',[{'kind':'account_stream_status','tsMs':first},{'kind':'account_stream_status','tsMs':second}],initialNowMs=first,expectedClockBits='8000000000000000' if first.hex().startswith('-') and second.hex().startswith('-') else '0000000000000000')
+    add('finite-input-derived-nonfinite', [fill('overflow',1e308,time=1,price=1e308,liquidity='MAKER')],initialNowMs=0,
+        expectedSnapshotNumberBits={'/capital/cash':'fff0000000000000','/capital/availableCash':'fff0000000000000',
+            '/positionsByAssetId/up/qty':'7ff0000000000000','/positionsByAssetId/up/avgEntryPrice':'7ff0000000000000',
+            '/positionsByAssetId/up/costBasis':'7ff0000000000000'})
+    add('finite-input-derived-nan', [fill('overflow',1e308,time=1,price=1e308,liquidity='MAKER'),
+        fill('following',1,time=2,price=1,liquidity='MAKER')],initialNowMs=0,
+        expectedSnapshotNaNPaths=['/positionsByAssetId/up/avgEntryPrice'])
     add('invalid-starting-capital', options={'startingCapital': -1})
     add('zero-starting-capital', [fill(size=1)], options={'startingCapital': 0})
     add('observation-clock-cache', steps=[{'initializeClock': 1000}, {'initializeClock': 2000},
@@ -212,7 +219,30 @@ def fixtures():
     return cases
 
 
+def is_nan_bits(value):
+    if not isinstance(value,str) or len(value)!=16 or any(c not in '0123456789abcdef' for c in value):
+        return False
+    bits=int(value,16)
+    return bits & 0x7ff0000000000000 == 0x7ff0000000000000 and bits & 0x000fffffffffffff != 0
+
+
+def assert_snapshot_number_bits(expected,actual,path):
+    if not isinstance(expected,list) or not isinstance(actual,list) or len(expected)!=len(actual):
+        raise AssertionError(f'{path}: numeric snapshot count/type differs')
+    for index,(left,right) in enumerate(zip(expected,actual)):
+        if not isinstance(left,dict) or not isinstance(right,dict) or left.keys()!=right.keys():
+            raise AssertionError(f'{path}[{index}]: numeric field presence differs')
+        for key,bits in left.items():
+            if is_nan_bits(bits) and is_nan_bits(right[key]):
+                continue
+            if bits!=right[key]:
+                raise AssertionError(f'{path}[{index}]{key}: numeric bits/class differ: {bits!r} != {right[key]!r}')
+
+
 def assert_equal(expected,actual,path='$'):
+    if path.endswith('.snapshotNumberBits'):
+        assert_snapshot_number_bits(expected,actual,path)
+        return
     if isinstance(expected,dict):
         if not isinstance(actual,dict) or expected.keys()!=actual.keys():
             raise AssertionError(f'{path}: object field presence differs: expected={list(expected)} actual={list(actual) if isinstance(actual,dict) else actual}')
@@ -242,8 +272,20 @@ def check_comparator_mutations():
         try: assert_equal(expected,actual)
         except AssertionError: continue
         raise AssertionError('Differential comparator accepted a deliberate mutation')
+    source={'snapshotNumberBits':[{'/qty':'7ff8000000000000'}]}
+    for replacement in ['3ff0000000000000','7ff0000000000000','fff0000000000000','0000000000000000','8000000000000000',None]:
+        target={'snapshotNumberBits':[{} if replacement is None else {'/qty':replacement}]}
+        try: assert_equal(source,target)
+        except AssertionError: continue
+        raise AssertionError('Numeric snapshot comparator accepted NaN vs finite/Infinity/zero/missing')
+    assert_equal(source,{'snapshotNumberBits':[{'/qty':'fff8000000000001'}]})
+    for expected_bits,actual_bits in [('0000000000000000','8000000000000000'),('7ff0000000000000','fff0000000000000'),('3ff0000000000000','3ff0000000000001')]:
+        try: assert_equal({'snapshotNumberBits':[{'/qty':expected_bits}]},{'snapshotNumberBits':[{'/qty':actual_bits}]})
+        except AssertionError: continue
+        raise AssertionError('Numeric snapshot comparator weakened finite/Infinity/signed-zero bits')
     assert_equal(0,0.0)
-    return len(mutations)
+    return len(mutations)+9
+
 
 
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -295,6 +337,12 @@ def main():
             expected_bits=source_case['input']['expectedClockBits']
             if left['result']['snapshotNumberBits'][-1]['/nowMs']!=expected_bits or right['result']['snapshotNumberBits'][-1]['/nowMs']!=expected_bits:
                 raise AssertionError('Zero-clock fixture did not exercise its intended signed-zero result')
+        for path,bits in source_case['input'].get('expectedSnapshotNumberBits',{}).items():
+            if left['result']['snapshotNumberBits'][-1].get(path)!=bits or right['result']['snapshotNumberBits'][-1].get(path)!=bits:
+                raise AssertionError(f'Direct typed numeric fixture failed to expose {path}')
+        for path in source_case['input'].get('expectedSnapshotNaNPaths',[]):
+            if not is_nan_bits(left['result']['snapshotNumberBits'][-1].get(path)) or not is_nan_bits(right['result']['snapshotNumberBits'][-1].get(path)):
+                raise AssertionError(f'Direct typed numeric fixture failed to expose NaN at {path}')
     alias=next(row['referenceAliasing'] for row in expected if row['name']=='reference-stale-open-order-alias')
     if alias['retainedOpenOrder']['state']!='canceled' or alias['retainedHistory']['lifecycleState']!='requested':
         raise AssertionError('Reference stale-alias probe did not exercise mutable-open/immutable-history distinction')
@@ -308,7 +356,7 @@ def main():
         'ownedSourceSha256':wrapper_hashes,'fixturesSha256':hashlib.sha256(payload.encode()).hexdigest(),
         'cases':len(cases),'eventCount':sum(len(c['input']['steps']) for c in cases),
         'fullCurrentSnapshotParity':True,'mapInsertionAndArrayOrderParity':True,
-        'fixedPruneBoundariesIncluded':not args.quick,'comparatorMutationChecks':mutation_count,'fullKnownAccountEventEncodingParity':True,'opaqueJsonObjectKeyOrderParity':True,'opaqueMetadataBinary64BitsParity':True,'finiteCurrentSnapshotBinary64BitsParity':True,'snapshotNumberBitsDomain':'Finite current-snapshot numbers and signed zero in this corpus; the native seam projects through Serde, so derived nonfinite typed-state bits remain a separate SDK test requirement','nativeBuildLockedOffline':True,'numericComparison':'JavaScript binary64 with rejection of unnormalized native integer precision','opaqueControlDomain':'Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement',
+        'fixedPruneBoundariesIncluded':not args.quick,'comparatorMutationChecks':mutation_count,'fullKnownAccountEventEncodingParity':True,'opaqueJsonObjectKeyOrderParity':True,'opaqueMetadataBinary64BitsParity':True,'directTypedCurrentSnapshotNumberParity':True,'exactFiniteInfinityAndSignedZeroBits':True,'derivedNaNClassParity':True,'derivedNonfiniteSnapshotProbeParity':True,'nanEncodingComparisonDomain':'NaN classes compare equally; NaN payload/sign are implementation-chosen and no reviewed Portfolio strategy consumer inspects them. All finite/Infinity/signed-zero bits and numeric paths remain exact.','nanEncodingSpecification':['https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-number-type','https://tc39.es/ecma262/multipage/structured-data.html#sec-numerictorawbytes'],'snapshotNumberBitsDomain':'Current typed snapshot numbers captured before JSON projection, including finite values, signed zero and derived Infinity/NaN in the reviewed corpus; raw UTF16/overflow metadata and mutable record aliases remain separate SDK requirements','nativeBuildLockedOffline':True,'numericComparison':'JavaScript binary64 with rejection of unnormalized native integer precision','opaqueControlDomain':'Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement',
         'staleOpenOrderAliasParity':False,'remainingDependency':'Audit strategy/runner/SDK consumers for retained or mutated OpenOrder, Position, raw Fill/PositionsSplit and metadata aliases; preserve observable behavior or prove native consumers use current borrowed snapshots without such mutation.',
         'referenceAliasingProbe':alias,'referenceMutablePayloadAliasesProbe':mutable_alias,'mutableRawPayloadPositionMetadataAliasParity':False}
     if args.report: args.report.write_text(json.dumps(report,indent=2)+'\n')

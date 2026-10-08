@@ -68,6 +68,27 @@ def fixtures():
     rows.append(dict(name="tree-negative-zero-nested-binary64",actions=[dict(op="new",id="o"),dict(op="set",id="o",key=units("x"),value=dict(kind="tree",value=-0.0)),dict(op="probe",id="o",key=units("x")),dict(op="set",id="o",key=units("nested"),value=dict(kind="tree",value={"n":-0.0,"array":[-0.0,9007199254740993,18446744073709551615,10**100]})),dict(op="getAlias",id="nested",**{"from":"o"},key=units("nested")),dict(op="probe",id="nested",key=units("n")),dict(op="getAlias",id="array",**{"from":"nested"},key=units("array")),*[dict(op="probe",id="array",index=i) for i in range(4)],snapshot("o")]))
     for value in values:
         rows.append(dict(name=f"primitive-{len(rows)}",actions=[dict(op="snapshot",value=value),dict(op="new",id="o"),dict(op="set",id="o",key=units("value"),value=value),dict(op="probe",id="o",key=units("value")),snapshot("o")]))
+    # Records use the same plain-data JS objects as the reference, while native
+    # slots are accessed by schema-bound fields and arbitrary metadata edges.
+    record_keys=[units(k) for k in ["id","qty","meta","2","label","x","10","01","\ud800","__proto__"]]
+    record_values=values+[dict(kind="bigint",value=str(x)) for x in [0,-1,1,9007199254740993,10**100,-10**100]]
+    for case in range(120):
+        actions=[dict(op="new",id="meta"),dict(op="new",id="record",record=True,properties=[[units("label"),dict(kind="string",units=units("first"))],[units("10"),number(10)],[units("qty"),number(-0.0)],[units("2"),number(2)]])]
+        for _ in range(80):
+            field=rng.randrange(5);value=rng.choice(record_values+[ref("meta"),ref("record")]);key=rng.choice(record_keys)
+            kind=rng.randrange(5)
+            if kind==0:actions.append(dict(op="fieldDelete",id="record",field=field))
+            elif kind==1:actions.append(dict(op="fieldSet",id="record",field=field,value=value))
+            elif kind==2:actions.append(dict(op="delete",id="record",key=key))
+            elif kind==3:actions.append(dict(op="set",id="meta",key=key,value=value))
+            else:actions.append(dict(op="set",id="record",key=key,value=value))
+            actions.extend([dict(op="fieldProbe",id="record",field=field,same=rng.choice(["record","meta"])),dict(op="fieldHas",id="record",field=field)])
+            if rng.randrange(4)==0:actions.extend([dict(op="keys",id="record"),snapshot("record")])
+            if rng.randrange(8)==0:actions.append(dict(op="collect"))
+        rows.append(dict(name=f"record-direct-slot-{case}",actions=actions))
+    rows.append(dict(name="record-alias-retained-across-ledger-prune",actions=[dict(op="new",id="meta"),dict(op="new",id="record",record=True,properties=[[units("meta"),ref("meta")],[units("qty"),number(1)]]),dict(op="new",id="ledger"),dict(op="set",id="ledger",key=units("order"),value=ref("record")),dict(op="getAlias",id="retained",**{"from":"ledger"},key=units("order")),dict(op="drop",id="record"),dict(op="delete",id="ledger",key=units("order")),dict(op="collect"),dict(op="set",id="meta",key=units("late"),value=number(-0.0)),dict(op="fieldSet",id="retained",field=1,value=number(2)),dict(op="fieldProbe",id="retained",field=1),snapshot("retained")]))
+    for x in [0,-1,1,9007199254740993,10**100,-10**100]:
+        v=dict(kind="bigint",value=str(x));rows.append(dict(name=f"bigint-{x}",actions=[dict(op="snapshot",value=v),dict(op="new",id="o"),dict(op="set",id="o",key=units("x"),value=v),dict(op="probe",id="o",key=units("x")),snapshot("o"),dict(op="new",id="a",array=True),dict(op="push",id="a",value=v),snapshot("a")]))
     return rows
 
 def compare(expected,actual,count):
@@ -94,7 +115,14 @@ def mutation_checks():
         try:compare(expected,mutant,1)
         except AssertionError:pass
         else:raise AssertionError("Metadata comparator accepted a mutation")
-    return len(mutants)
+    # Record presence and arbitrary-width BigInt must remain type-sensitive.
+    extra=[dict(name="record-sentinel",output=[dict(kind="has",value=True),dict(kind="probe",value=dict(kind="bigint",value="9007199254740993"),truthy=True)])]
+    for index,key,value in [(0,"value",1),(0,"value",False),(1,"value",dict(kind="number",bits="4340000000000000")),(1,"value",dict(kind="bigint",value="9007199254740992")),(1,"value",dict(kind="string",units=units("9007199254740993")))]:
+        mutant=copy.deepcopy(extra);mutant[0]["output"][index][key]=value
+        try:compare(extra,mutant,1)
+        except AssertionError:pass
+        else:raise AssertionError("Record/BigInt comparator accepted a mutation")
+    return len(mutants)+5
 
 def main():
     parser=argparse.ArgumentParser()
@@ -143,7 +171,7 @@ def main():
     final_files=sorted((ROOT/"native/trading-runtime").glob("src/**/*.rs"))+sorted((ROOT/"native/trading-runtime").glob("tests/**/*.rs"))+sorted((ROOT/"native/trading-runtime").glob("examples/**/*.rs"))
     if {str(p.relative_to(ROOT)) for p in final_files}!=set(native_hashes)-{"native/trading-runtime/Cargo.toml","native/trading-runtime/Cargo.lock"}:raise RuntimeError("Native source set changed during evidence run")
     compare(expected,actual,len(rows));mutations=mutation_checks()
-    report=dict(referenceRevision=REFERENCE,externalReferenceRevision=EXTERNAL_REFERENCE,reviewedObserverSha256=OBSERVER_SHA,oracleSourceSha256=hashes,nativeInputsSha256=native_hashes,wrapperSha256=wrappers,nativeBinarySha256=binary_sha,fixtureSha256=sha(payload.encode()),buildProfile="release" if args.release else "debug",nodeVersion=version,observerFixturePath=fixture_relative,observerFixtureOrigin="Exact reviewed bytes from external Git reference; hash checked before/after",externalGitAuditPerformed=args.external_root is not None,cargoVersion=subprocess.check_output([args.cargo,"--version"],text=True).strip(),rustcVersion=subprocess.check_output([str(Path(args.cargo).parent/"rustc"),"--version","--verbose"],text=True).strip(),cases=len(rows),actions=sum(len(row["actions"]) for row in rows),comparatorMutationChecks=mutations,dataPropertyGraphParity=True,actualPinnedObserverMetadataOperationTraceParity=True,observerArithmeticPortParity=False,wholeSdkParity=False,recordAliasParity=False,collectionEvidence="Native unit tests separately cover roots, generations, cycles, partial budgets and barriers",pending=["Native strategy/Portfolio/intent/trade/stat integration", "Other mutable record/snapshot aliases", "Arbitrary property descriptors/prototypes/toJSON unsupported by this data-property metadata API", "External artifact completeness and full batch/fleet benchmark"])
+    report=dict(referenceRevision=REFERENCE,externalReferenceRevision=EXTERNAL_REFERENCE,reviewedObserverSha256=OBSERVER_SHA,oracleSourceSha256=hashes,nativeInputsSha256=native_hashes,wrapperSha256=wrappers,nativeBinarySha256=binary_sha,fixtureSha256=sha(payload.encode()),buildProfile="release" if args.release else "debug",nodeVersion=version,observerFixturePath=fixture_relative,observerFixtureOrigin="Exact reviewed bytes from external Git reference; hash checked before/after",externalGitAuditPerformed=args.external_root is not None,cargoVersion=subprocess.check_output([args.cargo,"--version"],text=True).strip(),rustcVersion=subprocess.check_output([str(Path(args.cargo).parent/"rustc"),"--version","--verbose"],text=True).strip(),cases=len(rows),actions=sum(len(row["actions"]) for row in rows),comparatorMutationChecks=mutations,dataPropertyGraphParity=True,actualPinnedObserverMetadataOperationTraceParity=True,observerArithmeticPortParity=False,wholeSdkParity=False,recordAliasParity=False,genericRecordStorageParity=True,primitiveBigIntParity=True,collectionEvidence="Native unit tests separately cover roots, generations, cycles, partial budgets and barriers",pending=["Native strategy/Portfolio/intent/trade/stat integration", "Other mutable record/snapshot aliases", "Arbitrary property descriptors/prototypes/toJSON unsupported by this data-property metadata API", "External artifact completeness and full batch/fleet benchmark"])
     if args.report:Path(args.report).write_text(json.dumps(report,indent=2)+"\n")
     print(f"PASS {len(rows)} metadata cases / {report['actions']} actions / {mutations} comparator mutations; whole SDK parity pending")
 

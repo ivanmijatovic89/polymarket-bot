@@ -1,13 +1,18 @@
 //! Shared entry points for the standalone native trading runtime.
 pub mod cancellation;
+pub mod event_dispatch;
+pub mod frame_cursor;
 pub mod intent;
 pub mod market;
 pub mod market_json;
 pub mod math;
 pub mod metadata;
 pub mod metrics;
+pub mod parquet_input;
 pub mod portfolio;
+pub mod portfolio_records;
 pub mod protocol;
+pub mod record;
 pub mod risk;
 pub mod stats;
 

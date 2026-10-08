@@ -586,15 +586,19 @@ fn normalize_hashes(message: &JsValue) -> JsValue {
     if !compact {
         return message.clone();
     }
-    let mut result = message.clone();
-    if let Some(changes) = result
-        .get_mut("price_changes")
-        .and_then(JsValue::as_array_mut)
-    {
-        for change in changes {
+    // TS spreads the outer message and maps every child into a fresh object.
+    // Retain scalar values/order, but never reuse immutable identity tokens for
+    // nodes whose values change during normalization.
+    let mut result = JsValue::object(message.as_object().expect("closed object").to_vec());
+    let changes = changes
+        .iter()
+        .map(|change| {
+            let mut change = JsValue::object(change.as_object().expect("closed change").to_vec());
             change.insert("hash", JsValue::String("".into()));
-        }
-    }
+            change
+        })
+        .collect();
+    result.insert("price_changes", JsValue::array(changes));
     result
 }
 /// Decode only supported market-channel members without losing binary64 values.
@@ -618,7 +622,7 @@ pub fn decode_frame(raw: &str) -> Vec<JsValue> {
         })
         .collect()
 }
-fn normalize_source(source: &Value) -> Result<Value, MarketError> {
+pub(crate) fn normalize_source(source: &Value) -> Result<Value, MarketError> {
     let mut source = market_json::normalize_control_value(source.clone());
     if let Some(seq) = source.get_mut("ingestSeq") {
         let Some(raw) = seq.as_str() else {
@@ -952,6 +956,42 @@ impl MarketEngine {
             .collect::<Vec<_>>();
         self.handle_wire(&messages, source, bootstrap)
     }
+    /// Apply exactly one child, retaining partial mutation if conversion fails.
+    /// Admission owns sequencing; the collector and cursor share this operation.
+    pub(crate) fn apply_frame_child(
+        &mut self,
+        original: &JsValue,
+        source: &Value,
+        bootstrap: bool,
+        index: usize,
+        length: usize,
+    ) -> Result<Option<MarketTick>, MarketError> {
+        let invalid = match original {
+            JsValue::Null => Some("Cannot read properties of null (reading 'event_type')".into()),
+            JsValue::String(_) | JsValue::Bool(_) | JsValue::Number(_) => Some(JsString::format(
+                "Cannot use 'in' operator to search for 'market' in {}",
+                &[js_string(Some(original))?],
+            )),
+            _ => None,
+        };
+        if let Some(message) = invalid {
+            return Err(MarketError::type_error(message));
+        }
+        let message = normalize_hashes(original);
+        self.apply(&message)?;
+        if bootstrap || !matches!(string(&message, "event_type"), "book" | "price_change") {
+            return Ok(None);
+        }
+        let mut source = source.clone();
+        if source.get("ingestSeq").is_some() && length > 1 {
+            source["frameIndex"] = json!(index);
+        }
+        Ok(Some(MarketTick {
+            source,
+            msg: message,
+            snapshot: self.snapshot()?,
+        }))
+    }
     fn handle_wire(
         &mut self,
         messages: &[JsValue],
@@ -964,44 +1004,10 @@ impl MarketEngine {
             ticks: vec![],
         })?;
         for (index, original) in messages.iter().enumerate() {
-            let invalid = match original {
-                JsValue::Null => {
-                    Some("Cannot read properties of null (reading 'event_type')".into())
-                }
-                JsValue::String(_) | JsValue::Bool(_) | JsValue::Number(_) => {
-                    Some(JsString::format(
-                        "Cannot use 'in' operator to search for 'market' in {}",
-                        &[js_string(Some(original)).map_err(|error| FrameError {
-                            error,
-                            ticks: ticks.clone(),
-                        })?],
-                    ))
-                }
-                _ => None,
-            };
-            if let Some(message) = invalid {
-                return Err(FrameError {
-                    error: MarketError::type_error(message),
-                    ticks,
-                });
-            }
-            let message = normalize_hashes(original);
-            if let Err(error) = self.apply(&message) {
-                return Err(FrameError { error, ticks });
-            }
-            if !bootstrap && matches!(string(&message, "event_type"), "book" | "price_change") {
-                let mut source = source.clone();
-                if source.get("ingestSeq").is_some() && messages.len() > 1 {
-                    source["frameIndex"] = json!(index);
-                }
-                ticks.push(MarketTick {
-                    source,
-                    msg: message,
-                    snapshot: self.snapshot().map_err(|error| FrameError {
-                        error,
-                        ticks: ticks.clone(),
-                    })?,
-                });
+            match self.apply_frame_child(original, &source, bootstrap, index, messages.len()) {
+                Ok(Some(tick)) => ticks.push(tick),
+                Ok(None) => {}
+                Err(error) => return Err(FrameError { error, ticks }),
             }
         }
         Ok(FrameResult {

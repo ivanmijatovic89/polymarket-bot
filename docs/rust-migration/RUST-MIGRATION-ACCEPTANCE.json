@@ -72,7 +72,9 @@
         "python3 scripts/rust-migration/math-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release",
         "python3 scripts/rust-migration/metrics-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release",
         "python3 scripts/rust-migration/intents-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
-        "python3 scripts/rust-migration/metadata-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node"
+        "python3 scripts/rust-migration/metadata-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "python3 scripts/rust-migration/dispatch-differential.py --node node",
+        "python3 scripts/rust-migration/parquet-input-differential.py --node node"
       ],
       "evidence": [
         "docs/rust-migration/SHARED-CORE-REVIEW.md",
@@ -86,10 +88,24 @@
         "docs/rust-migration/evidence/core-metrics-release.json",
         "docs/rust-migration/evidence/core-metadata-debug.json",
         "docs/rust-migration/evidence/core-metadata-release.json",
-        "docs/rust-migration/evidence/core-stats.json"
+        "docs/rust-migration/evidence/core-stats.json",
+        "docs/rust-migration/evidence/core-ci-6945cad7.json",
+        "docs/rust-migration/SDK-ADMISSION-REVIEW.md",
+        "docs/rust-migration/evidence/admission-validation.json",
+        "docs/rust-migration/evidence/admission-market.json",
+        "docs/rust-migration/evidence/admission-portfolio.json",
+        "docs/rust-migration/evidence/admission-dispatch.json",
+        "docs/rust-migration/evidence/admission-dispatch-independent.json",
+        "docs/rust-migration/evidence/admission-metadata-debug.json",
+        "docs/rust-migration/evidence/admission-metadata-release.json",
+        "docs/rust-migration/evidence/admission-metadata-independent-debug.json",
+        "docs/rust-migration/evidence/admission-metadata-independent-release.json",
+        "docs/rust-migration/evidence/admission-parquet-debug.json",
+        "docs/rust-migration/evidence/admission-parquet-release.json",
+        "docs/rust-migration/evidence/parquet-decimal-pending/finding.json"
       ],
       "verifiedRevision": null,
-      "notes": "Bounded independent helper checkpoint passes with 68 native tests and 47 client/process tests. Historical typed snapshot payloads, intent/risk/cancellation and metadata data-property graphs are implemented; complete SDK record aliases, typed overflow probes, event dispatch, native strategies and all production integrations remain unmet. Ubuntu signed-zero failure repaired locally; new remote CI must revalidate it."
+      "notes": "Source-frozen bounded SDK/admission checkpoint passes 89 native and 47 client/process tests, nine strict TS oracles, Portfolio160 direct overflow probes, metadata/records531 per profile, dispatch45 and real Parquet25 per profile. None proves complete runtime acceptance: authoritative mutable Portfolio/ingress, full SDK prototypes/context/plugins, native runner bodies and owner scheduling, source BigInt/nonfinite envelopes, replay JSON-roundtrip seam and complete logical/input modes remain unmet. DECIMAL key decoding is a reproduced pending defect; all strategies/production/fleet/final benchmarks remain required. Prior6945cad7 allsevenCI passed; newcheckpointCI pending publication."
     },
     {
       "id": "core.02",

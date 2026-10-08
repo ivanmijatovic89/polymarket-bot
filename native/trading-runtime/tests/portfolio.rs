@@ -370,6 +370,160 @@ fn opaque_number_bits(value: &Value, all_numbers: bool) -> Value {
     Value::Object(result)
 }
 
+// Read numeric state before JSON serialization can turn nonfinite values into null.
+fn snapshot_number_bits(snapshot: &PortfolioSnapshot) -> Value {
+    struct Probe(serde_json::Map<String, Value>);
+    impl Probe {
+        fn number(&mut self, path: &str, value: f64) {
+            self.0
+                .insert(path.to_owned(), json!(format!("{:016x}", value.to_bits())));
+        }
+        fn optional(&mut self, path: &str, value: Option<f64>) {
+            if let Some(value) = value {
+                self.number(path, value);
+            }
+        }
+        fn json(&mut self, path: &str, value: &Value) {
+            match value {
+                Value::Number(value) => self.number(path, value.as_f64().unwrap()),
+                Value::Array(values) => {
+                    for (index, value) in values.iter().enumerate() {
+                        self.json(&format!("{path}/{index}"), value);
+                    }
+                }
+                Value::Object(values) => {
+                    for (key, value) in values {
+                        self.json(&format!("{path}/{}", pointer_key(key)), value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        fn metadata(&mut self, path: &str, value: &Option<Value>) {
+            if let Some(value) = value {
+                self.json(path, value);
+            }
+        }
+        fn extensions(&mut self, path: &str, values: &serde_json::Map<String, Value>) {
+            for (key, value) in values {
+                self.json(&format!("{path}/{}", pointer_key(key)), value);
+            }
+        }
+    }
+    let mut probe = Probe(serde_json::Map::new());
+    probe.number(
+        "/capital/startingCapital",
+        snapshot.capital.starting_capital,
+    );
+    probe.number("/capital/cash", snapshot.capital.cash);
+    probe.number("/capital/reservedCash", snapshot.capital.reserved_cash);
+    probe.number("/capital/availableCash", snapshot.capital.available_cash);
+    probe.number("/nowMs", snapshot.now_ms);
+    probe.number("/realizedPnlTotal", snapshot.realized_pnl_total);
+    for (id, position) in snapshot.positions_by_asset_id.object_iter() {
+        let path = format!("/positionsByAssetId/{}", pointer_key(id));
+        probe.number(&format!("{path}/qty"), position.qty);
+        probe.optional(&format!("{path}/avgEntryPrice"), position.avg_entry_price);
+        probe.number(&format!("{path}/costBasis"), position.cost_basis);
+    }
+    for (id, order) in snapshot.open_orders_by_client_id.object_iter() {
+        let path = format!("/openOrdersByClientId/{}", pointer_key(id));
+        for (field, value) in [
+            ("price", order.price),
+            ("size", order.size),
+            ("remaining", order.remaining),
+            ("filled", order.filled),
+            ("createdAtMs", order.created_at_ms),
+            ("updatedAtMs", order.updated_at_ms),
+        ] {
+            probe.number(&format!("{path}/{field}"), value);
+        }
+        probe.optional(&format!("{path}/expireAtMs"), order.expire_at_ms);
+        probe.metadata(&format!("{path}/meta"), &order.meta);
+        probe.extensions(&path, &order.extensions);
+    }
+    for (id, order) in snapshot.ws_open_orders_by_order_id.object_iter() {
+        let path = format!("/wsOpenOrdersByOrderId/{}", pointer_key(id));
+        for (field, value) in [
+            ("price", order.price),
+            ("originalSize", order.original_size),
+            ("sizeMatched", order.size_matched),
+        ] {
+            probe.optional(&format!("{path}/{field}"), value);
+        }
+        probe.number(&format!("{path}/updatedAtMs"), order.updated_at_ms);
+    }
+    for (id, order) in snapshot.orders_by_client_id.object_iter() {
+        let path = format!("/ordersByClientId/{}", pointer_key(id));
+        for (field, value) in [
+            ("price", order.price),
+            ("originalSize", order.original_size),
+            ("sizeMatched", order.size_matched),
+            ("remaining", order.remaining),
+        ] {
+            probe.optional(&format!("{path}/{field}"), value);
+        }
+        probe.number(
+            &format!("{path}/tradeStatusRank"),
+            f64::from(order.trade_status_rank),
+        );
+        probe.number(&format!("{path}/updatedAtMs"), order.updated_at_ms);
+        probe.metadata(&format!("{path}/meta"), &order.meta);
+    }
+    for (index, fill) in snapshot.recent_fills.iter().enumerate() {
+        let path = format!("/recentFills/{index}");
+        for (field, value) in [
+            ("tsMs", fill.ts_ms),
+            ("price", fill.price),
+            ("size", fill.size),
+        ] {
+            probe.number(&format!("{path}/{field}"), value);
+        }
+        probe.optional(&format!("{path}/feeRateBps"), fill.fee_rate_bps);
+        probe.metadata(&format!("{path}/intentMeta"), &fill.intent_meta);
+        probe.extensions(&path, &fill.extensions);
+    }
+    for (index, split) in snapshot.recent_splits.iter().enumerate() {
+        let path = format!("/recentSplits/{index}");
+        for (field, value) in [
+            ("tsMs", split.ts_ms),
+            ("size", split.size),
+            ("splitCost", split.split_cost),
+        ] {
+            probe.number(&format!("{path}/{field}"), value);
+        }
+        probe.extensions(&path, &split.extensions);
+    }
+    Value::Object(probe.0)
+}
+
+#[test]
+fn derived_nonfinite_snapshot_numbers_are_probed_before_json_projection() {
+    let mut portfolio = Portfolio::new(PortfolioOptions::default(), 0.0).unwrap();
+    apply(
+        &mut portfolio,
+        json!({"kind":"fill","fill":{"id":"overflow","tsMs":1,
+        "assetId":"up","side":"BUY","price":1e308,"size":1e308,"liquidity":"MAKER"}}),
+    );
+    let current = portfolio.snapshot();
+    let bits = snapshot_number_bits(current);
+    for path in ["/capital/cash", "/capital/availableCash"] {
+        assert_eq!(bits[path], "fff0000000000000");
+    }
+    for path in [
+        "/positionsByAssetId/up/qty",
+        "/positionsByAssetId/up/avgEntryPrice",
+        "/positionsByAssetId/up/costBasis",
+    ] {
+        assert_eq!(bits[path], "7ff0000000000000");
+    }
+    // JSON-compatible output still uses null, independently of the diagnostic.
+    assert_eq!(
+        serde_json::to_value(current).unwrap()["capital"]["cash"],
+        Value::Null
+    );
+}
+
 fn run_case(case: &Value) -> Value {
     let input = &case["input"];
     let options = PortfolioOptions {
@@ -410,7 +564,7 @@ fn run_case(case: &Value) -> Value {
         let value = snapshot(p);
         opaque_keys.push(opaque_object_keys(&value));
         opaque_bits.push(opaque_number_bits(&value, false));
-        snapshot_number_bits.push(opaque_number_bits(&value, true));
+        snapshot_number_bits.push(self::snapshot_number_bits(p.snapshot()));
         let count = p.snapshot_rebuilds();
         p.snapshot();
         reuse.push(count == p.snapshot_rebuilds());
