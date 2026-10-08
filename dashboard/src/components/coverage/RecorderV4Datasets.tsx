@@ -31,7 +31,7 @@ export async function RecorderV4Datasets({
       <div>
         <h1 className="text-xl font-semibold">Recorder V4 datasets</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          Finalized BTC packages in the production archive. Orderbook eligibility includes official
+          Finalized BTC recordings indexed in MySQL. Orderbook eligibility includes official
           resolution. Strategies requiring external feeds apply additional checks before launch.
         </p>
       </div>
@@ -72,9 +72,14 @@ export async function RecorderV4Datasets({
       </form>
       <p className="text-xs text-muted-foreground">
         Last seven days by default; choose up to 31 days. The end date includes the full UTC day.
-        Catalog metadata is cached for five minutes. This view reads manifests and resolution
-        records, never event Parquet files.
+        Catalog results are cached for five minutes. This view reads MySQL; Parquet files remain in R2.
       </p>
+      {data.catalogSync && (
+        <p className="text-xs text-muted-foreground">
+          Last successful catalog scan: {data.catalogSync.lastCompletedAtMs ? new Date(data.catalogSync.lastCompletedAtMs).toISOString() : 'Not completed'}.
+          {' '}Pending imports: {data.catalogSync.remaining}. Failed imports: {data.catalogSync.failures}.
+        </p>
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Recordings"
@@ -102,6 +107,7 @@ export async function RecorderV4Datasets({
                 'Size',
                 'Feed gaps',
                 'Resolution',
+                'Website PTB / opening TWAP',
                 'Orderbook eligibility',
               ].map((label) => (
                 <th key={label} className="p-3">
@@ -123,6 +129,7 @@ export async function RecorderV4Datasets({
                 <td className="p-3">{(row.bytes / 1024 ** 2).toFixed(2)} MiB</td>
                 <td className="p-3">{row.gaps}</td>
                 <td className="p-3">{row.resolved ? 'Official result available' : 'Pending'}</td>
+                <td className="p-3">{row.websitePtb === null ? 'Unverified' : row.websitePtb ? 'Available' : 'Missing'} / {row.openingTwap === null ? 'Unverified' : row.openingTwap ? 'Available' : 'Missing or invalid'}</td>
                 <td className="p-3">
                   <Badge variant={row.eligible ? 'success' : 'warning'}>
                     {row.eligible ? 'Eligible' : 'Excluded'}

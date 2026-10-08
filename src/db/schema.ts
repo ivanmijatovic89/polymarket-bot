@@ -1,3 +1,7 @@
+import type { CatalogSyncStatus } from '../recorder-v4/catalog/types.js'
+import type { MarketManifest } from '../recorder-v4/storage/manifest.js'
+import type { ResolutionObservation } from '../recorder-v4/types.js'
+import type { PtbAdmissionEvidence } from '../recorder-v4/replay/eligibility.js'
 import type { RecorderV4Capture } from '../recorder-v4/replay/provenance.js'
 import type { RecorderV4SelectionMetadata } from '../recorder-v4/replay/eligibility.js'
 import type { TelonexFeedEligibility } from './telonexEligibility.js'
@@ -695,3 +699,63 @@ export const strategyArtifacts = mysqlTable(
     strategyIdx: index('idx_strategy_artifacts_strategy').on(t.strategyId),
   }),
 )
+
+// Searchable index of immutable Recorder V4 packages; event bytes remain in R2.
+export const recorderV4Recordings = mysqlTable(
+  'recorder_v4_recordings',
+  {
+    id: varchar('id', { length: 64 }).primaryKey(),
+    bucket: varchar('bucket', { length: 63 }).notNull(),
+    prefix: varchar('archive_prefix', { length: 200 }).notNull(),
+    manifestKey: text('manifest_key').notNull(),
+    manifestSha256: varchar('manifest_sha256', { length: 64 }).notNull(),
+    manifest: json('manifest').$type<MarketManifest>().notNull(),
+    recordingId: varchar('recording_id', { length: 200 }).notNull(),
+    slug: varchar('slug', { length: 200 }).notNull(),
+    symbol: varchar('symbol', { length: 10 }).notNull(),
+    timeframe: varchar('timeframe', { length: 16 }).notNull(),
+    startMs: bigint('start_ms', { mode: 'number' }).notNull(),
+    endMs: bigint('end_ms', { mode: 'number' }).notNull(),
+    eventsKey: text('events_key').notNull(),
+    eventsSha256: varchar('events_sha256', { length: 64 }).notNull(),
+    eventsBytes: bigint('events_bytes', { mode: 'number' }).notNull(),
+    eventsRows: bigint('events_rows', { mode: 'number' }).notNull(),
+    complete: boolean('complete').notNull(),
+    missingInitialBook: boolean('missing_initial_book').notNull(),
+    polymarketComplete: boolean('polymarket_complete').notNull(),
+    binanceAggTradeComplete: boolean('binance_agg_trade_complete').notNull(),
+    binanceBookTickerComplete: boolean('binance_book_ticker_complete').notNull(),
+    chainlinkSpotComplete: boolean('chainlink_spot_complete').notNull(),
+    chainlinkTwapComplete: boolean('chainlink_twap_complete').notNull(),
+    websitePtbComplete: boolean('website_ptb_complete').notNull(),
+    websitePtbObserved: boolean('website_ptb_observed').notNull(),
+    openingTwapAvailable: boolean('opening_twap_available').notNull(),
+    referenceEvidence: json('reference_evidence').$type<PtbAdmissionEvidence>().notNull(),
+    latestResolution: json('latest_resolution').$type<ResolutionObservation | null>(),
+    outcome: varchar('outcome', { length: 4 }),
+    resolutionObservedAtMs: bigint('resolution_observed_at_ms', { mode: 'number' }),
+    resolutionKeysSha256: varchar('resolution_keys_sha256', { length: 64 }).notNull(),
+    verifiedAtMs: bigint('verified_at_ms', { mode: 'number' }).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    scopeStartIdx: index('idx_recorder_v4_scope_start').on(t.bucket, t.prefix, t.startMs),
+    scopeTimeframeStartIdx: index('idx_recorder_v4_scope_tf_start').on(
+      t.bucket,
+      t.prefix,
+      t.timeframe,
+      t.startMs,
+    ),
+    slugIdx: index('idx_recorder_v4_slug').on(t.slug),
+  }),
+)
+
+export const recorderV4CatalogSyncs = mysqlTable('recorder_v4_catalog_syncs', {
+  id: varchar('id', { length: 64 }).primaryKey(),
+  bucket: varchar('bucket', { length: 63 }).notNull(),
+  prefix: varchar('archive_prefix', { length: 200 }).notNull(),
+  initializedAtMs: bigint('initialized_at_ms', { mode: 'number' }),
+  lastCompletedAtMs: bigint('last_completed_at_ms', { mode: 'number' }),
+  status: json('status').$type<CatalogSyncStatus>().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})

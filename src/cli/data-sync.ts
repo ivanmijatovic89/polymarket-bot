@@ -65,6 +65,9 @@ type StepStatus = 'ok' | 'failed' | 'skipped'
 
 interface Args {
   role: 'main' | 'worker'
+  dataset: 'historical' | 'recorder-v4'
+  from: string | null
+  to: string | null
   markets: Market[]
   dryRun: boolean
   plan: boolean
@@ -78,6 +81,8 @@ const USAGE = [
   'Usage: npm run data:sync:main -- --market <symbol>:<timeframe> [--market ...] [options]',
   '       npm run data:sync:worker -- --market <symbol>:<timeframe> [--market ...] [options]',
   '',
+  '  --dataset historical|recorder-v4 (default historical)',
+  '  --from UTC --to UTC (V4 only; inclusive start, exclusive end)',
   '  --market btc:15m   repeatable, required (no default scope)',
   '  --dry-run          full preflight; every step reports what it would do',
   '  --plan             print resolved steps and exit',
@@ -91,6 +96,9 @@ const USAGE = [
 function parseArgs(argv: string[]): Args {
   const out: Args = {
     role: 'main',
+    dataset: 'historical',
+    from: null,
+    to: null,
     markets: [],
     dryRun: false,
     plan: false,
@@ -108,6 +116,16 @@ function parseArgs(argv: string[]): Args {
         throw new Error(`[data:sync] --role must be main|worker, got ${v}`)
       out.role = v
       roleSeen = true
+    } else if (a === '--dataset') {
+      const value = argv[++i]
+      if (value !== 'historical' && value !== 'recorder-v4')
+        throw new Error('--dataset must be historical or recorder-v4')
+      out.dataset = value
+    } else if (a === '--from' || a === '--to') {
+      const value = argv[++i]
+      if (!value || value.startsWith('--')) throw new Error(`Missing ${a}`)
+      if (a === '--from') out.from = value
+      else out.to = value
     } else if (a === '--market') {
       const raw = argv[++i] ?? ''
       const m = raw.match(/^([a-z0-9]+):(\d+[mhd])$/)
@@ -127,6 +145,8 @@ function parseArgs(argv: string[]): Args {
     throw new Error(`[data:sync] --role is required (the npm aliases pass it)\n${USAGE}`)
   if (out.markets.length === 0)
     throw new Error(`[data:sync] at least one --market is required\n${USAGE}`)
+  if (out.dataset === 'historical' && (out.from || out.to))
+    throw new Error('--from/--to currently require --dataset recorder-v4')
   return out
 }
 
@@ -377,7 +397,32 @@ const FINDING_RE =
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
-  const allSteps = buildSteps(args.role, args.markets)
+  const allSteps =
+    args.dataset === 'recorder-v4'
+      ? args.markets.map((market): Step => {
+          if (market.symbol !== 'btc' || !['5m', '15m'].includes(market.timeframe))
+            throw new Error('Recorder V4 supports btc:5m and btc:15m')
+          return {
+            id: `recorder-v4-${market.symbol}-${market.timeframe}`,
+            title: 'MySQL catalog → verified Recorder V4 cache',
+            script: 'src/cli/record-v4-data.ts',
+            args: [
+              'download',
+              '--env-file',
+              '.env',
+              '--timeframe',
+              market.timeframe,
+              '--output',
+              process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v4-cache',
+              ...(args.from ? ['--from', args.from] : []),
+              ...(args.to ? ['--to', args.to] : []),
+            ],
+            deps: [],
+            supportsDryRun: true,
+            supportsConcurrency: false,
+          }
+        })
+      : buildSteps(args.role, args.markets)
 
   const selected = allSteps.filter((s) => {
     if (args.only.length > 0 && !matchesPrefix(s.id, args.only)) return false
@@ -487,7 +532,7 @@ async function main(): Promise<void> {
     )
   }
 
-  if (!args.dryRun) printInventory(args.markets)
+  if (!args.dryRun && args.dataset === 'historical') printInventory(args.markets)
 
   if (failed > 0) {
     console.error(`\n[data:sync] ${failed} step(s) failed`)

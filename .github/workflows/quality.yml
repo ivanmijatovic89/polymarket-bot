@@ -20,6 +20,17 @@ concurrency:
 
 jobs:
   root-quality:
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: recorder_v4_catalog_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s --health-timeout=5s --health-retries=12
     name: Root (Prettier + Typecheck + ESLint)
     runs-on: ubuntu-latest
 
@@ -61,13 +72,23 @@ jobs:
       - name: Recorder v4 tests
         run: npm run record:v4:test
 
+      - name: Recorder V4 MySQL catalog integration
+        run: node --import tsx --test src/recorder-v4/catalog/mysql.integration.test.ts
+        env:
+          CATALOG_TEST_MYSQL: '1'
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PORT: '3306'
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: ''
+          DATABASE_NAME: recorder_v4_catalog_test
+
       - name: Install zsh for mocked macOS service tests
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
 
       - name: Recorder service log and guarded update tests
-        run: node --test scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs
+        run: node --test scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs scripts/tests/catalog-service.test.mjs
 
       - name: Research protocol check
         run: npm run research:check

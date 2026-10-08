@@ -27,6 +27,17 @@ process.once(
     try {
       const packages = await discoverCapturePackages(request.source, request.filters)
       const data = await captureCatalogMetadata(packages, request.requiredFeeds, request.allowGaps)
+      if (request.source.kind === 'r2') {
+        const { readCatalogStatus } = await import('../db/recorderV4Catalog.js')
+        const state = await readCatalogStatus(request.source)
+        if (state)
+          data.catalogSync = {
+            lastCompletedAtMs: state.lastCompletedAtMs,
+            indexed: state.status.indexed,
+            remaining: state.status.remaining,
+            failures: state.status.failures.length,
+          }
+      }
       if (Buffer.byteLength(JSON.stringify(data)) > 32 * 1024 ** 2)
         throw new Error('Recorder catalog view exceeds 32 MiB; choose a narrower range.')
       process.send?.({ type: 'ready', data }, undefined, undefined, (error) => {

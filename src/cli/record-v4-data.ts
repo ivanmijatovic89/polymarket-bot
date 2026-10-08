@@ -1,5 +1,6 @@
 import { readRemoteManifest } from '../recorder-v4/storage/archive.js'
 import { R2BlobStore } from '../recorder-v4/storage/blobStore.js'
+import { loadCatalogDatabaseEnv } from '../recorder-v4/catalog/config.js'
 import { RecorderCliError } from '../recorder-v4/cliError.js'
 import {
   CATALOG_HELP,
@@ -25,8 +26,22 @@ async function main(): Promise<void> {
           const manifestKey = config.manifestKey!
           yield { manifestKey, manifest: (await readRemoteManifest(store, manifestKey)).manifest }
         })()
-      : listRecordedMarkets(store, config.filter)
-    if (args.command === 'list') {
+      : args.archiveScan
+        ? listRecordedMarkets(store, config.filter)
+        : (async function* (): AsyncGenerator<CatalogEntry> {
+            await loadCatalogDatabaseEnv(args.envFile)
+            const { queryCatalogRecordings } = await import('../db/recorderV4Catalog.js')
+            const rows = await queryCatalogRecordings(
+              { bucket: config.r2.bucket, prefix: config.filter.prefix },
+              {
+                ...(config.filter.timeframe ? { timeframe: config.filter.timeframe } : {}),
+                ...(config.filter.fromMs === undefined ? {} : { fromMs: config.filter.fromMs }),
+                ...(config.filter.toMs === undefined ? {} : { toMs: config.filter.toMs - 1 }),
+              },
+            )
+            for (const row of rows) yield { manifestKey: row.manifestKey, manifest: row.manifest }
+          })()
+    if (args.command === 'list' || args.dryRun) {
       for await (const entry of entries)
         console.log(
           JSON.stringify({
@@ -60,6 +75,10 @@ async function main(): Promise<void> {
     }
   } finally {
     store.close()
+    if (!args.archiveScan && !config.manifestKey) {
+      const { closeDb } = await import('../db/index.js')
+      await closeDb()
+    }
   }
 }
 

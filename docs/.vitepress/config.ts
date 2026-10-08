@@ -51,6 +51,7 @@ export default withMermaid(
               items: [
                 { text: 'Overview', link: '/datasets/recording/overview' },
                 { text: 'Recorder v4 (BTC 5m + 15m)', link: '/datasets/recording/recorder-v4' },
+                { text: 'Recorder v4 MySQL catalog', link: '/datasets/recording/recorder-v4-mysql-catalog' },
                 { text: 'Recorder v4 on worker-2', link: '/datasets/recording/recorder-v4-worker-2' },
                 { text: 'Recorder v4 validation', link: '/datasets/recording/recorder-v4-validation' },
                 { text: 'V4 integration validation', link: '/datasets/recording/recorder-v4-integrations-validation' },

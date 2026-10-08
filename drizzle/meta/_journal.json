@@ -281,6 +281,13 @@
       "when": 1791293543593,
       "tag": "0039_recorder_v4_replay_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1791457579621,
+      "tag": "0040_recorder_v4_mysql_catalog",
+      "breakpoints": true
     }
   ]
 }

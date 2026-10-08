@@ -174,3 +174,22 @@ are what a fleet status check reads per machine.
 - [Data Coverage](/datasets/data-coverage) — per-dataset epochs and verified holes
 - [Telonex Overview](/datasets/telonex/overview) — the orderbook pipeline the main role drives
 - [Price Feeds](/datasets/price-feeds/overview) — the Binance / Chainlink / priceToBeat feed docs
+
+## Recorder V4 packages
+
+The historical dataset remains the default. Select V4 explicitly to query the shared MySQL
+catalog and download verified mixed-feed packages into the worker's normal replay cache:
+
+```bash
+npm run data:sync:worker -- --dataset recorder-v4 --market btc:5m --market btc:15m   --from 2026-10-07 --to 2026-10-08 --dry-run
+npm run data:sync:worker -- --dataset recorder-v4 --market btc:5m --market btc:15m   --from 2026-10-07 --to 2026-10-08
+npm run fleet:data:sync -- btc:5m,btc:15m -e 'data_sync_extra=--dataset recorder-v4 --from 2026-10-07 --to 2026-10-08 --dry-run'
+```
+
+Both main and worker roles support this V4 download path. UTC start is inclusive and end is
+exclusive. `--plan` prints commands; `--dry-run` queries MySQL and lists candidates without
+R2 requests or file downloads. Downloads include complete and gapped recordings for deliberate
+local replay; strategy-specific eligibility still runs when a backtest is selected. Each
+job can also download its exact recording lazily without a fleet-wide prefetch. The cache is
+`RECORDER_REPLAY_CACHE_DIR` or `data/recorder-v4-cache`. The independent
+[catalog service](/datasets/recording/recorder-v4-mysql-catalog) must be initialized and fresh.

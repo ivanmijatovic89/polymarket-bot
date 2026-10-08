@@ -3,7 +3,7 @@ import { captureEligibilityReasons } from './eligibility.js'
 import type { ResolvedCapturePackage } from './package.js'
 import { selectEligibleCapturePackages } from './selection.js'
 
-/** Metadata-only admission deliberately retains ptb_unverified until event evidence is inspected. */
+/** Database discovery carries verified reference evidence; unindexed local inputs remain explicit. */
 export function inspectRecorderV4Metadata(
   packages: readonly ResolvedCapturePackage[],
   requiredFeeds: ExternalFeedsRequestConfig,
@@ -17,6 +17,7 @@ export function inspectRecorderV4Metadata(
       captureEligibilityReasons(pkg.manifest, config, {
         allowGaps: gaps ?? false,
         resolution: pkg.marketResolution,
+        ...(pkg.catalogEvidence ? { referenceEvidence: pkg.catalogEvidence.reference } : {}),
       }),
   })
 }
@@ -36,6 +37,12 @@ export async function captureCatalogMetadata(
   )
   return {
     inspectedAtMs: Date.now(),
+    catalogSync: null as null | {
+      lastCompletedAtMs: number | null
+      indexed: number
+      remaining: number
+      failures: number
+    },
     summary: selection.summary,
     rows: packages
       .map((pkg) => ({
@@ -47,6 +54,10 @@ export async function captureCatalogMetadata(
         complete: pkg.manifest.coverage.complete,
         gaps: pkg.manifest.coverage.gaps.length,
         resolved: pkg.marketResolution.outcome !== null,
+        websitePtb: pkg.catalogEvidence?.reference.websiteObserved ?? null,
+        openingTwap: pkg.catalogEvidence
+          ? pkg.catalogEvidence.reference.openingReasons.length === 0
+          : null,
         eligible: eligible.has(`${pkg.manifest.recordingId}/${pkg.manifest.market.slug}`),
         reasons: exclusions.get(`${pkg.manifest.recordingId}/${pkg.manifest.market.slug}`) ?? [],
       }))
