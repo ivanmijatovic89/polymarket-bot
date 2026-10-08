@@ -181,3 +181,37 @@ jobs:
           # so next.config.ts + lib/db.ts don't throw at boot.
           DATABASE_NAME: ci_placeholder
           REDIS_URL: redis://localhost:6379
+
+  native-quality:
+    name: Native Rust engine (fmt + clippy + test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
+          rustup default 1.89.0
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: native-${{ runner.os }}-${{ hashFiles('native/Cargo.lock') }}
+
+      - name: Format
+        run: cargo fmt --all --check
+        working-directory: native
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+        working-directory: native
+
+      - name: Test
+        run: cargo test --locked
+        working-directory: native

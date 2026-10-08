@@ -19,8 +19,10 @@ import {
 import {
   parseArgs,
   parseLatencyFlagsFromCmd,
+  parseRecordedBacktestArgs,
   resolveBacktestProvenance,
 } from './helpers/backtestArgs.js'
+import { ensureNativeArtifact, runNativeJob } from '../strategy/artifacts/native.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveBacktestTimeframe } from './helpers/backtestTimeframe.js'
 import { inheritedStartingCapital, resolveStartingCapital } from './helpers/capitalArgs.js'
@@ -64,6 +66,7 @@ import {
   type AggregateJobData,
   type FailedMarketRecord,
   type MarketJobData,
+  type MarketJobResult,
 } from '../backtest/jobTypes.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb } from '../db/index.js'
@@ -740,6 +743,10 @@ async function main(): Promise<void> {
   // parent's cmd is the only durable record of its simulated latency, and an
   // extension must not mix a different latency into the same run.
   const parentLatency = isExtend ? parseLatencyFlagsFromCmd(planOk!.parent.cmd) : {}
+  // Native execution profile follows the same rule: recorded in cmd, inherited by extensions.
+  const nativeProfile = isExtend
+    ? parseRecordedBacktestArgs(planOk!.parent.cmd)?.nativeProfile
+    : parsed.nativeProfile
   const latencyMs =
     parentLatency.delayMs ??
     parsed.latencyDelayMs ??
@@ -1136,7 +1143,37 @@ async function main(): Promise<void> {
 
         let result: Awaited<ReturnType<typeof runSingleMarket>>
         try {
-          result = await runSingleMarket({
+          const nativeRef = built.artifact?.ref.kind === 'native' ? built.artifact.ref : null
+          result = nativeRef
+            ? await runNativeJob<MarketJobData, MarketJobResult>(
+                await ensureNativeArtifact(nativeRef),
+                {
+                  startingCapital,
+                  submissionUid: 'sequential',
+                  batchUid: 'sequential',
+                  idx: ctx.idx,
+                  filePath: ctx.filePath,
+                  slug: ctx.slug,
+                  marketMeta: ctx.marketMeta,
+                  marketResolution: ctx.marketResolution,
+                  strategyId: built.strategyId,
+                  strategyParams: built.params as Record<string, unknown>,
+                  strategyArtifact: nativeRef,
+                  inputMode: effectiveInputMode,
+                  ...(ctx.recorderV4 ? { recorderV4: ctx.recorderV4 } : {}),
+                  order: parsed.order,
+                  timeDriven: parsed.timeDriven,
+                  latency: { delayMs: latencyMs, jitterMs },
+                  strategyWindow: ctx.strategyWindow,
+                  commitSha,
+                  ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
+                  ...(ctx.gammaPriceToBeat !== undefined
+                    ? { gammaPriceToBeat: ctx.gammaPriceToBeat }
+                    : {}),
+                  ...(nativeProfile ? { nativeProfile } : {}),
+                },
+              )
+            : await runSingleMarket({
             startingCapital,
             idx: ctx.idx,
             filePath: ctx.filePath,
@@ -1442,6 +1479,7 @@ async function main(): Promise<void> {
       commitSha: producerCommitSha,
       ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
       ...(ctx.gammaPriceToBeat !== undefined ? { gammaPriceToBeat: ctx.gammaPriceToBeat } : {}),
+      ...(nativeProfile ? { nativeProfile } : {}),
     }
     return {
       name: 'market',

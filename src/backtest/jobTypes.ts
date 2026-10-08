@@ -48,6 +48,11 @@ export type MarketJobData = {
   gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
   /** Producer's git SHA at enqueue time. Worker validates against its own. */
   commitSha: string
+  /**
+   * Native artifacts only: execution profile (native/GOAL.md). Absent =
+   * `ts-compat`, which reproduces the TypeScript simulator's behavior.
+   */
+  nativeProfile?: 'ts-compat' | 'realistic'
 }
 
 export type MarketJobResult = RunSingleMarketOutput

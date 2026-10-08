@@ -38,6 +38,11 @@ export function artifactR2Key(sha256: string): string {
 export type StrategyArtifactRef = {
   sha256: string
   r2Url: string
+  /**
+   * `native` = Rust executable (native/BINARY-PROTOCOL.md). Absent = the
+   * original `.mjs` bundle, so pre-existing jobs and run rows stay valid.
+   */
+  kind?: 'native'
 }
 
 /**

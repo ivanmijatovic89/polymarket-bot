@@ -1,0 +1,298 @@
+{
+ "upAsset": "UPTOKEN",
+ "downAsset": "DOWNTOKEN",
+ "cases": [
+  {
+   "name": "two_sided_up",
+   "trades": [
+    {
+     "assetId": "UPTOKEN",
+     "side": "BUY",
+     "price": 0.53,
+     "size": 10,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "a",
+     "intentMeta": {
+      "k": 1
+     },
+     "fee": 0.1744
+    },
+    {
+     "assetId": "UPTOKEN",
+     "side": "BUY",
+     "price": 0.55,
+     "size": 7.5,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "a",
+     "intentMeta": {
+      "k": 1
+     },
+     "fee": 0.1299
+    },
+    {
+     "assetId": "DOWNTOKEN",
+     "side": "BUY",
+     "price": 0.41,
+     "size": 12,
+     "liquidity": "MAKER",
+     "clientOrderId": "b",
+     "intentMeta": {
+      "side": "down",
+      "edge": 0.0412
+     },
+     "fee": 0
+    },
+    {
+     "assetId": "UPTOKEN",
+     "side": "SELL",
+     "price": 0.6,
+     "size": 4,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "c",
+     "fee": 0.0672
+    }
+   ],
+   "splits": [],
+   "positions": {
+    "UPTOKEN": {
+     "qty": 13.5,
+     "costBasis": 7.24
+    },
+    "DOWNTOKEN": {
+     "qty": 12,
+     "costBasis": 4.92
+    }
+   },
+   "realizedPnl": 0.27,
+   "finalOutcome": "UP",
+   "expected": {
+    "slug": "btc-updown-15m-1760140800",
+    "marketId": "0xmarket",
+    "finalOutcome": "UP",
+    "pnl": 1.61,
+    "tradeCount": 4,
+    "tradeAsMaker": 1,
+    "tradeAsTaker": 3,
+    "feesPaid": 0.37,
+    "avgEntryPriceUp": 0.5386,
+    "avgEntryPriceDown": 0.41,
+    "upShares": 13.5,
+    "downShares": 12,
+    "mergableShares": 12,
+    "cost": 12.16,
+    "splitCost": 0,
+    "intentMeta": [
+     {
+      "k": 1
+     },
+     {
+      "side": "down",
+      "edge": 0.0412
+     }
+    ]
+   }
+  },
+  {
+   "name": "split_then_sell_down",
+   "trades": [
+    {
+     "assetId": "UPTOKEN",
+     "side": "SELL",
+     "price": 0.47,
+     "size": 10,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "s1",
+     "intentMeta": {
+      "why": "exit"
+     },
+     "fee": 0.1744
+    },
+    {
+     "assetId": "DOWNTOKEN",
+     "side": "SELL",
+     "price": 0.6,
+     "size": 3,
+     "liquidity": "MAKER",
+     "clientOrderId": "s2",
+     "intentMeta": {
+      "why": "tp"
+     },
+     "fee": 0
+    }
+   ],
+   "splits": [
+    {
+     "size": 10,
+     "splitCost": 10
+    }
+   ],
+   "positions": {
+    "DOWNTOKEN": {
+     "qty": 7,
+     "costBasis": 0
+    }
+   },
+   "realizedPnl": 6.5,
+   "finalOutcome": "DOWN",
+   "expected": {
+    "slug": "btc-updown-15m-1760140800",
+    "marketId": "0xmarket",
+    "finalOutcome": "DOWN",
+    "pnl": 3.5,
+    "tradeCount": 2,
+    "tradeAsMaker": 1,
+    "tradeAsTaker": 1,
+    "feesPaid": 0.17,
+    "avgEntryPriceUp": null,
+    "avgEntryPriceDown": null,
+    "upShares": 0,
+    "downShares": 7,
+    "mergableShares": 0,
+    "cost": 0,
+    "splitCost": 10,
+    "intentMeta": [
+     {
+      "why": "exit"
+     },
+     {
+      "why": "tp"
+     }
+    ]
+   }
+  },
+  {
+   "name": "no_activity",
+   "trades": [],
+   "splits": [],
+   "positions": {},
+   "realizedPnl": 0,
+   "finalOutcome": "DOWN",
+   "expected": {
+    "slug": "btc-updown-15m-1760140800",
+    "marketId": "0xmarket",
+    "finalOutcome": "DOWN",
+    "pnl": 0,
+    "tradeCount": 0,
+    "tradeAsMaker": 0,
+    "tradeAsTaker": 0,
+    "feesPaid": 0,
+    "avgEntryPriceUp": null,
+    "avgEntryPriceDown": null,
+    "upShares": 0,
+    "downShares": 0,
+    "mergableShares": 0,
+    "cost": 0,
+    "splitCost": 0,
+    "intentMeta": []
+   }
+  },
+  {
+   "name": "meta_dedup_and_losing_side",
+   "trades": [
+    {
+     "assetId": "DOWNTOKEN",
+     "side": "BUY",
+     "price": 0.37,
+     "size": 5,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "x",
+     "fee": 0.0816
+    },
+    {
+     "assetId": "DOWNTOKEN",
+     "side": "BUY",
+     "price": 0.38,
+     "size": 5,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "x",
+     "intentMeta": {
+      "n": 2
+     },
+     "fee": 0.0825
+    },
+    {
+     "assetId": "DOWNTOKEN",
+     "side": "BUY",
+     "price": 0.39,
+     "size": 5,
+     "feeRateBps": 700,
+     "liquidity": "TAKER",
+     "clientOrderId": "x",
+     "intentMeta": {
+      "n": 3
+     },
+     "fee": 0.0833
+    },
+    {
+     "assetId": "UPTOKEN",
+     "side": "BUY",
+     "price": 0.12,
+     "size": 33.33,
+     "liquidity": "MAKER",
+     "intentMeta": {
+      "nocid": true
+     },
+     "fee": 0
+    },
+    {
+     "assetId": "UPTOKEN",
+     "side": "BUY",
+     "price": 0.13,
+     "size": 6.67,
+     "liquidity": "MAKER",
+     "intentMeta": {
+      "nocid": true
+     },
+     "fee": 0
+    }
+   ],
+   "splits": [],
+   "positions": {
+    "UPTOKEN": {
+     "qty": 40,
+     "costBasis": 4.8667
+    },
+    "DOWNTOKEN": {
+     "qty": 15,
+     "costBasis": 5.7
+    }
+   },
+   "realizedPnl": -1.234567,
+   "finalOutcome": "UP",
+   "expected": {
+    "slug": "btc-updown-15m-1760140800",
+    "marketId": "0xmarket",
+    "finalOutcome": "UP",
+    "pnl": 28.2,
+    "tradeCount": 5,
+    "tradeAsMaker": 2,
+    "tradeAsTaker": 3,
+    "feesPaid": 0.25,
+    "avgEntryPriceUp": 0.1217,
+    "avgEntryPriceDown": 0.38,
+    "upShares": 40,
+    "downShares": 15,
+    "mergableShares": 15,
+    "cost": 10.57,
+    "splitCost": 0,
+    "intentMeta": [
+     {
+      "n": 2
+     },
+     {
+      "nocid": true
+     },
+     {
+      "nocid": true
+     }
+    ]
+   }
+  }
+ ]
+}

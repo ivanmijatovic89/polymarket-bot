@@ -1,5 +1,10 @@
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq'
 import { ArtifactShapeError, ensureArtifactLoaded } from '../strategy/artifacts/loader.js'
+import {
+  NativeInputError,
+  ensureNativeArtifact,
+  runNativeJob,
+} from '../strategy/artifacts/native.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import { runSingleMarket } from './runSingleMarket.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
@@ -37,6 +42,24 @@ export function makeMarketProcessor(args: {
           `loaded ${WORKER_LAUNCH_SHA.slice(0, 8)}, job needs ${data.commitSha.slice(0, 8)}`,
       )
       throw new DelayedError()
+    }
+
+    // Native (Rust) artifact: the whole market replay runs inside the
+    // hash-verified binary; this process only moves the job and its result.
+    if (data.strategyArtifact?.kind === 'native') {
+      let binPath: string
+      try {
+        binPath = await ensureNativeArtifact(data.strategyArtifact)
+      } catch (err) {
+        if (err instanceof ArtifactShapeError) throw new UnrecoverableError(err.message)
+        throw err
+      }
+      try {
+        return await runNativeJob<MarketJobData, MarketJobResult>(binPath, data)
+      } catch (err) {
+        if (err instanceof NativeInputError) throw new UnrecoverableError(err.message)
+        throw err
+      }
     }
 
     // External artifact strategy (issue #211): hash-verified load, cached on

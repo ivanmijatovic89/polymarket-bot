@@ -7,7 +7,15 @@ import {
   PublishError,
   publishStrategyArtifactFromSource,
 } from '../../strategy/artifacts/publish.js'
+import {
+  NATIVE_ARTIFACT_R2_PREFIX,
+  NativeInputError,
+  describeNative,
+  ensureNativeArtifact,
+  type NativeDescribe,
+} from '../../strategy/artifacts/native.js'
 import type { StrategyArtifactMeta, StrategyArtifactRef } from '../../strategy/artifacts/types.js'
+import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import type { Plugin, PluginSet } from '../../strategy/plugins/PluginSet.js'
 import {
   CliArgsError,
@@ -214,6 +222,21 @@ export async function resolveStrategyFromArtifact(args: {
         `  npm run strategy:publish -- --repo <dir> --entrypoint <rel.ts>`,
     )
   }
+  const meta: StrategyArtifactMeta = {
+    r2Url: source.r2Url,
+    sourceRepo: source.sourceRepo,
+    sourceCommit: source.sourceCommit,
+    sourceDirty: source.sourceDirty,
+    entrypoint: source.entrypoint,
+  }
+  if (isNativeArtifactUrl(source.r2Url)) {
+    return resolveNativeStrategy({
+      ref: { sha256: args.sha256, r2Url: source.r2Url, kind: 'native' },
+      meta,
+      publishedId: source.publishedId,
+      rawParams: args.rawParams,
+    })
+  }
   const def = await ensureArtifactLoaded({ sha256: args.sha256, r2Url: source.r2Url })
   if (source.publishedId !== null && def.id !== source.publishedId) {
     throw new CliArgsError(
@@ -238,16 +261,57 @@ export async function resolveStrategyFromArtifact(args: {
   return {
     ...built,
     definition: def,
-    artifact: {
-      ref: { sha256: args.sha256, r2Url: source.r2Url },
-      meta: {
-        r2Url: source.r2Url,
-        sourceRepo: source.sourceRepo,
-        sourceCommit: source.sourceCommit,
-        sourceDirty: source.sourceDirty,
-        entrypoint: source.entrypoint,
-      },
+    artifact: { ref: { sha256: args.sha256, r2Url: source.r2Url }, meta },
+  }
+}
+
+/** Native artifacts live under their own R2 prefix (native/BINARY-PROTOCOL.md). */
+export function isNativeArtifactUrl(r2Url: string): boolean {
+  return r2Url.includes(`/${NATIVE_ARTIFACT_R2_PREFIX}/`)
+}
+
+/**
+ * Native (Rust) artifact: params are validated and feed requirements read by
+ * the binary itself (`describe`). The TS side never runs this strategy — the
+ * returned `strategy` is an inert placeholder; `plugins` carries the feed
+ * request so producer eligibility/coverage code works unchanged.
+ */
+async function resolveNativeStrategy(args: {
+  ref: StrategyArtifactRef
+  meta: StrategyArtifactMeta
+  publishedId: string | null
+  rawParams: Record<string, unknown>
+}): Promise<ResolveStrategyResult> {
+  const binPath = await ensureNativeArtifact(args.ref)
+  let described: NativeDescribe
+  try {
+    described = await describeNative(binPath, args.rawParams)
+  } catch (err) {
+    if (err instanceof NativeInputError) {
+      throw new CliArgsError(`invalid params for native strategy: ${err.message}`)
+    }
+    throw err
+  }
+  if (args.publishedId !== null && described.id !== args.publishedId) {
+    throw new CliArgsError(
+      `native artifact ${args.ref.sha256.slice(0, 12)} reports strategy id ${JSON.stringify(described.id)} but was published as ${JSON.stringify(args.publishedId)}`,
+    )
+  }
+  const inert: Strategy = {
+    name: described.id,
+    onMarketTick: () => {
+      throw new Error(`[native] ${described.id} runs only inside its binary`)
     },
+    onAccountEvent: () => {
+      throw new Error(`[native] ${described.id} runs only inside its binary`)
+    },
+  }
+  return {
+    strategyId: described.id,
+    params: described.params,
+    strategy: inert,
+    plugins: described.requiredFeeds ? [new ExternalFeedsRequestPlugin(described.requiredFeeds)] : [],
+    artifact: { ref: args.ref, meta: args.meta },
   }
 }
 

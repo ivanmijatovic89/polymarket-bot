@@ -82,6 +82,8 @@ export type BacktestArgs = {
   latencyDelayMs?: number
   /** Explicit latency jitter (ms). Overrides BACKTEST_LATENCY_JITTER; auditable via `cmd`. */
   latencyJitterMs?: number
+  /** Native artifacts only: execution profile (default ts-compat). Auditable via `cmd`. */
+  nativeProfile?: 'ts-compat' | 'realistic'
   /**
    * Run the batch in-process (single thread), bypassing BullMQ / Redis / workers.
    * Useful for quick local smoke tests and bit-identical verification.
@@ -168,6 +170,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let model: string | undefined
   let latencyDelayMs: number | undefined
   let latencyJitterMs: number | undefined
+  let nativeProfile: 'ts-compat' | 'realistic' | undefined
   let startingCapital: number | undefined
   let sequential = false
   let detach = false
@@ -332,6 +335,16 @@ export function parseArgs(argv: string[]): BacktestArgs {
         latencyJitterMs = parseNonNegativeMs(argv[i + 1], '--latency-jitter-ms')
         i += 1
         break
+
+      case '--native-profile': {
+        const v = argv[i + 1]
+        if (v !== 'ts-compat' && v !== 'realistic') {
+          throw new Error(`--native-profile must be ts-compat or realistic (got ${String(v)})`)
+        }
+        nativeProfile = v
+        i += 1
+        break
+      }
 
       case '--sequential':
         sequential = true
@@ -588,6 +601,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     // mix latencies inside one run.
     if (latencyDelayMs !== undefined) conflicting.push('--latency-delay-ms')
     if (latencyJitterMs !== undefined) conflicting.push('--latency-jitter-ms')
+    if (nativeProfile !== undefined) conflicting.push('--native-profile')
     if (startingCapital !== undefined) conflicting.push('--starting-capital')
     // --comment is a launch-time label for the original run. An extension
     // doesn't get its own comment because we intentionally don't write
@@ -662,6 +676,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(model !== undefined ? { model } : {}),
     ...(latencyDelayMs !== undefined ? { latencyDelayMs } : {}),
     ...(latencyJitterMs !== undefined ? { latencyJitterMs } : {}),
+    ...(nativeProfile !== undefined ? { nativeProfile } : {}),
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
     ...(extend !== undefined ? { extend } : {}),

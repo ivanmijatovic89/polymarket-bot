@@ -92,6 +92,15 @@ Deleting the TS engine; porting other existing strategies; telonex-paired and
 legacy recorded input modes; Deribit; simulator UI; Telonex trades-channel
 ingestion; real-money activation.
 
+## Follow-up tasks (after this goal is done)
+
+1. **Telonex trades** (user request, 2026-10-08): ingest the Telonex `trades`
+   channel, merge trade prints into the telonex-delta replay as
+   `last_trade_price` events, then build and A/B the queue-position fill model
+   on telonex data (today only Recorder V4 has trade prints).
+2. Recorder V4 input mode in Rust, if not finished as stretch M9.
+3. Live CLOB V2 execution activation with real money — separate session with the user.
+
 ## Done means
 
 Milestones 0–7 pass their proofs on the final revision, PARITY.md has no
