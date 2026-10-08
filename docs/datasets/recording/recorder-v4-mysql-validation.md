@@ -2,7 +2,9 @@
 
 The catalog implementation was merged in PR [#302](https://github.com/ivanmijatovic89/polymarket-bot/pull/302)
 as `a31b1dff97575cdfd9dd0e4a1a60f49cf4a7ef8d` on October 8, 2026. Worker-2's separate catalog
-release is pinned to the tested PR head `f4d970ac8fc2a0c44f17cc394bb14b117249cff7`.
+initially used tested PR head `f4d970ac8fc2a0c44f17cc394bb14b117249cff7`. It now runs the
+reviewed recovery release `7f8021e926a27cd67e3a1cc7bf150ba3723b591e`; see the
+[completed recovery activation](#completed-october-8-recovery-activation) below.
 The capture daemon remains at `a94e9a6a3d151546b56fcf4572858fe518f2f0ca`; its supervisor
 PID remained 95492 throughout installation. Capture was not restarted.
 
@@ -153,9 +155,8 @@ TypeScript, ESLint, formatting, shell syntax, and diff checks passed. Review was
 after the prefix and advisory-lock fixes; the final pass found no further actionable issue
 in the changed recovery, cache-selection, namespace, or guarded-update paths.
 
-These are code and local failure-injection checks, not evidence that the new release has
-already been activated on worker-2. Record that activation separately after the operator
-switches the pinned catalog service and fresh automatic scans have been verified.
+These code and local failure-injection checks are separate from the production
+[activation evidence](#completed-october-8-recovery-activation) recorded below.
 
 ### Prepared worker-2 recovery release
 
@@ -172,12 +173,44 @@ The reviewed updater SHA-256 is
 The deployment record is
 `/Users/worker-2/Services/polymarket-recorder-v4-catalog/prepared-update-7f8021e9.json`.
 
-Administrator activation is pending. Run the prepared wrapper in your own terminal:
+The operator subsequently completed activation using this prepared wrapper. Do not repeat
+it on the already updated service:
 
 ```bash
 ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4-catalog/activate-update-7f8021e9.zsh'
 ```
 
-Then verify the new catalog release, fresh automatic MySQL scans, and unchanged recorder
-heartbeat. The wrapper verifies the reviewed updater checksum before invoking its guarded
-catalog-only switch. Preparation does not mean the running daemon already has these fixes.
+The wrapper verified the reviewed updater checksum before invoking its guarded catalog-only
+switch. The following checks confirm activation, separately from the preparation above.
+
+## Completed October 8 recovery activation
+
+The operator activated the recovery release at 14:33 UTC. Read-only checks confirmed the
+catalog supervisor PID 17406 and child PID 17412 running with Node 20.20.2 from the clean
+`7f8021e926a27cd67e3a1cc7bf150ba3723b591e` checkout. The installed plist SHA-256 matched the
+reviewed `534517bc0f36eb3a6200a3073499e03bbfbd5e3b644a659ecc9db99148e9a449` candidate.
+Launchd reported one launch and no prior exit.
+
+The startup full scan completed at 14:33:15 UTC, discovered 828 recordings, and refreshed ten
+resolution histories, with zero pending imports and no failures. Subsequent automatic scans
+completed at 14:34:16 and 14:35:17 UTC; the former refreshed another resolution. A direct
+read-only MySQL status query confirmed the new daemon's completed scan. No competing manual
+importer was started.
+
+The running dashboard returned HTTP 200 for both October 8 duration views: 174 BTC 5m and
+58 BTC 15m recordings, with fresh catalog status and zero import backlog or failures. Existing
+gap exclusions remained in place. The newest 15m recording was still awaiting its official
+result; successful indexing does not imply every recording is already eligible.
+
+Capture supervisor PID 95492 and child PID 95498 were unchanged. The recorder heartbeat was
+2.2 seconds old at the first check, both durations were active, and all six feeds were
+receiving. Archive status showed 752 uploaded markets, zero pending uploads, and no archive
+error. The catalog log was approximately 35 KiB under its existing 32 MiB total retention
+bound. Verification did not restart capture or fleet workers, alter R2 objects, or enable
+live trading.
+
+PR [#306](https://github.com/ivanmijatovic89/polymarket-bot/pull/306) merged the reviewed fixes
+as `87196ed4f273b1e3939b08fe81546df59699d064` after all four CI jobs passed. Before this
+activation, the primary checkout and idle worker-1, worker-2, and milan-m1 fleet checkouts
+were updated to that commit; read-only V4 prefetch plans passed for both durations on all
+three workers. The pinned catalog release contains the same reviewed runtime fixes.
