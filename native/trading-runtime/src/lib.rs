@@ -1,4 +1,9 @@
 //! Shared entry points for the standalone native trading runtime.
+pub mod market;
+pub mod market_json;
+pub mod math;
+pub mod metrics;
+pub mod portfolio;
 pub mod protocol;
 pub mod stats;
 

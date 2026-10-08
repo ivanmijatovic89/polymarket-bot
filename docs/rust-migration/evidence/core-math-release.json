@@ -1,0 +1,54 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "node": "v20.19.6",
+  "cases": 9090,
+  "comparatorMutationChecks": 8,
+  "exactFiniteIeeeBits": true,
+  "signedZeroCompared": true,
+  "nonfiniteClassesCompared": true,
+  "sourceSha256": {
+    "src/trading/utils/rounding.ts": "f77b925fae78be50cab8414634958381e41673e4481581e629675776a1bf7b8c",
+    "src/trading/fees.ts": "4191b1fa52d3e5e02e6cc419db07c8b9fc20e85f3eee1a0e6885bdb247cb4b03",
+    "src/trading/capital.ts": "926b78ee6f1a49f6a2cad5fbdc6329fcf947c2d4ae239d294ac6d8936b9c0a80"
+  },
+  "nativeSourceSha256": {
+    "native/trading-runtime/Cargo.toml": "ded05873bfccf680f1f26704a9a5df9909d7f3b00459280bca6ca6a4f24527d7",
+    "native/trading-runtime/Cargo.lock": "1770c4bded9749e8d423b64769a76cd5cc66f470452014acb080954e1f01cebf",
+    "native/trading-runtime/examples/math_fixtures.rs": "f67beab76713241860b0eac3935992158cd6db2ff3a4117481ab3c7924e586f0",
+    "native/trading-runtime/src/lib.rs": "2b7f14a10e144886806492bac51ca4aa7745cbedf4369fcc95a3c466cf8163c2",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "593569f54534cd47adcf0c899e879b1aa46c112ac088e7c7b9023229f8931535",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/math.rs": "0129a16078335333ac4c4fe64359a7337b31c7eb8bee395bf9ed9e08c0b48200",
+    "native/trading-runtime/src/metrics.rs": "c80f21e756e60ee4a68b7e6129156cb7c2df4696314f608deb86bf6bfaed081c",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/portfolio.rs": "d166b8abf5e7f4e48eb599b13cf7885d3ca5305fef6232ff958224a559b8c627",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc"
+  },
+  "buildCommand": [
+    "/Users/mijat/.cargo/bin/cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "native/trading-runtime/Cargo.toml",
+    "--example",
+    "math_fixtures",
+    "--message-format=json",
+    "--release"
+  ],
+  "toolchain": {
+    "cargo": "cargo 1.89.0 (c24e10642 2025-06-23)",
+    "rustc": "rustc 1.89.0 (29483883e 2025-08-04)\nbinary: rustc\ncommit-hash: 29483883eed69d5fb4db01964cdf2af4d86e9cb2\ncommit-date: 2025-08-04\nhost: aarch64-apple-darwin\nrelease: 1.89.0\nLLVM version: 20.1.7"
+  },
+  "profile": "release",
+  "defaultSelectorCases": 64,
+  "wrapperSha256": {
+    "scripts/rust-migration/math-differential.py": "4995a2cf44f35abafb16c41160bb543c3f94c89bcbdbef6eeee825a6a5eb295c",
+    "scripts/rust-migration/math-oracle.mts": "bd4c01112d232c8d88c13748cabd827b5ee0bb94d7c5f7d03bcb03d49a9ba4c3"
+  },
+  "nativeDriverSha256": "f884df7f20db2e3e4a9e96accb2a49ecde3062848152da2bfb40f5b51288de9d",
+  "fixturesSha256": "b37db5eb86d40d8769e22eb975e672e511aa0237dd5c307482848890bd7e4f7f",
+  "fullOutputParity": true
+}

@@ -36,7 +36,22 @@
     },
     "externalSourceCandidates": 85,
     "externalSourceRevision": "155fa585bea79ad77c1002a167e62f1060261aeb",
-    "externalSourceCandidatesStatus": "static_not_loaded"
+    "externalSourceCandidatesStatus": "static_not_loaded",
+    "sdkUsageObservations": {
+      "status": "bounded_static_incomplete",
+      "inventoryPath": "docs/rust-migration/sdk-usage-inventory.json",
+      "inventorySha256": "3b83584bfc687dc8a6e810f562fd8f795d583f32317df738243fc0500a21a4c1",
+      "summary": {
+        "pinnedSdkFiles": 13,
+        "strategyCandidates": 158,
+        "reachableHelpers": 21,
+        "immutableBundles": 155,
+        "unavailableCatalogBundles": 219,
+        "unknownRequiredReferences": true
+      },
+      "executedArtifacts": 0,
+      "allRequiredVersionsCovered": false
+    }
   },
   "checks": [
     {
@@ -50,10 +65,24 @@
         "src/trading/Portfolio.ts",
         "src/market/MarketEngine.ts"
       ],
-      "validationCommands": [],
-      "evidence": [],
+      "validationCommands": [
+        "cargo test --locked --offline --manifest-path native/trading-runtime/Cargo.toml",
+        "python3 scripts/rust-migration/market-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "python3 scripts/rust-migration/portfolio-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "python3 scripts/rust-migration/math-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release",
+        "python3 scripts/rust-migration/metrics-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release"
+      ],
+      "evidence": [
+        "docs/rust-migration/SHARED-CORE-REVIEW.md",
+        "docs/rust-migration/evidence/core-market.json",
+        "docs/rust-migration/evidence/core-portfolio.json",
+        "docs/rust-migration/evidence/core-math-debug.json",
+        "docs/rust-migration/evidence/core-math-release.json",
+        "docs/rust-migration/evidence/core-metrics-debug.json",
+        "docs/rust-migration/evidence/core-metrics-release.json"
+      ],
       "verifiedRevision": null,
-      "notes": "Math and typed market/Portfolio differential work in progress; raw JSON UTF16/radix conversion, metadata number validation and retained mutable object aliases are required unresolved details. No whole-core or production acceptance."
+      "notes": "Eight P2 helper findings repaired and independently rechecked. Bounded market/Portfolio/arithmetic/context metrics pass; SDK alias propagation, lossless account metadata, historical typed snapshots, strategies and full runner/production integration remain unmet."
     },
     {
       "id": "core.02",
@@ -884,6 +913,217 @@
       ],
       "verifiedRevision": null,
       "notes": "Benchmark owner after ART-01\u201311; no production multiplier inferred from static inventory."
+    },
+    {
+      "id": "core.04",
+      "area": "core",
+      "requirement": "Preserve observed retained/mutated OpenOrder, Position, raw Fill/PositionsSplit and shared metadata aliases, including external Observer tape mutation propagation.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/Portfolio.ts",
+        "src/trading/OrderManager.ts",
+        "src/strategy/Strategy.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": ["docs/rust-migration/SHARED-CORE-REVIEW.md"],
+      "verifiedRevision": null,
+      "notes": "Newly explicit required integration dependency; bounded snapshot JSON comparison is insufficient."
+    },
+    {
+      "id": "core.05",
+      "area": "core",
+      "requirement": "Typed historical tick snapshots, synchronous feed capture, async FIFO ordering and awaited replay/V4 frame continuation match pinned live/backtest semantics.",
+      "status": "pending",
+      "sourcePaths": [
+        "src/trading/StrategyRunner.ts",
+        "src/market/MarketEngine.ts",
+        "src/recorder-v4/replay/dispatcher.ts"
+      ],
+      "validationCommands": [],
+      "evidence": ["docs/rust-migration/SHARED-CORE-REVIEW.md"],
+      "verifiedRevision": null,
+      "notes": "Newly explicit required integration dependency; bounded snapshot JSON comparison is insufficient."
+    },
+    {
+      "id": "SDK-01",
+      "area": "strategies",
+      "requirement": "Reconcile required immutable versions; retrieve missing bytes and trace source/dependencies/schema/feed descriptors",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "Artifact/run/job/live/fleet inventory; exact native artifact mapping, no ID-only substitution"
+    },
+    {
+      "id": "SDK-02",
+      "area": "strategies",
+      "requirement": "Shared value/reference graph and serialization boundary",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "Metadata/record/snapshot alias fixtures; cycles, pruning and lifetimes; extend current typed Portfolio rather than discard its tests"
+    },
+    {
+      "id": "SDK-03",
+      "area": "strategies",
+      "requirement": "Typed strategy factory/context, tick/receipt and provider interfaces",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "SDK-02; every union variant and context field, metrics wrappers, deterministic episode state"
+    },
+    {
+      "id": "SDK-04",
+      "area": "strategies",
+      "requirement": "Toolkit/date/status/warmup and fee integration",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "Can proceed beside graph design; boundary/default/invalid-input fixtures"
+    },
+    {
+      "id": "SDK-05",
+      "area": "strategies",
+      "requirement": "Plugin composition, ordered registration, caching, refresh, reset and synthetic dispatch",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "SDK-02/03; duplicate IDs, retained snapshots and custom wrappers"
+    },
+    {
+      "id": "SDK-06",
+      "area": "strategies",
+      "requirement": "Feed request fulfillment/capture plus native historical/V4/live providers",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "SDK-05; receipt-time capture, availability/source validation and missing fields"
+    },
+    {
+      "id": "SDK-07",
+      "area": "strategies",
+      "requirement": "Dwell/time-window/rolling-volatility kernels and SDK wrappers",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "Pure arithmetic can proceed early; integration depends on SDK-05; exact boundary and stale-state traces"
+    },
+    {
+      "id": "SDK-08",
+      "area": "strategies",
+      "requirement": "Technical-indicator/Deribit providers, calculations and asynchronous completion lifecycle",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "SDK-05/06; pinned algorithms, late completion, polling/wait and error fixtures"
+    },
+    {
+      "id": "SDK-09",
+      "area": "strategies",
+      "requirement": "Required strategy versions, external observers/helpers and schema/catalog/build mapping",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "SDK-01 plus each used SDK item; callback, intent, diagnostics and final metadata parity"
+    },
+    {
+      "id": "SDK-10",
+      "area": "strategies",
+      "requirement": "Complete serial runner, rotation, account routing and execution integration",
+      "status": "pending",
+      "sourcePaths": [
+        "src/strategy",
+        "src/trading/StrategyRunner.ts",
+        "/Users/mijat/Sites/polymarket-protocols"
+      ],
+      "validationCommands": [],
+      "evidence": [
+        "docs/rust-migration/SDK-USAGE-INVENTORY.md",
+        "docs/rust-migration/sdk-usage-inventory.json"
+      ],
+      "verifiedRevision": null,
+      "notes": "Earlier items plus OrderManager/adapters; captured live/replay traces, batch/database/fleet acceptance and complete benchmark"
     }
   ],
   "strategyAcceptance": [
@@ -7544,5 +7784,25 @@
       "legacyRejectionEvidence": [],
       "verifiedRevision": null
     }
-  ]
+  ],
+  "sharedCoreEvidence": {
+    "status": "bounded_helper_checkpoint_only",
+    "review": "docs/rust-migration/SHARED-CORE-REVIEW.md",
+    "reports": [
+      "docs/rust-migration/evidence/core-market.json",
+      "docs/rust-migration/evidence/core-portfolio.json",
+      "docs/rust-migration/evidence/core-math-debug.json",
+      "docs/rust-migration/evidence/core-math-release.json",
+      "docs/rust-migration/evidence/core-metrics-debug.json",
+      "docs/rust-migration/evidence/core-metrics-release.json"
+    ],
+    "productionAcceptance": false,
+    "noNewRuntimeCapabilitiesAdvertised": true,
+    "remainingRequirements": [
+      "native strategies and SDK aliases",
+      "lossless account metadata integration",
+      "typed historical tick capture and runner dispatch",
+      "all replay feeds/execution/Parquet/live/consumer/fleet wiring"
+    ]
+  }
 }

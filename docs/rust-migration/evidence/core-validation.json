@@ -1,0 +1,146 @@
+{
+  "formatVersion": 1,
+  "scope": "Bounded shared native core checkpoint; complete migration remains active and incomplete",
+  "referenceRevision": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "sourceSha256": {
+    "native/trading-runtime/src/lib.rs": "2b7f14a10e144886806492bac51ca4aa7745cbedf4369fcc95a3c466cf8163c2",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "593569f54534cd47adcf0c899e879b1aa46c112ac088e7c7b9023229f8931535",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/math.rs": "0129a16078335333ac4c4fe64359a7337b31c7eb8bee395bf9ed9e08c0b48200",
+    "native/trading-runtime/src/metrics.rs": "c80f21e756e60ee4a68b7e6129156cb7c2df4696314f608deb86bf6bfaed081c",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/portfolio.rs": "d166b8abf5e7f4e48eb599b13cf7885d3ca5305fef6232ff958224a559b8c627",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc",
+    "native/trading-runtime/tests/market.rs": "49984f9fff1b2d9f4d59758d1f828916f12bec9ad09c8a12c286bf2e5af5aa25",
+    "native/trading-runtime/tests/math.rs": "945d1310b5814bfc456828bcdd3802a6f317d79ddee337cdae1ab61fa08d7e14",
+    "native/trading-runtime/tests/metrics.rs": "e24464412c7f18a03ac9efc385dc1dcf4b9617acb57bfd0c94ab591e599d984a",
+    "native/trading-runtime/tests/portfolio.rs": "120311664b16ec767e0a5600b90f0055f53e1a08e6c6312c12c8966152d2465e",
+    "native/trading-runtime/tests/protocol.rs": "38c1af900e901bb948505e4937091617d0cd416bb8119e59223c0912cdc4076c",
+    "native/trading-runtime/tests/stats.rs": "d9b95826ae829769444e3e6a5eaec58cc7a9d3efdd891cbe90b9f7e8beea963b",
+    "native/trading-runtime/examples/math_fixtures.rs": "f67beab76713241860b0eac3935992158cd6db2ff3a4117481ab3c7924e586f0",
+    "native/trading-runtime/examples/metrics_fixtures.rs": "7b359f9c2debb1696e1dfbd08f9bc14896e9341dcea42b1e3b26c687b76902c6",
+    "native/trading-runtime/Cargo.toml": "ded05873bfccf680f1f26704a9a5df9909d7f3b00459280bca6ca6a4f24527d7",
+    "native/trading-runtime/Cargo.lock": "1770c4bded9749e8d423b64769a76cd5cc66f470452014acb080954e1f01cebf"
+  },
+  "nativeBinarySha256": "ab6d1e5de8f60ec5d10e999270733aca28449c43397d52fd962037b8381c91fe",
+  "checks": [
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml"
+      ],
+      "result": "passed",
+      "tests": 43,
+      "stdoutSha256": "8429a70feb6a834b3c03aaee233841e98f98d7ab723bb5036f8e405cc3ed46a5",
+      "stderrSha256": "c64df8e37e3b3abeaa3b0d09bfacbc5549babac903d796d3cd487094fb7bdd26"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "result": "passed",
+      "tests": null,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "154c4d1e127deb2bf34a800fe9d6e6705caa4e7afc8a64ff5c9a690b895860a5"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "fmt",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml",
+        "--",
+        "--check"
+      ],
+      "result": "passed",
+      "tests": null,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml",
+        "--bin",
+        "polymarket-runtime"
+      ],
+      "result": "passed",
+      "tests": null,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+    },
+    {
+      "command": [
+        "/Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "--import",
+        "tsx",
+        "--test",
+        "src/runtime/nativeClient.test.ts",
+        "src/runtime/nativeClient.integration.test.ts"
+      ],
+      "result": "passed",
+      "tests": 47,
+      "stdoutSha256": "117009ec3d17c5b145ae588fc41bc0acf9692334e473dd745e75d5730bb98864",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "reportPaths": [
+    "docs/rust-migration/evidence/core-market-independent.json",
+    "docs/rust-migration/evidence/core-market.json",
+    "docs/rust-migration/evidence/core-math-debug.json",
+    "docs/rust-migration/evidence/core-math-release.json",
+    "docs/rust-migration/evidence/core-metrics-debug.json",
+    "docs/rust-migration/evidence/core-metrics-release.json",
+    "docs/rust-migration/evidence/core-portfolio-independent.json",
+    "docs/rust-migration/evidence/core-portfolio.json"
+  ],
+  "review": "docs/rust-migration/SHARED-CORE-REVIEW.md",
+  "productionCapabilitiesUnchanged": true,
+  "missingRequirements": [
+    "shared identity graph and SDK aliases",
+    "lossless account metadata",
+    "typed historical snapshots and runner sequencing",
+    "strategy schemas/ports",
+    "all replay/feeds/execution/live/DB/consumer/fleet integration",
+    "final CI and end-to-end benchmark"
+  ],
+  "documentationBuild": {
+    "result": "passed",
+    "command": [
+      "/Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+      "node_modules/vitepress/bin/vitepress.js",
+      "build"
+    ],
+    "cwd": "docs",
+    "scope": "Shared-core review and migration documents; SDK inventory added subsequently and scheduled for CI build",
+    "existingWarnings": [
+      "env syntax highlighting fallback",
+      "large bundle chunks"
+    ]
+  },
+  "artifactInspectorChecks": {
+    "tests": 7,
+    "strictTypecheck": "passed"
+  },
+  "oracleTypecheck": "passed",
+  "independentReviewDelta": "Public-library imports and idiomatic enum wire-label preservation rechecked without a new finding"
+}
