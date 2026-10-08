@@ -1,0 +1,19 @@
+[package]
+name = "pmb-replay"
+description = "Historical inputs (Parquet market data, feed files) and the single-market backtest executor."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+flate2.workspace = true
+parquet.workspace = true
+pmb-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

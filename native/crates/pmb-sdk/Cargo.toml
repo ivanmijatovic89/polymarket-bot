@@ -1,0 +1,17 @@
+[package]
+name = "pmb-sdk"
+description = "Strategy author SDK: re-exports the core types and provides the strategy binary entry point."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+pmb-core.workspace = true
+pmb-replay.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
