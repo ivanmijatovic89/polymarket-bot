@@ -28,7 +28,8 @@ duplicating calculation rules.
 > Use June 2026 to identify possible rules, then check those rules on July trades.
 
 Specify a dataset root if it is not already set through
-`POLYMARKET_RESEARCH_DATA_DIR`. The dates refer to UTC market-window starts and
+`POLYMARKET_RESEARCH_DATA_DIR`. Use the family directory, currently
+`data/polymarket-research-v2/btc/15m`, rather than its parent collection. The dates refer to UTC market-window starts and
 include the downloaded later lifecycle of those markets. Only BTC 15-minute is
 enabled today. See [commands](./commands) for inclusive/exclusive date syntax.
 

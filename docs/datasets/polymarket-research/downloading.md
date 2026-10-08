@@ -14,7 +14,7 @@ There is no separate weekly or monthly job.
 Use Node 20 with repository dependencies installed and choose a permanent directory:
 
 ```bash
-export POLYMARKET_RESEARCH_DATA_DIR=/absolute/path/to/polymarket-research-v2
+export POLYMARKET_RESEARCH_DATA_DIR=/absolute/path/to/polymarket-research-v2/btc/15m
 npm run research:update -- --from 2026-06-01
 ```
 

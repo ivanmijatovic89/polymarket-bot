@@ -2,6 +2,7 @@ import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { atomicWrite, readJson, writeJson } from './files.js'
 import { claimLock } from './sync.js'
+import { assertDatasetRoot } from './family.js'
 import { readUpdateConfig, type UpdateConfig } from './update.js'
 
 /** Build and validate a candidate without changing the installed configuration. */
@@ -9,6 +10,7 @@ export async function prepareUpdateConfig(
   runtime: string,
   options: Pick<UpdateConfig, 'root' | 'from' | 'market'>,
 ): Promise<string> {
+  await assertDatasetRoot(options.root)
   const previous = await readJson<UpdateConfig>(path.join(options.root, 'update-config.json'))
   const candidate = path.join(runtime, 'update-config.json')
   await writeJson(candidate, {
@@ -41,6 +43,7 @@ export async function activateResearchSchedule(options: {
   stop: () => void
   start: () => void
 }): Promise<void> {
+  await assertDatasetRoot(options.root)
   const config = await readUpdateConfig(options.candidateConfig)
   if (config.root !== options.root) throw new Error('Candidate configuration root mismatch')
   const releaseInstallation = await claimLock(path.join(options.root, 'runtime', 'installation'))

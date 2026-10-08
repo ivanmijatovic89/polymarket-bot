@@ -10,7 +10,7 @@ For agent-led studies, use the [project research skill](./research-skill).
 Use Node 20 and the repository dependencies. Set the permanent root once:
 
 ```bash
-export POLYMARKET_RESEARCH_DATA_DIR=/absolute/path/to/polymarket-research-v2
+export POLYMARKET_RESEARCH_DATA_DIR=/absolute/path/to/polymarket-research-v2/btc/15m
 ```
 
 All commands also accept `--root PATH`. Dates select UTC market-window starts;

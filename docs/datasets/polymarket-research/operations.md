@@ -7,6 +7,9 @@ description: Run, recover, verify and upgrade the local research downloader.
 
 ## Files and ownership
 
+The collection path is `data/polymarket-research-v2`. Each family has a complete
+root under `<symbol>/<timeframe>`, such as `btc/15m`. `collection.json` identifies
+the parent and prevents accidentally querying or initializing it as a dataset.
 Each data root belongs to one market family, recorded in `dataset.json`. Existing
 roots without that file are recognized as BTC 15-minute datasets. `--market`
 cannot repurpose a root. The family registry contains the later BTC 5-minute and
@@ -23,6 +26,35 @@ day in the index. Other readers can continue using the prior generation.
 made during fetching; the API does not provide an atomic historical snapshot of
 all endpoints. A refresh replaces the day's active source files and derived
 results, rather than appending duplicate rows.
+
+## Moving an existing dataset
+
+The October 2026 layout places the original BTC 15-minute root at
+`/Users/mijat/Sites/polymarket-bot/data/polymarket-research-v2/btc/15m`.
+All indexes, snapshot versions, logs, work caches and retained releases belong to
+that family and move together. Paths inside `index.json`, checksums and retention
+pins remain relative and unchanged. Parquet files do not need rewriting or downloading.
+
+For a relocation:
+
+1. Confirm the downloader and readers are idle, unload its launchd job, and keep
+   the old plist/configuration plus a migration journal outside the directory being moved.
+2. Record the index digest, file inventory and query results. Move the complete
+   root on the same filesystem into the family directory; mark the parent with
+   `collection.json` containing `{"version": 1, "layout": "symbol/timeframe"}`.
+3. Change the saved update configuration's `root` and any shell environment setting
+   to the family directory. Preserve downloaded facts and historical reports.
+4. Check index/file identity, full-range coverage and verification, and compare
+   local query results with the pre-move results.
+5. Install the released schedule against the new family root. Inspect its absolute
+   paths and successful startup before treating the migration as finished.
+
+Do not reuse the copied old launchd runner: its absolute paths still point to the
+old location. Historical logs/scripts can also contain their original absolute
+paths; they are retained as evidence, not rewritten or used as the active job.
+If relocation or activation fails, leave the trigger unloaded, restore the whole
+root to its previous path and restore its saved configuration/plist before restart.
+Do not merge a destination directory that already contains another dataset.
 
 ## Failure and recovery
 
