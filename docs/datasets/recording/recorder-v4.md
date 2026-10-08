@@ -239,7 +239,7 @@ The adapter has no remote delete operation. Every GET, PUT and LIST is restricte
 
 Use a fresh V4 spool and configuration. V4 refuses V3's unversioned sequence state and version-3 manifests rather than attempting an in-place migration. Local event deletion still requires the exact manifest's verified archive receipt.
 
-There is no separate per-feed directory and no database required to discover these packages. `record:v4:data` filters the catalog by timeframe and opening date. If a market has multiple recordings after a restart, select one explicit manifest for a backtest; partial recordings are not silently stitched together.
+There is no separate per-feed directory. MySQL indexes verified recordings for ordinary discovery; exact manifests remain independently recoverable from R2. `record:v4:data` filters the catalog by timeframe and opening date. If a market has multiple recordings after a restart, select one explicit manifest for a backtest; partial recordings are not silently stitched together.
 
 On restart, already finalized uploads are retried before opening live feeds. This lets a full spool recover after an R2 outage. New capture starts only after disk allowance is available; a disk read error or remaining exhaustion is reported and preserves pending data.
 
@@ -255,11 +255,11 @@ Resolution observations are small immutable sidecars under the same R2 package. 
 
 ## Find and download archived markets
 
-The archive catalog is derived from verified R2 manifests; it does not depend on a database or files remaining on the recorder. List a duration and UTC date range:
+The normal catalog is stored in MySQL by an independent sync service. It indexes verified R2 packages and does not depend on files remaining on the recorder. See [MySQL catalog](./recorder-v4-mysql-catalog) for synchronization, schema, and recovery. List a duration and UTC date range:
 
 ```bash
 npm run record:v4:data -- list \
-  --env-file /absolute/path/to/.env.recorder-v4 \
+  --env-file /absolute/path/to/catalog.env \
   --timeframe 15m --from 2026-10-01 --to 2026-11-01
 ```
 
@@ -267,12 +267,12 @@ Download that selection onto the machine running backtests:
 
 ```bash
 npm run record:v4:data -- download \
-  --env-file /absolute/path/to/.env.recorder-v4 \
+  --env-file /absolute/path/to/catalog.env \
   --timeframe 15m --from 2026-10-01 --to 2026-11-01 \
   --output /absolute/path/to/recorder-cache/btc-15m
 ```
 
-`--from` includes the opening timestamp; `--to` excludes it. Full timestamps must end in `Z`. `--prefix` selects an explicit child of `recorder-v4/`. `--manifest` selects one exact committed manifest key or `r2://` URL instead of date/timeframe filters. This command needs only R2 credentials, never CLOB or wallet credentials.
+`--from` includes the opening timestamp; `--to` excludes it. Full timestamps must end in `Z`. `--prefix` selects an explicit child of `recorder-v4/`. `--manifest` selects one exact committed manifest key or `r2://` URL instead of date/timeframe filters. Normal list/download selection needs database credentials; downloads also need R2 credentials. Use `--env-file .env` on a configured fleet checkout. `--archive-scan` is an explicit read-only diagnostic fallback requiring only R2 credentials; `--manifest` independently recovers one exact recording. No CLOB or wallet credentials are needed.
 
 Downloads are sequential and verified, refresh resolution observations, and reuse already verified local Parquet files. A failed download exits unsuccessfully and is safe to retry. Source objects in R2 are never deleted by these commands. Keep 5m and 15m download selections in separate cache directories when you want to backtest them independently.
 
@@ -281,7 +281,10 @@ Downloads are sequential and verified, refresh resolution observations, and reus
 ```mermaid
 %%{init: {"htmlLabels": false}}%%
 flowchart TD
-    R2["V4 R2 package: manifest, event Parquet and resolutions"] --> CACHE["Download and verify bytes and checksums"]
+    R2["V4 R2 package: manifest, event Parquet and resolutions"] --> INDEX["Independent checksum-verified catalog sync"]
+    INDEX --> MYSQL["MySQL: identity, coverage, PTB evidence, outcome"]
+    MYSQL --> SELECT["Select eligible immutable recording"]
+    SELECT --> CACHE["Download and verify bytes and checksums"]
     CACHE --> GATE{"Required feed coverage and reference evidence complete?"}
     GATE -- "Yes" --> REPLAY["Replay observations in recorded receive order"]
     GATE -- "No, ordinary backtest" --> SKIP["Skip market and report the coverage problem"]
@@ -321,7 +324,7 @@ npm run backtest -- --strategy YOUR_STRATEGY \
 
 The existing backtest queue/database configuration still applies. A package directory, its `manifest.json`, its `events.parquet`, or an `r2://bucket/.../manifest-SHA256.json` URL can select a recording. Workers download R2 inputs into a verified local cache. Multiple recordings of one market are excluded as ambiguous before limiting; choose one exact manifest explicitly.
 
-You can also select directly from the R2 catalog:
+You can select R2 recordings through their MySQL catalog:
 
 ```bash
 npm run backtest -- --strategy YOUR_STRATEGY \
@@ -329,7 +332,7 @@ npm run backtest -- --strategy YOUR_STRATEGY \
   --timeframe 5m --latest --limit 100 --list-eligible
 ```
 
-`--list-eligible` prints counts, selected references and exclusion reasons without dispatching jobs. Remove it to run. The selector checks official resolution, Polymarket and requested-feed coverage, and evidence for the strategy's selected PTB source **before** applying the limit. Ordinary launches fail before enqueueing if the requested number of eligible markets is unavailable. Date bounds are inclusive milliseconds (`--from-ms`, `--to-ms`); `--capture-prefix` selects an explicit V4 namespace. First-time PTB admission can download all otherwise eligible files in the range; owned temporary Parquets are removed after inspection, and small immutable evidence is cached in committed buckets capped at 16 MiB, plus at most 64 KiB per in-flight writer. Handled failures remove their own temporary file; interrupted temporary files are reclaimed on a later write once their owning process is confirmed dead. Active-process, unrelated, and symlink files are preserved. See [Running backtests](/backtest/running-backtests#recorder-v4-eligible-market-selection) for details.
+`--list-eligible` prints counts, selected references and exclusion reasons without dispatching jobs. Remove it to run. The selector checks official resolution, Polymarket and requested-feed coverage, and evidence for the strategy's selected PTB source **before** applying the limit. Ordinary launches fail before enqueueing if the requested number of eligible markets is unavailable. Date bounds are inclusive milliseconds (`--from-ms`, `--to-ms`); `--capture-prefix` selects an explicit V4 namespace. The catalog importer verifies each new package once, inspects its recorded reference observations, and saves admission evidence in MySQL. Ordinary catalog selection reads that evidence without downloading Parquet or scanning R2. Exact R2 inputs outside catalog discovery retain temporary inspection and the bounded admission cache. See [Running backtests](/backtest/running-backtests#recorder-v4-eligible-market-selection) for details.
 
 Saved runs retain the exact recording reference and selection policy. [Extensions](/backtest/extending-a-run#recorder-v4) reuse that source and policy; they never replace already covered recordings or stitch capture sessions together.
 

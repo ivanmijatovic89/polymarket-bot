@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.polymarket.recorder-v4-catalog</string>
+  <key>UserName</key>
+  <string>__USER__</string>
+  <key>GroupName</key>
+  <string>staff</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE20__</string>
+    <string>__CHECKOUT__/scripts/recorder-service.mjs</string>
+    <string>--log-file</string>
+    <string>__LOG_DIR__/catalog.log</string>
+    <string>--</string>
+    <string>--import</string>
+    <string>tsx</string>
+    <string>__CHECKOUT__/src/cli/recorder-v4-catalog.ts</string>
+    <string>sync</string>
+    <string>--watch</string>
+    <string>--env-file</string>
+    <string>__ENV_FILE__</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__CHECKOUT__</string>
+  <key>StandardOutPath</key>
+  <string>/dev/null</string>
+  <key>StandardErrorPath</key>
+  <string>/dev/null</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+  <key>ExitTimeOut</key>
+  <integer>60</integer>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Standard</string>
+</dict>
+</plist>

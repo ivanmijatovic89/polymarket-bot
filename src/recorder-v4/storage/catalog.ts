@@ -88,6 +88,8 @@ export async function downloadRecordedMarkets(
 
 export type CatalogArgs = {
   command: 'list' | 'download'
+  archiveScan: boolean
+  dryRun: boolean
   envFile: string
   prefix: string | null
   timeframe: RecorderTimeframe | null
@@ -122,9 +124,21 @@ export function parseCatalogArgs(argv: string[]): CatalogArgs {
     '--output',
     '--manifest',
   ])
+  let archiveScan = false
+  let dryRun = false
   const options = new Map<string, string>()
   for (let i = 1; i < argv.length; i++) {
     const name = argv[i]!
+    if (name === '--archive-scan') {
+      if (archiveScan) throw new RecorderCliError('Duplicate --archive-scan')
+      archiveScan = true
+      continue
+    }
+    if (name === '--dry-run') {
+      if (dryRun) throw new RecorderCliError('Duplicate --dry-run')
+      dryRun = true
+      continue
+    }
     if (!known.has(name)) throw new RecorderCliError('Unknown catalog option')
     if (options.has(name)) throw new RecorderCliError(`Duplicate ${name} option`)
     const value = argv[++i]
@@ -150,7 +164,9 @@ export function parseCatalogArgs(argv: string[]): CatalogArgs {
   if (prefix) validateArchivePrefix(prefix)
   return {
     command,
-    envFile: path.resolve(options.get('--env-file') ?? '.env.recorder-v4'),
+    archiveScan,
+    dryRun,
+    envFile: path.resolve(options.get('--env-file') ?? '.env'),
     prefix,
     timeframe,
     fromMs,
@@ -249,9 +265,11 @@ export async function loadCatalogConfig(
   }
 }
 
-export const CATALOG_HELP = `Recorder v4 archive catalog and verified downloads (no R2 mutations).
+export const CATALOG_HELP = `Recorder v4 MySQL catalog and verified R2 downloads (no R2 mutations).
 Usage: npm run record:v4:data -- list|download [options]
-  --env-file FILE       Explicit R2 configuration (default .env.recorder-v4)
+  --archive-scan        Diagnostic R2 scan instead of the MySQL catalog
+  --dry-run             List the selection without downloading any event files
+  --env-file FILE       Explicit database + R2 configuration (default .env)
   --prefix PREFIX       Archive prefix (default RECORDER_R2_PREFIX or recorder-v4)
   --timeframe 5m|15m    Optional BTC market timeframe
   --from UTC            Inclusive market opening date/time, e.g. 2026-10-01

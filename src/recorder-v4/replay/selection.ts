@@ -1,7 +1,8 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { listRecordedMarkets, validateArchivePrefix } from '../storage/catalog.js'
+import { validateArchivePrefix } from '../storage/namespace.js'
+import { catalogCapturePackage } from '../catalog/packages.js'
 import { digestFile } from '../storage/files.js'
 import type { RecorderTimeframe } from '../types.js'
 import {
@@ -12,7 +13,6 @@ import {
 } from './eligibility.js'
 import {
   downloadCaptureForReplay,
-  replayBlobStore,
   resolveCaptureInputs,
   resolveCapturePackage,
   type ResolvedCapturePackage,
@@ -39,22 +39,12 @@ export async function discoverCapturePackages(
 ): Promise<ResolvedCapturePackage[]> {
   let inputs: string[]
   if (source.kind === 'r2') {
-    const store = replayBlobStore(source.bucket)
-    inputs = []
-    try {
-      for await (const entry of listRecordedMarkets(store, {
-        prefix: validateArchivePrefix(source.prefix),
-        ...(filters.timeframe ? { timeframe: filters.timeframe } : {}),
-        ...(filters.fromMs !== undefined ? { fromMs: filters.fromMs } : {}),
-        // The backtest CLI has inclusive millisecond bounds; the archive catalog is half-open.
-        ...(filters.toMs !== undefined ? { toMs: filters.toMs + 1 } : {}),
-      })) {
-        if (!matchesCaptureFilters(entry.manifest.market, filters)) continue
-        inputs.push(`r2://${source.bucket}/${entry.manifestKey}`)
-      }
-    } finally {
-      store.close()
-    }
+    const { queryCatalogRecordings } = await import('../../db/recorderV4Catalog.js')
+    const recordings = await queryCatalogRecordings(
+      { bucket: source.bucket, prefix: validateArchivePrefix(source.prefix) },
+      filters,
+    )
+    return recordings.map(catalogCapturePackage)
   } else {
     inputs = await resolveCaptureInputs(
       source.kind === 'explicit' ? source.inputs : [],
@@ -95,6 +85,15 @@ export async function inspectCapturePackage(
   requiredFeeds: ExternalFeedsRequestConfig,
   allowGaps = false,
 ): Promise<string[]> {
+  if (pkg.catalogEvidence) {
+    if (pkg.catalogEvidence.manifestSha256 !== captureManifestHash(pkg.manifest))
+      throw new Error('Catalog evidence does not match the selected recording')
+    return captureEligibilityReasons(pkg.manifest, requiredFeeds, {
+      allowGaps,
+      resolution: pkg.marketResolution,
+      referenceEvidence: pkg.catalogEvidence.reference,
+    })
+  }
   const metadataReasons = captureEligibilityReasons(pkg.manifest, requiredFeeds, {
     allowGaps,
     resolution: pkg.marketResolution,

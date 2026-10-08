@@ -156,3 +156,48 @@ A successful command confirms a stable launchd PID, not completed capture. Verif
 If a future V4 update fails, stop it using the routine commands above and preserve its spool, plist and objects. Restore the previously tested V4 release and its rendered plist only after checking that the prior release can read the current V4 spool, then start and verify the service. V3 is retired and is not the rollback target. Never point either version at the other's state, recreate deleted V3 archives as a recovery step, or clear the spool to make startup succeed.
 
 Do not use `rclone sync`, `aws s3 sync --delete`, bucket-wide cleanup, lifecycle changes, or an R2 delete command for this rollout. V4's storage adapter exposes GET/LIST/conditional PUT only, confined to `recorder-v4/`. Existing data outside that prefix is not part of the installation or rollback.
+
+## Independent MySQL catalog service
+
+Recording and catalog indexing are separate processes. The capture daemon above keeps its
+current pinned release and does not connect to MySQL. The catalog reads committed R2 packages,
+verifies new files, writes searchable metadata to MySQL, and removes its temporary downloads.
+See [catalog operations](./recorder-v4-mysql-catalog) for schema, synchronization, and recovery.
+
+| Purpose | Catalog location |
+| --- | --- |
+| Release | `/Users/worker-2/Services/polymarket-recorder-v4-catalog/releases/<commit>` |
+| Configuration | `/Users/worker-2/.config/polymarket-recorder-v4-catalog/production.env` |
+| Logs | `/Users/worker-2/Library/Logs/polymarket-recorder-v4-catalog/catalog.log` |
+| Service label | `com.polymarket.recorder-v4-catalog` |
+
+Prepare a clean pinned release with Node 20 dependencies. Copy only the database and R2 keys
+listed in `src/recorder-v4/catalog/config.ts` into the catalog configuration (worker-2 ownership,
+mode 0600); do not copy wallet keys. Its working directory must not contain an unrelated `.env`
+or `.env.<BOT_ENV>`. The capture-only configuration remains unchanged. Apply migration 0040 and
+run a bounded one-shot catalog import before installation. Render the template in
+`ops/macos/recorder-v4-catalog/` using the exact paths above, check it with `plutil -lint`,
+and record its SHA-256. The installer requires the reviewed commit and plist checksum:
+
+```bash
+sudo /bin/zsh /ABSOLUTE/RELEASE/ops/macos/recorder-v4-catalog/install-service.zsh   /ABSOLUTE/RENDERED.plist FULL_40_CHARACTER_COMMIT PLIST_SHA256
+```
+
+This is an initial installation command. It refuses to replace an existing catalog service
+and never controls the recorder or fleet labels. Enter an administrator password only in
+your terminal. After installation, check both process state and MySQL scan freshness:
+
+```bash
+ssh worker-2-ansible 'launchctl print system/com.polymarket.recorder-v4-catalog'
+ssh worker-2-ansible 'tail -n 20 /Users/worker-2/Library/Logs/polymarket-recorder-v4-catalog/catalog.log'
+# In the pinned catalog release, with its Node 20 on PATH:
+npm run record:v4:catalog -- status --env-file /Users/worker-2/.config/polymarket-recorder-v4-catalog/production.env
+```
+
+Catalog logs use the same 8 MiB × four-file bound as recorder logs, separately (32 MiB maximum).
+The service has nice level 10, imports sequentially, and removes each temporary event file
+after inspection. Its database advisory lock permits one sync process per bucket/prefix.
+A database outage stops/retries indexing while the independent recorder continues uploading.
+For catalog maintenance, disable/bootout only `system/com.polymarket.recorder-v4-catalog`,
+wait for exit, then update its pinned plist and bootstrap that label. Keep the previous
+catalog plist for rollback. Do not run a second importer while its service holds the lock.

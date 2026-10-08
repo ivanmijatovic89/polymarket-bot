@@ -79,7 +79,7 @@ for (const action of ['disconnect', 'SIGTERM', 'SIGINT', 'deadline'] as const) {
       await exited
     })
     child.send({
-      source: { kind: 'r2', bucket: 'fixture', prefix: 'recorder-v4' },
+      source: { kind: 'explicit', inputs: [`r2://fixture/recorder-v4/btc/5m/btc-updown-5m-1000/fixture/manifest-${'a'.repeat(64)}.json`] },
       filters: {},
       requiredFeeds: {},
       allowGaps: false,

@@ -42,7 +42,7 @@ Use the strategy's actual parameters when listing eligibility: they can change i
 `--list-eligible` accepts a registry `--strategy` or an already published `--strategy-artifact`. It rejects `--strategy-file`, whose automatic artifact publication would violate the preview's read-only contract. Publish a strategy file separately before previewing its eligibility.
 
 ```bash
-# Read the R2 catalog, report counts and exclusions, and launch no jobs.
+# Query MySQL for R2 recordings, report counts and exclusions, and launch no jobs.
 npm run backtest -- --strategy readExternalFeedsExample.v1 \
   --input-mode recorder-v4 --read-from r2 --symbol btc \
   --timeframe 5m --latest --limit 100 --list-eligible
@@ -58,7 +58,7 @@ npm run backtest -- --strategy readExternalFeedsExample.v1 \
   --timeframe 15m --from-ms 1791244800000 --list-eligible
 ```
 
-The R2 catalog defaults to `R2_BUCKET` and `RECORDER_R2_PREFIX` (or `recorder-v4`). Override the namespace with `--capture-prefix recorder-v4/validation`. Catalog selection reads R2 without changing objects. A package path or exact R2 manifest URL selects that recording directly; `--slug` selects market names within the catalog or local collection.
+The MySQL catalog scope for R2 recordings defaults to `R2_BUCKET` and `RECORDER_R2_PREFIX` (or `recorder-v4`). Override the namespace with `--capture-prefix recorder-v4/validation`. Catalog selection reads MySQL without scanning or downloading R2. Its independent sync service must have completed initialization and a successful scan within 15 minutes; missing/stale catalogs fail clearly rather than silently falling back to R2. A package path or exact R2 manifest URL selects that recording directly; `--slug` selects market names within the catalog or local collection.
 
 Eligibility requires a finalized, nonempty package, an official outcome, Polymarket coverage and coverage of the strategy's requested feeds. Website PTB requires a captured website observation; opening TWAP requires the exact Chainlink boundary observation. An unused feed's outage does not disqualify the market. V4 uses recorded outage evidence, without the historical Telonex ten-second gap tolerance.
 
@@ -66,7 +66,7 @@ Eligibility and ambiguity checks run **before** random/latest ordering and `--li
 
 `--from-ms` and `--to-ms` are inclusive opening-time filters. `--timeframe 5m|15m` also works with a directory or exact inputs. Omitting it permits both durations. `--allow-capture-gaps` explicitly admits affected feed intervals or missing PTB evidence for outage experiments; it still requires valid packages and official outcomes.
 
-PTB preflight needs recorded evidence that older manifests do not contain. On its first inspection, the CLI downloads each otherwise eligible package to an owned temporary directory, verifies it, reads the reference columns, and removes the temporary files. Later inspections reuse a small admission-evidence cache keyed by immutable manifest hash (bounded to approximately 16 MiB). Large first-time date ranges can require substantial downloads; use a date filter when exploring coverage. Replay independently verifies its package again and never injects preflight's final feed state into earlier ticks.
+The catalog importer verifies each recording's event checksum and stores website PTB/opening-TWAP admission evidence once in MySQL. Ordinary database selection uses that evidence without downloading event files. Exact R2 inputs (instead of catalog discovery) still use owned temporary inspection and the bounded admission cache. Replay independently verifies its package and never injects final catalog prices or outcomes into earlier ticks. See the [catalog operations guide](/datasets/recording/recorder-v4-mysql-catalog).
 
 ## Prerequisites
 
@@ -162,7 +162,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | `--input-mode <mode>`       | `recorded` (default), `recorder-v4`, `telonex-delta`, or `telonex-paired`.                                                                                                           |
 | `--read-from <mode>`        | **Required** for Telonex: `local`, `r2`, or `local-or-download-from-r2-to-local`. V4: `r2` selects the catalog; `local` requires package paths or `--dir`. Rejected with `recorded`. |
 | `--timeframe <value>`       | Historical symbol-filter timeframe (default `15m`, requires `--symbol`); V4 supports `5m                                                                                             | 15m` independently, with both durations allowed when omitted. |
-| `--capture-prefix <prefix>` | V4 R2 catalog namespace, default `RECORDER_R2_PREFIX` or `recorder-v4`.                                                                                                              |
+| `--capture-prefix <prefix>` | V4 MySQL catalog archive namespace, default `RECORDER_R2_PREFIX` or `recorder-v4`.                                                                                                              |
 | `--list-eligible`           | V4 counts, selected package references and exclusion reasons; no replay, queue jobs or result writes.                                                                                |
 | `--allow-capture-gaps`      | Explicit V4 outage replay; preserve recorded gaps rather than supplying replacement data.                                                                                            |
 

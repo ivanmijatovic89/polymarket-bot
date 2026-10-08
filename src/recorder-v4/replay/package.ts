@@ -70,6 +70,11 @@ export type ResolvedCapturePackage = {
   manifestUrl?: string
   marketMeta: GammaMarketMeta
   marketResolution: MarketResolution
+  /** Verified catalog facts used for selection only; workers recheck the downloaded file. */
+  catalogEvidence?: {
+    manifestSha256: string
+    reference: import('./eligibility.js').PtbAdmissionEvidence
+  }
 }
 
 export function captureMarketMetadata(manifest: Pick<MarketManifest, 'market'>): GammaMarketMeta {
