@@ -37,6 +37,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
 import { spawn } from 'node:child_process'
+import { recorderReplayCacheDirectory } from '../recorder-v4/replay/cacheDirectory.js'
 
 interface Market {
   symbol: string
@@ -397,6 +398,8 @@ const FINDING_RE =
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
+  // Match the backtest worker's .env / BOT_ENV precedence before resolving its cache.
+  if (args.dataset === 'recorder-v4') await import('../config/env.js')
   const allSteps =
     args.dataset === 'recorder-v4'
       ? args.markets.map((market): Step => {
@@ -413,7 +416,7 @@ async function main(): Promise<void> {
               '--timeframe',
               market.timeframe,
               '--output',
-              process.env.RECORDER_REPLAY_CACHE_DIR ?? 'data/recorder-v4-cache',
+              recorderReplayCacheDirectory(),
               ...(args.from ? ['--from', args.from] : []),
               ...(args.to ? ['--to', args.to] : []),
             ],

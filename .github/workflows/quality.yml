@@ -88,7 +88,7 @@ jobs:
           sudo apt-get install -y zsh
 
       - name: Recorder service log and guarded update tests
-        run: node --test scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs scripts/tests/catalog-service.test.mjs
+        run: node --test scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs scripts/tests/catalog-service.test.mjs scripts/tests/catalog-recovery.test.mjs
 
       - name: Research protocol check
         run: npm run research:check

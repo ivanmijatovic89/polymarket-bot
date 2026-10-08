@@ -30,7 +30,7 @@
     "fleet:runtime:status": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-status.yml",
     "fleet:runtime:start": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-start.yml",
     "fleet:runtime:stop": "ANSIBLE_CONFIG=ops/ansible/ansible.cfg ansible-playbook -i ops/ansible/inventory.ini ops/ansible/global-runtime-stop.yml",
-    "test:fleet-ops": "node --test scripts/tests/fleet-ops.test.mjs scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs scripts/tests/catalog-service.test.mjs",
+    "test:fleet-ops": "node --test scripts/tests/fleet-ops.test.mjs scripts/tests/bounded-log.test.mjs scripts/tests/recorder-service-update.test.mjs scripts/tests/catalog-service.test.mjs scripts/tests/catalog-recovery.test.mjs",
     "fable:night-shift": "./scripts/fable-night-shift.sh",
     "record:v4": "tsx src/cli/record-v4.ts",
     "record:v4:data": "tsx src/cli/record-v4-data.ts",
