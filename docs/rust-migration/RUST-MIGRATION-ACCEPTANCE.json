@@ -70,19 +70,26 @@
         "python3 scripts/rust-migration/market-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
         "python3 scripts/rust-migration/portfolio-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
         "python3 scripts/rust-migration/math-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release",
-        "python3 scripts/rust-migration/metrics-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release"
+        "python3 scripts/rust-migration/metrics-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node --release",
+        "python3 scripts/rust-migration/intents-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "python3 scripts/rust-migration/metadata-differential.py --node /Users/mijat/.nvm/versions/node/v20.19.6/bin/node"
       ],
       "evidence": [
         "docs/rust-migration/SHARED-CORE-REVIEW.md",
+        "docs/rust-migration/evidence/core-validation.json",
         "docs/rust-migration/evidence/core-market.json",
         "docs/rust-migration/evidence/core-portfolio.json",
+        "docs/rust-migration/evidence/core-intents.json",
         "docs/rust-migration/evidence/core-math-debug.json",
         "docs/rust-migration/evidence/core-math-release.json",
         "docs/rust-migration/evidence/core-metrics-debug.json",
-        "docs/rust-migration/evidence/core-metrics-release.json"
+        "docs/rust-migration/evidence/core-metrics-release.json",
+        "docs/rust-migration/evidence/core-metadata-debug.json",
+        "docs/rust-migration/evidence/core-metadata-release.json",
+        "docs/rust-migration/evidence/core-stats.json"
       ],
       "verifiedRevision": null,
-      "notes": "Eight P2 helper findings repaired and independently rechecked. Bounded market/Portfolio/arithmetic/context metrics pass; SDK alias propagation, lossless account metadata, historical typed snapshots, strategies and full runner/production integration remain unmet."
+      "notes": "Bounded independent helper checkpoint passes with 68 native tests and 47 client/process tests. Historical typed snapshot payloads, intent/risk/cancellation and metadata data-property graphs are implemented; complete SDK record aliases, typed overflow probes, event dispatch, native strategies and all production integrations remain unmet. Ubuntu signed-zero failure repaired locally; new remote CI must revalidate it."
     },
     {
       "id": "core.02",
@@ -7789,19 +7796,25 @@
     "status": "bounded_helper_checkpoint_only",
     "review": "docs/rust-migration/SHARED-CORE-REVIEW.md",
     "reports": [
+      "docs/rust-migration/evidence/core-validation.json",
       "docs/rust-migration/evidence/core-market.json",
       "docs/rust-migration/evidence/core-portfolio.json",
+      "docs/rust-migration/evidence/core-intents.json",
       "docs/rust-migration/evidence/core-math-debug.json",
       "docs/rust-migration/evidence/core-math-release.json",
       "docs/rust-migration/evidence/core-metrics-debug.json",
-      "docs/rust-migration/evidence/core-metrics-release.json"
+      "docs/rust-migration/evidence/core-metrics-release.json",
+      "docs/rust-migration/evidence/core-metadata-debug.json",
+      "docs/rust-migration/evidence/core-metadata-release.json",
+      "docs/rust-migration/evidence/core-stats.json"
     ],
     "productionAcceptance": false,
     "noNewRuntimeCapabilitiesAdvertised": true,
     "remainingRequirements": [
-      "native strategies and SDK aliases",
-      "lossless account metadata integration",
-      "typed historical tick capture and runner dispatch",
+      "native strategies and complete schemas/artifact compatibility",
+      "shared mutable Portfolio/account record identity and lossless metadata propagation",
+      "direct typed derived-nonfinite Portfolio probes",
+      "SDK-visible wrapper identity, strategy context/plugins and receipt/runner sequencing",
       "all replay feeds/execution/Parquet/live/consumer/fleet wiring"
     ]
   }

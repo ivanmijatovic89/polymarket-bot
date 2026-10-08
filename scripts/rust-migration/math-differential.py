@@ -43,6 +43,9 @@ def fixtures():
                     if post_only != "missing": row["postOnly"] = post_only
                     if rate != "missing": row["rate"] = None if rate is None else bits(rate)
                     rows.append(row)
+    for left in [-0.0,0.0,float("nan"),float("inf")]:
+        for right in [-0.0,0.0,float("nan"),float("inf")]:
+            rows.append(dict(value=bits(left),price=bits(right),size=bits(1.0),rate=bits(700.0),postOnly=False,buy=True,taker=False))
     return rows
 
 def compare_outputs(expected, actual, count):

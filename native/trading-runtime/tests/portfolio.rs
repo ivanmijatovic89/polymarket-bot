@@ -327,7 +327,7 @@ fn control_metadata_and_extensions_preserve_negative_zero_internally() {
         (-0.0_f64).to_bits()
     );
 }
-fn opaque_number_bits(value: &Value) -> Value {
+fn opaque_number_bits(value: &Value, all_numbers: bool) -> Value {
     fn visit(value: &Value, path: &str, opaque: bool, result: &mut serde_json::Map<String, Value>) {
         match value {
             Value::Number(number) if opaque => {
@@ -366,7 +366,7 @@ fn opaque_number_bits(value: &Value) -> Value {
         }
     }
     let mut result = serde_json::Map::new();
-    visit(value, "", false, &mut result);
+    visit(value, "", all_numbers, &mut result);
     Value::Object(result)
 }
 
@@ -397,6 +397,7 @@ fn run_case(case: &Value) -> Value {
     let mut encoded_events = Vec::new();
     let mut opaque_keys = Vec::new();
     let mut opaque_bits = Vec::new();
+    let mut snapshot_number_bits = Vec::new();
     fn capture(
         p: &mut Portfolio,
         snapshots: &mut Vec<Value>,
@@ -404,10 +405,12 @@ fn run_case(case: &Value) -> Value {
         keys: &mut Vec<Value>,
         opaque_keys: &mut Vec<Value>,
         opaque_bits: &mut Vec<Value>,
+        snapshot_number_bits: &mut Vec<Value>,
     ) {
         let value = snapshot(p);
         opaque_keys.push(opaque_object_keys(&value));
-        opaque_bits.push(opaque_number_bits(&value));
+        opaque_bits.push(opaque_number_bits(&value, false));
+        snapshot_number_bits.push(opaque_number_bits(&value, true));
         let count = p.snapshot_rebuilds();
         p.snapshot();
         reuse.push(count == p.snapshot_rebuilds());
@@ -434,6 +437,7 @@ fn run_case(case: &Value) -> Value {
         &mut map_keys,
         &mut opaque_keys,
         &mut opaque_bits,
+        &mut snapshot_number_bits,
     );
     for (step, event) in steps.iter().zip(typed) {
         if let Some(event) = event {
@@ -450,10 +454,11 @@ fn run_case(case: &Value) -> Value {
                 &mut map_keys,
                 &mut opaque_keys,
                 &mut opaque_bits,
+                &mut snapshot_number_bits,
             );
         }
     }
-    json!({"name":case["name"],"result":{"snapshots":snapshots,"cacheReuse":cache_reuse,"mapKeys":map_keys,"encodedEvents":encoded_events,"opaqueKeys":opaque_keys,"opaqueBits":opaque_bits}})
+    json!({"name":case["name"],"result":{"snapshots":snapshots,"cacheReuse":cache_reuse,"mapKeys":map_keys,"encodedEvents":encoded_events,"opaqueKeys":opaque_keys,"opaqueBits":opaque_bits,"snapshotNumberBits":snapshot_number_bits}})
 }
 #[test]
 #[ignore = "test-only adapter invoked by scripts/rust-migration/portfolio-differential.py"]
@@ -469,4 +474,28 @@ fn differential_fixture_driver() {
         .map(run_case)
         .collect();
     std::fs::write(output, serde_json::to_vec(&results).unwrap()).unwrap();
+}
+
+#[test]
+fn signed_zero_ties_use_javascript_semantics_in_public_snapshots() {
+    for (first, second, expected) in [
+        (0.0, -0.0, 0.0_f64),
+        (-0.0, 0.0, 0.0_f64),
+        (-0.0, -0.0, -0.0_f64),
+    ] {
+        let mut p = Portfolio::new(PortfolioOptions::default(), first).unwrap();
+        p.apply(&AccountEvent::AccountStreamStatus {
+            ts_ms: first,
+            source: AccountStreamSource::UserWs,
+            status: AccountStreamStatus::Connected,
+            info: None,
+        });
+        p.apply(&AccountEvent::AccountStreamStatus {
+            ts_ms: second,
+            source: AccountStreamSource::UserWs,
+            status: AccountStreamStatus::Connected,
+            info: None,
+        });
+        assert_eq!(p.snapshot().now_ms.to_bits(), expected.to_bits());
+    }
 }

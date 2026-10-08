@@ -39,3 +39,32 @@ fn depth_truncation_and_missing_values_match_context() {
     );
     assert_eq!(result.weak_ask_ratio_by_level, vec![0.0, 0.25]);
 }
+
+#[test]
+fn negative_zero_depth_clamps_to_positive_zero_on_every_target() {
+    let up_depth = [-0.0, 1.0, -1.0, 5e-324];
+    let down_depth = [1.0, -0.0, 1.0, 1e308];
+    let result = compute_orderbook_metrics(
+        BookDepthView {
+            depth_levels: 4.0,
+            bids: &up_depth,
+            asks: &down_depth,
+        },
+        BookDepthView {
+            depth_levels: 4.0,
+            bids: &down_depth,
+            asks: &up_depth,
+        },
+    );
+    for ratio in result
+        .weak_bid_ratio_by_level
+        .iter()
+        .chain(&result.weak_ask_ratio_by_level)
+    {
+        assert_eq!(ratio.to_bits(), 0.0f64.to_bits());
+    }
+    assert_eq!(
+        result.weak_bid_side_by_level,
+        vec![WeakSide::UP, WeakSide::DOWN, WeakSide::UP, WeakSide::UP]
+    );
+}

@@ -138,6 +138,15 @@ def fixtures():
         message=json.dumps(book(),separators=(",",":"))[:-1]+',"extra":'+literal+'}'
         add("invalid-json-number-"+literal,[{"kind":"raw","rawJson":message},raw(book(2))])
     add("raw-duplicate-object-keys",[{"kind":"raw","rawJson":'{"event_type":"invalid","event_type":"book","market":"m","asset_id":"up","timestamp":1,"bids":[],"asks":[],"extra":{"same":1,"same":2}}'}])
+    add("retained-frame-ticks-after-updates-reset-and-bootstrap",[raw([book(1),book(2,"down")],source=source),raw(delta(3,[change("up","0.5","9")])),{"kind":"reset"},raw([book(4,"down"),book(5)],bootstrap=True),raw(delta(6,[change("down","0.7","2","SELL")]))],retainTicks=True)
+    add("retained-metadata-noops-and-global-only-time",[raw(book()),raw(delta(1,[change("up","0.4","3")])),raw({"event_type":"tick_size_change","market":"m","asset_id":"up","timestamp":"2","new_tick_size":"0.01"}),raw(delta(3,[])),raw({"event_type":"last_trade_price","market":"m","asset_id":"up","timestamp":"4","price":"0.8","size":"7"})],retainTicks=True)
+    add("retained-partial-delta-and-full-book-failures",[raw(book()),raw(delta(2,[change("up","0.5","6"),change("up","bad","2")])),raw(book("bad",bids=[{"price":"0.9","size":"7"}])),raw(book(3,"down")),{"kind":"reset"}],retainTicks=True)
+    add("retained-prior-ticks-and-partial-multiasset-frame-error",[raw([book(),book(2,"down"),delta(3,[change("down","0.7","8","SELL"),change("up","bad","1")]),book(4)])],retainTicks=True)
+    zero='{"event_type":"book","market":"m","asset_id":"up","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}]}'
+    add("retained-internal-zero-and-overflow-bits",[{"kind":"raw","rawJson":zero},raw(book(2,bids=[{"price":1e308,"size":1e308},{"price":9e307,"size":1e308}],asks=[{"price":1e308,"size":1}])),raw(book(3,bids=[{"price":-1e308,"size":1}],asks=[{"price":1e308,"size":1}])),{"kind":"reset"}],retainTicks=True)
+    add("retained-property-key-collisions-and-js-order",[raw(book(1,asset_id=2)),raw(book(2,asset_id={"tag":1})),raw(book(3,"2")),raw(book(4,"1")),raw(book(5,"01")),raw(book(6,"[object Object]")),{"kind":"reset"}],retainTicks=True)
+    utf16='{"event_type":"book","market":"m\\ud800","asset_id":"a\\udfff","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[]}'
+    add("retained-utf16-keys-and-identity-metadata",[{"kind":"raw","rawJson":utf16},{"kind":"raw","rawJson":utf16.replace('"timestamp":-0','"timestamp":2')},{"kind":"reset"}],retainTicks=True)
     rng=random.Random(614002)
     for case in range(40):
         operations=[]
@@ -240,7 +249,7 @@ def main():
         "cases":len(cases),"totalCaseCount":len(cases)+len(gaps),"operations":sum(len(case["input"]["operations"]) for case in cases+gaps),
         "testedFixturesFullOutputParity":True,"fullOutputParity":not unclosed,
         "unclosedAcceptanceFixtures":unclosed,"knownGapFixtureCount":len(gaps),
-        "numericComparisonDomain":"JavaScript binary64, including integer JSON tokens; booleans remain distinct","scope":"Standalone shared market frame/book semantics; no production activation, Parquet, feeds, strategy, live queue or event scheduler"}
+        "numericComparisonDomain":"JavaScript binary64, including integer JSON tokens; booleans remain distinct","retainedSnapshotCaseCount":sum(bool(case["input"].get("retainTicks")) for case in cases+gaps),"scope":"Standalone shared market frame/book and retained typed snapshot semantics; no production activation, Parquet, feeds, strategy, live queue or event scheduler"}
     if args.report:args.report.write_text(json.dumps(report,indent=2)+"\n")
     print(json.dumps(report,indent=2))
     if unclosed:raise SystemExit("Market acceptance is incomplete: UTF-16 string representation gaps remain")

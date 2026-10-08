@@ -1,10 +1,14 @@
 //! Shared entry points for the standalone native trading runtime.
+pub mod cancellation;
+pub mod intent;
 pub mod market;
 pub mod market_json;
 pub mod math;
+pub mod metadata;
 pub mod metrics;
 pub mod portfolio;
 pub mod protocol;
+pub mod risk;
 pub mod stats;
 
 use protocol::{ProtocolError, Request, Response};

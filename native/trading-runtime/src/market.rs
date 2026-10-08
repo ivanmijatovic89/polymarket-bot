@@ -8,6 +8,11 @@ pub use crate::market_json::{JsString, JsValue};
 use crate::math::js_number_string;
 use crate::protocol::ProtocolError;
 use serde_json::{json, Value};
+use std::cell::{Cell, RefCell};
+use std::sync::Arc;
+#[path = "market_snapshot.rs"]
+mod market_snapshot;
+pub use market_snapshot::{BookSnapshot, MarketSnapshot, SnapshotEntry};
 fn js(value: Value) -> JsValue {
     JsValue::from_value(value)
 }
@@ -51,14 +56,14 @@ impl MarketError {
 pub struct MarketTick {
     pub source: Value,
     pub msg: JsValue,
-    pub snapshot: JsValue,
+    pub snapshot: Arc<MarketSnapshot>,
 }
 impl MarketTick {
     fn json_value(&self) -> JsValue {
         object([
             ("source", js(self.source.clone())),
             ("msg", self.msg.clone()),
-            ("snapshot", self.snapshot.clone()),
+            ("snapshot", self.snapshot.trace_value()),
         ])
     }
 }
@@ -108,12 +113,32 @@ struct Book {
     tick_sell: Option<f64>,
     hash: Option<JsValue>,
     trades: Vec<JsValue>,
+    snapshot: Arc<BookSnapshot>,
+    snapshot_key: Result<Arc<JsString>, MarketError>,
 }
 impl Book {
     fn new(market: Option<JsValue>, asset: Option<JsValue>, depth: f64) -> Self {
+        let snapshot = BookSnapshot::initial(BookView {
+            market: market.as_ref(),
+            asset_id: asset.as_ref(),
+            bids: &[],
+            asks: &[],
+            bids_depth: &[],
+            asks_depth: &[],
+            depth_levels: depth,
+            timestamp: 0.0,
+            best_bid: None,
+            best_ask: None,
+            mid: None,
+            spread: None,
+        });
+        // Conversion can fail; preserve its original snapshot-time failure.
+        let snapshot_key = js_string(asset.as_ref()).map(Arc::new);
         Self {
             market,
             asset,
+            snapshot,
+            snapshot_key,
             bids: vec![],
             asks: vec![],
             bids_depth: vec![],
@@ -153,54 +178,6 @@ impl Book {
             .first()
             .map(|level| if level.price == 0.0 { 0.0 } else { level.price })
     }
-    fn snapshot(&self) -> JsValue {
-        let bid = self.best(true);
-        let ask = self.best(false);
-        fn optional(value: Option<f64>) -> JsValue {
-            value.map(JsValue::Number).unwrap_or(JsValue::Null)
-        }
-        let mut fields = vec![];
-        if let Some(market) = &self.market {
-            fields.push(("market", market.clone()));
-        }
-        if let Some(asset) = &self.asset {
-            fields.push(("assetId", asset.clone()));
-        }
-        fields.extend([
-            ("timestamp", JsValue::Number(self.timestamp)),
-            ("bestBid", optional(bid)),
-            ("bestAsk", optional(ask)),
-            (
-                "mid",
-                optional(bid.zip(ask).map(|(bid, ask)| (bid + ask) / 2.0)),
-            ),
-            ("spread", optional(bid.zip(ask).map(|(bid, ask)| ask - bid))),
-            ("bids", js(levels_value(&self.bids))),
-            ("asks", js(levels_value(&self.asks))),
-            ("depthLevels", JsValue::Number(self.depth)),
-            (
-                "bidsDepthByLevel",
-                JsValue::array(
-                    self.bids_depth
-                        .iter()
-                        .copied()
-                        .map(JsValue::Number)
-                        .collect(),
-                ),
-            ),
-            (
-                "asksDepthByLevel",
-                JsValue::array(
-                    self.asks_depth
-                        .iter()
-                        .copied()
-                        .map(JsValue::Number)
-                        .collect(),
-                ),
-            ),
-        ]);
-        object(fields)
-    }
     fn state(&self) -> JsValue {
         let mut result = js(
             json!({"bids":levels_value(&self.bids),"asks":levels_value(&self.asks),
@@ -224,6 +201,7 @@ impl Book {
         let result = self.apply_inner(msg);
         self.bids_depth = cumulative(&self.bids, self.depth);
         self.asks_depth = cumulative(&self.asks, self.depth);
+        self.snapshot = BookSnapshot::updated(self.view(), &self.snapshot);
         result
     }
     fn apply_inner(&mut self, msg: &JsValue) -> Result<(), MarketError> {
@@ -676,6 +654,8 @@ pub struct MarketEngine {
     saw_books: Vec<Option<JsValue>>,
     last_by_asset: Vec<(Option<JsValue>, f64)>,
     depth: f64,
+    snapshot_cache: RefCell<Option<Arc<MarketSnapshot>>>,
+    snapshot_dirty: Cell<bool>,
 }
 impl MarketEngine {
     pub fn new(expected: Option<[String; 2]>, depth: f64) -> Result<Self, MarketError> {
@@ -690,6 +670,8 @@ impl MarketEngine {
             saw_books: vec![],
             last_by_asset: vec![],
             depth: depth.floor().max(1.0),
+            snapshot_cache: RefCell::new(None),
+            snapshot_dirty: Cell::new(true),
         })
     }
     pub fn reset(&mut self) {
@@ -698,6 +680,8 @@ impl MarketEngine {
         self.books.clear();
         self.saw_books.clear();
         self.last_by_asset.clear();
+        *self.snapshot_cache.get_mut() = None;
+        self.snapshot_dirty.set(true);
     }
     fn assert_market(&mut self, market: Option<&JsValue>, kind: &str) -> Result<(), MarketError> {
         if !truthy(self.market.as_ref()) {
@@ -745,6 +729,8 @@ impl MarketEngine {
         }
     }
     fn apply(&mut self, msg: &JsValue) -> Result<(), MarketError> {
+        // Rejected messages can still alter global time, create books or mutate levels.
+        self.snapshot_dirty.set(true);
         let kind = string(msg, "event_type");
         let market = msg.get("market");
         if market
@@ -807,23 +793,82 @@ impl MarketEngine {
         }
         Ok(())
     }
-    pub fn snapshot(&self) -> Result<JsValue, MarketError> {
-        let mut by_asset = JsValue::object(vec![]);
-        for book in &self.books {
-            by_asset.insert_key(js_string(book.asset.as_ref())?, book.snapshot());
+    /// Freeze historical book state without JSON construction. Unchanged book
+    /// nodes, sides and cumulative arrays retain their shared allocations.
+    pub fn snapshot(&self) -> Result<Arc<MarketSnapshot>, MarketError> {
+        if !self.snapshot_dirty.get() {
+            if let Some(snapshot) = self.snapshot_cache.borrow().as_ref() {
+                return Ok(Arc::clone(snapshot));
+            }
         }
-        Ok(object([
-            (
-                "market",
-                self.market
-                    .as_ref()
-                    .filter(|m| !m.is_null())
-                    .cloned()
-                    .unwrap_or_else(|| JsValue::String("(unknown)".into())),
-            ),
-            ("timestamp", JsValue::Number(self.timestamp)),
-            ("byAssetId", by_asset),
-        ]))
+        let mut entries: Vec<SnapshotEntry> = Vec::with_capacity(self.books.len());
+        for book in &self.books {
+            let key = book.snapshot_key.clone()?;
+            let entry = SnapshotEntry {
+                key,
+                book: Arc::clone(&book.snapshot),
+            };
+            if let Some(index) = entries.iter().position(|prior| prior.key == entry.key) {
+                entries[index].book = entry.book;
+            } else {
+                entries.push(entry);
+            }
+        }
+        entries.sort_by_key(|entry| {
+            entry
+                .key
+                .array_index()
+                .map(|index| (0, index))
+                .unwrap_or((1, 0))
+        });
+        let previous = self.snapshot_cache.borrow();
+        let entries_same = previous.as_ref().is_some_and(|previous| {
+            previous.by_asset_id.len() == entries.len()
+                && previous
+                    .by_asset_id
+                    .iter()
+                    .zip(&entries)
+                    .all(|(old, new)| old.key == new.key && Arc::ptr_eq(&old.book, &new.book))
+        });
+        let market = self.market.as_ref().filter(|market| !market.is_null());
+        let market_same =
+            previous
+                .as_ref()
+                .is_some_and(|previous| match (market, previous.market.as_ref()) {
+                    (Some(JsValue::Number(left)), JsValue::Number(right)) => {
+                        left.to_bits() == right.to_bits()
+                    }
+                    (Some(left), right) => left.same_identity(right),
+                    (None, JsValue::String(value)) => value.matches("(unknown)"),
+                    _ => false,
+                });
+        let snapshot = if let Some(previous) = previous.as_ref().filter(|previous| {
+            entries_same && market_same && previous.timestamp.to_bits() == self.timestamp.to_bits()
+        }) {
+            Arc::clone(previous)
+        } else {
+            Arc::new(MarketSnapshot {
+                market: if market_same {
+                    Arc::clone(&previous.as_ref().expect("cached market").market)
+                } else {
+                    Arc::new(
+                        market
+                            .cloned()
+                            .unwrap_or_else(|| JsValue::String("(unknown)".into())),
+                    )
+                },
+                timestamp: self.timestamp,
+                by_asset_id: if entries_same {
+                    Arc::clone(&previous.as_ref().expect("cached entries").by_asset_id)
+                } else {
+                    entries.into()
+                },
+            })
+        };
+        drop(previous);
+        *self.snapshot_cache.borrow_mut() = Some(Arc::clone(&snapshot));
+        self.snapshot_dirty.set(false);
+        Ok(snapshot)
     }
     pub fn inspection(&self) -> Result<JsValue, MarketError> {
         let warm = if let Some(expected) = &self.expected {
@@ -856,15 +901,14 @@ impl MarketEngine {
             states.insert_key(js_string(book.asset.as_ref())?, book.state());
         }
         Ok(object([
-            ("snapshot", self.snapshot()?),
+            ("snapshot", self.snapshot()?.trace_value()),
             (
                 "snapshotAssetKeys",
                 JsValue::array(
-                    self.snapshot()?["byAssetId"]
-                        .as_object()
-                        .unwrap_or(&[])
+                    self.snapshot()?
+                        .by_asset_id
                         .iter()
-                        .map(|(key, _)| JsValue::String(key.clone()))
+                        .map(|entry| JsValue::String(entry.key.as_ref().clone()))
                         .collect(),
                 ),
             ),
@@ -967,6 +1011,58 @@ impl MarketEngine {
     }
 }
 
+/// Diagnostic evidence of internal number classes; JSON output alone masks
+/// infinities and signed zero. This projection is never used for dispatch.
+fn snapshot_numeric_bits(snapshot: &MarketSnapshot) -> JsValue {
+    fn bits(value: f64) -> JsValue {
+        JsValue::String(format!("{:016x}", value.to_bits()).into())
+    }
+    fn optional(value: Option<f64>) -> JsValue {
+        value.map(bits).unwrap_or(JsValue::Null)
+    }
+    fn levels(values: &[Level]) -> JsValue {
+        JsValue::array(
+            values
+                .iter()
+                .map(|level| JsValue::array(vec![bits(level.price), bits(level.size)]))
+                .collect(),
+        )
+    }
+    object([
+        ("timestamp", bits(snapshot.timestamp)),
+        (
+            "books",
+            JsValue::array(
+                snapshot
+                    .books()
+                    .map(|entry| {
+                        let book = &entry.book;
+                        object([
+                            ("key", JsValue::String(entry.key.as_ref().clone())),
+                            ("timestamp", bits(book.timestamp)),
+                            ("depthLevels", bits(book.depth_levels)),
+                            ("bestBid", optional(book.best_bid)),
+                            ("bestAsk", optional(book.best_ask)),
+                            ("mid", optional(book.mid)),
+                            ("spread", optional(book.spread)),
+                            ("bids", levels(&book.bids)),
+                            ("asks", levels(&book.asks)),
+                            (
+                                "bidsDepthByLevel",
+                                JsValue::array(book.bids_depth.iter().copied().map(bits).collect()),
+                            ),
+                            (
+                                "asksDepthByLevel",
+                                JsValue::array(book.asks_depth.iter().copied().map(bits).collect()),
+                            ),
+                        ])
+                    })
+                    .collect(),
+            ),
+        ),
+    ])
+}
+
 /// Portable operation driver for independent whole-output fixtures. This is not
 /// a production replay mode, queue job or replacement for a session tick loop.
 pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
@@ -1008,6 +1104,11 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
         .and_then(Value::as_array)
         .ok_or_else(|| ProtocolError::invalid_request("operations must be an array"))?;
     let mut steps = vec![];
+    let retain_ticks = input
+        .get("retainTicks")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut retained = vec![];
     for operation in operations {
         let source = operation
             .get("source")
@@ -1051,6 +1152,16 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
                 ))
             }
         };
+        if retain_ticks {
+            retained.extend(
+                match &outcome {
+                    Ok(result) => &result.ticks,
+                    Err(error) => &error.ticks,
+                }
+                .iter()
+                .cloned(),
+            );
+        }
         let mut step = engine
             .inspection()
             .unwrap_or_else(|error| object([("inspectionError", error.value())]));
@@ -1080,7 +1191,7 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
         step.insert("messageKeys", JsValue::array(message_keys));
         steps.push(step);
     }
-    Ok(object([
+    let mut result = object([
         ("steps", JsValue::array(steps)),
         (
             "final",
@@ -1088,5 +1199,21 @@ pub fn verify_market(input: &Value) -> Result<JsValue, ProtocolError> {
                 .inspection()
                 .unwrap_or_else(|error| object([("inspectionError", error.value())])),
         ),
-    ]))
+    ]);
+    if retain_ticks {
+        result.insert(
+            "retainedTicks",
+            JsValue::array(retained.iter().map(MarketTick::json_value).collect()),
+        );
+        result.insert(
+            "retainedNumericBits",
+            JsValue::array(
+                retained
+                    .iter()
+                    .map(|tick| snapshot_numeric_bits(&tick.snapshot))
+                    .collect(),
+            ),
+        );
+    }
+    Ok(result)
 }

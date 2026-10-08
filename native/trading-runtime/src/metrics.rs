@@ -1,4 +1,5 @@
 //! Shared typed strategy context metrics; adapters resolve market asset IDs.
+use crate::math::js_min;
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,15 +22,6 @@ fn finite_or_zero(value: f64) -> f64 {
         value
     } else {
         0.0
-    }
-}
-fn js_min(left: f64, right: f64) -> f64 {
-    if left.is_nan() || right.is_nan() {
-        f64::NAN
-    } else if left == 0.0 && right == 0.0 && (left.is_sign_negative() || right.is_sign_negative()) {
-        -0.0
-    } else {
-        left.min(right)
     }
 }
 pub fn compute_position_metrics(
@@ -88,9 +80,18 @@ pub struct OrderbookMetrics {
     pub weak_ask_side_by_level: Vec<WeakSide>,
     pub weak_ask_ratio_by_level: Vec<f64>,
 }
+fn nonnegative_depth(value: f64) -> f64 {
+    // Math.max(0, value) chooses positive zero on ties. f64::max permits
+    // either signed zero, so express the intended result on every target.
+    if value.is_finite() && value > 0.0 {
+        value
+    } else {
+        0.0
+    }
+}
 fn weak_side(up: f64, down: f64) -> (WeakSide, f64) {
-    let up = finite_or_zero(up).max(0.0);
-    let down = finite_or_zero(down).max(0.0);
+    let up = nonnegative_depth(up);
+    let down = nonnegative_depth(down);
     if up == down {
         (WeakSide::NONE, 1.0)
     } else {

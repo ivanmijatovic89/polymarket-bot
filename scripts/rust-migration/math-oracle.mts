@@ -34,6 +34,8 @@ const results = rows.map((row) => {
     capital = { valid: false, error: (error as Error).message }
   }
   return {
+    min: encoded(Math.min(value, price)),
+    max: encoded(Math.max(value, price)),
     round: encoded(Math.round(value)),
     round8: encoded(round8(value)),
     round2: encoded(round2(value)),

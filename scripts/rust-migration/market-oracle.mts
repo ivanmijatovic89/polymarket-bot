@@ -11,7 +11,12 @@ type Operation = {
   rawJson?: string
   messages?: AnyMarketMessage[]
 }
-type Input = { expectedAssetIds?: [string, string]; depthLevels?: number; operations: Operation[] }
+type Input = {
+  expectedAssetIds?: [string, string]
+  depthLevels?: number
+  operations: Operation[]
+  retainTicks?: boolean
+}
 // Iterative projection avoids adding JSON.stringify's JavaScript call-stack
 // limit to the production decoder's acceptance domain in this test harness.
 function copy(value: unknown): any {
@@ -115,12 +120,41 @@ function inspect(engine: MarketEngine) {
     ),
   }
 }
+function snapshotNumericBits(snapshot: EngineTick['snapshot']) {
+  const buffer = new ArrayBuffer(8)
+  const view = new DataView(buffer)
+  const bits = (value: number) => {
+    view.setFloat64(0, value, false)
+    return view.getBigUint64(0, false).toString(16).padStart(16, '0')
+  }
+  const optional = (value: number | null) => (value === null ? null : bits(value))
+  const levels = (values: { price: number; size: number }[]) =>
+    values.map((level) => [bits(level.price), bits(level.size)])
+  return {
+    timestamp: bits(snapshot.timestamp),
+    books: Object.entries(snapshot.byAssetId).map(([key, book]) => ({
+      key,
+      timestamp: bits(book.timestamp),
+      depthLevels: bits(book.depthLevels),
+      bestBid: optional(book.bestBid),
+      bestAsk: optional(book.bestAsk),
+      mid: optional(book.mid),
+      spread: optional(book.spread),
+      bids: levels(book.bids),
+      asks: levels(book.asks),
+      bidsDepthByLevel: book.bidsDepthByLevel.map(bits),
+      asksDepthByLevel: book.asksDepthByLevel.map(bits),
+    })),
+  }
+}
 async function run(input: Input) {
   let ticks: EngineTick[] = []
+  const retained: EngineTick[] = []
   const engine = new MarketEngine({
     ...(input.expectedAssetIds ? { expectedAssetIds: input.expectedAssetIds } : {}),
     onTick: (tick) => {
       ticks.push(copy(tick))
+      if (input.retainTicks) retained.push(tick)
     },
   })
   const originalDepth = process.env.WEB_UI_ORDERBOOK_LEVELS
@@ -162,7 +196,16 @@ async function run(input: Input) {
         }),
       )
     }
-    return { steps, final: copy(safeInspect(engine)) }
+    return {
+      steps,
+      final: copy(safeInspect(engine)),
+      ...(input.retainTicks
+        ? {
+            retainedTicks: copy(retained),
+            retainedNumericBits: retained.map((tick) => snapshotNumericBits(tick.snapshot)),
+          }
+        : {}),
+    }
   } finally {
     if (originalDepth === undefined) delete process.env.WEB_UI_ORDERBOOK_LEVELS
     else process.env.WEB_UI_ORDERBOOK_LEVELS = originalDepth

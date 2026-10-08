@@ -3,6 +3,40 @@
 pub const DEFAULT_STARTING_CAPITAL: f64 = 500.0;
 pub const CRYPTO_TAKER_FEE_BPS: f64 = 700.0;
 
+/// ECMAScript Math.max for two numbers, including deterministic zero ties.
+pub fn js_max(left: f64, right: f64) -> f64 {
+    if left.is_nan() || right.is_nan() {
+        f64::NAN
+    } else if left == 0.0 && right == 0.0 {
+        if left.is_sign_negative() && right.is_sign_negative() {
+            -0.0
+        } else {
+            0.0
+        }
+    } else if left > right {
+        left
+    } else {
+        right
+    }
+}
+
+/// ECMAScript Math.min for two numbers, including deterministic zero ties.
+pub fn js_min(left: f64, right: f64) -> f64 {
+    if left.is_nan() || right.is_nan() {
+        f64::NAN
+    } else if left == 0.0 && right == 0.0 {
+        if left.is_sign_negative() || right.is_sign_negative() {
+            -0.0
+        } else {
+            0.0
+        }
+    } else if left < right {
+        left
+    } else {
+        right
+    }
+}
+
 pub fn js_round(value: f64) -> f64 {
     if !value.is_finite() || value == 0.0 {
         return value;

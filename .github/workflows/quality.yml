@@ -125,6 +125,14 @@ jobs:
           python3 scripts/rust-migration/market-differential.py --node node
           python3 scripts/rust-migration/portfolio-differential.py --node node
 
+      - name: Full intent risk and cancellation reference comparisons
+        run: python3 scripts/rust-migration/intents-differential.py --node node
+
+      - name: Debug and release mutable metadata reference comparisons
+        run: |
+          python3 scripts/rust-migration/metadata-differential.py --node node
+          python3 scripts/rust-migration/metadata-differential.py --node node --release
+
       - name: Debug and release arithmetic and metric reference comparisons
         run: |
           python3 scripts/rust-migration/math-differential.py --node node

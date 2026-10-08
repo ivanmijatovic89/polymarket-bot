@@ -28,7 +28,7 @@ fn main() {
         let buy = row["buy"].as_bool().unwrap();
         let taker = row["taker"].as_bool().unwrap();
         let capital = validate_starting_capital(value);
-        json!({"round":encoded(js_round(value)),"round8":encoded(round8(value)),"round2":encoded(round2(value)),
+        json!({"min":encoded(js_min(value,price)),"max":encoded(js_max(value,price)),"round":encoded(js_round(value)),"round8":encoded(round8(value)),"round2":encoded(round2(value)),
             "fee":encoded(compute_taker_fee(rate.unwrap_or(f64::NAN),price,size)),"commitment":encoded(buy_commitment(price,size,post_only)),
             "cashDelta":encoded(fill_cash_delta(price,size,buy,taker,rate)),"numberString":js_number_string(value),
             "capital":match capital {Ok(number)=>json!({"valid":true,"value":encoded(number)}),Err(error)=>json!({"valid":false,"error":error})}})

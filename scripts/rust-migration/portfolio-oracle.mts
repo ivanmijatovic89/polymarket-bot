@@ -41,7 +41,7 @@ function opaqueObjectKeys(value: unknown): Record<string, string[]> {
   visit(value, '', false)
   return result
 }
-function opaqueNumberBits(value: unknown): Record<string, string> {
+function opaqueNumberBits(value: unknown, allNumbers = false): Record<string, string> {
   const result: Record<string, string> = {}
   const visit = (node: unknown, path: string, opaque: boolean) => {
     if (typeof node === 'number' && opaque) {
@@ -58,7 +58,7 @@ function opaqueNumberBits(value: unknown): Record<string, string> {
     for (const [key, child] of Object.entries(node))
       visit(child, `${path}/${pointerKey(key)}`, opaque || opaqueFields.has(key))
   }
-  visit(value, '', false)
+  visit(value, '', allNumbers)
   return result
 }
 const document = JSON.parse(readFileSync(process.argv[2]!, 'utf8')) as { cases: Case[] }
@@ -78,6 +78,7 @@ const results = document.cases.map(({ name, input }) => {
   const encodedEvents: unknown[] = []
   const opaqueKeys: Record<string, string[]>[] = []
   const opaqueBits: Record<string, string>[] = []
+  const snapshotNumberBits: Record<string, string>[] = []
   const mapKeys: Record<string, string[]>[] = []
   const capture = () => {
     const current = p.snapshot()
@@ -85,6 +86,7 @@ const results = document.cases.map(({ name, input }) => {
     snapshots.push(JSON.parse(JSON.stringify(current)))
     opaqueKeys.push(opaqueObjectKeys(current))
     opaqueBits.push(opaqueNumberBits(current))
+    snapshotNumberBits.push(opaqueNumberBits(current, true))
     mapKeys.push({
       positionsByAssetId: Object.keys(current.positionsByAssetId),
       openOrdersByClientId: Object.keys(current.openOrdersByClientId),
@@ -145,7 +147,15 @@ const results = document.cases.map(({ name, input }) => {
   }
   return {
     name,
-    result: { snapshots, cacheReuse, mapKeys, encodedEvents, opaqueKeys, opaqueBits },
+    result: {
+      snapshots,
+      cacheReuse,
+      mapKeys,
+      encodedEvents,
+      opaqueKeys,
+      opaqueBits,
+      snapshotNumberBits,
+    },
     ...(input.mutableAliasesProbe ? { mutableAliases } : {}),
     ...(input.aliasProbe
       ? {

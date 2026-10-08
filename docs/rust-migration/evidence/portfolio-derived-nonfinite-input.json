@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "name": "finite-input-derived-nonfinite",
+      "input": {
+        "initialNowMs": 0,
+        "steps": [
+          {
+            "event": {
+              "kind": "fill",
+              "fill": {
+                "id": "overflow",
+                "tsMs": 1,
+                "assetId": "up",
+                "side": "BUY",
+                "price": 1e308,
+                "size": 1e308,
+                "liquidity": "MAKER"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

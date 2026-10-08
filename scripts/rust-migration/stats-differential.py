@@ -1,12 +1,13 @@
 """Full-output Rust/TypeScript parity with hash-pinned independent source provenance.
 
-Run after building the native executable. No private data or services required.
+Builds and freezes the current native executable. No private data or services required.
 Fixtures cover actual ordering/streak semantics, ISO year boundaries, negative
 rounding, busy intervals, numerical quality guards and every last-N threshold.
 """
 import argparse
 import hashlib
 import json
+import math
 import random
 import shutil
 import subprocess
@@ -36,6 +37,9 @@ def fixtures():
         cases.append({"name": name, "input": {"markets": markets, "initialCapital": initial}})
 
     add("empty", [])
+    # JS and Serde may emit different decimal spellings for the same double.
+    for capital in [18446744073709551615,9007199254740993,1000000000000000100,1e100,-18446744073709551615]:
+        add(f"large-capital-binary64-{capital}",[],initial=capital)
     add("no-activity-flat-and-zero-bridging-streaks", [market(p, START+i*DAY,
         **({"skipReason": "no_in_window_activity"} if i == 1 else {"tradeCount": 2} if i == 4 else {}))
         for i, p in enumerate([1, 0, 2, -1, 0, -2, 0, 3, 4, -9])])
@@ -109,7 +113,16 @@ def assert_equal(expected,actual,path="$"):
             raise AssertionError(f"{path}: array length differs")
         for index,(left,right) in enumerate(zip(expected,actual)):
             assert_equal(left,right,f"{path}[{index}]")
-    elif (isinstance(expected,bool) != isinstance(actual,bool)) or expected!=actual:
+    elif isinstance(expected,bool)!=isinstance(actual,bool):
+        raise AssertionError(f"{path}: boolean/number differs")
+    elif isinstance(expected,(int,float)) and not isinstance(expected,bool) and isinstance(actual,(int,float)):
+        # Compare exact JS Number values, not Python arbitrary-precision JSON
+        # integers. Reject native integer precision unavailable to JS Number.
+        if isinstance(actual,int) and float(actual)!=actual:
+            raise AssertionError(f"{path}: native integer retains precision unavailable to JS Number")
+        if float(expected)!=float(actual):
+            raise AssertionError(f"{path}: TS={expected!r} Rust={actual!r}")
+    elif expected!=actual:
         raise AssertionError(f"{path}: TS={expected!r} Rust={actual!r}")
 
 
@@ -130,10 +143,43 @@ def assert_comparator_rejects_boolean_numbers():
     return len(mutations)
 
 
+def assert_binary64_comparator_guards():
+    assert_equal(18446744073709552000,1.8446744073709552e19)
+    assert_equal(1000000000000000100,1.0000000000000001e18)
+    mutations=[(9007199254740992,9007199254740993),(1.8446744073709552e19,math.nextafter(1.8446744073709552e19,0.0)),(1e100,math.nextafter(1e100,math.inf)),(1.0,"1")]
+    for expected,actual in mutations:
+        try:assert_equal(expected,actual)
+        except AssertionError:continue
+        raise AssertionError("Stats comparator accepted a binary64/type mutation")
+    return len(mutations)
+
+
+def native_fingerprints():
+    native_root=ROOT/"native/trading-runtime"
+    files=[native_root/"Cargo.toml",native_root/"Cargo.lock"]+sorted((native_root/"src").rglob("*.rs"))
+    return {str(path.relative_to(ROOT)):hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
+
+
+def assert_output_counts(expected,actual,count):
+    if not isinstance(expected,list) or not isinstance(actual,list) or len(expected)!=count or len(actual)!=count:
+        raise AssertionError("Both output counts must equal the input fixture count")
+
+
+def assert_comparator_rejects_counts():
+    rows=[{"name":"fixture","result":{}}]
+    mutations=[([],rows),(rows,[]),(rows+rows,rows),(rows,rows+rows),([],[]),(rows+rows,rows+rows),({},rows),(rows,{})]
+    assert_output_counts(rows,rows,1)
+    for expected,actual in mutations:
+        try:assert_output_counts(expected,actual,1)
+        except AssertionError:continue
+        raise AssertionError("Comparator accepted an output-count mutation")
+    return len(mutations)
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--node",required=True)
-    parser.add_argument("--binary",type=Path,default=ROOT/"native/trading-runtime/target/debug/polymarket-runtime")
+    parser.add_argument("--cargo",default=str(Path.home()/".cargo/bin/cargo"))
     parser.add_argument("--report",type=Path)
     args=parser.parse_args()
     version=subprocess.check_output([args.node,"--version"],text=True).strip()
@@ -149,10 +195,18 @@ def main():
     mutation_count=assert_comparator_rejects_boolean_numbers()
     wrappers=[Path(__file__).resolve(), ROOT/"scripts/rust-migration/stats-oracle.mts"]
     wrapper_hashes={str(path.relative_to(ROOT)):hashlib.sha256(path.read_bytes()).hexdigest() for path in wrappers}
+    native_hashes=native_fingerprints()
+    build_command=[args.cargo,"build","--locked","--offline","--manifest-path","native/trading-runtime/Cargo.toml","--bin","polymarket-runtime","--message-format=json"]
+    build=subprocess.run(build_command,cwd=ROOT,text=True,capture_output=True,check=True)
+    messages=[json.loads(line) for line in build.stdout.splitlines() if line.startswith("{")]
+    binaries=[message["executable"] for message in messages if message.get("reason")=="compiler-artifact" and message.get("target",{}).get("name")=="polymarket-runtime" and message.get("executable")]
+    if len(binaries)!=1:raise RuntimeError("Build must identify exactly one native executable")
+    original_binary=Path(binaries[0]).resolve()
+    toolchain={"cargo":subprocess.check_output([args.cargo,"--version"],text=True).strip(),"rustc":subprocess.check_output([str(Path(args.cargo).parent/"rustc"),"--version","--verbose"],text=True).strip()}
+    if native_fingerprints()!=native_hashes:raise RuntimeError("Native source set changed during build")
     cases=fixtures()
     payload=json.dumps({"cases":cases},separators=(",",":"))
     with tempfile.TemporaryDirectory(prefix="rust-stats-parity-") as directory:
-        original_binary=args.binary.resolve()
         binary_before=hashlib.sha256(original_binary.read_bytes()).hexdigest()
         frozen_binary=Path(directory)/"polymarket-runtime"
         shutil.copy2(original_binary,frozen_binary)
@@ -173,14 +227,19 @@ def main():
     for path,digest in wrapper_hashes.items():
         if hashlib.sha256((ROOT/path).read_bytes()).hexdigest()!=digest:
             raise RuntimeError(f"Differential wrapper changed during comparison: {path}")
-    if len(expected)!=len(actual):
-        raise AssertionError("Native response count differs")
-    for left,right in zip(expected,actual):
-        if right.get("requestId")!=left["name"] or right.get("status")!="success":
+    if native_fingerprints()!=native_hashes:raise RuntimeError("Native source set changed during comparison")
+    assert_output_counts(expected,actual,len(cases))
+    for case,left,right in zip(cases,expected,actual):
+        if left.get("name")!=case["name"]:raise AssertionError("Oracle response identity differs from the input fixture")
+        if right.get("requestId")!=case["name"] or right.get("status")!="success":
             raise AssertionError(f"{left['name']}: invalid native response {right}")
         assert_equal(left["result"],right["result"],left["name"])
     report={"referenceCommit":REFERENCE,"oracleSourceSha256":fingerprints,"node":version,
         "nativeBinarySha256":frozen_hash,"nativeBinaryFrozenForExecution":True,
+        "nativeSourceSha256":native_hashes,"buildCommand":build_command,"toolchain":toolchain,
+        "outputCountMutationChecks":assert_comparator_rejects_counts(),
+        "binary64ComparatorMutationChecks":assert_binary64_comparator_guards(),
+        "numericComparisonDomain":"Exact JavaScript binary64; serialized zero signs are not distinguished; native integer precision beyond Number is rejected",
         "oracleWrapperSha256":wrapper_hashes["scripts/rust-migration/stats-oracle.mts"],
         "differentialRunnerSha256":wrapper_hashes["scripts/rust-migration/stats-differential.py"],
         "booleanNumberMutationChecks":mutation_count,

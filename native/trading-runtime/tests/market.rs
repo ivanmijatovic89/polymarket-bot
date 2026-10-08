@@ -23,7 +23,7 @@ fn bootstrap_reset_and_metadata_ticks_preserve_warm_state() {
         .expect("trade");
     assert!(result.ticks.is_empty());
     assert_eq!(
-        engine.snapshot().expect("snapshot")["byAssetId"]["up"]["bestBid"],
+        engine.snapshot().expect("snapshot").trace_value()["byAssetId"]["up"]["bestBid"],
         0.4
     );
     engine.reset();
@@ -44,9 +44,12 @@ fn a_multi_asset_delta_emits_one_tick_after_both_books_change() {
         .handle_decoded(&[msg], &source, false)
         .expect("delta");
     assert_eq!(frame.ticks.len(), 1);
-    assert_eq!(frame.ticks[0].snapshot["byAssetId"]["up"]["bestBid"], 0.45);
     assert_eq!(
-        frame.ticks[0].snapshot["byAssetId"]["down"]["bestAsk"],
+        frame.ticks[0].snapshot.trace_value()["byAssetId"]["up"]["bestBid"],
+        0.45
+    );
+    assert_eq!(
+        frame.ticks[0].snapshot.trace_value()["byAssetId"]["down"]["bestAsk"],
         0.55
     );
     assert_eq!(frame.ticks[0].source["ingestSeq"], "900719925474099312345");
@@ -63,7 +66,7 @@ fn invalid_later_change_retains_partial_state_without_emitting_a_tick() {
         .handle_decoded(&[msg], &source, false)
         .expect_err("invalid delta");
     assert!(error.ticks.is_empty());
-    let bids = &engine.snapshot().expect("snapshot")["byAssetId"]["up"]["bids"];
+    let bids = &engine.snapshot().expect("snapshot").trace_value()["byAssetId"]["up"]["bids"];
     assert_eq!(
         *bids,
         json!([{"price":0.4,"size":3.0},{"price":0.5,"size":6.0}])
@@ -221,7 +224,7 @@ fn borrowed_book_depth_preserves_partial_mutations_and_nonfinite_derived_metrics
         f64::INFINITY
     );
     assert_eq!(
-        engine.snapshot().expect("snapshot")["byAssetId"]["up"]["mid"],
+        engine.snapshot().expect("snapshot").trace_value()["byAssetId"]["up"]["mid"],
         market::JsValue::Number(f64::INFINITY)
     );
 }
@@ -236,7 +239,7 @@ fn map_keys_canonicalize_best_zero_but_keep_level_and_metadata_sign_bits() {
     assert_eq!(view.best_ask.expect("best").to_bits(), 0.0f64.to_bits());
     assert_eq!(view.mid.expect("mid").to_bits(), 0.0f64.to_bits());
     assert_eq!(view.spread.expect("spread").to_bits(), 0.0f64.to_bits());
-    let snapshot = engine.snapshot().expect("snapshot");
+    let snapshot = engine.snapshot().expect("snapshot").trace_value();
     match snapshot["byAssetId"]["up"]["bestBid"] {
         market::JsValue::Number(value) => assert_eq!(value.to_bits(), 0.0f64.to_bits()),
         _ => panic!("numeric best"),
@@ -257,6 +260,216 @@ fn map_keys_canonicalize_best_zero_but_keep_level_and_metadata_sign_bits() {
     );
     assert!(normalized["wide"].as_number().expect("wide").is_f64());
     assert_eq!(normalized["wide"].as_f64(), Some(9007199254740992.0));
+}
+#[test]
+fn retained_ticks_survive_later_frames_metadata_updates_and_reset() {
+    let mut engine = MarketEngine::new(None, 2.0).expect("config");
+    let source =
+        json!({"kind":"live","attempt":7,"ingestSeq":"900719925474099312345","tsLocalMs":123});
+    let frame = engine
+        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, false)
+        .expect("frame");
+    let first = &frame.ticks[0];
+    let second = &frame.ticks[1];
+    assert_eq!(first.snapshot.timestamp, 1.0);
+    assert!(first.snapshot.book("down").is_none());
+    assert_eq!(second.snapshot.timestamp, 2.0);
+    assert_eq!(second.source["frameIndex"], 1);
+    engine.handle_decoded(&[json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.5","4","BUY")]})], &source, false).expect("later");
+    assert_eq!(
+        engine
+            .snapshot()
+            .expect("current")
+            .book("up")
+            .expect("book")
+            .best_bid,
+        Some(0.5)
+    );
+    assert_eq!(
+        first.snapshot.book("up").expect("first book").best_bid,
+        Some(0.4)
+    );
+    assert_eq!(
+        second
+            .snapshot
+            .book("up")
+            .expect("second book")
+            .bids_depth
+            .as_ref(),
+        &[3.0]
+    );
+    engine.reset();
+    assert!(engine.snapshot().expect("reset").by_asset_id.is_empty());
+    assert_eq!(
+        second
+            .snapshot
+            .book("down")
+            .expect("retained down")
+            .best_ask,
+        Some(0.6)
+    );
+    assert_eq!(first.msg["asset_id"], "up");
+    assert_eq!(first.source["ingestSeq"], "900719925474099312345");
+}
+#[test]
+fn immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays() {
+    use std::sync::Arc;
+    let mut engine = MarketEngine::new(None, 2.0).expect("config");
+    let source = json!({"kind":"live","attempt":1});
+    engine
+        .handle_decoded(&[book("1", "up"), book("2", "down")], &source, false)
+        .expect("books");
+    let before = engine.snapshot().expect("before");
+    assert!(Arc::ptr_eq(&before, &engine.snapshot().expect("cached")));
+    let update = json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.4","9","BUY")]});
+    engine
+        .handle_decoded(&[update], &source, false)
+        .expect("update");
+    let after = engine.snapshot().expect("after");
+    let old_up = before.book("up").expect("up");
+    let new_up = after.book("up").expect("up");
+    assert!(!Arc::ptr_eq(&old_up.bids, &new_up.bids));
+    assert!(!Arc::ptr_eq(&old_up.bids_depth, &new_up.bids_depth));
+    assert!(Arc::ptr_eq(&old_up.asks, &new_up.asks));
+    assert!(Arc::ptr_eq(&old_up.asks_depth, &new_up.asks_depth));
+    assert!(Arc::ptr_eq(
+        &before.by_asset_id[1].book,
+        &after.by_asset_id[1].book
+    ));
+    assert!(Arc::ptr_eq(
+        old_up.asset_id.as_ref().expect("id"),
+        new_up.asset_id.as_ref().expect("id")
+    ));
+    let noop = json!({"event_type":"price_change","market":"m","timestamp":3,"price_changes":[change("up","0.4","9","BUY")]});
+    engine
+        .handle_decoded(&[noop], &source, false)
+        .expect("noop");
+    assert!(Arc::ptr_eq(&after, &engine.snapshot().expect("unchanged")));
+    let meta = json!({"event_type":"tick_size_change","market":"m","asset_id":"up","timestamp":4,"new_tick_size":"0.01"});
+    engine
+        .handle_decoded(&[meta], &source, false)
+        .expect("metadata");
+    let metadata = engine.snapshot().expect("metadata snapshot");
+    let meta_up = metadata.book("up").expect("up");
+    assert!(Arc::ptr_eq(&new_up.bids, &meta_up.bids));
+    assert!(Arc::ptr_eq(&new_up.asks, &meta_up.asks));
+    assert!(Arc::ptr_eq(&new_up.bids_depth, &meta_up.bids_depth));
+    assert_eq!(meta_up.timestamp, 4.0);
+    let empty = json!({"event_type":"price_change","market":"m","timestamp":5,"price_changes":[]});
+    engine
+        .handle_decoded(&[empty], &source, false)
+        .expect("empty");
+    let advanced = engine.snapshot().expect("advanced");
+    assert!(Arc::ptr_eq(&metadata.by_asset_id, &advanced.by_asset_id));
+    assert_eq!(advanced.timestamp, 5.0);
+}
+#[test]
+fn cache_refreshes_partial_failures_without_changing_retained_ticks() {
+    let mut engine = MarketEngine::new(None, 3.0).expect("config");
+    let source = json!({"kind":"live","attempt":1});
+    let first = engine
+        .handle_decoded(&[book("1", "up")], &source, false)
+        .expect("book")
+        .ticks
+        .remove(0);
+    let partial = json!({"event_type":"price_change","market":"m","timestamp":2,"price_changes":[change("up","0.5","6","BUY"),change("up","bad","1","BUY")]});
+    engine
+        .handle_decoded(&[partial], &source, false)
+        .expect_err("partial delta");
+    let failed = engine.snapshot().expect("partial state");
+    assert_eq!(
+        failed.book("up").expect("up").bids_depth.as_ref(),
+        &[3.0, 9.0]
+    );
+    assert_eq!(failed.book("up").expect("up").bids[0].price, 0.4);
+    assert_eq!(first.snapshot.book("up").expect("retained").bids.len(), 1);
+    let mut bad_book = book("bad", "up");
+    bad_book["bids"] = json!([{"price":"0.9","size":"7"}]);
+    engine
+        .handle_decoded(&[bad_book], &source, false)
+        .expect_err("timestamp after levels");
+    let latest = engine.snapshot().expect("replacement partial");
+    assert_eq!(latest.book("up").expect("up").bids[0].price, 0.9);
+    assert_eq!(latest.book("up").expect("up").timestamp, 2.0);
+    assert_eq!(failed.book("up").expect("retained failure").bids.len(), 2);
+    engine.reset();
+    assert_eq!(first.snapshot.book("up").expect("retained").timestamp, 1.0);
+}
+#[test]
+fn retained_typed_snapshots_keep_nonfinite_signed_zero_and_lossless_keys() {
+    let mut engine = MarketEngine::new(None, 3.0).expect("config");
+    let source = json!({"kind":"live","attempt":1});
+    let first = engine.handle_raw(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":-0,"bids":[{"price":-0,"size":1}],"asks":[{"price":0,"size":1}]}"#, &source, false).expect("zero").ticks.remove(0);
+    let key = market::JsString::from_units(vec![97, 0xdfff]);
+    let frozen = first.snapshot.book_key(&key).expect("UTF16 book");
+    assert_eq!(first.snapshot.timestamp.to_bits(), (-0.0f64).to_bits());
+    assert_eq!(frozen.timestamp.to_bits(), (-0.0f64).to_bits());
+    assert_eq!(frozen.bids[0].price.to_bits(), (-0.0f64).to_bits());
+    assert_eq!(frozen.best_bid.expect("best").to_bits(), 0.0f64.to_bits());
+    assert_eq!(
+        frozen.market.as_deref().expect("market"),
+        &market::JsValue::String(market::JsString::from_units(vec![109, 0xd800]))
+    );
+    engine.handle_raw(r#"{"event_type":"book","market":"m\ud800","asset_id":"a\udfff","timestamp":2,"bids":[{"price":1e308,"size":1e308},{"price":9e307,"size":1e308}],"asks":[{"price":1e308,"size":1}]}"#, &source, false).expect("overflow");
+    let overflow = engine.snapshot().expect("overflow");
+    let book = overflow.book_key(&key).expect("book");
+    assert_eq!(book.mid, Some(f64::INFINITY));
+    assert_eq!(book.bids_depth[1], f64::INFINITY);
+    assert_eq!(book.view().bids_depth[1], f64::INFINITY);
+    assert_eq!(frozen.bids[0].price.to_bits(), (-0.0f64).to_bits());
+    let projected = market_json::parse(&overflow.trace_value().to_json_string()).expect("JSON");
+    assert!(projected["byAssetId"].as_object().expect("books")[0].1["mid"].is_null());
+}
+#[test]
+fn typed_entry_keys_preserve_js_collisions_numeric_order_and_identity_metadata() {
+    let mut engine = MarketEngine::new(None, 2.0).expect("config");
+    let source = json!({"kind":"live","attempt":1});
+    let mut numeric = book("1", "x");
+    numeric["asset_id"] = json!(2);
+    let mut object_id = book("2", "x");
+    object_id["asset_id"] = json!({"tag":1});
+    let result = engine
+        .handle_decoded(
+            &[
+                numeric,
+                object_id,
+                book("3", "2"),
+                book("4", "1"),
+                book("5", "01"),
+            ],
+            &source,
+            false,
+        )
+        .expect("identities");
+    let first = &result.ticks[0].snapshot;
+    let latest = &result.ticks[4].snapshot;
+    assert_eq!(
+        latest
+            .books()
+            .map(|entry| entry.key.as_str().expect("key"))
+            .collect::<Vec<_>>(),
+        vec!["1", "2", "[object Object]", "01"]
+    );
+    assert_eq!(
+        first.book("2").expect("numeric id").asset_id.as_deref(),
+        Some(&market::JsValue::Number(2.0))
+    );
+    assert_eq!(
+        latest
+            .book("2")
+            .expect("last-write key")
+            .asset_id
+            .as_deref()
+            .and_then(market::JsValue::as_str),
+        Some("2")
+    );
+    let object = latest
+        .book("[object Object]")
+        .expect("object")
+        .asset_id
+        .as_deref()
+        .expect("id");
+    assert!(object.same_identity(&result.ticks[1].msg["asset_id"]));
 }
 #[test]
 #[ignore = "Explicitly invoked by the independent pinned TypeScript differential runner"]

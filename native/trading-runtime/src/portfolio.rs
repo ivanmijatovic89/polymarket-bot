@@ -572,11 +572,7 @@ fn finite(value: f64) -> f64 {
     }
 }
 fn max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.max(b)
-    }
+    crate::math::js_max(a, b)
 }
 fn truthy(value: &Option<String>) -> Option<&str> {
     value.as_deref().filter(|s| !s.is_empty())
@@ -1121,7 +1117,7 @@ impl Portfolio {
                 },
             );
         } else {
-            let sold = size.min(previous.qty);
+            let sold = crate::math::js_min(size, previous.qty);
             let qty = previous.qty - sold;
             let average = if previous.qty > 0.0 {
                 previous.cost_basis / previous.qty
@@ -1377,7 +1373,7 @@ impl Portfolio {
                 self.cash = round8(self.cash + requested);
                 let qa = finite(self.positions.get(asset_id_a).map(|p| p.qty).unwrap_or(0.0));
                 let qb = finite(self.positions.get(asset_id_b).map(|p| p.qty).unwrap_or(0.0));
-                let actual = requested.min(qa).min(qb);
+                let actual = crate::math::js_min(crate::math::js_min(requested, qa), qb);
                 if !actual.is_finite() || actual <= 0.0 {
                     return;
                 }

@@ -30,6 +30,7 @@ def fixtures():
     for up in edges:
         for down in edges:
             rows.append(dict(upId="up",downId="down",positions={"up":dict(qty=bits(up),costBasis=bits(down)),"down":dict(qty=bits(down),costBasis=bits(up))},upBook=dict(depth=bits(2.0),bids=[bits(up),bits(down)],asks=[bits(down),bits(up)]),downBook=dict(depth=bits(2.0),bids=[bits(down),bits(up)],asks=[bits(up),bits(down)])))
+    rows.append(dict(upId=None,downId=None,positions={},upBook=dict(depth=bits(4.0),bids=[bits(x) for x in [-0.0,1.0,-1.0,5e-324]],asks=[bits(x) for x in [1.0,-0.0,1.0,1e308]]),downBook=dict(depth=bits(4.0),bids=[bits(x) for x in [1.0,-0.0,1.0,1e308]],asks=[bits(x) for x in [-0.0,1.0,-1.0,5e-324]])))
     return rows
 
 def compare_outputs(expected, actual, count):

@@ -78,6 +78,8 @@ def fixtures():
                       **({'options': options} if options is not None else {}), **extra}})
 
     add('empty')
+    for first,second in [(0.0,-0.0),(-0.0,0.0),(-0.0,-0.0)]:
+        add(f'public-snapshot-zero-clock-tie-{first!r}-{second!r}',[{'kind':'account_stream_status','tsMs':first},{'kind':'account_stream_status','tsMs':second}],initialNowMs=first,expectedClockBits='8000000000000000' if first.hex().startswith('-') and second.hex().startswith('-') else '0000000000000000')
     add('invalid-starting-capital', options={'startingCapital': -1})
     add('zero-starting-capital', [fill(size=1)], options={'startingCapital': 0})
     add('observation-clock-cache', steps=[{'initializeClock': 1000}, {'initializeClock': 2000},
@@ -288,6 +290,11 @@ def main():
     for left,right in zip(expected,actual):
         if left['name']!=right['name']: raise AssertionError('Fixture identity/order differs')
         assert_equal(left['result'],right['result'],left['name'])
+        source_case=next(c for c in cases if c['name']==left['name'])
+        if 'expectedClockBits' in source_case['input']:
+            expected_bits=source_case['input']['expectedClockBits']
+            if left['result']['snapshotNumberBits'][-1]['/nowMs']!=expected_bits or right['result']['snapshotNumberBits'][-1]['/nowMs']!=expected_bits:
+                raise AssertionError('Zero-clock fixture did not exercise its intended signed-zero result')
     alias=next(row['referenceAliasing'] for row in expected if row['name']=='reference-stale-open-order-alias')
     if alias['retainedOpenOrder']['state']!='canceled' or alias['retainedHistory']['lifecycleState']!='requested':
         raise AssertionError('Reference stale-alias probe did not exercise mutable-open/immutable-history distinction')
@@ -301,7 +308,7 @@ def main():
         'ownedSourceSha256':wrapper_hashes,'fixturesSha256':hashlib.sha256(payload.encode()).hexdigest(),
         'cases':len(cases),'eventCount':sum(len(c['input']['steps']) for c in cases),
         'fullCurrentSnapshotParity':True,'mapInsertionAndArrayOrderParity':True,
-        'fixedPruneBoundariesIncluded':not args.quick,'comparatorMutationChecks':mutation_count,'fullKnownAccountEventEncodingParity':True,'opaqueJsonObjectKeyOrderParity':True,'opaqueMetadataBinary64BitsParity':True,'nativeBuildLockedOffline':True,'numericComparison':'JavaScript binary64 with rejection of unnormalized native integer precision','opaqueControlDomain':'Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement',
+        'fixedPruneBoundariesIncluded':not args.quick,'comparatorMutationChecks':mutation_count,'fullKnownAccountEventEncodingParity':True,'opaqueJsonObjectKeyOrderParity':True,'opaqueMetadataBinary64BitsParity':True,'finiteCurrentSnapshotBinary64BitsParity':True,'snapshotNumberBitsDomain':'Finite current-snapshot numbers and signed zero in this corpus; the native seam projects through Serde, so derived nonfinite typed-state bits remain a separate SDK test requirement','nativeBuildLockedOffline':True,'numericComparison':'JavaScript binary64 with rejection of unnormalized native integer precision','opaqueControlDomain':'Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement',
         'staleOpenOrderAliasParity':False,'remainingDependency':'Audit strategy/runner/SDK consumers for retained or mutated OpenOrder, Position, raw Fill/PositionsSplit and metadata aliases; preserve observable behavior or prove native consumers use current borrowed snapshots without such mutation.',
         'referenceAliasingProbe':alias,'referenceMutablePayloadAliasesProbe':mutable_alias,'mutableRawPayloadPositionMetadataAliasParity':False}
     if args.report: args.report.write_text(json.dumps(report,indent=2)+'\n')

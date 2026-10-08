@@ -1,20 +1,16 @@
 {
   "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
-  "node": "v20.19.6",
-  "cases": 9106,
-  "comparatorMutationChecks": 8,
-  "exactFiniteIeeeBits": true,
-  "signedZeroCompared": true,
-  "nonfiniteClassesCompared": true,
-  "sourceSha256": {
-    "src/trading/utils/rounding.ts": "f77b925fae78be50cab8414634958381e41673e4481581e629675776a1bf7b8c",
-    "src/trading/fees.ts": "4191b1fa52d3e5e02e6cc419db07c8b9fc20e85f3eee1a0e6885bdb247cb4b03",
-    "src/trading/capital.ts": "926b78ee6f1a49f6a2cad5fbdc6329fcf947c2d4ae239d294ac6d8936b9c0a80"
+  "oracleSourceSha256": {
+    "src/backtest/stats/batchStats.ts": "653e7ad19f376ef6e8bd7c7e32394e3db54462cd81b5fa6a0d2021eeeb3d0020",
+    "src/backtest/stats/backtestSegments.ts": "6026763825f003d8bcb04333ba556c64b21fa967821355d3a931b736750d658a",
+    "src/backtest/stats/wallClock.ts": "75175d12bf130f11c72e3024a9cc4e4eb6efa79734e5d6dc52e3cb484906309f"
   },
+  "node": "v20.19.6",
+  "nativeBinarySha256": "f279750a12c70c9acd92f37d8989f21b2fcb2e7d38e0f52ebe6fd2ee752eb8cb",
+  "nativeBinaryFrozenForExecution": true,
   "nativeSourceSha256": {
     "native/trading-runtime/Cargo.toml": "ded05873bfccf680f1f26704a9a5df9909d7f3b00459280bca6ca6a4f24527d7",
     "native/trading-runtime/Cargo.lock": "1770c4bded9749e8d423b64769a76cd5cc66f470452014acb080954e1f01cebf",
-    "native/trading-runtime/examples/math_fixtures.rs": "0d15cb9e36fd945aa78f07d00caac0575380172ae0cd69df371a30b814710158",
     "native/trading-runtime/src/cancellation.rs": "52b98163dbe251b8852f2f560eef9ee133cd250465b6c45b319b54704f85a31f",
     "native/trading-runtime/src/intent.rs": "093bc0465bc0660a2b679959c90eb6d073cb4f47e3a9b503b9751e71c692e269",
     "native/trading-runtime/src/lib.rs": "fffe25bd66c4ee14d7219742155cc254a659144d5ec98fcf9ad63189a6f9d2a1",
@@ -38,22 +34,22 @@
     "--offline",
     "--manifest-path",
     "native/trading-runtime/Cargo.toml",
-    "--example",
-    "math_fixtures",
-    "--message-format=json",
-    "--release"
+    "--bin",
+    "polymarket-runtime",
+    "--message-format=json"
   ],
   "toolchain": {
     "cargo": "cargo 1.89.0 (c24e10642 2025-06-23)",
     "rustc": "rustc 1.89.0 (29483883e 2025-08-04)\nbinary: rustc\ncommit-hash: 29483883eed69d5fb4db01964cdf2af4d86e9cb2\ncommit-date: 2025-08-04\nhost: aarch64-apple-darwin\nrelease: 1.89.0\nLLVM version: 20.1.7"
   },
-  "profile": "release",
-  "defaultSelectorCases": 64,
-  "wrapperSha256": {
-    "scripts/rust-migration/math-differential.py": "4ea086781e3040ce5333c5b32566ad5f18be9bdcdadc47cdb63dee403e2bf30d",
-    "scripts/rust-migration/math-oracle.mts": "2355b9712889f53f01dd896fbc4fedb4f90c1cf823b18254e339cd9e40c264e2"
-  },
-  "nativeDriverSha256": "005c342f81b7d568b1f503c60efb9bff5d1b808347fa0bcdf954a93d1e8aa921",
-  "fixturesSha256": "aa934fa2854d81e2c09b27be2921e1d2e2bbee27133a66ed9484ec5571beee9e",
+  "outputCountMutationChecks": 8,
+  "binary64ComparatorMutationChecks": 4,
+  "numericComparisonDomain": "Exact JavaScript binary64; serialized zero signs are not distinguished; native integer precision beyond Number is rejected",
+  "oracleWrapperSha256": "d171315419e178aeae9ae4512735a68a258198c8f2fa9fe9d0c20787ad05d9a6",
+  "differentialRunnerSha256": "28f05cb06c18d0fc6a86a64a284b270f60e46dcba6485f2f65384452b16b33dc",
+  "booleanNumberMutationChecks": 10,
+  "fixturesSha256": "8c9a42de9f8e465b3b2368bd6fc4394206c22dfb9a9625221875384fe409aa19",
+  "cases": 99,
+  "marketRows": 28899,
   "fullOutputParity": true
 }

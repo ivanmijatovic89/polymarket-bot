@@ -53,3 +53,22 @@ fn fee_scaling_overflow_and_absent_fill_rate_match_reference() {
     assert_eq!(fill_cash_delta(0.6, 800.0, true, true, None), -480.0);
     assert_eq!(buy_commitment(0.6, 800.0, false), 493.44);
 }
+
+#[test]
+fn min_max_zero_ties_and_nan_are_platform_independent() {
+    for (left, right, minimum, maximum) in [
+        (0.0_f64, -0.0_f64, -0.0_f64, 0.0_f64),
+        (-0.0, 0.0, -0.0, 0.0),
+        (-0.0, -0.0, -0.0, -0.0),
+        (0.0, 0.0, 0.0, 0.0),
+    ] {
+        assert_eq!(js_min(left, right).to_bits(), minimum.to_bits());
+        assert_eq!(js_max(left, right).to_bits(), maximum.to_bits());
+    }
+    for other in [f64::NEG_INFINITY, -0.0, 0.0, f64::INFINITY] {
+        assert!(js_min(f64::NAN, other).is_nan());
+        assert!(js_min(other, f64::NAN).is_nan());
+        assert!(js_max(f64::NAN, other).is_nan());
+        assert!(js_max(other, f64::NAN).is_nan());
+    }
+}

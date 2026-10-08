@@ -1,0 +1,139 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test differential_fixture_driver ... ignored, test-only differential fixture adapter
+test capital_overlay_borrows_the_original_history ... ok
+test input_fields_preserve_absent_null_and_invalid_types ... ok
+test metadata_handles_keep_identity_during_risk_filtering ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 17 tests
+test differential_driver ... ignored, Explicitly invoked by the independent pinned TypeScript differential runner
+test invalid_json_number_grammar_does_not_become_valid_after_conversion ... ok
+test invalid_raw_frames_and_markers_are_ignored ... ok
+test invalid_later_change_retains_partial_state_without_emitting_a_tick ... ok
+test borrowed_book_depth_preserves_partial_mutations_and_nonfinite_derived_metrics ... ok
+test a_multi_asset_delta_emits_one_tick_after_both_books_change ... ok
+test immutable_snapshot_caches_share_unchanged_books_sides_and_depth_arrays ... ok
+test bootstrap_reset_and_metadata_ticks_preserve_warm_state ... ok
+test map_keys_canonicalize_best_zero_but_keep_level_and_metadata_sign_bits ... ok
+test portable_input_contract_rejects_invalid_configuration_without_panicking ... ok
+test cache_refreshes_partial_failures_without_changing_retained_ticks ... ok
+test utf16_strings_keys_and_json_projection_are_lossless ... ok
+test raw_numeric_literals_preserve_js_number_domain_and_ordinary_reserved_keys ... ok
+test retained_typed_snapshots_keep_nonfinite_signed_zero_and_lossless_keys ... ok
+test retained_ticks_survive_later_frames_metadata_updates_and_reset ... ok
+test duplicate_prices_replace_size_and_source_sequences_remain_exact ... ok
+test typed_entry_keys_preserve_js_collisions_numeric_order_and_identity_metadata ... ok
+
+test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test fee_curve_minimum_and_funding_follow_reference ... ok
+test rounds_toward_positive_infinity_and_retains_negative_zero ... ok
+test min_max_zero_ties_and_nan_are_platform_independent ... ok
+test fee_scaling_overflow_and_absent_fill_rate_match_reference ... ok
+test numeric_reasons_use_javascript_notation_boundaries ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 14 tests
+test graph_boundaries_truthiness_and_drop_do_not_leak ... ok
+test marking_barriers_and_root_cursor_removal_are_safe ... ok
+test binary64_utf16_missing_and_order_are_preserved ... ok
+test repeated_nodes_are_not_cycles_and_cycles_fail_at_observation ... ok
+test output_limits_are_exact_for_utf8_strings_objects_and_arrays ... ok
+test observer_tape_reaches_previous_trade_and_statistics ... ok
+test retained_child_roots_survive_pruning_and_weak_edges ... ok
+test sparse_arrays_lengths_and_serialization_limits ... ok
+test public_utf16_representation_has_identical_key_order_and_string_semantics ... ok
+test sweep_barriers_weak_reachability_and_slot_reuse ... ok
+test unreachable_cycles_reclaim_and_stale_generations_never_upgrade ... ok
+test large_unreachable_containers_reclaim_one_entry_per_budget_unit ... ok
+test collector_work_is_bounded_and_long_stream_does_not_retain_all_nodes ... ok
+test object_key_churn_is_not_retained_and_deletion_reorders_reinsertion ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+
+running 3 tests
+test positions_require_both_ids_and_preserve_negative_zero ... ok
+test depth_truncation_and_missing_values_match_context ... ok
+test negative_zero_depth_clamps_to_positive_zero_on_every_target ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 12 tests
+test differential_fixture_driver ... ignored, test-only adapter invoked by scripts/rust-migration/portfolio-differential.py
+test signed_zero_ties_use_javascript_semantics_in_public_snapshots ... ok
+test observation_clock_and_snapshot_cache ... ok
+test snapshot_clones_are_explicit_historical_values_and_cache_is_reused ... ok
+test invalid_fill_does_not_consume_id_but_invalid_merge_does ... ok
+test control_metadata_and_extensions_preserve_negative_zero_internally ... ok
+test done_event_accepts_only_terminal_reasons ... ok
+test fees_rounding_capital_validation_and_sell_clamp ... ok
+test opaque_json_metadata_uses_javascript_numbers_and_key_order ... ok
+test buffered_fill_replays_on_open_without_double_cash_or_history_update ... ok
+test unresolved_cancel_retains_commitment_and_late_fill_reconciles_once ... ok
+test object_iteration_matches_snapshot_numeric_key_order ... ok
+
+test result: ok. 11 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test describes_only_implemented_capabilities ... ok
+test malformed_and_unknown_envelopes_fail_without_advertising_success ... ok
+test unicode_identifiers_follow_scalar_control_and_whitespace_rules ... ok
+test validates_versions_ids_and_operation_inputs ... ok
+test input_nesting_limit_is_correlated_and_deterministic ... ok
+test process_correlates_lines_and_recovers_after_bad_request ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+
+running 10 tests
+test empty_batch_has_fields_but_no_segments ... ok
+test additional_metadata_is_accepted_without_mutation ... ok
+test invalid_numbers_dates_and_overflow_are_structured_errors ... ok
+test busy_union_excludes_idle_gaps_and_ignores_reversed_intervals ... ok
+test nonfinite_standard_deviation_does_not_become_zero_quality ... ok
+test zero_pnl_preserves_current_win_and_loss_streaks ... ok
+test batch_uses_input_order_while_segments_sort_stably ... ok
+test rounding_ties_and_the_predecessor_of_half_match_javascript ... ok
+test complete_javascript_date_range_and_clipped_boundary_ordinals_are_supported ... ok
+test iso_week_year_and_all_tail_boundaries_are_retained ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling polymarket-runtime v0.1.0 (/Users/mijat/.codex/worktrees/rust-backtest-benchmark/polymarket-bot/native/trading-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.36s
+     Running unittests src/lib.rs (native/trading-runtime/target/debug/deps/polymarket_runtime-91a05fab318f3bb4)
+     Running unittests src/main.rs (native/trading-runtime/target/debug/deps/polymarket_runtime-99d0dd961f971bc8)
+     Running tests/intents.rs (native/trading-runtime/target/debug/deps/intents-f498649e9d6adee8)
+     Running tests/market.rs (native/trading-runtime/target/debug/deps/market-da7acc8b3d879d59)
+     Running tests/math.rs (native/trading-runtime/target/debug/deps/math-3d099a3f67745cf6)
+     Running tests/metadata.rs (native/trading-runtime/target/debug/deps/metadata-d32988d5abb64b4e)
+     Running tests/metrics.rs (native/trading-runtime/target/debug/deps/metrics-846e515b7ac390ae)
+     Running tests/portfolio.rs (native/trading-runtime/target/debug/deps/portfolio-9c62579a06bf9529)
+     Running tests/protocol.rs (native/trading-runtime/target/debug/deps/protocol-bb0b8aaba760ba6e)
+     Running tests/stats.rs (native/trading-runtime/target/debug/deps/stats-ca89385c68f297de)
+   Doc-tests polymarket_runtime
