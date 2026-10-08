@@ -156,3 +156,28 @@ in the changed recovery, cache-selection, namespace, or guarded-update paths.
 These are code and local failure-injection checks, not evidence that the new release has
 already been activated on worker-2. Record that activation separately after the operator
 switches the pinned catalog service and fresh automatic scans have been verified.
+
+### Prepared worker-2 recovery release
+
+Release `7f8021e926a27cd67e3a1cc7bf150ba3723b591e` was prepared in the isolated catalog
+release root on October 8 at 13:06 UTC. Node 20.20.2 dependency installation, typecheck,
+and all seven recovery/prefix subprocess checks passed on worker-2. The new release also
+read production MySQL status successfully; it did not run a competing importer. The old
+catalog and capture daemons remained running during preparation.
+
+The rendered plist passed `plutil` and exact-template validation. Its SHA-256 is
+`534517bc0f36eb3a6200a3073499e03bbfbd5e3b644a659ecc9db99148e9a449`.
+The reviewed updater SHA-256 is
+`b4ff1164ec2611ec154ae9da0a1474155e54f13447b0465af7a8f53bb3c7bdea`.
+The deployment record is
+`/Users/worker-2/Services/polymarket-recorder-v4-catalog/prepared-update-7f8021e9.json`.
+
+Administrator activation is pending. Run the prepared wrapper in your own terminal:
+
+```bash
+ssh -t worker-2-ansible 'sudo /bin/zsh /Users/worker-2/Services/polymarket-recorder-v4-catalog/activate-update-7f8021e9.zsh'
+```
+
+Then verify the new catalog release, fresh automatic MySQL scans, and unchanged recorder
+heartbeat. The wrapper verifies the reviewed updater checksum before invoking its guarded
+catalog-only switch. Preparation does not mean the running daemon already has these fixes.
