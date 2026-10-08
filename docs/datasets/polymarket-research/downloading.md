@@ -52,9 +52,11 @@ DuckDB dependency, smoke-tests the bundle and validates the launchd plist. The
 job does not depend on keeping a Codex worktree open. Omitting `--activate`
 prepares and validates a separate runtime without registering the job or changing
 its active configuration. An invalid configuration or failed build leaves the
-installed release unchanged. Activation refuses to unload an active downloader;
-handled activation failures restore its previous configuration, plist and
-schedule metadata. A process kill or machine crash can interrupt rollback:
+installed release unchanged. Activation locks both the installed and replacement
+dataset roots before unloading the old job, and refuses to unload an active downloader in either root. Installers
+for the same launchd job are serialized even when they target different roots.
+An unrecognized installed plist stops activation for inspection. Handled
+activation failures restore its previous configuration, plist and schedule metadata. A process kill or machine crash can interrupt rollback:
 inspect those files and `launchctl print` before retrying installation.
 
 The saved job is `com.polymarket.research.btc-15m`. It runs at 03:00 local time,
