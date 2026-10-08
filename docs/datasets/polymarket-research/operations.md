@@ -136,6 +136,13 @@ missing upstream facts. A manual `sync --refresh` is required for newer source d
 4. Rerun `research:schedule ... --activate` from the clean released checkout with Node 20.
 5. Inspect `schedule.json`, `research:status` and `launchctl print gui/$(id -u)/com.polymarket.research.btc-15m`.
 
+When replacing the dataset root, keep the installed root accessible until activation
+finishes: the installer must identify and lock it before unloading the old job.
+It also holds a per-job installation lock beside the destination plist
+(`<label>.plist.installation/sync.lock`), so two target roots cannot replace the
+same job concurrently. An unknown plist layout or inaccessible installed root
+requires inspection before replacement; do not bypass an active downloader lock.
+
 The job is pinned to the installed commit and Node executable. A Git pull alone
 does not replace its runtime. Keep that Node version installed, or reinstall
 with another supported Node 20 executable. Runtime dependencies have their own

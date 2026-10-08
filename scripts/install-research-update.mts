@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util'
 import { build } from 'esbuild'
 import { assertDatasetRoot, marketFamily } from '../src/research-data/family.js'
 import { activateResearchSchedule, prepareUpdateConfig } from '../src/research-data/installation.js'
-import { launchAgentPlist } from '../src/research-data/schedule.js'
+import { installedDatasetRoot, launchAgentPlist } from '../src/research-data/schedule.js'
 
 const { values } = parseArgs({
   options: {
@@ -102,6 +102,16 @@ if (values.activate) {
     candidateConfig,
     plistPath: destination,
     plist,
+    installedRoot: (contents) =>
+      installedDatasetRoot(
+        JSON.parse(
+          execFileSync('/usr/bin/plutil', ['-convert', 'json', '-o', '-', '--', '-'], {
+            input: contents,
+            encoding: 'utf8',
+          }),
+        ),
+        label,
+      ),
     stop: () => {
       const stopped = spawnSync('/bin/launchctl', ['bootout', `${domain}/${label}`], {
         stdio: 'pipe',
