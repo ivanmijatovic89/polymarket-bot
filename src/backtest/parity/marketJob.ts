@@ -108,14 +108,20 @@ export type BuildJobsArgs = {
   dataRoot: string
 }
 
+/** Catalog facts of a market for its native job (21 §4 `conditionId`, `input.bytes`). */
+export type ParityCatalogFacts = { conditionId: string; conversionSizeBytes: number | null }
+
 /**
  * One `MarketJobData` per eligible slug (ineligible or unknown slugs are
  * reported in `missing`). `filePath` is absolute (resolved under the data
  * root) so any executor can open it without knowing the repo layout.
+ * `catalog` holds the catalog facts the native job adds (21 §4).
  */
-export async function buildParityJobs(
-  args: BuildJobsArgs,
-): Promise<{ jobs: MarketJobData[]; missing: string[] }> {
+export async function buildParityJobs(args: BuildJobsArgs): Promise<{
+  jobs: MarketJobData[]
+  missing: string[]
+  catalog: Map<string, ParityCatalogFacts>
+}> {
   const requiredFeeds = externalFeedsRequest(args.built)
   const rows = await getMarketsBySlugs(args.slugs, {
     converter: 'delta-typed',
@@ -130,6 +136,7 @@ export async function buildParityJobs(
   const commitSha = getCurrentGitSha()
   const jobs: MarketJobData[] = []
   const missing: string[] = []
+  const catalog = new Map<string, ParityCatalogFacts>()
   args.slugs.forEach((slug, idx) => {
     const row = bySlug.get(slug)
     if (!row || !row.dataset) {
@@ -137,8 +144,9 @@ export async function buildParityJobs(
       return
     }
     jobs.push(jobFromRow({ ...args, row, idx, gamma, commitSha }))
+    catalog.set(slug, { conditionId: row.marketId, conversionSizeBytes: row.conversionSizeBytes })
   })
-  return { jobs, missing }
+  return { jobs, missing, catalog }
 }
 
 function jobFromRow(

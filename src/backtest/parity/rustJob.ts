@@ -1,55 +1,106 @@
-import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { MarketJobData } from '../jobTypes.js'
-import { REPO_ROOT, canonicalJsonLoose, type ParityCell } from './cell.js'
+import {
+  TELONEX_DELTA_FORMAT,
+  buildEngineJob,
+  toNativeMarketJob,
+  validateModelConfig,
+  type BuildEngineJobOptions,
+  type BuiltEngineJob,
+  type DataRoots,
+  type NativeMarketJobData,
+} from '../../native/index.js'
+import type { EngineJob } from '../../native/contract/generated.js'
+import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { canonicalJsonLoose, type ParityCell } from './cell.js'
 
 /**
  * The Rust side of a parity cell (60 HR-1, HR-2): the harness builds the
- * native job with the cell's Rust strategy id and ModelConfig, and the
- * `EngineJob` comes from `src/native/buildEngineJob` (01 §6 M1 step 6,
- * 21 §5, §9), the builder later shared by `--sequential` and the worker shim.
- *
- * `src/native/` is owned by another workstream; it is loaded dynamically so
- * this tooling compiles before it exists, and a missing builder is a loud
- * error (R14), never a harness-local substitute.
+ * native `MarketJobData` with the cell's Rust strategy id and ModelConfig,
+ * and the `EngineJob` comes from `src/native/buildEngineJob` (01 §6 M1 step
+ * 6, 21 §5, §9), the builder later shared by `--sequential` and the worker
+ * shim. The binary runs through the src/native protocol-v2 runner.
  */
 
-/** The native `MarketJobData` of 21 §4 as far as the harness fills it. */
-export type NativeMarketJob = Omit<MarketJobData, 'strategyId'> & {
-  strategyId: string
-  modelConfig: ParityCell['modelConfig']
-}
-
-/** `buildEngineJob(MarketJobData, dataRoots)` (01 §6 M1 step 6). */
-export type BuildEngineJob = (job: NativeMarketJob, dataRoots: { dataRoot: string }) => unknown
-
-// D-PENDING: 01 §6 names `buildEngineJob(MarketJobData, dataRoots)` without fixing the module path or the dataRoots shape; chose `src/native/buildEngineJob.ts` (or `src/native/index.ts`) exporting `buildEngineJob(job, { dataRoot })`.
-const BUILDER_CANDIDATES = ['src/native/buildEngineJob.ts', 'src/native/index.ts']
+/** `buildEngineJob(MarketJobData, dataRoots)` (01 §6 M1 step 6; 21 §5, §9). */
+export type BuildEngineJob = (
+  job: NativeMarketJobData,
+  dataRoots: DataRoots,
+  opts?: BuildEngineJobOptions,
+) => Promise<BuiltEngineJob> | BuiltEngineJob
 
 /**
- * Load `buildEngineJob` from src/native, or from `override` (a module path;
+ * src/native's `buildEngineJob`, or the export of `override` (a module path;
  * harness self-tests only — such a run is non-gating).
  */
 export async function loadEngineJobBuilder(override?: string): Promise<BuildEngineJob> {
-  const candidates = override
-    ? [path.resolve(override)]
-    : BUILDER_CANDIDATES.map((rel) => path.join(REPO_ROOT, rel))
-  for (const file of candidates) {
-    if (!existsSync(file)) continue
-    const mod = (await import(pathToFileURL(file).href)) as { buildEngineJob?: unknown }
-    if (typeof mod.buildEngineJob === 'function') return mod.buildEngineJob as BuildEngineJob
+  if (!override) return buildEngineJob
+  const mod = (await import(pathToFileURL(path.resolve(override)).href)) as {
+    buildEngineJob?: unknown
   }
-  if (override) throw new Error(`--engine-job-builder ${override} does not export buildEngineJob`)
-  throw new Error(
-    `--rust-bin needs src/native's buildEngineJob (looked in ${BUILDER_CANDIDATES.join(', ')}); ` +
-      'it is delivered by the src/native workstream (01 §6 M1 step 6)',
-  )
+  if (typeof mod.buildEngineJob !== 'function')
+    throw new Error(`--engine-job-builder ${override} does not export buildEngineJob`)
+  return mod.buildEngineJob as BuildEngineJob
 }
 
-/** HR-1: each side gets its own strategy id; the Rust job carries the cell's ModelConfig (21 §4). */
-export function nativeJobFor(tsJob: MarketJobData, cell: ParityCell): NativeMarketJob {
-  return { ...tsJob, strategyId: cell.rustStrategyId, modelConfig: cell.modelConfig }
+/** Catalog facts of a parity market that the native job needs (21 §4 `conditionId`, `input.bytes`). */
+export type NativeCatalogFacts = {
+  /** `telonex_markets.market_id` (15 I-18). */
+  conditionId: string | null
+  /** Converted parquet size (`telonex_market_conversions.size_bytes`, 15 I-8). */
+  bytes: number
+}
+
+/**
+ * HR-1: the native `MarketJobData` (21 §4) of a TS parity job: the Rust
+ * strategy id, the cell ModelConfig, the strategy's required feeds, the
+ * local input (60 MS-5: `--read-from local`, absolute path under the data
+ * root) and `feedAvailability` resolved at `asOfMs` (14 §6.2, 60 OR-8).
+ */
+export function nativeJobFor(
+  tsJob: MarketJobData,
+  cell: ParityCell,
+  facts: NativeCatalogFacts & {
+    requiredFeeds: ExternalFeedsRequestConfig | null
+    asOfMs: number
+  },
+): NativeMarketJobData {
+  // The full contract check of the cell ModelConfig (21 §6.3; cell.ts checks only the fields the oracle maps).
+  const modelConfig: unknown = cell.modelConfig
+  validateModelConfig(modelConfig)
+  return toNativeMarketJob(tsJob, {
+    strategyId: cell.rustStrategyId,
+    modelConfig,
+    requiredFeeds: facts.requiredFeeds,
+    conditionId: facts.conditionId,
+    input: {
+      path: tsJob.filePath,
+      r2Url: null,
+      bytes: facts.bytes,
+      sha256: null,
+      format: { ...TELONEX_DELTA_FORMAT },
+    },
+    readFrom: cell.readFrom,
+    asOfMs: facts.asOfMs,
+  })
+}
+
+/**
+ * The `EngineJob` of one parity market through the src/native builder
+ * (HR-2). A parity market is resolved, so a 21 §13 short-circuit is an
+ * error here (R14).
+ */
+export async function engineJobFor(
+  build: BuildEngineJob,
+  job: NativeMarketJobData,
+  dataRoot: string,
+  outputs: { tracePath: string; traceLevel: ParityCell['traceLevel'] },
+): Promise<EngineJob> {
+  const built = await build(job, { dataRoot }, { outputs, log: () => {} })
+  if (built.kind !== 'job')
+    throw new Error(`${job.slug}: buildEngineJob short-circuited (${built.skipReason}, 21 §13)`)
+  return built.job
 }
 
 /** 21 §5.1: `EngineJob.run.strategyId` equals the binary's id (HR-1). */
@@ -72,7 +123,9 @@ export function rustRunArgs(jobFile: string, traceFile: string, level: string): 
  * (22 §3), supports the cell's profile and input mode, and normalizes the
  * cell params to the TS params with the same `requiredFeeds`, so both sides
  * run the same configuration and producer eligibility is identical.
- * Returns the list of problems (empty when compatible).
+ * Returns the list of problems (empty when compatible). The protocol,
+ * real-orders and contract checks of 20 §1/§3 run first, in
+ * `describeNative`.
  */
 // D-PENDING: 60 §5.7 says run-parity refuses an exerciser schedule version mismatch, but `describe` (20 §5.1) has no field for it; chose to compare id, params and requiredFeeds and to record only the TS version until the Rust side exposes one.
 export function checkDescribe(

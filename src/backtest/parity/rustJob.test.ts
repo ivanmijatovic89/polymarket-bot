@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 import type { MarketJobData } from '../jobTypes.js'
-import { REPO_ROOT, loadCell } from './cell.js'
+import { loadCell } from './cell.js'
 import { PARITY_DIR } from './oracle.js'
+import { buildEngineJob } from '../../native/index.js'
 import {
   assertEngineJobStrategy,
   checkDescribe,
   describeArgs,
+  engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
   rustRunArgs,
@@ -34,12 +36,33 @@ const describeDoc = (over: Record<string, unknown> = {}) => ({
 })
 
 describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
-  it('the native job carries the Rust strategy id and the cell ModelConfig (HR-1, 21 §4)', () => {
-    const tsJob = { strategyId: 'feed-exerciser', slug: 's' } as unknown as MarketJobData
-    const n = nativeJobFor(tsJob, cell)
+  it('the native job carries the Rust strategy id, the cell ModelConfig and the local input (HR-1, 21 §4)', () => {
+    const tsJob = {
+      strategyId: 'feed-exerciser',
+      slug: 'btc-updown-15m-1776556800',
+      filePath: '/d/events/x.parquet',
+      gammaPriceToBeat: { priceToBeat: 84000, syncedAtMs: 1 },
+    } as unknown as MarketJobData
+    const n = nativeJobFor(tsJob, cell, {
+      conditionId: '0xabc',
+      bytes: 123,
+      requiredFeeds: feeds,
+      asOfMs: 1_791_500_000_000,
+    })
     assert.equal(n.strategyId, 'feed-exerciser.rs')
-    assert.equal(n.modelConfig, cell.modelConfig)
+    assert.deepEqual(n.modelConfig, cell.modelConfig)
     assert.equal(tsJob.strategyId, 'feed-exerciser')
+    assert.deepEqual(n.input, {
+      path: '/d/events/x.parquet',
+      r2Url: null,
+      bytes: 123,
+      sha256: null,
+      format: { name: 'telonex-delta-typed', version: 1 },
+    })
+    assert.equal(n.readFrom, 'local')
+    assert.equal(n.conditionId, '0xabc')
+    assert.deepEqual(n.feedAvailability, { priceToBeat: { status: 'fed' } })
+    assert.deepEqual(n.rules, { snapshotParserVersion: null, captured: {}, disagreements: 0 })
     assert.doesNotThrow(() =>
       assertEngineJobStrategy({ run: { strategyId: 'feed-exerciser.rs' } }, cell),
     )
@@ -86,20 +109,36 @@ describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
     )
   })
 
-  it('the EngineJob builder comes from src/native or fails loudly; an override must export buildEngineJob', async () => {
-    const hasNative = ['src/native/buildEngineJob.ts', 'src/native/index.ts'].some((f) =>
-      existsSync(path.join(REPO_ROOT, f)),
-    )
-    if (!hasNative) await assert.rejects(loadEngineJobBuilder(), /src\/native/)
+  it('the EngineJob builder is src/native buildEngineJob; an override must export buildEngineJob', async () => {
+    assert.equal(await loadEngineJobBuilder(), buildEngineJob)
     const dir = mkdtempSync(path.join(tmpdir(), 'parity-builder-'))
     const good = path.join(dir, 'good.mjs')
     writeFileSync(
       good,
-      'export function buildEngineJob(job) { return { run: { strategyId: job.strategyId } } }\n',
+      "export function buildEngineJob(job) { return { kind: 'job', job: { run: { strategyId: job.strategyId } } } }\n",
     )
     const fn = await loadEngineJobBuilder(good)
+    const noSlug = {
+      slug: null,
+      filePath: '/x',
+      submissionUid: 'u',
+      strategyParams: {},
+      inputMode: 'telonex-delta',
+      order: 'recorded',
+      timeDriven: false,
+      latency: { delayMs: 0, jitterMs: 0 },
+      startingCapital: 500,
+      marketResolution: null,
+      strategyWindow: null,
+    } as unknown as MarketJobData
+    const native = nativeJobFor(noSlug, cell, {
+      conditionId: null,
+      bytes: 1,
+      requiredFeeds: null,
+      asOfMs: 0,
+    })
     assert.deepEqual(
-      await fn(nativeJobFor({ slug: 's' } as unknown as MarketJobData, cell), { dataRoot: '/d' }),
+      await engineJobFor(fn, native, '/d', { tracePath: '/t', traceLevel: 'feeds' }),
       {
         run: { strategyId: 'feed-exerciser.rs' },
       },
@@ -107,5 +146,10 @@ describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
     const bad = path.join(dir, 'bad.mjs')
     writeFileSync(bad, 'export const x = 1\n')
     await assert.rejects(loadEngineJobBuilder(bad), /does not export buildEngineJob/)
+    // A parity market is resolved: a 21 §13 short-circuit is an error (R14).
+    await assert.rejects(
+      engineJobFor(buildEngineJob, native, '/d', { tracePath: '/t', traceLevel: 'feeds' }),
+      /short-circuited \(no_slug/,
+    )
   })
 })
