@@ -58,7 +58,7 @@ override this spec (00 §6).
 | `12-engine-core.md` | loop, intents and validation, state machine, cascades, window gate, fault semantics | N1 (design reference, not a template) |
 | `13-execution-models.md` | trait shapes, realistic fixes RF01–RF15 and their A/B rule | N3 |
 | `14-feeds-and-plugins.md` | §7 V4 feeds; §12 plugins | N1, N5, N7 |
-| `15-inputs.md` | §5–§6 V4 reader; §8 data-anomaly policy | 11 (extracted), N1 |
+| `15-inputs.md` | §5 V4 reader; §8 data-anomaly policy (§6 is own-order removal for live journals) | 11 (extracted), N1, N4 |
 | `16-performance-and-parallelism.md` | executor, caches, decode, benchmark methodology | N6 |
 | `20-binary-protocol.md` | subcommands, exit codes, env allowlist, secrets channel | N1, N2 |
 | `21-job-and-output-contract.md` | job and output shapes, skip taxonomy | N5 |
