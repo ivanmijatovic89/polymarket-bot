@@ -11,6 +11,8 @@
  * For a Rust strategy package (31 §7.1) the same command runs the native
  * gates: package rules and lock subset, cargo fmt, clippy with the engine's
  * config, and builder builds of every bin (src/strategy/artifacts/native/).
+ * `--ci` runs the engine-CI subset of 31 §7.6 (gates 1-4 and 6 on a host
+ * build, any host); `--qos default` runs an unthrottled interactive build.
  */
 import { existsSync } from 'node:fs'
 import path from 'node:path'
