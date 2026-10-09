@@ -842,7 +842,11 @@ impl Ledger {
                 Ok(Delivered::default())
             }
             K::SplitFailed { op, .. } | K::MergeFailed { op, .. } => {
-                self.take_pending(op)?;
+                // Engine-origin failures (12 §7.3) never registered a pending
+                // operation and, like OM rejections, do not touch the ledger.
+                if self.pending_ops.iter().any(|p| p.op == op) {
+                    self.take_pending(op)?;
+                }
                 Ok(Delivered::default())
             }
             K::PositionsMerged { op, size } => {

@@ -96,6 +96,17 @@ fn json_string(out: &mut String, s: &str) {
     out.push('"');
 }
 
+/// One reference of a `CancelBatch` (30 §7, 10 §7.3 N1).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CancelRef<'c> {
+    /// By client order id.
+    Cid(&'c ClientOrderId),
+    /// By exchange order id.
+    Exchange(ExchangeOrderId),
+    /// Both; they must agree, otherwise the cancel fails `ConflictingRefs`.
+    Both(&'c ClientOrderId, ExchangeOrderId),
+}
+
 /// The intent buffer (30 §7). Buffer order is submission order; `clear`
 /// keeps capacity.
 #[derive(Clone, Debug, Default)]
@@ -106,6 +117,9 @@ pub struct Intents {
     cid_bytes: Vec<u8>,
     cid_spans: Vec<(u32, u32)>,
     metas: Vec<Meta>,
+    /// Reused scratch for batch construction (12 §14 P1).
+    scratch_orders: Vec<OrderRequest>,
+    scratch_refs: Vec<OrderRef>,
 }
 
 impl Intents {
@@ -120,6 +134,16 @@ impl Intents {
         self.cid_bytes.clear();
         self.cid_spans.clear();
         self.metas.clear();
+    }
+
+    /// The `i`-th intent with buffer-local cids (trace rendering).
+    pub fn get(&self, i: usize) -> Option<pmb_core::order::Intent<'_>> {
+        self.core.get(i)
+    }
+
+    /// Text of a buffer-local cid key of this buffer (trace rendering).
+    pub fn local_cid_text(&self, k: CidKey) -> &str {
+        self.cid_text(k)
     }
 
     /// Number of intents.
@@ -161,6 +185,41 @@ impl Intents {
         req.cid = self.local_cid(cid);
         req.meta = meta.map(|m| self.local_meta(m));
         self.core.place(req);
+    }
+
+    /// Places several orders as one `PlaceBatch` (30 §7, 10 §7.3); each
+    /// order carries its own cid and meta.
+    pub fn place_batch<'c, I>(&mut self, orders: I)
+    where
+        I: IntoIterator<Item = (&'c ClientOrderId, OrderRequest, Option<Meta>)>,
+    {
+        let mut scratch = std::mem::take(&mut self.scratch_orders);
+        scratch.clear();
+        for (cid, mut req, meta) in orders {
+            req.cid = self.local_cid(cid);
+            req.meta = meta.map(|m| self.local_meta(m));
+            scratch.push(req);
+        }
+        self.core.place_batch(scratch.iter().copied());
+        self.scratch_orders = scratch;
+    }
+
+    /// Cancels several orders as one `CancelBatch` (30 §7).
+    pub fn cancel_batch<'c, I>(&mut self, refs: I)
+    where
+        I: IntoIterator<Item = CancelRef<'c>>,
+    {
+        let mut scratch = std::mem::take(&mut self.scratch_refs);
+        scratch.clear();
+        for r in refs {
+            scratch.push(match r {
+                CancelRef::Cid(c) => OrderRef::Cid(self.local_cid(c)),
+                CancelRef::Exchange(e) => OrderRef::Exchange(e),
+                CancelRef::Both(c, e) => OrderRef::Both(self.local_cid(c), e),
+            });
+        }
+        self.core.cancel_batch(scratch.iter().copied());
+        self.scratch_refs = scratch;
     }
 
     /// Cancels the order of a client order id (`CancelOrder`, 30 §7).

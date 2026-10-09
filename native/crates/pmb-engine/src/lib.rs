@@ -31,5 +31,7 @@ pub use envelope::{Envelope, Payload};
 pub use exec::{EventQueue, ExecCommand, ExecCtx, Execution};
 pub use session::{Session, SessionFault};
 pub use shared::SharedMarket;
-pub use strategy::{Ctx, Interests, Strategy, StrategyError, StrategyResult, TickInterest};
+pub use strategy::{
+    Ctx, Intents, Interests, Strategy, StrategyError, StrategyResult, TickInterest,
+};
 pub use trace::{NoTrace, TraceSink};

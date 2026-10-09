@@ -732,7 +732,15 @@ impl OrderManager {
                 (None, None) => None,
             };
             let Some(k) = key else {
-                fail(io, None, CancelFailReason::UnknownClientOrder);
+                if by_cid.is_some() {
+                    fail(io, None, CancelFailReason::UnknownClientOrder);
+                } else if rules == CoreRules::Realistic {
+                    // D-PENDING: an exchange id with no known order cannot be
+                    // dispatched (commands carry keys, 13 §2.1); chose the
+                    // answer the exchange would give, `ExchangeNotCanceled`.
+                    fail(io, None, CancelFailReason::ExchangeNotCanceled { code: 0 });
+                }
+                // TC-C10: TS sends it and the simulator finds nothing: no event.
                 continue;
             };
             match self.visible(k, io.ledger, rules) {
