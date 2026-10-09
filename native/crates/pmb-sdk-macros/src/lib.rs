@@ -40,7 +40,15 @@ fn emit(r: syn::Result<proc_macro2::TokenStream>) -> TokenStream {
 /// | `flatten` | Merge the keys of a nested `#[derive(Params)]` struct into this object (rule 5); key collisions fail compilation. |
 ///
 /// A field without `default` is required, except `Option` fields. Doc
-/// comments become schema descriptions. On the struct, `#[param(validate)]`
+/// comments become schema descriptions.
+///
+/// Value rules beyond the 30 §9 table, so that normalized params survive
+/// TS storage (`JSON.parse`/`JSON.stringify` of `backtest_runs.params`):
+/// integers (and `DurMs`) stay within ±(2^53 - 1) (21 §18 N2), and
+/// fixed-point values have at most 15 significant digits. An `Option`
+/// field is `None` when absent, `null`, or the string `"null"`; for
+/// `Option<String>` that includes a typed `"null"` string, because a mixed
+/// params object cannot tell a CLI string from a typed one. On the struct, `#[param(validate)]`
 /// leaves `impl Params for T { fn validate(&self) .. }` to the author for
 /// cross-field rules; without it the derive writes an empty `impl Params`.
 #[proc_macro_derive(Params, attributes(param))]
