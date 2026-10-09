@@ -36,6 +36,11 @@
 
 ## Log (newest first)
 
+### 2026-10-09 14:30 — wave 1 complete (core review fixes, TS src/native) integrated
+
+- Merged the final ws/core (review fixes: fault semantics, halts, cancel cases, converted cancellation.test.ts cases) and ws/ts (src/native shim: buildEngineJob, resolveModelConfig, validateEngineResult, toRunSingleMarketOutput, protocol-v2 runner, `native:fixture-job`, `native:test:ts`, `native:parity:summary`). Resolved duplicates: `scripts/native/fixture-job.ts` now delegates to `src/native/fixtureJob.ts`; duplicate package.json keys removed. The canonical builder's host env reads (CARGO_HOME, RUSTUP_HOME, CARGO_BUILD_JOBS, tool passthrough) are allowlisted for OR-7 (build time only).
+- Proof (native-engine = ws/int): Rust gates → 665 passed, 0 failed, 8 ignored; `npm run -s code:typecheck`, `code:eslint`, `code:prettier:check` clean; `npm run -s native:test:ts` → 219 pass, 0 fail; `npm run -s native:oracle:env-audit` → OK (125 files, 35 reads, 29 names).
+
 ### 2026-10-09 13:40 — D71 (user): copy mode trimmed to delay-0 parity; TS risk-pass and cancel quirks classified
 
 - Recorded by the owner's review session and committed directly (00 §3.2). Edited: 13 §5.2 (five rows marked not reproduced), §5.4 (classification rows), §5.5; 12 §2 table, §7.2, §7.3 `CancelOrder`, §7.6, §8.2, §14 table; 60 §4.1 (E15-D, L15-D, E5-D dropped), §5 cancel row, §6; 01 M2 step 1 and proof; 03; D49 amended. Goldens, T15 cells, PS-50, AB-4, conformance unchanged. For the lead: drop the TC-C2/C3/C5/C6/C10 branches at the wave-1 fix and integrate stages.
