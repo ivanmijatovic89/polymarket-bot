@@ -1,23 +1,25 @@
-# Result-neutral process.env reads under the OR-2 engine paths
-# (native/spec/60-verification.md §2.3 OR-7; checked by `npm run native:oracle:env-audit`).
+# Result-neutral environment reads under the engine paths
+# (native/spec/60-verification.md §2.3 OR-7; `npm run native:oracle:env-audit`).
+# The audit fails on any `process.env` read (or env helper call) under the
+# engine paths that is neither an OR-7 knob (src/backtest/parity/cell.ts
+# ORACLE_ENV_KEYS) nor listed here.
 #
-# Format: one variable per line, `NAME  # reason`; the reason is mandatory.
-# Only variables that cannot change any order, fill, cancel, PnL or stat of a
-# backtest belong here. A result-affecting variable missing from the OR-7 table
-# is a spec question (STATUS.md "Waiting on user"), never an allowlist entry.
-# OR-7 knobs themselves must not be listed here (the audit fails on overlap).
+# Format: `var <NAME>  # reason` or `dynamic <file>  # reason` (a helper that
+# reads `process.env[name]`; its call sites are audited by name).
 
-# Live-only: read inside LiveExecution split/merge on-chain paths (src/trading/execution/LiveExecution.ts); backtests run BacktestExecution and never reach them.
-POLYGON_RPC_URL  # live-only RPC endpoint for on-chain split/merge in LiveExecution; never read by BacktestExecution
-POLYMARKET_TX_MODE_SPLIT  # live-only relayer/direct choice for on-chain split in LiveExecution
-POLYMARKET_TX_MODE_MERGE  # live-only relayer/direct choice for on-chain merge in LiveExecution
-POLYMARKET_EOA_GAS_MULTIPLIER  # live-only gas multiplier for EOA split/merge transactions in LiveExecution
-SPLIT_MAX_RETRY  # live-only on-chain split retry count in LiveExecution
-SPLIT_RETRY_DELAY_MS  # live-only on-chain split retry delay in LiveExecution
-MERGE_MAX_RETRY  # live-only on-chain merge retry count in LiveExecution
-MERGE_RETRY_DELAY_MS  # live-only on-chain merge retry delay in LiveExecution
-
-# Infrastructure: location or connection only.
-STRATEGY_ARTIFACT_CACHE_DIR  # cache directory of artifact bundles (src/strategy/artifacts/loader.ts); bundles are sha256-verified, so the location cannot change the code that runs
-REDIS_URL  # BullMQ connection target (src/backtest/queue.ts); oracle children never enqueue and R13 forbids the shared fleet Redis
-WORKER_LAUNCH_SHA  # fleet worker self-update gate and provenance (src/backtest/commitGate.ts); decides whether a worker takes a job, never how a market is simulated
+var POLYGON_RPC_URL                  # live on-chain RPC (LiveExecution), never used in backtest
+var POLYMARKET_TX_MODE_SPLIT         # live split transport (LiveExecution)
+var POLYMARKET_TX_MODE_MERGE         # live merge transport (LiveExecution)
+var POLYMARKET_EOA_GAS_MULTIPLIER    # live gas pricing (LiveExecution)
+var SPLIT_MAX_RETRY                  # live split retries (LiveExecution)
+var SPLIT_RETRY_DELAY_MS             # live split retries (LiveExecution)
+var MERGE_MAX_RETRY                  # live merge retries (LiveExecution)
+var MERGE_RETRY_DELAY_MS             # live merge retries (LiveExecution)
+var STRATEGY_ARTIFACT_CACHE_DIR      # artifact cache location; bundles are sha256-verified on load
+var WORKER_LAUNCH_SHA                # commit gate of the worker path; provenance only
+var TELONEX_CONVERT_HEARTBEAT_MS     # conversion claim heartbeat (src/telonex/convert.ts); never in a replay
+var REDIS_URL                        # queue connection; parity runs never enqueue
+var BACKTEST_LATENCY_DELAY           # Market Simulator only (src/backtest/simulator); replay latency travels in the job
+var BACKTEST_LATENCY_JITTER          # Market Simulator only (src/backtest/simulator); replay latency travels in the job
+dynamic src/backtest/feeds/wireBacktestExternalFeeds.ts  # envInt(name) helper; call sites audited by name
+dynamic src/backtest/simulator/resolveMarket.ts          # envInt(name) helper; call sites audited by name

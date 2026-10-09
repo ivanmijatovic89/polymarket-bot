@@ -1,0 +1,13 @@
+# Oracle allowlist (native/spec/60-verification.md §2.2 OR-3).
+# Files under the engine paths (engine-paths.txt) that the implementation
+# branch may change relative to the oracle pin. A gating run requires that
+# `git diff --name-only <pin> HEAD -- <engine paths>` lists only these
+# (a trailing `/` allows a whole directory). Every entry is covered by TS
+# self-parity (OR-17).
+
+# Parity tooling, which main does not have before G2.
+src/backtest/parity/
+# Artifact kind (31 §8).
+src/strategy/artifacts/types.ts
+# Market Simulator guard (D10, 22 §5).
+src/backtest/simulator/resolveMarket.ts
