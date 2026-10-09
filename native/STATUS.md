@@ -5,11 +5,11 @@
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
 - Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
 - Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57)
-- Milestone / step: M1 / steps 2–5 in parallel (step 0 PR open, step 1 bootstrap done)
-- Oracle pin: main@9463830d (branch base; synced 2026-10-09)
+- Milestone / step: M1 / steps 2–6 in parallel (workflow wave 1); steps 0 and 1 done
+- Oracle pin: main@ad2f11b8 (merged 2026-10-09 11:50; the only change since 9463830d is the rules capture, outside the OR-2 engine paths)
 - Binaries: none yet
 - Data roots: symlinks data/{events,binance,telonex} → fleet copy (read-only); data/native-tapes, data/strategy-artifacts local
-- Rules capture: PR https://github.com/ivanmijatovic89/polymarket-bot/pull/308 open (branch `rules-capture`, PC8 items 1–2 proven 2026-10-09 05:24Z); not deployed yet
+- Rules capture: running since 2026-10-09 09:48Z (LaunchAgent `com.pmb.rules-capture`, pinned checkout /Users/worker-1/pmb-rules-capture/app @ ad2f11b8, output /Users/worker-1/pmb-rules-capture/prestart); PC8 item 3 (`--report --days 1` ≥ 99%) due after 2026-10-10 09:48Z
 - Paused: none. Benchmarks that need a paused fleet are deferred for this run by the user's rule (no pause/stop of the fleet worker or Global Runtime until the user confirms the pause procedure); M1 baselines run alongside the fleet and are labeled `non-idle`
 - Last proof: workspace gates after the leftover tidy (2026-10-09 11:55): `cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked` → green (pmb-core 41, pmb-book 3, pmb-contract 8+6, pmb-replay golden 1)
 - Benchmark (fixed set): none yet
@@ -25,7 +25,7 @@
 
 ### M1 (started 2026-10-09)
 
-- [ ] 1.0 Rules capture PR (D37): branch `rules-capture` pushed, PR #308 open; merge after CI, then deploy (PC7)
+- [x] 1.0 Rules capture (D37): PR #308 squash-merged as ad2f11b8 (CI green), deployed per PC7 2026-10-09 09:48Z; PC8 item 3 pending (24 h)
 - [x] 1.1 Bootstrap: workspace, STATUS.md, native CI job, `native:ci:local`, conformance checkout — eb32c9dd; draft PR #309
 - [ ] 1.2 Contract, inputs, books, feeds
 - [ ] 1.3 Core
@@ -35,6 +35,13 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 11:50 — M1.0 rules capture merged and deployed
+
+- PR https://github.com/ivanmijatovic89/polymarket-bot/pull/308: CI green (Root, Dashboard, Docs, WebUI), `npm run rules:capture:test` 24/24 locally; squash-merged → main@ad2f11b8 (user-approved merge, D37).
+- Deployment (11 PC7): `git clone` of ad2f11b8 at /Users/worker-1/pmb-rules-capture/app, `npm ci` (Node v20.20.2), plist rendered from `ops/macos/rules-capture/com.pmb.rules-capture.plist.template`, `plutil -lint` OK, `launchctl bootstrap gui/501 …` → pid 85636; first ticks 09:48:05Z (2 markets, 4 requests ok) and 09:49:05Z (ok 2); `status.json` fresh.
+- origin/main merged into native-engine (bc03975f); oracle pin main@ad2f11b8.
+- Wave-1 workflow started (worktrees `.claude/worktrees/ws-{core,feeds,plugins,contract,builder,sdk,ts}`; ws-exec is created from ws/core by the skeleton step).
 
 ### 2026-10-09 11:55 — resume on the $200 plan; leftovers tidied
 
