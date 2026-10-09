@@ -550,7 +550,10 @@ dependencies = [
 name = "pmb-feeds"
 version = "0.1.0"
 dependencies = [
+ "parquet",
  "pmb-core",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
