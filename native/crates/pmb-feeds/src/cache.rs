@@ -111,15 +111,33 @@ fn identity(path: &Path, expected_bytes: u64, what: &str) -> Result<FileIdent, F
             ),
         ));
     }
-    let mtime_ns = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_nanos() as i128);
+    // The mtime is part of the file identity (16 §6.1): without it a file
+    // rewritten in place with the same size would be served stale, so an
+    // unreadable mtime is `runtime: io`, never a silent 0 (00 R14).
+    let mtime_ns = file_mtime_ns(meta.modified()).map_err(|e| {
+        FeedError::new(
+            FeedCause::Io,
+            format!(
+                "{what} day file {}: modification time unavailable ({e}); the day cache needs \
+                 it to detect a rewritten file (16 §6.1)",
+                path.display()
+            ),
+        )
+    })?;
     Ok(FileIdent {
         path: path.to_path_buf(),
         len: meta.len(),
         mtime_ns,
+    })
+}
+
+/// Nanoseconds since the epoch of a file's modification time; times before
+/// the epoch are negative.
+fn file_mtime_ns(modified: std::io::Result<std::time::SystemTime>) -> std::io::Result<i128> {
+    let t = modified?;
+    Ok(match t.duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_nanos() as i128,
+        Err(e) => -(e.duration().as_nanos() as i128),
     })
 }
 
@@ -280,5 +298,30 @@ impl DayCache {
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    // spec: 16 §6.1 (file identity includes the mtime), 00 R14 (no silent
+    // fallback when it is unavailable)
+    #[test]
+    fn mtime_is_required() {
+        assert_eq!(
+            file_mtime_ns(Ok(UNIX_EPOCH + Duration::from_nanos(5))).unwrap(),
+            5
+        );
+        assert_eq!(
+            file_mtime_ns(Ok(UNIX_EPOCH - Duration::from_nanos(7))).unwrap(),
+            -7
+        );
+        let unsupported: std::io::Result<SystemTime> = Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "no mtime on this platform",
+        ));
+        assert!(file_mtime_ns(unsupported).is_err());
     }
 }
