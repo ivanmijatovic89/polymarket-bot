@@ -10,6 +10,7 @@
 //! env, and use the pure-Rust `libm` for transcendental math (14 P-1, P-2;
 //! 10 D-2). Feeds are not a plugin in Rust (14 P-4).
 
+mod candle_cache;
 mod candles;
 mod dwell_gate;
 mod set;
@@ -19,6 +20,7 @@ mod time_window_gate;
 pub mod ts_shape;
 mod volatility;
 
+pub use candle_cache::{CacheUse, CandleCache, CandleCacheError, DayCandles, TaCandles, UtcDay};
 pub use candles::{
     build_candles, build_day_candles, AggTrade, Candle, CandleError, CandleInterval, DAY_MS,
 };
