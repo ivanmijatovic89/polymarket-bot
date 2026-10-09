@@ -51,14 +51,40 @@ export function patchSetSha256(patchFiles: readonly string[]): string | null {
 }
 
 /**
+ * Tooling paths with uncommitted changes (modified, staged or untracked) in
+ * the checkout at `cwd`, from `git status --porcelain`.
+ */
+export function dirtyToolingPaths(cwd = REPO_ROOT): string[] {
+  // Not through git(): its trim would cut the status column of the first line.
+  const out = execFileSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all', '--', ...TOOLING_PATHS],
+    { cwd, encoding: 'utf8' },
+  )
+  return out
+    .split('\n')
+    .filter((l) => l.length > 3)
+    .map((l) => l.slice(3))
+    .sort()
+}
+
+/**
  * Create (or reuse, when its marker matches) the scratch oracle tree for
- * `pin` plus `patchFiles` under `scratchRoot`.
+ * `pin` plus `patchFiles` under `scratchRoot`. The tooling is copied from
+ * the working tree but the reuse marker keys on its HEAD tree hashes, so a
+ * dirty tooling tree is refused (60 OR-17, OR-12): the pin tree must hold
+ * exactly the committed tooling its marker names.
  */
 export function prepareOracleTree(
   pin: string,
   patchFiles: readonly string[],
   scratchRoot: string,
 ): OracleTreeInfo {
+  const dirty = dirtyToolingPaths()
+  if (dirty.length > 0)
+    throw new Error(
+      `--oracle-tree pin copies the parity tooling, which has uncommitted changes (60 OR-17, OR-12); commit them first: ${dirty.join(', ')}`,
+    )
   const patches = patchFiles.map((f) => ({
     file: path.resolve(f),
     sha256: sha256Hex(readFileSync(f)),
