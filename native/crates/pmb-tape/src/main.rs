@@ -46,6 +46,7 @@ const USAGE: &str = "usage:
                        [--configs v1,tape,tape-full,tape-rows,pq-full,pq-rows] [--qos default|utility|background]
                        [--label non-idle|idle-window]
   pmb-tape m19-convert --data-root <dir> --tape-root <dir> --set <manifest.json> [--zstd-level N]
+                       [--variant delta|plain-dict]
   pmb-tape info        <tape-file>";
 
 struct Args {
@@ -823,6 +824,9 @@ fn m19_convert(a: &Args) -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
     store::check_tape_root(&a.tape_root, &a.data_root, &inputs).map_err(anyhow::Error::msg)?;
     let level = flag(a, "zstd-level", pmb_tape::codec::DEFAULT_ZSTD_LEVEL)?;
+    let variant_name = a.flags.get("variant").map_or("delta", String::as_str);
+    let variant = pmb_tape::m19::Variant::parse(variant_name)
+        .with_context(|| format!("--variant must be plain-dict or delta (got {variant_name})"))?;
     let mut decoder = Decoder::new()?;
     let mut pq = pmb_tape::m19::Reader::default();
     let (mut tape_total, mut m19_total) = (0u64, 0u64);
@@ -831,7 +835,7 @@ fn m19_convert(a: &Args) -> Result<()> {
         let tape = market_tape(&m, mk, &a.tape_root)?;
         let (h, rows) = load_tape(&mut decoder, &tape, &v1, Some(&mk.sha256_bytes()?))
             .map_err(|f| anyhow::anyhow!("{}: no valid tape ({f})", mk.slug))?;
-        let encoded = pmb_tape::m19::encode(&rows, &h.v1, level)
+        let encoded = pmb_tape::m19::encode(&rows, &h.v1, level, variant)
             .map_err(|e| anyhow::anyhow!("{}: {e}", mk.slug))?;
         let (_, back) = pq
             .read(Bytes::from(encoded.clone()))
@@ -854,8 +858,9 @@ fn m19_convert(a: &Args) -> Result<()> {
         );
     }
     println!(
-        "pmb-tape m19-convert: set {} — tape {tape_total} bytes, m19 {m19_total} bytes (m19/tape {:.3})",
+        "pmb-tape m19-convert: set {} ({}) — tape {tape_total} bytes, m19 {m19_total} bytes (m19/tape {:.3})",
         m.name,
+        variant.name(),
         m19_total as f64 / tape_total as f64
     );
     Ok(())
@@ -903,7 +908,7 @@ fn main() {
         Some("bench") => parse_args(&argv[1..], &["reps", "json", "configs", "qos", "label"])
             .and_then(|a| bench(&a)),
         Some("m19-convert") => {
-            parse_args(&argv[1..], &["zstd-level"]).and_then(|a| m19_convert(&a))
+            parse_args(&argv[1..], &["zstd-level", "variant"]).and_then(|a| m19_convert(&a))
         }
         Some("info") if argv.len() == 2 => info(Path::new(&argv[1])),
         _ => Err(anyhow::anyhow!("{USAGE}")),

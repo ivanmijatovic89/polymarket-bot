@@ -1,18 +1,18 @@
 //! M-19 measured alternative (16 NT-3, §15.2): the same typed rows as a
 //! flat Parquet file of INT64/INT32 columns with ZSTD, one row group per
 //! 65,536 rows. Repeated columns hold the lists (DuckDB reads them as
-//! lists), the id dictionary and the v1 identity sit in the footer's
-//! key-value metadata, and the inexact flags are per-row lists of value
-//! positions. Bench-only: `pmb-tape m19-convert` writes these files under
-//! the tape root and `pmb-tape bench --m19` times them; executors never
-//! read them.
+//! lists); the id dictionary, the v1 identity and the (rare) inexact value
+//! indices sit in the footer's key-value metadata, so no mostly-empty list
+//! columns cost level decoding. Bench-only: `pmb-tape m19-convert` writes
+//! these files under the tape root and `pmb-tape bench --configs
+//! ...,pq-full,pq-rows` times them; executors never read them.
 
 use crate::codec::V1Identity;
 use crate::store::{hex, parse_hex32};
 use crate::typed::{dec, int, row_flags, TypedRows, NULL_ID};
 use crate::v1::Column;
 use bytes::Bytes;
-use parquet::basic::{Compression, ZstdLevel};
+use parquet::basic::{Compression, Encoding, ZstdLevel};
 use parquet::column::writer::ColumnWriter;
 use parquet::data_type::{Int32Type, Int64Type};
 use parquet::file::metadata::KeyValue;
@@ -45,12 +45,6 @@ const MESSAGE: &str = "message pmb_typed_rows {
   repeated int64 change_sizes;
   repeated int32 change_asset_indexes;
   repeated int32 change_side_codes;
-  repeated int32 bid_prices_inexact;
-  repeated int32 bid_sizes_inexact;
-  repeated int32 ask_prices_inexact;
-  repeated int32 ask_sizes_inexact;
-  repeated int32 change_prices_inexact;
-  repeated int32 change_sizes_inexact;
 }";
 
 /// Column indices of the schema.
@@ -64,8 +58,7 @@ const C_ASSET1: usize = 6;
 const C_ASSET_INDEX: usize = 7;
 const C_DEC: usize = 8;
 const C_INT: usize = C_DEC + dec::COUNT;
-const C_INEXACT: usize = C_INT + int::COUNT;
-const N_COLS: usize = C_INEXACT + dec::COUNT;
+const N_COLS: usize = C_INT + int::COUNT;
 
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -88,8 +81,38 @@ fn list_levels(offsets: &[u32], r0: usize, r1: usize) -> (Vec<i16>, Vec<i16>) {
     (def, rep)
 }
 
+/// Parquet column encoding of an M-19 file (both ZSTD-compressed).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Variant {
+    /// parquet-rs writer defaults: dictionary pages, PLAIN fallback.
+    PlainDict,
+    /// No dictionary; DELTA_BINARY_PACKED for every integer column (the
+    /// Parquet counterpart of the tape's delta and width coding).
+    Delta,
+}
+
+impl Variant {
+    pub fn name(self) -> &'static str {
+        match self {
+            Variant::PlainDict => "plain-dict",
+            Variant::Delta => "delta",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        [Variant::PlainDict, Variant::Delta]
+            .into_iter()
+            .find(|v| v.name() == s)
+    }
+}
+
 /// Encodes typed rows as an M-19 Parquet file.
-pub fn encode(t: &TypedRows, v1: &V1Identity, zstd_level: i32) -> Result<Vec<u8>, String> {
+pub fn encode(
+    t: &TypedRows,
+    v1: &V1Identity,
+    zstd_level: i32,
+    variant: Variant,
+) -> Result<Vec<u8>, String> {
     t.validate()?;
     let schema = Arc::new(parse_message_type(MESSAGE).map_err(err)?);
     let dict = t.dict.iter().map(|e| hex(e)).collect::<Vec<_>>().join(",");
@@ -99,16 +122,21 @@ pub fn encode(t: &TypedRows, v1: &V1Identity, zstd_level: i32) -> Result<Vec<u8>
         KeyValue::new("pmb_v1_mtime_ns".into(), v1.mtime_ns.to_string()),
         KeyValue::new("pmb_v1_sha256".into(), hex(&v1.sha256)),
         KeyValue::new("pmb_dict".into(), dict),
+        KeyValue::new("pmb_inexact".into(), inexact_text(t)),
+        KeyValue::new("pmb_m19_variant".into(), variant.name().to_string()),
     ];
-    let props = Arc::new(
-        WriterProperties::builder()
-            .set_compression(Compression::ZSTD(
-                ZstdLevel::try_new(zstd_level).map_err(err)?,
-            ))
-            .set_max_row_group_size(ROW_GROUP_ROWS)
-            .set_key_value_metadata(Some(kv))
-            .build(),
-    );
+    let mut props = WriterProperties::builder()
+        .set_compression(Compression::ZSTD(
+            ZstdLevel::try_new(zstd_level).map_err(err)?,
+        ))
+        .set_max_row_group_size(ROW_GROUP_ROWS)
+        .set_key_value_metadata(Some(kv));
+    if variant == Variant::Delta {
+        props = props
+            .set_dictionary_enabled(false)
+            .set_encoding(Encoding::DELTA_BINARY_PACKED);
+    }
+    let props = Arc::new(props.build());
     let mut out = Vec::new();
     let mut w = SerializedFileWriter::new(&mut out, schema, props).map_err(err)?;
     let n = t.len();
@@ -174,28 +202,12 @@ pub fn encode(t: &TypedRows, v1: &V1Identity, zstd_level: i32) -> Result<Vec<u8>
                     cw.write_batch(&l.values[span], Some(&def), Some(&rep))
                         .map_err(err)?;
                 }
-                (i, ColumnWriter::Int32ColumnWriter(cw)) if (C_INT..C_INEXACT).contains(&i) => {
+                (i, ColumnWriter::Int32ColumnWriter(cw)) if (C_INT..N_COLS).contains(&i) => {
                     let l = &t.ints[i - C_INT];
                     let (def, rep) = list_levels(&l.offsets, r0, r1);
                     let span = l.offsets[r0] as usize..l.offsets[r1] as usize;
                     cw.write_batch(&l.values[span], Some(&def), Some(&rep))
                         .map_err(err)?;
-                }
-                (i, ColumnWriter::Int32ColumnWriter(cw)) if (C_INEXACT..N_COLS).contains(&i) => {
-                    // Per row: positions of the rounded values within the row.
-                    let l = &t.decimals[i - C_INEXACT];
-                    let mut offsets = vec![0u32];
-                    let mut v = Vec::new();
-                    let mut k = l.inexact.partition_point(|&x| x < l.offsets[r0]);
-                    for r in r0..r1 {
-                        while k < l.inexact.len() && l.inexact[k] < l.offsets[r + 1] {
-                            v.push((l.inexact[k] - l.offsets[r]) as i32);
-                            k += 1;
-                        }
-                        offsets.push(v.len() as u32);
-                    }
-                    let (def, rep) = list_levels(&offsets, 0, r1 - r0);
-                    cw.write_batch(&v, Some(&def), Some(&rep)).map_err(err)?;
                 }
                 (i, _) => return Err(format!("column {i}: unexpected writer type")),
             }
@@ -206,6 +218,39 @@ pub fn encode(t: &TypedRows, v1: &V1Identity, zstd_level: i32) -> Result<Vec<u8>
         r0 = r1;
     }
     w.close().map_err(err)?;
+    Ok(out)
+}
+
+/// Inexact value indices per decimal list: lists separated by `;`, indices
+/// by `,` (real markets have none).
+fn inexact_text(t: &TypedRows) -> String {
+    t.decimals
+        .iter()
+        .map(|l| {
+            l.inexact
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn parse_inexact(text: &str) -> Result<[Vec<u32>; dec::COUNT], String> {
+    let lists: Vec<&str> = text.split(';').collect();
+    if lists.len() != dec::COUNT {
+        return Err(format!("pmb_inexact has {} lists", lists.len()));
+    }
+    let mut out: [Vec<u32>; dec::COUNT] = Default::default();
+    for (d, l) in lists.iter().enumerate() {
+        if !l.is_empty() {
+            out[d] = l
+                .split(',')
+                .map(|x| x.parse::<u32>().map_err(err))
+                .collect::<Result<_, _>>()?;
+        }
+    }
     Ok(out)
 }
 
@@ -222,7 +267,6 @@ pub struct Reader {
     i32s: [Column<i32>; 5],
     decs: [Column<i64>; dec::COUNT],
     ints: [Column<i32>; int::COUNT],
-    inexact: [Column<i32>; dec::COUNT],
 }
 
 impl Default for Reader {
@@ -232,7 +276,6 @@ impl Default for Reader {
             i32s: std::array::from_fn(|_| Column::new()),
             decs: std::array::from_fn(|_| Column::new()),
             ints: std::array::from_fn(|_| Column::new()),
-            inexact: std::array::from_fn(|_| Column::new()),
         }
     }
 }
@@ -253,7 +296,7 @@ impl Reader {
     /// Decodes a whole M-19 file into typed rows.
     pub fn read(&mut self, data: Bytes) -> Result<(Meta, TypedRows), String> {
         let reader = SerializedFileReader::new(data).map_err(err)?;
-        let (meta, dict) = footer(&reader)?;
+        let (meta, dict, inexact) = footer(&reader)?;
         let total: usize = reader
             .metadata()
             .row_groups()
@@ -290,9 +333,6 @@ impl Reader {
             for (k, c) in self.ints.iter_mut().enumerate() {
                 c.read::<Int32Type>(rg, C_INT + k, rows).map_err(pq)?;
             }
-            for (k, c) in self.inexact.iter_mut().enumerate() {
-                c.read::<Int32Type>(rg, C_INEXACT + k, rows).map_err(pq)?;
-            }
             let [seq, local, exch] = &self.i64s;
             let [event, market, a0, a1, ai] = &self.i32s;
             t.ingest_seq.extend_from_slice(&seq.values);
@@ -321,13 +361,6 @@ impl Reader {
             }
             for (d, c) in self.decs.iter().enumerate() {
                 let l = &mut t.decimals[d];
-                let v0 = l.values.len() as u32;
-                // validate() rejects positions outside their row.
-                for (r, &start) in c.starts()[..rows].iter().enumerate() {
-                    for &pos in self.inexact[d].row(r) {
-                        l.inexact.push(v0 + start + pos as u32);
-                    }
-                }
                 extend_list(&mut l.offsets, &mut l.values, c);
             }
             for (i, c) in self.ints.iter().enumerate() {
@@ -335,12 +368,17 @@ impl Reader {
                 extend_list(&mut l.offsets, &mut l.values, c);
             }
         }
+        for (l, idx) in t.decimals.iter_mut().zip(inexact) {
+            l.inexact = idx; // validate() rejects bad indices
+        }
         t.validate()?;
         Ok((meta, t))
     }
 }
 
-fn footer(reader: &SerializedFileReader<Bytes>) -> Result<(Meta, Vec<Vec<u8>>), String> {
+type Footer = (Meta, Vec<Vec<u8>>, [Vec<u32>; dec::COUNT]);
+
+fn footer(reader: &SerializedFileReader<Bytes>) -> Result<Footer, String> {
     let kv = reader
         .metadata()
         .file_metadata()
@@ -374,5 +412,5 @@ fn footer(reader: &SerializedFileReader<Bytes>) -> Result<(Meta, Vec<Vec<u8>>), 
             })
             .collect::<Result<_, _>>()?
     };
-    Ok((meta, dict))
+    Ok((meta, dict, parse_inexact(&get("pmb_inexact")?)?))
 }

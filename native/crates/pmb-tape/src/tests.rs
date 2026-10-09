@@ -1738,8 +1738,12 @@ fn m19_parquet_round_trips_typed_rows() {
     assert!(rows.decimals.iter().any(|d| !d.inexact.is_empty()));
     let id = identity(&v1);
     let mut reader = m19::Reader::default();
-    for t in [rows, crate::typed::TypedRows::default()] {
-        let bytes = m19::encode(&t, &id, 3).unwrap();
+    for (t, variant) in [
+        (rows.clone(), m19::Variant::Delta),
+        (rows, m19::Variant::PlainDict),
+        (crate::typed::TypedRows::default(), m19::Variant::Delta),
+    ] {
+        let bytes = m19::encode(&t, &id, 3, variant).unwrap();
         let (meta, back) = reader.read(Bytes::from(bytes.clone())).unwrap();
         assert_eq!(back, t);
         assert_eq!((meta.v1_bytes, meta.v1_sha256), (id.bytes, id.sha256));
