@@ -4,7 +4,7 @@
   "error": null,
   "echo": {
     "engineVersion": "0.1.0",
-    "engineCommit": "da5d150e0000000000000000000000000000000",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
     "strategyId": "engine-exerciser.v2.rs",
     "jobSchemaVersion": 1,
     "profile": "ts-compat",

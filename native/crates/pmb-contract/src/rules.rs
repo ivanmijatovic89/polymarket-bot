@@ -12,6 +12,7 @@ use crate::vocab::{MarketVersion, RulesOrigin, RulesPhase};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketRules {
     /// Positive; `null` iff `captured` is empty.
+    #[serde(deserialize_with = "crate::support::nullable")]
     #[schemars(range(min = 1))]
     pub snapshot_parser_version: Option<u32>,
     pub captured: CapturedRules,

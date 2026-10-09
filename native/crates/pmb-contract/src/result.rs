@@ -6,8 +6,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::job::{CANDIDATE_KEY_PATTERN, SLUG_PATTERN};
+use crate::model_config::RULES_TABLE_VERSION_PATTERN;
 use crate::num::{Decimal, OutDec2, OutDec4, SafeI64, SafeU64, Sha256Hex};
-use crate::support::{tristate, ContractError, Version};
+use crate::support::{ContractError, Version};
 use crate::vocab::{
     ErrorClass, FailureClass, InputPath, Outcome, Profile, ResultStatus, RulesSource, SkipReason,
     StatsSkipReason, TickCause,
@@ -15,6 +17,10 @@ use crate::vocab::{
 
 /// Version of the `EngineResult` schema (`outputSchemaVersion`, 20 §3).
 pub const OUTPUT_SCHEMA_VERSION: u32 = 1;
+
+/// Pattern of `engineVersion` (semver, 20 §3).
+pub const SEMVER_PATTERN: &str =
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$";
 
 /// Pattern of an error cause (20 §4.1).
 pub const CAUSE_PATTERN: &str = r"^[a-z][a-z0-9_]{0,47}$";
@@ -31,11 +37,17 @@ pub struct EngineResult {
     /// Group-level status.
     pub status: ResultStatus,
     /// Present iff `status` is `error`.
+    #[serde(deserialize_with = "crate::support::nullable")]
     pub error: Option<ErrorInfo>,
     /// Null only when a group-level error happened before the job was read.
+    // D-PENDING: 21 §10 does not say what `echo` and `market` hold in a
+    // group-level error raised before the job was parsed; chose null there,
+    // and both are required when `status` is `ok`.
+    #[serde(deserialize_with = "crate::support::nullable")]
     pub echo: Option<Echo>,
     /// Null only when a group-level error happened before the market's rules
     /// were classified.
+    #[serde(deserialize_with = "crate::support::nullable")]
     pub market: Option<MarketEcho>,
     pub candidates: Vec<CandidateResult>,
     /// sha256 of the serialized deterministic section (every field except
@@ -48,22 +60,36 @@ pub struct EngineResult {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Echo {
+    /// Engine crate semver (20 §3).
+    #[schemars(regex(pattern = SEMVER_PATTERN))]
     pub engine_version: String,
+    /// 40-hex source commit (20 §3).
+    #[schemars(regex(pattern = r"^[0-9a-f]{40}$"))]
     pub engine_commit: String,
+    #[schemars(length(min = 1))]
     pub strategy_id: String,
+    #[schemars(range(min = 1))]
     pub job_schema_version: u32,
     pub profile: Profile,
     pub seed: SafeU64,
     pub model_config_sha256: Sha256Hex,
+    /// Copied from `modelConfig.rules` (21 §10).
+    #[schemars(regex(pattern = RULES_TABLE_VERSION_PATTERN))]
     pub rules_table_version: String,
+    /// Copied from `market.rules` (21 §10).
+    #[serde(deserialize_with = "crate::support::nullable")]
+    #[schemars(range(min = 1))]
     pub snapshot_parser_version: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketEcho {
+    #[schemars(regex(pattern = SLUG_PATTERN))]
     pub slug: String,
     /// Market id of the first counted tick; null when there was none.
+    #[serde(deserialize_with = "crate::support::nullable")]
+    #[schemars(length(min = 1, max = 255))]
     pub condition_id: Option<String>,
     pub rules_source: RulesSource,
 }
@@ -73,6 +99,7 @@ pub struct MarketEcho {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CandidateResult {
+    #[schemars(regex(pattern = CANDIDATE_KEY_PATTERN))]
     pub key: String,
     pub index: u32,
     pub status: ResultStatus,
@@ -88,14 +115,18 @@ pub struct CandidateResult {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EngineMarketOutput {
+    #[schemars(regex(pattern = SLUG_PATTERN))]
     pub slug: String,
+    /// Null for the null-stats rows of 21 §13.
+    #[serde(deserialize_with = "crate::support::nullable")]
     pub market_stats: Option<EngineMarketStats>,
     pub events_processed: SafeU64,
     pub events_by_type: EventsByType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<SkipReason>,
+    /// 1..32 non-empty strings of at most 512 characters (21 §13).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(length(min = 1, max = 32))]
+    #[schemars(length(min = 1, max = 32), inner(length(min = 1, max = 512)))]
     pub coverage_reasons: Option<Vec<String>>,
 }
 
@@ -158,8 +189,14 @@ impl EventsByType {
 pub struct EngineMarketStats {
     #[schemars(length(min = 1, max = 255))]
     pub market_id: String,
+    #[schemars(regex(pattern = SLUG_PATTERN))]
     pub slug: String,
     pub final_outcome: Outcome,
+    /// |x| < 1e10 (21 §11).
+    // D-PENDING: 21 §18 N6 names a custom `columnRange` keyword without a
+    // form; chose the standard minimum/maximum keywords, which compare
+    // these bounds exactly, and keep `decimalScale` as the only custom one.
+    #[schemars(extend("exclusiveMinimum" = -10_000_000_000_i64, "exclusiveMaximum" = 10_000_000_000_i64))]
     pub pnl: OutDec2,
     #[schemars(range(max = 2_147_483_647))]
     pub trade_count: u32,
@@ -167,10 +204,13 @@ pub struct EngineMarketStats {
     pub trade_as_maker: u32,
     #[schemars(range(max = 2_147_483_647))]
     pub trade_as_taker: u32,
-    #[schemars(extend("minimum" = 0))]
+    #[schemars(extend("minimum" = 0, "exclusiveMaximum" = 10_000_000_000_i64))]
     pub fees_paid: OutDec2,
+    /// BUY VWAP; null iff that outcome has no BUY fill (21 §11).
+    #[serde(deserialize_with = "crate::support::nullable")]
     #[schemars(extend("exclusiveMinimum" = 0, "exclusiveMaximum" = 1))]
     pub avg_entry_price_up: Option<OutDec4>,
+    #[serde(deserialize_with = "crate::support::nullable")]
     #[schemars(extend("exclusiveMinimum" = 0, "exclusiveMaximum" = 1))]
     pub avg_entry_price_down: Option<OutDec4>,
     #[schemars(extend("minimum" = 0, "exclusiveMaximum" = 1_000_000_000_000_u64))]
@@ -179,18 +219,18 @@ pub struct EngineMarketStats {
     pub down_shares: OutDec2,
     #[schemars(extend("minimum" = 0, "exclusiveMaximum" = 1_000_000_000_000_u64))]
     pub mergable_shares: OutDec2,
+    #[schemars(extend("exclusiveMinimum" = -10_000_000_000_i64, "exclusiveMaximum" = 10_000_000_000_i64))]
     pub cost: OutDec2,
-    #[schemars(extend("minimum" = 0))]
+    #[schemars(extend("minimum" = 0, "exclusiveMaximum" = 10_000_000_000_i64))]
     pub split_cost: OutDec2,
     /// Opaque strategy meta objects (21 §16).
     pub intent_meta: Vec<Map<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<StatsSkipReason>,
-    /// Tri-state: object in realistic, null in ts-compat, absent on TS rows
-    /// (11 §13.8).
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "tristate")]
-    #[schemars(with = "Option<MarketStatsRules>")]
-    pub rules: Option<Option<MarketStatsRules>>,
+    /// Object in realistic, null in ts-compat (11 §13.8). Absent only on
+    /// TS-engine rows, which are not engine output.
+    #[serde(deserialize_with = "crate::support::nullable")]
+    pub rules: Option<MarketStatsRules>,
 }
 
 /// Per-market rules provenance (11 §13.8). Values of `feeEra`, `feeCurve`,
@@ -199,7 +239,10 @@ pub struct EngineMarketStats {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketStatsRules {
     pub source: RulesSource,
+    #[schemars(regex(pattern = RULES_TABLE_VERSION_PATTERN))]
     pub rules_table_version: String,
+    #[serde(deserialize_with = "crate::support::nullable")]
+    #[schemars(range(min = 1))]
     pub snapshot_parser_version: Option<u32>,
     pub fee_era: String,
     pub fee_curve: String,
@@ -324,6 +367,7 @@ pub struct Diagnostics {
     pub thread: u32,
     pub cache: CacheStats,
     /// Final exchange-time skew (12 §4.4 XT4); null without market events.
+    #[serde(deserialize_with = "crate::support::nullable")]
     pub skew_ms: Option<SafeI64>,
     pub input_path: InputPath,
     /// Data-anomaly, rules, engine and attribution counters under their
@@ -415,18 +459,45 @@ impl EngineMarketOutput {
                 ));
             }
         }
+        if self.coverage_reasons.is_some()
+            && self.skip_reason != Some(SkipReason::IncompleteCapture)
+        {
+            return Err(bad(
+                "coverageReasons",
+                "only with skipReason incomplete_capture",
+            ));
+        }
+        if let Some(s) = &self.market_stats {
+            if s.slug != self.slug {
+                return Err(bad("marketStats.slug", "differs from output slug"));
+            }
+            s.self_check()?;
+        }
+        // 21 §13 taxonomy, engine-decided rows only (no_slug, no_resolution
+        // and unresolved_outcome are TS short-circuits and never engine
+        // output).
         match (&self.market_stats, self.skip_reason) {
             (Some(s), None) => {
-                if s.slug != self.slug {
-                    return Err(bad("marketStats.slug", "differs from output slug"));
+                if s.skip_reason.is_some() {
+                    return Err(bad(
+                        "marketStats.skipReason",
+                        "an activity row has no skipReason",
+                    ));
                 }
-                s.self_check()?;
             }
             (Some(s), Some(SkipReason::NoActivity)) => {
                 if s.skip_reason != Some(StatsSkipReason::NoInWindowActivity) {
                     return Err(bad("skipReason", "zero row needs marketStats.skipReason"));
                 }
-                s.self_check()?;
+                if s.trade_count != 0 || s.up_shares.units() != 0 || s.down_shares.units() != 0 {
+                    return Err(bad(
+                        "marketStats",
+                        "a zero row has no fills and no UP/DOWN quantity",
+                    ));
+                }
+                if self.events_processed.get() == 0 {
+                    return Err(bad("marketStats", "a zero row needs a counted tick"));
+                }
             }
             (None, Some(SkipReason::NoActivity)) => {
                 if self.events_processed.get() != 0 {
@@ -500,7 +571,7 @@ impl EngineMarketStats {
                 }
             }
         }
-        if let Some(Some(r)) = &self.rules {
+        if let Some(r) = &self.rules {
             let sorted = r.unverified_rules.windows(2).all(|w| w[0] < w[1]);
             if !sorted {
                 return Err(bad("rules.unverifiedRules", "must be sorted and unique"));
@@ -515,6 +586,9 @@ impl EngineMarketStats {
 
 impl CandidateResult {
     pub fn validate(&self) -> Result<(), ContractError> {
+        if !crate::job::is_candidate_key(&self.key) {
+            return Err(bad("candidates[].key", "outside the key pattern"));
+        }
         match (self.status, &self.output, &self.error) {
             (ResultStatus::Ok, Some(o), None) => o.self_check(),
             (ResultStatus::Error, None, Some(e)) => e.validate(),
@@ -524,7 +598,20 @@ impl CandidateResult {
 }
 
 impl EngineResult {
-    /// Structural checks of 21 §10 plus every candidate's self-check.
+    /// Rust reading of a result (parity tooling, fixtures): strict
+    /// deserialization (`invalid_output: schema`), then [`Self::validate`]
+    /// (`invalid_output: self_check`).
+    pub fn parse(text: &str) -> Result<EngineResult, ContractError> {
+        let r: EngineResult = serde_json::from_str(text)
+            .map_err(|e| ContractError::invalid_output("schema", e.to_string()))?;
+        r.validate()?;
+        Ok(r)
+    }
+
+    /// Egress self-check of 21 §19 for the whole result: §10 structure,
+    /// echo and rules-provenance consistency (11 §13.8), and every
+    /// candidate's §11-§16 checks. A failure is `invalid_output: self_check`
+    /// (an `ErrorInfo` outside its pattern is `invalid_output: schema`).
     pub fn validate(&self) -> Result<(), ContractError> {
         match (self.status, &self.error) {
             (ResultStatus::Ok, None) => {
@@ -535,16 +622,114 @@ impl EngineResult {
             (ResultStatus::Error, Some(e)) => e.validate()?,
             _ => return Err(bad("error", "present iff status is error")),
         }
+        if let Some(e) = &self.echo {
+            e.validate()?;
+        }
+        if let Some(m) = &self.market {
+            if crate::job::slug_window(&m.slug).is_none() {
+                return Err(bad("market.slug", "outside the v1 slug universe"));
+            }
+            if m.condition_id
+                .as_ref()
+                .is_some_and(|c| c.is_empty() || c.len() > 255)
+            {
+                return Err(bad("market.conditionId", "must be 1..255 characters"));
+            }
+        }
+        let mut keys = std::collections::BTreeSet::new();
         for (i, c) in self.candidates.iter().enumerate() {
             if c.index as usize != i {
                 return Err(bad("candidates", "indices must be 0..N-1 in order"));
             }
+            if !keys.insert(c.key.as_str()) {
+                return Err(bad("candidates", "duplicate key"));
+            }
             c.validate()?;
-            if let (Some(o), Some(m)) = (&c.output, &self.market) {
-                if o.slug != m.slug {
+            let Some(stats) = c.output.as_ref().and_then(|o| o.market_stats.as_ref()) else {
+                continue;
+            };
+            if let Some(m) = &self.market {
+                if c.output.as_ref().is_some_and(|o| o.slug != m.slug) {
                     return Err(bad("candidates[].output.slug", "differs from market.slug"));
                 }
+                if let Some(cid) = &m.condition_id {
+                    if &stats.market_id != cid {
+                        return Err(bad(
+                            "marketStats.marketId",
+                            "differs from market.conditionId",
+                        ));
+                    }
+                }
             }
+            if let (Some(e), Some(m)) = (&self.echo, &self.market) {
+                match (e.profile, &stats.rules) {
+                    (Profile::TsCompat, None) => {}
+                    (Profile::TsCompat, Some(_)) => {
+                        return Err(bad(
+                            "marketStats.rules",
+                            "must be null in ts-compat (11 §13.8)",
+                        ))
+                    }
+                    (Profile::Realistic, None) => {
+                        return Err(bad("marketStats.rules", "required in realistic (11 §13.8)"))
+                    }
+                    (Profile::Realistic, Some(r)) => {
+                        if r.source != m.rules_source
+                            || r.rules_table_version != e.rules_table_version
+                            || r.snapshot_parser_version != e.snapshot_parser_version
+                        {
+                            return Err(bad(
+                                "marketStats.rules",
+                                "source, rulesTableVersion and snapshotParserVersion must equal the echo",
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Echo {
+    fn validate(&self) -> Result<(), ContractError> {
+        let semver_ok = {
+            let (core, pre) = match self.engine_version.split_once('-') {
+                Some((c, p)) => (c, Some(p)),
+                None => (self.engine_version.as_str(), None),
+            };
+            let parts: Vec<&str> = core.split('.').collect();
+            parts.len() == 3
+                && parts.iter().all(|p| {
+                    !p.is_empty()
+                        && p.bytes().all(|b| b.is_ascii_digit())
+                        && (p.len() == 1 || !p.starts_with('0'))
+                })
+                && pre.is_none_or(|p| {
+                    !p.is_empty()
+                        && p.bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+                })
+        };
+        if !semver_ok {
+            return Err(bad("echo.engineVersion", "not semver"));
+        }
+        if self.engine_commit.len() != 40
+            || !self
+                .engine_commit
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Err(bad("echo.engineCommit", "not 40 lowercase hex digits"));
+        }
+        if self.strategy_id.is_empty() || self.job_schema_version == 0 {
+            return Err(bad("echo", "empty strategyId or jobSchemaVersion 0"));
+        }
+        if !crate::model_config::is_rules_table_version(&self.rules_table_version) {
+            return Err(bad("echo.rulesTableVersion", "outside rules-table-v<N>"));
+        }
+        if self.snapshot_parser_version == Some(0) {
+            return Err(bad("echo.snapshotParserVersion", "must be positive"));
         }
         Ok(())
     }

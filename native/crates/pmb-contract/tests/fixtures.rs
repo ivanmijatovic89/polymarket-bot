@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pmb_contract::{EngineJob, EngineResult, ModelConfig};
+use pmb_contract::{ContractError, EngineJob, EngineResult, ModelConfig};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
@@ -33,7 +33,7 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
 fn round_trip<T, F>(text: &str, validate: F) -> T
 where
     T: DeserializeOwned + Serialize,
-    F: Fn(&T) -> Result<(), pmb_contract::ContractError>,
+    F: Fn(&T) -> Result<(), ContractError>,
 {
     let parsed: T = serde_json::from_str(text).expect("valid fixture deserializes");
     validate(&parsed).expect("valid fixture validates");
@@ -59,7 +59,14 @@ fn set_pointer(doc: &mut Value, pointer: &str, value: Value) {
         Value::Object(m) => {
             m.insert(key.to_owned(), value);
         }
-        Value::Array(a) => a[key.parse::<usize>().unwrap()] = value,
+        Value::Array(a) => {
+            let i = key.parse::<usize>().unwrap();
+            if i == a.len() {
+                a.push(value);
+            } else {
+                a[i] = value;
+            }
+        }
         _ => panic!("pointer {pointer} parent is not a container"),
     }
 }
@@ -74,18 +81,26 @@ fn remove_pointer(doc: &mut Value, pointer: &str) {
         .expect("removed");
 }
 
-fn run_invalid_cases<T, F>(dir: &Path, validate: F)
-where
-    T: DeserializeOwned,
-    F: Fn(&T) -> Result<(), pmb_contract::ContractError>,
-{
+/// Applies every invalid case of `dir/cases.json` to its base document and
+/// checks the class and cause that `parse` reports (21 §19, 20 §4).
+fn run_invalid_cases<T>(dir: &Path, parse: fn(&str) -> Result<T, ContractError>) {
     let cases: Value = serde_json::from_str(&read(&dir.join("cases.json"))).unwrap();
     let base: Value =
         serde_json::from_str(&read(&dir.join(cases["base"].as_str().unwrap()))).unwrap();
     let list = cases["cases"].as_array().unwrap();
     assert!(list.len() >= 10);
+    let mut names = std::collections::BTreeSet::new();
     for case in list {
         let name = case["name"].as_str().unwrap();
+        assert!(names.insert(name), "duplicate case name {name:?}");
+        assert!(
+            case["rule"].as_str().is_some_and(|r| !r.is_empty()),
+            "{name}: rule"
+        );
+        assert!(
+            matches!(case["jsonSchema"].as_str(), Some("reject" | "accept")),
+            "{name}: jsonSchema"
+        );
         let mut doc = base.clone();
         if let Some(set) = case.get("set").and_then(Value::as_object) {
             for (ptr, v) in set {
@@ -98,59 +113,57 @@ where
             }
         }
         let text = serde_json::to_string(&doc).unwrap();
-        let expect = case["expect"].as_str().unwrap();
-        let parsed = serde_json::from_str::<T>(&text);
-        match expect {
-            "schema" => assert!(
-                parsed.is_err(),
-                "case {name:?}: expected a schema rejection"
-            ),
-            other => {
-                let cause = other.strip_prefix("validate:").expect("expect form");
-                let parsed =
-                    parsed.unwrap_or_else(|e| panic!("case {name:?}: unexpected schema error {e}"));
-                let err = validate(&parsed).expect_err(name);
-                assert_eq!(err.cause, cause, "case {name:?}: wrong cause ({err})");
-            }
-        }
+        let err = match parse(&text) {
+            Ok(_) => panic!("case {name:?}: accepted"),
+            Err(e) => e,
+        };
+        let class = case["expect"]["class"].as_str().unwrap();
+        let cause = case["expect"]["cause"].as_str().unwrap();
+        assert_eq!(
+            (err.class.as_str(), err.cause),
+            (class, cause),
+            "case {name:?}: got {err}"
+        );
     }
 }
 
 #[test]
 fn valid_jobs_round_trip() {
+    // spec: 21 §3 CI item 4
     for path in json_files(&contract_dir().join("fixtures/jobs/valid")) {
-        let job: EngineJob = round_trip(&read(&path), EngineJob::validate);
+        let text = read(&path);
+        let job: EngineJob = round_trip(&text, EngineJob::validate);
         assert!(!job.run.candidates.is_empty());
+        EngineJob::parse(&text).expect("parse");
     }
 }
 
 #[test]
-fn invalid_jobs_are_rejected() {
-    run_invalid_cases::<EngineJob, _>(&contract_dir().join("fixtures/jobs/invalid"), |j| {
-        let r = j.validate();
-        if let Err(e) = &r {
-            assert_eq!(e.class, pmb_contract::vocab::ErrorClass::InvalidInput);
-        }
-        r
-    });
+fn invalid_jobs_are_rejected_with_their_cause() {
+    // spec: 21 §19 (Rust ingress), §5.1 causes, 20 §4.1
+    run_invalid_cases(
+        &contract_dir().join("fixtures/jobs/invalid"),
+        EngineJob::parse,
+    );
 }
 
 #[test]
 fn valid_results_round_trip() {
+    // spec: 21 §3 CI item 4
     for path in json_files(&contract_dir().join("fixtures/results/valid")) {
-        round_trip::<EngineResult, _>(&read(&path), EngineResult::validate);
+        let text = read(&path);
+        round_trip::<EngineResult, _>(&text, EngineResult::validate);
+        EngineResult::parse(&text).expect("parse");
     }
 }
 
 #[test]
-fn invalid_results_are_rejected() {
-    run_invalid_cases::<EngineResult, _>(&contract_dir().join("fixtures/results/invalid"), |r| {
-        let res = r.validate();
-        if let Err(e) = &res {
-            assert_eq!(e.class, pmb_contract::vocab::ErrorClass::InvalidOutput);
-        }
-        res
-    });
+fn invalid_results_are_rejected_with_their_cause() {
+    // spec: 21 §19 (Rust egress self-check), 20 §4.1
+    run_invalid_cases(
+        &contract_dir().join("fixtures/results/invalid"),
+        EngineResult::parse,
+    );
 }
 
 #[test]
@@ -193,6 +206,16 @@ fn ts_compat_default_model_config_and_sha() {
     ))
     .unwrap();
     assert_ne!(job.run.model_config.sha256().unwrap(), mc.sha256().unwrap());
+}
+
+/// 21 §3 CI item 1: the committed schema bundle and hash fixture equal the
+/// generated ones (`cargo run -p pmb-contract --bin export-schema -- --check`).
+#[test]
+fn committed_schema_bundle_is_current() {
+    // spec: 21 §3 (Schema files, CI item 1), 20 §5.2
+    if let Err(problems) = pmb_contract::schema::check(&contract_dir()) {
+        panic!("{problems}");
+    }
 }
 
 const TS_COMPAT_DEFAULT_SHA256: &str =

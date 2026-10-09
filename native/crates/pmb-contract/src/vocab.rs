@@ -226,6 +226,15 @@ closed_enum! {
 }
 
 closed_enum! {
+    /// `market.journal.replay` (15 §9, I-50).
+    // D-PENDING: 15 §9 shows only "determinism"; chose a one-value enum
+    // (`allowEngineMismatch` selects the what-if replay of I-51).
+    pub enum JournalReplay {
+        Determinism => "determinism",
+    }
+}
+
+closed_enum! {
     /// Parity trace level (22 §3.2, 20 §5.4).
     pub enum TraceLevel {
         Decisions => "decisions",

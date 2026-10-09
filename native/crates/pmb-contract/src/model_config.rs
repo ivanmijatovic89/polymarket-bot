@@ -99,6 +99,12 @@ impl ExecutionModels {
     };
 }
 
+/// Upper bound of `compatLatency.delayMs` and `jitterMs`.
+// D-PENDING: 13 §5.1 gives no range for the compat delay and jitter; chose
+// 0..=600,000 ms (the realistic component bound used below), enforced both
+// by the schema and by `validate`.
+pub const COMPAT_LATENCY_MAX_MS: u32 = 600_000;
+
 /// TS latency parameters: one delay for every placement and cancel, jitter
 /// only when the delay is positive (13 §5.1 `NextRealTick`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -270,12 +276,16 @@ pub struct RiskConfig {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RulesConfig {
-    #[schemars(regex(pattern = r"^rules-table-v[1-9][0-9]{0,5}$"))]
+    #[schemars(regex(pattern = RULES_TABLE_VERSION_PATTERN))]
     pub rules_table_version: String,
     pub missing_snapshot: MissingSnapshot,
 }
 
-fn is_rules_table_version(s: &str) -> bool {
+/// Pattern of `rulesTableVersion` (`rules-table-v<N>`, 11 §13.5).
+pub const RULES_TABLE_VERSION_PATTERN: &str = r"^rules-table-v[1-9][0-9]{0,5}$";
+
+/// True when `s` matches [`RULES_TABLE_VERSION_PATTERN`].
+pub fn is_rules_table_version(s: &str) -> bool {
     s.strip_prefix("rules-table-v").is_some_and(|n| {
         !n.is_empty()
             && n.len() <= 6
@@ -307,6 +317,12 @@ impl ModelConfig {
         ] {
             ensure(d.micros() > 0, c, || format!("{name} must be > 0"))?;
         }
+        ensure(
+            x.compat_latency.delay_ms <= COMPAT_LATENCY_MAX_MS
+                && x.compat_latency.jitter_ms <= COMPAT_LATENCY_MAX_MS,
+            c,
+            || format!("execution.compatLatency values above {COMPAT_LATENCY_MAX_MS} ms"),
+        )?;
         ensure(self.runner.max_events_per_drain > 0, c, || {
             "runner.maxEventsPerDrain must be > 0".into()
         })?;

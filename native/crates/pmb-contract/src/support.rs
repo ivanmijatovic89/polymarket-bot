@@ -73,6 +73,17 @@ pub mod tristate {
     }
 }
 
+/// `#[serde(deserialize_with = "crate::support::nullable")]` makes an
+/// `Option<T>` field required-but-nullable: the key MUST be present and may
+/// be `null` (21 §3 closed objects, §6 "a missing field is
+/// `invalid_input`"). Without it serde silently reads a missing `Option`
+/// field as `None` (R14).
+pub fn nullable<'de, T: Deserialize<'de>, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    Option::<T>::deserialize(d)
+}
+
 /// A contract validation failure, classified per 20 §4 (class and cause).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContractError {
