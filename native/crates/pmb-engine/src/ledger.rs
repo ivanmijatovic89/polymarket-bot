@@ -195,6 +195,11 @@ impl OrderRecord {
             OrderSize::Collateral(a) => self.spent >= a,
         }
     }
+    /// BUY cash reservation currently held by this order (12 §9.4).
+    #[inline]
+    pub fn reserved(&self) -> Usdc {
+        self.reserved
+    }
     /// Strategy-view open order: `OrderSubmitted` delivered, non-terminal and
     /// not fully filled (12 §9.2, §9.7).
     #[inline]
