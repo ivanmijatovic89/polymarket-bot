@@ -35,6 +35,9 @@ impl FeedRequest {
     }
 }
 
+// D-PENDING: F-49 says "equals the derived one" without a normalization
+// rule (TS trims and lowercases); chose exact byte equality, so `BTCUSDT` or
+// ` btcusdt` is `invalid_input: symbol` (fail loud, R14).
 fn check_symbol(
     feed: &str,
     explicit: Option<&str>,

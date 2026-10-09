@@ -67,6 +67,11 @@ fn inconsistent(slug: &str, what: &str) -> FeedError {
 
 /// Applies the 14 §6.2 table. `availability` is `None` when the job carries
 /// `feedAvailability.priceToBeat: null`.
+// D-PENDING: 14 §6.2 does not define "inconsistent with gammaPriceToBeat";
+// chose: `fed` needs a finite strike; `absent_pre_series_epoch` needs no strike
+// (an unresolved lookup is allowed, as TS checks the epoch first);
+// `absent_fresh_market_grace` and `unavailable_*` need a resolved lookup
+// without a strike (catalog miss or null strike).
 pub fn resolve_price_to_beat(
     slug: &str,
     window: Window,

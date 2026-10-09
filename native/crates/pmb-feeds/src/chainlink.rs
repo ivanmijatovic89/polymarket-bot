@@ -24,6 +24,9 @@ const BAD_ASSET: u8 = 4;
 /// One decoded `crypto_prices` day of one asset, in file order. Rows without
 /// a round time are dropped (they can be neither member nor seed, F-21).
 /// Row defects are flagged and raised only for rows a series uses (F-25).
+// D-PENDING: F-25 "every row including the seed" read as every row of the
+// market series (members and seed), not every row of the day file; a bad row
+// outside the series does not fail the market.
 #[derive(Debug)]
 pub struct ChainlinkDay {
     pub day: UtcDay,
