@@ -155,6 +155,8 @@
     "research:schedule": "tsx scripts/install-research-update.mts",
     "record:v4:catalog": "tsx src/cli/recorder-v4-catalog.ts",
     "native:ci:local": "scripts/native/ci-local.sh",
+    "native:fixture-job": "tsx scripts/native/fixture-job.ts",
+    "native:fixtures:build": "tsx scripts/native/fixtures-build.ts",
     "native:verify:local": "scripts/native/verify-local.sh"
   },
   "lint-staged": {
