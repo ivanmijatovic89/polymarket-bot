@@ -12,6 +12,10 @@
 //!   toolchain: prefer them for lookups, and use [`Map`]/[`Set`] wherever
 //!   iteration order reaches a decision or an output.
 
+// D-PENDING: 30 §11 promises DetHashMap "deterministic iteration for
+// identical insert sequences"; std's table layout depends on the target's
+// probe group width, so chose to guarantee (and golden-test) the order for
+// the canonical aarch64-apple-darwin target and pinned toolchain only.
 pub use std::collections::{BTreeMap as Map, BTreeSet as Set};
 
 /// `HashMap` with the engine's fixed hasher. Build with

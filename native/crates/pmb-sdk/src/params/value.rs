@@ -128,6 +128,10 @@ impl ParamValue for bool {
 /// check), so every integer param stays within it.
 pub(crate) const SAFE_INT: i128 = (1 << 53) - 1;
 
+// D-PENDING: 30 §9 bounds fixed-point params only by 6 dp and the type
+// range; chose to also reject more than 15 significant digits (Qty/Usdc
+// above ~1e9 with full decimals), because TS stores normalized params as
+// JSON numbers and 16-17 digit decimals do not survive JSON.parse.
 /// Most significant digits a fixed-point param may have: every decimal of
 /// at most 15 significant digits survives a round trip through a JSON
 /// number (an IEEE double) unchanged, so normalized params stay idempotent

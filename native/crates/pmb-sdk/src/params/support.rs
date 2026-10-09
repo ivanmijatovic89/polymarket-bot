@@ -357,6 +357,10 @@ pub fn struct_expected<T: ParamsFields>() -> String {
     format!("a JSON object of {} params", T::NAME)
 }
 
+// D-PENDING: 30 §9 rule 8 does not say how nested params structs appear in
+// the schema; chose `$defs` keyed by the Rust type name (`Name_2`, `Name_3`
+// for another type of the same name, in first-use order) with `$ref`, and
+// `"#"` for the root.
 /// The `$defs` of one generated schema (30 §9 rule 8): every nested params
 /// struct is emitted once, under its type name, and referenced with `$ref`,
 /// so a recursive struct (`children: Vec<Self>`) gives a finite schema of

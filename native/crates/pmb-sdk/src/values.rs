@@ -47,6 +47,10 @@ impl TsMsExt for TsMs {
     }
 }
 
+// D-PENDING: 30 §6 gives `price.snap(tick, Rounding)` and
+// `Price::clamp_probability(f64)` without return types; chose an infallible
+// snap that panics on a non-positive tick or overflow (as same-type overflow
+// does), and a clamp that stays f64 (no implicit rounding mode, P8).
 /// Tick helpers of 30 §6.
 pub trait PriceExt {
     /// The multiple of `tick` next to `self` in the direction of `mode`
@@ -102,6 +106,9 @@ impl OutcomeExt for Outcome {
     }
 }
 
+// D-PENDING: 30 §6 names `ClientOrderId::indexed("r", n)` without types;
+// chose `(prefix: &str, n: u64) -> ClientOrderId` that panics when the
+// result is not a valid cid (a programming error, like overflow).
 /// `ClientOrderId::indexed` of 30 §6.
 pub trait ClientOrderIdExt {
     /// The cid `{prefix}{n}` (`indexed("r", 7)` is `r7`).
