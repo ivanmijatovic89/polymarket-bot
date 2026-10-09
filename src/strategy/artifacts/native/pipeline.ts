@@ -49,7 +49,7 @@ import {
   NATIVE_TARGET,
   type BuildProfile,
 } from './policy.js'
-import { withBuilderLock } from './targetDir.js'
+import { forgetPackageFingerprints, withBuilderLock } from './targetDir.js'
 
 export type GateStatus = 'pass' | 'fail' | 'pending' | 'skipped'
 export type GateResult = { gate: number; name: string; status: GateStatus; detail: string[] }
@@ -156,9 +156,16 @@ function gate3(s: Session): GateResult {
     // Under the builder lock (31 §4.5): budget eviction by another builder
     // must not delete the profile directory clippy is using.
     const [cmd, cmdArgs] = cargoCommand(s.host, args)
-    const r = withBuilderLock(s.host.lockPath, s.log, () =>
-      run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env }),
-    )
+    const r = withBuilderLock(s.host.lockPath, s.log, () => {
+      // A fresh-looking unit from another checkout would skip the lints.
+      forgetPackageFingerprints(
+        s.host.targetDir,
+        s.ci ? s.toolchain.host : NATIVE_TARGET,
+        'iterate',
+        s.loaded.pkg.name,
+      )
+      return run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env })
+    })
     const detail = r.status === 0 ? [] : [r.stderr.trim().slice(-6000)]
     if (!s.loaded.sdkAvailable)
       detail.push('pre-SDK phase: determinism lints at deny (-D), not forbid (-F)')
@@ -252,9 +259,10 @@ function ciGate6(s: Session): GateResult {
       PMB_BUILD_PROFILE: 'iterate',
     }
     const [cmd, cmdArgs] = cargoCommand(s.host, args)
-    const r = withBuilderLock(s.host.lockPath, s.log, () =>
-      run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env }),
-    )
+    const r = withBuilderLock(s.host.lockPath, s.log, () => {
+      forgetPackageFingerprints(s.host.targetDir, s.toolchain.host, 'iterate', s.loaded.pkg.name)
+      return run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env })
+    })
     if (r.status !== 0)
       return { gate: 6, name, status: 'fail', detail: [r.stderr.trim().slice(-6000)] }
     const detail: string[] = []

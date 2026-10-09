@@ -13,7 +13,13 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { chooseEviction, enforceTargetBudget, profileDirs, withBuilderLock } from './targetDir.js'
+import {
+  chooseEviction,
+  enforceTargetBudget,
+  forgetPackageFingerprints,
+  profileDirs,
+  withBuilderLock,
+} from './targetDir.js'
 
 // spec: 31 §4.5 — above the budget, delete the least recently used profile directory.
 test('chooseEviction picks the least recently used other profile only when over budget', () => {
@@ -208,5 +214,32 @@ test('withBuilderLock treats an empty lock as held during the grace period', () 
     assert.equal(existsSync(lock), false)
   } finally {
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// spec: 31 §4.5 — only the package's own fingerprints are forgotten.
+test('forgetPackageFingerprints removes exactly the named package units', () => {
+  const t = mkdtempSync(path.join(os.tmpdir(), 'pmb-fp-test-'))
+  try {
+    const fp = path.join(t, 'aarch64-apple-darwin', 'artifact', '.fingerprint')
+    const names = [
+      'demo-strategies-0123456789abcdef',
+      'demo-strategies-fedcba9876543210',
+      'demo-strategies-extra-0123456789abcdef',
+      'demo-strategies-zz',
+      'serde-0123456789abcdef',
+    ]
+    for (const n of names) mkdirSync(path.join(fp, n), { recursive: true })
+    assert.equal(
+      forgetPackageFingerprints(t, 'aarch64-apple-darwin', 'artifact', 'demo-strategies'),
+      2,
+    )
+    assert.deepEqual(
+      names.filter((n) => existsSync(path.join(fp, n))),
+      ['demo-strategies-extra-0123456789abcdef', 'demo-strategies-zz', 'serde-0123456789abcdef'],
+    )
+    assert.equal(forgetPackageFingerprints(t, 'aarch64-apple-darwin', 'iterate', 'x'), 0)
+  } finally {
+    rmSync(t, { recursive: true, force: true })
   }
 })

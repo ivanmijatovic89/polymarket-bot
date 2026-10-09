@@ -67,7 +67,7 @@ import {
   type SourceHashInput,
 } from './sourceHash.js'
 import { listDir, materializeStage, planStage, removeStage, STAGE_ROOT } from './stage.js'
-import { enforceTargetBudget, withBuilderLock } from './targetDir.js'
+import { enforceTargetBudget, forgetPackageFingerprints, withBuilderLock } from './targetDir.js'
 import { definedPaths, parseCargoLock, scanToml, tomlStringValue } from './toml.js'
 
 export { pinnedChannel }
@@ -501,6 +501,7 @@ export function buildNative(args: {
     })
     const { cargoMs, depPaths } = withBuilderLock(host.lockPath, log, () => {
       enforceTargetBudget(host.targetDir, profile, host.targetBudgetBytes, log)
+      forgetPackageFingerprints(host.targetDir, NATIVE_TARGET, profile, loaded.pkg.name)
       materializeStage(plan)
       try {
         const [cmd, cmdArgs] = cargoCommand(host, [

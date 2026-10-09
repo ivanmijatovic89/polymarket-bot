@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import os from 'node:os'
@@ -323,7 +324,7 @@ function buildProbe(engineRoot: string, packageDir: string, targetDir: string) {
   })
   built.cleanup()
   const probe = (built.describe as { probe: { marker: string; file: string } }).probe
-  return { sha: built.sha256, probe, engineRelPath: loaded.engineRelPath }
+  return { sha: built.sha256, id: built.strategyId, probe, engineRelPath: loaded.engineRelPath }
 }
 
 // spec: 31 §4.3, §5.1, D17 (60 DET-12) — identical sources give identical
@@ -355,6 +356,50 @@ test('canonical bytes do not depend on where the engine checkout lives', { skip 
     assert.equal(in2.sha, in1.sha)
     assert.equal(in1.probe.file, '/pmb/src/crates/pmb-sdk/src/lib.rs')
     assert.equal(in1.engineRelPath, '../..')
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
+/** Set every file's mtime under `dir` (except .git) to `when`. */
+function ageTree(dir: string, when: Date): void {
+  const r = spawnSync('find', [dir, '-path', '*/.git', '-prune', '-o', '-type', 'f', '-print0'], {
+    encoding: 'utf8',
+  })
+  assert.equal(r.status, 0, r.stderr)
+  for (const f of r.stdout.split('\0').filter((x) => x !== '')) utimesSync(f, when, when)
+}
+
+// spec: 31 §4.5 (one shared target directory per host), §5.1 — a build in the
+// shared target directory never reuses outputs compiled from another checkout
+// of the same package, even when that checkout's files are older than the
+// earlier outputs (cargo's freshness check is mtime-based, and a package's
+// own paths are relative to its root, so two checkouts share one unit).
+test("the shared target directory never serves another checkout's outputs", { skip }, () => {
+  const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
+  try {
+    const h1 = path.join(work, 'h1')
+    fakeEngine(h1)
+    const pkg2 = path.join(h1, 'pkg-second-checkout')
+    cpSync(path.join(h1, 'pkg'), pkg2, { recursive: true })
+    const bin2 = path.join(pkg2, 'src/bin/stage-probe.rs')
+    writeFileSync(bin2, readFileSync(bin2, 'utf8').replace('stage-probe.v1', 'stage-probe.v2'))
+    sh(pkg2, 'git', [
+      '-c',
+      'user.name=e2e',
+      '-c',
+      'user.email=e2e@localhost',
+      'commit',
+      '-q',
+      '-am',
+      'v2',
+    ])
+    ageTree(pkg2, new Date(Date.now() - 3600_000))
+    const t = path.join(work, 'shared-target')
+    const a = buildProbe(path.join(h1, 'engine'), path.join(h1, 'pkg'), t)
+    const b = buildProbe(path.join(h1, 'engine'), pkg2, t)
+    assert.equal(a.id, 'stage-probe.v1')
+    assert.equal(b.id, 'stage-probe.v2', 'stale outputs from the other checkout')
   } finally {
     rmSync(work, { recursive: true, force: true })
   }
