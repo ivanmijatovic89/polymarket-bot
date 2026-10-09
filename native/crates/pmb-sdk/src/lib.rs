@@ -302,6 +302,9 @@ pub mod json {
 #[macro_export]
 macro_rules! strategy_main {
     ($strategy:ty $(,)?) => {
+        const _: () = $crate::__private::assert_selftest_ready::<
+            <$strategy as $crate::prelude::Strategy>::Params,
+        >();
         #[cfg_attr(test, allow(dead_code))]
         fn main() {
             $crate::__private::runtime_main::<$strategy>($crate::__private::MainOptions {
@@ -374,6 +377,7 @@ pub mod __private {
     pub use crate::meta::{Meta, MetaValue};
     pub use crate::params::input::Input;
     pub use crate::params::runtime::{runtime_from_json, runtime_normalized};
+    pub use crate::params::support::{assert_selftest_ready, selftest_params, SelftestReady};
     pub use crate::params::support::{
         check_bound, enum_default, enum_expected, enum_schema, field, has_name, key_collision,
         merge_validate, parse_enum, parse_struct, schema_default, schema_describe, struct_expected,

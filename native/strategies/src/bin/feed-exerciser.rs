@@ -27,6 +27,7 @@ use pmb_sdk::prelude::*;
 /// Feed exerciser params (60 §5.8): `{tickOnUpdate, trade, ta, chainlink}`;
 /// only `chainlink` has a default.
 #[derive(Params, Clone, Debug)]
+#[param(selftest = r#"{"tickOnUpdate":false,"trade":false,"ta":false}"#)]
 struct FeedExerciserParams {
     /// Opt into synthetic strategy ticks on every update of each requested
     /// spot feed (Binance aggTrade, Chainlink round; 14 §8).
