@@ -820,11 +820,15 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             });
         }
         let stats = self.stats.finalize(&self.ledger, outcome);
+        // 21 §16: bytes of the compact `intentMeta` array (brackets and
+        // commas included); `output::market_output` re-checks the
+        // materialized array with the contract's cap function.
         let bytes: usize = stats
             .intent_meta
             .iter()
-            .map(|&m| self.metas.get(m).len())
-            .sum();
+            .map(|&m| self.metas.get(m).len() + 1)
+            .sum::<usize>()
+            + 1;
         if stats.intent_meta.len() > INTENT_META_MAX_ENTRIES || bytes > INTENT_META_MAX_BYTES {
             return Err(SessionFault::Strategy {
                 cause: StrategyFaultCause::IntentMetaLimit,

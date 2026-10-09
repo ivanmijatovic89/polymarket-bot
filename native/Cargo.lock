@@ -545,6 +545,7 @@ dependencies = [
  "pmb-contract",
  "pmb-core",
  "pmb-feeds",
+ "pmb-replay",
  "proptest",
  "serde_json",
 ]
