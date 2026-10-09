@@ -620,10 +620,13 @@ fn paper_panic_cancels_the_market_and_keeps_applying_events() {
         }
     )));
     assert_eq!(h.s.om().halt(), pmb_engine::om::Halt::StrategyHalted);
-    // Later inputs are still stepped (no callbacks): the session finalizes.
+    // Later inputs are still stepped (no callbacks, no dispatched ticks):
+    // the session finalizes.
     let log = h.log().len();
+    let dispatched = h.s.stats().ticks.strategy_ticks;
     h.tick(20, BIDS, ASKS).unwrap();
     assert_eq!(h.log().len(), log);
+    assert_eq!(h.s.stats().ticks.strategy_ticks, dispatched);
     let m = h.market.clone();
     assert!(h.s.finalize(&m, FinalOutcome::new(Outcome::Up)).is_ok());
 }

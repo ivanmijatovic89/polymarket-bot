@@ -377,6 +377,8 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                 Err(f)
             }
             RunMode::Paper => {
+                // Halted until rotation: no further ticks are dispatched.
+                self.calls_stopped = true;
                 self.strategy_halts.push(f);
                 self.handle_engine(
                     EngineIntent::CancelMarket {
