@@ -3,7 +3,8 @@
 //! It is the only crate a strategy depends on (30 §1 P1). `use
 //! pmb_sdk::prelude::*;` brings in the curated surface (§3); nothing of the
 //! engine core is glob re-exported. This revision holds the parts that do
-//! not depend on the engine: values and their compile-time macros (§6),
+//! not depend on the engine: values, their §6 methods and compile-time
+//! macros (§6), the SDK version (§2),
 //! intent meta (§7.2), params (§9), deterministic [`collections`] and
 //! [`math`] (§11), and the pure [`toolkit`] helpers (§14). The strategy
 //! trait, context, intents, events, requirements, logging and the runtime
@@ -214,6 +215,12 @@ pub mod math;
 mod meta;
 pub mod params;
 pub mod toolkit;
+mod values;
+
+/// The `pmb-sdk` version this binary was built with (SemVer, independent of
+/// the engine's `engineVersion`), reported by `describe` as `sdkVersion`
+/// (30 §2, 20 §3).
+pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // D-PENDING: 30 §3 lists Meta and meta! only; chose to also expose
 // `pmb_sdk::MetaValue` (not in the prelude), the value type of the public
@@ -238,6 +245,8 @@ pub mod prelude {
         Side, TsMs, Usdc,
     };
     pub use pmb_sdk_macros::{cid, meta, price, qty, usdc, ParamEnum, Params};
+    // The 30 §6 methods the core types lack, in scope without a name.
+    pub use crate::values::{ClientOrderIdExt as _, OutcomeExt as _, PriceExt as _, TsMsExt as _};
 }
 
 /// Targets of the macro expansions. Not part of the SDK API: no stability

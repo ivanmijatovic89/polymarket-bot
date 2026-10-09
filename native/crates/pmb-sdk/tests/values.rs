@@ -154,3 +154,31 @@ fn meta_builder() {
     m.clear();
     assert!(m.is_empty());
 }
+
+// spec: 30 §2 (sdkVersion embedded, SemVer, independent of the engine)
+#[test]
+fn sdk_version() {
+    let parts: Vec<&str> = pmb_sdk::SDK_VERSION.split('.').collect();
+    assert_eq!(parts.len(), 3, "{}", pmb_sdk::SDK_VERSION);
+    assert!(parts.iter().all(|p| p.parse::<u64>().is_ok()));
+    assert!(
+        pmb_sdk::SDK_VERSION.starts_with("0."),
+        "the SDK stays 0.x before M11 (30 §2)"
+    );
+}
+
+// spec: 30 §3, §6: the §6 value methods come with the prelude alone
+#[test]
+fn prelude_value_methods() {
+    let now = TsMs(10_000);
+    let last = TsMs(10_400); // ts-compat now() stepped back (30 §5.0)
+    assert_eq!(now.ms_since(last), -400);
+    assert_eq!(now.saturating_since(last), DurMs(0));
+    assert_eq!(
+        ENTRY.snap(price!(0.05), Rounding::HalfAwayFromZero),
+        price!(0.55)
+    );
+    assert_eq!(Price::clamp_probability(-3.0), 0.0);
+    assert_eq!(Outcome::Down.opposite(), Outcome::Up);
+    assert_eq!(ClientOrderId::indexed("r", 12), cid!("r12"));
+}
