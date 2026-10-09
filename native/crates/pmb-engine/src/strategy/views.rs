@@ -134,8 +134,11 @@ impl<'a> BookView<'a> {
     }
 
     /// Mid price with explicit rounding (30 §5.1, §6).
-    pub fn mid(&self, _r: Rounding) -> Option<Price> {
-        todo!("core agent: 30 §5.1 mid with explicit rounding")
+    pub fn mid(&self, r: Rounding) -> Option<Price> {
+        let (b, a) = (self.best_bid()?, self.best_ask()?);
+        let sum = b.price.micros() as i128 + a.price.micros() as i128;
+        let m = pmb_core::fixed::div_round_i128(sum, 2, r).ok()?;
+        i64::try_from(m).ok().map(Price::from_micros)
     }
 
     /// `best_ask − best_bid` (30 §5.1).
@@ -182,8 +185,21 @@ impl<'a> PortfolioView<'a> {
     }
 
     /// Average entry `basis / quantity` when both are positive (12 §9.7).
-    pub fn avg_entry(&self, _o: Outcome) -> Option<Price> {
-        todo!("core agent: 12 §9.7 average entry with explicit rounding")
+    // D-PENDING: 12 §9.7 does not name the rounding of the average entry;
+    // chose HalfAwayFromZero, the output rule of 10 §3.3 R14.
+    pub fn avg_entry(&self, o: Outcome) -> Option<Price> {
+        let p = self.ledger.position(o);
+        if !p.qty.is_positive() || !p.cost_basis.is_positive() {
+            return None;
+        }
+        pmb_core::fixed::mul_div(
+            p.cost_basis.micros(),
+            pmb_core::SCALE,
+            p.qty.micros(),
+            Rounding::HalfAwayFromZero,
+        )
+        .ok()
+        .map(Price::from_micros)
     }
 
     /// Settled, unreserved shares (30 §5.2; equals `qty` in ts-compat).
@@ -343,6 +359,7 @@ mod tests {
         assert_eq!(v.best_bid().unwrap().price, Price::from_micros(400_000));
         assert_eq!(v.best_ask().unwrap().price, Price::from_micros(420_000));
         assert_eq!(v.spread(), Some(Price::from_micros(20_000)));
+        assert_eq!(v.mid(Rounding::Floor), Some(Price::from_micros(410_000)));
         assert_eq!(v.bids().count(), 2);
         assert_eq!(
             v.depth_through(QuoteSide::Bid, Price::from_micros(390_000)),

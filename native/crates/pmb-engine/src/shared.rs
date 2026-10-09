@@ -6,13 +6,14 @@
 
 use std::sync::Arc;
 
-use pmb_book::{MarketBooks, TopChange};
+use pmb_book::{Level, MarketBooks, Side as BookSide, TopChange};
 use pmb_core::market::Window;
+use pmb_core::market_event::QuoteSide;
 use pmb_core::rules::{ExchangeRules, RulesSource, RulesTimeline};
-use pmb_core::{MarketInfo, Outcome, PerOutcome, TsMs};
+use pmb_core::{MarketEvent, MarketInfo, Outcome, PerOutcome, TsMs};
 
-use crate::envelope::Envelope;
-use crate::feeds_view::FeedState;
+use crate::envelope::{Control, Envelope, Payload};
+use crate::feeds_view::{FeedObservation, FeedState};
 
 /// What the driver's apply of one envelope changed, read by every session's
 /// step of the same envelope (16 BK-7, 12 §5.2).
@@ -56,6 +57,16 @@ pub struct SharedMarket {
     /// Condition id observed on the first counted tick (21 §11 `marketId`):
     /// `true` once a counted tick was seen.
     pub first_counted_tick_seen: bool,
+    /// Next unapplied change of `rules_timeline` (forward-only, 11 X1).
+    pub(crate) rules_next: usize,
+}
+
+#[inline]
+fn book_side(s: QuoteSide) -> BookSide {
+    match s {
+        QuoteSide::Bid => BookSide::Bid,
+        QuoteSide::Ask => BookSide::Ask,
+    }
 }
 
 impl SharedMarket {
@@ -78,6 +89,7 @@ impl SharedMarket {
             feeds: FeedState::default(),
             skew_ms: None,
             first_counted_tick_seen: false,
+            rules_next: 0,
         }
     }
 
@@ -92,8 +104,107 @@ impl SharedMarket {
     /// the top-change bit and the skew (12 §4.4); `TickSizeChange` updates
     /// the rules in force (12 §5.2); feed envelopes update the feed state;
     /// other payloads leave the market unchanged.
-    pub fn apply(&mut self, _env: &Envelope<'_>) {
-        todo!("core agent: driver apply (12 §2.1, §4.4, §5.2; 15 §2.1)")
+    pub fn apply(&mut self, env: &Envelope<'_>) {
+        let mut effect = ApplyEffect::default();
+        match env.payload {
+            Payload::Market(ev) => {
+                // 12 §4.4 XT1: causal lower envelope over market envelopes.
+                if let Some(x) = env.exchange_ts {
+                    let d = env.at.0 - x.0;
+                    self.skew_ms = Some(self.skew_ms.map_or(d, |s| s.min(d)));
+                }
+                self.apply_market(&ev, env.at, &mut effect);
+                self.advance_rules(env.at);
+            }
+            Payload::Feed(obs) => {
+                // Stand-in feed state (pmb-feeds integration replaces it).
+                let ts = match obs {
+                    FeedObservation::BinanceAggTrade { ts, .. }
+                    | FeedObservation::ChainlinkRound { ts, .. } => ts,
+                    FeedObservation::PriceToBeat { .. } => env.at,
+                };
+                self.feeds.clock = Some(self.feeds.clock.map_or(ts, |c| c.max(ts)));
+            }
+            Payload::Control(Control::DataGap(scope)) => {
+                // 15 I-6f: the outcome book (or both) is stale until its next
+                // `book` (realistic, paper, live; 12 §5.2).
+                self.books.reset(scope);
+                for o in Outcome::ALL {
+                    if scope.is_none() || scope == Some(o) {
+                        self.stale[o] = true;
+                    }
+                }
+            }
+            Payload::Control(_)
+            | Payload::SyntheticTick(_)
+            | Payload::Account(_)
+            | Payload::Timer(_) => {}
+        }
+        self.last_apply = effect;
+    }
+
+    fn apply_market(&mut self, ev: &MarketEvent<'_>, at: TsMs, effect: &mut ApplyEffect) {
+        fn merge(effect: &mut ApplyEffect, t: TopChange) {
+            effect.top.price |= t.price;
+            effect.top.size |= t.size;
+        }
+        match *ev {
+            MarketEvent::Book {
+                outcome,
+                bids,
+                asks,
+            } => {
+                let lv = |l: &pmb_core::PriceSize| Level {
+                    price: l.price,
+                    size: l.size,
+                };
+                let t =
+                    self.books
+                        .apply_snapshot(outcome, bids.iter().map(lv), asks.iter().map(lv));
+                merge(effect, t);
+                self.stale[outcome] = false;
+                self.book_updated_at[outcome] = Some(at);
+                self.first_counted_tick_seen = true;
+            }
+            MarketEvent::PriceChange { changes } => {
+                for c in changes {
+                    let t = self
+                        .books
+                        .apply_level(c.outcome, book_side(c.side), c.price, c.size);
+                    merge(effect, t);
+                    self.book_updated_at[c.outcome] = Some(at);
+                    effect.stale_book |= self.stale[c.outcome];
+                }
+                self.first_counted_tick_seen = true;
+            }
+            MarketEvent::LastTrade { outcome, .. } => {
+                self.books.touch(outcome);
+            }
+            MarketEvent::TickSizeChange { outcome, tick } => {
+                // 11 §7.5, 12 §5.2: updates the rules in force; never a tick.
+                self.books.touch(outcome);
+                self.rules.tick[outcome] = tick;
+            }
+        }
+    }
+
+    /// Applies every dated change of the rules timeline at or before the
+    /// exchange time of `at` (11 §7.5, X1; 12 §4.4 XT3).
+    fn advance_rules(&mut self, at: TsMs) {
+        let x = self.exchange_time(at);
+        let changes = &self.rules_timeline.changes;
+        while let Some(&(t, c)) = changes.get(self.rules_next) {
+            if t > x {
+                break;
+            }
+            match c {
+                pmb_core::rules::RulesChange::Tick { outcome, tick, .. } => {
+                    self.rules.tick[outcome] = tick
+                }
+                pmb_core::rules::RulesChange::TakerDelay(d) => self.rules.taker_delay = d,
+            }
+            self.rules_next += 1;
+        }
     }
 
     /// `xnow` for a loop time (12 §4.4 XT1): `now − skew`; `now` before the

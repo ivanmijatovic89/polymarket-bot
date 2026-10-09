@@ -183,7 +183,119 @@ impl<'a> AccountEvent<'a> {
 
     /// Resolves a delivered core event against the ledger (30 §8, §16 S10):
     /// key lookups only, no allocation.
-    pub fn resolve(_ev: &CoreEvent, _ledger: &'a Ledger) -> AccountEvent<'a> {
-        todo!("core agent: 30 §8 key resolution per callback")
+    // D-PENDING: the core `OrderAccepted` carries no exchange id before the
+    // live adapter's side table (M9); chose `Sim(key)`, the simulator's id.
+    pub fn resolve(ev: &'a CoreEvent, ledger: &'a Ledger) -> AccountEvent<'a> {
+        use pmb_core::event::AccountEventKind as K;
+        let at = ev.at;
+        let o = |k| ledger.order(k);
+        match &ev.kind {
+            K::OrderSubmitted { order } => AccountEvent::OrderSubmitted {
+                at,
+                order: o(*order),
+            },
+            K::OrderRejected { order, cid, reason } => AccountEvent::OrderRejected {
+                at,
+                cid: *cid,
+                order: order.map(o),
+                reason: *reason,
+            },
+            K::OrderAccepted { order } => AccountEvent::OrderAccepted {
+                at,
+                order: o(*order),
+                exchange_id: Some(ExchangeOrderId::Sim(*order)),
+            },
+            K::OrderDelayed { order, release_at } => AccountEvent::OrderDelayed {
+                at,
+                order: o(*order),
+                release_at: *release_at,
+            },
+            K::OrderOpen { order } => AccountEvent::OrderOpen {
+                at,
+                order: o(*order),
+            },
+            K::Fill(f) => AccountEvent::Fill {
+                at,
+                fill: f,
+                order: o(f.key.order),
+            },
+            K::SettlementUpdate {
+                order,
+                fill,
+                status,
+                ..
+            } => AccountEvent::SettlementUpdate {
+                at,
+                order: o(*order),
+                fill: fill.and_then(|k| ledger.fills().iter().rev().find(|x| x.key == k)),
+                status: *status,
+            },
+            K::OrderDone {
+                order,
+                reason,
+                filled,
+            } => AccountEvent::OrderDone {
+                at,
+                order: o(*order),
+                reason: *reason,
+                filled: *filled,
+            },
+            K::CancelAcked { op, order } => AccountEvent::CancelAcked {
+                at,
+                op: *op,
+                order: o(*order),
+            },
+            K::CancelFailed { op, order, reason } => AccountEvent::CancelFailed {
+                at,
+                op: *op,
+                order: order.map(o),
+                reason: *reason,
+            },
+            K::PositionsSplit { size, cost, .. } => AccountEvent::PositionsSplit {
+                at,
+                size: *size,
+                cost: *cost,
+            },
+            K::SplitFailed {
+                requested, reason, ..
+            } => AccountEvent::SplitFailed {
+                at,
+                requested: *requested,
+                reason: *reason,
+            },
+            K::PositionsMerged { size, .. } => AccountEvent::PositionsMerged { at, size: *size },
+            K::MergeFailed {
+                requested, reason, ..
+            } => AccountEvent::MergeFailed {
+                at,
+                requested: *requested,
+                reason: *reason,
+            },
+            K::StreamStatus { connected } => AccountEvent::StreamStatus {
+                at,
+                connected: *connected,
+            },
+        }
+    }
+
+    /// TS kind string (`order_submitted`, `fill`, …; 10 §10.1).
+    pub fn ts_kind(&self) -> &'static str {
+        match self {
+            AccountEvent::OrderSubmitted { .. } => "order_submitted",
+            AccountEvent::OrderRejected { .. } => "order_rejected",
+            AccountEvent::OrderAccepted { .. } => "order_accepted",
+            AccountEvent::OrderDelayed { .. } => "order_delayed",
+            AccountEvent::OrderOpen { .. } => "order_open",
+            AccountEvent::Fill { .. } => "fill",
+            AccountEvent::SettlementUpdate { .. } => "settlement_update",
+            AccountEvent::OrderDone { .. } => "order_done",
+            AccountEvent::CancelAcked { .. } => "cancel_acked",
+            AccountEvent::CancelFailed { .. } => "cancel_failed",
+            AccountEvent::PositionsSplit { .. } => "positions_split",
+            AccountEvent::SplitFailed { .. } => "split_failed",
+            AccountEvent::PositionsMerged { .. } => "positions_merged",
+            AccountEvent::MergeFailed { .. } => "merge_failed",
+            AccountEvent::StreamStatus { .. } => "account_stream_status",
+        }
     }
 }

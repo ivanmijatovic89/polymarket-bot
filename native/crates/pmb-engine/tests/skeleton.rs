@@ -1,7 +1,6 @@
 //! Skeleton shape test (M1 steps 3–4): a mock `Execution` and a minimal
 //! strategy prove that the generic `Session<S, E, T>` of 12 §14 P6 compiles
-//! with the trait shapes of 30 §4 and 13 §2.2. Tests that reach `todo!()`
-//! bodies are `#[ignore]`d until the core lands.
+//! with the trait shapes of 30 §4 and 13 §2.2.
 
 use std::sync::Arc;
 
@@ -146,7 +145,6 @@ fn session_shape_compiles_and_is_send() {
 }
 
 #[test]
-#[ignore = "Session::new is todo!() until the core agent implements 12 §6.1"]
 fn session_runs_an_empty_stream() {
     // spec: 12 §5.1 (end_of_stream, finalize)
     let mut m = market();

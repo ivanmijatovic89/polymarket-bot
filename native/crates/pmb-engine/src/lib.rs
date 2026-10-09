@@ -8,11 +8,6 @@
 //! Module map and ownership: `ARCHITECTURE.md` next to this crate's
 //! `Cargo.toml`.
 
-// SKELETON (M1 steps 3–4): the interfaces below compile, but most bodies are
-// `todo!()` and many fields are not read yet. Remove this allow when the core
-// and simulator implementations land.
-#![allow(dead_code)]
-
 pub mod cascade;
 pub mod clock;
 pub mod config;

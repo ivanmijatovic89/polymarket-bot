@@ -72,10 +72,61 @@ impl EngineConfig {
     /// values are converted exactly (10 §2 T6); a value that does not fit is
     /// an error, never clamped (R14).
     pub fn from_model_config(
-        _mc: &ModelConfig,
-        _input_mode: InputMode,
-        _market_seed: MarketSeed,
+        mc: &ModelConfig,
+        input_mode: InputMode,
+        market_seed: MarketSeed,
     ) -> Result<EngineConfig, ConfigError> {
-        todo!("core agent: resolve ModelConfig into fixed point (21 §6)")
+        let err = |field: &str, why: &str| ConfigError {
+            message: format!("{field}: {why}"),
+        };
+        let starting = mc.capital.starting_capital_usdc.micros();
+        if starting < 0 {
+            return Err(err("capital.startingCapitalUsdc", "negative"));
+        }
+        let positive = |field: &str, micros: i64| {
+            if micros > 0 {
+                Ok(micros)
+            } else {
+                Err(err(field, "must be positive"))
+            }
+        };
+        let max_order_size = positive("risk.maxOrderSize", mc.risk.max_order_size.micros())?;
+        let max_abs_position = positive("risk.maxAbsPosition", mc.risk.max_abs_position.micros())?;
+        let max_loss = mc.risk.max_loss_stop_usdc.micros();
+        if max_loss < 0 {
+            return Err(err("risk.maxLossStopUsdc", "negative"));
+        }
+        if mc.runner.max_events_per_drain == 0 {
+            return Err(err("runner.maxEventsPerDrain", "must be positive"));
+        }
+        // D-PENDING: realistic sections (`execution.latency`, `makerQueue`,
+        // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are resolved
+        // in M3b (D57); chose to accept and ignore them until then.
+        Ok(EngineConfig {
+            core_rules: CoreRules::from_profile(mc.profile),
+            input_mode,
+            models: mc.execution.models,
+            compat_latency: mc.execution.compat_latency,
+            market_seed,
+            starting_capital: Usdc::from_micros(starting),
+            max_events_per_drain: mc.runner.max_events_per_drain,
+            risk: RiskLimits {
+                max_open_orders: mc.risk.max_open_orders,
+                max_order_size: Qty::from_micros(max_order_size),
+                max_abs_position: Qty::from_micros(max_abs_position),
+                max_loss_stop: Usdc::from_micros(max_loss),
+            },
+        })
     }
+}
+
+impl RiskLimits {
+    /// The TS defaults (`src/trading/riskLimits.ts:24-29`; 12 §8): 100 open
+    /// orders, 2000 shares per order and per position, 500 USDC loss stop.
+    pub const TS_DEFAULTS: RiskLimits = RiskLimits {
+        max_open_orders: 100,
+        max_order_size: Qty::from_micros(2_000_000_000),
+        max_abs_position: Qty::from_micros(2_000_000_000),
+        max_loss_stop: Usdc::from_micros(500_000_000),
+    };
 }

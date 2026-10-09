@@ -53,6 +53,47 @@ impl Meta {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// Serializes the meta as one JSON object (10 §7.5 E1), once at
+    /// placement. Non-finite floats serialize as `null` (21 §16); floats use
+    /// Rust's shortest round-trip form.
+    pub fn to_json(&self) -> String {
+        let mut out = String::with_capacity(2 + 16 * self.entries.len());
+        out.push('{');
+        for (i, (k, v)) in self.entries.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            json_string(&mut out, k);
+            out.push(':');
+            match v {
+                MetaValue::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+                MetaValue::I64(n) => out.push_str(&n.to_string()),
+                MetaValue::F64(x) if x.is_finite() => out.push_str(&format!("{x:?}")),
+                MetaValue::F64(_) => out.push_str("null"),
+                MetaValue::Str(t) => json_string(&mut out, t),
+            }
+        }
+        out.push('}');
+        out
+    }
+}
+
+/// Appends `s` as a JSON string literal (RFC 8259 escaping).
+fn json_string(out: &mut String, s: &str) {
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
 }
 
 /// The intent buffer (30 §7). Buffer order is submission order; `clear`
@@ -211,5 +252,21 @@ mod tests {
         assert_eq!(b.cid_text(c), "x22");
         b.clear();
         assert!(b.is_empty());
+    }
+
+    #[test]
+    fn meta_serializes_to_one_json_object() {
+        // spec: 10 §7.5 E1, 21 §16 (non-finite numbers serialize as null)
+        let mut m = Meta::new();
+        m.push("edge", MetaValue::F64(0.031));
+        m.push("leg", MetaValue::Str("en\"try".into()));
+        m.push("n", MetaValue::I64(3));
+        m.push("ok", MetaValue::Bool(true));
+        m.push("bad", MetaValue::F64(f64::NAN));
+        assert_eq!(
+            m.to_json(),
+            r#"{"edge":0.031,"leg":"en\"try","n":3,"ok":true,"bad":null}"#
+        );
+        assert_eq!(Meta::new().to_json(), "{}");
     }
 }

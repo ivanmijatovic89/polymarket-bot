@@ -5,8 +5,10 @@
 //! to output precision happens once, at the output boundary (D08, 10 §4).
 //! Conversion into `pmb_contract::result` types is the binary's job.
 
-use pmb_core::event::RejectReason;
-use pmb_core::{FinalOutcome, PerOutcome, Usdc};
+use pmb_core::event::{AccountEvent, AccountEventKind, DoneReason};
+use pmb_core::fill::Liquidity;
+use pmb_core::order::Side;
+use pmb_core::{FinalOutcome, Outcome, PerOutcome, Rounding, Usdc};
 
 use crate::ledger::Ledger;
 use crate::strategy::TickCause;
@@ -44,8 +46,9 @@ impl TickCounters {
 pub struct CandidateCounters {
     /// Orders accepted by the OM (`OrderSubmitted` emitted).
     pub orders_placed: u64,
-    /// Rejections by reason code, sorted by code at output (21 §17).
-    pub orders_rejected: Vec<(RejectReason, u64)>,
+    /// Rejections by reason code (10 §10.2 `code()`), in first-seen order;
+    /// the binary sorts by code at output (21 §17).
+    pub orders_rejected: Vec<(&'static str, u64)>,
     /// Orders that ended `Canceled`.
     pub orders_canceled: u64,
     /// Σ BUY fill notional.
@@ -99,12 +102,105 @@ pub struct MarketStatsAcc {
     pub counters: CandidateCounters,
 }
 
+impl CandidateCounters {
+    /// Counts one delivered event (21 §10 `counters`).
+    pub fn on_delivered(&mut self, ev: &AccountEvent) {
+        match ev.kind {
+            AccountEventKind::OrderSubmitted { .. } => self.orders_placed += 1,
+            AccountEventKind::OrderRejected { reason, .. } => {
+                let code = reason.code();
+                match self.orders_rejected.iter_mut().find(|(c, _)| *c == code) {
+                    Some((_, n)) => *n += 1,
+                    None => self.orders_rejected.push((code, 1)),
+                }
+            }
+            AccountEventKind::OrderDone {
+                reason: DoneReason::Canceled(_),
+                ..
+            } => self.orders_canceled += 1,
+            AccountEventKind::Fill(f) => {
+                let n = f
+                    .price
+                    .notional(f.qty, Rounding::HalfAwayFromZero)
+                    .expect("notional overflow (10 T3)");
+                match f.side {
+                    Side::Buy => self.buy_notional += n,
+                    Side::Sell => self.sell_notional += n,
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Tracks the peak of `reserved` (21 §10 `peakReservedUsdc`).
+    #[inline]
+    pub fn observe_reserved(&mut self, reserved: Usdc) {
+        if reserved > self.peak_reserved {
+            self.peak_reserved = reserved;
+        }
+    }
+}
+
 impl MarketStatsAcc {
     /// Builds the unrounded final values from the ledger and the resolution
     /// (21 §11; settlement 12 §9.5). The zero-row and null cases of 21 §13
     /// are decided by the caller from [`TickCounters::events_processed`].
-    pub fn finalize(&self, _ledger: &Ledger, _outcome: FinalOutcome) -> FinalStats {
-        todo!("core agent: 21 §11 MarketStats from the ledger")
+    pub fn finalize(&self, ledger: &Ledger, outcome: FinalOutcome) -> FinalStats {
+        let mut trade_as_maker = 0;
+        let mut trade_as_taker = 0;
+        let mut buy_vwap = PerOutcome::<(i128, i128)>::default();
+        let mut taken: Vec<bool> = Vec::new();
+        let mut intent_meta = Vec::new();
+        let mut trade_count = 0;
+        for (i, f) in ledger.fills().iter().enumerate() {
+            if ledger.fill_reversed(i) {
+                continue;
+            }
+            trade_count += 1;
+            match f.liquidity {
+                Liquidity::Maker => trade_as_maker += 1,
+                Liquidity::Taker => trade_as_taker += 1,
+            }
+            if f.side == Side::Buy {
+                let v = &mut buy_vwap[f.outcome];
+                v.0 += f.price.micros() as i128 * f.qty.micros() as i128;
+                v.1 += f.qty.micros() as i128;
+            }
+            // 21 §16: first fill per cid, in fill order, orders with meta only.
+            let r = ledger.order(f.key.order);
+            if let Some(m) = r.request().meta {
+                let c = r.cid().index();
+                if taken.len() <= c {
+                    taken.resize(c + 1, false);
+                }
+                if !taken[c] {
+                    taken[c] = true;
+                    intent_meta.push(m);
+                }
+            }
+        }
+        let mut cost = Usdc::ZERO;
+        let mut shares = PerOutcome::<i64>::default();
+        for o in Outcome::ALL {
+            let p = ledger.position(o);
+            cost += p.cost_basis;
+            shares[o] = p.qty.micros();
+        }
+        let cap = ledger.capital();
+        FinalStats {
+            pnl: ledger.pnl(outcome),
+            trade_count,
+            trade_as_maker,
+            trade_as_taker,
+            fees_paid: ledger.fees_paid(),
+            buy_vwap,
+            shares,
+            cost,
+            split_cost: ledger.split_cost(),
+            cash_end: cap.cash,
+            cash_start: cap.starting,
+            intent_meta,
+        }
     }
 }
 
