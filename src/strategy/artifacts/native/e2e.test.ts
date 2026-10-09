@@ -80,6 +80,10 @@ test('local-only publish is reproducible across package and target paths', { ski
     assert.equal(m.artifact.profile, 'artifact')
     assert.equal(m.artifact.strategyId, 'builder-proof.v1')
     assert.equal(computeSourceHash(m.sourceHashInput), m.sourceHash)
+    // 31 §5.4: the recorded command replays the staged build, host-independently.
+    const mp = m.build.command.indexOf('--manifest-path')
+    assert.equal(m.build.command[mp + 1], '/tmp/pmb-stage/.pmb-package/Cargo.toml')
+    assert.ok(m.pendingChecks.some((c) => c.includes("kind = 'js'")))
     assert.ok(
       !JSON.stringify(m.build).includes(os.homedir()),
       'host paths must be remapped in the manifest',
