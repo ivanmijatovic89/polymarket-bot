@@ -155,7 +155,11 @@
     "research:schedule": "tsx scripts/install-research-update.mts",
     "record:v4:catalog": "tsx src/cli/recorder-v4-catalog.ts",
     "native:ci:local": "scripts/native/ci-local.sh",
-    "native:verify:local": "scripts/native/verify-local.sh"
+    "native:verify:local": "scripts/native/verify-local.sh",
+    "native:bench:l1": "tsx scripts/native/bench-l1.ts",
+    "native:bench:host-facts": "tsx scripts/native/bench-l1-host-facts.ts",
+    "native:bench:test": "tsx --test native/bench/harness/*.test.ts",
+    "native:bench:typecheck": "tsc -p native/bench/harness/tsconfig.json --pretty false"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
