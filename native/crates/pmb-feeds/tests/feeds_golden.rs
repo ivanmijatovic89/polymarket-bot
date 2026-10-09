@@ -83,6 +83,12 @@ const EXPECTED_DIVERGENCES: &[(&str, &str, &str, &str)] = &[
         "PE-PENDING (14 F-17, TS bug)",
     ),
     (
+        "binance-nullts",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (D-PENDING NULL ts_ms: TS SQL drops the row)",
+    ),
+    (
         "binance-dupid",
         "data_defect",
         "corrupt",
@@ -325,7 +331,7 @@ fn loader_goldens() {
         }
         seen += 1;
     }
-    assert_eq!(seen, 23);
+    assert_eq!(seen, 26);
 }
 
 fn render(kind: &str, ts: i64, v: &FeedsView) -> String {
@@ -544,7 +550,7 @@ fn real_market_timelines() {
         );
         seen += 1;
     }
-    assert_eq!(seen, 10);
+    assert_eq!(seen, 14);
 }
 
 fn i64s(v: &Value) -> Vec<i64> {
@@ -713,7 +719,11 @@ fn ptb_source(window: Window, latency: i64) -> PriceToBeatSource {
 // 900 s: the seed rule makes the lookback not result-affecting)
 #[test]
 fn lookback_invariance() {
-    for slug in ["btc-updown-15m-1789570800", "btc-updown-15m-1785028500"] {
+    for slug in [
+        "btc-updown-15m-1789570800",
+        "btc-updown-15m-1785028500",
+        "btc-updown-15m-1789516800",
+    ] {
         let window = slug_window(slug);
         let (bdays, cdays) = fixture_days(window);
         let clocks = read_clocks(slug);
@@ -771,6 +781,7 @@ fn realistic_constant_equals_ts_compat_on_monotone_days() {
         "btc-updown-15m-1789570800",
         "btc-updown-15m-1785028500",
         "btc-updown-15m-1773100800",
+        "btc-updown-15m-1789516800",
     ] {
         let window = slug_window(slug);
         let (bdays, cdays) = fixture_days(window);

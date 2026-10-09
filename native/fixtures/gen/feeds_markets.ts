@@ -34,4 +34,8 @@ export const FIXTURE_MARKETS: FixtureMarket[] = [
   m('btc-updown-15m-1785028500', true, 117234.51),
   // Pre-coverage midnight market: lookback spans two Binance days (14 F-12).
   m('btc-updown-15m-1773100800', false, 69420.5),
+  // In-coverage midnight market: the lookback and the seeds lie in the
+  // previous day's Binance and crypto_prices files (14 F-12, F-20, F-22).
+  // Strike: the Chainlink round at the window start (75587.737154...), 2 dp.
+  m('btc-updown-15m-1789516800', true, 75587.74),
 ]

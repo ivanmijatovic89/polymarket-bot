@@ -12,12 +12,15 @@ needs no data roots.
 2026-10-09, reading the read-only `data/` symlinks into the fleet copy). The
 fixture markets and constants are in `native/fixtures/gen/feeds_markets.ts`:
 
-| Market                      | Window (UTC)     | Binance days           | Chainlink day       | Notes                                        |
-| --------------------------- | ---------------- | ---------------------- | ------------------- | -------------------------------------------- |
-| `btc-updown-15m-1789570800` | 2026-09-16 15:00 | 2026-09-16             | 2026-09-16          | PolyBolt era                                 |
-| `btc-updown-15m-1785028500` | 2026-07-26 01:15 | 2026-07-26             | 2026-07-26          | Telonex local clock steps backwards (14 F-8) |
-| `btc-updown-15m-1773100800` | 2026-03-10 00:00 | 2026-03-09, 2026-03-10 | none (pre-coverage) | lookback spans two days (14 F-12)            |
+| Market                      | Window (UTC)     | Binance days           | Chainlink day          | Notes                                                        |
+| --------------------------- | ---------------- | ---------------------- | ---------------------- | ------------------------------------------------------------ |
+| `btc-updown-15m-1789570800` | 2026-09-16 15:00 | 2026-09-16             | 2026-09-16             | PolyBolt era                                                 |
+| `btc-updown-15m-1785028500` | 2026-07-26 01:15 | 2026-07-26             | 2026-07-26             | Telonex local clock steps backwards (14 F-8)                 |
+| `btc-updown-15m-1773100800` | 2026-03-10 00:00 | 2026-03-09, 2026-03-10 | none (pre-coverage)    | lookback spans two days (14 F-12)                            |
+| `btc-updown-15m-1789516800` | 2026-09-16 00:00 | 2026-09-15, 2026-09-16 | 2026-09-15, 2026-09-16 | lookback and seeds in the previous day (14 F-12, F-20, F-22) |
 
+- Two markets read 2026-09-16, so each day file is sliced once with the
+  ranges of every market that reads it.
 - `binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-<day>.parquet`: the rows of
   the real day file with `start - 300 s - 2 s <= ts_ms <= end + 2 s + 2 s`,
   columns `agg_trade_id`, `price`, `ts_ms` only, ordered by `agg_trade_id`
@@ -48,8 +51,8 @@ fixture markets and constants are in `native/fixtures/gen/feeds_markets.ts`:
 - `crafted/<case>/...` GF-5 divergence inputs (60 §7.1): TS loads them, the
   spec fails the market `data_defect: corrupt`. Binance NULL, zero and
   negative prices (`binance-nullprice`, `binance-zeroprice`,
-  `binance-negprice`, 14 F-17), a duplicate `agg_trade_id`
-  (`binance-dupid`), a seed row with a NULL broadcast time
+  `binance-negprice`, 14 F-17), a NULL `ts_ms` (`binance-nullts`), a
+  duplicate `agg_trade_id` (`binance-dupid`), a seed row with a NULL broadcast time
   (`chainlink-seed-nullbc`), a zero price (`chainlink-zeroprice`) and a
   foreign `asset_id` (`chainlink-foreign-asset`) (14 F-25).
   `feeds_slice.ts --crafted-only` rewrites only the crafted files (no data

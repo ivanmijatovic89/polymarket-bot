@@ -44,26 +44,42 @@ function daysCovering(startMs: number, endMs: number): string[] {
 const db = await getInMemoryDuckDb()
 const conn = await db.connect()
 
-async function sliceBinance(startMs: number, endMs: number): Promise<void> {
-  const from = startMs - LOOKBACK_MS - MARGIN_MS
-  const to = endMs + BINANCE_TAIL_MS + MARGIN_MS
+/** Day file -> the ranges of every fixture market that reads it. */
+type DayRanges = Map<string, [number, number][]>
+
+function addRanges(
+  into: DayRanges,
+  startMs: number,
+  endMs: number,
+  from: number,
+  to: number,
+): void {
   for (const day of daysCovering(startMs - LOOKBACK_MS, endMs)) {
+    into.set(day, [...(into.get(day) ?? []), [from, to]])
+  }
+}
+
+/** `col` inside any of the ranges (ms bounds, `scale` 1 or 1000 for µs). */
+const inRanges = (col: string, ranges: [number, number][], scale: number): string =>
+  ranges.map(([a, b]) => `${col} BETWEEN ${a * scale} AND ${b * scale}`).join(' OR ')
+
+/** One slice per day file, holding the rows of every market that reads it. */
+async function sliceBinance(days: DayRanges): Promise<void> {
+  for (const [day, ranges] of [...days].sort()) {
     const src = path.join(dataRoot, `binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-${day}.parquet`)
     const dir = path.join(outRoot, 'binance/aggTrades/BTCUSDT')
     mkdirSync(dir, { recursive: true })
     const dst = path.join(dir, `BTCUSDT-aggTrades-${day}.parquet`)
     await conn.run(
       `COPY (SELECT agg_trade_id, price, ts_ms FROM read_parquet(${sqlQuote(src)})
-             WHERE ts_ms BETWEEN ${from} AND ${to} ORDER BY agg_trade_id)
+             WHERE ${inRanges('ts_ms', ranges, 1)} ORDER BY agg_trade_id)
        TO ${sqlQuote(dst)} (FORMAT parquet, COMPRESSION zstd)`,
     )
   }
 }
 
-async function sliceChainlink(startMs: number, endMs: number): Promise<void> {
-  const from = startMs - LOOKBACK_MS - MARGIN_MS
-  const to = endMs + CHAINLINK_TAIL_MS + MARGIN_MS
-  for (const day of daysCovering(startMs - LOOKBACK_MS, endMs)) {
+async function sliceChainlink(days: DayRanges): Promise<void> {
+  for (const [day, ranges] of [...days].sort()) {
     const src = path.join(
       dataRoot,
       `telonex/crypto_prices/btcusd/btcusd-crypto-prices-${day}.parquet`,
@@ -73,7 +89,7 @@ async function sliceChainlink(startMs: number, endMs: number): Promise<void> {
     const dst = path.join(dir, `btcusd-crypto-prices-${day}.parquet`)
     await conn.run(
       `COPY (SELECT * FROM read_parquet(${sqlQuote(src)})
-             WHERE timestamp_us BETWEEN ${from} * 1000 AND ${to} * 1000)
+             WHERE ${inRanges('timestamp_us', ranges, 1000)})
        TO ${sqlQuote(dst)} (FORMAT parquet, COMPRESSION zstd)`,
     )
   }
@@ -134,11 +150,14 @@ async function sliceClocks(slug: string, startMs: number, endMs: number): Promis
 async function crafted(): Promise<void> {
   const root = path.join(outRoot, 'crafted')
   rmSync(root, { recursive: true, force: true })
-  const bin = async (c: string, day: string, rows: [number, number, number | null][]) => {
+  const bin = async (c: string, day: string, rows: [number, number | null, number | null][]) => {
     const dir = path.join(root, c, 'binance/aggTrades/BTCUSDT')
     mkdirSync(dir, { recursive: true })
     const values = rows
-      .map(([id, ts, px]) => `(${id}::BIGINT, ${px === null ? 'NULL' : px}::DOUBLE, ${ts}::BIGINT)`)
+      .map(
+        ([id, ts, px]) =>
+          `(${id}::BIGINT, ${px === null ? 'NULL' : px}::DOUBLE, ${ts === null ? 'NULL' : ts}::BIGINT)`,
+      )
       .join(', ')
     await conn.run(
       `COPY (SELECT * FROM (VALUES ${values}) t(agg_trade_id, price, ts_ms))
@@ -243,7 +262,7 @@ async function crafted(): Promise<void> {
   ])
   // GF-5 divergences: inputs where TS loads but the spec makes the market
   // data_defect corrupt (14 F-17, F-25 and the D-PENDING row rules).
-  const base: [number, number, number | null][] = [
+  const base: [number, number | null, number | null][] = [
     [200, f - 1_000, 200.5],
     [201, s, 201.5],
     [202, s + 100_000, 202.5],
@@ -251,6 +270,8 @@ async function crafted(): Promise<void> {
   await bin('binance-nullprice', '2026-09-16', [...base, [203, s + 200_000, null]])
   await bin('binance-zeroprice', '2026-09-16', [...base, [203, s + 200_000, 0]])
   await bin('binance-negprice', '2026-09-16', [...base, [203, s + 200_000, -1.5]])
+  // A row without ts_ms: TS SQL drops it, Rust fails the day (D-PENDING).
+  await bin('binance-nullts', '2026-09-16', [...base, [203, null, 203.5]])
   // Identical duplicate rows keep the TS order deterministic.
   await bin('binance-dupid', '2026-09-16', [...base, [202, s + 100_000, 202.5]])
   // No stale span >= 300 s inside the window (14 F-26).
@@ -277,11 +298,20 @@ async function crafted(): Promise<void> {
 }
 
 if (!process.argv.includes('--crafted-only')) {
+  // Markets can share a day file (two fixture markets read 2026-09-16), so
+  // each day file is written once with the ranges of all its markets.
+  const binanceDays: DayRanges = new Map()
+  const chainlinkDays: DayRanges = new Map()
   for (const m of FIXTURE_MARKETS) {
-    await sliceBinance(m.startMs, m.endMs)
-    if (m.chainlink) await sliceChainlink(m.startMs, m.endMs)
-    await sliceClocks(m.slug, m.startMs, m.endMs)
+    const from = m.startMs - LOOKBACK_MS - MARGIN_MS
+    addRanges(binanceDays, m.startMs, m.endMs, from, m.endMs + BINANCE_TAIL_MS + MARGIN_MS)
+    if (m.chainlink) {
+      addRanges(chainlinkDays, m.startMs, m.endMs, from, m.endMs + CHAINLINK_TAIL_MS + MARGIN_MS)
+    }
   }
+  await sliceBinance(binanceDays)
+  await sliceChainlink(chainlinkDays)
+  for (const m of FIXTURE_MARKETS) await sliceClocks(m.slug, m.startMs, m.endMs)
 }
 await crafted()
 conn.closeSync()

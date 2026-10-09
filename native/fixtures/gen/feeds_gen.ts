@@ -238,6 +238,7 @@ const LOADER_CASES: LoaderCase[] = [
   // GF-5 divergences: TS loads these; the Rust test asserts the spec value
   // (data_defect corrupt) under an expected_divergence annotation.
   ...[
+    'binance-nullts',
     'binance-nullprice',
     'binance-zeroprice',
     'binance-negprice',
