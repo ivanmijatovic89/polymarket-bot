@@ -4,6 +4,7 @@
 //! order records, applies books to the `SharedMarket`, calls the
 //! `Execution` methods and renders the emitted events as text.
 
+mod cancellation;
 mod fee_golden;
 mod golden;
 mod scenarios;
