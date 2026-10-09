@@ -1,4 +1,4 @@
-# Conformance test plan (60 §10.2) — C1 deliverable
+# Conformance test plan (60 §10.2) — C1 + C2 deliverable
 
 Spec: tag `native-spec-g1`, documents 10, 11, 12, 13, 20, 21, 22, 30, 60
 (no `research/`). Method: every clause of a §10.2 row gets (a) a vector row
@@ -9,7 +9,15 @@ binary (20). "Status" is `data` (runs now against the spec-derived helpers),
 `C2` (skeleton, needs the testkit), `bin` (skeleton, needs the canonical
 binary), `G3`/`G4` (outline, later phase).
 
-Totals today: 16 vector files, 86 data tests green, 151 ignored skeletons.
+Totals after C2 (2026-10-09): 16 vector files; 169 tests green (86 data +
+83 scripted testkit sessions and contract-file checks); 71 ignored: 3
+`C2-fail` (implementation bugs, §6), 20 `C2-gap` (testkit/binary needs, §5),
+48 `C4`/`G3`/`G4` (later scope, incl. the G3 session skeletons of the
+`g3_*` files). Run: `cargo test --manifest-path
+native/conformance/Cargo.toml` (CF-2; see README).
+
+Status key from C2 on: `data` (vector-level), `ok` (executable session,
+green), `C2-fail`/`C2-gap`/`C4` (ignored, reason in the attribute).
 
 ## 1. G2 rows in detail
 
@@ -18,9 +26,9 @@ Totals today: 16 vector files, 86 data tests green, 151 ignored skeletons.
 | Clause | Test (`tests/order_state_machine.rs`) | Input | Status |
 |---|---|---|---|
 | 10 §8.1 state sets, 10 §8.4 TS strings | `state_sets_and_ts_mapping` | `order_state_machine.json` `states` | data |
-| 10 §8.2 rows 1–21 (ids `r01`–`r21`) | `rows_reference_known_states`, `terminal_rows_name_one_terminal_event` (consistency); `r01_submitted` … `r21_late_fill` (one per row) | one scripted session per row; ts-compat rows assert the full `ts_compat_events` sequence of 13 §5.1 (acceptance-time `SettlementUpdate{Matched}`, FOK `Confirmed`) | data + C2 (rows 1–5, 12, 13, 15, 17–19); G3 (6–11, 14, 16, 21); G4 (20) |
-| 10 S1, S2, S4, S6; FOK/FAK never rest; Killed/Expired only where allowed; ts-compat never `OrderDelayed`/`CancelAcked`/`Mined`/`SelfCross`; post-only never delayed | `forbidden_list_well_formed`, `forbidden_patterns_absent_from_all_traces` | every G2 session's trace scanned for the 16 `forbidden` patterns | data + C2 |
-| 10 S3, 12 §9.4 final quantity table | `s3_final_quantity_table` | Rejected / Killed-without-filled / Filled / OrderDone-with-filled sessions | C2 |
+| 10 §8.2 rows 1–21 (ids `r01`–`r21`) | `rows_reference_known_states`, `terminal_rows_name_one_terminal_event` (consistency); `r01_submitted` … `r21_late_fill` (one per row) | one scripted session per row; ts-compat rows assert the full `ts_compat_events` sequence of 13 §5.1 (acceptance-time `SettlementUpdate{Matched}`, FOK `Confirmed`) | ok: rows 1–5, 12, 13, 15, 17–19, plus 11 (unreachable in ts-compat) and 16 (ts-compat: no action at end); C4: 6–10, 14, 20, 21 |
+| 10 S1, S2, S4, S6; FOK/FAK never rest; Killed/Expired only where allowed; ts-compat never `OrderDelayed`/`CancelAcked`/`Mined`/`SelfCross`; post-only never delayed | `forbidden_list_well_formed`, `forbidden_patterns_absent_from_all_traces` | one combined session (every ts-compat row) scanned for the `forbidden` patterns; the ts-compat `SettlementUpdate{Confirmed}` after `OrderDone(Filled)` is exempt (A-16) | ok |
+| 10 S3, 12 §9.4 final quantity table | `s3_final_quantity_table` | Rejected / Killed-without-filled / Filled / OrderDone-with-filled sessions | ok |
 | 10 S5 fills never dropped | covered by `r21_late_fill` and cid `cg-11` | — | G3/G4 |
 
 Exerciser cross-check (60 §5.3/§5.5): x2/x6 (FOK fill vs kill, rows 17–18),
@@ -32,82 +40,83 @@ fixture markets is read as a second input for these rows.
 
 | Clause | Test (`tests/cascades.rs`) | Input | Status |
 |---|---|---|---|
-| 12 §6.2 breadth-first FIFO; 30 §4 rule 6; 22 §3.3 ordering contract | `cs01_literal_sequence_is_breadth_first` (data), `cs01_breadth_first` | `cs-01`: on_tick places a, b; OrderSubmitted(a) callback places c | data + C2 |
-| 12 §6.2 siblings before second-level results; 60 §5.4 A1/A2 | `cs02_second_level_cascade`, `cs13_engine_origin_events_offered` | `cs-02`, `cs-13` (exerciser x11 / x11-sib / A2 as second input) | C2 |
-| 12 §6.2 delivery order (ledger → OM → trace → callback → Decision → OM); 12 §9.1; 12 §9.2 `submitted_delivered` | `cs03_ledger_applied_before_callback` | `cs-03`: portfolio read inside each callback | C2 |
-| 12 §6.1 every delivered event offered (incl. OrderSubmitted, every SettlementUpdate) | `cs04_fok_callback_kinds` (data), `cs04_every_event_offered` | `cs-04` | data + C2 |
-| 30 §4.1 interests skip only the callback; 16 TF-3 | `cs05_interests_skip_only_callback` | `cs-05`: LIFECYCLE omitted; trace, digest, stats identical | C2 (see A-07) |
-| 12 §6.3 cascade budget → `strategy_fault: cascade_limit`, no MarketStats, group isolation (21 §14) | `cs06_cascade_budget_fault` | `cs-06` with `runner.maxEventsPerDrain = 8` | C2 (see A-08) |
-| 12 §4.2 `event_clock`; 30 §5 | `cs07_event_clock` | `cs-07` | C2 |
-| 12 §4.2 decision stamp; 13 TC-C8 | `cs08_decision_stamp_ts_compat` | `cs-08`: GTD at T+60000 vs T+59999 from an account callback | C2 |
-| 12 §5.4, 60 INV-13, D23, TC-C9/TC-C13 window gate on callbacks | `cs09_no_callbacks_outside_window` | `cs-09` | C2 (ts-compat), G3 (realistic end handling) |
-| 12 §6.4 plugin snapshot of the previous tick; 14 P-4 | `cs10_plugin_snapshot_previous_tick` | `cs-10` (needs a plugin via `Requirements`) | C2 if the testkit exposes plugins (see A-09) |
-| 12 §5.3 synthetic ticks never run the execution step; 14 F-36 | `cs11_synthetic_tick_no_execution` | `cs-11` (needs scripted feed updates) | C2 |
-| 30 §4 rule 4 fresh instance per market | `cs12_fresh_instance_per_market` | `cs-12` | C2 |
+| 12 §6.2 breadth-first FIFO; 30 §4 rule 6; 22 §3.3 ordering contract | `cs01_literal_sequence_is_breadth_first` (data), `cs01_breadth_first` | `cs-01`: on_tick places a, b; OrderSubmitted(a) callback places c; the trace order intent → event → account intent is checked too | ok |
+| 12 §6.2 siblings before second-level results; 60 §5.4 A1/A2 | `cs02_second_level_cascade`, `cs13_engine_origin_events_offered` | `cs-02`, `cs-13` | ok |
+| 12 §6.2 delivery order (ledger → OM → trace → callback → Decision → OM); 12 §9.1; 12 §9.2 `submitted_delivered` | `cs03_ledger_applied_before_callback` | `cs-03`: portfolio read inside each callback | ok |
+| 12 §6.1 every delivered event offered (incl. OrderSubmitted, every SettlementUpdate) | `cs04_fok_callback_kinds` (data), `cs04_every_event_offered` | `cs-04` | ok |
+| 30 §4.1 interests skip only the callback; 16 TF-3 | `cs05_interests_skip_only_callback` | `cs-05`: LIFECYCLE omitted; trace and final cash identical | ok (A-07 confirmed) |
+| 12 §6.3 cascade budget → `strategy_fault: cascade_limit`, no MarketStats, group isolation (21 §14) | `cs06_cascade_budget_fault` | `cs-06` against the default `maxEventsPerDrain` 4200 (no override in the testkit): a FOK chain from OrderSubmitted callbacks; exactly 4200 callbacks run, then the reason line is `strategy_fault … cascade_limit` | ok (A-08 confirmed: fault at the 4201st) |
+| 12 §4.2 `event_clock`; 30 §5 | `cs07_event_clock` | `cs-07` | ok |
+| 12 §4.2 decision stamp; 13 TC-C8 | `cs08_decision_stamp_ts_compat` | `cs-08`: GTD at T1+60000 vs T1+59999 vs T0+60000 from the execution-step callback of tick N | ok (D69 confirmed) |
+| 12 §5.4, 60 INV-13, D23, TC-C9/TC-C13 window gate on callbacks | `cs09_no_callbacks_outside_window` | `cs-09`: ticks at end (inclusive) and after | ok (ts-compat); C4 (realistic end handling) |
+| 12 §6.4 plugin snapshot of the previous tick; 14 P-4 | `cs10_plugin_snapshot_previous_tick` | `cs-10` | C2-gap (no plugin builders in the testkit's `Requirements`) |
+| 12 §5.3 synthetic ticks never run the execution step; 14 F-36 | `cs11_synthetic_tick_no_execution` | `cs-11` | C2-gap (`binance_trade` refused until the feed wiring merges) |
+| 30 §4 rule 4 fresh instance per market | `cs12_fresh_instance_per_market` | `cs-12`; the harness also asserts `Strategy::new` runs exactly once per run | ok |
+| 22 §3.2 event record fields | `trace_event_records_carry_22_3_2_fields` | the cs-04 trace | C2-fail (§6 F-3) |
 
 ### 1.3 Capital C1–C4 — 10 §9.4, 10 R5/R6/R9, 12 §7.5, 12 §9.4–§9.6, 11 §4, 60 INV-1/2/3/7
 
 | Clause | Test (`tests/capital.rs`) | Input | Status |
 |---|---|---|---|
-| 10 R9 ts-compat reservation (notional HalfAwayFromZero + fee at limit, 0 if post-only); 11 §4 row 2 | `c1_ts_compat_reservation_vectors` (data), `c1_ts_compat_reservation_in_session`, `c1_ts_compat_post_only_in_session` | `c1-ts-compat-*` (4 vectors) | data + C2 |
+| 10 R9 ts-compat reservation (notional HalfAwayFromZero + fee at limit, 0 if post-only); 11 §4 row 2 | `c1_ts_compat_reservation_vectors` (data), `c1_ts_compat_reservation_in_session`, `c1_ts_compat_post_only_in_session` | `c1-ts-compat-*` (4 vectors) | data + ok |
 | 10 C1 share-sized (Ceil notional + fee at limit), post-only notional only | `c1_realistic_share_sized_reservation_vectors` (data), `c1_realistic_share_sized_in_session` | `c1-realistic-*` | data + G3 (see A-10) |
 | 10 C1 collateral-sized (amount + amount × rate × (1 − tick)) | `c1_realistic_collateral_sized_reservation` (data), `c1_realistic_collateral_in_session` | `c1-realistic-collateral-sized` | data + G3 |
 | 10 C1 exception `reservation_dust`; 60 INV-2 | `c1_reservation_dust_counted_not_rejected` | `c1-reservation-dust` | G3 |
-| 12 §7.5 exact comparison, no 1e-8 tolerance; 10 §10.2 reject string | `funding_boundary_vectors` (data), `funding_exact_boundary`, `funding_cascade_visibility` | `funding-*` | data + C2 |
+| 12 §7.5 exact comparison, no 1e-8 tolerance; 10 §10.2 reject string | `funding_boundary_vectors` (data), `funding_exact_boundary`, `funding_cascade_visibility`, `funding_reject_string_in_trace` | `funding-*` | data + ok; the full TS reject string in the trace is C2-fail (§6 F-2) |
 | 10 C2 realistic SELL reserves shares; 12 §9.3 sellable | `c2_sell_reserves_shares` | `c2-realistic-sell-reserves-shares` | G3 |
-| 13 TC-C4 naked sells, `oversold_qty` | `c2_ts_compat_naked_sell` | `c2-ts-compat-no-inventory-check` (exerciser x14 as second input) | C2 |
-| 10 C3 release only on authoritative final quantity; 12 §9.4 obligations table; 60 INV-3 | `c3_release_partial_then_terminal_steps` (data), `c3_partial_then_cancel`, `c3_killed_releases`, `c3_rejected_releases`, `c3_zero_reserved_at_end` | `c3-*` | data + C2 (see A-11) |
-| 10 C4 PnL identity; 12 §9.5 BUY/SELL/split/merge arithmetic; 12 §9.6; 21 §11; 60 INV-7 | `c4_identity_taker_buy_vectors`, `c4_sell_realized_vector`, `c4_split_and_merge_vectors`, `turnover_vector_arithmetic` (data); `c4_identity_sessions`, `c4_merge_realizes_not_ts_bug` | `c4-*`, `turnover-exceeds-capital` | data + C2 |
-| 12 §7.3 merge clamp incl. pending merges; 10 N4; split funding | `merge_clamp_and_zero`, `split_insufficient_and_zero` | `merge-clamp-pending`, `split-insufficient`, `split-zero`, `merge-zero` (exerciser 390/395/405) | C2 |
-| 12 §9.4 per-market allowance; 21 §6.3 | `per_market_allowance_isolated` | `per-market-allowance` | C2 |
-| 60 INV-1 cash conservation | `inv1_cash_conservation` | mixed scenario | C2 |
+| 13 TC-C4 naked sells, `oversold_qty` | `c2_ts_compat_naked_sell` | `c2-ts-compat-no-inventory-check` | ok (the `oversold_qty` counter itself is C2-gap: diagnostics not exposed) |
+| 10 C3 release only on authoritative final quantity; 12 §9.4 obligations table; 60 INV-3 | `c3_release_partial_then_terminal_steps` (data), `c3_partial_then_cancel`, `c3_killed_releases`, `c3_rejected_releases`, `c3_zero_reserved_at_end` | `c3-*` | data + ok (A-11 confirmed: 3.2846 after the partial fill) |
+| 10 C4 PnL identity; 12 §9.5 BUY/SELL/split/merge arithmetic; 12 §9.6; 21 §11; 60 INV-7 | `c4_identity_taker_buy_vectors`, `c4_sell_realized_vector`, `c4_split_and_merge_vectors`, `turnover_vector_arithmetic` (data); `c4_identity_sessions`, `c4_merge_realizes_not_ts_bug` | `c4-*`; every `Cap` session checks `cash − starting == realized − Σ basis − split_cost` after every delivered event | data + ok |
+| 12 §7.3 merge clamp incl. pending merges; 10 N4; split funding | `merge_clamp_and_zero`, `split_insufficient_and_zero` | `merge-clamp-pending`, `split-insufficient`, `split-zero`, `merge-zero` | ok (the clamp-to-0 case gives `MergeFailed(InsufficientPairs)` per 12 §7.3; see A-21) |
+| 12 §9.4 per-market allowance; 21 §6.3 | `per_market_allowance_isolated` | `per-market-allowance` | ok |
+| 60 INV-1 cash conservation | `inv1_cash_conservation` | mixed scenario (partial taker, maker, split, sell, merge) | ok |
 
 ### 1.4 cid generations — 10 §6, 10 S4, 12 §7.1, 12 §7.3, 13 §5.1 Cancels, 13 §5.4, 30 §5.2, 60 §5.10
 
 | Clause | Test (`tests/cid_generations.rs`) | Input | Status |
 |---|---|---|---|
-| 10 §6 OrderKey dense from 0 per submission; engine rejects consume no key (12 §9.2) | `cg01_dense_keys` | `cg-01` | C2 (see A-14) |
-| 10 S4, 12 §7.1 reuse → new generation; `cancellation.test.ts` "client ID reuse creates distinct exchange identities" | `cg02_reuse_after_fill` | `cg-02` (transcribed TS scenario) | C2 |
-| 13 §5.1 Cancels bound at decision time (TC-C5); `cancellation.test.ts` "delayed cancel cannot cancel a new submission" | `cg03_delayed_cancel_old_generation` | `cg-03` (delay 100, jitter 0) | C2 |
-| 12 §7.1, 13 §6.6 realistic in-flight cancel of an old generation | `cg04_realistic_in_flight_cancel` | `cg-04` | G3 |
-| 12 §7.1 cid → current key | `cg05_cancel_targets_current` | `cg-05` | C2 |
-| 12 §7.3 known terminal skipped; unknown cid; TC-C5/TC-C10; exerciser x6 / x-never | `cg06_cancel_known_terminal`, `cg07_cancel_never_placed` | `cg-06`, `cg-07` | C2 (see A-12) |
-| 10 §6 FillKey, TradeSeq | `fill_key_and_trade_seq_shape` (data), `cg08_fill_keys` | `cg-08` (ledger-level) | data + C2 |
-| 12 §7.1 late events of old generations (live), 10 S5/I3 | `cg09_*`, `cg10_*`, `cg11_*` | transcribed TS live scenarios | G4 |
-| 10 §6 session scope; 12 §10 | `cg12_keys_session_scoped` | `cg-12` (run-group of two markets) | C2 |
+| 10 §6 OrderKey dense from 0 per submission; engine rejects consume no key (12 §9.2) | `cg01_dense_keys` | `cg-01`; keys read from the trace event records (`"order": k`) zipped with the callback order; `sim-{key}` visible in `OrderAccepted.exchange_id` (D61) | ok |
+| 10 S4, 12 §7.1 reuse → new generation; `cancellation.test.ts` "client ID reuse creates distinct exchange identities" | `cg02_reuse_after_fill` | `cg-02` (transcribed TS scenario) | ok |
+| 13 §5.1 Cancels bound at decision time (TC-C5); superseded by D71 | `cg03_delayed_cancel_old_generation` | `cg-03` (delay 100) | C2-gap (no `ModelConfig` override; delay > 0 dropped from parity by D71) |
+| 12 §7.1, 13 §6.6 realistic in-flight cancel of an old generation | `cg04_realistic_in_flight_cancel` | `cg-04` | C4 |
+| 12 §7.1 cid → current key | `cg05_cancel_targets_current` | `cg-05` | ok |
+| 12 §7.3 known terminal skipped; unknown cid → `CancelFailed(UnknownClientOrder)` (D71: realistic rule in every profile) | `cg06_cancel_known_terminal`, `cg07_cancel_never_placed` | `cg-06`, `cg-07` | ok; C2-fail (§6 F-1) |
+| 10 §6 FillKey, TradeSeq | `fill_key_and_trade_seq_shape` (data), `cg08_fill_keys` | `cg-08` through the `FillView` of each Fill event | data + ok |
+| 12 §7.1 late events of old generations (live), 10 S5/I3 | `cg09_*`, `cg10_*`, `cg11_*` | transcribed TS live scenarios | C4 (G4) |
+| 10 §6 session scope; 12 §10 | `cg12_keys_session_scoped` | `cg-12` (two sessions in one process) | ok |
 
 ### 1.5 Dedupe — 12 §7.6, 12 §7.2, 10 N5, 21 §10, 60 §5.5
 
 | Clause | Test (`tests/dedupe.rs`) | Input | Status |
 |---|---|---|---|
-| 12 §7.6 rule: active cid dropped, no event/record, counted | `dd01_same_list_duplicate`, `dd02_across_ticks`, `dd10_replace_active_dropped` | `dd-01`, `dd-02`, `dd-10` (exerciser x10 at 330) | C2 |
-| 12 §7.6 release on delivered terminal (rule 2), sync terminal (rule 1, ts-compat), full fill (rule 3) | `dd03_reuse_after_terminal`, `dd04_sync_terminal_releases`, `dd15_full_fill_releases_before_callback`, `dd05_realistic_deduped_until_delivered` | `dd-03`, `dd-04`, `dd-15`, `dd-05` | C2 (A-06, A-13); G3 for dd-05 |
-| 12 §7.2 dedupe position per profile (before validation / after the TS risk pass); 12 §8.2 | `dd06_invalid_duplicate_dropped`, `dd07_risk_rejection_dropped` | `dd-06`, `dd-07` | C2 |
-| 60 §5.5 x10 at 320 (cancel-and-replace in one list; delay 0 vs delayed) | `dd08_cancel_replace_delay0`, `dd09_cancel_replace_delayed` | `dd-08`, `dd-09` | C2 |
-| 12 §7.6 new session has no active cids | `dd11_new_session_no_active_cids` | `dd-11` | C2 |
-| 12 §7.3 cancels, splits, merges never deduped | `dd12_cancels_never_deduped`, `dd13_splits_never_deduped` | `dd-12`, `dd-13` | C2 (A-12) |
-| 10 N5, 21 §17, 21 §10 counter key not a reason | `counter_is_not_a_reject_reason` (data), `dd14_counter_in_diagnostics` | `dd-14` | data + C2 |
+| 12 §7.6 rule: active cid dropped, no event/record, counted | `dd01_same_list_duplicate`, `dd02_across_ticks`, `dd10_replace_active_dropped` | `dd-01`, `dd-02`, `dd-10` | ok (the counter is C2-gap) |
+| 12 §7.6 release on delivered terminal (rule 2), sync terminal (rule 1, ts-compat), full fill (rule 3) | `dd03_reuse_after_terminal`, `dd04_sync_terminal_releases`, `dd15_full_fill_releases_before_callback`, `dd05_realistic_deduped_until_delivered` | `dd-03`, `dd-04`, `dd-15`, `dd-05` | ok (A-06/A-13 confirmed: the re-place inside the Fill callback is accepted as generation 2); C4 for dd-05 |
+| 12 §7.2 dedupe before validation and risk (both profiles since D71) | `dd06_invalid_duplicate_dropped`, `dd07_risk_rejection_dropped` | `dd-06`, `dd-07` (size 2001 > the default `maxOrderSize` 2000) | ok |
+| 60 §5.5 x10 at 320 (cancel-and-replace in one list; delay 0 vs delayed) | `dd08_cancel_replace_delay0`, `dd09_cancel_replace_delayed` | `dd-08`, `dd-09` | ok; C2-gap (delay) |
+| 12 §7.6 new session has no active cids | `dd11_new_session_no_active_cids` | `dd-11` | ok |
+| 12 §7.3 cancels, splits, merges never deduped | `dd12_cancels_never_deduped`, `dd13_splits_never_deduped` | `dd-12`, `dd-13` | ok (second cancel of a synchronously canceled order: silent, A-12) |
+| 10 N5, 21 §17, 21 §10 counter key not a reason | `counter_is_not_a_reject_reason` (data), `dd14_counter_in_diagnostics` | `dd-14` | data; C2-gap (diagnostics) |
 
 ### 1.6 Output quantization — 10 §4 Q1–Q3, 10 R-1, R14, R15, 21 §11, 21 §18
 
 | Clause | Test (`tests/output_quantization.rs`) | Input | Status |
 |---|---|---|---|
-| 10 §4 Q3 table (6 rows), HalfAwayFromZero, one rounding (R-3) | `q3_rows_round_half_away_from_zero`, `q3_rows_differ_from_ts_as_documented` (data); `q3_rows_as_sessions` | `q3-*` with maker-fill scenarios that produce the exact pnl | data + C2 |
+| 10 §4 Q3 table (6 rows), HalfAwayFromZero, one rounding (R-3) | `q3_rows_round_half_away_from_zero`, `q3_rows_differ_from_ts_as_documented` (data); `q3_rows_as_sessions` | `q3-*` with maker-fill scenarios that produce the exact pnl | data; C2-gap (rounded `MarketStats` not exposed) |
 | 10 R-1 no half-toward-+∞ | `r1_negative_tie_rounds_away_from_zero` | — | data |
 | 10 §4 fields table (dp, nullability) | `fields_table_matches_spec` | `fields` | data |
 | 10 Q1 at-or-below column scale (D08) | `q1_values_at_or_below_column_scale` | fixture job output | bin |
 | 10 Q2 / 21 N1, N5 rendering (no exponent, no −0) | part of `q3_rows_round_half_away_from_zero`; `extra-*` vectors | — | data |
-| 10 R14 avg entry single rounding from the exact rational | `r14_avg_entry_price_single_rounding` | `extra-avg-entry-*` | C2 |
+| 10 R14 avg entry single rounding from the exact rational | `r14_avg_entry_price_single_rounding` | `extra-avg-entry-*` | C2-gap (4-dp output not exposed) |
 
 ### 1.7 Skip taxonomy — 21 §13, §1.1, §11, §14, §15, §17
 
 | Clause | Test (`tests/skip_taxonomy.rs`) | Input | Status |
 |---|---|---|---|
-| 21 §13 rows 1–3 (engine-decided), zero-row shape (21 §11), denominators | `skip_reasons_are_in_the_closed_vocabularies`, `denominator_rule`, `zero_row_shape` (data); `sk01_*`, `sk02_*`, `sk02b_*`, `sk02c_*`, `sk02d_*`, `sk03_*` | never-placing strategy; input entirely before `start`; split+merge only; split only; input with no tick | data + C2/bin |
+| 21 §13 rows 1–3 (engine-decided), zero-row shape (21 §11), denominators | `skip_reasons_are_in_the_closed_vocabularies`, `denominator_rule`, `zero_row_shape` (data); `sk01_*`, `sk02_*`, `sk02b_*`, `sk02c_*`, `sk02d_*`, `sk03_*` | never-placing strategy; input entirely before `start`; split+merge only; split only; input with no tick | data; C2-gap (`skipReason`/`eventsProcessed` not in the testkit final record) |
 | 21 §13 rows 4–6 (TS shim; unreachable through the binary, 21 §5.1) | `sk04_06_shim_rows_unreachable` | crafted jobs without tokenIds / with null outcome → exit 2 | bin |
 | 21 §13 row 7 incomplete_capture (V4) | `sk07_incomplete_capture` | V4 fixture packages | M7 outline |
 | 21 §13 row 8 strategy_fault candidate; 12 §11; 20 §4.1 | `sk08_strategy_fault_candidate` | panicking test strategy in a group (needs a test-only strategy binary, cf. 60 CG-4 `panic-probe.rs`) | bin |
-| 21 §15 eventsProcessed / eventsByType | `sk11_events_processed` | any session | C2 |
+| 21 §15 eventsProcessed / eventsByType | `sk11_events_processed` | any session | C2-gap |
 
 ### 1.8 Contract vocabularies — 21 §17, 20 §4, §4.1, §4.4, 10 §10.2, 10 §9.2, 12 §5.3, 11 RS4
 
@@ -126,7 +135,7 @@ fixture markets is read as a second input for these rows.
 | 21 §6.1 canonical JSON and sha256 | `canonicalization_cases` | `canon-*` (4 vectors, hashes computed by two implementations) | data |
 | 21 §6 layout, every pinned ts-compat value (13 §7.3, 12 §4.5, 14 §9, 12 §8, 12 §6.3, 11 §13.4) | `ts_compat_default_hash_under_stated_assumptions`, `ts_compat_default_jitter20_variant_hash` | `ts-compat-default-jitter0/20` | data (see A-01, A-02) |
 | 21 §6.1 decimal-string grammar, 6 dp; value kinds; no floats/null | `decimal_string_grammar`, `representation_rejects_floats_and_null` | `valid-decimal-strings`, `invalid-values` | data (see A-03) |
-| 21 §3 CI item 6 default fixtures and their sha | `ci_item6_default_fixture_hashes` | `native/contract/fixtures/model-config/*` (from the engine branch) | bin |
+| 21 §3 CI item 6 default fixtures and their sha | `ci_item6_default_fixture_hashes` | `native/contract/model-configs/ts-compat-default.json` + `native/contract/fixtures/hashes.json` (committed on native-engine) | ok (sha `bbfed555…af7e` reproduced; D58 pins checked); the binary's echo is C2-gap |
 | 21 §1.1, §8 C4, §10 effective ModelConfig per candidate | `effective_model_config_per_candidate` | run-group with execution variant | bin (G3 variant) |
 | 21 §6 no defaults applied; 13 §7.3 pins; 20 §3 | `invalid_model_configs_exit_2` | `invalid-values` documents as jobs | bin |
 
@@ -144,15 +153,15 @@ fixture markets is read as a second input for these rows.
 | Clause | Test (`tests/ts_compat_rules.rs`) | Input | Status |
 |---|---|---|---|
 | 11 §3 ts-compat column (constants) | `rules_view_constants` | `rules_view` | data (see A-04) |
-| 11 §4 row 1 fee (taker, 4 dp, floor, every date; PE-R3 tie) | `fee_behavior_numbers` (data); `tc_fee_*` (5) | `tc-fee-*` | data + C2 |
-| 11 §4 row 2 reservation fee | `tc_reservation_fee`, `tc_reservation_post_only` | `tc-reservation-*` | C2 |
-| 11 §4 row 3 no tick/bounds/min/precision; only positivity; 12 §7.4 | `tc_no_tick_validation`, `tc_only_positivity`, `tc_post_only_fok` | `tc-no-tick-validation`, `tc-only-positivity`, `tc-post-only-fok` (exerciser x18/x19/x20) | C2 |
-| 11 §4 row 4 GTD decision offset, exact expiry | `tc_gtd_decision_offset`, `tc_gtd_exact_expiry` (+ `g3_gtd.rs::ts_compat_decision_offset` data) | `tc-gtd-*`, `gtd.json` ts-compat rows (exerciser x3/x15/x17) | data + C2 |
-| 11 §4 row 5 no taker delay | `tc_no_taker_delay` | — | C2 |
-| 11 §4 rows 6–7 caps (none / 3000) | `tc_no_batch_cap`, `tc_cancel_id_cap_3000` (+ `g3_caps.rs` data) | `caps.json` ts-compat rows (exerciser 370/380) | data + C2 (A-15) |
-| 11 §4 row 8 post-only at execution, equality crosses, empty side accepts | `tc_post_only_equality_crosses`, `tc_post_only_empty_side_accepts`, `tc_post_only_checked_at_execution` | `tc-post-only-*` | C2 |
-| 13 TC-C14, TC-C4, TC-C9, TC-C13, TC-E8, TC-E9 | `tc_no_self_cross_check`, `tc_naked_sell`, `tc_window_gate_inclusive`, `tc_no_action_at_end`, `tc_compat_status_events`, `tc_split_merge_sync` | corresponding vectors | C2 |
-| 13 §7.3 pinned values; 21 §8 C4; 11 §13.8 outputs `rules: null` | `pinned_execution_values` (data); `tc_model_config_pinned`, `tc_outputs_rules_null` | — | data + bin |
+| 11 §4 row 1 fee (taker, 4 dp, floor, every date; PE-R3 tie) | `fee_behavior_numbers` (data); `tc_fee_*` (5) | `tc-fee-*` (every-date row on `btc-updown-15m-1764547200`) | data + ok |
+| 11 §4 row 2 reservation fee | `tc_reservation_fee`, `tc_reservation_post_only` | `tc-reservation-*` | ok |
+| 11 §4 row 3 no tick/bounds/min/precision; only positivity; 12 §7.4 | `tc_no_tick_validation`, `tc_only_positivity`, `tc_post_only_fok` | `tc-no-tick-validation`, `tc-only-positivity`, `tc-post-only-fok` | ok; C2-gap (post-only FOK unrepresentable through the builders) |
+| 11 §4 row 4 GTD decision offset, exact expiry | `tc_gtd_decision_offset`, `tc_gtd_exact_expiry` (+ `g3_gtd.rs::ts_compat_decision_offset` data) | `tc-gtd-*` | data + ok |
+| 11 §4 row 5 no taker delay | `tc_no_taker_delay` | — | ok |
+| 11 §4 rows 6–7 caps (none / 3000) | `tc_no_batch_cap`, `tc_cancel_id_cap_3000` (+ `g3_caps.rs` data) | batch of 16; cancel batches of 3000 and 3001 refs | data + ok (D62 string `invalid_cancel_batch_size` confirmed in the trace) |
+| 11 §4 row 8 post-only at execution, equality crosses, empty side accepts | `tc_post_only_equality_crosses`, `tc_post_only_empty_side_accepts`, `tc_post_only_checked_at_execution` | `tc-post-only-*` | ok; C2-gap (delay) |
+| 13 TC-C14, TC-C4, TC-C9, TC-C13, TC-E8, TC-E9 | `tc_no_self_cross_check`, `tc_naked_sell`, `tc_window_gate_inclusive`, `tc_no_action_at_end`, `tc_compat_status_events`, `tc_split_merge_sync` | corresponding vectors | ok (TC-E9 split and merge on separate ticks, see §4 correction and A-21) |
+| 13 §7.3 pinned values; 21 §8 C4; 11 §13.8 outputs `rules: null` | `pinned_execution_values` (data); `tc_model_config_pinned`, `tc_outputs_rules_null` | — | data; C2-gap (binary) |
 
 ## 2. G3 outline (realistic; from M3b, 60 §10.0 C4)
 
@@ -328,6 +337,56 @@ decision; the affected vectors cite the item id.
   clamp does not use `sellable`), but the SDK doc should say which number a
   ts-compat port sees between a merge intent and its `PositionsMerged`.
 
+- **A-21 Merge clamped to zero: `MergeFailed(InsufficientPairs)` or no
+  event?** 12 §7.3 (`MergePositions`): "clamp to `min(size, mergeable(Up),
+  mergeable(Down))`; result ≤ 0 → `MergeFailed(InsufficientPairs)`" is not
+  profile-qualified, while 13 §5.1 TC-E9 says "nothing when `actual ≤ 0`" and
+  13 §5.2 TC-C7 covers only `size ≤ 0`. The engine follows 12 §7.3 in
+  ts-compat (`merge_clamp_and_zero`, `tc_split_merge_sync` observed
+  `MergeFailed(InsufficientPairs)` for a merge whose split is not delivered
+  yet). The C1 vectors `merge-clamp-pending` and `tc-split-merge-sync` read
+  TC-E9 ("no event") and were corrected in C2 to 12 §7.3. Proposed: state in
+  13 TC-E9 that the OM clamp (12 §7.3) runs first and emits `MergeFailed` in
+  both profiles, so the execution model never sees `actual ≤ 0`; add a
+  PARITY note (TS emits nothing).
+- **A-22 Reject strings in the trace: full TS format or code?** 10 §10.2:
+  "The trace renderer MUST reproduce those exact formats
+  (`insufficient_capital(required=X,available=Y)`)"; 22 §3.2 `order_rejected →
+  cid, reason`; 22 §3.4: "the reason code only" is compared. The testkit trace
+  renders `"reason": "insufficient_capital"` (the code). If the trace is meant
+  to carry the code only, 10 §10.2 should say the full string is a journal /
+  I/O format; otherwise §6 F-2 is an implementation bug. The C2 tests assert
+  the code and keep the full-string test as `C2-fail` pending the decision.
+- **A-23 Which TS input mode does the testkit emulate for the window gate?**
+  12 §5.4 gives `[start, end]` inclusive for ts-compat telonex-delta and no
+  strategy gate for recorder-v4. The testkit's `book`/`price_change` ticks are
+  gated inclusively (`tc_window_gate_inclusive`, `cs09`) and its header carries
+  no input mode. Proposed: document the testkit as telonex-delta-shaped
+  (30 §15) or add the input mode to the header.
+
+### 4b. C2 corrections of C1 readings (60 §10.3 (b))
+
+- `c1-ts-compat-reservation` session: every intent of one list is applied at
+  emission before the first callback (12 §9.1), so two reservations of one
+  list are both visible in the first `OrderSubmitted` callback; the test places
+  them on separate ticks.
+- `c3-release-partial-then-terminal`: the next real tick after a crossing GTC
+  fills its remainder against the undepleted book unless that tick's book
+  update first moves the ask above the limit (13 §5.3); the test emits one UP
+  book event and cancels on that tick. The 3.2846 step (A-11) is confirmed.
+- `tc-split-merge-sync`, `c4-merge-realizes`: a merge in the same callback as
+  its split sees no shares (the `PositionsSplit` is delivered after the list
+  is handled, 12 §9.1) and fails `InsufficientPairs`; the tests merge on the
+  next tick. See A-21.
+- `cg-02`: the tick that fills generation 2 runs its execution step before its
+  own `on_tick` (D69), so the "Filled, Live" view is read inside generation
+  2's `OrderOpen` callback.
+- `dd-15`: the generation-2 re-place must not cross the new best ask, or it
+  fills and the Fill callback re-places again; the test re-places once below
+  the bid.
+- `forbidden` scan: the ts-compat `SettlementUpdate{Confirmed}` after
+  `OrderDone(Filled)` (13 §5.1 step 3, A-16) is not an S1 violation.
+
 ## 4a. Triage decisions D58–D69 (native/spec/02-decisions.md on `native-engine`)
 
 Binding for the C2 tests; the vectors below were updated to them.
@@ -345,19 +404,52 @@ Binding for the C2 tests; the vectors below were updated to them.
 | D69 | A-03, A-06, A-07, A-08, A-09, A-10, A-11, A-12, A-13, A-16, A-17, A-18, A-20 | A-03: `-0` rejected (tightened regex; `decimal_string_grammar`). A-06/A-13: `dd-05`, `dd-15` correct. A-07: `cs-05` correct. A-08: fault at the (N+1)-th counted delivery, interest-skipped deliveries count; `cs-06` correct. A-09: `cs-08`, `cs-10` fixed (above). A-10: validation before funding; `c1-realistic-notional-ceil` now 5 @ 0.33 and a new `c1-realistic-precision-reject-no-reservation` vector. A-11: `c3-release-partial-then-terminal` correct. A-12: `dd-12`, `cg-04`, `cg-06` correct. A-16: vectors assert the 13 §5.1 sequence, correct. A-17: `marketId` from the first counted tick carrying one. A-18: vectors follow the cited code, correct; spec wording to be fixed. A-20: `sellable` = `qty` in ts-compat; pending merges do not reduce it. |
 | D63–D66 | — | Harness, parity-input, cargo-deny and `selftest` matters; no vector affected. `det13_selftest_reports_seed_vectors_ok` must accept the D66 `serve_vs_run` skip detail before M5a. |
 
-## 5. What C2 needs from the testkit (30 §15) to execute the skeletons
+## 5. What the testkit lacks (30 §15), as seen from the C2-gap tests
 
-- Profile selection (`ts-compat` / `realistic`) and a `ModelConfig` override
-  (`runner.maxEventsPerDrain`, `execution.compatLatency`, `risk`, `capital`).
-- Scripted strategies: closures or a small trait impl per vector that can
-  return intents from `on_tick` and `on_event` and record `ctx` views.
-- Scripted inputs: book snapshots and price changes per outcome with explicit
-  timestamps, feed updates (for `cs-10`, `cs-11`), and a resolution.
-- Access to: the delivered account events per callback, the parity trace
-  (22 §3), `MarketStats` and `EngineResult.diagnostics.anomalies`
-  (`duplicate_active_cid`, `oversold_qty`, `reservation_dust`), and, for
-  `cg-01`/`cg-08`, the ledger records (22 §4) or simulator exchange ids.
-- Two sessions in one process (`dd-11`, `cg-12`, `cs-12`, per-market
-  allowance).
-- The canonical `artifact` and `parity-check` binaries (60 VP-7, §8.1) and
-  the fixture jobs of 60 §12 for the `bin` tests.
+Observed API (rustdoc of `pmb-sdk --features testkit`): `TestMarket::btc_15m`,
+`profile`, `starting_capital`, `book`, `price_change`, `run`/`try_run`;
+`TestRun::trace`/`records`. Missing for the ignored G2 tests:
+
+- A `ModelConfig` override (at least `execution.compatLatency`,
+  `runner.maxEventsPerDrain`, `risk`, `capital`): `cg03`, `dd09`,
+  `tc_post_only_checked_at_execution` (delay > 0; low priority after D71),
+  `cs06` (currently tested against the default 4200).
+- Plugins through `Requirements` and a populated `PluginsView` (`cs10`);
+  scripted feed updates (`binance_trade` is refused: `cs11`).
+- `EngineResult.diagnostics` (`duplicate_active_cid`, `oversold_qty`,
+  `reservation_dust`): `dd14`, the counters of `dd01`/`dd02`/`c2_ts_compat_naked_sell`.
+- The rounded `MarketStats`, `skipReason`, `eventsProcessed`, `eventsByType`
+  and `unrounded` of the 22 §3.2 `final` record: the testkit's `final` record
+  carries `stats` as a Debug string of `FinalStats` (`q3_rows_as_sessions`,
+  `r14_avg_entry_price_single_rounding`, `sk01…sk11`). The tests read
+  `pnl`/`cash_end`/`split_cost`/`fees_paid` textually from it (`final_field`).
+- Resolution scripting (the testkit resolves UP implicitly): the DOWN-resolving
+  identity vectors (`c4-pnl-identity-taker-buy-lose`, `c4-sell-realized` pnl).
+- A raw `OrderRequest` path for a post-only FOK (`tc_post_only_fok`); the
+  builders make it unrepresentable (30 §7.1), which is itself the R14 goal.
+- The cid text of an OM-level `OrderRejected` (`order: None`): the strategy
+  sees only `CidKey`; tests map it by placement order.
+- The canonical `artifact` binary for the `bin` tests (`describe`, `schema`,
+  `selftest`, `run`, `run-group`): `det13_selftest_reports_seed_vectors_ok`,
+  `i1_streams_independent_of_candidate_index`, `schema_enums_equal_vectors`,
+  `describe_capabilities_closed_sets`, `unknown_enum_value_is_invalid_input`,
+  `effective_model_config_per_candidate`, `invalid_model_configs_exit_2`,
+  `q1_values_at_or_below_column_scale`, `sk04_06_shim_rows_unreachable`,
+  `sk08_strategy_fault_candidate`, `tc_model_config_pinned`,
+  `tc_outputs_rules_null`. Proposed: environment variable `PMB_CONFORMANCE_BIN`
+  read by the tests, never by the engine.
+
+## 6. Failures for the implementation session (60 §10.3 (a))
+
+Each test stays in the tree, `#[ignore = "C2-fail: …"]`, and fails when run
+with `--ignored`.
+
+| # | Test | Clause | Scripted input | Observed | Expected |
+|---|---|---|---|---|---|
+| F-1 | `cid_generations::cg07_cancel_never_placed` | 12 §7.3 (`CancelBatch`/`CancelOrder` resolution: unknown cid → `UnknownClientOrder`), D71 item 3 (TC-C5/TC-C10 not reproduced: the realistic rule in every profile), 10 §10.2 | ts-compat, book bid 0.4 / ask 0.6; `out.cancel(&cid!("x-never"))` from `on_tick` with nothing placed | no account event, no trace event record (the `cancel_order` intent is traced) | one `CancelFailed{op, order: None, reason: UnknownClientOrder}` delivered to the strategy and traced as `cancel_failed` with reason `unknown_client_order` |
+| F-2 | `capital::funding_reject_string_in_trace` | 10 §10.2 ("The trace renderer MUST reproduce those exact formats"), 21 §17 | capital 5.474399; GTC BUY UP 10 @ 0.53 | trace `order_rejected` record `"reason": "insufficient_capital"` | `"insufficient_capital(required=5.4744,available=5.474399)"` — unless A-22 decides the trace carries the code only (then 10 §10.2 is the clause to amend and this row closes) |
+| F-3 | `cascades::trace_event_records_carry_22_3_2_fields` | 22 §3.2 per-kind event record fields | the cs-04 FOK session | `settlement_update` records have no `status`/`sizeMatched`; `fill` records have no `liquidity`; `order_rejected`/`order_done`/`order_accepted` have no `cid` (keys instead, which the testkit documents as intentional) | `settlement_update → cid, status, sizeMatched`; `fill → …, fee, liquidity`; `order_rejected → cid, reason`. If the testkit renders a reduced shape on purpose, expose the real trace writer so the parity trace shape is testable here |
+
+Observations that are not failures: the engine emits `MergeFailed(InsufficientPairs)`
+for a merge clamped to zero in ts-compat (12 §7.3; A-21 asks to align 13
+TC-E9); the window gate is inclusive (`[start, end]`) in the testkit (A-23).

@@ -117,7 +117,7 @@ fn fields_table_matches_spec() {
 //   remainder as MAKER, fee 0), settle with scenario.outcome, and assert
 //   final MarketStats.pnl == row.rust and trace `final.unrounded.pnl` == exact.
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C2-gap: the testkit's final record carries the unrounded FinalStats as a Debug string, not the rounded MarketStats of 10 §4; needs the artifact binary or a typed stats accessor"]
 fn q3_rows_as_sessions() {
     let f = file();
     let scenarios: Vec<&Value> = rows(&f)
@@ -132,7 +132,7 @@ fn q3_rows_as_sessions() {
 // C2: black-box: run a fixture job, feed its MarketStats through the TS
 // `decimal(14,4)` round trip (string -> parse -> string) and assert identity.
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C2-gap: needs the artifact binary (MarketStats JSON emission, 10 §4 Q1/Q2)"]
 fn q1_values_at_or_below_column_scale() {
     todo!("C2: every emitted money/share value has <= 2 fractional digits, avg entry <= 4");
 }
@@ -141,7 +141,7 @@ fn q1_values_at_or_below_column_scale() {
 // C2: BUY fills 1 @ 0.5, 1 @ 0.5, 1 @ 0.6 (vector extra-avg-entry-exact-rational)
 // and 1 @ 0.5 + 1 @ 0.5625 (extra-avg-entry-4dp-tie); assert the 4-dp output.
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C2-gap: the 4-dp avgEntryPrice output is not exposed by the testkit (PortfolioView::avg_entry is the 6-dp ledger value); needs the artifact binary"]
 fn r14_avg_entry_price_single_rounding() {
     todo!("C2");
 }

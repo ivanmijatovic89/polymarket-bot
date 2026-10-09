@@ -261,14 +261,14 @@ fn ci_item6_default_fixture_hashes() {
 
 // spec: 21 §1.1, 21 §8 C4, 21 §10 — effective ModelConfig per candidate
 #[test]
-#[ignore = "C2: needs the artifact binary (run-group)"]
+#[ignore = "C2-gap: needs the artifact binary (run-group)"]
 fn effective_model_config_per_candidate() {
     todo!("C2: run-group with candidate execution override (realistic); each candidate's modelConfigSha256 == hash(run.modelConfig with execution replaced)");
 }
 
 // spec: 21 §6 (no defaults applied by the binary), 13 §7.3 (ts-compat pins), 12 §4.5, 14 §9, 20 §3
 #[test]
-#[ignore = "C2: needs the artifact binary"]
+#[ignore = "C2-gap: needs the artifact binary"]
 fn invalid_model_configs_exit_2() {
     let r = row("invalid-values");
     assert!(r["invalid_documents"].as_array().unwrap().len() >= 10);

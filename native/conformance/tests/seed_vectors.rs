@@ -209,7 +209,7 @@ fn uniform_below_respects_bound() {
 // C2: run `<artifact> selftest` (20 §5.3) and assert the seed-derivation check
 // is listed and ok; `describe` is pure so this is a black-box binary run.
 #[test]
-#[ignore = "C2: needs the canonical artifact binary (20 §5.3)"]
+#[ignore = "C2-gap: needs the canonical artifact binary (20 §5.3)"]
 fn det13_selftest_reports_seed_vectors_ok() {
     todo!("C2: spawn `selftest`, parse {{type:\"selftest\", ok, checks[]}}, find the RNG-7 check");
 }
@@ -219,7 +219,7 @@ fn det13_selftest_reports_seed_vectors_ok() {
 // group and standalone; realistic profile with a non-constant latency model so
 // draws matter; assert identical resultDigest.
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C2-gap: needs the artifact binary (run-group, realistic latency draws; C4 scope)"]
 fn i1_streams_independent_of_candidate_index() {
     todo!("C2");
 }

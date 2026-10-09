@@ -291,21 +291,21 @@ fn tick_causes() {
 // and assert each enum's values equal the vector sets (profile, inputMode,
 // skipReason, rulesSource, origin, phase, captured keys, error class, feed ids).
 #[test]
-#[ignore = "C2: needs the artifact binary (20 §5.2)"]
+#[ignore = "C2-gap: needs the artifact binary (20 §5.2)"]
 fn schema_enums_equal_vectors() {
     todo!("C2: compare `schema` output enums with vocabularies.json");
 }
 
 // spec: 20 §3, 20 §5.1 — describe capabilities use the closed sets
 #[test]
-#[ignore = "C2: needs the artifact binary (20 §5.1)"]
+#[ignore = "C2-gap: needs the artifact binary (20 §5.1)"]
 fn describe_capabilities_closed_sets() {
     todo!("C2: capabilities.inputModes ⊆ inputMode set; profiles == {{ts-compat, realistic}}; realOrders == false");
 }
 
 // spec: 21 §17 (unknown value is a schema violation, never passed through)
 #[test]
-#[ignore = "C2: needs the artifact binary"]
+#[ignore = "C2-gap: needs the artifact binary"]
 fn unknown_enum_value_is_invalid_input() {
     todo!("C2: job with profile \"fast\" or inputMode \"recorded\" -> exit 2, class invalid_input");
 }

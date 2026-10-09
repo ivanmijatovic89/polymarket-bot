@@ -7,11 +7,13 @@ than the implementation session so that correlated errors are caught
 (60 VP-6, CF-1). This directory is the only thing conformance commits touch
 (CF-3).
 
-Phase status: **C1 delivered** (table-driven vectors and test skeletons per
-60 §10.2 row). C2 binds the skeletons to `pmb-sdk`'s testkit and the
-canonical binaries once M1 step 5 lands; C3 is the independent review of
-PARITY classifications; C4 adds the G3 and G4 scopes. The plan, the per-row
-coverage and the spec ambiguities found while transcribing are in
+Phase status: **C2 delivered** (executable G2-scope tests through the
+`pmb-sdk` testkit, 2026-10-09; C1 vectors and data tests kept). Tests the
+testkit cannot observe yet are `#[ignore = "C2-gap: …"]`, implementation bugs
+found are `#[ignore = "C2-fail: <clause>, <observed vs expected>"]` and listed
+in [PLAN.md](PLAN.md) §6, realistic/live rows are `#[ignore = "C4 …"]`. C3 is
+the independent review of PARITY classifications; C4 adds the G3 and G4
+scopes. The plan, the per-row coverage and the spec ambiguities are in
 [PLAN.md](PLAN.md).
 
 ## Isolation rules (60 §10.1)
@@ -49,10 +51,10 @@ coverage and the spec ambiguities found while transcribing are in
 
 | Path | Content |
 |---|---|
-| `Cargo.toml` | Crate `pmb-conformance` (edition 2021, `publish = false`). Dependencies: `serde`, `serde_json` only. A commented `pmb-sdk` dev-dependency placeholder (`../crates/pmb-sdk`, feature `testkit`) for C2. Its own `[workspace]` table keeps it standalone until C2 moves it into the engine workspace. |
+| `Cargo.toml` | Crate `pmb-conformance` (edition 2021, `publish = false`). Dependencies: `serde`, `serde_json`; dev-dependency `pmb-sdk` (`../crates/pmb-sdk`, feature `testkit`). Its own `[workspace]` table keeps it OUT of the engine workspace; `.cargo/config.toml` keeps the build under `native/conformance/target`; `Cargo.lock` is the engine lock pruned offline (never a crate outside `native/Cargo.lock`). |
 | `src/` | Spec-derived helpers, no engine code: `sha256` (FIPS 180-4), `rng` (10 §6.1 RNG-2…RNG-6, independent implementation), `decimal` (exact decimal with the `Rounding` modes of 10 §3.1), `time` (civil date → epoch ms), `vectors` (loading, well-formedness). |
 | `vectors/*.json` | Table-driven vectors transcribed from the spec. Every row carries `id` and `spec` (the clause); values the author derived from a spec formula carry a `derivation`/`note`. Shape: `{ spec, source, notes?, …, vectors: [ { id, spec, … } ] }`. |
-| `tests/*.rs` | One file per 60 §10.2 G2 row plus the G3 tables. Each test names its clause in a comment (`// spec: 10 §8.2 row 3`). Data tests run now; testkit/binary tests are `#[ignore = "C2: …"]` with a `todo!()` where the SDK call goes and a comment sketching the call against the surface of 30. |
+| `tests/*.rs` | One file per 60 §10.2 G2 row plus the G3 tables. Each test names its clause in a comment (`// spec: 10 §8.2 row 3`). Scripted sessions drive the real engine through the testkit (ts-compat, delay 0) and read the callbacks, `PortfolioView` and the trace records; `tests/common/mod.rs` is the shared harness (`Scripted<S>` strategy, `Recorder`, `run`/`try_run`, book helpers, the ts-compat reservation formula, `final_field`). |
 | `PLAN.md` | Test plan per §10.2 row (G2 in detail, G3/G4 outline), input per test, and the ambiguity list for triage (60 §10.3). |
 
 ## Clause-to-file map
@@ -77,24 +79,26 @@ coverage and the spec ambiguities found while transcribing are in
 
 ## Running
 
-Today (standalone, no engine sources needed; the machine is shared, keep
-`-j 2`):
+The crate builds the engine crates it links (the machine is shared: keep
+`CARGO_BUILD_JOBS=2`, which `.cargo/config.toml` also sets):
 
 ```bash
-cargo test --manifest-path native/conformance/Cargo.toml -j 2            # 86 data tests
-cargo test --manifest-path native/conformance/Cargo.toml -j 2 -- --ignored  # lists the 151 C2 skeletons (they panic with todo!)
-cargo fmt --manifest-path native/conformance/Cargo.toml --check
+cd native/conformance
+cargo test --offline --manifest-path Cargo.toml                 # 169 green, 71 ignored
+cargo test --offline --manifest-path Cargo.toml -- --ignored    # C2-fail tests fail by design; C2-gap/C4 panic with todo!
+cargo test --offline --manifest-path Cargo.toml -- --ignored C2-fail   # (filter by name instead: cg07, funding_reject_string, trace_event_records)
+cargo fmt --manifest-path Cargo.toml --check
+cargo doc --no-deps -p pmb-sdk --features testkit --manifest-path ../Cargo.toml   # the only allowed view of the SDK (CF-2)
 ```
 
-From C2 (60 §10.0): the crate joins the engine workspace (the `[workspace]`
-table here is removed, `pmb-sdk = { path = "../crates/pmb-sdk", features =
-["testkit"] }` is enabled as a dev-dependency) and runs as
-`cargo test -p pmb-conformance`. Black-box binary tests take the canonical
-`artifact` binary (60 VP-7, 31 §4) from an explicit path (to be fixed in C2,
-proposed: environment variable `PMB_CONFORMANCE_BIN` read by the test, never
-by the engine) and drive it through 20 §5 (`describe`, `schema`, `selftest`,
-`run --job`, `run-group`) with crafted `EngineJob`s and the committed fixture
-markets of 60 §12.
+The crate stays outside the engine workspace on purpose (CF-2: its build
+never touches `native/target`, and `cargo test -p pmb-conformance` from
+`native/` is not wired). Black-box binary tests (`C2-gap: needs the artifact
+binary`) will take the canonical `artifact` binary (60 VP-7, 31 §4) from an
+explicit path (proposed: environment variable `PMB_CONFORMANCE_BIN` read by
+the test, never by the engine) and drive it through 20 §5 (`describe`,
+`schema`, `selftest`, `run --job`, `run-group`) with crafted `EngineJob`s and
+the committed fixture markets of 60 §12.
 
 ## Conventions
 
@@ -107,3 +111,8 @@ markets of 60 §12.
   item (`PLAN A-nn`) instead of guessing.
 - Profiles: `ts-compat` rows are G2; `realistic`-only rows are G3; `live`-only
   rows are G4 (skeletons exist for all, gated by their `#[ignore]` reason).
+- Ignore reasons are a closed vocabulary: `C2-fail: <clause>, <observed vs
+  expected>` (implementation bug, PLAN.md §6), `C2-gap: <what the testkit or
+  binary lacks>` (PLAN.md §5), `C4 (G3|G4): …` (later scope). A `C2-fail`
+  test is never edited to pass (CF-4); it is un-ignored when the engine is
+  fixed.

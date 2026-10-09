@@ -185,14 +185,14 @@ fn gt3_expires_early() {
 
 // spec: 11 §4 — ts-compat decision-time check and exact expiry (G2)
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C4 (G3): realistic profile refused by the engine until M3b (D57)"]
 fn ts_compat_gtd_sessions() {
     todo!("C2: tc-gtd-exact-offset-pass, tc-gtd-one-ms-short, tc-gtd-expiry-tick-rule, expire-at-ignored-non-gtd");
 }
 
 // spec: 10 GD3, 30 §5 — ctx.gtd_expiration(lifetime)
 #[test]
-#[ignore = "C2: needs pmb-sdk testkit"]
+#[ignore = "C4 (G3): realistic profile refused by the engine until M3b (D57)"]
 fn gd3_ctx_helper() {
     todo!("C2: ctx.gtd_expiration(DurMs(120000)) == now + early + 120000 in both profiles");
 }

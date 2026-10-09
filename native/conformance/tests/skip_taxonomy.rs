@@ -98,7 +98,7 @@ fn zero_row_shape() {
 macro_rules! skeleton {
     ($name:ident, $id:literal, $todo:literal) => {
         #[test]
-        #[ignore = "C2: needs pmb-sdk testkit or the artifact binary"]
+        #[ignore = "C2-gap: skipReason, eventsProcessed and eventsByType are not in the testkit final record (Debug FinalStats only); needs the artifact binary"]
         fn $name() {
             let r = row($id);
             let _ = &r;
