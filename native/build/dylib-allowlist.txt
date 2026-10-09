@@ -1,0 +1,12 @@
+# Allowed `otool -L` entries of a native strategy artifact (31 §4.4 step 3).
+#
+# One absolute install name per line, compared exactly (the compatibility and
+# current versions printed by otool are ignored). Only macOS system libraries
+# under /usr/lib are allowed: every Rust and C dependency is linked statically.
+# Any @rpath, @loader_path, @executable_path, /opt/homebrew or /usr/local
+# entry fails the build, and so does an entry that is missing from this list.
+# Adding an entry is an engine change (native/build/** is in the engine source
+# set, 31 §5.3).
+
+# libc, libm, pthreads, dyld (Rust std).
+/usr/lib/libSystem.B.dylib
