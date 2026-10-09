@@ -6,9 +6,11 @@ trait and its lifecycle, the typed context, intent builders, account events,
 the `Params` derive, feed and plugin requirements, determinism and isolation
 rules, fault semantics, logging and the testkit. It is written for two kinds
 of authors: the implementation session that ports `engine-exerciser` and
-`lagsnipe.v15` in this goal, and AI agents in polymarket-protocols in the
-follow-up goal (D16). The types and semantics behind the API are owned
-elsewhere: values, ids, orders, events and reasons by `10-domain-model.md`;
+`lagsnipe.v15`, and AI agents in polymarket-protocols, who start authoring
+Rust strategies right after M6 (D39). It is also the surface the independent
+conformance tests are written against from gate 1 on (60 §10.0 C1). The
+types and semantics behind the API are owned elsewhere: values, ids, orders,
+events and reasons by `10-domain-model.md`;
 ordering, cascades and fault handling by `12-engine-core.md`; rules by
 `11-exchange-rules.md`; feeds and plugins by `14-feeds-and-plugins.md`. This
 document fixes how strategies see and drive them. Build, identity and
@@ -25,10 +27,10 @@ engine on `main`.
 | P2 | Strategy code is mode- and profile-agnostic. No accessor reveals live/paper/backtest, the execution profile, the seed or the candidate index. Only data values (`rules()`, books, fills, and the `now()` clock rule of §5) may differ between modes and profiles. | One core for live and backtest (01, D23); WIP intent `native/crates/pmb-core/src/strategy.rs:1-3`. |
 | P3 | Author code needs no lifetimes, no generic parameters, no trait objects and no `async`. Every signature an author writes uses owned values or `&T` with elided lifetimes. | AI authors (requirements-sweep `curated-sdk-surface`). |
 | P4 | Deterministic by construction: no wall clock, no environment, no randomness, no hash-order iteration, no OS libm in decision paths (§11). | Requirements-sweep `cross-machine-determinism`; 10 §12. |
-| P5 | Speed: the engine allocates nothing per callback on behalf of the strategy, calls the strategy through static dispatch, and shares books, feeds and plugin outputs across candidates by reference (§16). | User priority 7; WIP returns a fresh `Vec<Intent>` per callback and boxes the strategy (`strategy.rs:39-49`). |
+| P5 | Speed: the engine allocates nothing per callback on behalf of the strategy, calls the strategy through static dispatch, and shares books, feeds and plugin outputs across candidates by reference (§16). | 01 §2; WIP returns a fresh `Vec<Intent>` per callback and boxes the strategy (`strategy.rs:39-49`). |
 | P6 | Builders enforce only **structural** invariants (things the Polymarket API cannot express). Every value check that depends on rules or the profile is done by the engine and surfaces as a typed rejection (§7.1). | One rejection taxonomy for simulator and live adapter (10 §10.2). |
 | P7 | Every public enum is `#[non_exhaustive]`; every public struct has private fields or is `#[non_exhaustive]`. Additions are minor releases. | §2. |
-| P8 | Fixed-point integers for money, prices and sizes (`10-domain-model.md` §2); `f64` only for feed prices, plugin analytics and strategy-internal math; no implicit conversion between them. | Project direction rule 9. |
+| P8 | Fixed-point integers for money, prices and sizes (`10-domain-model.md` §2); `f64` only for feed prices, plugin analytics and strategy-internal math; no implicit conversion between them. | 00 R2. |
 
 ## 2. Versioning and stability
 
@@ -36,8 +38,8 @@ engine on `main`.
   (`engineVersion`). Its version is embedded in every binary and reported by
   `describe` as `sdkVersion` (`20-binary-protocol.md` §3).
 - The SDK stays `0.x` while the engine is built. It MUST be released as
-  `1.0.0` before any author outside `native/strategies/` uses it (the
-  follow-up goal); from then on:
+  `1.0.0` before any author outside `native/strategies/` uses it (M11, right
+  after M6, D39; 31 §12); from then on:
 
 | Change | Bump |
 |---|---|
@@ -49,6 +51,9 @@ engine on `main`.
 - Because each binary embeds its engine (`31`), an engine change reaches an
   existing strategy only when it is rebuilt (`31` §7.4). Strategy source that
   compiles against SDK `1.x` MUST compile against every later `1.y`.
+- Before `1.0.0`, a rename or removal of a public item named in this document
+  updates the conformance tests that use it (60 §10) in the same change, with
+  a CONTRACT changelog entry (§17).
 
 ## 3. Prelude
 
@@ -58,10 +63,10 @@ adds author-facing views.
 
 | Area | Items |
 |---|---|
-| Definition | `Strategy`, `StrategyResult`, `StrategyError`, `Interests`, `strategy_main!` |
+| Definition | `Strategy`, `StrategyResult`, `StrategyError`, `Interests`, `TickInterest`, `strategy_main!` |
 | Context | `Ctx`, `TickInfo`, `TickCause`, `MarketInfo`, `Symbol`, `Timeframe`, `BookView`, `Level`, `PortfolioView`, `Position`, `Capital`, `OrderView`, `OrderState`, `SettlementStatus`, `RulesView` |
 | Values (10 §2, §3, §5, §6) | `Price`, `Qty`, `Usdc`, `Rate`, `Rounding`, `TsMs`, `DurMs`, `Outcome`, `Side`, `OrderType`, `ClientOrderId`, `ExchangeOrderId`; macros `price!`, `qty!`, `usdc!`, `cid!` |
-| Intents | `Intents` (sink), `Order`, `LimitOrder`, `MarketableOrder`, `Meta`, `meta!` |
+| Intents | `Intents` (the engine-owned buffer, 10 §11 P3, 12 §6.1), `Order`, `LimitOrder`, `MarketableOrder`, `Meta`, `meta!` |
 | Events (10 §10) | `AccountEvent` (author view, §8), `FillView`, `Liquidity`, `RejectReason`, `DoneReason`, `CancelCause`, `CancelFailReason`, `SplitFailReason`, `MergeFailReason` |
 | Params | `Params` (trait + derive), `ParamEnum` (derive), `ParamError` |
 | Requirements | `Requirements`, `FeedOptions`, `TimeWindowVolatilityConfig`, `TechnicalIndicatorsConfig`, `DwellGateConfig`, `TimeWindowGateConfig`, `BidOrAsk` |
@@ -121,7 +126,8 @@ Rules:
 1. One strategy type per binary. `strategy_main!(T)` expands to the runtime
    entry point (every subcommand of `20-binary-protocol.md`). The runtime MUST
    be generic over `T` (monomorphized, static dispatch); it MUST NOT box the
-   strategy.
+   strategy. This is the 12 §14 P6 default; M-DSP confirms it on throughput,
+   which alone decides under the amended D18 (`31` §4.1).
 2. `ID` MUST match `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`, MUST NOT equal any TS
    registry id or any JS artifact id (checked at publish, `31` §7.2), and a Rust
    port of a TS strategy MUST use `<ts-id>.rs` (D20). Ids come from code, not
@@ -142,9 +148,9 @@ Rules:
    of `12-engine-core.md` (breadth-first FIFO, as TS
    `StrategyRunner.ts:551,689`). Intents written during `on_event` join the
    cascade.
-7. `Strategy: Send + 'static` is REQUIRED (instances may be created on any pool
-   thread, `16-performance.md`); `Sync` is NOT required. An instance is only
-   ever called from one thread at a time.
+7. `Strategy: Send + 'static` is REQUIRED (instances may be created on any
+   pool thread, `16-performance-and-parallelism.md` §5); `Sync` is NOT
+   required. An instance is only ever called from one thread at a time.
 8. `on_event` (default: no intents), `interests` (default: all) and `status`
    (default: nothing) have default implementations. `fn status(&self, out: &mut Meta)`
    MAY expose debug values to the paper/live state stream and to opt-in traces
@@ -154,23 +160,41 @@ Rules:
 ### 4.1 Interests
 
 `fn interests(p: &Params) -> Interests` lets the engine skip callbacks the
-strategy ignores.
+strategy ignores. `Interests` holds a set of event flags (default: all) and a
+`TickInterest` (default: `All`).
 
-| Flag | Events covered (10 §10.1) |
+| Event flag | Events covered (10 §10.1) |
 |---|---|
 | `FILLS` | `Fill` |
-| `LIFECYCLE` | `OrderSubmitted`, `OrderAccepted`, `OrderDelayed`, `OrderOpen`, `OrderDone` |
+| `LIFECYCLE` | `OrderSubmitted`, `OrderAccepted`, `OrderDelayed`, `OrderOpen`, `CancelAcked`, `OrderDone` |
 | `REJECTIONS` | `OrderRejected`, `CancelFailed` |
 | `SPLIT_MERGE` | `PositionsSplit`, `SplitFailed`, `PositionsMerged`, `MergeFailed` |
 | `SETTLEMENT` | `SettlementUpdate` |
 | `STREAM` | `StreamStatus` (live only) |
 
-A strategy that omits a flag MUST behave exactly as if those callbacks had
-returned no intents and changed no state. Portfolio state, traces and outputs
-are unaffected because the engine applies and records every event regardless.
-`strategy:check` runs each fixture twice (declared interests vs all) and
-requires identical output (`31` §7.1). Synthetic ticks are opted into per feed
-(`tick_on_update`, §10), not through `Interests`.
+| `TickInterest` | `on_tick` is called on a real strategy tick only when (16 §9.4 TF-1, TF-2) |
+|---|---|
+| `All` | always (default) |
+| `TopOfBook` | first in-window tick of the market; or the best bid or ask price of either outcome changed; or an account event was delivered, a requested feed's visible value changed or a requested plugin's output changed since the last `on_tick` |
+| `TopOfBookAndSize` | as `TopOfBook`, plus a change of the size at a best level |
+
+Rules:
+
+- A strategy that omits an event flag or declares a tick interest MUST behave
+  exactly as if every skipped callback had returned no intents and changed no
+  state. Only the callback is skipped: counting, books, matching, feeds,
+  plugins, portfolio state, traces and outputs are unaffected (16 §9.4 TF-3).
+  A strategy whose logic depends on time passing between book changes MUST
+  NOT declare a tick interest.
+- `strategy:check` runs each fixture with the declared interests and with
+  all interests (event flags and `TickInterest::All`) and requires identical
+  output (`31` §7.1 gate 7).
+- The tick interest is offered to new Rust strategies (D41). The engine
+  evaluates it from the book's top-change bit (16 BK-7) and the feed and
+  plugin change generations (14 P-13). The ts-compat ports of §18 MUST NOT
+  declare it.
+- Synthetic feed ticks are opted into per feed (`tick_on_update`, §10) and are
+  always delivered, whatever the tick interest.
 
 ## 5. Context (`Ctx`)
 
@@ -188,8 +212,8 @@ unless stated.
 | `portfolio()` | `&PortfolioView` | This candidate's positions, capital and orders. | `PortfolioSnapshot` (`src/strategy/Strategy.ts:347-378`) |
 | `feeds()` | `&FeedsView` | Latest **visible** value of each requested feed (visibility clocks in `14`). Unrequested feeds are always `None`. | `ctx.plugins.externalFeeds` |
 | `plugins()` | `&PluginsView` | Tick-scoped plugin snapshot (`12`, 14 P-4: account callbacks see the snapshot of the last tick). Unrequested plugins are `None`. | `ctx.plugins` |
-| `rules()` | `&RulesView` | `tick()`, `min_order_size()`, `price_bounds()`, `fee_schedule()`, `taker_delay()`, `gtd_min_lead()`, `gtd_early_expiry()`, `batch_cap()`, `source()` (`Snapshot` or `Fallback`) per `11-exchange-rules.md`. | none (hardcoded in TS) |
-| `gtd_expiration(lifetime: DurMs)` | `TsMs` | `now() + gtd_early_expiry + lifetime`, the docs' "now + 60 + N" recipe (10 §7.4 G3). | none |
+| `rules()` | `&RulesView` | `tick()`, `min_order_size()`, `price_bounds()`, `fee_schedule()`, `taker_delay()`, `gtd_min_lead()`, `gtd_early_expiry()`, `batch_cap()`, `source()` (`Snapshot`, `Partial` or `Fallback`, 11 RS4) per `11-exchange-rules.md`. | none (hardcoded in TS) |
+| `gtd_expiration(lifetime: DurMs)` | `TsMs` | `now() + gtd_early_expiry + lifetime`, the docs' "now + 60 + N" recipe (10 §7.4 GD3). | none |
 | `warmed()` | `bool` | Always `true`, in every mode (12 §6.5): a session starts only after its exchange rules are loaded, which replaces the TS lazy per-token warmup. Kept only so that ports of TS `isWarmed` gates translate line by line; new code need not call it. | `isWarmed` (`src/strategy/strategyToolkit.ts:51-56`) |
 
 Not exposed: raw Gamma JSON, wallet balance (TS `ctx.balance`; live capital is
@@ -199,7 +223,7 @@ seed, candidate index.
 
 ### 5.0 Clock rule per profile
 
-`now()` follows 12 §4.2, which settles 12 Open question 2 as follows:
+`now()` is `tick.ts` of 12 §4.2 (12 §6.5):
 
 | Profile / mode | `now()` |
 |---|---|
@@ -249,8 +273,11 @@ outcome-indexed contiguous fixed-point arrays (10 §11); no token-id lookups.
   (`Floor`, `Ceil`, `TowardZero`, `HalfAwayFromZero`) are the types of
   `10-domain-model.md` §2–§3, with their rules: no `From<f64>`/`Into<f64>`;
   `from_f64(v, Rounding) -> Result<_, NonFinite>` and `to_f64_lossy()` are the
-  only float conversions; cross-type arithmetic only through named operations
-  with an explicit `Rounding` (`Price::notional(Qty, Rounding) -> Usdc`,
+  only float conversions. `to_f64_lossy()` MUST return the `f64` nearest to
+  the exact decimal value (`micros as f64 / 1e6`, correctly rounded), which
+  equals TS `Number` of the same decimal text (60 §6.2 LP-2). Cross-type
+  arithmetic only through named operations with an explicit `Rounding`
+  (`Price::notional(Qty, Rounding) -> Usdc`,
   `Qty::for_collateral(Usdc, Price, Rounding) -> Qty`). Same-type overflow
   panics (overflow checks are on, D18; §12).
 - Time arithmetic: `TsMs + DurMs -> TsMs`, `TsMs - DurMs -> TsMs`,
@@ -301,14 +328,20 @@ those of 10 §7.3.
 - Everything else is checked by the engine and reported as `OrderRejected`
   (or `SplitFailed`/`MergeFailed`) with a typed reason from 10 §10.2:
   positivity, tick alignment, minimum size, price bounds, GTD lead, batch cap,
-  funding, risk limits, inventory, active-cid dedupe (`11`, `12`, `13`).
-  Builders MUST NOT duplicate these checks, so the simulator and the live
-  adapter share one rejection taxonomy.
-- Share-sized market BUYs (`Order::buy(..).fok()`): in the realistic profile
-  and live they are converted to collateral at the limit price and can
-  **receive more shares than requested** when they fill below the limit (10
-  §7.2 O2). The rustdoc of `fok()`/`fak()` and the CONTRACT MUST say so.
-  ts-compat sizes them in shares, as TS does (10 §7.2 O3).
+  funding, risk limits, inventory (`11`, `12`, `13`), and orders that could
+  match this candidate's own orders, rejected `SelfCross` (no TS string) in
+  realistic, paper and live, never in ts-compat (D54; 10 N6, 12 §7.4). A
+  placement of a cid that has an active order is not rejected: it is dropped
+  silently and counted (`duplicate_active_cid`, 12 §7.6). Builders MUST NOT
+  duplicate these checks, so the simulator and the live adapter share one
+  rejection taxonomy.
+- Share-sized market BUYs (`Order::buy(..).fok()` / `.fak()`): in the
+  realistic profile, paper and live they are converted to collateral at the
+  limit price and can **receive more shares than requested** when they fill
+  below the limit (10 §7.2 O2, D42). The
+  rustdoc of `fok()`/`fak()` and the CONTRACT MUST say so. ts-compat sizes
+  them in shares, as TS does (10 §7.2 O3). A strategy that needs an exact
+  spend uses `buy_spend`.
 - Per-callback intent limits and the cascade budget are owned by `12`.
   Exceeding them is a hard candidate failure, never a silent drop (TS drops the
   whole queue, `StrategyRunner.ts:574-584`).
@@ -343,6 +376,7 @@ author gets references:
 | `Fill` | `fill: &FillView` (`order`, `outcome`, `side`, `price`, `qty`, `fee: Usdc` as charged, `liquidity`, `at`, `exchange_ts`) | `fill` |
 | `SettlementUpdate` | `order`, `fill: Option<&FillView>`, `status: SettlementStatus` (`Failed` reverses the fill, 10 §9.2) | `ws_order_update` |
 | `OrderDone` | `order`, `reason: DoneReason`, `filled: Option<Qty>` | `order_done` |
+| `CancelAcked` | `op`, `order` (non-terminal: the exchange confirmed the cancel, 10 §10.1 V1a; realistic, paper and live only) | none (new) |
 | `CancelFailed` | `op`, `order: Option<&OrderView>`, `reason: CancelFailReason` | `cancel_failed` |
 | `PositionsSplit` / `SplitFailed` | `size`, `cost` / `requested`, `reason` | `positions_split` / `split_failed` |
 | `PositionsMerged` / `MergeFailed` | `size` / `requested`, `reason` | `positions_merged` / `merge_failed` |
@@ -350,7 +384,7 @@ author gets references:
 
 Every event has `at()` (engine delivery time, 10 §10.1 V2). Reason enums
 expose `as_ts_str()` with the TS strings listed in 10 §10.2; ts-compat parity
-compares rejection reasons loosely (`native/TRACE.md:36`).
+compares the reason code only (22 §3.4).
 
 ## 9. Params
 
@@ -445,17 +479,15 @@ from params alone, because `describe` runs before any market is selected
 - `FeedOptions { symbol: Option<..>, tick_on_update: bool }`: the symbol
   follows the traded market unless overridden; `tick_on_update` opts into
   synthetic strategy ticks for that feed.
-- Not offered: RTDS Binance, Deribit (out of scope), and the V4-only
-  `binanceBookTicker`, Chainlink TWAP and `chainlink-opening-twap` until `14`
-  decides (14 §7.4: the SDK MUST NOT offer them yet). Adding them later is a
-  minor release.
-- The plugin set follows `01-scope-milestones.md` (all four plugins; see 01
-  Open question 1 about D19).
+- Not offered in v1: RTDS Binance, Deribit (out of scope), and the V4-only
+  `binanceBookTicker`, Chainlink TWAP and `chainlink-opening-twap` (a
+  follow-up, D43; 14 §7.4). Adding them later is a minor release.
+- All four plugins are offered (D19 as amended at gate 1; 01 §4).
 - Plugins are engine-owned; strategies cannot register custom plugins in v1
   (no protocol uses one, requirements-sweep `curated-sdk-surface`). A strategy
   computes its own indicators in its own state. Engine ownership lets
   candidates with equal canonical plugin configs share one computation (41 §5,
-  14 P-3); shared and unshared results MUST be identical.
+  14 P-6); shared and unshared results MUST be identical.
 - The testkit fails a test that reads a feed or plugin the strategy did not
   request (it would always be `None` in production).
 
@@ -495,19 +527,19 @@ contract:
 
 - The engine wraps every call into strategy code (`Params` validation,
   `requirements`, `interests`, `new`, callbacks, `status`) in
-  `catch_unwind(AssertUnwindSafe(..))`; both build profiles (`iterate` and
-  `artifact`, `31` §4.2) keep `panic = "unwind"` and overflow checks on
-  strategy and engine code (D18). The runtime's panic
+  `catch_unwind(AssertUnwindSafe(..))`; every build profile (`31` §4.2) keeps
+  `panic = "unwind"` and overflow checks on strategy and engine code (D18).
+  The runtime's panic
   hook records message, remapped source location, candidate, callback kind and
   tick `seq`, and suppresses the default stderr print.
 
 | Failure | Backtest `run` / `run-group` / `serve` | Paper / live (D32) |
 |---|---|---|
-| Panic in a callback or `new` | That candidate × market fails with error class `strategy_panic` (40 §8.1; failure row for that candidate only); the instance is poisoned and dropped inside `catch_unwind`; other candidates continue (D13). | `cancel_all` for the market (cause `StrategyPanic`, 10 §10.2), no further calls until the next market, alert (D33); fresh instance at rotation; repeated-panic escalation per `50-live-runtime.md`. |
-| `Err(StrategyError)` returned | Same as panic, without unwinding; the message is preserved. | Same as panic. |
+| Panic in a callback or `new` | That candidate × market fails with error class `strategy_fault`, cause `panic` (20 §4; failure row for that candidate only); the instance is poisoned and dropped inside `catch_unwind`; other candidates continue (D13). | the market's orders are canceled (`CancelMarket`, cause `StrategyPanic`, 12 §11), no further calls until the next market, alert (D33); fresh instance at rotation; repeated-panic escalation per `50-live-runtime.md`. |
+| `Err(StrategyError)` returned | Same as panic, cause `error`, without unwinding; the message is preserved. | Same as panic. |
 | Fixed-point overflow in strategy code | Panic (overflow checks), as above. | As above. |
 | Invalid params, or a panic in `requirements`/`interests` | `describe` fails before enqueue (20 §4, §5.1). | Launch refused. |
-| Intent or cascade limit exceeded | Candidate failure (§7.1). | `cancel_all`, halt, alert. |
+| Intent or cascade limit exceeded | Candidate failure, cause `cascade_limit` (§7.1, 12 §6.3). | As a panic (12 §6.3). |
 | Process abort (stack overflow, double panic, OOM) | The process dies; crash attribution and retry per 20 §6 S5 and `40`. Authors MUST bound recursion. | Supervisor restart per `50`. |
 | Callback never returns | Job deadline kills the process (20, `40`). | Watchdog per `50`. |
 
@@ -532,7 +564,12 @@ Engine panics outside strategy wrappers are engine faults (20 §4
 
 `pmb_sdk::toolkit` holds pure helpers with golden tests: tick snapping and
 clamping, window helpers (`in_last(ctx, ms)`, `elapsed_fraction(ctx)`), book
-helpers (VWAP for a size, depth within N ticks), settlement helpers.
+helpers (VWAP for a size, depth within N ticks), settlement helpers, and
+`round_dp(x: f64, k: u32) -> f64`: the exact decimal expansion of `x` rounded
+to `k` decimals with `HalfAwayFromZero` (10 §3), parsed back to the nearest
+`f64`. It is the contract of TS `Number(x.toFixed(k))`, common in strategy
+meta (60 §6.2 LP-3); `format!("{:.k}")` (ties to even) and
+`(x * 10^k).round()` (inexact product) do not meet it.
 `pmb_sdk::math` wraps a pure-Rust libm. Helpers are added only when an in-repo
 port or an active author pattern needs them; each addition is a minor release.
 
@@ -557,11 +594,12 @@ port or an active author pattern needs them; each addition is a minor release.
   with `cargo test --profile iterate` (`31` §7.1), and in a build with
   `debug_assertions` on it reports allocations only and marks the timings
   invalid.
-- Local single-market run without the fleet:
-  `pte backtest --strategy-file <pkg>/src/bin/<name>.rs --local-only --sequential --slug <slug> --trace <out.jsonl>`
-  builds with the `iterate` profile (`31` §4.2, §7.5) and runs locally; add
-  `--profile artifact` to run exactly the bytes a publish would produce.
-  Decisions and outputs do not depend on the profile (`31` §4.2).
+- Fast local checks use the testkit and `strategy:check` (`iterate` profile,
+  `31` §4.1). A local single-market backtest without the fleet,
+  `pte backtest --strategy-file <pkg>/src/bin/<name>.rs --local-only --sequential --slug <slug> --trace <out.jsonl>`,
+  builds the `artifact` profile, exactly the bytes a publish would produce,
+  and keeps them in the local cache (`31` §7.5). Decisions and outputs do not
+  depend on the profile (`31` §7.6).
 
 ## 16. Performance requirements
 
@@ -577,7 +615,8 @@ port or an active author pattern needs them; each addition is a minor release.
 | S8 | Params are parsed once per candidate; strategies receive a typed struct. No JSON on the hot path. | WIP `create(&serde_json::Value)` (`strategy.rs:49`). |
 | S9 | Static dispatch: the runtime is monomorphized over the strategy type; the candidate instances of a group live in one contiguous `Vec<T>`. Consequence: the engine's generic hot loop is code-generated in the strategy bin crate, so its optimization settings are the profile-wide ones of the `artifact` profile (`31` §4.2), not per-package overrides. | WIP `Box<dyn Strategy>` (`strategy.rs:49`). |
 | S10 | Event views (§8) are built by key lookup per callback, without allocation. | 10 §10.1 V3. |
-| S11 | Strategy CPU cost is measured: `strategy:check` prints ns/callback from `testkit::bench` on the fixture markets; `16-performance.md` reports the engine vs strategy share in the benchmark. | User priority 7: measure and report. |
+| S11 | Strategy CPU cost is measured: `strategy:check` prints ns/callback from `testkit::bench` on the fixture markets; `16-performance-and-parallelism.md` §13.4 reports the engine vs strategy share in the benchmark. | 01 §2 S5: measure and report. |
+| S12 | The tick interest (§4.1) is evaluated by the engine once per event on the shared book; a skipped `on_tick` costs a candidate a few compares and skips building its plugin snapshot and feed view (16 §9.4 TF-3, TF-7). | Only 1.2% of ticks change a best price (16 §2.2). |
 
 ## 17. Author documentation
 
@@ -593,29 +632,29 @@ port or an active author pattern needs them; each addition is a minor release.
   changelog entry in the same commit (`60` checks that the entry exists).
 - Error messages from the derive, the builders, `describe` and
   `strategy:check` MUST name the field, the rule and the fix, because agents
-  will act on them without a human (follow-up goal).
+  will act on them without a human (after M6, D39), through the build results
+  of `31` §11.
+- `pmb-sdk` `1.0.0`, its rustdoc and a complete `CONTRACT.md` for both
+  profiles are deliverables of M11 (01 §6, `31` §12); before then only
+  `native/strategies/` uses the SDK.
 
 ## 18. In-repo ports (this goal)
 
 | Port | Id | Requirements |
 |---|---|---|
-| Engine exerciser | `engine-exerciser.rs` | Implements the exerciser of `60-verification.md` (from `native/EXERCISER.md`) exactly, including cids; no params, feeds or plugins. |
-| lagsnipe.v15 | `overnight-opus55-lagsnipe.v15.rs` | Same param keys and normalized params as TS (§9 rules 9–10, golden PG-1), same feeds and plugins, `now()` per §5.0. Its TS source file is not on this machine; the port is written from the readable oracle bundle `data/strategy-artifacts/304eceb3…ab8.mjs` (60 §6.2) unless the user provides the source (01 Open question 3). |
+| Engine exerciser | `engine-exerciser.rs` | Implements the exerciser of `60-verification.md` §5 exactly, including cids; no params, feeds or plugins. |
+| lagsnipe.v15 | `overnight-opus55-lagsnipe.v15.rs` | Same param keys and normalized params as TS (§9 rules 9–10, golden PG-1), same feeds and plugins, `now()` per §5.0, all interests (no tick interest, §4.1). Ported from the readable oracle bundle of artifact `304eceb3…` (`data/strategy-artifacts/304eceb3…ab8.mjs`; D40, 60 §6.2), keeping its `f64` expression order; meta numbers through `toolkit::round_dp` (§14, 60 LP-3). |
 
 Both live in the `native/strategies/` package and go through the same build
 and publish pipeline as external strategies (`31` §2.3).
 
+## Changes required in other documents
+
+None open: every item was applied in the gate-1 consolidation.
+
 ## Open questions
 
-No user decision is pending in this document. Dependencies and one
-cross-document fix:
-
-- The SDK's plugin set follows `01-scope-milestones.md` Open question 1 (D19
-  vs the project direction), and the lagsnipe.v15 port depends on 01 Open
-  question 3 (source availability).
-- §5.0 answers 12 Open question 2 (`now()` is monotone in realistic, paper and
-  live; it follows the TS tick timestamp in ts-compat). 12 can close it.
-- 12 §14 P6 says "the strategy is one trait object per session", while §4
-  rule 1 and S9 require static dispatch over the strategy type, which
-  `31` §4.2 relies on for its profile reasoning. This document keeps static
-  dispatch; 12 P6 needs to be aligned before the spec freeze.
+None. Gate-1 answers applied here: tick interest for new strategies (D41,
+§4.1), collateral sizing of share-sized FOK/FAK BUYs (D42, §7.1), self-cross
+blocking (D54, §7.1), V4-only feeds as a follow-up (D43, §10), all four
+plugins (D19, §10), lagsnipe port from the bundle (D40, §18).

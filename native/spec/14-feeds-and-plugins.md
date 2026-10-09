@@ -11,14 +11,20 @@ The TS feed layer is the most calibrated part of the old engine
 (approach-audit, market-data subsystem); its **behavior** is kept, its code
 shape is not.
 
-Related: fixed-point types in `10-domain-model.md`; clocks, event loop,
-window rule and cascade/plugin-snapshot timing in `12-engine-core.md`; latency
-model components in `13-execution-models.md`; process, thread and cache model
-in `16-performance.md`; `describe` capabilities and exit codes in
-`20-binary-protocol.md`; the `ModelConfig` container and job fields in
-`21-job-and-output-contract.md`; trace format in `22-trace-ledger-journal.md`;
-the strategy-facing API in `30-strategy-sdk.md`; input readers in
-`15-inputs.md`.
+Related: fixed-point types and RNG in `10-domain-model.md`; clocks (incl.
+the realistic receipt-time synthesis), event loop, window rule and
+cascade/plugin-snapshot timing in `12-engine-core.md`; latency model
+components in `13-execution-models.md`; process, thread and cache model in
+`16-performance-and-parallelism.md`; `describe` capabilities and error
+classes in `20-binary-protocol.md`; the `ModelConfig` container and job
+fields in `21-job-and-output-contract.md`; trace format in
+`22-trace-ledger-journal.md`; the strategy-facing API in `30-strategy-sdk.md`;
+input readers in `15-inputs.md`; calibration in `51-calibration-plan.md`.
+
+Scope decisions applied here: BTC 5m and 15m (D06), gate-2 parity on BTC 15m
+only (D38), all four plugins in v1 with TechnicalIndicators candles from local
+aggTrades (D19 as amended), V4-only feed capabilities deferred to follow-up
+F7 (D43, §7.4), the opt-in tick interest filter (D41, P-13).
 
 ## 1. Feed inventory and sources
 
@@ -28,7 +34,7 @@ the strategy-facing API in `30-strategy-sdk.md`; input readers in
 | Chainlink spot `rtdsPolymarketCryptoPrices.chainlink` | Telonex `crypto_prices` day files, two-clock model (§5) | PolyBolt `price.crypto` envelope, receipt order (§7) | value, source ts (round time), receivedAt |
 | Price to beat `polymarketPriceToBeat` (website/Gamma source) | producer-resolved Gamma strike, availability model (§6) | website PTB HTTP responses, receipt order (§7) | openPrice, receivedAt, window ISO strings |
 | Synthetic feed ticks (`tickOnUpdate`) | schedule from the loaded series (§8) | one per captured update (§8) | — |
-| V4-only: `binanceBookTicker`, `chainlinkTwap`, PTB `chainlink-opening-twap` | rejected (TS rejects too, `src/backtest/feeds/wireBacktestExternalFeeds.ts:176-181`) | see §7.4 and Open questions | — |
+| V4-only: `binanceBookTicker`, `chainlinkTwap`, PTB `chainlink-opening-twap` | rejected (TS rejects too, `src/backtest/feeds/wireBacktestExternalFeeds.ts:176-181`) | decoded, not offered to strategies in v1 (§7.4) | — |
 | Legacy RTDS Binance `rtdsPolymarketCryptoPrices.binance` | no source (TS warns, key absent, `wireBacktestExternalFeeds.ts:234-238`) | rejected (`src/recorder-v4/replay/feedState.ts:294-298`) | — |
 | Deribit volatility index | out of scope | out of scope | — |
 
@@ -78,26 +84,29 @@ producer restricts markets.
 
 ### 3.1 Clocks
 
-| Clock | Definition | Evidence |
+| Clock | ts-compat (TS oracle) | realistic (12 §4.1, §4.3) |
 |---|---|---|
-| exchange ts `E(t)` | `ts_exchange_ms` of the row behind real tick `t` (TS `snapshot.timestamp`) | `src/parquet/replay/replayTelonexDeltaParquetForMarket.ts:94-96` |
-| feed clock `C(t)` of a real tick | `max(L, E)` when the row has a local receive time `L > 0`, else `E` | `wireBacktestExternalFeeds.ts:59-64`; WIP `native/crates/pmb-replay/src/telonex.rs:45-50` |
-| feed clock of a synthetic tick | its stamp `S = max(v, E(last real tick))` (§8.2) | `src/market/syntheticTick.ts:61-70` |
-| high-water `H` | `max` of all feed clocks of ticks delivered to the runner so far; initial `-inf` | `src/backtest/feeds/backtestExternalFeedsProvider.ts:68,138-139` |
+| exchange ts `E(t)` | `ts_exchange_ms` of the row behind real tick `t` (TS `snapshot.timestamp`; `src/parquet/replay/replayTelonexDeltaParquetForMarket.ts:94-96`) | same; drives only the receipt-time synthesis |
+| feed clock `C(t)` of a real tick | `max(L, E)` when the row has a Telonex local time `L > 0`, else `E` (`wireBacktestExternalFeeds.ts:59-64`) | loop clock `now` = synthesized receipt time `R_t` (12 RS1-RS3); `L` is not used |
+| feed clock of a synthetic tick | its stamp `S = max(v, E(last real tick))` (§8.2; `src/market/syntheticTick.ts:61-70`) | its stamp `max(v, now)` (F-41) |
+| high-water `H` | `max` of all feed clocks of ticks delivered to the runner so far; initial `-inf` (`src/backtest/feeds/backtestExternalFeedsProvider.ts:68,138-139`) | equals `now` (monotone by 12 K2) |
 
 - **F-7** Feed state seen by a tick is evaluated at `H` after updating
-  `H := max(H, C(t))`. `H` MUST advance on **every** tick delivered to the
-  runner (in-window real ticks and dispatched synthetic ticks), whether or not
-  the strategy reads feeds, because a later read at a smaller clock must still
-  see the high-water value. Lazy evaluation of the cursor at read time is
-  allowed; lazy update of `H` is not.
-- **F-8** Telonex local time is Telonex's recorder clock, not the bot's. On a
-  sampled market it runs a median 7 ms (p99 19 ms) after the exchange stamp and
-  stepped backwards twice in 93,427 rows (measured 2026-10-09 on
-  `data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1785028500.parquet`).
-  The high-water clamp absorbs the backward steps. Whether the realistic
-  profile should instead use exchange time plus a calibrated market-data delay
-  is an Open question; until decided both profiles use F-7.
+  `H := max(H, C(t))`. In ts-compat `H` MUST advance on **every** tick
+  delivered to the runner (in-window real ticks and dispatched synthetic
+  ticks), whether or not the strategy reads feeds, because a later read at a
+  smaller clock must still see the high-water value. Lazy evaluation of the
+  cursor at read time is allowed; lazy update of `H` is not. In realistic the
+  feed state is a function of `now` alone; `max(L, E)` exists only in
+  ts-compat (12 K5).
+- **F-8** Telonex local time is Telonex's recorder clock, not the bot's: it
+  trails the exchange stamp by a median 7-8 ms (p99 19-48 ms depending on the
+  market) and stepped backwards twice in 93,427 rows (measured 2026-10-09 on
+  `data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1785028500.parquet`;
+  12 §4.3). The ts-compat high-water clamp absorbs the backward steps. The
+  feed latencies of §9 were calibrated against the bot's receive clock, which
+  is why realistic evaluates feeds on the synthesized receipt time instead
+  (12 §4.3).
 
 ### 3.2 Visibility and cursor rules (normative, both profiles)
 
@@ -135,6 +144,10 @@ producer restricts markets.
   (`docs/datasets/price-feeds/binance/feed.md:171-173`).
 - Size reference: `BTCUSDT-aggTrades-2026-09-16.parquet` holds 945,839 trades
   in 8 row groups, 7.3 MB (measured 2026-10-09).
+- Decode and byte checks: a day file whose size differs from its `feedFiles`
+  entry is `data_missing` (`integrity_mismatch`: the local copy changed after
+  the shim's check). Day files carry no sha256, so a decode failure is
+  `runtime` (`decode_unverified`, retried on another host; 20 §4).
 
 ### 4.2 Series (normative)
 
@@ -181,15 +194,17 @@ show identical traces for lookbacks of 60 s, 300 s and 900 s (§13 V-7).
 ### 5.1 Day-file contract
 
 - Path: `<cryptoPricesRoot>/<asset_id>/<asset_id>-crypto-prices-<date>.parquet`
-  (WIP `feeds/mod.rs:131-135`), passed in `feedFiles` like Binance days; raw
-  Telonex file as delivered: `timestamp_us`
-  (round time), `server_timestamp_us` (Polymarket broadcast time), `price`
-  (VARCHAR, 18 decimals), `asset_id`
+  (WIP `feeds/mod.rs:131-135`), passed in `feedFiles` like Binance days (the
+  byte and decode rules of §4.1 apply); raw Telonex file as delivered:
+  `timestamp_us` (round time), `server_timestamp_us` (Polymarket broadcast
+  time), `price` (VARCHAR, 18 decimals), `asset_id`
   (`docs/datasets/price-feeds/chainlink/feed.md:152-154`).
 - Size reference: `btcusd-crypto-prices-2026-09-17.parquet` holds 85,155
   rounds; broadcast minus round time is min 637 ms, median 1,126 ms, max
-  5,861 ms (measured 2026-10-09). Telonex still delivers this channel after the
-  2026-09-15 RTDS-to-PolyBolt switch.
+  5,861 ms (measured 2026-10-09). Telonex kept delivering this channel after
+  the 2026-09-15 RTDS-to-PolyBolt switch. The Telonex subscription has expired
+  (D38): no new day files arrive until renewal, so a market after the last
+  synced day fails `data_missing` (`day_file_missing`).
 
 ### 5.2 Series (normative)
 
@@ -233,8 +248,9 @@ show identical traces for lookbacks of 60 s, 300 s and 900 s (§13 V-7).
 ### 6.1 Historical availability model
 
 - **F-28** When the job carries a strike, the feed is present iff `H >= start
-  + L_p` (`L_p` = the constant of `ModelConfig.feeds.priceToBeat.latency` in
-  ts-compat, the market's single draw in realistic, §9.1) and
+  + L_p` (`H` per §3.1; `L_p` = the constant of
+  `ModelConfig.feeds.priceToBeat.latency` in ts-compat, the market's single
+  draw in realistic, §9.1) and
   emits `{symbol: uppercase slug symbol, eventStartTimeIso, endDateIso (from
   the slug window), openPrice, receivedAtMs: start + L_p}`
   (`backtestExternalFeedsProvider.ts:164-175`,
@@ -321,16 +337,17 @@ duplicate, correction and conflict rules are golden-tested against TS (§13 V-4)
 - Captured Chainlink is PolyBolt (receipt clock), historical is RTDS-era
   Telonex data (two-clock model). The `L_c = 320` default was calibrated on
   RTDS on 2026-07-21 (`docs/datasets/price-feeds/parity-harness.md:90-104`);
-  see Open questions.
+  F-56 governs its re-measurement.
 
-### 7.4 V4-only capabilities
+### 7.4 V4-only capabilities (follow-up, not v1)
 
 Binance `bookTicker`, Chainlink TWAP and the `chainlink-opening-twap` PTB source
-exist only in captured inputs. Historical inputs MUST reject them (`invalid_input`,
-reported before enqueue through `describe` capabilities, `20-binary-protocol.md`).
-Whether v1 exposes them to Rust strategies on V4/journal/live is an Open
-question; until decided the readers MUST decode them (the reducer state and the
-coverage gate need them) and the SDK MUST NOT offer them.
+exist only in captured inputs. They are follow-up F7 (D43,
+`01-scope-milestones.md` §10). In v1 the readers MUST decode them (the
+reducer state and the V4 coverage gate need them), the SDK MUST NOT offer
+them, `describe` never lists them, and a feed request naming them is
+`invalid_input` (`unsupported_feed`) on every input mode, reported before
+enqueue (`20-binary-protocol.md` §5.1).
 
 ## 8. Synthetic feed ticks
 
@@ -360,26 +377,27 @@ coverage gate need them) and the SDK MUST NOT offer them.
   before Chainlink at equal `v`, series order kept within a feed
   (`src/backtest/feeds/syntheticTickSchedule.ts:28-60`).
 - **F-40 Flush.** Before **every** real tick `t` (in or out of the window),
-  dispatch all not-yet-consumed entries with `v < C(t)` (strict) in schedule
-  order, then deliver `t`. Equal times therefore put the real tick first, and
-  that real tick already sees the feed value (F-9). Entries are consumed
+  dispatch all not-yet-consumed entries with `v < C(t)` (strict; `C(t)` per
+  §3.1, i.e. `R_t` in realistic, 12 RS3) in schedule order, then deliver
+  `t`. Equal times therefore put the real tick first, and that real tick
+  already sees the feed value (F-9). Entries are consumed
   without dispatch while no real book snapshot exists. The index only moves
   forward; a backward `C(t)` flushes nothing. After the input ends, the
   remainder is flushed (`syntheticTickSchedule.ts:62-103`,
   `src/backtest/runSingleMarket.ts:346-378,492`). Dispatched counts can be
   lower than scheduled counts (`docs/backtest/adr-binance-driven-ticks.md:64-66`).
-- **F-41 Stamp** `S = max(v, E(last real tick))`, where the last real tick
-  includes out-of-window ticks. The synthetic tick passes through the same
-  counting and window gate as real ticks (`runSingleMarket.ts:297-315`), so it
+- **F-41 Stamp.** ts-compat: `S = max(v, E(last real tick))`, where the last
+  real tick includes out-of-window ticks. Realistic: `max(v, now)` (12 §4.1).
+  The synthetic tick passes through the same counting and the profile's
+  window gate as real ticks (`runSingleMarket.ts:297-315`; 12 §5.3), so it
   can be counted and then gated.
 - **F-42 Shared schedule.** The schedule depends only on the series, the
   visibility times (F-15/F-23, including realistic draws) and the window; it
-  is built once per market read and shared by all candidates. Each candidate
-  dispatches only the feeds it opted into. Whether candidates of one group
-  may differ in `tickOnUpdate` is decided in `41-candidate-groups.md`.
-  `ModelConfig.feeds` and `seed` are shared within a group
-  (`21-job-and-output-contract.md` C4) and feed draws depend only on them and
-  the element (F-51), so every candidate sees the same visibility times.
+  is built once per market read and shared by all candidates. Candidates of
+  one group have identical feed requests including `tickOnUpdate` (21 C3,
+  41 §3.5), and `ModelConfig.feeds`, `clock` and `seed` are shared (21 C4);
+  feed draws depend only on them and the element (F-51), so every candidate
+  sees the same visibility times and the same synthetic ticks.
 
 ### 8.3 Captured inputs and live
 
@@ -434,13 +452,19 @@ profile may use which kind.
   silently falls back, `wireBacktestExternalFeeds.ts:39-44`).
 - **F-47** Engine constants, exported by `describe` and not configurable:
   lookback 300,000 ms; tails 2,000 / 5,000 ms; Chainlink coverage floor; TA
-  candle lookback (§12.5). The `21-job-and-output-contract.md` §6 sketch is
-  superseded here for the feeds field set: its `lookbackMs` fields are not
-  part of `ModelConfig` (§4.3 shows they cannot change a result), and its
-  `latencyMs` integers are the `latency` objects above.
+  candle lookback (§12.5). Lookbacks are not part of `ModelConfig`, because
+  they cannot change a result (§4.3).
 - **F-48** ts-compat parity runs MUST use the defaults above. Changing a
   default is a model change: it gets a new `calibrationId` and an A/B report,
   and never rewrites history.
+- **F-57 Calibration file.** `native/contract/calibrations/feeds/<id>.json`
+  (layout per 21 §6.3) holds the complete `feeds` object above with
+  `calibrationId = <id>`, plus `provenance`: method (constant or `empirical`
+  fit), sources (journal files and V4 packages with sha256), date range,
+  hosts, sample counts per leg and the F-55 metrics of the fit. The producer
+  copies the object into `ModelConfig.feeds` (21 §6.3). The file is immutable
+  once a persisted run used it. `feeds-2026-07-21.json` holds the defaults
+  above, with the evidence column as provenance.
 
 ### 9.1 Latency distributions (realistic only)
 
@@ -457,19 +481,27 @@ feed leg as a distribution.
   fields; that is also why parity with live is judged on V4 (`15-inputs.md`
   §4.3).
 - **F-51 Per-element draws.** In realistic each series element draws its own
-  latency: Binance per trade (entity `agg_trade_id`), Chainlink per row
-  (entity `(timestamp_us, server_timestamp_us)`), price-to-beat once per
-  market (entity slug). A draw is the keyed draw of `13-execution-models.md`
-  §6.8 (a function of stream and entity, never of call order) on a stream
-  derived from `ModelConfig.seed` and the tag `feed.binance`,
-  `feed.chainlink` or `feed.priceToBeat`. Feed streams are run-level, not
-  per-market: one live connection delivers each trade once to every market,
-  so a 5m market and the overlapping 15m market of one run MUST see the same
-  trade at the same time. 10 I1 still holds (no wall clock, `idx`, worker or
-  group position); a draw never depends on the market slice, lookback,
-  candidate, thread count or group composition. Samples are integer ms
-  (10 R16) clamped to the field's range; clamps are counted
-  (`feedLatencyClamps`).
+  latency with the draw and mapping rules of 10 §6.1 (RNG-5 draw 0, RNG-6
+  inverse CDF and integer-ms rounding), never depending on call order:
+  - Binance and Chainlink use **run-level** streams (10 RNG-3 (b)), because
+    one live connection delivers each element once to every market, so
+    overlapping markets of one run MUST see the same element at the same
+    time:
+    `feed_stream_seed(tag) = LE64(SHA-256("pmb-feed-stream/v1" ‖ LE64(run_seed) ‖ ASCII(tag))[0..8])`
+    with tag `feed.binance` or `feed.chainlink`. Entity: Binance
+    `agg_trade_id` as `u64`; Chainlink
+    `LE64(SHA-256("pmb-feed-entity/v1" ‖ LE64(timestamp_us) ‖ LE64(server_timestamp_us))[0..8])`.
+    The 10 RNG-4 `(kind << 32) | id` packing is not used, because
+    `agg_trade_id` outgrows 32 bits in 2027 (max 4,067,485,738 on
+    2026-09-18, about 1 M per day, measured 2026-10-09); feed streams are
+    disjoint from execution streams by their tag.
+  - Price-to-beat draws once per market on the per-market stream of 10
+    RNG-3 (a) with tag `feed.priceToBeat`, entity 0.
+
+  10 I1 still holds (no wall clock, `idx`, worker or group position); a draw
+  never depends on the market slice, lookback, candidate, thread count or
+  group composition. Samples are clamped to the field's range; clamps are
+  counted (`feedLatencyClamps`).
 - **F-52 Monotone delivery.** In realistic, visibility is clamped in series
   order: `vis_0 = T_0 + L_0` for the first element of the market's series
   (the seed when present), then `vis_i = max(vis_{i-1}, T_i + L_i)`, with `T`
@@ -488,9 +520,10 @@ feed leg as a distribution.
   change any visibility at an in-window clock. §4.3 and V-7 therefore hold for
   distributions too (tested in V-10).
 - **F-54 Fitting.** A feed calibration publishes fitted `empirical` tables
-  under a new `calibrationId`. Primary source: Rust live and paper journals
-  on the live host (D26): bot receipt minus `T` (Binance trade time,
-  Chainlink broadcast time), using the host's journaled clock samples (D27),
+  under a new `calibrationId` (F-57). Primary source: Rust live and paper
+  journals (D26) on the calibration/live host chosen at gate 4: bot receipt
+  minus `T` (Binance trade time, Chainlink broadcast time), using the host's
+  journaled clock samples (D27),
   because a raw cross-clock leg can be negative (Chainlink min -20 ms,
   `chainlink/feed.md:117`). Journals measure at the bot itself and so include
   the in-bot processing that made 320 ms, not the recorder-level 235 ms, the
@@ -506,27 +539,39 @@ feed leg as a distribution.
   to first strike) is a latency component in the sense of D35: model versus
   live `|median bias|` <= 10 ms and p90 within ±20%, n >= 200.
   Price-to-beat has one sample per market and a seconds scale, so it follows
-  whatever `51-calibration-plan.md` Open question 2 settles for seconds-scale
-  components. The report also gives, without threshold, the p99
-  relative error and the lag-1 autocorrelation of consecutive latencies:
-  independent draws plus F-52 reproduce head-of-line blocking but not
-  multi-second congestion episodes, and the autocorrelation shows whether
-  that matters. `51-calibration-plan.md` §12.3 owns the component table;
-  these three legs MUST appear in it. Whether p99 becomes a pass threshold
-  is Open question 6.
+  the rule decided at gate 4 for seconds-scale components (01 §12.1 item 7).
+  The report also gives, without threshold, the p99 relative error and the
+  lag-1 autocorrelation of consecutive latencies: independent draws plus F-52
+  reproduce head-of-line blocking but not multi-second congestion episodes,
+  and the autocorrelation shows whether that matters.
+  `51-calibration-plan.md` §12.3 owns the component table; these three legs
+  MUST appear in it. Whether p99 becomes a pass threshold is gate-4
+  question 1.
+- **F-56 Re-measurement after the PolyBolt switch.** The 2026-07-21 constants
+  predate the 2026-09-15 RTDS-to-PolyBolt switch (Binance: 2026-07-16). They
+  stay the ts-compat values permanently (F-48) and remain the realistic
+  default until a fitted set replaces them. M10 fits all three legs per F-54
+  from PolyBolt-era journals and V4 receipts, publishes them under a new
+  `calibrationId` (F-57) and reports them in the gate-3 report as C7
+  components (F-55). The
+  fitted set becomes the realistic default only through a deliberate commit
+  after gate 3 (51 §13); it changes realistic results on historical data and
+  makes realistic feed timing seeded-random, which every run records through
+  `ModelConfig.feeds.calibrationId`.
 
 ## 10. Missing data and coverage errors
 
-Classes are the closed vocabulary of `20-binary-protocol.md` §4 (exit codes)
-and `40-fleet-integration.md` (retry). This section adds a `cause` label that
-MUST follow the class prefix in the failure reason, so a deterministic upstream
-hole is distinguishable from a corrupt file. TS today retries every thrown
+Classes, causes, the reason format `<class>: <cause>: <message>` and the
+retry policy are those of `20-binary-protocol.md` §4 (§4.1-§4.3); the causes
+below are the subset feeds use, so a deterministic upstream hole is
+distinguishable from a damaged local copy. TS today retries every thrown
 error three times; classes change retry behavior, never results.
 
 | Class | Causes used by feeds | Retried |
 |---|---|---|
 | `invalid_input` | `unsupported_feed`, `symbol`, `window`, `model_config`, `feed_availability` | never |
-| `data_missing` | `day_file_missing` | yes, any worker after sync |
+| `runtime` | `decode_unverified` (a day file that fails to decode; day files carry no sha256) | yes, any worker |
+| `data_missing` | `day_file_missing`, `integrity_mismatch` (size differs from `feedFiles`) | yes, any worker after sync |
 | `data_defect` | `corrupt`, `pre_coverage`, `upstream_hole`, `pipeline_incomplete` | never |
 
 | Condition | Class (cause) | Message MUST name | Evidence |
@@ -543,7 +588,8 @@ error three times; classes change retry behavior, never results.
 | PTB unavailable | from `feedAvailability` (§6.2) | from the job | `wireBacktestExternalFeeds.ts:310-342` |
 | Window not derivable while feeds are requested | `invalid_input` (`window`) | slug | `:188-193` |
 | Feed symbol not derivable or mismatched (§11.1) | `invalid_input` (`symbol`) | slug, symbol | `:203-210,252-256` |
-| V4-only feed on historical input; legacy RTDS Binance on V4 | `invalid_input` (`unsupported_feed`) | feed | `:176-181`, `feedState.ts:294-298` |
+| Any V4-only feed request (v1, §7.4); legacy RTDS Binance on V4 | `invalid_input` (`unsupported_feed`) | feed | `:176-181`, `feedState.ts:294-298` |
+| Day file fails to decode, or its size differs from `feedFiles` | `runtime` (`decode_unverified`) / `data_missing` (`integrity_mismatch`) | file path | §4.1 |
 | Captured-feed coverage gap | not an error: `incomplete_capture` skip (`15-inputs.md` §5.3) | coverage reasons | `runSingleMarket.ts:433-448` |
 
 ## 11. Symbols and boundary shapes
@@ -592,25 +638,40 @@ error three times; classes change retry behavior, never results.
 - **P-5 Window.** ts-compat: plugins observe only ticks that pass the window
   gate (TS skips the runner for out-of-window ticks,
   `runSingleMarket.ts:306-315`). Realistic: plugins also observe pre-window
-  ticks without strategy calls (D23). V4 has no pre-window ticks (its replay
-  starts at the market start), so this changes only telonex-delta results.
-- **P-6 Sharing.** All v1 plugins are pure functions of the market input
-  stream, their config and market identity. The engine MAY compute one
-  instance per distinct config per market read and share its snapshot
-  read-only across candidates; the test of §13 V-7 MUST show identical
-  outputs to per-candidate instances before this is enabled.
+  real ticks without strategy calls while the session is Warming, and no
+  ticks after `end` (D23, 12 §5.2, §5.4). This applies to every input with
+  pre-window data: telonex-delta's pre-window rows and V4 envelopes received
+  before `start`, which realistic keeps (15 I-24).
+- **P-6 Sharing.** All v1 plugins are pure functions of the recorded market
+  input (the `SharedMarket` books, 12 §2.1), the tick clock, their config and
+  market identity; they never read a candidate's overlay (13 §6.11). The
+  engine MAY compute one instance per distinct config per market read and
+  share its snapshot read-only across candidates (41 §5, 16 CG-3); the test
+  of §13 V-7 MUST show identical outputs to per-candidate instances before
+  this is enabled. Live plugins read the WS book, which includes our own
+  resting orders; that difference is expected and appears in the
+  live-vs-backtest attribution (50 §13.5).
 - **P-7 Absence is visible.** A plugin that cannot compute (for example TA
   with too few candles) yields a typed "unavailable" state with a reason,
   counted in diagnostics; it never substitutes a value. In the TS-shape view
   the key is absent, as in TS.
+- **P-13 Change generations.** Each plugin instance and each requested feed
+  of the feed view carry a `u64` generation that increments exactly when the
+  value visible to the strategy changes: a plugin snapshot differs from the
+  previous one (field-wise; `f64` compared by bit pattern; availability state
+  included), or a feed's visible point changes (`value`, `tsMs` or
+  `receivedAtMs`, or key presence). Generations are engine-internal (not in
+  the TS-shape view) and feed the tick interest filter that new Rust
+  strategies may declare (D41; 16 §9.4 TF-2 (d), (e); 30 §4.1). Plugins still
+  update on every tick (16 TF-3); only the snapshot build for a skipped
+  callback is lazy.
 
 ### 12.2 v1 plugin set
 
-Project direction item 1 lists TimeWindowVolatility, TechnicalIndicators,
-DwellGate and TimeWindowGate in v1 scope, while D19 (a lead decision) defers
-TA and Volatility. This doc follows the direction, as `01-scope-milestones.md`
-§4 does, and keeps D19's offline-candles rule; the user confirms the scope
-through `01-scope-milestones.md` Open question 1. Deribit is out of scope.
+All four plugins of the project direction are in v1 (D19 as amended at
+gate 1; `01-scope-milestones.md` §4), with TechnicalIndicators candles built
+from local aggTrades and never from the network (§12.5). Deribit is out of
+scope.
 
 | Plugin (TS id) | Config | Observes synthetic ticks | Key semantics | Evidence |
 |---|---|---|---|---|
@@ -624,8 +685,8 @@ through `01-scope-milestones.md` Open question 1. Deribit is out of scope.
 Plugins read the tick's decision time. In ts-compat on telonex-delta this is
 TS `snapshot.timestamp`: the exchange time for real ticks and the clamped stamp
 `S` for synthetic ticks, including the documented sawtooth
-(`docs/backtest/adr-binance-driven-ticks.md:67-73`). Realistic uses the
-decision clock of D27 (`12-engine-core.md`).
+(`docs/backtest/adr-binance-driven-ticks.md:67-73`). Realistic uses `now`,
+which is monotone (12 §4.2).
 
 ### 12.4 Gates and dwell on synthetic ticks
 
@@ -655,14 +716,18 @@ gates compute from the timestamp and tolerate the sawtooth).
   nondeterministic and is not a parity target (classified "TS
   nondeterminism"). The env variables are not used.
 - **P-11** Markets whose slug is not a 15m BTC up/down slug yield
-  "unavailable" (TS: `parseUpDown15mSlugEpochMs`,
+  "unavailable" in both profiles (TS: `parseUpDown15mSlugEpochMs`,
   `TechnicalIndicatorsPlugin.ts:220`). The WIP hardcodes the 15m prefix
   separately from `slug.rs` (`technical_indicators.rs:180-183`); the rewrite
-  MUST use the single slug parser and keep this 15m-only rule unless the user
-  changes it (Open question).
+  MUST use the single slug parser. Extending TA to 5m markets is a model
+  change that needs a new 02 entry (00 R11); no v1 strategy needs it.
 - **P-12** Data requirement: aggTrades days covering `[floorHour(t0) - 160 h,
   t0)` (160 closed 1h candles plus the last 10 h of 15m candles). `describe`
   exports this lookback so the producer preflight requires those days (D19).
+  Candles are derived in process from those day files and cached per day
+  (PF-5); about 7 days of aggTrades are decoded once per cold process. A
+  separate derived candle dataset is introduced only if the 16 §13
+  measurements show candle building is a material share of job time.
 
 ## 13. Verification (feeds and plugins)
 
@@ -682,9 +747,11 @@ Parity sets, classification rules and the pinned TS oracle are in
 - **V-3 Trace parity.** The parity trace (`22-trace-ledger-journal.md`) MUST
   record, per tick, the visible feed fields and plugin snapshots (TS
   `src/backtest/parity/trace.ts` records only the tick cause today). A
-  feed exerciser (TS and Rust, same schedule as the engine exerciser plus
-  requests for all three historical feeds and all four plugins, run once with
-  `tickOnUpdate` on and once off) MUST match exactly on the parity market set.
+  feed exerciser (60 §5.8: TS and Rust, same schedule as the engine
+  exerciser plus requests for all three historical feeds and all four
+  plugins, run once with `tickOnUpdate` on and once off) MUST match exactly
+  on the parity market set (cells F15-on, F15-off, F15-TA of 60 §4.1; BTC 5m
+  cells wait for the Telonex renewal, D38).
 - **V-4 Captured-feed goldens.** The TS reducer, selection and
   `OpeningReferenceTracker` run over envelopes from real V4 packages plus
   crafted invalid, history-snapshot, correction and conflict envelopes; Rust
@@ -701,7 +768,9 @@ Parity sets, classification rules and the pinned TS oracle are in
 - **V-7 Properties.** Lookback invariance (§4.3); `tickOnUpdate` off equals a
   run without schedule; Volatility output unchanged by synthetic ticks; shared
   plugin instances equal per-candidate instances; identical outputs with a
-  cold or warm day cache and with any thread count.
+  cold or warm day cache and with any thread count; P-13 generations change
+  iff the strategy-visible value changes (checked against a full snapshot
+  comparison on every tick of the parity set).
 - **V-8 Latency self-tests** (as the TS harness,
   `parity-harness.md:69-77`): replaying with a feed latency shifted by +X ms
   shifts every feed transition by +X ms, and replaying twice gives zero
@@ -718,16 +787,24 @@ Parity sets, classification rules and the pinned TS oracle are in
   in-window element. (d) Over one full Binance day, the p1..p99 quantiles of
   the drawn latencies are within 1 ms of the configured `empirical` table.
   (e) Adding X ms to every quantile shifts every feed transition by X ms
-  (V-8 for distributions).
+  (V-8 for distributions). (f) The feed rows of the 10 RNG-7 golden vectors
+  (`feed_stream_seed`, both entity encodings, price-to-beat) pass.
+- **V-11 Realistic clock.** On telonex-delta realistic, feed visibility,
+  the synthetic flush and synthetic stamps use `R` (§3.1, F-40, F-41): a
+  golden replays a fixture with `md` and the feed latencies fixed to
+  constants and checks that every feed transition and synthetic stamp equals
+  the ts-compat rules evaluated with `C(t) := R_t` and `E(last real tick) :=
+  R(last real tick)` (on days where V-10 (a) applies).
 
 ## 14. Performance requirements
 
-Speed is the top priority (project direction item 7). Targets are measured,
-not thresholds (D07). Overall process, thread and cache model:
-`16-performance.md`.
+Speed is the top priority (01 §1 item 6, §2). Targets are measured,
+not thresholds (D07). Overall process, thread and cache model, budgets and
+benchmark conditions: `16-performance-and-parallelism.md` (§6, §13).
 
 - **PF-1 Shared day caches.** Decoded day files are immutable values in a
-  per-process cache keyed by `(dataset, symbol or asset, UTC date)`, shared
+  per-process cache indexed by `(dataset, symbol or asset, UTC date)` and
+  validated by the file identity of 16 §6.1 (path, size, mtime), shared
   (`Arc`) across markets, candidates and threads, loaded once per key even
   under concurrent requests, and evicted by a byte-capped LRU that never drops
   an entry in use. One BTCUSDT day (about 0.95 M trades, 7.3 MB on disk) is
@@ -750,8 +827,8 @@ not thresholds (D07). Overall process, thread and cache model:
 - **PF-5 Candles.** TA candles are cached per `(pair, interval, date)`; raw
   trades loaded only for candles are not retained.
 - **PF-6 Decode work off the hot path.** Day loading is pure; the scheduler
-  (`16-performance.md`) MAY prefetch the next markets' day files on other
-  threads. Feed code MUST NOT create its own threads.
+  (`16-performance-and-parallelism.md` §5.3) MAY prefetch the next markets'
+  day files on other threads. Feed code MUST NOT create its own threads.
 - **PF-7 Measurements** reported per market in diagnostics
   (`21-job-and-output-contract.md`): feed load time (cold or warm), day-cache
   hits and misses, bytes decoded, synthetic ticks scheduled and dispatched,
@@ -768,7 +845,8 @@ not thresholds (D07). Overall process, thread and cache model:
 
 | Responsibility | Owner |
 |---|---|
-| Resolve `ModelConfig.feeds`, persist it on the run | TS producer (`21`, `42`) |
+| Resolve `ModelConfig.feeds` from the calibration file (F-57), persist it on the run | TS producer (`21`, `42`) |
+| Fit and commit new feed calibration files (F-54, F-56) | M10 analysis tooling (`51`) |
 | Resolve price-to-beat into the job (§6.2) | TS producer |
 | Preflight day files from `describe`-exported constants and resolved symbols | TS producer (`src/cli/backtest.ts:988-1098` logic kept) |
 | Make day files present locally; list them in `feedFiles`; fail missing days as `data_missing` before spawn | TS shim / dataset commands (`21` §9, `40`) |
@@ -782,43 +860,29 @@ defaults of `feeds/mod.rs` after review; delete `FeedSettings::from_env` and
 TS oracle; keep the plugin math and `plugins_golden.json`; redesign the plugin
 container (`native/crates/pmb-core/src/plugins.rs:85-190`) to follow §12.1.
 
+## 16. Changes required in other documents
+
+None open: every item was applied in the gate-1 consolidation.
+
+## Gate-4 questions
+
+Deferred to gate 4 (D56); they block no work before M9. The canonical list is
+`01-scope-milestones.md` §12.1; the items that touch this document:
+
+1. **p99 as a pass threshold for feed legs** (01 §12.1 item 7, calibration
+   threshold additions). D35 judges latency components on median bias and
+   p90 only; for lag-sniping strategies the feed tail is where the edge is
+   decided. Should the Binance and Chainlink legs also have to match p99
+   (proposal: within ±30%, n >= 2,000, which the feeds reach in minutes)
+   before realistic becomes default, or does p99 stay report-only (F-55)?
+2. **Fitting sources** (01 §12.1 items 2 and 3): the calibration/live host is
+   F-54's primary source; without agent-run paper sessions on an
+   empty-wallet API key, Chainlink-leg journals come only from user-launched
+   sessions. Worker-2 V4 receipts (F-54 secondary source) are available
+   either way.
+
 ## Open questions
 
-1. **Feed latencies for realistic after the PolyBolt switch.** `L_c = 320 ms`
-   was calibrated on RTDS (2026-07-21); RTDS was replaced by PolyBolt on
-   2026-09-15, and live and V4 now receive PolyBolt. The Binance 110 ms is
-   from 2026-07-16. Proposal: ts-compat keeps the constants forever; before
-   the realistic profile becomes default (gate 3), re-measure all three legs
-   as distributions (§9.1 F-54, from paper/live journals and V4 PolyBolt
-   receipts versus Telonex `server_timestamp_us` on overlapping BTC markets),
-   publish them under a new `calibrationId`, and make that the realistic
-   default. Is that acceptable, given that it changes realistic results on
-   historical data and makes feed timing random (seeded) in realistic runs?
-2. **Feed clock on telonex-delta in realistic.** Telonex local time is about
-   exchange + 7 ms, while the latencies were calibrated against our own
-   recorder's receive clock (exchange + about 50-150 ms delivery). Should the
-   realistic profile compute visibility on `exchange ts + calibrated
-   market-data delay` (a `13-execution-models.md` latency component) once 51
-   provides it, instead of TS `feedClockMs`? (`13-execution-models.md` §6.8
-   proposes its `mdDelay` component as this answer.) The feed distributions
-   of §9.1 are fitted on the bot's receipt clock, so whichever clock is
-   chosen here, the feed and market legs must use the same one.
-3. **V4-only feed capabilities in v1.** Should Rust strategies get Binance
-   `bookTicker`, Chainlink TWAP and the `chainlink-opening-twap` price-to-beat
-   on recorder-v4, journal and live in v1, or stay rejected until a follow-up?
-   (Polymarket resolves 5m/15m markets on a Chainlink TWAP, so the opening
-   TWAP may be the more faithful strike for live strategies.)
-4. **TA candle source.** In-process derivation needs about 7 days of
-   aggTrades per market on a cold process (cached per day afterwards).
-   Alternative: a derived per-day candle dataset produced by a TS dataset
-   command and mirrored through R2. Recommendation: in-process with the
-   candle cache, revisited only if measurement shows it dominates. Agree?
-5. **TA on 5m markets.** TS computes TA only for 15m slugs. Keep that rule in
-   v1 (both profiles), or extend TA to 5m markets whose start is 15m-aligned
-   (an intended model change for realistic)?
-6. **p99 as a pass threshold for feed legs.** D35 judges latency components
-   on median bias and p90 only. For lag-sniping strategies the feed tail is
-   where the edge is decided. Should the Binance and Chainlink legs also have
-   to match p99 (proposal: within ±30%, n >= 2,000, which the feeds reach in
-   minutes) before realistic becomes default, or is p99 report-only as F-55
-   says today?
+None. Resolved at gate 1 (D56): the realistic feed clock (12 §4.3, §3.1);
+V4-only feeds (D43, §7.4); the TA candle source (P-12) and 15m-only TA
+(P-11); feed re-measurement after the PolyBolt switch (F-56).

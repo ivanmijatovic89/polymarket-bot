@@ -19,8 +19,8 @@ Normative keywords: MUST, SHOULD, MAY. Decisions referenced as Dnn are in
 
 ## 1. Scope and references
 
-In scope: BTC 5m and 15m (D06); paper mode (D28); real-order mode behind a
-compile-time feature and an explicit flag (D05); journal (D26); startup
+In scope: BTC 5m and 15m (D06); paper mode (D28); real-order mode in a
+separate `real-orders` build plus an explicit flag (D05, D44); journal (D26); startup
 reconciliation (D29); heartbeat and single key owner (D30); live capital and
 session guards (D31); strategy panic policy (D32); alerts (D33); the TS
 launcher for split/merge/redeem transactions (D25), result persistence and
@@ -48,7 +48,7 @@ Owned by other documents (referenced, not repeated):
 | Strategy SDK, panic contract for strategy authors | 30-strategy-sdk.md |
 | Reproducible build, artifact identity, live trust check | 31-artifacts-build-publish.md |
 | backtest_runs rows for live/paper windows | 42-persistence-and-stats.md §7.4 |
-| Calibration artifacts (committed files `native/calibration/<id>.json`, referenced by `execution.latency.calibrationId`) | 13-execution-models.md §6.8, 51-calibration-plan.md §13 |
+| Calibration sets (committed `native/contract/calibrations/latency/<id>.json`, resolved through `execution.latency.calibrationId` and `clock.marketData.calibrationId`) | 21 §6.3, 13 §7.4, 51-calibration-plan.md §13 |
 | Proof gates and fault-injection suite | 60-verification.md |
 
 ## 2. Principles
@@ -68,8 +68,8 @@ Owned by other documents (referenced, not repeated):
 - **LR-4 Never drop, fail closed.** No input, fill or status is ever dropped
   (contrast `src/trading/StrategyRunner.ts:574-585`, which drops queued
   events). A full queue applies back-pressure, never discard:
-  - journal writer: the soft rule of 22 §6.4 (no new intents, cancels still go
-    out, alert), escalated to the kill switch by the hard bound of §12;
+  - journal writer: the soft bound of 22 §6.4 (no new intents, cancels still
+    go out, alert), escalated to the kill switch by its hard bound (§12);
   - ingress ring: the ingress thread stops reading its socket (TCP
     back-pressure; nothing is lost) and raises `core_stall`; a stall longer
     than 2 s also stops heartbeats through liveness gating (§8.2.9) and trips
@@ -77,8 +77,13 @@ Owned by other documents (referenced, not repeated):
   Logs and telemetry are not inputs: their queues MAY drop lines, counted in
   `status.json` (§15), so a slow log sink can never stall the core.
 - **LR-5 The agent never places real orders.** The AI agent MAY build and run
-  paper mode. It MUST NOT build or run any binary with the `real-orders`
-  feature. Only the user launches real-order mode (§17).
+  paper mode with the `standard` build, which contains no order-sending code
+  (D44); agent-run paper sessions run on worker-1 (D36, 01 §6 M8) and load no
+  secret (§8.1). It MUST NOT build a `real-orders` artifact
+  (`strategy:build-live`) or run the feature against production endpoints;
+  it MAY compile the feature for the mock-exchange, golden-vector and
+  shadow-mode tests of §19, with throwaway keys and nothing sent (31 §5.5,
+  60 §13). Only the user launches real-order mode (§17).
 
 ## 3. Ownership split
 
@@ -90,7 +95,7 @@ Owned by other documents (referenced, not repeated):
 | Capital, session guards, kill switch, strategy panic policy | Rust | §10, §11 |
 | Journal, per-market results, latency telemetry | Rust | §12–§14, §18 |
 | Alerts (push) and status file | Rust | §15 |
-| State and command WebSocket (existing WebUI protocol, 127.0.0.1) | Rust | 20-binary-protocol.md §7, §16 |
+| State and command WebSocket (existing WebUI protocol, 127.0.0.1) | Rust | 20 §7; §16 |
 | Split/merge/redeem transaction submission | TS launcher | `chain_request` / `chain_response` (D25, 20-binary-protocol.md §7), §8.3 |
 | pUSD wrapping, approvals, on-chain balance display | TS scripts | user-run |
 | Static WebUI bundle | TS | `webui/` package, connects to the Rust state WebSocket |
@@ -140,17 +145,24 @@ runtime choice and the measurement method):
 The rules below are written for the current macOS hosts; each OS-specific
 item is the macOS implementation of the platform trait (§4.4).
 
+- **Hosts.** Agent-run paper sessions run on worker-1 (D36). The calibration
+  and live host is chosen at gate 4 (Gate-4 question 2); today's TS live Mac
+  is the MacBook m1-ivan, which takes no native market jobs (D55).
 - The process MUST hold a power assertion that prevents idle system sleep
   (IOKit `PreventUserIdleSystemSleep`) and MUST alert if the system announces
-  sleep. The current live host is a MacBook (m1-ivan,
-  `dashboard/src/data/machines.json`); sleep stops heartbeats and data.
+  sleep; sleep stops heartbeats and data.
 - The launchd job MUST set `ProcessType=Interactive` so App Nap and timer
   coalescing do not delay the loop.
-- While real orders run, backtest workers and Global Runtime sessions on the
-  live host MUST be stopped or capped so performance cores stay free
-  (`calibration-host-isolation` in `research/requirements-sweep.json`;
-  m1-ivan has `cores_for_backtest: 4` of 10). Host load MUST be journaled
-  every 10 s.
+- Paper sessions MAY share worker-1 with the fleet worker, Global Runtime
+  sessions and goal-session builds; their backtest threads run at `utility`
+  or `background` QoS (16 §10.3), and no benchmark runs during a paper session
+  (D47). While real orders run, backtest workers, Global Runtime sessions,
+  the M11 build daemon (31 §11) and goal-session builds, parity runs and
+  benchmarks on the live host MUST be paused (pause Global Runtime runs
+  before stopping any daemon, never kill an in-flight session) or capped to
+  `background` QoS, so performance cores stay free
+  (`calibration-host-isolation` in `research/requirements-sweep.json`).
+  Host load MUST be journaled every 10 s.
 
 ### 4.4 Platform independence
 
@@ -169,23 +181,23 @@ runtime MUST NOT be tied to macOS by design:
   CI or by a local cross build at every milestone from M8. This does not
   change D12: fleet artifacts stay `aarch64-apple-darwin`; the Linux targets
   keep a co-located live host possible without a port under time pressure.
-  Whether live trading ever moves to such a host is Open question 3.
+  Whether live trading ever moves to such a host is part of Gate-4 question 2.
 
 ## 5. Input envelopes, sequencing and clocks
 
 ### 5.1 Envelope
 
-Every input carries `seq` (assigned by the core at dequeue), `mono_ns`
-(monotonic ingress stamp), `wall_ms` (wall ingress stamp), `source`,
-`connection_id`, the raw payload and, when present, the exchange timestamp.
-The full schema is the extended V4 envelope (D26, 22-trace-ledger-journal.md),
-which already exists for captures (`src/recorder-v4/types.ts:22-36,64-84`) and
-is built the same way in the TS live stream
+Every input is journaled as an extended V4 record (D26; schema 22 §6.2:
+`sequence` assigned at core dequeue, `receivedAtMs`, `monotonicNs`, `source`,
+`connectionId`, `sourceTimeMs` when the payload has an exchange timestamp,
+the raw payload) and enters the core as a 12 §3.1 envelope. The record
+already exists for captures (`src/recorder-v4/types.ts:22-36,64-84`) and is
+built the same way in the TS live stream
 (`src/trading/feeds/liveCapturedFeeds.ts:94-115`).
 
 Input kinds: market frames (book, price_change, last_trade_price,
 tick_size_change, best_bid_ask, new_market, market_resolved), feed frames
-(Binance aggTrade/bookTicker, Chainlink, PTB), user-WS frames, REST responses
+(Binance aggTrade, Chainlink rounds, PTB), user-WS frames, REST responses
 (order, batch, cancel, open orders, trades, balances, rules, server time),
 timer firings, `chain_response` results (split/merge/redeem), operator commands,
 connection status changes, clock samples.
@@ -194,7 +206,8 @@ connection status changes, clock samples.
 
 - The journal order MUST equal the core consumption order. Replay feeds the
   journal back in that order; this is the only order that matters for
-  determinism.
+  determinism. Several ingress rings are merged by ascending ingress stamp
+  with a fixed source rank (12 E2).
 - Ingress threads MUST take the stamp at socket read, before decoding, and
   MUST decode with the same pure function that the V4/journal reader uses
   (15-inputs.md). The journal stores the raw frame; replay decodes it again
@@ -204,10 +217,10 @@ connection status changes, clock samples.
 
 ### 5.3 Clocks (D27)
 
-- `mono_ns` is the source of truth for intervals. `wall_ms` is derived as
-  `wall_anchor + (mono_ns − mono_anchor)`, with the anchor taken at startup
-  and re-anchored only by journaled clock-sample envelopes, so `ctx.now`
-  never moves backwards when NTP steps the OS clock.
+- `monotonicNs` is the source of truth for intervals. `receivedAtMs` is
+  derived as `wall_anchor + (monotonicNs − mono_anchor)`, with the anchor
+  taken at startup and re-anchored only by journaled clock-sample envelopes,
+  so `ctx.now` never moves backwards when NTP steps the OS clock.
 - `ctx.now` = local receive time of the triggering envelope.
 - The exchange-time estimate is `ctx.now − skew`. The skew is measured at
   startup and then every 60 s from (a) `GET /time` (second resolution) and
@@ -215,22 +228,16 @@ connection status changes, clock samples.
   bounds offset plus minimum one-way delay. Both are journaled as
   clock-sample envelopes. GTD validation and the late-start gate use the
   exchange-time estimate.
-- **Timers.** The core asks for wake-ups (latency scheduler and taker delay in
-  paper mode, GTD expiry, rotation deadlines, resolution timeouts,
-  reconciliation deadlines). When a deadline passes, the runtime pushes a
-  `Timer` envelope (12 §3.2) that carries two times, kept apart:
-  - **due time** (payload `TimerFired{due}`): the deadline the core asked for.
-    The simulator applies exchange-side effects (simulated arrival, match,
-    expiry, report emission) at the due time (13 §2.3);
-  - **delivery stamp** (envelope `at`): the actual fire time at the ingress
-    queue, as journaled (22 §6.3). The loop clock is `now = max(now, at)`
-    (12 K2), and every event delivered to the strategy from that timer
-    carries `now`, never an earlier stamp (10 V2).
-  The timer's position in the input order is wherever it was dequeued, and
-  replay reproduces it from the journal. On replay the core MUST assert that
-  it had requested exactly that due time (a mismatch is a determinism
-  failure). 13 §2.3's "keep their scheduled due time as ... event stamps"
-  refers to the exchange-side effect time only (§20).
+- **Timers** (`Journaled` scheduler, 13 §2.3 TS1–TS4; stamps 12 E5). The
+  core's deadlines (paper latency and taker delay, GTD expiry, rotation,
+  resolution and reconciliation deadlines) become `Timer(due)` envelopes:
+  synthesized by the core before the first input whose `at` is past the due
+  time, or injected by the runtime's OS timer, armed at `next_due()`, when no
+  input arrives. Both are journaled with their own `sequence`; the OS-timer
+  fire lateness is journaled and shown in the latency report (§18.1).
+  Exchange-side effects keep the due time; events delivered to the strategy
+  carry the loop clock (12 K2, 10 V2). Replay synthesizes no timer and
+  asserts each journaled due time (13 TS4).
 
 ## 6. Market discovery, subscription, rotation, resolution
 
@@ -256,21 +263,18 @@ the active one and the pre-subscribed next one.
   window start (configurable), retried with backoff. A response describing an
   earlier window MUST be retried, as in
   `src/polymarket/upDown15mWindowGuard.ts:31-49`.
-- Rules MUST be fetched from the CLOB market info endpoint for the condition
-  id (`/clob-markets/{condition_id}`, the SDK's `getClobMarketInfo`; tick
-  `mts`, min size `mos`, fee curve `fd {r,e,to}`, taker delay,
-  minimum order age, negRisk) plus Gamma (`feeSchedule`, `secondsDelay`,
-  `orderMinSize`, `orderPriceMinTickSize`, `version`), and journaled before
-  the first tick. They replace the TS lazy warmup
-  (`src/trading/execution/LiveExecution.ts:118-142`). The ExchangeRules
-  structure and the precedence between sources are in 11-exchange-rules.md.
+- Rules MUST be fetched from CLOB `/clob-markets/{condition_id}` (the SDK's
+  `getClobMarketInfo`: `mts`, `mos`, `fd`, `itode`, `oas`) and Gamma
+  (`feeSchedule`, `secondsDelay`, `orderMinSize`, `orderPriceMinTickSize`,
+  `version`, `negRisk`; `negRisk` only from Gamma, 11 K8), journaled as raw
+  bodies and normalized before the first tick (11 §13.6). They replace the
+  TS lazy warmup (`src/trading/execution/LiveExecution.ts:118-142`).
 - `tick_size_change` MUST update the rules in force for validation from the
   envelope on which it is applied.
 - **Market version guard.** The runtime MUST refuse to trade a market whose
   `(version, negRisk)` pair is not in the adapter's tested set. Today that is
-  `(v1, false)`; v2 markets use `positionIds`, domain version 3 and
-  ExchangeV3 (docs.polymarket.com/migrate/polymarket-v2/api-integrations).
-  A refused market is journaled and alerted; paper mode MAY still run it.
+  `(v1, false)`; the other domains of 11 §10 V2 are refused. A refused market
+  is journaled and alerted; paper mode MAY still run it.
 
 ### 6.3 Pre-subscription
 
@@ -285,21 +289,21 @@ the active one and the pre-subscribed next one.
 
 ### 6.4 Window semantics (D23)
 
-- The strategy is called only for envelopes whose `ctx.now` lies inside the
-  strategy window exactly as 12-engine-core.md defines it for backtests (the
-  requirements sweep proposes `[start, end)`). Plugins observe
-  pre-window envelopes from Subscribed onward without strategy calls.
+- The strategy is called only for envelopes with `ctx.now ∈ [start, end)`,
+  the realistic window gate of 12 §5.4. Plugins observe pre-window envelopes
+  from Subscribed onward without strategy calls.
 - **Late start.** If the process starts after `start + late_start_skip`
   (default 15 s, the current TS default at `src/cli/trading-bot.ts:584`),
   the session runs in observe-only mode for that window. The value is part of
   the journaled live config.
-- At `end` the session enters Draining: the runtime MUST send
-  `DELETE /cancel-market-orders {"market": <condition_id>}` (real, recorded
-  cause `WindowEnd`, §8.2.4) or let the simulator's window-end action cancel
-  every resting and delayed order with `Canceled(WindowEnd)` (paper,
-  13 §6.6), then wait for terminal states.
-  Fills and settlement updates that arrive later are still applied to that
-  session.
+- At `end` the session enters Draining (12 §10 `Closing`): `Control(WindowEnd)`
+  makes the OM send `CancelMarket{Market}` with cause `WindowEnd`. Real mode
+  sends it as `DELETE /cancel-market-orders {"market": <condition_id>}`
+  (§8.2.4); paper mode lets it travel with the simulated cancel latency, and
+  the simulated exchange-side close cancels what still rests with
+  `Canceled(MarketClosed)` (13 §6.6, 13 §8). The session then waits for
+  terminal states. Fills and settlement updates that arrive later are still
+  applied to that session.
 
 ### 6.5 Resolution and reporting
 
@@ -316,8 +320,8 @@ the active one and the pre-subscribed next one.
 |---|---|---|---|---|
 | Market | `wss://ws-subscriptions-clob.polymarket.com/ws/market` | `type: market`, `initial_dump`, `custom_feature_enabled: true`, then `operation` add/remove | text `PING` every 10 s; stale if no frame for `market_stale_ms` (default 15 s) | rebuild books from the fresh `book` dump; keep strategy and plugin state |
 | User (real only) | `wss://ws-subscriptions-clob.polymarket.com/ws/user` | `{"auth":{...},"type":"user","markets":[cond...]}` sent immediately | text `PING` every 10 s; stale after 25 s | REST reconcile (§8.2.7) before applying new frames |
-| Binance | `wss://stream.binance.com:443/stream?streams=btcusdt@aggTrade/btcusdt@bookTicker` | combined stream | WS ping/pong; stale after 10 s | resume; gap journaled |
-| Chainlink | PolyBolt `wss://ws-live-v2.polymarket.com/ws` | as in `src/recorder-v4/feeds/polybolt.ts` | per provider; stale after 10 s | resume; gap journaled |
+| Binance | `wss://stream.binance.com:443/stream?streams=btcusdt@aggTrade` (`bookTicker` only with follow-up F7, D43) | combined stream | WS ping/pong; stale after 10 s | resume; gap journaled |
+| Chainlink | PolyBolt `wss://ws-live-v2.polymarket.com/ws` | rounds as in `src/recorder-v4/feeds/polybolt.ts` (TWAP only with F7, D43) | per provider; stale after 10 s | resume; gap journaled |
 | PTB | website poll (`src/recorder-v4/feeds/priceToBeat.ts`) | per market from start | poll interval 1 s, 429 backoff | n/a |
 
 Endpoints and payload shapes are those of the V4 recorder
@@ -364,42 +368,43 @@ Rules:
 
 ### 8.1 Paper adapter (D28)
 
-- Paper mode MUST use the realistic simulator of 13-execution-models.md,
-  driven by live envelopes, with the ModelConfig and seed from the live
-  config (seed derived from (session seed, slug), as in backtests).
+- Paper mode MUST use the realistic simulator of 13-execution-models.md in
+  `Journaled` mode (13 §8), driven by live envelopes, with the ModelConfig and
+  seed from the live config (seed derived from (session seed, slug), as in
+  backtests). Effective latencies include the live host's `md` distribution
+  (`clock.marketData`, 12 §4.5; 13 §6.8: `L_place = md + place`); until that
+  host is measured in M10, worker-2's distribution stands in and outputs are
+  flagged uncalibrated.
 - Own orders are not in the real book. Queue-ahead is computed from the
   displayed size, exactly as on a V4 backtest.
 - Simulated delays (latency, taker delay, settlement) use timer envelopes
   (§5.3).
 - Paper mode MUST NOT send heartbeats, MUST NOT open the user WS, MUST NOT
   call any authenticated trading endpoint and MUST NOT hold a private key.
-  A build without `real-orders` contains no code that can call a trading
-  endpoint.
-- **Chainlink credentials (interim rule until Open question 7 is answered).**
-  The PolyBolt Chainlink feed authenticates with the three CLOB API values
-  (`src/recorder-v4/feeds/polybolt.ts:26-32,68`), and those values are not
-  read-only scoped (`docs/datasets/recording/recorder-v4.md:136`): they also
-  authorize cancels on their account. The unauthenticated RTDS stream that
-  the TS bot used (`src/trading/feeds/rtdsCryptoPricesClient.ts:88,142`) was
-  replaced by PolyBolt on 2026-09-15 (14 §5.1) and is a different feed, so
-  using it would be a substitution, which §7 forbids. Until the user decides,
-  the rule that satisfies 20 §7 ("paper reads no secrets") and R10 holds:
+  The `standard` build contains no code that can call a trading endpoint
+  (D44).
+- **Chainlink credentials (interim rule until Gate-4 question 1).** The
+  PolyBolt Chainlink feed authenticates with the three CLOB API values
+  (`src/recorder-v4/feeds/polybolt.ts:26-32,68`), which are not read-only
+  scoped (`docs/datasets/recording/recorder-v4.md:136`): they also authorize
+  cancels on their account. The unauthenticated RTDS stream of the TS bot
+  (`src/trading/feeds/rtdsCryptoPricesClient.ts:88,142`) was replaced by
+  PolyBolt on 2026-09-15 (14 §5.1); using it would be a substitution, which
+  §7 forbids. Until the answer (01 §6 M8, option (a)):
   - An agent-run `paper` session loads no secret. A strategy whose requested
-    feeds include Chainlink fails the start with `feed_unavailable`
-    (detail `chainlink_requires_feed_credentials`); it is never started
-    without the feed.
+    feeds include Chainlink fails the start with `feed_unavailable` (detail
+    `chainlink_requires_feed_credentials`); it never starts without the feed.
   - The M8 identity proof (§13.4) runs on strategies that do not request
-    Chainlink (engine exerciser, realistic exerciser, a feed-exerciser
-    configuration without Chainlink). The PolyBolt decoder and the Chainlink
-    receipt-clock visibility are covered by V4 replay in M7, which uses the
-    same pure decoder (§5.2, 14 F-31); only the live PolyBolt socket client
-    is left to a session with credentials.
-  - Paper sessions of Chainlink strategies (lagsnipe.v15.rs for 51 P11 and
-    Mode C) wait for the user's choice. If the user launches them, `paper`
-    needs an optional feed-credential channel (`--feed-secrets-fd <n>`,
-    PolyBolt triple only, used only for the PolyBolt auth frame, redacted per
-    22 §6.7); the binary still has no `real-orders` code, so it cannot call
-    any trading endpoint with them. That flag is a change to 20 §7 (§20).
+    Chainlink (engine exerciser, feed exerciser with `chainlink: false`,
+    60 §5.8). The PolyBolt decoder and the Chainlink receipt-clock visibility
+    are covered by V4 replay in M7 with the same pure decoder (§5.2, 14 F-31);
+    only the live PolyBolt socket client needs a session with credentials.
+  - Chainlink paper sessions (lagsnipe.v15.rs for 51 P11 and Mode C, the full
+    feed exerciser) are launched by the user with the feed-credential channel
+    `--feed-secrets-fd <n>` (20 §7): the PolyBolt triple only,
+    used only for the PolyBolt auth frame, redacted per 22 §6.7. The binary
+    still has no trading-endpoint code. The agent passes the channel only if
+    Gate-4 question 1 allows an empty-wallet key.
 - `paper --decisions-only` (20 §7) accepts and opens every valid order and never
   fills or expires it (the TS dry-run behavior,
   `src/trading/OrderManager.ts:508-521`). Its outputs are flagged
@@ -418,13 +423,10 @@ Rules:
 
 #### 8.2.2 Order signing
 
-EIP-712 domain, selected per market from the rules snapshot:
-
-| Market | name | version | verifyingContract |
-|---|---|---|---|
-| v1, not negRisk (BTC 5m/15m today) | Polymarket CTF Exchange | 2 | `0xE111180000d2663C0091e4f400237545B87B996B` |
-| v1, negRisk (refused by the version guard) | verify before use | 2 | `0xe2222d279d744050d28e00520010520000310F59` |
-| v2 / ExchangeV3 (refused by the version guard) | Polymarket CTF Exchange | 3 | `0xe3333700cA9d93003F00f0F71f8515005F6c00Aa` |
+EIP-712 domain `Polymarket CTF Exchange`, version and `verifyingContract`
+selected per market from 11 §10 V2. Only the v1, non-negRisk domain
+(version 2, `0xE111180000d2663C0091e4f400237545B87B996B`; BTC 5m/15m today)
+is in the tested set; the others are refused by the version guard (§6.2).
 
 Signed struct: `salt, maker, signer, tokenId, makerAmount, takerAmount, side,
 signatureType, timestamp (ms), metadata (bytes32), builder (bytes32)`. The V1
@@ -433,19 +435,18 @@ the POST body for GTD only (docs.polymarket.com/v2-migration).
 
 - `makerAmount`/`takerAmount` are integers in 1e-6 units, which equal the
   engine's fixed-point base (10-domain-model.md). They MUST be computed by
-  the same ExchangeRules function the simulator uses (price/size/amount
-  decimals per tick, FOK/FAK BUY sized as pre-fee collateral,
-  11-exchange-rules.md).
+  the same ExchangeRules function the simulator uses (11 §7; a FOK/FAK BUY
+  is sized in pre-fee collateral, and a share-sized one is converted at its
+  limit price, 10 §7.2 O2, D42).
 - `salt` comes from the OS CSPRNG (never the engine RNG) and is journaled.
   `timestamp` is the egress wall time in ms. `metadata` and `builder` are
   zero unless a builder code is configured.
-- GTD `expiration` (seconds) MUST come from the shared conversion in
-  11-exchange-rules.md (effective expiry + 60 s, and at least 3 min ahead of
-  the exchange-time estimate). The TS bot sends `floor(expireAtMs/1000)`
-  without the 60 s (`LiveExecution.ts:189-191`), which is a bug.
+- GTD `expiration` (seconds) MUST come from the shared conversion of 11 §8
+  GT1–GT3, checked against the exchange-time estimate (§5.3). The TS bot's
+  missing 60 s (`LiveExecution.ts:189-191`) is not carried over (11 GT5).
 - The adapter MUST compute the EIP-712 order hash locally before sending and
-  treat it as the expected `orderID`. This is verified by a day-0 probe
-  (51-calibration-plan.md); until verified, reconciliation also matches on
+  treat it as the expected `orderID`. Until the day-0 probe verifies this
+  (51 §6.1 R13), reconciliation also matches on
   `(asset, side, price, original_size, created_at window)`.
 - Domain separators, type hashes and per-asset token ids MUST be
   precomputed when the session loads its rules.
@@ -506,7 +507,7 @@ way live and in backtest.
 | user-WS order `UPDATE` | consistency check of `size_matched`; fills come from trade events |
 | order fully matched (`UPDATE` with `size_matched = original_size`, or our trades summing to it) | `OrderDone(Filled, filled = size)` after the last `Fill` |
 | user-WS order `CANCELLATION` | terminal event per the cancel-cause table below, with authoritative `filled = size_matched` |
-| first sight of one of our trades, any status (REST or user WS) | `Fill` (one per counterparty leg, §8.2.5) with settlement status `Matched`, then any later status of that sight as below |
+| first sight of one of our trades, any status (REST or user WS) | `Fill`s in the unit of 13 §4.5 F-U1 (one per own order, trade and price level; legs at one price aggregated, §8.2.5) with settlement status `Matched`, then any later status of that sight as below |
 | `MATCHED` or `MATCHED_NOT_BROADCASTED` for a known trade | no event (`MATCHED_NOT_BROADCASTED` ranks as `Matched`, 10 §9.2; the raw status stays in the journal and sidecar) |
 | `MINED`, `CONFIRMED`, `RETRYING` | `SettlementUpdate{Mined \| Confirmed \| Retrying}` (10 §9.2 ranks) |
 | `FAILED` | `SettlementUpdate{Failed}`: fill reversal (10 F1; the strategy is notified) |
@@ -551,7 +552,7 @@ runtime did not send. Every row of both tables has a mock-exchange test
   adds the final filled size the capital model needs.
 - A cancel of an order in state delayed is sent normally. The exchange
   answer is mapped as above; the simulator returns the same class. The day-0
-  probe records what the exchange actually answers.
+  probe records what the exchange actually answers (51 §6.1 R3).
 - Timestamp units: `timestamp` is ms; `created_at`, `match_time`,
   `last_update`, `expiration` are seconds
   (docs.polymarket.com/trading/realtime-order-updates).
@@ -563,14 +564,17 @@ runtime did not send. Every row of both tables has a mock-exchange test
   come from `maker_orders[]` entries whose `owner` equals our key; a maker
   fill is never lost because the owner was not yet learned (TS bug,
   `src/polymarket/ws/userWsAccountSource.ts:280-287`).
-- Fill ids are derived identically from user-WS and REST trades:
-  maker fill `"{tradeId}:M:{ourOrderId}"`, taker fill leg
-  `"{tradeId}:T:{makerOrderId}"`, one leg per counterparty with that leg's
-  price and matched amount. This keeps the TS property that either source
-  may arrive first without double counting
-  (`research/approach-audit.json`, execution audit) and adds per-level taker
-  prices for VWAP calibration. The units of `matched_amount` per side are a
-  day-0 verification item.
+- Raw fill-leg ids are derived identically from user-WS and REST trades
+  (this section owns them, 10 I3): maker leg `"{tradeId}:M:{ourOrderId}"`,
+  taker leg `"{tradeId}:T:{makerOrderId}"`, one leg per counterparty with
+  that leg's price and matched amount. Either source may arrive first
+  without double counting (`research/approach-audit.json`, execution audit).
+  Raw legs are used for dedupe and kept in the journal sidecar and the ledger
+  side tables (22 §4.2, §6.5); the core receives aggregated `Fill`s
+  (13 §4.5 F-U1, F-U3) whose fee is the sum of per-leg fees computed by
+  ExchangeRules at the exchange's fee granularity (11 FC4). The units of
+  `matched_amount` per side and the fee granularity are day-0 items
+  (51 §6.1 R13, R14).
 - Settlement progress is keyed by trade id and attached to our own order, not
   to `taker_order_id` (TS bug, `userWsAccountSource.ts:259-273`).
 - FAK/FOK responses carry `tradeIDs` (since 2026-07-24). The adapter MUST
@@ -754,7 +758,7 @@ difference above $0.05 raises `reconciliation_mismatch`.
 
 Triggers: any guard above, operator command `kill`, `SIGUSR1`, the presence
 of the file `<state_dir>/KILL`, the journal hard bound (§12), an ingress
-stall over 2 s (LR-4), a second key owner. Actions,
+stall over 2 s (LR-4), a second key owner, an engine fault (12 §11). Actions,
 in order: stop strategy calls in every session; `DELETE /cancel-all` (real)
 or cancel all simulated orders (paper), both with cause `KillSwitch`; keep
 applying account events until
@@ -801,31 +805,15 @@ restart never resets the loss budget. A new baseline needs an explicit
   user-WS subscription frame is journaled with the `auth` object replaced by
   the key id. The TS source logged raw user messages and a partial key
   (`userWsAccountSource.ts:515-535`).
-- **Layout, durability, finalization: 22 §6.4 is normative.** One JSONL file
-  per market plus `session.jsonl`, so one market file replays one market
-  (15 I-49); fsync at most every 100 ms and at market end; finalization
-  (gzip, sha256, manifest) after market end plus the resolution grace; upload
-  by the TS launcher with read-back verification (D15). This document adds
-  only: the writer also fsyncs at every session state change (halted, kill
-  switch, rotation), and the runtime never deletes a journal file itself.
-  Any size-based splitting for upload belongs to the finalization step of
-  22, never to the replay unit.
-- **Back-pressure, two bounds and a reserve.** Every consumed envelope is
-  journaled first, so the bounds below never drop a record.
-  - *Soft* (queued bytes ≥ 16 MiB): the 22 §6.4 rule. The loop stops issuing
-    new intents, cancels still go out, alert `journal_backpressure`. Inputs
-    are still consumed and journaled.
-  - *Hard* (queued bytes ≥ 64 MiB, or the soft state lasts more than
-    `journal_stall_kill_ms`, default 5,000 ms): the kill switch trips
-    (§10.4). From then on the core consumes only account inputs (REST and
-    user-WS responses) and timers; market and feed ingress wait (TCP
-    back-pressure, LR-4).
-  - *Reserve* (4 MiB above the hard bound): usable only by cancel requests,
-    their responses, account inputs and kill-switch records, so the
-    kill-switch cancels are journaled before they are sent.
-  The TS V4 live stream follows the same never-drop rule with a 16 MiB limit
-  (`src/trading/feeds/liveCapturedFeeds.ts:94-97`). All three values are live
-  config fields, journaled in the market header.
+- **Layout, durability, finalization and back-pressure: 22 §6.4 is
+  normative** (one JSONL file per market plus `session.jsonl`; fsync at most
+  every 100 ms, at market end and at every session state change; soft, hard
+  and reserve bounds; finalization and verified upload by the TS launcher).
+  This document adds only the runtime's reactions: the soft bound raises
+  alert `journal_backpressure`, the hard bound trips the kill switch
+  (§10.4), and the runtime never deletes a journal file itself. Any
+  size-based splitting for upload belongs to finalization, never to the
+  replay unit.
 - **Logs are not the journal.** Logs follow §15.
 
 ## 13. Identical-decision replay proof
@@ -851,36 +839,41 @@ equality). Any difference is a determinism bug and blocks the live track.
 
 ### 13.3 Cross-artifact proof
 
-The live binary is built with `real-orders`; the fleet artifact with the same
-source hash apart from the feature set is built without it (§17). Replaying a live or paper journal
-with the fleet artifact MUST give identical decisions. This proves that the
-feature gates only the adapter and that the strategy the fleet backtests is
-the strategy that traded.
+The live binary is the `real-orders` variant; the fleet artifact is the
+`standard` variant with the same source hash (D44, §17). Replaying a live or
+paper journal with the fleet artifact MUST give identical decisions. This
+proves that the feature gates only the adapter and that the strategy the
+fleet backtests is the strategy that traded. Timing (60 LV-3): at G4, once
+the live host is chosen, the user builds the `real-orders` variant there and
+runs a short `paper` session with it (paper sends no order); the agent
+replays that journal with the `standard` artifact. The first real-order
+journal of M10 repeats the proof.
 
 ### 13.4 Required coverage
 
 The journal identity proof belongs to M8 (01-scope-milestones.md,
 60-verification.md DET-11, LV-1); M7 delivers only the shared reader
-foundation. It needs zero differences on a paper session of at least 24 h
-covering 5m and 15m (more than 300 windows), plus drills that include at
+foundation. It needs zero differences on paper sessions totaling at least
+24 h and covering 5m and 15m (more than 300 windows; 01 M8), plus drills that include at
 least one market-WS reconnect, one restart, one rotation with a pending
 order, one injected strategy panic, one kill switch, one GTD expiry and one
-journal soft-bound stall (§12). Under the interim rule of §8.1 the session
-runs strategies that do not request Chainlink. M9 adds the same proof for
-user-WS reconnects on journals from shadow mode and mock-exchange tests.
+journal soft-bound stall (§12). Under the interim rule of §8.1 agent-run
+sessions run on worker-1 with strategies that do not request Chainlink. M9 adds the
+same proof for user-WS reconnects on journals from shadow mode and
+mock-exchange tests.
 
 ### 13.5 Live-vs-backtest decision parity (diagnostic, free)
 
-Before any real order, the same strategy runs in paper mode on the live host
-while worker-2 records the same markets with Recorder V4. A V4 backtest of each
-recorded market with the paper ModelConfig and seed is compared with the
-paper output: decision agreement rate, first divergence (seq and cause:
-input difference, timer ordering, clock), and PnL difference per market.
-This is reported, not gated. It measures how much host and socket differences
-alone change decisions, before execution effects enter
-(51-calibration-plan.md uses it as a baseline, P11, and as context for its
-free-running Mode C, 51 §11.3). For lagsnipe.v15.rs it needs Chainlink in
-paper (§8.1, Open question 7).
+Before any real order, the same strategy runs in paper mode (worker-1 for
+agent-run sessions; the calibration host once chosen) while worker-2 records
+the same markets with Recorder V4. A V4 backtest of each recorded market with
+the paper ModelConfig and seed is compared with the paper output: decision
+agreement rate, first divergence (seq and cause: input difference, timer
+lateness (13 TS2), clock), and PnL difference per market. This is reported,
+not gated. It measures how much host and socket differences alone change
+decisions, before execution effects enter (51-calibration-plan.md uses it as
+a baseline, P11, and as context for its free-running Mode C, 51 §11.3). For
+lagsnipe.v15.rs it needs Chainlink in paper (§8.1).
 
 ## 14. Per-market results and reconciliation
 
@@ -907,16 +900,19 @@ paper (§8.1, Open question 7).
 | market-WS gap > `gap_alert_ms` in an Active session, feed stale, reject burst, foreign activity | high |
 | process restart after a crash (real mode) | high |
 | exchange Restarting / PostOnly / CancelOnly, slow callbacks, clock skew > 250 ms | info |
-| daily summary (PnL, fills, rejects, latency percentiles) | info |
+| daily summary (PnL, fills, rejects, latency percentiles), after G3 | info |
 
-- Push alerts go to the phone through the configured provider over HTTPS from
-  the telemetry thread. Delivery never blocks the core; failed deliveries
-  are retried and journaled. The same alert is coalesced to at most one per
-  60 s. Alerts contain no secrets.
+- Push alerts go to the phone through the configured provider (Gate-4
+  question 4) over HTTPS from the telemetry thread. Delivery never blocks the
+  core; failed deliveries are retried and journaled. The same alert is
+  coalesced to at most one per 60 s. Alerts contain no secrets.
 - The runtime writes `<state_dir>/status.json` atomically every 1 s (mode,
   sessions, PnL, exposure, open orders, exchange state, feed health, last
-  alert, dropped log lines). A SwiftBar plugin next to
-  `ops/swiftbar/polybot.mjs` (which today shows fleet status only) renders it.
+  alert, dropped log lines); the operator checklist of 51 §7.1 reads it.
+- **After G3 (not a G4 prerequisite):** the daily summary and the D33
+  SwiftBar status line (a plugin next to `ops/swiftbar/polybot.mjs`, which
+  today shows fleet status only) that renders `status.json`. Push alerts and
+  `status.json` cover supervision during calibration.
 - **Logs.** The binary logs NDJSON to stderr (20 G1) from the telemetry
   thread only; the core and egress threads hand log events over a bounded
   queue that drops and counts on overflow (LR-4), so logging never blocks
@@ -930,9 +926,9 @@ paper (§8.1, Open question 7).
   `ops/macos/recorder-v4/com.polymarket.recorder-v4.plist.template`) runs the
   launcher, which runs the runtime; a systemd unit template is the Linux
   equivalent (§4.4). In real mode it MUST NOT auto-restart after a kill
-  switch (the `halted` state refuses start). After a crash it MAY restart at
-  most 3 times per hour; every restart runs the full startup reconciliation
-  and alerts.
+  switch (the `halted` state refuses start). After a crash it restarts at
+  most 3 times per hour (default pending Gate-4 question 5; `0` disables
+  restarts); every restart runs the full startup reconciliation and alerts.
 - **Upgrade rule.** The binary may be replaced only when no session is Active
   and no order is open (between windows or after a drain).
 
@@ -951,7 +947,7 @@ if the WebUI is closed, nothing changes.
 | Trust check before start | TS launcher | 31-artifacts-build-publish.md §10 |
 | Split / merge / redeem transactions | TS launcher | answers `chain_request` with `chain_response`; the response is a journaled input envelope |
 | Result ingest | TS launcher | `market_result` → MySQL rows (D11, 42-persistence-and-stats.md) |
-| Journal upload | TS launcher | finalized market files (22 §6.4) → private R2 bucket (D15) |
+| Journal upload | TS launcher | finalized market files (22 §6.4) → private R2 bucket (D15); bucket and token are the R2 gate-4 question (22, 01 §12.1 item 1), and journals stay local until then |
 | State and commands | Rust | WebSocket on 127.0.0.1 in the existing WebUI protocol (`webui/src/types.ts:66-89`) |
 | Static WebUI bundle, on-chain balance display | TS | display only; never an input to decisions |
 
@@ -976,8 +972,8 @@ if the WebUI is closed, nothing changes.
 | `resume` | paper, real | lifts `pause` from the next window on | `SessionStart` with strategy at the next window |
 | `heartbeat_pause {seconds ≤ 30}` | real, only with `calibration.allowHeartbeatPause = true` | suspends heartbeats (§8.2.9); refused otherwise | none (adapter action; its effects arrive as exchange cancellations) |
 
-  The commands beyond the WebUI's current three (`webui/src/types.ts:66-89`)
-  need an extension of the command list in 20 §7 (§20).
+  The vocabulary is the closed list of 20 §7, journaled as 22 §6.3
+  `operator` records.
 - Non-loopback binds are refused; the TS default `0.0.0.0` with an
   unauthenticated `cancel_all` (`src/cli/trading-bot.ts:1096-1099`) is not
   carried over. The redeem watcher's `refresh_balance`
@@ -985,23 +981,26 @@ if the WebUI is closed, nothing changes.
   WebSocket.
 - **CLOB V2 on-chain prerequisite.** The TS on-chain stack is USDC.e and
   V1-only (`src/polymarket/contractAddresses.ts:4`). Before split/merge or
-  redeem runs against real funds, the launcher's on-chain code MUST be updated for pUSD
-  collateral and verified for v1 markets on CLOB V2 (redeem collateral,
-  approvals to the V2 exchange). Real-order mode with a strategy whose
+  redeem runs against real funds, the launcher's on-chain code MUST be
+  updated for pUSD collateral and verified for v1 markets on CLOB V2 (redeem
+  collateral, approvals to the V2 exchange) for the wallet type chosen at
+  gate 4 (Gate-4 question 3). Real-order mode with a strategy whose
   `describe` output declares split or merge use (20-binary-protocol.md) MUST
   refuse to start until that verification is recorded.
 
 ## 17. Real-order gate, trust and secrets
 
 - Real-order code (signing, authenticated trading endpoints, heartbeat) is
-  compiled only with the cargo feature `real-orders`. Fleet artifacts and
-  every agent build MUST be built without it, so they contain no path that
-  can place or cancel a real order.
+  compiled only into the `real-orders` variant (cargo feature
+  `pmb-sdk/real-orders`, D44). Fleet artifacts and every artifact the agent
+  builds are the `standard` variant, which contains no path that can place or
+  cancel a real order (31 §5.5); agent test builds with the feature follow
+  LR-5.
 - Real orders additionally require the gate of 20-binary-protocol.md §7
   (`--real-orders`, `config.realOrders = true`, clean engine at or above the
   live-safe minimum, key lock) plus a config field `confirm_funder` equal to
   the funder address. Real mode is never inferred from `DRY_RUN`, `.env` or
-  `.env.$BOT_ENV`; the binary loads no dotenv file at all (this machine has
+  `.env.$BOT_ENV`; the binary loads no dotenv file at all (m1-ivan has
   `DRY_RUN=false` in its env files and the bot file overrides the shell,
   `src/config/env.ts:16-29`).
 - **Live-safe minimum (owned here).** `native/live/policy.json` holds
@@ -1015,18 +1014,18 @@ if the WebUI is closed, nothing changes.
   `engineVersion` is below the value or the value is `null` (20 §7 gate 3).
   Both checks are journaled. The engine blocklist (40 §11) applies in
   addition.
-- **Two variants, one source (D05, D17).** The `real-orders` variant is built
-  only on the live host by the reproducible build of
-  31-artifacts-build-publish.md §5.5 and is never published to the fleet. The
-  launcher MUST run the trust check of 31-artifacts-build-publish.md §10,
-  including that a `standard` artifact with the same source hash apart from
-  the feature set exists. 20-binary-protocol.md Open question 1 records the
-  identity trade-off of a feature-gated build; the cross-artifact replay
-  proof (§13.3) is this document's answer to it: it shows that the strategy
-  the fleet backtested is the strategy that traded.
+- **Two variants, one source (D05, D17, D44).** The user builds the
+  `real-orders` variant on the live host with `strategy:build-live` from the
+  tree that `strategy:verify-rebuild` of the `standard` artifact has just
+  reproduced (31 §5.5); it is never published to the fleet. The launcher MUST
+  run the trust check of 31 §10, including the shared `source_hash` and
+  `parent_sha256` = the standard sha. The cross-artifact replay proof
+  (§13.3) shows that the strategy the fleet backtested is the strategy that
+  traded.
 - Secrets come only through `--secrets-fd` (20-binary-protocol.md §7):
-  private key; API key, secret, passphrase; push token. They are held in
-  memory only, zeroized on drop, and never written anywhere (§12).
+  private key; API key, secret, passphrase; the push credential (for ntfy,
+  the private topic). They are held in memory only, zeroized on drop, and
+  never written anywhere (§12).
 - The live config (risk limits, allocation, model parameters, timeframes,
   thresholds) is a file whose sha256 is journaled. Behavior never comes from
   environment variables.
@@ -1044,9 +1043,9 @@ Every envelope and order carries monotonic stamps at: socket read (ingress),
 decode done, core dequeue, strategy start and end, intent validated, egress
 dequeue, sign start and end, request bytes written, response first byte,
 response parsed, core applied. A latency report computed from the journal
-(TS tool or Rust subcommand, 16-performance-and-parallelism.md §12.3) MUST print
-p50/p90/p99/max per segment and per order type. 16-performance-and-parallelism.md owns the
-report format.
+(`latency-report`, 16 §12.3) MUST print p50/p90/p99/max per segment and per
+order type, the timer-lateness histogram of OS-fired timers (13 TS2) and the
+host and its load (§4.3). 16 §12.3 owns the report format.
 
 ### 18.2 Targets (reported, not gated, D07)
 
@@ -1082,16 +1081,19 @@ report format.
   (16-performance-and-parallelism.md §12.2). Two measurements are required:
   - M8: the redundant market-WS shadow measurement of §7 (how much a second
     connection would cut `md`);
-  - M9: an unauthenticated network report from the live host (m1-ivan) and
-    from worker-2: TCP connect, TLS handshake and `GET /time` round trip to
-    `clob.polymarket.com`, WS connect time and the market-data delay
-    lower envelope on `wss://ws-subscriptions-clob.polymarket.com`, 1,000
-    samples per item spread over 24 h, p50/p90/p99. No credentials are
-    involved, so the agent MAY run it. The same report from one candidate
-    cloud region runs only if the user provides that host (Open question 3);
-    the region MUST pass the geoblock check (§8.2.3) before any credential is
-    placed there.
-  The report is an input to the host decision; calibration (51) is valid only
+  - M9: an unauthenticated network report from each candidate calibration
+    and live host (m1-ivan and worker-1) and from worker-2: TCP connect, TLS
+    handshake and `GET /time` round trip to `clob.polymarket.com`, WS connect
+    time and the market-data delay lower envelope on
+    `wss://ws-subscriptions-clob.polymarket.com`, 1,000 samples per item
+    spread over 24 h, p50/p90/p99. No credentials are involved, so the agent
+    MAY run it on worker-1 and worker-2. On m1-ivan, which does no engine work
+    (01 §8.1 H6), the user starts the same `standard` binary built on worker-1
+    (no build there) unless the user gives the agent access for this one
+    report; nothing else runs there. The same report from one cloud region runs
+    only if the user provides that host (Gate-4 question 2); the region MUST
+    pass the geoblock check (§8.2.3) before any credential is placed there.
+  The report is an input to Gate-4 question 2; calibration (51) is valid only
   for the host that produced it (51 §16).
 
 ## 19. Live track milestones
@@ -1101,65 +1103,73 @@ following proof details.
 
 | Milestone | Proof details from this document | Gate |
 |---|---|---|
-| M8 Live paper mode | §13.4 replay identity with zero diffs; zero dropped inputs; §13.5 decision-parity report; §18 latency report; redundant market-WS shadow report (§7); Linux build and unit tests of the runtime crates (§4.4) | — |
-| M9 CLOB V2 adapter | golden vectors vs the official SDK (§8.2.2); mock-exchange tests for every row of §8.2.4 (both cancel-cause tables included) and §8.2.8, and for the batch and cancel-id caps (§8.2.3); heartbeat liveness-gating test (§8.2.9); ambiguous-POST test (§8.2.6); journal soft- and hard-bound tests (§12); shadow mode during a paper session (orders built and signed with a throwaway key, never sent) with its egress latency report; the network report of §18.3; a test that a `standard` build cannot reach a trading endpoint; `native/live/policy.json` present (§17); all adapter tests also green on the Linux targets (§4.4) | G4 (user) |
+| M8 Live paper mode | On worker-1 (D36): §13.4 replay identity with zero diffs; zero dropped inputs; §13.5 decision-parity report; §18 latency report; redundant market-WS shadow report (§7); journal bytes per market-day (input to the live host's disk need, Gate-4 question 2); Linux build and unit tests of the runtime crates (§4.4) | — |
+| M9 CLOB V2 adapter | golden vectors vs the official SDK (§8.2.2); mock-exchange tests for every row of §8.2.4 (both cancel-cause tables included) and §8.2.8, and for the batch and cancel-id caps (§8.2.3); heartbeat liveness-gating test (§8.2.9); ambiguous-POST test (§8.2.6); journal soft- and hard-bound tests (§12); shadow mode during a paper session (orders built and signed with a throwaway key, never sent) with its egress latency report; the network report of §18.3; a test that a `standard` build cannot reach a trading endpoint; `native/live/policy.json` present (§17); all adapter tests also green on the Linux targets (§4.4); a check from public docs whether `clob-staging.polymarket.com` accepts orders without funds; if it does, the G4 report proposes a user-launched staging run with a staging key before the first real order | G4 (user) |
 | M10 Calibration | 51-calibration-plan.md | G3 (user) |
 
 ## 20. Interfaces this document relies on
 
-The rules above assume the following statements in documents owned
-elsewhere. Where one is still missing there, this document's rule applies to
-the live runtime and the owner aligns its text.
+None open: the statements this document relies on (the timer-lateness
+histogram in 16 §12.3; `paper --feed-secrets-fd` from M8 in 20 §7) were
+applied in the gate-1 consolidation.
 
-| Assumption | Where it belongs |
-|---|---|
-| `TradingRestricted{mode}` includes `Restarting` (HTTP 425), next to `PostOnly`, `CancelOnly`, `Disabled` | 10 §10.2 |
-| `MATCHED_NOT_BROADCASTED` normalizes to `Matched` (no new `SettlementStatus` variant) | 10 §9.2 (note) |
-| Live GTD expiry is `OrderDone(Expired)`; `CancelCause` has no `expired` member; runtime-sent cancels carry `WindowEnd`, `KillSwitch`, `StrategyPanic`, `Rotation`, `Operator` | 10 §8.2, §10.2 (already stated) |
-| A `Timer` envelope carries the due time for exchange-side effects; its `at` is the fire time, clamped by K2, and stamps delivered events | 12 §3.2, 13 §2.3 |
-| `SessionStart` carries an observe-only flag (late start §6.4, `pause` §16) | 12 §3.2 |
-| Operator vocabulary `kill`, `pause`, `resume`, `heartbeat_pause` in addition to `cancel_order`, `cancel_all`, `refresh_balance` | 20 §7, 22 §6.3 |
-| `paper --feed-secrets-fd <n>`, only if the user chooses option (b) of Open question 7 | 20 §7 |
-| The journal identity proof is M8; M7 delivers the reader foundation | 15 §1, I-50, I-V5; 22 §1, §6.1; D26 rationale |
-| Journal hard bound and stall escalation to the kill switch; fsync at session state changes; reserved cancel headroom | 22 §6.4 (soft rule already there) |
-| One mock-exchange case per cancel-cause row, per cap, per journal bound | 60 LV-6 |
-| Live-safe minimum = `native/live/policy.json` `liveMinEngineVersion` | 31 §10 step 4, 20 §7 gate 3 |
-| Live runtime crates also build and test on the two Linux targets (fleet stays `aarch64-apple-darwin`, D12) | 16 §10.2, 60 |
+## Gate-4 questions
+
+Deferred to gate 4 by the lead (D56; collected in 01 §12.1). Nothing before
+M9 depends on them; the interim rules stated in the text apply until then.
+
+1. **Agent-run paper sessions with an empty-wallet key** (01 §12.1 item 2;
+   formerly Open question 7). The live Chainlink price stream (PolyBolt)
+   needs a Polymarket API key, and that key can also cancel the orders of its
+   account. May the agent run Chainlink paper sessions (lagsnipe, the full
+   feed exerciser) on worker-1 with the API key of a new wallet that holds no
+   funds, passed through `--feed-secrets-fd`? Until then, option (a) of §8.1
+   applies: agent sessions without Chainlink, Chainlink sessions launched by
+   you. **Recommended: yes.** A key of an empty wallet can neither spend
+   money nor cancel your real orders, and it lets the lagsnipe paper
+   rehearsals (51 P11 and the Mode C context rows) run without you. It is a
+   narrow exception to R10 that only you can grant; it becomes a D entry.
+2. **Calibration and live host** (01 §12.1 item 3; formerly Open question 3,
+   shared with 51). Calibration is valid only for the machine and network
+   that produced it. Candidates: m1-ivan, today's TS live Mac, which already
+   holds the trading keys and takes no native jobs (D55), but is a laptop
+   that must stay at home on power and has 2.6 GB free, while the toolchain,
+   the `real-orders` build and several days of journals need roughly
+   10–15 GB (estimate; M8 measures the journal size); worker-1, always on
+   with the toolchain and 77 GB free (D36), but its fleet worker, Global
+   Runtime sessions and the goal session must all pause for the calibration
+   days, and the key would sit on the host where the autonomous goal session
+   works. worker-2 is excluded: it records the reference the calibration
+   replays. A Linux server near Polymarket in a permitted region (§4.4) stays
+   possible later, with a new calibration (51 §16). The choice also fixes
+   the `md` host of paper and telonex-delta runs (12 §4.5) and feeds 31
+   Gate-4 question 1 (byte reproducibility on the live host). Will you also
+   provide one small cloud host for the M9 network report (§18.3)?
+   **Recommended:** m1-ivan, after freeing the disk, on a wired network if
+   possible, with everything except the runtime paused during the runs
+   (§4.3); confirm after the M9 network report and use worker-1 only if
+   m1-ivan's numbers are clearly worse. Yes to one small cloud host, for the
+   network report only.
+3. **Wallet type** (01 §12.1 item 4; formerly Open question 1). A plain
+   wallet (EOA, `signatureType` 0) or the existing SAFE/relayer setup (2)?
+   It decides `maker` vs `signer`, approvals and the launcher's on-chain path
+   (§16). **Recommended:** a new dedicated EOA funded with about $100 pUSD:
+   the simplest signing path, nothing else at risk, and separate from other
+   bots, since a missed heartbeat cancels every order of its key (D30). SAFE
+   support later if live trading needs it.
+4. **Alert channel** (01 §12.1 item 5; formerly Open question 2). Telegram
+   bot or ntfy (D33), and which account receives the alerts?
+   **Recommended:** ntfy with a private random topic: no account, one HTTPS
+   request per alert, iOS and Android apps; the topic travels as the push
+   secret (§17).
+5. **Auto-restart in real mode** (01 §12.1 item 6; formerly Open question 4).
+   After a crash, may the runtime restart itself (§15: up to 3 times per
+   hour, each with full startup reconciliation (§9) and an alert, never after
+   a kill switch), or stay stopped until you restart it?
+   **Recommended:** up to 3 restarts per hour, then stay stopped. The $60 stop
+   carries over across restarts (§10.5).
 
 ## Open questions
 
-1. **Wallet type for real orders.** EOA (`signatureType` 0) or the existing
-   SAFE/relayer setup (2)? It decides `maker` vs `signer`, approvals and the
-   launcher's on-chain path. (User.)
-2. **Push provider.** D33 allows Telegram bot or ntfy; which one, and which
-   account receives alerts? (User.)
-3. **Where will live trading run?** Network distance to Polymarket's
-   servers is by far the largest part of order latency (about 70–380 ms per
-   order, against under 0.3 ms inside our code). The runtime is now built so
-   it can also run on Linux (§4.4), which costs little. Will live trading stay
-   on a Mac at home (m1-ivan, which also runs fleet slots and GR, or a
-   dedicated Mac mini), or should we plan for a Linux server closer to
-   Polymarket's servers later (a permitted region only, and calibration would
-   be redone there, D35)? If you want that option measured now, can you
-   provide one cloud host for the M9 network report (§18.3)? (User.)
-4. **Auto-restart after crash in real mode.** §15 allows up to 3 restarts per
-   hour with full reconciliation. Does the user prefer no automatic restart
-   at all? (User.)
-5. **CLOB staging.** Can `clob-staging.polymarket.com` be used for an
-   end-to-end adapter test without real funds (accounts, test collateral)?
-   If yes, an extra no-money step fits between M9 and G4. (To verify.)
-6. **Exchange facts to verify on day 0** (51-calibration-plan.md): order
-   hash equals `orderID`; meaning of status `unmatched`; exchange answer to
-   a cancel during the taker delay; units of `maker_orders[].matched_amount`;
-   whether `/heartbeats` or `/v1/heartbeats` is current. Each changes only
-   the adapter mapping, not the design.
-7. **Chainlink in paper test runs.** The live Chainlink price stream needs
-   your Polymarket API key, and that key can also cancel orders. For paper
-   (no-money) runs of strategies that use Chainlink, such as lagsnipe, should
-   I (a) run paper only for strategies that don't need Chainlink, (b) have
-   you start those paper runs yourself with the key, or (c) first look for a
-   read-only key option (a key of a separate, empty wallet would also be
-   harmless to your real orders, but the agent may hold it only if you
-   explicitly allow that under R10)? Until you decide, (a) applies (§8.1);
-   the lagsnipe paper comparisons of 51 (P11, Mode C) then wait for (b) or
-   (c). Record the answer in 02. (User.)
+None. Former Open question 5 (CLOB staging) is an M9 check (§19); former
+Open question 6 (exchange facts) is the day-0 list of 51 §6.1 R13.

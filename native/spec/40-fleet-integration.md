@@ -5,28 +5,30 @@ TypeScript BullMQ fleet: which queue they use, what gates them instead of the
 producer commit SHA, how the TS worker shim supervises the executor process,
 how execution metadata is stamped, how CPU and memory are shared on the Apple
 Silicon Macs, how crashes, timeouts and memory blow-ups map to BullMQ retry
-semantics, how the branch policy of 02-decisions.md (D03, D12) constrains
-rollout, and which fleet-side services (pre-start rules capture, build-host
-provisioning) other documents rely on. The design goal is maximum fleet
-throughput (market-candidates per hour) without weakening determinism or the
-TS output contract.
+semantics, how the branch policy of 02-decisions.md (D03, D12, D36, D37)
+constrains rollout, and which fleet-side services (pre-start rules capture,
+derived tape builds, build-host provisioning) other documents rely on. The
+design goal is maximum fleet throughput (market-candidates per hour) without
+weakening determinism or the TS output contract.
 
 This document owns fleet behavior only. It defers to other documents for:
 
 | Topic | Owner |
 |---|---|
-| `serve` wire protocol: NDJSON framing, line cap, messages, drain, idle exit, parent death, env allowlist, exit codes, the closed error-class vocabulary | 20-binary-protocol.md §2, §4, §6 |
+| `serve` wire protocol: NDJSON framing, line cap, messages, drain, idle exit, parent death, env allowlist, exit codes, the closed error-class and cause vocabulary, supervision constants | 20-binary-protocol.md §2, §4, §6 (§6.5 for constants) |
 | `MarketJobData` additions, `EngineJob`/`EngineResult`, echo checks, the `execution` field set | 21-job-and-output-contract.md §4, §5, §10, §12 |
-| In-binary pool, caches, Parquet decoding, pool thread stack size | 16-performance-and-parallelism.md (EX-6 for the stack) |
+| In-binary pool, caches, Parquet decoding, pool thread stack size, derived tape format, benchmark conditions, per-run fixed costs (FX) | 16-performance-and-parallelism.md (EX-6 stack, §7.5 tapes, §13.5 conditions, §13.9 FX) |
 | Input integrity fields and the executor's memoized verification | 15-inputs.md I-8, I-9 |
 | Candidate groups | 41-candidate-groups.md |
 | DB columns | 42-persistence-and-stats.md |
-| Rules snapshot content and resolution | 11-exchange-rules.md §13 |
+| Rules snapshot content, origins and resolution | 11-exchange-rules.md §13 |
 
 Terms: **shim** = the TS module inside the worker supervisor that consumes
 native jobs; **executor** = a running native strategy binary process;
 **token** = one unit of the host CPU budget (§7.2); **slot** = the shim's
-admission index of an in-flight native job.
+admission index of an in-flight native job; **native checkout** = the goal
+session's separate checkout on worker-1, `/Users/worker-1/Sites/polymarket-bot-native`
+(D36), never the fleet working copy `/Users/worker-1/Sites/polymarket-bot`.
 
 ## 1. Evidence: what exists today
 
@@ -45,7 +47,7 @@ admission index of an in-flight native job.
 | Aggregate jobs are commit-gated too | `backtestWorker.ts:303-319` |
 | A worker that cannot reach a job's commit exits 1 and stays down | `scripts/run-worker.sh:97-107` |
 | Dirty producer tree blocks every BullMQ run | `src/cli/backtest.ts:1365-1388` |
-| Stray detection only matches `node … backtestWorker.ts`; stop grace 120 s then SIGKILL | `ops/ansible/lib/worker-control.sh:18-22`, `ops/ansible/stop-workers.yml:7` |
+| Stray detection only matches `node … backtestWorker.ts`; stop grace 120 s then SIGKILL; one host can be drained alone | `ops/ansible/lib/worker-control.sh:18-22`, `ops/ansible/stop-workers.yml:7`, `scripts/stop-worker-fleet.sh` (`--limit worker-1`) |
 | Dashboard counts active children only in `backtest-markets` | `dashboard/src/lib/queries/batches.ts:65-78`, `dashboard/src/lib/queue.ts:3` |
 | Siblings hold read-only R2 keys and no `DATABASE_*` | `docs/backtest/fleet/overview.md:114-131` |
 | Long-running producer services run under launchd with `--watch` and `KeepAlive` | `ops/macos/recorder-v4-catalog/com.polymarket.recorder-v4-catalog.plist.template` |
@@ -57,17 +59,17 @@ Names and hardware from `dashboard/src/data/machines.json`; roles and TS slot
 counts from the producer's local `ops/ansible/inventory.ini` (gitignored;
 explicit `--market-concurrency` wins over machines.json, `run-worker.sh:29-50`).
 
-| Host (machines.json / inventory alias) | Chip | Cores | RAM | `cores_for_backtest` | Roles today | TS slots today |
-|---|---|---|---|---|---|---|
-| m1-ivan / `ivan-mbp` | M1 Pro | 8P + 2E | 16 GB | 4 | producer, dashboard, live-trading host (`DRY_RUN=false` in its env files), Binance R2 producer, GR daemon | none (`[producer]` only) |
-| worker-1 | M4 | 4P + 6E | 16 GB | 8 | markets + aggregate, shared Redis, MySQL (`ops/macos/worker-1/com.polymarket.mysql84.plist`), GR daemon | 6 |
-| worker-2 | M4 | 4P + 6E | 16 GB | 8 | markets, Recorder V4 pinned service, GR daemon | 3 |
-| m1-milan / `milan-m1` | M1 Pro | 6P + 2E | 16 GB | 4 | markets | 4 |
-| m5-milan / `milan-m5` | M5 Pro | 6 Super + 12P | 64 GB | 12 | none (commented out in the inventory) | 0 |
+| Host (machines.json / inventory alias) | Chip | Cores | RAM | `cores_for_backtest` | Roles today | TS slots | Native role |
+|---|---|---|---|---|---|---|---|
+| m1-ivan / `ivan-mbp` | M1 Pro | 8P + 2E | 16 GB | 4 | producer, dashboard, live-trading host (`DRY_RUN=false` in its env files), Binance R2 producer, GR daemon | none (`[producer]` only) | producer only: submits native runs, never consumes native jobs (D55), no engine work (2.6 GB free disk, D36) |
+| worker-1 | M4 | 4P + 6E | 16 GB | 8 | markets + aggregate (concurrency 6), shared Redis, MySQL (`ops/macos/worker-1/com.polymarket.mysql84.plist`), GR daemon | 6 | engine implementation, builds, parity and benchmarks in the native checkout (D36, §13); rules capture (§16); M6 native host (D55) |
+| worker-2 | M4 | 4P + 6E | 16 GB | 8 | markets, Recorder V4 pinned service, GR daemon | 3 | M6 native host with `--cpu-tokens 3` and `utility` QoS, so its Recorder V4 timing stays clean (D55, §7.3) |
+| m1-milan / `milan-m1` | M1 Pro | 6P + 2E | 16 GB | 4 | markets | 4 | M6 native host if it is reachable and can stay awake on power for multi-hour runs (D55) |
+| m5-milan / `milan-m5` | M5 Pro | 6 Super + 12P | 64 GB | 12 | none (commented out in the inventory) | 0 | none |
 
 v1 target triple is `aarch64-apple-darwin` only (D12); m5-milan qualifies if
-it is ever enabled. The `PC` entry and any cloud burst host MUST never consume
-native jobs.
+it is ever enabled. m1-ivan, the `PC` entry and any cloud burst host MUST
+never consume native jobs.
 
 ## 3. Queues and routing
 
@@ -88,10 +90,11 @@ native jobs.
 6. Every native job MUST carry an explicit BullMQ `priority` (§10). BullMQ runs
    jobs without a priority before all prioritized jobs, so mixing the two
    would defeat the classes.
-7. The producer SHOULD add a run's native children in `market_start_ms` order,
-   also for `--random` selections (`idx` keeps the selection order for the
-   aggregator), so consecutive jobs on a host hit the same per-day feed cache
-   entries (16 §6.1). Dispatch order never affects results.
+7. The producer MUST add a run's native children in `market_start_ms` order
+   (ties by slug), also for `--random` selections (`idx` keeps the selection
+   order for the aggregator), and `--sequential` MUST dispatch in the same
+   order, so consecutive jobs on a host hit the same per-day feed cache entries
+   (16 §6.1). Dispatch order never affects results.
 
 ## 4. Gates: version and target vs the commit gate
 
@@ -106,44 +109,45 @@ provenance only (D12) and are persisted on the run row
 (42-persistence-and-stats.md §3.1). The shim MUST NOT call `canRunJobCommit`
 for native market jobs.
 
-### 4.1 Gate fields (fleet-owned `MarketJobData` additions)
+### 4.1 Gate fields
 
-21 §4 owns `MarketJobData`. The gate reads these fields; the three marked
-"40" are owned here and MUST be listed in 21 §4:
+The fields are listed in 21 §4; their gate semantics are owned here:
 
-| Field | Owner | Content |
-|---|---|---|
-| `strategyArtifact.kind`, `strategyArtifact.target` | 31 §8 step 7 | `'native'`, target triple of the binary |
-| `jobSchemaVersion` | 21 §4 | the `EngineJob` version chosen at submit |
-| `native.protocolVersion` | 40 | the binary's `protocolVersion` (20 §3), copied from `describe` at submit |
-| `native.minShimVersion` | 40 | lowest shim version able to run this job (step 2 below) |
-| `native.priorityClass` | 40 | `calibration` \| `user` \| `agent` (§10) |
+| Field | Content |
+|---|---|
+| `strategyArtifact.kind`, `strategyArtifact.target` | `'native'`, target triple of the binary (31 §8 step 7) |
+| `jobSchemaVersion` | the `EngineJob` version chosen at submit |
+| `native.protocolVersion` | the binary's `protocolVersion` (20 §3), copied from `describe` at submit |
+| `native.minShimVersion` | lowest shim version able to run this job (step 2 below) |
+| `native.priorityClass` | `calibration` \| `user` \| `agent` (§10) |
+| `native.producerDirty` | provenance only, never gated (D12) |
 
 ### 4.2 Algorithm
 
-Evaluated by the shim before admitting a native job:
+Evaluated by the shim before admitting a native job. Failures carry the class
+and cause of 20 §4.1:
 
 1. `strategyArtifact.target` MUST equal the host target. Mismatch →
-   `UnrecoverableError`, class `invalid_input`, detail `target_mismatch`
-   (defensive; the queue name already prevents it).
+   `UnrecoverableError`, `invalid_input: target_mismatch` (defensive; the queue
+   name already prevents it).
 2. `NATIVE_SHIM_VERSION` (a TS integer constant) MUST be
    `>= native.minShimVersion`. Otherwise → `moveToDelayed` without consuming an
    attempt and request self-update, exactly like the commit gate today. The
    producer computes `minShimVersion` from a compatibility table keyed by
    `(protocolVersion, jobSchemaVersion)`, not from its own shim version, so a
    producer upgrade does not force needless fleet restarts.
-3. The binary's `describe` capabilities (cached per sha on disk and in memory)
-   MUST list `native.protocolVersion` and `jobSchemaVersion` (20 §3).
-   Otherwise → `UnrecoverableError`, class `invalid_input`, detail
-   `artifact_incompatible` ("rebuild the artifact or update the fleet").
+3. The binary's `describe` capabilities (cached per sha on disk and in memory;
+   the producer reuses the same cache, 16 FX-2) MUST list
+   `native.protocolVersion` and `jobSchemaVersion` (20 §3). Otherwise →
+   `UnrecoverableError`, `invalid_input: artifact_incompatible` ("rebuild the
+   artifact or update the fleet").
 4. The artifact sha and its `engineVersion` MUST NOT be on the engine blocklist
-   (§11). Otherwise → `UnrecoverableError`, class `invalid_input`, detail
-   `engine_blocklisted`.
+   (§11). Otherwise → `UnrecoverableError`, `invalid_input: engine_blocklisted`.
 5. If the fleet kill switch is off, the shim MUST pause its native consumer
    (jobs wait in the queue; nothing fails).
 
 The producer MUST run checks 2-4 against its local shim before enqueueing,
-plus the capability flag matrix (20 §5.1), so an unsupported combination fails
+plus the capability flag matrix (20 §5.6), so an unsupported combination fails
 at submit time instead of as N failure rows.
 
 For native runs the producer MUST NOT apply the dirty-tree block of
@@ -171,11 +175,12 @@ daemons run from worker checkouts on main and satisfy this naturally.
    active artifact sha per host, many jobs in flight, warm per-day feed caches
    shared across markets (16 §6). The shim spawns an executor on first use of a
    sha with `--threads` = the host's token count (§7.2), `--max-inflight` = the
-   same, `--idle-exit-secs 60`, `--drain-timeout-secs 1800` (the job budget cap,
-   §8.2), `--cache-mb` and `--max-rss-mb` from §7.4 and `--qos` from §7.3. At
-   most `maxExecutors` (default 3) live per host; when a new sha needs an
-   executor and the limit is reached, the shim sends `drain` (20 §6.2) to the
-   least recently used executor that has no job in flight.
+   same, `--work-dir` (§6.2), `--idle-exit-secs`, `--drain-timeout-secs` and
+   the stack size from 20 §6.5, `--cache-mb` and `--max-rss-mb` from §7.4,
+   `--qos` from §7.3, and `--tape-dir` when the host has tapes (§6.3). At most
+   `maxExecutors` (20 §6.5) live per host; when a new sha needs an executor
+   and the limit is reached, the shim sends `drain` (20 §6.2) to the least
+   recently used executor that has no job in flight.
 4. **Process-per-job mode** (`run` subcommand, 20 §5.4) MUST remain available
    behind `NATIVE_EXECUTOR_MODE=process-per-job` for debugging, parity tooling,
    crash isolation (§8.3) and as the benchmark baseline that justifies `serve`.
@@ -191,20 +196,20 @@ daemons run from worker checkouts on main and satisfy this naturally.
 2. Ensure the artifact: download once per machine, verify once per machine
    (§9), pin it while referenced.
 3. Resolve every input to a local file and check it cheaply (§6.1).
-4. Build the `EngineJob` from `MarketJobData` (21 §5) plus worker-local paths.
-   Worker identity MUST NOT be passed to the binary; its output is a pure
-   function of (binary, job), which is what makes the cross-machine proof (§12)
-   meaningful. `idx` is never sent (21 §11).
+4. Build the `EngineJob` from `MarketJobData` (21 §5) plus worker-local paths,
+   with `budget.wallMs` (§8.2) and `budget.threads` = the token weight `w`
+   (§7.2). Worker identity MUST NOT be passed to the binary; its output is a
+   pure function of (binary, job), which is what makes the cross-machine proof
+   (§12) meaningful. `idx` is never sent (21 §11).
 5. Acquire tokens (§7.2), dispatch, supervise (§8).
-6. Validate the `EngineResult` against the generated schema and run the echo
-   checks of 21 §12 exactly (profile, seed, `modelConfigSha256`,
-   `engineVersion`, slug, candidate keys and indices in order). A violation →
-   `UnrecoverableError`, class `invalid_output`, detail `schema` or
-   `echo_mismatch`. The shim re-attaches `idx` from `MarketJobData.idx`.
-   Validation happens here, per market, so one bad value becomes one failure
-   row instead of aborting the whole run insert (`src/db/backtests.ts:403-501`,
-   single transaction).
-7. Stamp execution metadata and `recorderV4Capture` (§7.1).
+6. Validate the `EngineResult` against the generated schema and run exactly
+   the echo checks of 21 §12. A violation → `UnrecoverableError`,
+   `invalid_output: schema` or `invalid_output: echo_mismatch`. The shim
+   re-attaches `idx` from `MarketJobData.idx`. Validation happens here, per
+   market, so one bad value becomes one failure row instead of aborting the
+   whole run insert (`src/db/backtests.ts:403-501`, single transaction).
+7. Stamp execution metadata and `recorderV4Capture` (§7.1); derive
+   `rules_snapshot_ids` from the job's `captured[*].snapshotId` (21 §11).
 8. Attach the ledger when requested (42 §7.5), compact and store the result
    (41-candidate-groups.md §6 for groups).
 9. Release tokens; update the per-host Redis stats hash (§14).
@@ -229,29 +234,55 @@ daemons run from worker checkouts on main and satisfy this naturally.
    verified sha256; a V4 package is therefore verified once at download, not per
    job. Otherwise the shim only `stat`s the file and compares `bytes`. The
    executor's memoized check (15 I-8, I-9) is the per-job integrity gate.
-3. If the executor reports `data_defect` with an integrity mismatch for a file
-   the shim downloaded into its canonical cache path, the shim MUST quarantine
-   the file (rename to `<path>.bad-<ts>`), drop its index entry, re-download it
-   once and re-dispatch within the same attempt. A second mismatch is final.
+3. **Integrity mismatch (20 §4).** When the shim's check or the executor
+   reports an integrity mismatch for a file at its canonical path and the
+   job's read mode allows a download (`local-or-download-from-r2-to-local`,
+   `r2`), the shim MUST quarantine the file (rename to `<path>.bad-<ts>`), drop
+   its index entry, re-download it once and re-dispatch within the same
+   attempt; a second mismatch is `data_defect: integrity_mismatch`. Under
+   `--read-from local` the host may not re-download, so the job fails
+   `data_missing: integrity_mismatch` (retry ladder, any host).
 4. Binance aggTrades and Chainlink `crypto_prices` day files are passed as
    explicit paths in `market.feedFiles` (21 §5), resolved by the shim from its
-   configuration. A missing day file is `data_missing` before dispatch, with
-   the exact fix command in the reason (21 §9).
+   configuration. A missing day file is `data_missing: day_file_missing` before
+   dispatch, with the exact fix command in the reason (21 §9).
 
 ### 6.2 Environment and sandbox
 
-1. Executors MUST start with exactly the environment allowlist of 20 G6
-   (`TZ=UTC`, `LANG=C`, `PMB_LOG`, `RUST_BACKTRACE=1`) and nothing else.
-2. cwd MUST be a per-job (process-per-job) or per-executor (`serve`) temp
-   directory under the host data root, removed on exit.
+1. Executors MUST start with exactly the environment allowlist of 20 G6 and
+   nothing else.
+2. cwd MUST be the executor's `--work-dir`: a per-job (process-per-job) or
+   per-executor (`serve`) temp directory under the host data root, removed on
+   exit.
 3. Executors MUST run under a `sandbox-exec` profile that denies all network
-   access, allows reads of the artifact, the data roots and system libraries,
-   and allows writes only to its temp directory. A host where the profile cannot
-   be applied MUST refuse native jobs (pause the consumer and report it in the
-   heartbeat) rather than run unsandboxed. These binaries hold agent-written code
-   and run on m1-ivan, which holds live keys.
+   access, allows reads of the artifact, the data roots, the tape root (§6.3)
+   and system libraries, and allows writes only to the work dir. A host where
+   the profile cannot be applied MUST refuse native jobs (pause the consumer
+   and report it in the heartbeat) rather than run unsandboxed. These binaries
+   hold agent-written code (M11 follows M6, D39) and run on hosts
+   that hold the shared Redis, MySQL and its credentials (worker-1) and R2 read
+   keys.
 4. The executor inherits the worker's macOS resource policy
    (`run-worker.sh:56-59`, `taskpolicy -a`); §7.3 sets thread QoS on top of it.
+
+### 6.3 Derived tapes (16 §7.5, NT-8; D46)
+
+1. Before G2, tapes exist only on worker-1, under the native checkout's tape
+   root (`data/native-tapes/`), within the 40 GB cap of D46. Nothing in the
+   fleet working copy changes.
+2. After the user's G2 yes on tapes and per-host caps (D46, 16 M-20), M6 adds a fleet
+   build step: a `data:sync:worker` stage and a worker-start backfill at
+   `background` QoS run `pmb-tape` over the host's local v1 telonex-delta files,
+   newest markets first, into `<data root>/native-tapes/`, within the host's
+   `native_tape_max_gb` (inventory; worker-1 40 GB, other hosts set at G2) and
+   the free-disk floor of 16 NT-7. The v1 files are never rewritten or
+   re-converted, and tapes are never uploaded to R2 (NT-1, NT-8).
+3. `pmb-tape` is built on each host by the canonical builder during
+   `fleet:native:provision` (§17). Its sha MUST equal the sha recorded for that
+   engine release (reproducible build); on a mismatch the host builds no tapes
+   and reports it. Executors only read tapes (NT-4); a bad or stale tape falls
+   back to v1 (NT-5).
+4. `fleet:status` shows tape bytes, cap and coverage per host (§15).
 
 ## 7. Execution metadata, CPU and memory
 
@@ -263,6 +294,7 @@ candidate result for groups) with the existing field set
 columns are never NULL for native rows (`dashboard/src/lib/queries/leaderboard.ts:38-60`
 drops NULL-machine rows). All times are taken by the shim on the host clock;
 the binary's `diagnostics` (21 §10) are metrics only and are never stamped.
+21 §12 states the same rule.
 
 | Field | Value for native jobs |
 |---|---|
@@ -276,8 +308,7 @@ the binary's `diagnostics` (21 §10) are metrics only and are never stamped.
 
 For a job that succeeded after an isolated re-run (§8.3) the stamps are those
 of the successful run. In process-per-job mode, start and finish are spawn and
-exit. 21 §12 MUST state this same rule (it currently names `diagnostics` as the
-source; see §18).
+exit.
 
 `recorderV4Capture` MUST be built by the shim from the job's manifest with the
 same function the TS path uses (`runSingleMarket.ts:449-458`); the binary never
@@ -303,7 +334,7 @@ round. v1 therefore shares the host through one pool.
 3. **Native jobs** acquire `w` tokens before dispatch: a single-candidate job
    weighs 1; a group job weighs `min(k, C)` when the executor may fan its
    candidates out across threads (41 §5.5), else 1. The executor's pool has `C`
-   threads and receives the per-job thread allowance `w` in the request (§18).
+   threads and receives `w` as `EngineJob.budget.threads` (21 §5, 20 §6.2).
    Executors' total admitted weight never exceeds the tokens held (16 EX-9).
 4. **Sharing policy.** When both sides have waiting work, each side is
    guaranteed `floor(C × share)` tokens (`--native-token-share`, default 0.5)
@@ -320,16 +351,17 @@ round. v1 therefore shares the host through one pool.
 1. macOS does not allow pinning threads to cores. Placement is steered by QoS
    (16 §10.1).
 2. Native pool threads set their QoS from the executor's `--qos` (16 §10.2),
-   configured per host. Defaults: worker-1, m1-milan and m1-ivan (pre-live)
-   `default`; worker-2 `utility`, so the Recorder V4 receive path keeps
-   priority. Whether utility QoS on worker-2 actually protects recorder receive
-   latency MUST be measured with the recorder's own lag metrics under load.
+   configured per host. Defaults: worker-1 and m1-milan `default`; worker-2
+   `utility` with `--cpu-tokens 3`, so the Recorder V4 receive path keeps
+   priority. Whether this protects recorder receive latency MUST be measured
+   with the recorder's own lag metrics under load; if it does not, worker-2's
+   tokens are lowered, never raised.
 3. The pool is work-stealing, so heterogeneous core speeds never create
    stragglers at job granularity (16 §10.1).
-4. The right `C` per host MUST be measured, not assumed: run a fixed 200-market
-   set at `C ∈ {P, P + E/2, P + E}` and each QoS value of 16 §10.3, record
-   market-candidates per hour, and set `C` at the knee. Results are reported
-   per host in the M6 benchmark and written to the inventory.
+4. The right `C` per host MUST be measured, not assumed, with the sweeps of
+   16 §10.3 (worker-1 in M5a, the other M6 hosts in M6) under the benchmark
+   conditions of 16 §13.5: a fixed 200-market set, market-candidates per hour,
+   `C` set at the knee and written to the inventory and the M6 report.
 
 ### 7.4 Memory budget
 
@@ -339,7 +371,7 @@ covering all its executors (16 §6.2). The shim passes each executor a share as
 `--max-rss-mb` (the binary then emits `busy` and stops accepting jobs, 20 §6.2)
 and also samples executor RSS every second and reads `rssBytes` from `pong`.
 Above 80 % of the host budget the shim stops dispatching to the largest
-executor; above 100 % it kills that executor (§8.3, detail `oom_budget`).
+executor; above 100 % it kills that executor (§8.3, `killed: oom_budget`).
 Per-day feed caches stay inside `--cache-mb`, LRU by bytes (20 §6.3 S3).
 
 ### 7.5 Job granularity
@@ -358,20 +390,20 @@ Per-day feed caches stay inside `--cache-mb`, LRU by bytes (20 §6.3 S3).
 
 ### 8.1 Error classes and BullMQ mapping
 
-The class vocabulary is the closed set of 20 §4. This table only maps each
-class to a shim action. Conditions the shim detects itself are expressed as a
-class plus a detail code; the reason stored in `backtest_run_failures.reason`
-is `<class>: [<detail>:] <message>`; the class and detail go to
-`failure_class` and `failure_detail` (42 §3.6).
+The class and cause vocabulary is the closed set of 20 §4 and §4.1; the retry
+policy is 20 §4.3. This table maps each class to the shim's action. The reason
+stored in `backtest_run_failures.reason` is `<class>: <cause>: <message>`
+(20 §4.2); class and cause go to `failure_class` and `failure_detail`
+(42 §3.6).
 
-| Class (20 §4) | Typical causes, incl. shim detail codes | Shim action | Ends as |
+| Class (20 §4) | Typical causes, incl. shim causes | Shim action | Ends as |
 |---|---|---|---|
 | — (`ok`) | — | stamp, store | market row(s) |
 | `invalid_input` | bad job or params, `r2://` path, unsupported flag; shim: `target_mismatch`, `artifact_incompatible`, `engine_blocklisted` | `UnrecoverableError` | failure row (every candidate) |
-| `data_missing` | a required local file is absent on this host (feed day file, input) | throw: retry ladder (3 attempts, any host) | failure row naming the fix command after 3 attempts |
-| `data_defect` | integrity mismatch, unknown format version, Chainlink hole ≥ `maxGapMs`, pre-coverage market (14 §10) | `UnrecoverableError` (after the one re-download of §6.1.3 for a cached download) | failure row |
-| `runtime` | transient I/O or resource error | throw: retry ladder | failure row after 3 attempts |
-| `timeout` | cooperative deadline expired (20 §6.3 S4) | first time: set `native.timeouts = 1` with `job.updateData`, throw; the retry runs with 2× budget. Second time: `UnrecoverableError` | failure row |
+| `data_missing` | a required local file is absent on this host (`day_file_missing`, `input_missing`), or a pre-existing local copy fails its check under `--read-from local` (`integrity_mismatch`) | throw: retry ladder (3 attempts, any host) | failure row naming the fix command after 3 attempts |
+| `data_defect` | integrity mismatch of a freshly downloaded canonical copy (after the one re-download of §6.1.3), decode failure of a verified file, unknown format version, foreign file, Chainlink hole ≥ `maxGapMs`, pre-coverage market, PTB pipeline gap (14 §10) | `UnrecoverableError` | failure row |
+| `runtime` | transient I/O or resource error, R2 download failure | throw: retry ladder | failure row after 3 attempts |
+| `timeout` | cooperative deadline expired (20 §6.3 S4) | first time: set `native.timeouts = 1` with `job.updateData`, throw; the retry runs with 2× budget. Second time: `UnrecoverableError`. A group candidate stuck in a callback: §8.2.3 | failure row |
 | `strategy_fault` | strategy panic, overflow or contract breach (12); shim: `result_too_large` (41 §6.2) | single-candidate job: `UnrecoverableError`; group: per-candidate error inside an ok result, no retry; `result_too_large`: `UnrecoverableError` for the whole job | failure row for that candidate only (`result_too_large`: every candidate) |
 | `engine_fault` | caught engine panic or invariant violation | `UnrecoverableError`, alert | failure row |
 | `invalid_output` | engine egress check (21 §19); shim: `schema`, `echo_mismatch`, `line_too_large` (20 G9) | `UnrecoverableError`, alert | failure row |
@@ -389,14 +421,19 @@ document is authoritative, the last stderr line is the fallback).
    capped at 30 min, doubled after one timeout (§8.1). Coefficients come from
    the M6 benchmark and live in code; until then `120 s + 5 s × k`. Timeouts
    catch hangs, not slow hosts.
-2. The binary checks the budget cooperatively and returns `timeout` (20 §6.3
-   S4). The shim's backstop follows S4 exactly: it pings every executor every
-   5 s and kills the executor's process group when a job exceeds 2× its budget
-   plus 30 s or when `pong` is missing for 30 s. The kill puts every in-flight
-   job of that executor through §8.3.
-3. Candidate-level timeouts in groups need the candidate index in `progress`
-   or `pong.inflight`, which 20 §6.2 does not define yet (§18). Until it does, a
-   stuck group job fails as a whole by the rules above.
+2. The binary checks the budget cooperatively and returns `timeout: deadline`
+   (20 §6.3 S4). The shim's backstop follows S4 and the constants of 20 §6.5
+   exactly (ping every 5 s; kill the executor's process group at 2× budget
+   plus 30 s or after 30 s without `pong`). The kill puts every in-flight job
+   of that executor through §8.3.
+3. **Stuck group candidate.** `progress.inCallback` and
+   `pong.inflight[].inCallback` (20 §6.2) name a candidate that has been inside
+   strategy code for more than 1 s. When the backstop fires on a group job
+   whose latest `inCallback` has named the same candidate since before the
+   job's deadline, the shim re-runs that job in isolation (§8.3) without that
+   candidate and records a candidate error `timeout: deadline` for it, with the
+   callback name in the message. The other candidates' results are valid by
+   standalone equivalence (41 §2.2). Otherwise the whole job follows items 1-2.
 4. The BullMQ lock keeps renewing while Node is alive (`queue.ts:116-120`), so
    the budget and the backstop, not the lock, free a token.
 
@@ -405,18 +442,18 @@ document is authoritative, the last stderr line is the fallback).
 1. Executors MUST be spawned in their own process group; the shim kills the
    group (`SIGKILL` to `-pgid`) so no orphan survives.
 2. **Crash attribution (20 §6.3 S5).** When an executor dies unexpectedly
-   (signal, non-zero exit, oversize line), every job in flight on it is marked
-   suspect and re-run once in isolation within the same BullMQ attempt, with
-   the same tokens: a `run` process per job, started sequentially per suspect
-   job. A job whose isolated process is killed fails as `killed` (§8.1). A job
-   whose isolated run succeeds completes normally. Bystanders of a poison job
-   therefore never fail and never consume attempts.
+   (signal, non-zero exit, oversize line) or the shim kills it, every job in
+   flight on it is marked suspect and re-run once in isolation within the same
+   BullMQ attempt, with the same tokens: a `run` (or `run-group`) process per
+   job, started sequentially per suspect job. A job whose isolated process is
+   killed fails as `killed` (§8.1). A job whose isolated run succeeds completes
+   normally. Bystanders of a poison job therefore never fail and never consume
+   attempts.
 3. An executor that exits 0 after its idle timeout while the shim has just
    written a job to it (idle-exit race) is not a crash: the shim re-dispatches
    that job to a new executor with no isolation step.
-4. Crash-loop guard: more than 3 crashes of one sha within 60 s → the shim stops
-   dispatching that sha for 10 min (jobs are delayed, not failed) and reports
-   it in the heartbeat.
+4. Crash-loop guard per 20 S5 and §6.5 (jobs are delayed, not failed), reported
+   in the heartbeat.
 5. Panics in strategy code never abort the executor (D18, 20 G7, 12). The pool
    thread stack size is set only by 16 EX-6; a stack overflow aborts the
    process and is handled by item 2.
@@ -424,11 +461,11 @@ document is authoritative, the last stderr line is the fallback).
    "parent gone" and the executor exits within 1 s without finishing in-flight
    work. The shim therefore closes stdin only when it wants that effect (it is
    itself exiting without a drain). Orderly shutdown always uses `drain` (§8.4).
-7. Framing follows 20 §6.2 and G9: NDJSON, one message per line, at most 64 MiB
-   per line. An oversize or malformed line → kill the executor, item 2 applies,
-   and a job that reproduces it in isolation fails `invalid_output`
-   (`line_too_large`). stderr (NDJSON logs, 20 G1) is kept in a bounded ring
-   (64 KiB per job), keyed by `jobId`.
+7. Framing follows 20 §6.2 and G9: NDJSON, one message per line, line cap of
+   20 §6.5. An oversize or malformed line → kill the executor, item 2 applies,
+   and a job that reproduces it in isolation fails
+   `invalid_output: line_too_large`. stderr (NDJSON logs, 20 G1) is kept in a
+   bounded ring (64 KiB per job), keyed by `jobId`.
 8. A signal death arrives with no exit code; the shim MUST record the signal
    (today `code ?? 1` loses it, `native.ts:114`).
 
@@ -460,19 +497,23 @@ host:
 3. On submit the producer publishes a prefetch message (Redis pub/sub channel
    `native:prefetch` with sha and R2 URL); shims download and verify in the
    background so many slots never cold-download the same binary at once.
-4. Workers MUST refuse any artifact whose `describe` reports a variant other
-   than `standard` (31 §5.5).
+4. Workers MUST refuse any binary whose `describe` reports
+   `capabilities.realOrders = true` (31 §5.5, `invalid_input:
+   artifact_incompatible`). The `real-orders` variant is a separate feature
+   build made by the user on the live host and never read by workers, so fleet
+   and agent binaries cannot place orders (D44).
 5. `fleet:status` shows cache size, executor count and verified shas per host.
 
 ## 10. Fair scheduling
 
-1. Native jobs MUST carry `native.priorityClass`: `calibration` (highest),
-   `user` (CLI runs), `agent` (GR / protocol runs: `--protocol` or
+1. Native jobs MUST carry `native.priorityClass`, in this order: `calibration`
+   (highest), `user` (CLI runs), `agent` (GR / protocol runs: `--protocol` or
    `BACKTEST_PROTOCOL` set). Within a class the priority value SHOULD grow with
    group weight so a 100-candidate sweep does not block single runs of the same
-   class.
+   class. Priorities order waiting jobs only; a running job is never preempted.
 2. BullMQ OSS has no fair share across submissions. Queue wait time per class
-   MUST be measured and reported; a fair-share scheduler is a later change only if
+   MUST be measured and reported. Agent volume on the native queue starts with
+   M11 right after M6 (D39); a fair-share scheduler is a later change only if
    the measurements show starvation.
 
 ## 11. Kill switch, blocklist, rollback
@@ -495,26 +536,32 @@ host:
 Before native dispatch is enabled on the fleet (and after every engine minor
 release), a canary MUST show that the same binary and the same jobs give
 byte-identical deterministic sections (`resultDigest`, 21 §10) on every native
-host:
+host (worker-1, worker-2, m1-milan if available):
 
-1. A committed fixture set (≥ 50 BTC 5m/15m markets, both profiles, one candidate
-   group) is run locally on each host by an ansible playbook (`fleet:native:canary`)
-   in process-per-job and `serve` modes at one token and at all tokens.
+1. A committed fixture set is run locally on each host by an ansible playbook
+   (`fleet:native:canary`) in process-per-job and `serve` modes, at one token
+   and at all tokens, with and without tapes (§6.3). The set has ≥ 50 BTC 15m
+   telonex-delta markets in ts-compat, the same markets in realistic once M3b
+   has landed, and one candidate group once M4 has landed. BTC 5m markets join
+   when Telonex 5m data exists (D38), V4 packages after M7.
 2. Each host prints the `resultDigest` of each job; the playbook diffs them
    across hosts. Any difference blocks enabling and is a Rust bug until
    classified (10-domain-model.md determinism rules).
+3. The same hosts build the same strategy source with the canonical builder
+   and compare shas (31 §7.6, DET-12).
 
-## 13. Branch policy and rollout (D03, D12)
+## 13. Branch policy and rollout (D03, D12, D36, D37)
 
-| Phase | Where native jobs run | Rules |
+| Phase | Where native code runs | Rules |
 |---|---|---|
-| A. Before gate 2 | m1-ivan only | On the engine branch only (D01, D03). Main untouched. No fleet branch switch. Native runs use `--sequential` (local executor, no queue) or a **separate local Redis** (e.g. port 6380), never the shared fleet Redis: worker-1 consumes `backtest-aggregate` and would defer the branch's aggregate job, request self-update, fail to reach the commit and exit 1 (`run-worker.sh:97-107`), taking the fleet aggregator down. Results go to a **separate MySQL schema** (42 §2), never the shared production schema. Parity uses 8 local threads / 8 local TS workers. |
-| B. Gate 2 merge | nowhere yet | One merge to main (D03): shim, native queue, token pool (inactive until a host opts in), migrations, dashboard changes. Kill switch absent (= off). Hosts get the shim via normal `fleet:git:pull`. |
-| C. Fleet canary | all native hosts | Provisioning (§17), cross-machine proof (§12), then a 1,000-market TS vs Rust benchmark run (M6, 16-performance.md). |
-| D. Enabled | hosts with `,native` in `--queues` | Kill switch `1`. Small PRs from here (D03). |
+| A. Before G2 (M0-M2) | worker-1, native checkout only (D36) | Engine branch only (D01, D03); main untouched except the rules-capture PR (D37, 11 §13.2.1). No fleet branch switch, no native queue, no shared Redis or MySQL writes, no native run persisted anywhere (01 §8): native code is reached only through the parity tooling and the bench driver, which run executors locally. The host rules of 01 §8.1 apply: read-only data and `node_modules` links into the fleet working copy (H2), builds, tests and parity alongside the fleet worker and GR sessions at reduced concurrency (H4), and benchmarks only in the D47 window with worker-1's GR runs paused (never killed) and its fleet worker drained (H5, 16 §13.5). Draining worker-1 also holds the fleet's aggregate queue for that window. |
+| B. G2 merge | nowhere yet | One merge to main (D03) with the M1-M2 content of 01 §8: no migrations, no shim, no native queue, no user-reachable native backtest path. |
+| C. M3a-M5b | worker-1, `--sequential` only | Small PRs on main. Native runs execute in the producer process against a local executor (41 §4.9 for groups) and persist to the production schema with full provenance once the M3a migrations are applied (42 §2). No native queue yet, so no `--detach` for native runs. |
+| D. M6 fleet canary | M6 native hosts | The shim, native queue, token pool (inactive until a host opts in) and dashboard changes land as M6 PRs; kill switch absent (= off); hosts get them through normal `fleet:git:pull`. Then provisioning (§17), tapes if approved at G2 (§6.3), the cross-machine proof (§12), and a 1,000-market TS vs Rust benchmark run (M6, 16-performance-and-parallelism.md §13). |
+| E. Enabled | hosts with `,native` in `--queues` | Kill switch `1`. Small PRs from here (D03). M11 (D39) follows: GR agents submit native runs with `priorityClass: agent`. |
 
 Runbooks (the operator docs under `docs/backtest/fleet/` are written with the
-merge):
+M6 PRs):
 
 - **Enable a host**: add `,native` to `--queues` (and `--cpu-tokens C` if it
   differs from machines.json) in its inventory command, `fleet:git:pull`,
@@ -528,24 +575,27 @@ merge):
   test, drain, switch back, resume (pause before daemon restart, because
   `fleet:runtime:stop` kills in-flight sessions).
 
-During the live calibration (51-calibration-plan.md) native work on m1-ivan
-and worker-2 MUST be stopped or capped as that document specifies (16 §10.3:
-`utility` or `background` QoS while paper or live runs).
+During paper, live and calibration sessions, native work on the session host
+and on worker-2 (whose recorder is the calibration reference) MUST be stopped
+or capped as 51 §7.1 specifies (16 §10.3: `utility` or `background` QoS). Which
+host runs calibration and live is a gate-4 question (01 §12.1 item 3).
 
 ## 14. Measurement (speed is the top priority)
 
 The shim and the benchmark MUST report, per host and fleet-wide, with no pass
-threshold (D07):
+threshold (D07). Fleet numbers are native-artifact throughput, never a
+fleet-wide speedup (01 §1.1).
 
 | Metric | Source |
 |---|---|
-| market-candidates per hour, same 1,000 markets, TS vs Rust | M6 benchmark (16-performance.md, 60-verification.md) |
+| market-candidates per hour, same 1,000 markets, TS vs Rust, on the M6 native hosts (§2) | M6 benchmark (16-performance-and-parallelism.md §13, 60-verification.md) |
+| end-to-end run wall time with the FX-1 phase breakdown, before and after each FX item | producer and aggregator (16 §13.9, FX-8) |
 | `overheadFraction` (§7.5) | shim |
 | executor busy ms, CPU ms, peak RSS per job | `diagnostics` and `pong` → per-host Redis hash `backtest:worker:<machineId>#native` (`src/backtest/workerIdentity.ts:16-18` key grammar, extended with `'native'`) |
 | token utilization: held by TS, held by native, idle, grant overshoots | supervisor |
 | throughput with the token pool vs the static split, mixed TS and native load | M6 benchmark (§7.2.6) |
 | Node event-loop utilization (`performance.eventLoopUtilization()`) and shim CPU ms per job | shim |
-| verification index hit rate, bytes hashed per job | shim |
+| verification index hit rate, bytes hashed per job, tape path share | shim, `diagnostics` |
 | isolated re-runs, idle-exit races, crash-loop pauses | shim |
 | `serve` vs process-per-job throughput; throughput vs `C` and QoS per host (§7.3) | benchmark |
 | queue wait per priority class | shim |
@@ -557,9 +607,9 @@ MUST move its remaining CPU work (JSON, schema validation, any hashing) to a
 with its own event loop, and the M6 report MUST show the before and after.
 
 The heartbeat hash MUST also carry `nativeShimVersion`, `target`, `cpuTokens`,
-`qos`, `sandbox`, `executors`, `cacheBytes`, so `fleet:status` and the dashboard
-Workers panel can show them. Per-market CPU and RSS are not persisted in MySQL in
-v1 (table growth, 42 §8).
+`qos`, `sandbox`, `executors`, `cacheBytes`, `tapeBytes`, so `fleet:status` and
+the dashboard Workers panel can show them. Per-market CPU and RSS are not
+persisted in MySQL in v1 (table growth, 42 §8).
 
 ## 15. Dashboard and ops changes owned here
 
@@ -568,96 +618,81 @@ v1 (table growth, 42 §8).
    `backtest-markets` and the native queue.
 2. Bull Board MUST list the native queue.
 3. `fleet:status` MUST show the native heartbeat fields (§14), cache size (§9),
-   provisioning state (§17) and rules-capture coverage (§16).
+   tapes (§6.3), provisioning state (§17) and rules-capture coverage (§16).
 4. `worker-control.sh` strays (§8.4).
 
-## 16. Pre-start rules snapshot capture
+## 16. Pre-start rules snapshot capture (D37)
 
-11 §13.2 needs pre-start Gamma and CLOB snapshots of every upcoming BTC 5m/15m
-market. Pre-start CLOB fields (`mts`, `mos`, `itode`, `oas`) cannot be
-backfilled later (11 TT1, RS2), and V4 bootstrap captures only Gamma.
+11 §13.2.1 owns the pre-start capture script (merged to main before G2, D37),
+its file format, its deployment on worker-1 (PC7: pinned checkout
+`/Users/worker-1/pmb-rules-capture/app`, files under
+`/Users/worker-1/pmb-rules-capture/prestart`, LaunchAgent
+`com.pmb.rules-capture`) and the import command (PC10). It reads public
+endpoints only, writes files only and is independent of the engine, the
+fleet copy and the Telonex subscription (D38). This section owns its
+operation from M3a on (11 PC9, RC-G2 step 6).
 
-1. **Command.** `npm run rules:capture-prestart -- --market btc:5m,btc:15m --watch [--sink db|jsonl]`.
-   It reads only public endpoints and holds no trading credentials.
-2. **Host.** worker-1, under launchd with `KeepAlive`, in the style of the
-   Recorder V4 catalog service. worker-1 is an always-on Mac mini that already
-   holds the aggregator's DB credentials and hosts MySQL; the producer laptop
-   is not used because it sleeps and travels.
-3. **Schedule.** A 60 s tick. For each market whose start lies in
-   `(now + 15 s, now + 10 min]` (slugs from the 5m/15m epoch grid), fetch Gamma
-   `/markets/slug/{slug}` and, once the condition id is known, CLOB
-   `/clob-markets/{condition_id}`. Each source is fetched on every tick until
-   one response succeeds, plus one final fetch in `(start − 90 s, start − 15 s]`.
-   Per request: 5 s timeout, up to 3 retries with jitter inside the window,
-   back-off on HTTP 429 and 5xx. One market's failure never blocks another.
-4. **Writes.** Through `src/db/exchangeRules.ts` only (42 §3.3, §3.4): one row per
-   fetch, `phase` derived from `fetched_at_ms < market_start_ms`, deduplicated
-   by the table's unique key.
-5. **Monitoring.** Redis hash `rules:capture:heartbeat` with `lastOkMs`,
-   24 h coverage per source (markets started in the last 24 h that have at least
-   one `pre_start` row from that source), and miss counts. `fleet:status` shows
-   it and warns when coverage drops below 99 % or `lastOkMs` is older than
-   10 min.
-6. **Before gate 2.** The table lands only in M3 (01). If the user approves
-   (Open question 5), the agent runs the same command on m1-ivan from the
-   branch with `--sink jsonl`: one line per fetch (`source`, `slug`,
-   `conditionId`, `marketStartMs`, `fetchedAtMs`, `rawSha256`, verbatim body)
-   appended to `data/exchange-rules/prestart/<yyyy-mm-dd>.jsonl`. M3 imports
-   these files with `rules:import-jsonl`, idempotent through the unique key.
-   Gaps while the laptop sleeps are recorded by the coverage metric.
+1. **Periodic import.** After the M3a migrations and the first full import
+   (11 RC-G2 steps 1-2), a second user LaunchAgent on worker-1,
+   `com.pmb.rules-import`, runs `npm run rules:import-jsonl -- --dir
+   /Users/worker-1/pmb-rules-capture/prestart --from <yesterday, UTC>` every
+   hour from the capture checkout, re-pinned on purpose to a main commit that
+   contains the M3a import (PC7, PC10). Worker-1 hosts the production MySQL
+   and holds its credentials (market siblings hold none, §1), so that
+   checkout's `.env` gets only the `DATABASE_*` settings; the capture itself
+   never reads it (PC6). The import is idempotent; a run that exits 1 (sha or
+   slug mismatch, malformed line) is reported by item 2.
+2. **Monitoring.** From M6, `fleet:status` reads the capture's `status.json`
+   (11 PC4) and the import's last result on worker-1, and warns when a
+   timeframe's 24 h coverage is below 99 %, `lastTickAtMs` is older than
+   10 min, or the last import failed or is older than 2 h. Until M6 the goal
+   session runs `--report --days 7` at every milestone start (PC9).
+3. **Archive.** The files stay the raw archive after import; completed day
+   files SHOULD be copied daily to a second host, because a lost pre-start
+   body cannot be re-fetched.
 
 ## 17. Build-host provisioning
 
-31 §3.4 relies on provisioned build hosts, and 31 §7.6 makes the M6 proof
-build the same source on every fleet Mac.
+31 §3 item 4 relies on provisioned build hosts, 31 §7.6 makes the M6 proof build
+the same source on every native host (§12.3), §6.3 builds `pmb-tape` on each
+host, and M11's build daemon builds agent strategies outside the sandbox
+(31 §11, D39).
 
 1. `npm run fleet:native:provision` runs an idempotent ansible playbook
-   (`ops/ansible/native-provision.yml`) on every native host. It installs
+   (`ops/ansible/native-provision.yml`) on every native host (§2). It installs
    rustup when absent and the toolchain pinned in `native/rust-toolchain.toml`
-   with `rustfmt` and `clippy`; checks the Xcode Command Line Tools version
+   with `rustfmt` and `clippy` (worker-1 already has a user-level rustup,
+   D36); checks the Xcode Command Line Tools version
    (`pkgutil --pkg-info=com.apple.pkg.CLTools_Executables`) against the version
-   pinned by the answer to 31 Open question 1, and only records it until then;
+   pinned by the answer to 31 gate-4 question 1, and only records it until then;
    and runs `cargo fetch --locked` for `native/Cargo.lock` into a shared
    per-host `CARGO_HOME` (e.g. `~/.cargo-pmb`), so later builds run
    `--offline` (31 §3.2).
 2. It prints one verification line per host (rustc version, CLT version,
-   registry ready, free disk) and stores it for `fleet:status`. It never
-   restarts workers. Expected disk use is about 2 GB per host.
-3. The shim never builds anything; executors run downloaded, verified binaries.
+   registry ready, `pmb-tape` sha, free disk) and stores it for `fleet:status`.
+   It never restarts workers. Expected disk use is about 2 GB per host.
+3. Builds on a host that runs backtests (31 §4.5), including the goal
+   session's builds in the native checkout while worker-1's fleet worker
+   runs (01 §8.1 H4), use `CARGO_BUILD_JOBS` = 4 on M4 hosts and 2 on M1 Pro
+   hosts (inventory `cargo_build_jobs` overrides) and `taskpolicy -b`; M5
+   measures the effect on build time and backtest throughput.
+4. The shim never builds anything; executors run downloaded, verified binaries.
 
 ## 18. Dependencies on other documents
 
-These rules are owned here and require the named owner to match:
-
-| Owner | Required change |
-|---|---|
-| 21 §4 | List `native.protocolVersion`, `native.minShimVersion`, `native.priorityClass` (§4.1). |
-| 21 §5 | A non-semantic `budget.threads` field carrying the per-job thread allowance `w` (§7.2.3, 16 §9.3). |
-| 21 §12 | Stamping per §7.1: shim clock at dispatch and receipt, `workerChildId = 100 + slot`, the weighted group duration; `diagnostics` stay metrics only. |
-| 20 §6.2 | Optional `candidateIndex` in `progress` and `pong.inflight` for candidate-level timeouts (§8.2.3). |
-| 22 §4.1 | Ledger transport per 42 §7.5 (inline in the result, uploaded by the aggregate host); siblings hold read-only R2 keys. |
-| 30 §12 | Class name `strategy_fault` (20 §4) instead of `strategy_panic`. |
+None open: every item was applied in the gate-1 consolidation.
 
 ## Open questions
 
-1. Phase A storage: is a separate MySQL schema for branch-phase runs acceptable
-   (branch runs are then invisible in the production dashboard unless it is
-   pointed at that schema), or does the user prefer applying the additive
-   migrations to production early, accepting the migration-ordering rule of
-   42-persistence-and-stats.md §2?
-2. How many CPU tokens may worker-2 offer in normal operation, given that the
-   Recorder V4 pinned service runs there and its receive timestamps are
-   calibration ground truth? (Today it runs 3 TS slots; machines.json says 8.)
-3. Should m1-ivan consume native fleet jobs after gate 2 at all, given that it is
-   the live-trading host and will run the Rust live runtime after gate 4?
-4. Must user-launched runs always preempt agent runs in the native queue (§10),
-   or should agents and the user share one class?
-5. Pre-start exchange-rule snapshots (tick size, minimum size, taker-delay flag)
-   can only be captured before each market starts and cannot be recovered
-   later. May the agent start the capture job of §16 now, before gate 2, on
-   m1-ivan from the branch, reading only public Polymarket endpoints and
-   writing only local files? Alternatively, may the capture script alone be
-   merged to main early so it runs on worker-1 (an exception to "main untouched
-   until gate 2")? Without either, every market until M3 has no pre-start CLOB
-   snapshot and realistic runs over that period use `partial` or `fallback`
-   rules.
+None. Decided: phase-A storage (moot, no native persistence before M3a,
+01 §8), worker-2 capacity and m1-ivan (D55, §2), the early rules capture (D37,
+§16). The priority order of §10 (calibration, then user, then agent) is
+settled here as recommended in 03; the user may change it like any decision
+(D56).
+
+## Gate-4 questions
+
+None owned here. Two gate-4 questions of 01 §12.1 touch this document: the
+calibration and live host (item 3; §13 caps native work on that host while a
+session runs) and R2 tokens (item 1; market workers keep read-only R2 keys,
+§6.2, and only worker-1 uploads under the interim rule).

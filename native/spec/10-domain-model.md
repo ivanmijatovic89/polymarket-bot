@@ -15,9 +15,10 @@ WIP paths are under `native/crates/`.
 
 Binding decisions used here: D08 (2 dp output, half-away-from-zero), D09
 (seed and model provenance on the run), D14 (one per-market seed from run seed
-and slug), D18 (build profile), D21 (per-market rules), D23 (window end), D27
-(clock), D31 (capital), and the anti-drift rules (idiomatic Rust, no JS
-emulation, fixed point 1e6).
+and slug), D18 (build profile, as amended at gate 1), D21 (per-market rules),
+D23 (window end), D27 (clock), D31 (capital), D42 (market BUYs sized in
+collateral, O2), D54 (self-crossing orders blocked, N6), and the anti-drift
+rules (idiomatic Rust, no JS emulation, fixed point 1e6).
 
 ---
 
@@ -64,8 +65,9 @@ Rules:
   functions return `Result<_, Overflow>`, and the operators call the checked
   form and panic with a typed `Overflow` payload (`#[track_caller]`) instead of
   wrapping. `overflow-checks` in `Cargo.toml` is then only a safety net for
-  non-money integers, and turning it off (a measured choice of
-  `16-performance-and-parallelism.md`, D18 revisit clause) changes no money
+  non-money integers, and turning it off (published, fleet and live binaries
+  use the fastest-running reproducible build, D18 as amended at gate 1,
+  measured in `16-performance-and-parallelism.md` §11.2) changes no money
   result. Overflow is classified by where the operand came from:
   - job or input values: rejected at parsing with `invalid_input` or
     `data_defect` (`20-binary-protocol.md` §4);
@@ -78,7 +80,7 @@ Rules:
   - anything else is an engine invariant violation: `engine_fault`.
   The checked forms compile to one add plus one never-taken branch. Book
   replay mostly assigns level sizes rather than adding them, so the cost is
-  expected to be negligible; the M5 benchmark confirms it
+  expected to be negligible; the M5a benchmark confirms it
   (`16-performance-and-parallelism.md`).
 - **T4.** Why 1e6: USDC/pUSD and CTF outcome shares both have 6 decimals on
   chain. Fill sizes need all 6: 14,344 of 36,983 recorded `last_trade_price`
@@ -135,9 +137,9 @@ pub enum Rounding { Floor, Ceil, TowardZero, HalfAwayFromZero }
 | R2 | `f64` → fixed (SDK helpers, feeds) | `v × 1e6` | caller-chosen | `HalfAwayFromZero` | Never implicit |
 | R3 | Price → tick (SDK helper) | `p / tick` | BUY `Floor`, SELL `Ceil` | same | Never more aggressive than asked; the caller passes the mode |
 | R4 | Shares → size step (0.01) | `q / step` | `Floor` | — (TS has no step) | Never larger than asked |
-| R5 | BUY notional (cost, reservation) | `p × q / 1e6` | `Ceil` | `HalfAwayFromZero` | Exchange amount rules override (11 §7) |
-| R6 | SELL notional (proceeds) | `p × q / 1e6` | `Floor` | `HalfAwayFromZero` | |
-| R7 | Shares bought with collateral (FOK/FAK BUY fill) | `usdc × 1e6 / p` | `Floor` per fill | n/a | CTF `calculateTakingAmount` truncates (`docs/polymarket/index.md:227`) |
+| R5 | BUY notional (cost, reservation) | `p × q / 1e6` | `Ceil` | `HalfAwayFromZero` | Cash moved by a realistic fill, maker fills from the signed amounts included: `13-execution-models.md` §6.4.1 |
+| R6 | SELL notional (proceeds) | `p × q / 1e6` | `Floor` | `HalfAwayFromZero` | as R5 |
+| R7 | Shares bought with collateral (FOK/FAK BUY fill) | `usdc × 1e6 / p` | `Floor` per fill, at the size precision of 11 §7.3 | n/a | CTF `calculateTakingAmount` truncates (`docs/polymarket/index.md:227`); per level: 13 §6.4.1 |
 | R8 | Taker fee | 11 §5 | exact intermediate ≥ 1e-12 USDC, then `HalfAwayFromZero` to the fee dp; below the minimum → 0 | 4 dp `HalfAwayFromZero`; `< 0.0001` → 0 (`src/trading/fees.ts:18-24`) | Fee ≥ 0, so half-up = half-away |
 | R9 | BUY reservation | notional + max fee | `Ceil` notional + max fee over every reachable fill price (§9.4) | `HalfAwayFromZero` notional + fee at limit, 700 bps, 0 if post-only (`src/trading/capital.ts:16-28`) | |
 | R10 | Average-cost removal on SELL | `basis × sold / qty` | `HalfAwayFromZero`; a full close removes the whole basis | same | No residual basis on a closed position |
@@ -197,7 +199,7 @@ batch stats classify won/lost/flat by the sign of the **rounded** pnl
   against `marketMeta` (`outcomes` plus `clobTokenIds` for version `v1`,
   `positionIds` for `v2`; 11 §10). A mismatch is invalid input (exit 2). Gamma
   index 0 is YES/UP (docs.polymarket.com/market-data/market-details, fetched
-  2026-10-09). The canonical trace uses the same indexes (`native/TRACE.md`).
+  2026-10-09). The parity trace uses the same indexes (22 §3.3).
 - **M3.** Input readers map rows to `Outcome` by token id and never by column
   position. The Telonex `asset_index` points at the row's own
   `asset0_id`/`asset1_id` columns in file order, not UP/DOWN
@@ -255,9 +257,10 @@ batch stats classify won/lost/flat by the sign of the **rounded** pnl
 
 ### 6.1 Seeds and random draws
 
-The realistic simulator draws latencies, settlement delays and failure
-outcomes, and ts-compat draws the optional compat jitter
-(`13-execution-models.md` §5.1, §6.8). Everything below is normative; changing
+The realistic simulator draws execution latencies, market-data receipt
+delays, feed latencies, settlement delays and failure outcomes, and
+ts-compat draws the optional compat jitter (`13-execution-models.md` §5.1,
+§6.8; `12-engine-core.md` §4.3; `14-feeds-and-plugins.md` F-51). Everything below is normative; changing
 any constant, tag, encoding or mapping changes realistic results and is an
 engine-semantics change (`engineVersion` bump plus a CONTRACT changelog entry,
 `30-strategy-sdk.md`).
@@ -278,17 +281,29 @@ engine-semantics change (`engineVersion` bump plus a CONTRACT changelog entry,
   where `LE64` is the 8-byte little-endian encoding (read back as `u64` from
   the first 8 digest bytes) and `‖` is concatenation. Nothing else enters it:
   not `idx`, candidate index, profile, strategy, worker or time (I1).
-- **RNG-3. Stream seed.** Each model component has a fixed ASCII tag owned by
-  `13-execution-models.md`: its component name from the 13 §6.8 table
-  (`place`, `cancel`, `ack`, `fillReport`, `mined`, `confirmed`, `failed`,
-  `chainSplit`, `chainMerge`), `compat_jitter` (13 §5.1), and one tag per
-  failure-rate draw, named in 13.
-  `stream_seed(tag) = LE64(SHA-256("pmb-stream/v1" ‖ LE64(market_seed) ‖ ASCII(tag))[0..8])`,
-  computed once per session and tag.
-- **RNG-4. Entity key.** A draw belongs to one entity:
-  `entity = (kind << 32) | id` as `u64`, with kind `1` = `OrderKey`, `2` =
-  `CancelSeq`, `3` = `TradeSeq`, `4` = `OpKey`, `5` = execution-command
-  sequence. Which entity a component uses is fixed in the 13 §6.8 table.
+- **RNG-3. Stream seed.** Each stream has a fixed ASCII tag. The tags and
+  the entity each component uses are owned by `13-execution-models.md` §6.8
+  (`place`, `cancel`, `ack`, `cancelAck`, `fillReport`, `mined`,
+  `confirmed`, `failed`, `chainSplit`, `chainMerge`, `md_cmd`, `md_row`,
+  `settlement_failure`, `chain_failure`, `compat_jitter`) and by
+  `14-feeds-and-plugins.md` F-51 (`feed.binance`, `feed.chainlink`,
+  `feed.priceToBeat`). There are two kinds of stream:
+  - (a) per-market streams (every 13 tag, and `feed.priceToBeat`):
+    `stream_seed(tag) = LE64(SHA-256("pmb-stream/v1" ‖ LE64(market_seed) ‖ ASCII(tag))[0..8])`,
+    computed once per session and tag;
+  - (b) run-level feed streams (`feed.binance`, `feed.chainlink`; one live
+    connection delivers each element once to every market, so overlapping
+    5m and 15m markets of one run draw the same latency for it, 14 F-51):
+    `feed_stream_seed(tag) = LE64(SHA-256("pmb-feed-stream/v1" ‖ LE64(run_seed) ‖ ASCII(tag))[0..8])`.
+- **RNG-4. Entity key.** A draw belongs to one entity, a `u64`. Per-market
+  execution streams use `entity = (kind << 32) | id`, with kind `1` =
+  `OrderKey`, `2` = `CancelSeq`, `3` = `TradeSeq`, `4` = `OpKey`, `5` =
+  execution-command sequence, `6` = input row index of the market file
+  (`12-engine-core.md` §4.3). Which entity a component uses is fixed in the
+  13 §6.8 table. Feed streams use the element identities of 14 F-51
+  (Binance `agg_trade_id`, a hashed Chainlink row key, price-to-beat entity
+  0), without the kind packing; their tags keep them disjoint from execution
+  streams.
 - **RNG-5. Draw.** Draw `i` (`i = 0, 1, …`) of an entity is the `(i+1)`-th
   output of SplitMix64 started from state `h`:
   ```text
@@ -319,7 +334,9 @@ engine-semantics change (`engineVersion` bump plus a CONTRACT changelog entry,
     one quantile maps monotonically across parameter changes: `empirical` by
     linear interpolation in its quantile table; `lognormal` as
     `exp(mu + sigma × Φ⁻¹(u))` with Φ⁻¹ by Wichura's AS241 (PPND16) on the
-    pure-Rust `libm` (D-2).
+    pure-Rust `libm` (D-2). Exception: the `md_cmd` stream gives one entity
+    several sub-samples; sub-sample `k` uses draw index `k` (13 §6.8) as its
+    single `u`.
   - A continuous sample becomes integer ms with `HalfAwayFromZero` (Rust
     `f64::round`, exact) and is clamped to `[0, 2^31 − 1]`. Any truncation of
     tails is a parameter of the component in 13, not of this mapping.
@@ -340,6 +357,11 @@ engine-semantics change (`engineVersion` bump plus a CONTRACT changelog entry,
 | `place`, entity `OrderKey(0)`: open-interval `u` | `0.4796178788685956` |
 | `place`, entity `OrderKey(1)`: `draw(0)` | `0x610af8c6b7bb80bd` |
 | `compat_jitter`, `j = 100`, command 0, 1, 2 (kind 5): jitter | `−34`, `−78`, `−52` |
+| `md_row`, run seed 0, row 0 (kind 6): `draw(0)` | `0xbe885d470957411b` |
+| `feed_stream_seed("feed.binance")`, run seed 0 | `0x9416e0f7dd99bfb2` |
+| `feed.binance`, `agg_trade_id = 3_000_000_000`: `draw(0)` | `0x3d2083a3f2c7d945` |
+| `feed.chainlink`, row (`timestamp_us = 1780272000000000`, `server_timestamp_us = 1780272001012345`): entity (14 F-51), `draw(0)` | `0x21f0f8efcd0a5519`, `0x4469676c00a02960` |
+| `feed.priceToBeat`, run seed 0 (per-market stream), entity 0: `draw(0)` | `0xf00c88f6376b1577` |
 
 ## 7. Orders and intents
 
@@ -373,14 +395,16 @@ The WIP model already has FAK (`pmb-core/src/model.rs:66-78`). TS has no FAK
 `OrderSize`:
 
 - **O1.** Resting orders and market SELLs MUST use `Shares`.
-- **O2.** A realistic or live FOK/FAK BUY is sized in collateral, the pre-fee
-  USD amount to spend, with the fee added on top (CLOB V2;
+- **O2.** A realistic, paper or live FOK/FAK BUY is sized in collateral, the
+  pre-fee USD amount to spend, with the fee added on top (CLOB V2;
   docs.polymarket.com/trading/place-orders, fetched 2026-10-09). An
   `OrderSize::Shares(q)` on a market BUY is converted to
   `Collateral(price.notional(q, Floor))`, floored to the amount decimals of the
   tick (11 §7). The order can then receive **more** than `q` shares when it
-  fills below the limit price. This is the documented exchange behavior, and
-  the SDK MUST say so (`30-strategy-sdk.md`). See Open questions.
+  fills below the limit price. This is the documented exchange behavior
+  (D42), and the SDK MUST say so next to `buy_spend`
+  (`30-strategy-sdk.md`). The RF04 A/B report shows shares received vs
+  requested per market (`13-execution-models.md` §7.1).
 - **O3.** ts-compat sizes a FOK BUY in shares, as TS does
   (`src/trading/execution/BacktestExecution.ts:395-418`).
 
@@ -411,23 +435,43 @@ The WIP model already has FAK (`pmb-core/src/model.rs:66-78`). TS has no FAK
   it, and ts-compat keeps that (`src/trading/OrderManager.ts:411`).
 - **N5.** Validation order, dedupe and funding are defined in
   `12-engine-core.md`. Exchange-rule validation is defined in
-  `11-exchange-rules.md`.
+  `11-exchange-rules.md`. A placement of a cid with an active generation is
+  dropped silently and counted (`duplicate_active_cid`, 12 §7.6); it is not a
+  reject reason.
+- **N6. No self-crossing orders** (D54; realistic, paper and live; not
+  ts-compat, because TS has no such check, 13 TC-C14). The engine rejects with
+  `SelfCross` any order that could match one of the session's own orders at
+  the exchange. Own orders are the non-terminal orders of every type
+  (`InFlight`, `Delayed`, `Live`, `Unknown`; an in-flight FOK/FAK can still
+  meet an own order that arrives before it) whose cancel the exchange has not
+  acknowledged (`CancelState::Acked`), plus the earlier entries of the same
+  batch. A new order on outcome `o` at price `p` crosses an own order at
+  price `q` when: BUY vs own SELL on `o` with `p ≥ q`; SELL vs own BUY on
+  `o` with `p ≤ q`; BUY vs own BUY on the other outcome with `p + q ≥ 1`
+  (mint match); SELL vs own SELL on the other outcome with `p + q ≤ 1`
+  (merge match). A market order's price, new or own, is its worst
+  acceptable price. The check
+  runs in engine validation (12 §7), so the exchange's undocumented
+  self-trade behavior is never exercised and not probed.
 
 ### 7.4 GTD expiry semantics
 
-- **G1.** `expire_at_ms` is the **stated exchange expiration**: the value the
+Rule ids are `GD1`–`GD4` (they were `G1`–`G4`, which clashed with the gate
+names).
+
+- **GD1.** `expire_at_ms` is the **stated exchange expiration**: the value the
   live adapter sends, in whole seconds `floor(expire_at_ms / 1000)` (R13). This
   keeps the meaning of the TS field, which live already sends as
   `Math.floor(expireAtMs / 1000)` (`src/trading/execution/LiveExecution.ts:189-191,318-320`),
   and matches the Polymarket API.
-- **G2.** Effective expiry = stated − early-expiry offset. The offset is 60 s
+- **GD2.** Effective expiry = stated − early-expiry offset. The offset is 60 s
   in realistic and live, and 0 in ts-compat, where TS expires at `expireAtMs`
   exactly. Minimum lead and the arrival-time check are in 11 §8.
-- **G3.** The SDK provides
+- **GD3.** The SDK provides
   `gtd_expiration_for_lifetime(now, lifetime) = now + early_expiry + lifetime`,
   the docs' recipe "now + 60 + N".
-- **G4.** Consequence: exerciser case `x3` (`expireAtMs = tick ts + 120000`,
-  `native/EXERCISER.md`) is accepted in ts-compat and rejected in realistic
+- **GD4.** Consequence: exerciser case `x3` (`expireAtMs = tick ts + 120000`,
+  60 §5.2) is accepted in ts-compat and rejected in realistic
   (lead < 3 min). This is intended and documents the rule.
 
 ### 7.5 Intent meta
@@ -624,15 +668,15 @@ order, so each fill carries its own status.
 
 ### 10.1 Variants
 
-| Rust variant | Payload | Emitted by | TS kind | In `native/TRACE.md` |
+| Rust variant | Payload | Emitted by | TS kind | In the parity trace (22 §3.2) |
 |---|---|---|---|---|
 | `OrderSubmitted` | `order: OrderKey` | engine | `order_submitted` | yes |
-| `OrderRejected` | `order: Option<OrderKey>`, `cid`, `reason: RejectReason` | engine / adapter | `order_rejected` | yes (reason compared loosely) |
+| `OrderRejected` | `order: Option<OrderKey>`, `cid`, `reason: RejectReason` | engine / adapter | `order_rejected` | yes (reason code compared, 22 §3.4) |
 | `OrderAccepted` | `order`, `exchange_id` (live) | adapter | `order_accepted` | yes |
 | `OrderDelayed` | `order`, `release_at` | adapter | — (new) | realistic only |
 | `OrderOpen` | `order` | adapter | `order_open` | yes |
 | `Fill` | `Fill` | adapter | `fill` | yes |
-| `SettlementUpdate` | `order`, `fill: Option<FillKey>`, `status`, `size_matched` | adapter / report model | `ws_order_update` | no (TRACE omits it) |
+| `SettlementUpdate` | `order`, `fill: Option<FillKey>`, `status`, `size_matched` | adapter / report model | `ws_order_update` | yes (`settlement_update`, both profiles) |
 | `OrderDone` | `order`, `reason: DoneReason`, `filled: Option<Qty>` | adapter / engine | `order_done` | yes |
 | `CancelAcked` | `op: CancelOp`, `order: OrderKey` | adapter | — (new; trace and ledger kind `cancel_acked`) | realistic and live only; never in a ts-compat trace (`22-trace-ledger-journal.md` §3.2) |
 | `CancelFailed` | `op: CancelOp`, `order: Option<OrderKey>`, `reason` | engine / adapter | `cancel_failed` | yes |
@@ -667,7 +711,7 @@ boundary.
 
 | Enum | Variants (TS string where one exists) |
 |---|---|
-| `RejectReason` (engine origin) | `InvalidPrice` (`invalid_price`), `InvalidSize` (`invalid_size`), `UnknownOutcome` (`missing_assetId`), `PostOnlyRequiresResting` (`post_only_requires_gtc_or_gtd`), `GtdRequiresExpiry` (`gtd_requires_expireAtMs`), `GtdExpiryTooSoon{min_offset_ms}` (`gtd_expireAtMs_too_soon(min_offset_ms=60000)`), `InsufficientCapital{required, available}` (`insufficient_capital(required=X,available=Y)`), `InsufficientInventory{required, available}`, `RiskMaxOpenOrders{max}` (`risk_max_open_orders(max=100)`), `RiskMaxOrderSize{max}`, `RiskMaxAbsPosition{max}`, `RiskLossStop{realized}`, `BatchTooLarge{max}` (`batch_too_large(max_15_orders)`), `DuplicateActiveCid`, `MetaTooLarge`, `StrategyHalted`, `KillSwitch` |
+| `RejectReason` (engine origin) | `InvalidPrice` (`invalid_price`), `InvalidSize` (`invalid_size`), `UnknownOutcome` (`missing_assetId`), `PostOnlyRequiresResting` (`post_only_requires_gtc_or_gtd`), `GtdRequiresExpiry` (`gtd_requires_expireAtMs`), `GtdExpiryTooSoon{min_offset_ms}` (`gtd_expireAtMs_too_soon(min_offset_ms=60000)`), `InsufficientCapital{required, available}` (`insufficient_capital(required=X,available=Y)`), `InsufficientInventory{required, available}`, `RiskMaxOpenOrders{max}` (`risk_max_open_orders(max=100)`), `RiskMaxOrderSize{max}`, `RiskMaxAbsPosition{max}`, `RiskLossStop{realized}`, `BatchTooLarge{max}` (`batch_too_large(max_15_orders)`), `SelfCross{resting: OrderKey}` (N6; no TS string, never in a ts-compat trace), `MetaTooLarge`, `StrategyHalted`, `KillSwitch`. Not a reason: duplicate active cids are dropped silently (N5). |
 | `RejectReason` (exchange origin) | `InvalidTick{price, tick}`, `PriceOutOfBounds{min, max}`, `SizeBelowMinimum{min}`, `NotionalBelowMinimum{min}`, `SizePrecision`, `AmountPrecision`, `PostOnlyWouldCross` (`post_only_would_cross`), `GtdLeadTooShort{min_lead_ms}`, `MarketClosed`, `TradingRestricted{mode}` (`mode = PostOnly | CancelOnly | Disabled | Restarting`; `Restarting` is HTTP 425, `50-live-runtime.md` §8.2.8), `RateLimited{retry_after_ms}`, `InsufficientExchangeBalance`, `NotFoundAfterAmbiguous`, `Unmapped(code)` (raw text in the journal only) |
 | `DoneReason` | `Filled`, `Canceled(CancelCause)`, `Expired`, `Killed` |
 | `CancelCause` | `Strategy(CancelOp)`, `Rotation`, `WindowEnd`, `MarketClosed`, `HeartbeatLoss`, `KillSwitch`, `StrategyPanic` (D32), `Operator`, `Exchange` |
@@ -693,9 +737,9 @@ cache-friendly:
   the current `OrderKey`. `Order` holds no `String`, no `Option<String>`, no
   `serde_json::Value`.
 - **P3.** No allocation per callback in steady state. Strategies write intents
-  into an engine-owned, reusable `IntentSink` (capacity retained across
-  callbacks). The WIP returns a fresh `Vec<Intent>` per callback
-  (`pmb-core/src/strategy.rs:39-43`).
+  into an engine-owned, reusable buffer (`Intents`, `30-strategy-sdk.md` §7;
+  capacity retained across callbacks). The WIP returns a fresh `Vec<Intent>`
+  per callback (`pmb-core/src/strategy.rs:39-43`).
 - **P4.** Token ids, condition ids, slugs and cid strings are parsed or
   interned once at session start or first use, and never compared in the hot
   path. The WIP compares `Arc<str>` token ids on every event
@@ -738,34 +782,14 @@ cache-friendly:
 
 ## 14. Changes required in other documents
 
-These rules are owned here; the named owners align their text.
+None open: every item was applied in the gate-1 consolidation.
 
-| Owner | Required change |
-|---|---|
-| 21 §6, §10, N2 | `ModelConfig.seed` and the echoed `seed` are JSON integers in `[0, 2^53 − 1]` (RNG-1), not u64 decimal strings; the example `"8123456789012345678"` is out of range. |
-| 41 §5.4, §9.2; 21 §8 C5 | The per-market seed is RNG-2 (not an unnamed `H`); the `--seed` flag and its default 0 are RNG-1. |
-| 42 §3.1, §4 | No change: `seed bigint` in `[0, 2^53 − 1]` already matches RNG-1. |
-| 13 §5.1, §6.8 | Stream tags and entity kinds per RNG-3 and RNG-4 (the 13 §6.8 "draw keyed by" column maps to kinds 1–5); sample rounding per RNG-6; `CancelAcked` is defined here (V1a), so the reference to 12 open question 3 goes. |
-| 12 §9.2, Open question 3 | `CancelAcked` and `CancelState::Acked` exist (§8.1, §10.1); the open question is closed. |
-| 22 §3.2 | `cancel_acked` is a realistic and live event kind; it never appears in a ts-compat trace. |
-| 30 §4.1, §8 | `CancelAcked` belongs to the `LIFECYCLE` interest and the author event view. |
-| 50 §8.2.5 | The core `Fill` aggregates legs per (own order, trade, price level) (I3). |
-| 60 §9 | The RNG-7 vectors are a CI determinism test. |
+## Gate-4 questions
+
+None owned here (list: 01 §12.1).
 
 ## Open questions
 
-1. **Instant-fill BUY sized in shares (O2), to decide at gate 1.** On
-   Polymarket today an instant-fill (FOK/FAK) BUY is sized in dollars, not
-   shares. When an old strategy asks to buy "10 shares" this way, should the
-   realistic engine and the live bot:
-   - (a) turn it into a dollar amount at the limit price (10 × limit), so it
-     can end up with slightly more than 10 shares when the price is better
-     than the limit, exactly as the exchange would do (recommended: it
-     matches CLOB V2, ported strategies such as lagsnipe keep working, and
-     the RF04 A/B report, 13 §7.1, shows "shares received vs requested" per
-     market so the effect is visible); or
-   - (b) reject the order, so every strategy must state how many dollars to
-     spend (`buy_spend` in the SDK, 30)?
-
-   This changes position sizes of ported strategies in realistic and live
-   only; ts-compat keeps share sizing (O3).
+None. Former Open question 1 (share-sized FOK/FAK BUYs) is decided by D42:
+they are converted to collateral at the limit price in realistic, paper and
+live (O2); ts-compat keeps share sizing (O3).

@@ -1,58 +1,55 @@
 # 03 — Overview for the project owner
 
-A one-page summary for the owner, with no engineering background needed. It is not normative: where it differs from the other documents in this folder, they win.
+A one-page summary in plain language. It is not normative: where it differs from the other documents in this folder, they win.
 
 ## What we are building and why
 
-- A new trading engine written in **Rust**, a compiled language that runs much faster than TypeScript and can use every CPU core at once. It replaces only the engine: the code that replays market data, runs a strategy, decides orders, and simulates or sends them.
-- **One engine for both jobs.** The same code runs backtests and live trading, so a backtest shows what the live bot would have done on that market. Getting backtest and live to agree is the whole point.
-- It is designed from Polymarket's rules as they are today: CLOB V2 (Polymarket's current exchange version), per-market fees, the hold on instant orders, and order-expiry rules. It does not copy the old engine. Today's TypeScript live bot does not work on CLOB V2, and the Rust live part fixes that.
-- **Speed is the top priority:** the fastest possible backtests and the smallest possible delay in the live bot.
+- A new trading engine in **Rust**, a compiled language that is much faster than TypeScript and uses every CPU core. It replaces only the engine: the part that replays market data, runs a strategy, decides orders, and simulates or sends them.
+- **One engine for backtests and live trading**, so a backtest shows what the live bot would have done. Getting the two to agree is the whole point. It follows Polymarket's current rules (CLOB V2, per-market fees, the hold on instant orders, order expiry). Today's TypeScript live bot does not work on CLOB V2; the Rust live part fixes that.
+- **Speed is the top priority**: the fastest backtests and the smallest delay in the live bot.
 
 ## What stays the same for you
 
-- The same commands (`npm run backtest ...`), dashboard, database tables, fleet, batch statistics, recorder and research tools. They get exactly the results they get today.
-- Your TypeScript strategies and AI protocol runs keep working on the old engine, unchanged. Every Rust run is labeled with its engine in the database, so results from the two engines are never mixed by accident.
-- Until gate 2, all work stays on a separate branch. Main and the fleet are not touched.
-- The AI agent never places a real order. Real orders need a special build plus a launch flag that only you use.
+- The same commands, dashboard, database, fleet, statistics, recorder and research tools. Your TypeScript strategies and AI protocol runs keep working on the old engine. Every Rust run is labeled with its engine, so results are never mixed by accident.
+- The AI agent never places a real order. Fleet and agent builds of the engine cannot send orders at all; real orders need a separate build that only you make and launch.
+
+## Where and how the work runs
+
+- All engine work runs on **worker-1** (the Mac mini), in its own folder, separate from the fleet's folder. The fleet's market files are read, never changed. The MacBook is not used (its disk is full).
+- worker-1 keeps doing fleet and AI-agent work. Speed tests run only between 01:00 and 07:00: the agent first pauses worker-1's AI-agent runs (a running session finishes, nothing is killed) and its fleet worker, and resumes them afterwards.
+- The AI session works in runs of at most **8 hours**, then pauses. You resume it, and it continues from the progress file (STATUS.md). Work is saved in small steps that always build.
+- Until gate 2 everything stays on a branch with a draft pull request marked "DO NOT MERGE before gate 2". One exception goes to main first: a small script that saves each market's exchange rules before it starts, because they cannot be recovered later.
+- A separate AI (Fable), which cannot see the engine code, writes independent tests from this spec.
 
 ## Order of work
 
-1. Freeze the plan (now). 2. Build the engine and backtest on this MacBook. 3. Copy-mode proof against the old engine (gate 2), then one merge to main. 4. Save Rust runs to the database, do the speed work, build realistic mode and candidate groups, run the final speed benchmark. 5. Run on the 4-Mac fleet. 6. Read worker-2's Recorder V4 recordings, then paper trading (live market data, simulated fills, no money). 7. Connect to Polymarket for real orders (gate 4). 8. You run the ~$100 calibration (gate 3).
+1. Plan frozen tonight (gate 1, decided by the lead for you). 2. Rules-saving script on main. 3. Engine and backtests on worker-1. 4. Copy-mode proof on 200+ BTC 15m markets (gate 2), then merge to main. 5. Database, speed work, realistic mode, candidate groups (many parameter sets in one pass), final speed test. 6. Fleet: worker-1, worker-2 and milan-m1 (if available); the MacBook only sends jobs. 7. AI protocols start writing Rust strategies, so the whole fleet gets faster. In parallel: 8. worker-2's recordings, paper trading (live data, no money), the real-order connection (gate 4), and your ~$100 calibration (gate 3).
 
-The engine has two modes. **Copy mode** ("ts-compat") reproduces the old engine's behavior, to prove the new one was built right. **Realistic mode** follows today's exchange rules and is checked against real trading.
+**Copy mode** reproduces the old engine to prove the new one is right. **Realistic mode** follows today's exchange rules and is checked against real trading. BTC 5m copy-mode checks on Telonex data wait until you renew Telonex; 5m is checked on worker-2's recordings meanwhile.
 
-## How you will know it works: four gates (work stops until you approve)
+## Gates (work stops until you approve)
 
 | Gate | When | What you see | You decide |
 |---|---|---|---|
-| G1 | Now | This spec, the decision list, the open questions | Freeze the plan |
-| G2 | After the copy-mode proof | On 200+ real BTC markets: the same orders, fills and cancels as the old engine (same sides, prices and sizes; money within $0.0001 per market). Every difference is listed and labeled as an old-engine bug, a Rust bug (always fixed) or an intended change. You approve any difference that changes money. First speed numbers. | Accept, and merge to main |
-| G4 | Before any real order | 24+ hours of paper trading whose replay gives identical decisions; tests against a simulated exchange; the safety checklist (kill switch, loss limits, phone alerts); the calibration plan with its pass marks fixed in advance | Approve; you launch |
-| G3 | After calibration | The calibration report: pass or fail on each pass mark agreed in advance | Make realistic mode the default |
+| G1 | Tonight | Decided by the lead for you; this page | Change any decision below in the morning |
+| G2 | After the copy-mode proof | Same orders, fills and cancels as the old engine on 200+ BTC 15m markets (money within $0.0001 per market); every difference labeled; first speed numbers | Accept, merge to main, approve differences that change money |
+| G4 | Before any real order | 24+ hours of paper trading whose replay gives identical decisions, exchange-simulation tests, safety checklist, calibration plan | Answer the questions below; build the real-order version on the chosen Mac and run a short paper test with it; approve; you launch |
+| G3 | After calibration | Pass or fail on each pass mark fixed in advance | Make realistic mode the default |
 
-G4 comes before G3 in time. There is no deadline, and no result that makes us abandon the project: problems are fixed until the gate passes.
+## Decisions taken tonight that you may want to check (details in 02-decisions.md)
 
-## Expected speed, and how it is measured
+- New Rust strategies may say "wake me only when something relevant changed" (D41). Fleet and live binaries use the fastest-running build; the quick build is for local checks (D18).
+- An instant BUY of N shares becomes a dollar amount at the limit price in realistic mode and live, as on the exchange (D42). The engine never sends an order that would trade against our own resting order (D54).
+- A faster local copy of the market files on worker-1, up to 40 GB; fleet-wide only after your OK at gate 2; the original files are never re-converted (D46).
+- Old engine: bug fixes only after gate 2, except features AI protocols still need (which also get a Rust version); retirement review about 3 months after gate 3 (D49). The agent runs database migrations that only add columns or tables (D50).
+- Backtests across fee periods are allowed, with per-period statistics (D51). Instant-order hold times before 2026-08-17 are used but flagged and do not count for gate 3 (D52). Fees are checked with free data first; buying Telonex data needs you (D53).
 
-- In an earlier test, 1,000 BTC 15m markets with lagsnipe took 617 s in TypeScript and 99.6 s in a first Rust prototype (6× faster), both with 8 processes. The new design is estimated at roughly 8–20 s for the same work on this MacBook (30–75× faster), plus about 2 s to start a run and save it. These are estimates, not promises.
-- Where the speed comes from: one long-running program per Mac that uses all cores, instead of one Node process per core; price feeds and market files decoded once and shared; a faster local copy of the market files (needs disk, see questions); candidate groups, which test many parameter sets in one pass over each market; letting new strategies skip updates where nothing relevant changed; and thread counts tuned for each chip, because M4 and M1 Macs mix fast and slow cores differently.
-- Live: our own code should take well under 1 ms from receiving a price to having an order ready. The internet round trip to Polymarket (70–380 ms) dominates. The bigger live gain is that the engine never waits for an order reply before it handles the next price.
-- **Measured, not assumed.** Fixed sets of 1,000 markets run on an idle Mac, three times each, TypeScript and Rust on the same markets. Time, markets per second, CPU and memory are recorded at every milestone, and any slowdown over 10% must be explained. A speed change must never change a result: outputs stay byte-for-byte identical at any thread count and on every Mac.
-- **Only strategies written in Rust get faster.** The AI protocols' TypeScript strategies (about 80% of today's fleet work) keep today's speed until the follow-up project in which protocols write Rust strategies.
+## Questions for you at gate 4 (before any real order)
 
-## What the $100 calibration does
+Separate storage keys per machine; a paper-trading key on an empty wallet; which Mac calibrates and trades; which wallet (recommended: a new one); alert app (recommended: ntfy); automatic restarts (recommended: up to 3 per hour); extra calibration pass marks; maker budget; calibration days.
 
-- You run the bot with real money at minimum order sizes for 2–4 days, while worker-2 records the same markets. The budget is about $5 to check exchange rules with tiny orders, $25 for instant (taker) orders and $30 for resting (maker) orders. The bot stops automatically at $60 total loss, and at most $15 is at risk at any moment.
-- Afterwards we replay those exact markets through the backtest and compare them with what really happened: which orders were accepted or rejected, fill prices, fees to the cent, how often resting orders filled, and each delay. The pass marks are fixed before the run, so nobody can move the goalposts.
-- It cannot prove that a strategy makes money. It also says nothing about larger orders (above about 5–10 shares), other coins, or a different computer or network.
+## Speed, calibration and risks
 
-## Main risks
-
-- Expectations: the fleet as a whole gets no faster until protocols write Rust strategies.
-- The old engine has bugs of its own. Copy mode will surface them, each one must be explained, and you approve every one that changes money.
-- The calibration is small. Maker fill rates come out only to about ±20%, and some rules before mid-August 2026 are known only from news reports, not confirmed by Polymarket.
-- Data and disk: BTC 5m data is not ready for the copy-mode proof, and this MacBook has only 2.5 GB of free disk.
-- An AI that writes both the code and its tests can repeat its own mistakes. A separate session that never sees the engine code writes independent tests.
-- AI sessions can stop mid-task. Work moves in small steps that always build, and a progress file lets any new session pick up where the last one stopped.
-- Real money live: kill switch, session loss limits, phone alerts, open orders cancelled after a restart, and real orders only when you launch them.
+- Earlier test: 1,000 BTC 15m markets took 617 s in TypeScript and 99.6 s in a first Rust prototype. The new design aims much higher; numbers are measured three times on an idle Mac, never assumed, and a speed change must never change a result.
+- The $100 calibration replays the exact markets you traded and compares acceptances, fill prices, fees, fill rates and delays. It cannot prove a strategy makes money, and says nothing about large orders, other coins or another computer.
+- Risks: only Rust strategies get faster; the old engine's bugs surface and must be explained; the calibration is small; a decision you change in the morning means redoing the work that depends on it.

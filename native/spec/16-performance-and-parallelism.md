@@ -1,19 +1,20 @@
 # 16 — Performance and parallelism
 
-Speed is the top priority of the native engine (user direction item 7, 01 §2,
-R8). This document designs the fastest architecture for backtest throughput on
+Speed is the top priority of the native engine (01 §1 item 6, §2; R8). This document designs the fastest architecture for backtest throughput on
 the fleet and for minimum live decision latency. All of it sits inside the
 determinism rule R7 and the gates. It owns the performance model, the
 executor's thread and scheduling model, shared caches and the memory budget,
 the choice of input decode path (including the derived native tape of §7.5)
 and order-book layout, candidate-group layout and parallelism, the tick
-interest filter proposal (§9.4), the Apple P-core/E-core and QoS policy, build
-profile, allocator and profiling tools, the live runtime's async-runtime and
-wake strategy, the latency budget breakdown and report format, the per-run
-fixed-cost plan (§13.9), and the benchmark protocol with its profiling
-milestones. It also records which choices are decided now and which wait for
-measurement (§15). Process contracts (`serve` framing) are in
-20-binary-protocol.md. Shim, admission and host configuration are in
+interest filter (§9.4), the Apple P-core/E-core and QoS policy, the published
+build-profile rule, allocator and profiling tools, the live runtime's
+async-runtime and wake strategy, the latency budget breakdown and report
+format, the per-run fixed-cost plan (§13.9), and the benchmark protocol with
+its host, windows and profiling milestones. It also records which choices are
+decided now and which wait for measurement (§15). All engine builds, parity
+runs and benchmarks before M6 run on worker-1 (D36). Process contracts
+(`serve` framing) are in 20-binary-protocol.md. Shim, admission and host
+configuration are in
 40-fleet-integration.md. Decode semantics are in 15-inputs.md, feed-cache
 semantics in 14-feeds-and-plugins.md, group semantics in
 41-candidate-groups.md, and live thread roles and latency targets in
@@ -25,20 +26,21 @@ semantics in 14-feeds-and-plugins.md, group semantics in
 |---|---|
 | Performance model, default architecture, decision register | this document |
 | Executor thread pool, scheduling, nested group parallelism, determinism under parallelism | this document |
-| `serve` invocation, NDJSON framing, `--threads`/`--cache-mb`/`--qos` flags, crash attribution | 20-binary-protocol.md §6 (this document defines the `--qos` values and the mechanism, and requests `--tape-dir`, §7.5) |
-| Shim process model, admission weights, per-host `T`, `native_memory_mb`, `overheadFraction` | 40-fleet-integration.md §5, §7 |
+| `serve` invocation, NDJSON framing, `--threads`/`--cache-mb`/`--qos`/`--tape-dir` flags, crash attribution | 20-binary-protocol.md §6 (this document defines the `--qos` values and mechanism, §10.2, and the tape lookup behind `--tape-dir`, §7.5) |
+| Shim process model, admission weights, per-host thread budget, `native_memory_mb`, `overheadFraction` | 40-fleet-integration.md §5, §7 (this document's `T` is 40's CPU token count `C`; this document's `C` is per-candidate cost, §3) |
 | Telonex / V4 decode semantics, format versions | 15-inputs.md (this document chooses the decode *implementation path*) |
 | Derived native tape: encoding, tool, validation, disk plan | this document (§7.5); equality with the 15 §4.2 reader is the acceptance rule |
 | Feed day-cache semantics and slicing | 14-feeds-and-plugins.md §14 (this document sets the budget and the measurements) |
 | Hot-loop allocation rules on domain types and the core loop | 10-domain-model.md §11, 12-engine-core.md §14, 30-strategy-sdk.md §16 |
 | Order-book representation | this document (10 §11 P6 delegates it here) |
 | Group isolation and equivalence | 41-candidate-groups.md §2, §5 (this document chooses layout and fan-out) |
-| Tick interest filter | this document proposes the design (§9.4); the API is 30 §4.1, the loop step 12 §5.3 |
+| Tick interest filter | this document owns the design (§9.4, D41); the API is 30 §4.1, the loop step 12 §5.3 |
 | Live thread roles, QoS per role, latency targets, required techniques | 50-live-runtime.md §4.2, §18 |
 | Live async runtime, wake strategy, latency budget breakdown, report format | this document |
-| Build profile definition | 31-artifacts-build-publish.md §4.2 (this document runs the D18 revisit measurement) |
+| Engine-owned platform crate (the only `unsafe` in the workspace) | this document (§10.2); its live uses are 50 §4.3–§4.4 |
+| Build profile definition | 31-artifacts-build-publish.md §4.1–§4.2 (this document owns the adoption rule and runs the measurement, §11.2) |
 | Per-run fixed costs: measurement and reduction plan | this document (§13.9); the code belongs to 40 (producer, shim) and 42 (aggregator, persistence) |
-| Benchmark protocol and profiling milestones | this document; acceptance of parity is 60-verification.md |
+| Benchmark protocol, benchmark host and windows, profiling milestones | this document (host per D36); acceptance of parity is 60-verification.md |
 
 ## 2. Evidence
 
@@ -57,20 +59,20 @@ semantics in 14-feeds-and-plugins.md, group semantics in
 | Prototype shared replay on `btc-updown-15m-1780925400` (449,314 rows): 1.666 s standalone; 100 candidates 3.98× faster than sequential; peak RSS 34.6 MiB | `SHARED-PARAMETER-REPLAY-CONTINUATION.md:9,21-30` |
 | Arrow IPC storage: 1.34× faster replay, 25× larger files (rejected) | `SHARED-PARAMETER-REPLAY-CONTINUATION.md:34` |
 | Telonex `delta-typed` files: written by parquetjs, GZIP, PLAIN encoding, no dictionary, 4,096-row groups. Prices and sizes are **decimal strings** in repeated UTF8 columns. `market`, `asset0_id`, `asset1_id` (a 66-character condition id and two ~77-digit token ids) are repeated as strings on every row | `src/parquet/io/eventSchema.ts:53-69`; `node_modules/@dsnp/parquetjs/dist/lib/writer.js:61`; `parquet_metadata()` of `btc-updown-15m-1789076700` (243,912 rows, 60 row groups) |
-| Local dataset: 31,186 BTC 15m files, 52 GB (1.67 MB average); BTC 5m: 6 files. The data volume of m1-ivan is full: 2.5 GB free of 460 GB | `du`/`ls` of `data/events/telonex/delta-typed/btc/`, `df -h` (2026-10-09) |
+| Local dataset: 31,186 BTC 15m files, 52 GB (1.67 MB average); BTC 5m: 6 files. worker-1 holds all 31,186 files plus the Binance day files and has 77 GB free; m1-ivan has 2.6 GB free and does no engine work. No new Telonex data arrives until the subscription is renewed | `du`/`ls` of `data/events/telonex/delta-typed/btc/`, `df -h` (2026-10-09); D36, D38 |
 | GR screens and coordinate passes re-run the same `--latest --limit 1000` market set, one run per value | 41 §1 (`strategy-research-protocol/tools/runBacktest.md:62-80`) |
 | WIP reader is already column-wise (`read_records`, buffer reuse, row-group pruning), but it allocates a `Vec` per event (`MarketEvent::Book{bids,asks}`, `PriceChange{changes}`), books are `BTreeMap`, and the GZIP backend is miniz_oxide (`flate2-rust_backened`) | `native/crates/pmb-replay/src/pq.rs:36-121,140-169`; `telonex.rs:245-318`; `pmb-core/src/market.rs:18-30,80-90`; `native/Cargo.toml:15` |
 
-### 2.2 Local micro-measurements (2026-10-09, this document)
+### 2.2 Micro-measurements on m1-ivan (2026-10-09, this document)
 
 These come from throwaway scratch programs, not the WIP crates (the WIP does
 not compile). Setup: parquet 56.2 with the WIP features (miniz_oxide GZIP),
-zstd 0.13.3, thin LTO, codegen-units 1, on this M1 Pro. Load average was
-about 3–4 from interactive apps, and the page cache was warm. The programs
-read the file into memory, decode columns with `read_records`, parse the
-decimals into 1e6 fixed point and build a struct-of-arrays tape or apply the
-events to a book. The numbers are indicative. The M1 harness (§13) replaces
-them.
+zstd 0.13.3, thin LTO, codegen-units 1, on m1-ivan (M1 Pro 8P+2E). Load
+average was about 3–4 from interactive apps, and the page cache was warm. The
+programs read the file into memory, decode columns with `read_records`, parse
+the decimals into 1e6 fixed point and build a struct-of-arrays tape or apply
+the events to a book. The numbers are indicative. The M1 step 7 harness on
+worker-1 (§13) replaces them.
 
 | Phase (one thread) | Mean of 21 markets spread over the dataset (132,813 rows, 318,738 levels) | Heavy market `btc-updown-15m-1780925400` (449,314 rows, 1,075,793 levels) |
 |---|---|---|
@@ -126,23 +128,25 @@ Findings:
 7. **The v1 format itself is the largest remaining single-market cost.** A
    derived native tape decodes 13× faster than full v1 and 8.7× faster than
    projected v1, at 45% of the v1 size. Building it costs about 86 ms of CPU
-   per market (v1 decode 69 + encode 12 + verify 5), so re-encoding all 31,186
-   BTC 15m files takes about 45 CPU-minutes, about 8–9 minutes on this
-   machine's 8 threads, and about 23–26 GB of disk.
+   per market (v1 decode 69 + encode 12 + verify 5), so encoding all 31,186
+   BTC 15m files takes about 45 CPU-minutes, about 8–9 minutes on the M1
+   Pro's 8 threads, and about 23–26 GB of disk.
 
 ### 2.3 Hardware and host facts
 
-| Host | Chip | Cores | L2 | RAM | `cores_for_backtest` |
-|---|---|---|---|---|---|
-| m1-ivan (this machine, live host) | M1 Pro | 8P + 2E (`hw.perflevel0/1.physicalcpu`) | 2 × 12 MB P clusters (4 cores each), 4 MB E cluster; L1d 128 KB P / 64 KB E; 128-byte lines | 16 GB | 4 (`dashboard/src/data/machines.json:16`) |
-| worker-1, worker-2 | M4 | 4P + 6E | per Apple spec, to record via sysctl at M6 | 16 GB | 8 (`machines.json:34,52`) |
-| m1-milan | M1 Pro | 6P + 2E | — | 16 GB | 4 (`machines.json:87`) |
-| m5-milan | M5 Pro | 6 "Super" + 12 "Performance" | — | 64 GB | 12 (`machines.json:69`) |
+| Host | Chip | Cores | L2 | RAM | `cores_for_backtest` | Role for this goal |
+|---|---|---|---|---|---|---|
+| worker-1 | M4 | 4P + 6E | to record via sysctl in M1 step 7 | 16 GB | 8 (`machines.json:34`); 6 TS slots (40 §2) | **engine host** (D36): goal session in its own checkout, builds, parity runs, every benchmark before M6; also a fleet worker (markets + aggregate), Redis, MySQL and Global Runtime sessions; 77 GB free |
+| worker-2 | M4 | 4P + 6E | as worker-1 | 16 GB | 8 (`machines.json:52`); 3 TS slots | M6 fleet host with about 3 native slots; Recorder V4 kept clean |
+| m1-milan (inventory alias `milan-m1`, D55) | M1 Pro | 6P + 2E | — | 16 GB | 4 (`machines.json:87`) | M6 fleet host if available |
+| m1-ivan | M1 Pro | 8P + 2E (`hw.perflevel0/1.physicalcpu`) | 2 × 12 MB P clusters (4 cores each), 4 MB E cluster; L1d 128 KB P / 64 KB E; 128-byte lines | 16 GB | 4 (`dashboard/src/data/machines.json:16`) | producer only; no engine work or benchmarks (2.6 GB free); host of §2.2 |
+| m5-milan | M5 Pro | 6 "Super" + 12 "Performance" | — | 64 GB | 12 (`machines.json:69`) | not in the M6 fleet |
 
 - `geekbench6Multi`: M4 14,724 vs M1 Pro 12,359 (`machines.json`). With only
   4 P-cores, the M4's lead suggests that its 6 E-cores carry a large share of
   multi-core throughput: an estimate of about 40%, or about half a P-core
-  each. 40 §7.3 estimates a third. §10 measures it.
+  each. 40 §7.3 estimates a third. M1 step 7 and M5a measure it on worker-1
+  (§10.3).
 - The worker-1/2 backtest services run as launchd `ProcessType Background`
   (`ops/macos/worker-1/com.polymarket.backtest-worker.plist:37-38`), and
   `run-worker.sh:52-59` lifts the resulting QoS clamp with `taskpolicy -a`.
@@ -181,12 +185,13 @@ wall(run) = L + M · cost(job) / Θ + A
   report warns against multiplying ratios, `SHARED-…CONTINUATION.md:46`),
   assuming `C` ≈ 30 ms for a single lagsnipe-like candidate:
 
-| Input path | D per average market | cost(job) | This host, 8 threads | 1,000 markets on this host |
+| Input path | D per average market | cost(job) | M1 Pro, 8 threads (§2.2 basis) | 1,000 markets, one host |
 |---|---|---|---|---|
 | v1, all columns (§2.2) | ≈ 75 ms | ≈ 105 ms | ≈ 50 markets/s | ≈ 20 s |
 | v1 after DC-1–DC-5 | ≈ 40 ms | ≈ 70–80 ms | ≈ 70 markets/s | ≈ 15 s |
 | derived tape (§7.5) | ≈ 5 ms decode + 5–10 ms reader and book | ≈ 45 ms | ≈ 120 markets/s | ≈ 8–9 s |
 
+  M1 step 7 replaces these with worker-1 numbers (4P+6E; §2.3).
   For comparison: Codex Rust 99.6 s, TS 617 s. Spread over the fleet, the
   compute of a 1,000-market single-candidate run falls to a few seconds, the
   same order as `L + A` ≈ 2.1 s. **Per-run fixed costs then decide agents'
@@ -221,16 +226,17 @@ live host
 4. Whole-file read into memory, direct column decode into a compact,
    allocation-free struct-of-arrays tape, shared by `Arc` (§7).
 5. **Derived native tape files as the primary market input when present**
-   (§7.5; disk is user-gated, Open question 2). v1 stays the canonical
-   dataset and the fallback, and both paths give byte-identical output.
+   (§7.5; built on worker-1 within a 40 GB cap before G2; final yes at G2
+   with measured numbers, M-20). v1 stays the canonical dataset and the
+   fallback, is never re-converted, and both paths give byte-identical output.
 6. Dense price-ladder books with occupancy bitsets (§8).
 7. Groups replay tick-major over one shared book. Plugins with identical
    configs are computed once. Large groups fan out to idle threads (§9).
-   New Rust strategies MAY opt into the tick interest filter (§9.4, Open
-   question 1).
+   New Rust strategies MAY opt into the tick interest filter (§9.4).
 8. QoS-steered threads; `T` and QoS per host decided by measurement (§10).
-9. A build profile per 31 §4.2. A faster profile is adopted only by the
-   measured rule of §11.2.
+9. Published, fleet and live binaries use the fastest-running reproducible
+   `artifact` profile chosen by §11.2; the fast-compile `iterate` profile
+   (D18) serves local checks only.
 10. Live: a plain core thread plus dedicated I/O threads with current-thread
     runtimes, spin-then-park hand-off, preallocated buffers (§12).
 11. Per-run fixed costs (producer launch, flow creation, aggregation) are
@@ -284,9 +290,9 @@ live host
 | DP-1 | A job's deterministic output is a pure function of (binary, job). It MUST be byte-identical for every `T`, every admission order, every co-scheduled job, every cache state (cold, warm, evicted and rebuilt), tape present or absent (§7.5), and every group layout (R7, 41 §2.2). |
 | DP-2 | Shared state is immutable once published. A cache entry is built completely, then published with single-flight semantics (one builder per key, the others wait). Its contents depend only on the source bytes (20 §6.3 S3). |
 | DP-3 | Hash maps are used only for lookups (cache index, cid map with a fixed-seed hasher). No iteration over a `HashMap` affects output (10 §12 D-1). |
-| DP-4 | No thread-local RNG. Seeds derive from (run seed, slug) and the stream name (41 §5.4). |
+| DP-4 | No thread-local RNG. Draws are stateless functions of the run seed, the slug, the stream tag and the entity (10 §6.1). |
 | DP-5 | Timings, cache hit counts, the input path taken (tape or v1), thread ids and RSS go only into non-deterministic sections and frames (20 §6.2 `progress`/`pong`, the diagnostics section of 21), never into the deterministic result. |
-| DP-6 | Every optimization commit runs the determinism suite: the `smoke-50` set at `T = 1` and `T = max`, cold and warm cache, tape and v1 path, shuffled job order, with hashes of the deterministic sections compared (§13.7). |
+| DP-6 | Every optimization commit runs the determinism suite on worker-1: the `smoke-50` set at `T = 1` and `T = max`, cold and warm cache, tape and v1 path, shuffled job order, with hashes of the deterministic sections compared (§13.7). GitHub CI has no macOS runner per PR; it runs the fixture-market subset (60 CI-1). |
 
 ## 6. Shared caches and memory (requirement b)
 
@@ -300,6 +306,7 @@ jobs, candidates and threads, single-flight, and evicted LRU by bytes within
 |---|---|---|---|---|
 | Binance aggTrades day | (path, size, mtime_ns, sha256 when given) | decoded day, ≈23 MB (`ts_ms`, `agg_trade_id`, `price`, `qty` as SoA) | one day serves 96 BTC 15m or 288 BTC 5m markets | 14 PF-1/PF-2 |
 | Chainlink `crypto_prices` day | same | decoded day, ≈2 MB (prices parsed once from strings) | as above; no row-group pruning possible (1 group/day) | 14 |
+| TechnicalIndicators candles | (pair, interval, date), built from the Binance day entry | KB–MB per day | every TA strategy market of the day, incl. the extended lookback days (D19 as amended: local aggTrades, no network) | 14 PF-5, §12.5 |
 | Parquet footers of feed files | file identity | KB | every market of the day | this document |
 | Rules tables | rules version | KB | all jobs | 11 |
 | **Derived native tape (disk, §7.5)** | (tape format version, v1 identity) | ≈0.8 MB per average market on disk; the OS page cache keeps hot tapes | every run after the one-time build, on every host | this document; equality with 15 |
@@ -323,7 +330,7 @@ jobs, candidates and threads, single-flight, and evicted LRU by bytes within
   not used in v1: it needs `unsafe` and adds failure modes. Duplication is
   bounded by `maxExecutors = 3` (40 §5.1.3).
 - A RAM LRU of decoded tapes cannot hold a 1,000-market screen (≈9 GB), and
-  BullMQ spreads repeat runs over 4 hosts. With the disk tape a decode costs
+  BullMQ spreads repeat runs over the fleet hosts. With the disk tape a decode costs
   ~5 ms, so the RAM LRU saves little. It is measured only if §7.5 is not
   adopted (M-11).
 
@@ -331,10 +338,11 @@ jobs, candidates and threads, single-flight, and evicted LRU by bytes within
 
 | Consumer | Estimate | Basis |
 |---|---|---|
-| macOS, WindowServer, agents and GR sessions | 4–6 GB | to measure per host at M6 |
+| macOS, WindowServer, agents and GR sessions | 4–6 GB | to measure on worker-1 in M1 step 7, other hosts in M6 |
 | Redis (worker-1) | peak 1.15 GB | requirements-sweep `sweep-result-volume-redis-db` |
 | MySQL (worker-1, `ops/macos/worker-1/com.polymarket.mysql84.plist`) | 1–2 GB | to measure |
 | TS supervisor and shim | ≈0.2 GB | to measure |
+| Goal session and cargo builds (worker-1, during this goal) | 1–4 GB peak (LTO links) | to measure in M1 step 7; builds cap jobs per 31 §4.5 |
 | All native executors of the host | ≤ `native_memory_mb` (default 3,072, 40 §7.4) | — |
 
 Per executor at `T = 8`:
@@ -347,7 +355,7 @@ Per executor at `T = 8`:
 | Candidate state | ≤ 0.35 MB per candidate (prototype: 100 candidates, 34.6 MiB peak RSS) |
 | Code, IPC buffers, stacks | 8 × 8 MiB stack reservation (touched pages only) + ≈20 MB |
 
-The TS path today runs 8 Node children of ~200–400 MB each. The executor
+The TS path today runs up to 8 Node children (6 on worker-1) of ~200–400 MB each. The executor
 SHOULD stay well under that. Peak RSS per executor is reported by every
 benchmark row (§13.5).
 
@@ -375,7 +383,7 @@ largest single item left once the engine is allocation-free. The derived tape
 | DC-6 | A single market MAY decode its row groups in parallel (order-preserving concatenation) only when the executor has idle threads, at the end of a run or for single-market runs. Adopted only if the tail is ≥ 10% of run wall time (§15). |
 | DC-7 | Pre-window rows are not skipped in v1 (15 IP-4). |
 | DC-8 | V4 decode follows 15 IP-5. V4 and live journals use the same tape layout, so the session code path is identical. |
-| DC-9 | The structural fix for v1 decode cost is the **derived native tape (§7.5)**, a first-class option prototyped in M1 step 7 and decided at G2 with its numbers. It is not a last resort behind DC-1–DC-5: those still matter for the v1 fallback path and for building tapes, but with tapes adopted, DC-2 and DC-3 are kept only if they are cheap (M-2, M-3). Version 2 of the canonical telonex-delta dataset (15 §4.4) is a separate, larger change (TS converter, R2 re-upload) that the tape makes unnecessary for speed. |
+| DC-9 | The structural fix for v1 decode cost is the **derived native tape (§7.5)**, a first-class option prototyped in M1 step 7 and decided at G2 with its numbers. It is not a last resort behind DC-1–DC-5: those still matter for the v1 fallback path and for building tapes, but with tapes adopted, DC-2 and DC-3 are kept only if they are cheap (M-2, M-3). The canonical v1 files are never re-converted (gate 1), so a canonical version 2 (15 §4.4) is not pursued for speed. |
 
 ### 7.3 Tape layout
 
@@ -418,21 +426,22 @@ every grid cell re-reads every market until groups exist.
 
 | # | Requirement |
 |---|---|
-| NT-1 | **Identity.** A tape file is a derived artifact keyed by (tape format version, v1 identity = bytes, mtime_ns and the sha256 computed during conversion). It never replaces the v1 file. Deleting all tapes only makes runs slower. |
+| NT-1 | **Identity.** A tape file is a derived artifact keyed by (tape format version, v1 identity = bytes, mtime_ns and the sha256 computed during conversion). It never replaces, rewrites or re-converts the v1 file (gate 1). Deleting all tapes only makes runs slower. |
 | NT-2 | **Content.** A complete typed encoding of everything the 15 §4.2 reader consumes from each v1 row, in file order: `ingest_seq`, `ts_local_ms`, `ts_exchange_ms` (with nulls), event-type code, asset index, book levels and changes as fixed-point i64 (1e6) with the per-value flags that 15 §8 counts (for example `inexact_decimal`). The market and token ids are stored once in a per-file dictionary, with a per-row index. The reader's skip and anomaly logic runs on these typed rows exactly as on v1 rows. A change of reader semantics therefore does not invalidate tapes; only a change of the typed-row layer bumps the tape format version. A file with a value the encoding cannot represent as the reader would see it (unparseable decimal, unknown event type, more distinct ids than the dictionary allows) is not converted and stays on the v1 path. |
 | NT-3 | **Encoding.** Column-wise little-endian arrays, delta-coded timestamps and sequence numbers, one zstd frame per column per ~64 k-row block with zstd frame checksums on, and a header (magic, format version, v1 identity, row and level counts, tool binary sha, block offsets). Flat Parquet INT64 + ZSTD is the measured alternative (M-19). In the prototype it was 40% slower to decode and 20% larger, but DuckDB can read it. |
-| NT-4 | **Writer.** Only the trusted, engine-owned `pmb-tape` tool writes tapes. It is built canonically from the engine workspace and is never a strategy artifact. It writes atomically (tmp → rename) and skips files whose tape is valid. Every conversion decodes its own output and compares it with the typed rows parsed from v1 before the rename. Strategy executors only read tapes: an artifact binary contains strategy code (agent-written after F1) and MUST NOT be able to write data that other binaries read. |
-| NT-5 | **Lookup and validation.** The executor derives the tape path from the job's input (format, symbol, timeframe, slug) under a tape root given as process configuration (`--tape-dir`, to be added by 20). It uses the tape only if its engine supports the tape format version, the v1 identity in the header matches the v1 file's `stat` (bytes, mtime_ns) and the job's sha256 when the job carries one, and every frame checksum passes. Otherwise it reads v1. A bad or stale tape is never an error. The input path taken is reported in diagnostics only (DP-5). |
-| NT-6 | **Equality proof.** The tape path and the v1 path MUST give byte-identical deterministic output (DP-1). Evidence: (a) the per-file round trip of NT-4; (b) the engine event stream (kind, outcome, levels, both timestamps, skip and anomaly counters) from the tape equals the v1 stream on `smoke-50`, `heavy-1` and every bench set, and in CI on the fixture markets; (c) a one-time digest sweep over every converted file before any fleet use (≈ 31k files, ≈ 10 min on this machine); (d) the determinism suite runs both paths (DP-6). |
-| NT-7 | **Disk.** About 45% of the v1 bytes (prototype: 0.82 MB vs 1.84 MB per average market), so about 23–26 GB for today's 31,186 BTC 15m files before NT-2's extra columns. `pmb-tape` reports bytes per host and supports a per-host cap that converts the newest markets first. |
-| NT-8 | **Rollout.** Before G2, tapes are built only on m1-ivan and only for bench sets (`smoke-50` ≈ 45 MB, `heavy-1`, `recent-1k` ≈ 0.9 GB). That needs no change to main, the TS converter, R2 or the fleet. It does need free disk, which m1-ivan lacks today (§2.1, Open question 2). After G2 and the user's disk decision, a fleet build step builds tapes per host from its local v1 files: a `data:sync:worker` stage, or a worker-start backfill at `background` QoS. 40 owns the step. Tapes are not uploaded to R2, because rebuilding locally (~86 ms CPU per market) is cheaper than distributing them. |
+| NT-4 | **Writer.** Only the trusted, engine-owned `pmb-tape` tool writes tapes. It is built canonically from the engine workspace (on fleet hosts per host during provisioning, with its sha checked against the release, 40 §6.3) and is never a strategy artifact. It writes atomically (tmp → rename) and skips files whose tape is valid. Every conversion decodes its own output and compares it with the typed rows parsed from v1 before the rename. Strategy executors only read tapes: an artifact binary contains strategy code (agent-written once protocols author Rust strategies after M6, D39) and MUST NOT be able to write data that other binaries read. |
+| NT-5 | **Lookup and validation.** The executor derives the tape path from the job's input (format, symbol, timeframe, slug) under a tape root given as process configuration (`--tape-dir`, 20 §6.1). It uses the tape only if its engine supports the tape format version, the v1 identity in the header matches the v1 file's `stat` (bytes, mtime_ns) and the job's sha256 when the job carries one, and every frame checksum passes. Otherwise it reads v1. A bad or stale tape is never an error. The input path taken is reported in diagnostics only (DP-5). |
+| NT-6 | **Equality proof.** The tape path and the v1 path MUST give byte-identical deterministic output (DP-1). Evidence: (a) the per-file round trip of NT-4; (b) the engine event stream (kind, outcome, levels, both timestamps, skip and anomaly counters) from the tape equals the v1 stream on `smoke-50`, `heavy-1` and every bench set, and in CI on the fixture markets; (c) a one-time digest sweep over every converted file before any fleet use (≈ 31k files, ≈ 10 min on worker-1, estimated); (d) the determinism suite runs both paths (DP-6). |
+| NT-7 | **Disk.** About 45% of the v1 bytes (prototype: 0.82 MB vs 1.84 MB per average market), so about 23–26 GB for today's 31,186 BTC 15m files before NT-2's extra columns. `pmb-tape` reports bytes per host and enforces a per-host cap, converting the newest markets first. The cap on worker-1 is **40 GB** (gate 1). `pmb-tape` also stops before the host's free disk falls below 10 GB, so fleet data sync and builds keep room. |
+| NT-8 | **Rollout.** Before G2, `pmb-tape` runs only on worker-1. It reads the v1 files through the native checkout's read-only data symlinks and writes only under that checkout's gitignored tape root (for example `data/native-tapes/`, a real directory), never inside the fleet working copy (D36). Bench sets come first (`smoke-50` ≈ 45 MB, `heavy-1`, `recent-1k` ≈ 0.9 GB); the remaining BTC 15m files MAY follow within the cap, so M-20 and NT-6 (c) can use the full set. None of this changes main, the TS converter, R2 or the fleet. The final yes for tapes as the primary input, and the caps on the other fleet hosts, are decided at G2 with the measured numbers (M-20). After that, a fleet build step in M6 builds tapes per host from its local v1 files: a `data:sync:worker` stage, or a worker-start backfill at `background` QoS. 40 owns the step. Tapes are not uploaded to R2, because rebuilding locally (~86 ms CPU per market) is cheaper than distributing them. |
 | NT-9 | **Scope.** telonex-delta only. V4 compact files are already typed (15 IP-5); M7 measures V4 decode before any tape is considered for V4. Live journals are read once and need none. |
 
-Schedule: M1 step 7 builds `pmb-tape` (encoder, decoder, round trip), runs
-NT-6 (b) on `smoke-50` and `heavy-1`, and records the decode ms (v1 vs tape),
-tape bytes and compression ratio in STATUS.md. The disk need is sized from
-that measured ratio. The decision is taken at G2 with these numbers (M-20).
-The executor path ships in M5a, and the fleet build step in M6.
+Schedule: M1 step 7 builds `pmb-tape` (encoder, decoder, round trip) on
+worker-1, runs NT-6 (b) on `smoke-50` and `heavy-1`, and records the decode
+ms (v1 vs tape), tape bytes and compression ratio in STATUS.md. The disk need
+of the other hosts is sized from that measured ratio. The final decision is
+taken at G2 with these numbers (M-20). The executor path ships in M5a, and
+the fleet build step in M6.
 
 ## 8. Order-book layout (requirement c)
 
@@ -489,10 +498,10 @@ split (D ≈ 75% of a standalone market) the ceiling was ~4×, and it measured
   stealing effective and keeps a chunk on a slow E-core from dominating the
   job tail. The job's thread allowance comes from the shim (40 §7.2,
   weight `min(N, T)`).
-- Chunk boundaries never affect results (41 §2.2, DP-1). The M4 proof runs
-  `T = 1` vs `T = max` and shuffled candidates (41 §10.2).
+- Chunk boundaries never affect results (41 §2.2, DP-1). The milestone M4
+  proof runs `T = 1` vs `T = max` and shuffled candidates (41 §10.2).
 
-### 9.4 Tick interest filter (recommended for adoption at G1)
+### 9.4 Tick interest filter (D41)
 
 Only 1.2% of ticks change a best price, and 16.3% change a best price or the
 size at a best price (§2.2). A strategy that reacts only to such changes
@@ -505,16 +514,16 @@ the same contract as the existing callback interests (30 §4.1).
 | # | Requirement |
 |---|---|
 | TF-1 | **Declaration.** `Interests` gains a tick interest: `All` (default), `TopOfBook` (best bid or ask price of either outcome changed) or `TopOfBookAndSize` (price or size at a best level changed). It is off by default. The in-repo ts-compat ports (`engine-exerciser.rs`, `overnight-opus55-lagsnipe.v15.rs`, 30 §18) MUST NOT declare it. |
-| TF-2 | **Wake rule.** For each real strategy tick that passes the window gate, the engine calls `on_tick` of a declaring candidate only if at least one holds: (a) it is the candidate's first in-window tick of the market; (b) this event changed the declared top-of-book values of the recorded book (BK-7; because every such change is delivered, "changed by this event" equals "changed since the last call"); (c) an account event was delivered to this candidate since its last `on_tick`; (d) a requested feed's visible value changed since then; (e) a requested plugin's output changed since then (plugins expose an output generation counter). Ticks the strategy explicitly opted into (synthetic feed ticks, 14 §8; print ticks in realistic, 12 §5.2) are always delivered. |
+| TF-2 | **Wake rule.** For each real strategy tick that passes the window gate, the engine calls `on_tick` of a declaring candidate only if at least one holds: (a) it is the candidate's first in-window tick of the market; (b) this event changed the declared top-of-book values of the recorded book (BK-7; because every such change is delivered, "changed by this event" equals "changed since the last call"); (c) an account event was delivered to this candidate since its last `on_tick`; (d) a requested feed's visible value changed since then; (e) a requested plugin's output changed since then (the change generations of 14 P-13). Ticks the strategy explicitly opted into (synthetic feed ticks, 14 §8) are always delivered; trade prints never produce strategy ticks in v1 (12 §5.2). |
 | TF-3 | **Only the callback is skipped.** Counting (`eventsProcessed`, `eventsByType`), book apply, execution and matching, feed advance, plugin `on_tick` and the tick's trace records run on every event exactly as without the filter. The plugin snapshot and feed view for the callback are built lazily, so a skipped call also skips them. |
 | TF-4 | **Same everywhere.** The rule is evaluated in the core loop (12), so backtest, paper and live behave identically. |
 | TF-5 | **Contract and proof.** A declaring strategy MUST behave exactly as if `on_tick` on every skipped tick had returned no intents and changed no state (as 30 §4.1 requires for omitted callbacks). `strategy:check` runs every fixture with the declared interest and with `All` and requires identical outputs (31 §7.1 gate 7). A strategy whose logic depends on time between book changes therefore cannot declare it. |
 | TF-6 | **Reporting.** Skipped calls are counted as `strategyTicksSkipped` in diagnostics (21 owns the placement), never in `eventsProcessed`. |
 | TF-7 | **Cost.** The top-change bit is computed once per event on the shared book (BK-7). A skipped tick costs a candidate a few compares. In groups, the per-candidate part of (c)–(e) is one dirty flag. |
 
-The SDK shape is cheapest to add in M1, together with the other `Interests`
-flags (30 §4.1). Adoption needs the user's answer to Open question 1. Its
-gain is measured in M5b (M-21).
+Gate 1 (lead, 2026-10-09) adopted the filter as an opt-in for new Rust
+strategies. The SDK shape ships in M1 with the other `Interests` flags
+(30 §4.1), off by default; its gain is measured in M5b (M-21).
 
 ## 10. Apple Silicon: P-cores, E-cores and QoS (requirement e)
 
@@ -542,8 +551,8 @@ gain is measured in M5b (M-21).
 |---|---|---|
 | `user-initiated` | `QOS_CLASS_USER_INITIATED` | measured candidate for dedicated workers |
 | `default` | `QOS_CLASS_DEFAULT` | default for worker hosts (40 §7.3.2) |
-| `utility` | `QOS_CLASS_UTILITY` | hosts with latency-sensitive neighbors (worker-2 recorder, 40 §7.3.2; m1-ivan while paper/live runs) |
-| `background` | `QOS_CLASS_BACKGROUND` | E-cores only; MAY be used during calibration instead of stopping backtests (50 §4.3), and for the tape backfill (NT-8) |
+| `utility` | `QOS_CLASS_UTILITY` | hosts with latency-sensitive neighbors (worker-2 recorder, 40 §7.3.2; the paper/live host while a session runs) |
+| `background` | `QOS_CLASS_BACKGROUND` | E-cores only; MAY be used during calibration instead of stopping backtests (50 §4.3); used for the tape backfill (NT-8) and for cargo builds on hosts that run backtests (31 §4.5) |
 
 - Each pool thread sets its class in the rayon `start_handler` with
   `pthread_set_qos_class_self_np`. It then reads back its effective class
@@ -552,23 +561,26 @@ gain is measured in M5b (M-21).
   instead of silently running on E-cores. 20 owns the field in `ready`.
 - The executor inherits the supervisor's `taskpolicy -a` role (40 §6.2.4).
 - This FFI needs `unsafe`. It MUST live in one small engine-owned platform
-  crate, which is the only workspace member allowed `unsafe`. Every block in
-  it carries a `// SAFETY:` note, and it also hosts the live power assertion
-  of 50 §4.3. All other engine crates and all strategy crates keep
-  `unsafe_code = "forbid"` (31 §2.2, 30). See Open question 4.
+  crate (`pmb-platform`), the only workspace member that overrides the
+  workspace lint `unsafe_code = "forbid"` (`native/Cargo.toml:23-24`). Every
+  block in it carries a `// SAFETY:` note and a test. It also hosts the live
+  power assertion and the platform trait of 50 §4.3–§4.4. It MAY wrap a
+  third-party crate instead of its own FFI only if that crate passes the
+  dependency rules of 31 §3. All other engine crates and all strategy crates
+  keep `unsafe_code = "forbid"` (31 §2.2, 30 §11).
 
-### 10.3 What is measured per host type (M5a on this machine, M6 on the fleet)
+### 10.3 What is measured per host type (M5a on worker-1, M6 on the other fleet hosts)
 
 | Host type | `T` sweep | QoS sweep | Expectation to confirm or refute |
 |---|---|---|---|
-| M1 Pro 8P+2E | 4, 6, 8, 10 | default, user-initiated, utility | knee at 8; E-cores +~5% (§2.2) |
-| M4 4P+6E | 4, 6, 8, 10 | same | E-cores carry ~40% of throughput (geekbench estimate; 40 says ~1/3), so `T = P` would waste a large share |
-| M5 Pro 6S+12P | 6, 12, 18 | same | no E-cores; scaling to 12+ |
+| M4 4P+6E (worker-1 in M5a; worker-2 in M6 under its recorder constraint, 40 §7.3.2) | 4, 6, 8, 10 | default, user-initiated, utility | E-cores carry ~40% of throughput (geekbench estimate; 40 says ~1/3), so `T = P` would waste a large share |
+| M1 Pro 6P+2E (m1-milan in M6, if available) | 4, 6, 8 | same | knee near 6–8; E-cores add little (+~5% on m1-ivan's 8P+2E, §2.2) |
 
-The chosen `T` and QoS per host are written to the inventory (40 §7.3.4) and
-the report (§13). On the live host, backtest threads run at `utility` or
-`background` while paper or live runs, and are stopped or capped during real
-orders (50 §4.3).
+m5-milan (M5 Pro, no E-cores) and m1-ivan are not measured: neither consumes
+native jobs in M6. The chosen `T` and QoS per host are written to the
+inventory (40 §7.3.4) and the report (§13). On the paper/live host, backtest
+threads run at `utility` or `background` while paper or live runs, and are
+stopped or capped during real orders (50 §4.3).
 
 ## 11. Build profile, allocator, tooling (requirement f)
 
@@ -582,27 +594,31 @@ orders (50 §4.3).
 | BP-4 | A `profiling` profile inherits the artifact profile with `debug = "line-tables-only"` and `strip = false`. It is never published and is used only for flamegraphs. |
 | BP-5 | Tools: `criterion` micro benchmarks (§13.2 L0); `samply` for sampling profiles (no sudo); Instruments Time Profiler and CPU Counters for P/E residency; `/usr/bin/time -l` and `getrusage` for peak RSS; the always-on counters of 12 §14 P12 and the `phase-timers` feature for per-phase breakdowns. |
 
-### 11.2 The D18 revisit
+### 11.2 Published profile (D18 as amended at gate 1)
 
-D18 (lead) chose a fast-compile profile, to be revisited if replay CPU
-dominates. §2.2 shows that a warm-cache replay is CPU-bound (local reads of
-1–7 MB are ~1–3 ms), so the revisit is triggered. The M5a benchmark MUST
-measure:
+Gate 1 (lead) amended D18: the fast-compile profile (`iterate`, 31 §4.1) is
+for local checks and iteration only, and every published, fleet and live
+binary uses the fastest-running reproducible `artifact` profile. A warm-cache
+replay is CPU-bound (local reads of 1–7 MB take ~1–3 ms, §2.2), so runtime
+decides. M5a measures the candidates of 31 §4.6 on worker-1, each on top of
+the previous best:
 
-| Profile | Runtime on `recent-1k` (L1, T = host default) | Cold and warm build of one strategy change on an M4 mini |
+| Candidate (31 §4.6) | Runtime on `recent-1k` (L1, host default `T`); `C` on a group bench once M4 exists | `artifact` build at `background` QoS: cold, and warm after a one-line strategy change |
 |---|---|---|
-| `artifact` as in 31 §4.2 (strategy cgu 16, deps cgu 1, no LTO) | measure | measure (D18: warm 0.84 s) |
-| D18 applied literally to all crates | measure | measure |
-| thin LTO, cgu 1 everywhere | measure | measure (sweep: warm 7.3 s) |
+| D18 for all crates (= `iterate`; baseline) | measure | measure (D18: warm 0.84 s) |
+| thin LTO, cgu 1 (initial `artifact`) | measure | measure (sweep: warm 7.3 s) |
 | fat LTO, cgu 1 | measure | measure |
-| PGO on top of the best, with a committed profile file | MAY measure | measure |
+| best so far, third-party crates without overflow checks | measure | measure |
+| best so far plus an engine-owned PGO profile | MAY measure | measure |
 
-Proposed decision rule, to be confirmed at gate 1 for 01 Open question 2: a
-faster profile becomes the published profile only if it gains ≥ 10%
-end-to-end throughput on `recent-1k`, its warm rebuild on an M4 mini is
-≤ 60 s, and reproducible rebuilds stay byte-identical (D17). Otherwise
-31 §4.2 stands. Fat LTO tends to win only when hot code crosses crate
-boundaries without generics; HL-3 and monomorphization narrow that gap.
+Rule (31 §4.6 item 4): adopt the fastest candidate that passes the
+profile-independence check (31 §7.6) and D17 byte reproducibility (two clean
+builds on worker-1 give identical bytes; the cross-host comparison follows in
+M6) and whose gain over the next cheaper candidate exceeds the measured
+run-to-run spread (§13.5). `artifact` build time is reported, never gated.
+`iterate` stays D18 literally; its warm rebuild is reported with M-23. Fat
+LTO tends to win only when hot code crosses crate boundaries without
+generics; HL-3 and monomorphization narrow that gap.
 
 ## 12. Live latency (requirement g)
 
@@ -612,7 +628,7 @@ boundaries without generics; HL-3 and monomorphization narrow that gap.
 |---|---|
 | LL-1 | The core (deterministic loop) is a plain OS thread with no async (50 §4.2). It consumes bounded, preallocated SPSC/MPSC rings. |
 | LL-2 | Ingress (per socket group) and egress each run a **tokio `current_thread` runtime on their own dedicated OS thread** at USER_INTERACTIVE. A multi-thread runtime is the measured alternative. It is not the default because work-stealing migration of hot futures between threads adds wake-up latency and jitter, and I/O roles stay isolated (an ingress burst cannot delay egress). |
-| LL-3 | Hand-off wake strategy: spin, then park. The consumer spins for a bounded window, then parks. The window (0, 20, 100 µs) is chosen by measurement of the hop p99 and the CPU cost (§15). Spinning never runs unbounded on a MacBook host. |
+| LL-3 | Hand-off wake strategy: spin, then park. The consumer spins for a bounded window, then parks. The window (0, 20, 100 µs) is chosen by measurement of the hop p99 and the CPU cost (§15). Spinning is always bounded. |
 | LL-4 | No heap allocation per envelope on core and egress in steady state (50 §18.3). Decoding borrows from the frame buffer (`&str` fields), and decimals parse straight to fixed point. Order templates are preallocated per (asset, side), and the request body is written into a reused buffer. |
 | LL-5 | Signing: the EIP-712 domain separators (per exchange contract) and type hashes are precomputed per session. Per order: struct hash, digest and ECDSA (RFC 6979). `k256` (pure Rust) vs `secp256k1` (libsecp256k1, C) is chosen by micro benchmark, with pure Rust preferred unless the C library saves ≥ 50 µs at p99. Precomputed-nonce tricks are forbidden: they break the deterministic golden vectors (50 §8.2.2) and risk key exposure. |
 | LL-6 | WS decode: `serde_json` with borrowed fields vs a SIMD decoder (sonic-rs or simd-json, both NEON-capable). It is measured on a golden corpus of recorded raw frames (worker-2 V4 packages). The faster one wins only if its decoded events are identical on the whole corpus (50 §18.3). |
@@ -638,7 +654,8 @@ implementation. It is an estimate to confirm.
 The local path is < 0.5% of the end-to-end order latency. The biggest live
 gains are architectural: the core never awaits REST, while TS's serial funnel
 queues every later tick behind an order round trip (requirements-sweep
-`single-serial-event-loop`). After that comes hosting (50 Open question 3).
+`single-serial-event-loop`). After that comes hosting (the live host is a
+gate-4 question, 01 §12.1 item 3).
 Local optimization mainly removes jitter.
 
 ### 12.3 Measurement method and report format
@@ -650,9 +667,10 @@ Local optimization mainly removes jitter.
   Histograms use HdrHistogram, 1 µs to 60 s, 3 significant digits.
 - `latency-report --journal <dir> [--json]` prints, per segment and per order
   type: count, p50, p90, p99, p99.9, max (µs). It also prints the core dequeue
-  lag, ring high-water marks, dropped-input count, host load percentiles
-  (50 §4.3), binary sha, profile, host, macOS version and journal window. The
-  JSON form is what 51 consumes.
+  lag, the lateness histogram of OS-fired timers (13 §2.3 TS2), ring
+  high-water marks, dropped-input count, host load percentiles (50 §4.3),
+  binary sha, profile, host, macOS version and journal window. The JSON form
+  is what 51 consumes.
 - Coverage by milestone: paper mode (M8) measures ingress and core segments.
   Shadow signing (M9, throwaway key, never sent) measures egress up to "bytes
   ready". Real orders (M10, user-launched) add network and exchange.
@@ -671,12 +689,13 @@ Market selection uses `listEligibleTelonexSlugs` (CLAUDE.md eligibility rule).
 | `smoke-50` | 50 BTC 15m markets stratified by row count | per-commit A/B and determinism suite; ≤ 1 min |
 | `june-1k` | the Codex selection (first `btc-updown-15m-1780272000`, last `btc-updown-15m-1781288100`; Codex `selection-june-1000.json`) | continuity with the 6.19× baseline |
 | `recent-1k` | the 1,000 most recent eligible BTC 15m markets at a pinned cutoff | current market density; the headline set |
-| `btc5m-1k` | 1,000 BTC 5m markets, once 5m data is local (6 files on 2026-10-09) | D06 |
+| `btc5m-1k` | 1,000 BTC 5m markets, once BTC 5m data exists (6 files on 2026-10-09; waits for the Telonex renewal, D38) | D06; not in any report before that |
 | `heavy-1` | `btc-updown-15m-1780925400` (449,314 rows) | per-market phase profile; same market as the Codex profile |
-| `v4-50` | 50 worker-2 Recorder V4 packages | V4 decode cost (M7) |
+| `v4-50` | 50 worker-2 Recorder V4 packages, downloaded from R2 to worker-1 | V4 decode cost (M7) |
 
 Workloads: `engine-exerciser` (feature stress) and
-`overnight-opus55-lagsnipe.v15.rs` against TS artifact `304eceb3…` (01 §4).
+`overnight-opus55-lagsnipe.v15.rs` (ported from the built artifact, D40)
+against TS artifact `304eceb3…` (01 §4.1).
 TS-vs-Rust rows use the parity matrix settings (latency 0 and one fixed
 delay, jitter 0; 01 M2).
 
@@ -687,12 +706,12 @@ delay, jitter 0; 01 M2).
 | L0 micro | page decode, decimal parse, tape encode/decode, book apply/best, session step with a no-op strategy, plugin step, group step per candidate, keccak/ECDSA, WS frame decode, journal append | `criterion` benches in the engine crates |
 | L1 engine-only | a driver feeds prebuilt `EngineJob` files to `run` or `serve` with no Redis or MySQL; reports wall time, throughput, CPU, RSS, phases | a small driver; built in M1 step 7 (01) |
 | L2 production path | producer → BullMQ (isolated queue names) → shim → `serve` → aggregator → MySQL (isolated tables), from producer launch to aggregate completion | Codex method (`REPORT-END-TO-END.md`, "Isolation and fidelity") |
-| L3 fleet | L2 on the 4 fleet hosts | M6 |
+| L3 fleet | L2 on the M6 fleet: worker-1, worker-2 (about 3 native slots), m1-milan if available; m1-ivan only as producer | M6 |
 
 ### 13.3 Configuration matrix
 
 Every M5 report contains these rows on `recent-1k` (and `june-1k` for TS
-continuity), single host:
+continuity), on worker-1:
 
 | # | Configuration |
 |---|---|
@@ -701,10 +720,10 @@ continuity), single host:
 | 3 | Rust `serve`, `T` ∈ {1, 2, 4, 6, 8, 10}, caches disabled (L1) |
 | 4 | row 3 at host default `T` + shared feed caches |
 | 5 | each decoder option of §15 as an A/B on row 4 (L1), **including v1 vs derived tape (M-20) and the tape encodings (M-19)** |
-| 6 | groups of 10 and 100 candidates; both layouts; fan-out on and off; tick interest filter on and off when adopted (L1, market-candidates/s) |
+| 6 | groups of 10 and 100 candidates; both layouts; fan-out on and off; tick interest filter on and off (M-21) (L1, market-candidates/s) |
 | 7 | build profiles of §11.2 |
 | 8 | allocator system vs mimalloc |
-| 9 | QoS values of §10.2 (and `T = P` vs `P + E` on M4 at M6) |
+| 9 | QoS values of §10.2, and `T = P` vs `P + E` |
 | 10 | best configuration end to end (L2) |
 | 11 | end-to-end wall time of a 1,000-market single-candidate native run with the fixed-cost breakdown of §13.9, before and after each FX item (L2 at M6 on one host, L3 on the fleet) |
 
@@ -724,9 +743,17 @@ continuity), single host:
 
 ### 13.5 Conditions
 
-- AC power, Low Power Mode off, lid open (MacBooks). No fleet workers, GR
-  sessions or other backtests on the host (`ps` check recorded). 1-minute load
+- **Host.** Every benchmark before M6 runs on worker-1 (D36), from the native
+  checkout, with canonical binaries only (01 §6). Other host types and fleet
+  rows run in M6 (§10.3).
+- **Quiet host.** Before a measured row: pause every Global Runtime run on
+  worker-1 and wait until no session is in flight (never stop the runtime
+  daemon while a session runs; `fleet:runtime:stop` kills it), then drain and
+  stop worker-1's fleet worker. Resume both afterwards. No other backtests,
+  builds or tests run during the row (`ps` check recorded). Redis and MySQL
+  keep serving the other hosts; their CPU share is recorded. 1-minute load
   average < 1.0 for 60 s before start; load is recorded during the run.
+  AC power and Low Power Mode off (MacBooks: lid open).
 - Warm page cache: one discarded warm-up run per configuration. A cold-read
   note gives the bytes read and the elapsed read time, and is not a separate
   row.
@@ -735,15 +762,20 @@ continuity), single host:
 - Recorded per row: host, chip, macOS, rustc, profile, binary sha, set
   manifest sha, ModelConfig, `T`, QoS, effective QoS, cache budget, input path
   (tape or v1).
-- Before gate 2 only this M1 Pro is used (R13). Per-host-type and fleet rows
-  run in M6.
-- **Benchmark windows.** Long runs on m1-ivan (the user's workstation and live
-  host) happen only in windows the user agrees (Open question 3). The agreed
-  windows are recorded in STATUS.md. Until then, numbers measured outside
-  idle conditions (for example the M1 step 7 baseline) are recorded with
-  their load average and marked `non-idle`. `non-idle` numbers are never used
-  for regression comparisons (01 S5) or as gate evidence of speed. Only
-  `smoke-50` and `heavy-1` (each under a few minutes) run without a window.
+- **Window (gate 1).** Unattended benchmarks run on worker-1 only between
+  01:00 and 07:00 local time, only with the fleet worker and Global Runtime
+  paused as above, and never while a live or paper session runs. Each window,
+  with its pause and resume times, is logged in STATUS.md.
+- **`non-idle`.** Short runs (`smoke-50`, `heavy-1`, the DP-6 suite; each a
+  few minutes) MAY run at any time alongside the fleet worker and Global
+  Runtime, at `utility` QoS. Their timings, and any number measured outside
+  the window or these conditions, are recorded with the load average and
+  marked `non-idle`. They serve only as interleaved before/after pairs within
+  one sitting (§13.8), never for regression comparisons (01 §2 S5) or as gate
+  evidence of speed.
+- Dev builds on worker-1 MAY run alongside the fleet worker and Global
+  Runtime outside measured rows, with capped jobs at `background` QoS
+  (31 §4.5).
 
 ### 13.6 Fleet prediction
 
@@ -792,8 +824,9 @@ byte-identical (same `idx` order, same stats code) and keep BullMQ semantics
 | FX-7 | **Producer start.** If module load exceeds 20% of `L`, a prebuilt JS bundle of the producer CLI, or reuse of a long-lived process (the GR daemon), is measured. |
 | FX-8 | **Deliverable (M6).** The M6 report gives the end-to-end wall time of a 1,000-market single-candidate native run on the fleet with the FX-1 breakdown, before and after each FX item. STATUS.md records "producer launch → first job active" and "last job done → run committed" next to markets/s. |
 
-FX-1's producer-side phases (up to flow creation) can be measured in M5a
-with an isolated queue and no consumer. The full row 11 needs M6's shim.
+FX-1's producer-side phases (up to flow creation) are measured in M5a on
+worker-1 with an isolated queue and no consumer. The full row 11 needs M6's
+shim.
 
 ## 14. Profiling milestones
 
@@ -801,12 +834,12 @@ Milestone names follow 01 §6 (M5a after G2, M5b after M3b and M4).
 
 | Milestone | Performance deliverable |
 |---|---|
-| M1 | Architecture that is hard to retrofit (01 §2 S1): column-wise decode into the tape, `Arc` shared inputs, `Send` session state, library entry point (EX-5), allocation test HL-1, ladder apply with the top-change bit (BK-7), the tick interest flag in `Interests` if Open question 1 is answered yes (off by default). Step 7: bench sets `smoke-50` and `heavy-1`, L0/L1 harness, first `run` numbers and the `heavy-1` phase profile in STATUS.md (`non-idle` unless measured in an agreed window, §13.5), and the `pmb-tape` prototype with NT-6 (b) and decode ms of v1 vs tape (§7.5) |
+| M1 | Architecture that is hard to retrofit (01 §2 S1): column-wise decode into the tape, `Arc` shared inputs, `Send` session state, library entry point (EX-5), allocation test HL-1, ladder apply with the top-change bit (BK-7), the tick interest flag in `Interests` (off by default, §9.4). Step 7, on worker-1: bench sets `smoke-50` and `heavy-1`, L0/L1 harness, first `run` numbers and the `heavy-1` phase profile in STATUS.md (`non-idle` unless measured in the window, §13.5), worker-1's core and cache facts (§2.3), the dispatch-boundary measurement M-23, and the `pmb-tape` prototype with NT-6 (b) and decode ms of v1 vs tape (§7.5) |
 | M2 | No performance work required. Numbers recorded at each parity cycle; regressions explained |
-| G2 | The user decides the derived tape disk question with the M1 step 7 numbers (M-20, Open question 2) |
-| M5a | `serve` with pool and caches, decoder options and the tape path (if approved), book alternative, profiles (§11.2), allocator, QoS on this host; rows 1–5 and 7–9 of §13.3; FX-1 producer-side phases; M5a items of §15 resolved; report |
+| G2 | The final yes for derived tapes as the primary input, and the tape caps of hosts other than worker-1, with the M1 step 7 numbers (M-20) |
+| M5a | `serve` with pool and caches, decoder options and the tape path (if approved at G2), book alternative, published profile (§11.2), allocator, `T` and QoS on worker-1; rows 1–5 and 7–9 of §13.3; FX-1 producer-side phases; M5a items of §15 resolved; report `bench-M5a-<date>-worker-1` |
 | M5b | Cost of the realistic profile vs ts-compat (overlay, queue model) on `smoke-50`; group scaling at 1/10/100 candidates, both layouts, plugin dedupe A/B (41 §10.5); tick interest filter A/B (M-21); rows 6 and 10; register resolved for every M5 item |
-| M6 | Per-host `T`/QoS knees (M4 and M1 Pro, M5 Pro if in the fleet); L3 fleet throughput vs prediction; `overheadFraction`; Redis load; FX deliverable and row 11 (FX-8); the fleet tape build step (NT-8) if approved |
+| M6 | Per-host `T`/QoS knees (worker-2, m1-milan if available); L3 fleet throughput vs prediction; `overheadFraction`; Redis load; FX deliverable and row 11 (FX-8); the fleet tape build step (NT-8) if approved at G2; the throughput cost of capped `background` builds on fleet hosts (31 §4.5), measured before AI protocols author Rust strategies (D39) |
 | M7 | V4 decode cost per market on `v4-50` |
 | M8 | Live latency report from paper journals (ingress and core segments); WS decoder choice (LL-6); spin window (LL-3) |
 | M9 | Signing and egress micro benchmarks; shadow-mode egress report; HTTP/1.1 vs HTTP/2 inputs |
@@ -827,8 +860,10 @@ Milestone names follow 01 §6 (M5a after G2, M5b after M3b and M4).
 | 7 | `target-cpu` default only | §2.2; 31 §4.2 |
 | 8 | Timings, cache statistics and the input path never in deterministic output; determinism suite on every optimization | §5.4 |
 | 9 | Live core = plain thread; ingress and egress = current-thread runtimes on dedicated threads | §12.1 |
-| 10 | Derived tapes are written only by the trusted `pmb-tape` tool, never by strategy executors; v1 always remains the canonical dataset and the fallback | NT-4, NT-5 |
-| 11 | The tick interest filter, if adopted, skips only the strategy callback; counting, books, matching, plugins and feeds run on every event | TF-3 |
+| 10 | Derived tapes are written only by the trusted `pmb-tape` tool, never by strategy executors; v1 always remains the canonical dataset and the fallback and is never re-converted; worker-1 cap 40 GB before G2 | NT-1, NT-4, NT-5, NT-7 (gate 1) |
+| 11 | The tick interest filter (D41, opt-in for new Rust strategies) skips only the strategy callback; counting, books, matching, plugins and feeds run on every event | TF-1, TF-3 |
+| 12 | `unsafe` only in the engine-owned `pmb-platform` crate; strategy crates and all other engine crates keep `forbid` | §10.2 (decided by this document at gate 1; the lead may change it) |
+| 13 | Benchmarks before M6 on worker-1 only, in the 01:00–07:00 window with the fleet worker and Global Runtime paused | §13.5 (D36, gate 1) |
 
 ### 15.2 Decided by measurement
 
@@ -840,8 +875,8 @@ Milestone names follow 01 §6 (M5a after G2, M5b after M3b and M4).
 | M-4 | Ladder unit | 0.0001 uniform / 0.001 + overflow | loop ns per event; RSS | faster one; ties → 0.0001 | M5a |
 | M-5 | Group layout and chunk size `k` | tick-major / candidate-major; `k` | market-candidates/s at N = 10, 100 | fastest; identical output | M4–M5b |
 | M-6 | Pool type | rayon / thread per slot | markets/s, single-candidate jobs | rayon unless the other is ≥ 5% faster (groups need rayon) | M5a |
-| M-7 | Host `T` and QoS | §10.3 | market-candidates/h | knee of the curve | M5a (M1 Pro), M6 (others) |
-| M-8 | Build profile | §11.2 | §11.2 | §11.2 rule (gate 1 confirmation) | M5a |
+| M-7 | Host `T` and QoS | §10.3 | market-candidates/h | knee of the curve | M5a (worker-1), M6 (worker-2, m1-milan) |
+| M-8 | Published build profile | 31 §4.6 candidates | §11.2 | §11.2 rule | M5a |
 | M-9 | Allocator | system / mimalloc | end to end on `recent-1k` | ≥ 5% and D17 holds | M5a |
 | M-10 | Feed cache unit under pressure | day / day + row-group fallback | miss cost on a `--random` 5,000-market run | add fallback if misses cost ≥ 5% of run CPU | M5a |
 | M-11 | RAM tape LRU across jobs | off / on | repeat-slug hit rate per host over a week of fleet logs | only if §7.5 is not adopted; on if hit rate ≥ 20% within the cache budget | M6 |
@@ -853,64 +888,28 @@ Milestone names follow 01 §6 (M5a after G2, M5b after M3b and M4).
 | M-17 | Signer | k256 / libsecp256k1 | sign µs p99 | LL-5 rule | M9 |
 | M-18 | Shim prefetch `P` | 1 / 2 / 4 | `overheadFraction` | smallest `P` with `overheadFraction` < 5% | M6 |
 | M-19 | Tape encoding | raw SoA + zstd / flat Parquet INT64 + ZSTD | decode ms and bytes on `smoke-50` and `heavy-1` (prototype: 5.2 vs 7.3 ms, 0.82 vs 0.99 MB) | fastest decode; Parquet if within 10% (tool readability) | M1 step 7 |
-| M-20 | Derived tape as the primary input | v1 only / tape when present | decode ms per market, single-candidate job time on `smoke-50`, `heavy-1`, `recent-1k`; bytes on disk | adopt if job time falls ≥ 20% and the user approves the disk (Open question 2) | numbers M1 step 7, decision G2, implementation M5a and M6 |
-| M-21 | Tick interest filter gain | off / `TopOfBook` / `TopOfBookAndSize` | `on_tick` calls skipped, `C` per candidate, market-candidates/s on a top-of-book test strategy, groups of 1, 10 and 100 | reported (adoption is the user's G1 answer, not a threshold) | M5b |
+| M-20 | Derived tape as the primary input | v1 only / tape when present | decode ms per market, single-candidate job time on `smoke-50`, `heavy-1`, `recent-1k`; bytes on disk | adopt if job time falls ≥ 20%; final yes at G2 with these numbers (worker-1 cap 40 GB, NT-7) | numbers M1 step 7, decision G2, implementation M5a and M6 |
+| M-21 | Tick interest filter gain | off / `TopOfBook` / `TopOfBookAndSize` | `on_tick` calls skipped, `C` per candidate, market-candidates/s on a top-of-book test strategy, groups of 1, 10 and 100 | reported (D41; no threshold) | M5b |
 | M-22 | Each FX item | before / after | its FX-1 phase and the row 11 wall time | per FX-4, FX-6, FX-7; others adopted when they shorten their phase with identical rows | M5a (producer side), M6 |
+| M-23 | Dispatch boundary (12 §14 P6, "M-DSP") | engine generic over the strategy (monomorphized in the bin crate) / engine compiled once, one `&mut dyn` call per callback | `smoke-50` throughput for one candidate and a 20-candidate group (`artifact` profile); warm `iterate` and `artifact` rebuild after a one-line strategy change, on worker-1 | higher throughput is the default (12 §14 P6, §11.2); rebuild times are reported | M1 step 7 |
 
 ## Open questions
 
-These form the gate-1 question list of this document, in plain words.
+None. Gate 1 (2026-10-09, delegated to the lead) settled this document's
+former questions: the tick interest filter is adopted as an opt-in (§9.4,
+D41); derived tapes are allowed on worker-1 within 40 GB, with the final yes
+at G2 (§7.5, M-20, D46); benchmarks run on worker-1 in the 01:00–07:00 window
+(§13.5, D47); published binaries use the fastest-running reproducible profile
+(§11.2, D18). The `unsafe` platform crate (§10.2) is decided by this
+document; the lead may change it.
 
-1. **Skipping strategy calls that cannot matter (§9.4).** For speed: may new
-   Rust strategies (not the ported old ones) say "only wake me when the best
-   price changes, my own orders change, or a price feed changes"? Only about
-   1 to 16 in 100 market updates change the best prices, so most strategy
-   calls could be skipped and backtests of such strategies get much faster.
-   It behaves the same live and in backtests, and a strategy may use it only
-   if an automatic check proves its results are exactly the same as without
-   it. Recommendation: yes, as an option in the first SDK release (cheap to
-   add now, expensive later). Alternatives: add it in the follow-up goal F1,
-   or never. (User.)
-2. **Disk for a faster copy of the market files (§7.5).** A faster native copy
-   of the market files makes reading a market about 10 times faster (about
-   5 ms instead of 45–70 ms) and could roughly halve the time per market in
-   single-strategy runs. The original files stay exactly as they are; the copy
-   is rebuilt automatically when needed. It needs extra disk on every machine
-   that runs backtests: about 23–26 GB for today's BTC 15m files (about 45%
-   of the current 52 GB), growing with new data. This MacBook has only
-   2.5 GB free (its disk is full), so even the test copy of the 1,000-market
-   benchmark set (about 1 GB) needs space freed first. May the engine build
-   and keep such a copy (a) for the benchmark sets on this MacBook before
-   gate 2, and (b) on all fleet machines after gate 2? Is there a disk limit
-   per machine? The final yes or no is asked again at gate 2 with measured
-   numbers. (User.)
-3. **When speed benchmarks may run on this MacBook (§13.5).** Speed benchmarks
-   need this MacBook idle for several hours (no other backtests or AI
-   sessions, on power, lid open). May the agent run them unattended
-   overnight, and are there times when it must not? Until you answer,
-   benchmark numbers are recorded as "non-idle" and not used to compare
-   milestones. (User.)
-4. **`unsafe` exception for platform calls (§10.2).** Setting thread priority
-   classes (`pthread_set_qos_class_self_np`) and keeping the Mac awake during
-   live runs (50 §4.3) need a few lines of low-level code that Rust marks
-   `unsafe`. This document proposes one small engine-owned crate as the only
-   place allowed to contain it; strategy code stays forbidden from it. The
-   WIP forbids `unsafe` everywhere (`native/Cargo.toml:24`). Accept, or use a
-   vetted third-party crate that hides the same code inside a dependency?
-   (User or lead, together with 31.)
+### Gate-4 questions
 
-Cross-document items for the lead (not user decisions; each owner edits its
-own document before G1):
+1. **Calibration and live host** (01 §12.1 item 3). It decides where the
+   §12.3 latency reports of M8–M10 are measured, which host's backtest
+   threads run at `utility` or `background` or stop during sessions
+   (§10.2–§10.3, 50 §4.3), and the hosting term of §12.2.
 
-- 30 §4.1: the tick interest flag of TF-1 (if Open question 1 is yes), and
-  the plugin output generation counter of TF-2 (e) with 14.
-- 12 §5.3: skip only the strategy callback per TF-2 and TF-3.
-- 21 §10 and §15: `strategyTicksSkipped` and the input path (tape or v1) in
-  diagnostics.
-- 20 §6.1 and §6.3 S3: a `--tape-dir` process flag, and validated derived
-  tapes as permitted shared immutable data.
-- 15 §4.4, IP-3 and 01 Open question 3: point to §7.5 as the speed path; a
-  canonical format version 2 becomes a separate, optional question.
-- 40 (producer, shim, `data:sync:worker`) and 42 (aggregator): FX-2…FX-7 and
-  the NT-8 build step, scheduled in M5a and M6.
-- 01 M1 step 7 and M6: add the `pmb-tape` prototype and the FX-8 deliverable.
+### Requirements on other documents
+
+None open: every item was applied in the gate-1 consolidation.

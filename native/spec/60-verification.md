@@ -24,16 +24,16 @@ RFC 2119. Paths are relative to the repository root.
 |---|---|---|---|---|---|
 | L1 | Leaf goldens (§7) | Leaf semantics equal TS where TS is the oracle | Real TS code at the oracle pin | M1 | G2 |
 | L2 | Converted TS suites (§7.3) | Ordering, capital, cancel-resolution scenarios | TS tests at the pin | M1 | G2 |
-| L3 | Spec conformance (§10) | Rules are implemented as specified and published | Spec + Polymarket docs, independent author | Workstream C from G1 (§10.0); executable from M1 step 5; G3 scope by M3b, G4 scope by M9 | G2, G3, G4 |
+| L3 | Spec conformance (§10) | Rules are implemented as specified and published | Spec + Polymarket docs, independent author (Fable, D45) | Workstream C right after G1 (§10.0); executable from M1 step 5; G3 scope from M3b, G4 scope from M9 | G2, G3, G4 |
 | L4 | Invariants, properties, fuzz (§8) | Internal consistency | Arithmetic identities | M1 | every gate |
 | L5 | Determinism (§9) | Same input and seed → same bytes everywhere | R7 | M1 | every gate |
-| L6 | Exerciser trace parity (§4, §5) | The port of the mechanics | TS at the pin, plus classified patches (§3.4) | M2 | G2 |
+| L6 | Exerciser trace parity (§4, §5) | The port of the mechanics | TS at the pin, plus classified patches (§3.4) | M1 step 6 (T15), M2 | G2 |
 | L7 | lagsnipe.v15 trace parity (§6) | A real strategy decides identically | TS artifact at the pin | M2 | G2 |
 | L8 | Contract tests ([21](21-job-and-output-contract.md) §3, §19) | TS receives exactly today's shapes | Generated schemas | M1 | G2 |
 | L9 | Group and extend equivalence (§9, [41](41-candidate-groups.md) §10) | Candidate groups change nothing | Standalone runs | M4 | — |
-| L10 | Realistic A/B reports and approved snapshots (§8.4, §11) | Each realistic fix has an explained effect | Spec | M3 | G3 |
+| L10 | Realistic A/B reports and approved snapshots (§8.4, §11) | Each realistic fix has an explained effect | Spec | M3b | G3 |
 | L11 | Journal replay identity, adapter fixtures, fault injection (§13) | One core; live adapter safety | Journals, mock exchange | M8, M9 | G4 |
-| L12 | Calibration ([51](51-calibration-plan.md)) | Realistic predicts live | Live journal + Recorder V4 | M10 | G3 |
+| L12 | Calibration ([51](51-calibration-plan.md)), with conformance tests of its analysis harness (§10.2 G4 row) | Realistic predicts live | Live journal + Recorder V4 | M9 (harness), M10 | G3 |
 
 Chain of evidence for live/backtest agreement (01 §1 item 5): L6 and L7 prove
 the port reproduces today's mechanics; L3 and L10 prove realistic follows the
@@ -55,8 +55,8 @@ Principles:
 - **VP-4** Verification is cheap enough to run after every change: TS traces
   are cached per oracle tree (OR-12), so Rust-only re-runs cost only Rust
   time. Every optimization commit passes PS-50 (§4.5, 16 §13.8); structural
-  changes (decode, scheduler, caches, book layout, threading) re-run the whole
-  matrix Rust-only before they land (R8, 01 S6).
+  changes (decode, scheduler, caches, book layout, threading, tape) re-run the
+  whole matrix Rust-only before they land (R8, 01 §2 S6).
 - **VP-5** Speed never changes results: an optimization that changes one byte
   of a parity trace or a `resultDigest` is a Rust bug.
 - **VP-6** Separation of duties against correlated errors (01 §11): the
@@ -64,10 +64,17 @@ Principles:
   money-semantics classification is final without an independent review and
   the user's confirmation (CL-10).
 - **VP-7** Evidence comes from the binary that ships. Parity, benchmark and
-  gate evidence use the canonical `artifact` binary (01 §6, 31 §4). Invariant
-  checks need debug assertions, which `artifact` does not have, so they run in
-  a second canonical binary, `parity-check` (§8.1). Both binaries MUST give
-  identical deterministic output and trace bytes.
+  gate evidence use the canonical `artifact` binary (01 §6, 31 §4) of the
+  `standard` variant (D44). Invariant checks need debug assertions, which
+  `artifact` does not have, so they run in a second canonical binary,
+  `parity-check` (§8.1). Both binaries MUST give identical deterministic
+  output and trace bytes.
+- **VP-8** Host. Local verification (parity, goldens, fixtures, LG-1–LG-3,
+  LG-5) runs on worker-1 in the native clone (D36, 01 §8.1), alongside the
+  fleet worker and Global Runtime sessions at the capped parallelism of
+  01 §8.1 H4; benchmarks and nightly jobs only in the window of H5 (D47).
+  LG-4 runs on the M6 native hosts, CI on GitHub. Concurrency never changes
+  results (R7).
 
 ## 2. The TS oracle
 
@@ -100,17 +107,18 @@ classified (§3), never copied into realistic.
   file.
 - **OR-3** Oracle tree = the TS sources at the branch head. A gating run
   requires that `git diff --name-only <pin> HEAD -- <engine paths>` lists only
-  files in `native/parity/oracle-allowlist.txt` (parity tooling under
-  `src/backtest/parity/`, native-dispatch shims such as
-  `src/backtest/marketProcessor.ts`, `src/backtest/jobTypes.ts`,
-  `src/strategy/artifacts/native.ts`) and that the working tree is clean.
-  `run-parity` checks both and records `oracleTreeClean`. Every allowlisted
-  file is covered by TS self-parity (OR-17).
+  files in `native/parity/oracle-allowlist.txt` (before G2: the parity
+  tooling under `src/backtest/parity/`, which main does not have;
+  `src/strategy/artifacts/types.ts` (`kind`, 31 §8); the Market Simulator
+  guard in `src/backtest/simulator/resolveMarket.ts` (D10, 22 §5)) and that
+  the working tree is clean. `run-parity` checks both and records
+  `oracleTreeClean`. Every allowlisted file is covered by TS self-parity
+  (OR-17).
 - **OR-4** The TS twins of the exerciser and the feed exerciser live in
   `src/strategies/testing/`, outside the engine paths. The TS trace writer
   needs no engine change: the runner observer hooks already exist on main
-  (`src/backtest/runSingleMarket.ts:64,317-319`; `onContext` for the `feeds`
-  level at `src/trading/StrategyRunner.ts:450`).
+  (`src/backtest/runSingleMarket.ts:62-66,317-319`; `onContext` for the
+  `feeds` level at `src/trading/StrategyRunner.ts:450`).
 - **OR-5** The lagsnipe oracle is the artifact bundle (sha `304eceb3…`, 01 §4)
   executed against the pinned engine: external artifacts resolve `#pmb/*` to
   the checkout's engine (`src/backtest/parity/marketJob.ts:44-47`). Its trace
@@ -166,7 +174,7 @@ classified (§3), never copied into realistic.
 
 ### 2.4 Tracking main changes
 
-Before gate 2 (main is untouched by this goal but moves with other work):
+Before gate 2 (main moves with other work and with the D37 rules-capture PR):
 
 - **OR-11** Every sync appends to PARITY.md "Oracle changes" the output of
   `git log --oneline <old pin>..<new pin> -- <engine paths>` with one line per
@@ -184,16 +192,19 @@ Before gate 2 (main is untouched by this goal but moves with other work):
 
 After gate 2:
 
-- **OR-14** CLAUDE.md gains the D04 rule with the merge (01 §8). CI job
+- **OR-14** CLAUDE.md gains the D04/D49 rule with the merge (01 §8). CI job
   `parity-rule` (§14) fails a PR to main that changes an engine path unless
   the same PR changes `native/PARITY.md` (an Oracle changes line naming the PR)
   or both exerciser twins. The label `engine-semantics-none` bypasses it; only
   the user sets it, agent sessions MUST NOT.
-- **OR-15** The TS engine is frozen to bug fixes (D04; the freeze point is 01
-  Open question 8). A TS fix that resolves a PARITY entry retires its patch
-  (§3.4); the entry becomes `fixed-on-main@<sha>`.
-- **OR-16** Parity canary (both phases): before every sync, and nightly if
-  the user approves (Open question 3), cells E15-0 and L15-0 run on the PS-50
+- **OR-15** From the G2 merge the TS engine takes only bug fixes (D49). The
+  exception, a feature the AI protocols need before they move to Rust, lands
+  only with its Rust version and a parity test (an exerciser case in both
+  twins, or a Rust twin with its own cell) in the same or a linked PR. A TS
+  fix that resolves a PARITY entry retires its patch (§3.4); the entry
+  becomes `fixed-on-main@<sha>`.
+- **OR-16** Parity canary (both phases): before every sync, and nightly in
+  the D47 window (01 §8.1 H5), cells E15-0 and L15-0 run on the PS-50
   markets (§4.5) with TS traces regenerated at the latest `origin/main`. A new divergence
   opens a `pending` PARITY entry and, when money-affecting, a STATUS.md
   "Waiting on user" note. Not blocking.
@@ -202,10 +213,12 @@ After gate 2:
 
 - **OR-17** The branch MUST NOT change how TS strategies behave (01 §8). The
   same exerciser twin file and the lagsnipe artifact, run against the TS engine
-  tree at the pin (a scratch worktree with the twin copied in) and at the
-  branch head, on the E15-0 and L15-0 sets, MUST give byte-identical TS traces
-  (same engine, no tolerance). Required in the G2 report, in the merge PR, and in
-  every later PR that touches an allowlisted engine-path file.
+  tree at the pin (a scratch worktree of the pin with the twin and the parity
+  tooling, `src/backtest/parity/`, `src/cli/parity/`, `scripts/parity/`,
+  copied in) and at the branch head, on the E15-0 and L15-0 sets, MUST give
+  byte-identical TS traces (same engine, no tolerance). Required in the G2
+  report, in the merge PR, and in every later PR that touches an allowlisted
+  engine-path file.
 
 ## 3. PARITY.md
 
@@ -326,8 +339,8 @@ the same record or later in the market.
 | PE-R2 | `rounding_tie` | 22 §3.4, D08 | counted |
 | PE-R3 | `fee_rounding_tie` | A `fill` record whose `fee` differs by exactly 1e-4 (100 micros) while the exact ts-compat fee `0.07 × p × (1 − p) × C`, computed in exact decimal from the traced price and size, lies exactly on a 4-dp half (5th decimal 5, nothing after it). Cause: TS rounds an `f64` product (`src/trading/fees.ts:20-24`), Rust rounds the exact value `HalfAwayFromZero` (10 R8). Exact ties are common with cent prices and 2-dp sizes (for example p = 0.50, C = 10.02 gives 0.17535). | counted; before the 1e-4 check the diff removes the effect of the classified fee deltas (with each field's sign) from the USDC fields that include fees (`final.unrounded.feesPaid`, `pnl`, `cost`), so several ties in one market do not add up to a failure; a quantized stat that then differs falls under PE-R1 |
 
-The diff tool implements these kinds (HR-5); 22 §3.4 lists PE-R1/R2 and is
-to list `fee_rounding_tie` as well. The same tie can occur in the fee part of
+The diff tool implements these kinds (HR-5; all three are listed in 22 §3.4).
+The same tie can occur in the fee part of
 a BUY reservation (`src/trading/capital.ts:16-28`), which is not traced but
 shifts `availableCash` by 1e-4. A later decision divergence in a market with
 a PE-R3 tie is not covered by PE-R3: it is classified like any divergence,
@@ -354,21 +367,20 @@ binary (VP-7).
 | Cell | Strategy | Market set | Delay | Trace level | Milestone |
 |---|---|---|---|---|---|
 | T15-on, T15-off | Feed exerciser, `trade: false`, `tickOnUpdate` on / off | S15-CL | 0 | `feeds` | M1 step 6 checkpoint |
-| E15-0, E15-D | Engine exerciser v2 | S15 | 0, D | `decisions` | M2 |
-| E5-0, E5-D | Engine exerciser v2 | S5 | 0, D | `decisions` | M2 |
-| F15-on, F15-off | Feed exerciser, `trade: true`, `tickOnUpdate` on / off | S15-CL | 0 | `feeds` | M2 |
-| F15-TA | Feed exerciser with TA | 50 markets of S15-CL | 0 | `feeds` | M2 |
-| L15-0, L15-D | lagsnipe.v15 | SL | 0, D | `feeds` | M2 |
-| V4-E | Engine exerciser v2 | ≥ 50 worker-2 Recorder V4 packages | 0 | `decisions` | M7 (gate-2 inclusion: 15 open question 2) |
+| E15-0, E15-D | Engine exerciser v2 | S15 | 0, D | `decisions` | M2 (gating) |
+| E5-0, E5-D | Engine exerciser v2 | S5 | 0, D | `decisions` | M2, non-gating (D38) |
+| F15-on, F15-off | Feed exerciser, `trade: true`, `tickOnUpdate` on / off | S15-CL | 0 | `feeds` | M2 (gating) |
+| F15-TA | Feed exerciser with TA | 50 markets of S15-CL | 0 | `feeds` | M2 (gating) |
+| L15-0, L15-D | lagsnipe.v15 | SL | 0, D | `feeds` | M2 (gating) |
+| V4-E | Engine exerciser v2 | ≥ 50 worker-2 Recorder V4 packages, BTC 5m and 15m | 0 | `decisions` | M7, after G2 (15 §5.6) |
 
-**BTC 5m data.** E5-0 and E5-D need S5 (≥ 200 BTC 5m markets), but this
-machine holds 6 converted 5m files and R2 held none on 2026-10-09 (01 M2
-step 1). Producing them needs the production data pipeline, which the agent
-runs only after the user answers 01 Open question 5. Until 5m data exists,
-S5 is the 5m markets present locally (at least the two 5m fixture markets,
-FX-1), E5-0 and E5-D run on it **non-gating**, and the G2 report states this
-in its verdict table. If the answer is that the 5m cells wait, the full E5
-cells run on S5 before M3b and their result is appended to the G2 evidence.
+**BTC 5m (D38).** Gate 2 covers BTC 15m only. E5-0 and E5-D need S5
+(≥ 200 BTC 5m markets), but the Telonex subscription has expired and R2 held
+no eligible 5m market on 2026-10-09 (01 M2 step 1). S5 is therefore the BTC
+5m markets present locally on worker-1 (possibly none); E5-0 and E5-D run on
+it non-gating, and the G2 verdict table says so. The full E5 cells run after
+a Telonex renewal and their result is appended to the G2 evidence; BTC 5m
+ts-compat parity is shown on Recorder V4 in M7 (V4-E).
 
 ### 4.2 Market sets
 
@@ -384,22 +396,23 @@ cells run on S5 before M3b and their result is appended to the G2 evidence.
   `src/db/telonexMarkets.ts`; already used by `selectParitySlugs`), stratified
   by calendar month over the eligible range, and covering every fee era of
   11 §5.3 so the same sets serve the A/B reports (§11). Sets that need
-  Chainlink start at 2026-04-02 (coverage start).
+  Chainlink start at 2026-04-02 (coverage start). The eligible range ends
+  where the local Telonex catalog ends (subscription expired, D38).
 - **MS-3** Each set adds at least 10 edge markets chosen from a scan: most and
   fewest events, crossed-book ticks, local or exchange clock going backwards,
   deltas before the first book (15 §8 counters), a missing best bid or ask at
   window start.
 - **MS-4** SL MUST contain at least 100 markets where TS lagsnipe places at
   least one order; otherwise it is extended with the next seeded markets.
-- **MS-5** All inputs are local before a gating run (`--read-from local`,
-  pre-fetched with the read-from-R2 dataset commands of 01 M2 step 1, which
-  write only under `data/`) and identified by size and sha256 in the
-  manifest. A market without local data is replaced by the next seeded
-  market, recorded. When a whole set cannot be filled (BTC 5m, §4.1), the set
-  header records the shortfall and the affected cells are non-gating; the
-  agent never runs the production dataset pipeline (`data:sync:main`,
-  conversions, R2 uploads, catalog writes) without the user's answer to
-  01 Open question 5.
+- **MS-5** Gating runs read only local inputs (`--read-from local`): the
+  telonex-delta, Binance and Chainlink files already on worker-1, through the
+  read-only data links of 01 §8.1 H2 (nothing is downloaded into the fleet
+  copy). Each input is identified by size and sha256 in the manifest. A
+  market without local data is replaced by the next seeded market, recorded.
+  When a whole set cannot be filled (BTC 5m, §4.1), the set header records
+  the shortfall and the affected cells are non-gating. The agent never runs
+  the production dataset pipeline (`data:sync:main`, conversions, R2 uploads,
+  catalog writes; D38).
 
 ### 4.3 Harness
 
@@ -416,7 +429,7 @@ MUST be changed as follows:
 | HR-6 | Matchers applied; after a field-only divergence matched by an entry, the diff continues and the market is `classified PE-…` only if every later difference is also matched (PM-1). Per-market verdict `identical`, `identical-patched`, `classified PE-…`, `masked`, `unclassified`, `excluded`. |
 | HR-7 | Manifest per OR-1, OR-3, VP-2, written atomically, with coverage (§5.6). `native:parity:summary` renders the PARITY.md matrix status and the gate evidence tables from manifests (§15.2). |
 | HR-8 | Exit 0 only with zero `unclassified` and zero markets matched by an open Rust-bug entry. |
-| HR-9 | Runs locally on m1-ivan with 8 concurrent workers (R13). |
+| HR-9 | Runs on worker-1 in the native clone (VP-8, R13), at `--concurrency 4` while the fleet worker runs (01 §8.1 H4). |
 
 - **H-1 Harness validation** (once per cell definition, reported at G2): on
   20 markets per strategy, the harness's `MarketJobData` equals the production
@@ -533,9 +546,11 @@ says where to look. Realistic expectations come from the cited clause.
 
 | Case | ts-compat (TS evidence; TC rule of 13 §5.2) | Realistic (RF id of 13 §7.1) |
 |---|---|---|
-| x3 lead 120 s | accepted; expires at `expireAtMs` (TC-C1, TC-E5) | rejected, lead < 3 min (10 G4; RF03) |
+| x3 lead 120 s | accepted; expires at `expireAtMs` (TC-C1, TC-E5) | rejected, lead < 3 min (10 GD4, 11 GT2; RF03) |
+| x2, x6 (FOK BUY) | sized in shares (TC-E4, 10 O3) | converted to collateral at the limit price; can receive more shares when filled below the limit (10 O2, D42; RF04) |
 | x10 at 320 | depends on whether the cancel completes inside the list: in-list completion releases the cid, a queued cancel leaves it deduped (`OrderManager.ts:268-337, 466`; 12 §7.6; TC-E1) | 12 §7.6 (RF05) |
-| x10 at 330 | dropped silently, no trace record; counted in diagnostics as `DuplicateActiveCid` (12 §7.6) | same: dropped silently and counted, never emitted (12 §7.6; strategies re-send the same intent every tick on purpose, `OrderManager.ts:105`) |
+| x10 at 330 | dropped silently, no trace record; diagnostics counter `duplicate_active_cid` (12 §7.6) | same: dropped silently and counted, never emitted (12 §7.6; strategies re-send the same intent every tick on purpose, `OrderManager.ts:105`) |
+| a placement that could match an own resting order (e.g. x7 BUY DOWN at ask(DOWN) while the x5 remainder rests as BUY UP at ask(UP) + 0.02: mint match) | no check (TC-C14) | `SelfCross` before sending (10 N6, 12 §7.4, D54; RF14) |
 | A1, A2 | `order_submitted` and `order_open` reach the strategy; breadth-first order (12 §6.2) | same |
 | b16 | all 16 accepted (TC-C12) | whole intent rejected, 16 × `BatchTooLarge` (11 §9; RF02) |
 | merge 0 | dropped silently (TC-C7) | `MergeFailed(InvalidSize)` (10 N4; RF14) |
@@ -564,9 +579,9 @@ Each feature is class **D** (deterministic once a best price exists:
 validation, rejections, cancels, cascades) or **L** (liquidity-dependent:
 fills, FOK fill vs kill, maker fills, expiry). Thresholds per exerciser cell:
 D in at least 95% of markets; L in at least one market per cell and at least
-20 markets across E15 and E5 cells. A shortfall blocks G2 unless the gate
-report explains it with market conditions (for example 5m windows with fewer
-than 600 ticks).
+20 markets across the E15 cells. A shortfall blocks G2 unless the gate
+report explains it with market conditions (for example markets with fewer
+than 600 ticks). The non-gating E5 cells report coverage without thresholds.
 
 ### 5.7 Versioning
 
@@ -580,26 +595,32 @@ Defined by [14](14-feeds-and-plugins.md) V-3. Params
 `{tickOnUpdate: bool, trade: bool, ta: bool, chainlink: bool}` (`chainlink`
 defaults to true). It requests Binance, Chainlink (only when `chainlink`)
 and price-to-beat with `tickOnUpdate` per the param, and the plugins
-(TechnicalIndicators only when `ta`). Every parity cell uses
-`chainlink: true`; `chainlink: false` exists for agent-run paper sessions
-that may not load Chainlink credentials (01 M8, 01 Open question 10). `trade: false` returns no
-intents (the T15 tick-stream checkpoint); `trade: true` runs schedule v2 on
-real ticks only. Both twins live next to the engine exerciser.
+TimeWindowVolatility, DwellGate, TimeWindowGate and, only when `ta`,
+TechnicalIndicators (D19 as amended). Every parity cell uses
+`chainlink: true`; `chainlink: false` exists for agent-run paper sessions,
+which load no Chainlink credentials (01 M8, 50 §8.1; 01 §12.1 item 2).
+`trade: false` returns no intents (the T15 tick-stream checkpoint);
+`trade: true` runs schedule v2 on real ticks only. Both twins live next to
+the engine exerciser.
 
 ### 5.9 Realistic exerciser (Rust only)
 
 `engine-exerciser-realistic.rs` drives features that have no TS oracle. It runs
-in realistic on the fixture markets and on S15/S5, feeds the invariant suite
+in realistic on the fixture markets and on the M3 set (AB-1), feeds the invariant suite
 (§8) and the approved snapshots (§8.4), and is one of the A/B strategies
 (§11). Cases: FAK BUY partial across levels and FAK zero fill; FOK and FAK BUY
-sized in collateral with floor share truncation (10 O2, R7); FAK SELL in
-shares; marketable orders held by the taker delay, including a cancel inside
-the window (11 §6); GTD with the 3-minute lead and 60 s early expiry; off-tick,
-out-of-bounds, sub-minimum and precision rejects (11 §7); post-only cross at
-arrival; batch of 15 and 16; resting orders across the window end (D23); split
-and merge as async operations (D25); sell gate on MINED and a FAILED reversal
-(10 F1, F2); re-place of an active cid (dropped silently, diagnostics counter
-`DuplicateActiveCid` incremented, no event; 12 §7.6).
+sized in collateral with floor share truncation (10 O2, R7), including a
+share-sized request converted at the limit price that fills below the limit
+and receives more shares (D42); FAK SELL in shares; marketable orders held by
+the taker delay, including a cancel inside the window (11 §6); GTD with the
+3-minute lead and 60 s early expiry; off-tick, out-of-bounds, sub-minimum and
+precision rejects (11 §7); post-only cross at arrival; batch of 15 and 16;
+resting orders across the window end (D23); split and merge as async
+operations (D25); sell gate on MINED and a FAILED reversal (10 F1, F2);
+re-place of an active cid (dropped silently, diagnostics counter
+`duplicate_active_cid` incremented, no event; 12 §7.6); the self-cross block,
+direct and complementary (mint and merge matches, an earlier entry of the
+same batch, an in-flight own order; 10 N6, 12 §7.4, D54).
 
 ### 5.10 No-oracle unit cases
 
@@ -608,7 +629,8 @@ Unit tests in the core (independent of the exerciser), each citing its clause:
 | Area | Cases |
 |---|---|
 | FAK | BUY collateral partial over 3 levels; zero fill → `Killed`, filled 0; remainder never rests; SELL in shares; with taker delay; below the market-order minimum; post-only refused; fee per fill record; reservation fully released after kill; FAK under ts-compat uses realistic semantics (10 §7.1) |
-| FOK | exact fill; one share short → killed with no fill; collateral sizing in realistic vs shares in ts-compat |
+| FOK | exact fill; one share short → killed with no fill; collateral sizing in realistic vs shares in ts-compat; share-sized request converted at the limit price (D42) |
+| Self-cross | each N6 condition rejects with `SelfCross` in realistic, paper and live; ts-compat has no check (TC-C14); no own taker fill ever meets an own resting order (INV-15) |
 | Batch | 1, 15, 16 entries per profile; per-entry independent validation and funding; `success:true` with `errorMsg` mapped to a rejection (live adapter, 11 §9) |
 | Cancel | cancel during taker delay; deferred cancel of an in-flight order (10 §8.1); conflicting refs; cap 1,000 vs 3,000 per profile |
 | GTD | arrival-time lead check, `floor(ms/1000)` seconds, expiry at stated − 60 s |
@@ -642,13 +664,14 @@ bundle line 258) shows:
   rounding of non-negative values (lines 206-209).
 - `onAccountEvent` reads only `ev.kind` and clears a pending flag on
   `order_done` or `order_rejected` (lines 241-243). It reads no portfolio state
-  in account callbacks (evidence for 12 Open question 1).
+  in account callbacks (consistent with the one-ledger rule of 12 §9.1).
 
 ### 6.2 Port and identity
 
 The Rust port `overnight-opus55-lagsnipe.v15.rs` (D20) is written from the
-bundle unless the user provides the source (01 Open question 4). It keeps the
-bundle's `f64` expression order and uses the SDK's pure-Rust libm (30 §14).
+bundle (D40). It keeps the bundle's `f64` expression order and uses the
+SDK's pure-Rust libm (30 §14). Like every in-repo ts-compat port it declares
+no tick interest (D41, 30 §18).
 Normalized params MUST equal the TS ones (30 §9). Port rules that follow
 from §6.1:
 
@@ -714,6 +737,8 @@ from §6.1:
 - **LS-3** Float-boundary classifications (CL-5) are reported as a count per
   cell. More than 2% of SL markets masked means the port's expression order
   differs from the bundle: a Rust bug.
+- **LS-4 Params.** Golden PG-1 (30 §9 rule 9: the stored params of the §6.3
+  run, `stakeMinUsd` set and null) passes; the G2 report lists its result.
 
 ## 7. Golden fixtures from TS
 
@@ -755,7 +780,7 @@ from §6.1:
 | Cancel reference resolution | `src/trading/cancellation.ts:61-127` | exact | 12 §7.3 |
 | Stats contract, skip taxonomy, `intentMeta`, `eventsByType` | `stats_gen.ts`, `src/backtest/runSingleMarket.ts:297-337,497-567` | 1e-4 USDC, rest exact | 21 §11-16 |
 | Window and slug parsing | `src/polymarket/upDownSlugWindow.ts` | exact | 10 §5 |
-| `modelConfigSha256` canonical JSON (cross-language contract) | TS hasher in the producer | exact | 21 §6 |
+| `modelConfigSha256` canonical JSON (cross-language contract) | TS hasher in the producer; the default fixtures of 21 §3 CI item 6 | exact | 21 §6 |
 | lagsnipe math | bundle functions (LS-1) | relative 1e-12; `round_dp` and number conversion bit-exact | §6.4 |
 
 ### 7.3 Converted TS suites
@@ -781,8 +806,9 @@ identity) become assertions on observable events only (R4).
 
 Where the spec gives an exact table, the table is the golden: rounding cases
 (10 §4 Q3), fee curves and eras (11 §5), taker-delay dates (11 §6.2), GTD
-arithmetic (11 §8), batch and cancel caps (11 §9). These tests are written by
-the conformance author (§10).
+arithmetic (11 §8), batch and cancel caps (11 §9), seed vectors (10 RNG-7).
+These tests are written by the conformance author (§10); the implementation
+session also commits RNG-7 as a unit test (DET-13).
 
 ## 8. Invariants and property tests
 
@@ -795,34 +821,35 @@ semantics (12 §11). Where the assertions run:
 - `cargo test` (Cargo's test profile has debug assertions on): every unit,
   golden, property and fixture test.
 - The **`parity-check` binary**: the canonical builder (31 §4) also builds
-  each parity strategy with profile `parity-check` = `artifact` plus
-  `debug-assertions = true` (to be added to `native/build/artifact-build.toml`
-  by 31 §4.2). At every gating matrix run it runs the whole matrix Rust-only
-  against the cached TS traces. Any assertion failure is a Rust bug, and its
-  deterministic output and trace bytes MUST equal those of the `artifact`
-  binary on every market (the 31 §7.6 profile-independence rule extended to
-  this profile). It also runs with every Rust-only matrix re-run after a
-  structural optimization (VP-4); per-commit PS-50 uses `artifact` only.
+  each parity strategy with profile `parity-check` = `artifact` plus debug
+  assertions (31 §4.2, local cache only). At every gating matrix run it runs
+  the whole matrix Rust-only against the cached TS traces. Any assertion
+  failure is a Rust bug, and its deterministic output and trace bytes MUST
+  equal those of the `artifact` binary on every market (31 §7.6
+  profile-independence). It also runs with every Rust-only matrix re-run
+  after a structural optimization (VP-4); per-commit PS-50 uses `artifact`
+  only.
 - The shipped `artifact` binary has no debug assertions (31 §4.2). Gate
   evidence still comes from it (VP-7); the identity above proves it computes
   what the checked build computes.
 
 | # | Invariant | Profiles | Source |
 |---|---|---|---|
-| INV-1 | Cash conservation: `cash = starting + Σ cash deltas` (fills, fees, splits, merges, settlement), exact in micros | both | 12 §9.8.1 |
-| INV-2 | Every reservation ≥ 0; `reserved = Σ` outstanding reservations of non-terminal orders and pending operations; `available ≥ 0` at acceptance except `reservation_dust` | both | 10 C1, 12 §9.8.2 |
+| INV-1 | Cash conservation: `cash = starting + Σ cash deltas` (fills, fees, splits, merges, settlement), exact in micros | both | 12 §9.8 item 1 |
+| INV-2 | Every reservation ≥ 0; `reserved = Σ` outstanding reservations of non-terminal orders and pending operations; `available ≥ 0` at acceptance except `reservation_dust` | both | 10 C1, 12 §9.8 item 2 |
 | INV-3 | Reservations released on every terminal path (filled, canceled, expired, killed, rejected, reversal); zero reserved at session end when all orders are terminal | both | 10 C3 |
-| INV-4 | Σ fill qty ≤ size (shares) or Σ spent ≤ amount (collateral) per order, and ≤ the authoritative final quantity | both | 10 S2, 12 §9.8.3 |
+| INV-4 | Σ fill qty ≤ size (shares) or Σ spent ≤ amount (collateral) per order, and ≤ the authoritative final quantity | both | 10 S2, 12 §9.8 item 3 |
 | INV-5 | Exactly one terminal event per `OrderKey`; nothing after it except flagged late fills | both | 10 S1, S5 |
 | INV-6 | At most one non-terminal order per cid | both | 10 S4 |
 | INV-7 | PnL identity: cash-based pnl = cost-basis decomposition, and `pnl = cashEnd − cashStart + winningShares` in micros | both | 10 C4, 21 §11 |
-| INV-8 | Quantity ≥ 0, `qty = 0 ⇒ basis = 0`, SELL and merge never exceed sellable inventory | realistic | 10 §9.3, F2 |
+| INV-8 | Quantity ≥ 0 (both); `qty = 0 ⇒ basis = 0`, SELL and merge never exceed sellable inventory (realistic) | see text | 10 §9.3, F2, 12 §9.8 item 4 |
 | INV-9 | Liquidity conservation: our taker fills at a level never exceed the displayed size minus what we already consumed (depletion overlay) | realistic (RF07) | 13 §6.4 |
 | INV-10 | Every fill's fee equals the rules' fee for that fill; maker fee 0; fee ≥ 0 | both | 10 §9.1 |
 | INV-11 | A `Failed` reversal restores position, cash, fee and realized PnL exactly | realistic | 10 F1 |
-| INV-12 | Engine `now` is monotone; event times non-decreasing in delivery order | both | 12 §9.8.7 |
+| INV-12 | Engine `now` is monotone; event times non-decreasing in delivery order | both | 12 §9.8 item 7 |
 | INV-13 | No strategy callback outside the window rule of the profile | both | 12 §5.4, D23 |
 | INV-14 | `tradeAsMaker + tradeAsTaker = tradeCount`; `eventsByType` sums to `eventsProcessed`; `intentMeta` entries = distinct filled cids with meta | both | 21 §15-16, §19 |
+| INV-15 | No own taker fill meets an own resting order (the `self_cross` counter stays 0) | realistic | 12 §7.4, 13 §6.12 |
 
 ### 8.2 Property tests
 
@@ -859,27 +886,33 @@ A change to a snapshot needs a commit that names the RF id (13 §7.1) or the
 | # | Test | Where | Source |
 |---|---|---|---|
 | DET-1 | Same job twice → identical deterministic section (`resultDigest`, 21 §10) and identical decompressed trace bytes; `diagnostics` differs by design | CI, every parity market | 01 M1 proof |
-| DET-2 | `run` vs `serve` at 1 and 8 threads with 16 interleaved jobs | CI (fixtures), local | 20 §8.1 |
-| DET-3 | Candidate in a group = alone; shuffled candidate order; both layouts | CI, M4 proof | 20 §8.2, 41 §10 |
+| DET-2 | `run` vs `serve` at 1 and 8 threads with 16 interleaved jobs | CI (fixtures), local | 20 §8 item 1 |
+| DET-3 | Candidate in a group = alone; shuffled candidate order; both layouts | CI, M4 proof | 20 §8 item 2, 41 §10 |
 | DET-4 | Cold vs warm day cache; prefetch on and off | CI | 14 V-7 |
-| DET-5 | Junk `BACKTEST_*`, `MAX_EVENTS_PER_DRAIN`, `DRY_RUN` env → identical bytes | CI | 20 §8.4 |
-| DET-6 | Same jobs on every fleet Mac → identical `resultDigest` | fleet canary | 40 §12, 20 §8.3 |
-| DET-7 | Cross-architecture: Linux x86_64 CI reproduces the digests committed from m1-ivan for every fixture job | CI | R7 |
+| DET-5 | Junk `BACKTEST_*`, `MAX_EVENTS_PER_DRAIN`, `DRY_RUN` env → identical bytes | CI | 20 §8 item 4 |
+| DET-6 | Same jobs on every M6 native host (D55) → identical `resultDigest` | fleet canary | 40 §12, 20 §8 item 3 |
+| DET-7 | Cross-architecture: Linux x86_64 CI reproduces the digests committed from worker-1 for every fixture job | CI | R7 |
 | DET-8 | Traced = untraced `resultDigest`; untraced hot path benchmarked against a no-trace build | CI, benchmark | 22 §2 |
 | DET-9 | ts-compat with jitter 0: any two seeds give identical output; realistic with zero-variance latency models: seed has no effect | CI | 10 I1 |
 | DET-10 | Changing `idx`, job order or machine changes nothing | CI | 10 I1 |
 | DET-11 | Journal replay gives identical decisions and output | M8 | 50 §13, 22 §6.6 |
-| DET-12 | Reproducible build of the same source gives the same sha | M6 | 31 |
+| DET-12 | Reproducible build of the same source gives the same sha | M6 | 31 §7.6 |
+| DET-13 | The RNG-7 golden vectors, including the `md_row` and feed rows, pass in Rust and in `selftest` | CI | 10 RNG-7, 14 V-10 (f), 21 §3 CI item 7 |
+| DET-14 | Derived tape vs canonical v1 input: identical deterministic bytes and traces | CI (fixtures), LG-1, DP-6 | 16 NT-6, 15 I-V6, D46 |
+| DET-15 | Declared interests (event flags, tick interest) = all interests | CI (fixtures), `strategy:check` | 30 §4.1, D41 |
 
 Binary protocol tests (20 §8): items 1–4 are DET-2, DET-3, DET-6 and DET-5.
-Items 5–9 are CI-1 tests `BP-5` to `BP-9` (bad paths, unknown fields and
-foreign schema versions exit 2; parent death ends the binary within 1 s;
-deadline, cancel and poison-job isolation; `describe` idempotence and batch
-equality; `contractSha256` equals the checked-in bundle). Item 10 (`paper`
-and `live` refusals) is part of LV-9.
+Items 5–9 and 12 are CI-1 tests `BP-5` to `BP-9` and `BP-12` (bad paths,
+unknown fields and foreign schema versions exit 2; parent death ends the
+binary within 1 s; deadline, cancel and poison-job isolation; `describe`
+idempotence and batch equality; `contractSha256` equals the checked-in
+bundle; deep recursion identical under `run` and `serve`), each from the
+milestone that delivers its subcommand. Item 11 (flag matrix, exit 2 before
+anything is enqueued) is CI-2 test `BP-11` from M3a. Item 10 (`paper` and
+`live` refusals, `standard` build) is part of LV-9.
 
-Candidate-group tests (41 §10, M4 proof), on at least 10 candidates × 200
-markets:
+Candidate-group tests (41 §10, M4 proof), on at least 20 candidates × 200
+markets (01 M4):
 
 | # | Test |
 |---|---|
@@ -896,37 +929,42 @@ markets:
 G2 requires the G2-scope conformance tests (§10.2) and the independent review
 of money-semantics classifications (CL-10), and the implementation session
 may write neither. They therefore run as a parallel workstream C next to the
-milestones of 01 §6:
+milestones of 01 §6, written by Fable (D45):
 
 | Phase | Starts | Work | Delivers |
 |---|---|---|---|
-| C0 | G1 approved (tag `native-spec-g1`) and Open question 2 answered | The orchestrator (the user, or the launcher that starts the implementation session) starts the conformance author with this section as its brief. The implementation session's only part is creating the author's worktree (CF-2). | worktree and branch `native-conformance` |
+| C0 | Right after G1 (tag `native-spec-g1`, D56) | The launcher creates the conformance checkout (CF-2) unless the implementation session already did (01 M1 step 1), and starts Fable there with this section as its brief | checkout and branch `native-conformance` |
 | C1 | C0 | Table-driven vectors from the spec tables (§7.4) and test plans per §10.2 row, written against the SDK surface declared in 30 | `native/conformance/` data files and test skeletons |
 | C2 | M1 step 5 (testkit, binary and rustdoc exist) | Executable G2-scope tests; triage (§10.3) | G2 scope committed before M2 step 3; green or triaged before M2 step 4 (the G2 report) |
 | C3 | M2 step 3, after the C2 commit | Independent review of PARITY classifications (§10.4); only now is the `native/PARITY.md` read deny of CF-2 lifted | review fields in PARITY.md entries |
 | C4 | M3b start, M9 start | G3 and G4 scopes | before the G3 and G4 reports |
 
-Inputs: `native/spec/` at the G1 tag without `research/`, the Polymarket docs
-(`docs/polymarket/`), the rustdoc of `pmb-sdk` and its testkit, the binary
-protocol (20) and canonical binaries for black-box runs. The implementation
-session merges `native-conformance` into `native-engine`; those merges touch
-only `native/conformance/`. If C0 has not started when M1 step 5 ends, the
+Inputs: `native/spec/` at the G1 tag without `research/` (read with
+`git show native-spec-g1:native/spec/<file>` until the branch carries the
+spec), the Polymarket docs (`docs/polymarket/`), the rustdoc of `pmb-sdk` and
+its testkit, the binary protocol (20) and canonical binaries for black-box
+runs. `native-conformance` starts from `origin/main`; from C2 it merges
+`native-engine` to build the testkit. The implementation session merges
+`native-conformance` into `native-engine`; those merges bring only
+`native/conformance/`. If Fable is not running when M1 step 5 ends, the
 session records it under "Waiting on user" in STATUS.md and continues with
 work that does not need it.
 
 ### 10.1 Authorship and isolation
 
-- **CF-1** Written by a different agent or model than the implementation
-  session (Open question 2), from the inputs of §10.0.
-- **CF-2** The author's worktree is a full checkout of `native-engine`
-  (cargo needs the sources to build the testkit), but the author's session
-  settings deny reading and searching `native/crates/*/src/**`,
-  `native/strategies/**`, `native/PARITY.md` (until C3) and
+- **CF-1** Written by Fable (D45), a different model than the implementation
+  session, from the inputs of §10.0.
+- **CF-2** The checkout is a separate clone on worker-1,
+  `/Users/worker-1/Sites/polymarket-bot-conformance` (01 §8.1 H1), never the
+  native clone or the fleet copy; data and `node_modules` follow 01 §8.1 H2.
+  After C2 starts it contains the engine sources (cargo needs them to build
+  the testkit), but the checkout's own `.claude/settings.local.json` denies
+  reading and searching `native/crates/*/src/**`, `native/strategies/**`,
+  `native/spec/research/**`, `native/PARITY.md` (until C3) and
   `native/STATUS.md`, and the author MUST NOT open them by any other means.
-  Tests are black-box: through
-  the testkit API or the binary (`EngineJob` in, `EngineResult` and trace
-  out). cargo runs only as `cargo test -p pmb-conformance` and
-  `cargo doc --no-deps -p pmb-sdk`.
+  Tests are black-box: through the testkit API or the binary (`EngineJob` in,
+  `EngineResult` and trace out). cargo runs only as
+  `cargo test -p pmb-conformance` and `cargo doc --no-deps -p pmb-sdk`.
 - **CF-3** Tests live in `native/conformance/`. Each test names its clause
   (`// spec: 11 GT2`) or doc URL. Conformance commits touch nothing outside
   `native/conformance/` and start their subject with `conformance:`. The G2,
@@ -939,9 +977,9 @@ work that does not need it.
 
 | Gate | Clauses |
 |---|---|
-| G2 (profile-independent and ts-compat) | Order state machine (one test per row of 10 §8.2), account event ordering and cascades (12 §6), capital C1–C4, cid generations, dedupe, output quantization (10 §4), skip taxonomy (21 §13), contract vocabularies (21 §17), `ModelConfig` hash, ts-compat rule values (11 §4) |
-| G3 (realistic) | Fee curves, eras and rounding (11 §5), taker delay (11 §6), tick, bounds, precision, minimum sizes (11 §7), GTD (11 §8), caps (11 §9), post-only (11 §11), FOK and FAK incl. collateral sizing (10 §7), settlement statuses and FAILED reversal (10 §9.2), window end (D23), async split and merge (D25) |
-| G4 (live) | V2 order struct and signing vectors from the docs, heartbeat (D30), 425/503/cancel-only handling, user-WS mapping incl. FAILED and maker identity (50), real-order gate (20 §7), journal redaction (22 §6.7) |
+| G2 (profile-independent and ts-compat) | Order state machine (one test per row of 10 §8.2), account event ordering and cascades (12 §6), capital C1–C4, cid generations, dedupe (12 §7.6), output quantization (10 §4), skip taxonomy (21 §13), contract vocabularies (21 §17), `ModelConfig` hash, seed vectors (10 RNG-7), ts-compat rule values (11 §4) |
+| G3 (realistic) | Fee curves, eras and rounding (11 §5), taker delay (11 §6), tick, bounds, precision, minimum sizes (11 §7), GTD (11 §8), caps (11 §9), post-only (11 §11), FOK and FAK incl. collateral sizing and the conversion of share-sized market BUYs (10 §7, D42), the self-cross block with one case per N6 condition (same outcome both sides, mint, merge, batch entry, in-flight own order; 10 N6, D54), settlement statuses and FAILED reversal (10 §9.2), window end (D23), async split and merge (D25) |
+| G4 (live) | V2 order struct and signing vectors from the docs, heartbeat (D30), 425/503/cancel-only handling, user-WS mapping incl. FAILED and maker identity (50), real-order gate and `standard`-build refusals (20 §7, §8 item 10; D44), journal redaction (22 §6.7); the calibration analysis harness: Modes A, B, C on both input modes and the self-tests of 51 §11.4 (51 §11) |
 
 ### 10.3 Triage
 
@@ -967,18 +1005,26 @@ no test tag (`spec:` in conformance, unit and property tests). The list is
 part of the G3 and G4 reports. It is not blocking, but each uncovered clause
 is explained.
 
-## 11. Realistic A/B reports (M3)
+## 11. Realistic A/B reports (M3b)
 
-The fix list (RF01–RF14), the cumulative ladder, the report path
-(`native/reports/ab/RFnn-<name>.md` plus `.json`) and the report content are
-owned by 13 §7. This section adds the verification rules around them.
+The fix list (RF01–RF15), the A/B procedure (rule fixes as commit pairs, axes
+as arms, leave-one-out and the profile pair at the end of M3b), the command
+`npm run native:ab`, the report path (`native/reports/ab/RFnn-<name>.md` plus
+`.json`) and the report content are owned by 13 §7. This section adds the
+verification rules around them.
 
-- **AB-1 Market set ("the M3 set").** S15 and S5 (as filled by then, §4.1)
-  for the realistic exerciser, SL for lagsnipe.v15.rs (§4.2). S15 covers
-  every fee era F0–F3 (MS-2); SL starts at the Chainlink coverage
-  (2026-04-02), so it covers F2 and F3 only. RF09 in
-  prints mode uses the V4 sets of M7 (13 §7.2). The same per-market seeds and
-  the same engine commit on both arms.
+- **AB-1 Market set ("the M3 set").** S15 (and S5 once filled, D38) for the
+  realistic exerciser, SL for lagsnipe.v15.rs (§4.2). S15 covers every fee
+  era F0–F3 (MS-2); SL starts at the Chainlink coverage (2026-04-02), so it
+  covers F2 and F3 only. RF09 in prints mode uses the V4 sets of M7
+  (13 §7.2). Both arms use the same markets, run seed and per-market seeds;
+  axis arms run on one engine commit, rule-fix arms compare the parent
+  commit's build with the fix commit's build (13 §7.2). Every report breaks
+  its metrics down per fee era (11 FT2, D51) and shows separately the subset
+  that can count for gate 3: markets starting at or after
+  2026-08-17T11:00Z (11 TD6, D52) in a fee era the study verified (11 FS1,
+  D53). If that subset holds fewer than 100 markets, the M3 set is extended
+  with the next seeded markets from that period.
 - **AB-2 Pre-registration.** Before fix *k* runs, its report skeleton with the
   expected direction of every metric 13 §7.1 requires (for example RF01: no
   fee before 2026-01-05, fees only on taker fills) is committed. The report
@@ -995,9 +1041,11 @@ owned by 13 §7. This section adds the verification rules around them.
 
 ## 12. Committed fixture markets
 
-- **FX-1** `native/fixtures/markets/<slug>/` holds at least six markets: three
-  BTC 15m from three different fee eras (11 §5.3), two BTC 5m, one edge market
-  (crossed book or clock going backwards). Each has the Telonex file, Binance
+- **FX-1** `native/fixtures/markets/<slug>/` holds at least four markets:
+  three BTC 15m from three different fee eras (11 §5.3) and one edge market
+  (crossed book or clock going backwards), plus two BTC 5m when local 5m
+  files exist (D38; otherwise after a Telonex renewal, with BTC 5m covered by
+  the V4 fixtures of FX-4 from M7). Each has the Telonex file, Binance
   and Chainlink excerpts trimmed per FX-2 (Chainlink only for markets inside
   its coverage, from 2026-04-02, 14 F-19), the price-to-beat value, the job,
   the TS ts-compat traces of the exerciser and of the feed exerciser (markets
@@ -1031,43 +1079,44 @@ owned by 13 §7. This section adds the verification rules around them.
 
 | # | Test | Gate | Source |
 |---|---|---|---|
-| LV-1 | Paper session ≥ 24 h, 5m and 15m: every journal replays to identical decisions, fills and `EngineResult` bytes | M8 proof | 50 §13, 22 §6.6 |
-| LV-2 | Drills in that session: market-WS reconnect, restart mid-market (D29), rotation with a pending order, injected strategy panic (D32), kill switch, GTD expiry | M8 proof | 50 §13.4 |
-| LV-3 | Cross-artifact: the fleet build replays a journal from the live-feature build with identical decisions | G4 | 50 §13.3 |
-| LV-4 | Live-vs-backtest decision parity on worker-2 V4 recordings of the paper markets (reported, not gated) | G4 report | 50 §13.5 |
+| LV-1 | Paper sessions totaling ≥ 24 h, 5m and 15m: every journal replays to identical decisions, fills and `EngineResult` bytes. Agent-run sessions run on worker-1, load no secrets and use strategies that request no Chainlink (engine exerciser, feed exerciser with `chainlink: false`); lagsnipe sessions are launched by the user (01 M8, 50 §8.1) | M8 proof | 50 §13, 22 §6.6 |
+| LV-2 | Drills in those sessions: market-WS reconnect, restart mid-market (D29), rotation with a pending order, injected strategy panic (D32), kill switch, GTD expiry, journal soft-bound stall | M8 proof | 50 §13.4 |
+| LV-3 | Cross-artifact: the `standard` build replays a journal written by the user's `real-orders` build of the same source hash with identical decisions (the user builds that variant on the chosen live host and runs a short `paper` session with it; the agent only replays the journal); repeated on the first real-order journal in M10 | G4 | 50 §13.3, 31 §5.5 |
+| LV-4 | Live-vs-backtest decision parity on worker-2 V4 recordings of the paper markets (reported, not gated) | M8 (SHOULD), G4 report | 50 §13.5 |
 | LV-5 | Mock exchange: a deterministic in-process CLOB (REST + user WS + market WS) driven by scripts built from documented payloads and recorded paper fixtures | M9 | 01 M9 |
-| LV-6 | Fault injection on the mock: ambiguous POST (timeout, 5xx, reset) → `Unknown` then reconciliation, no double placement; 429 and 425 with `Retry-After`; 503 post-only window; cancel-only; heartbeat miss → exchange cancels all → `order_done(HeartbeatLoss)`; trade MATCHED then FAILED → reversal; late fill after cancel; fill before ack; duplicate fill via WS and REST; user-WS reconnect resync; clock-offset jump; journal disk stall (intents stop, cancels go out); lockfile held by another process | G4 | 50, 10 §8, 22 §6.4 |
-| LV-7 | Signing vectors from the docs for every domain of 11 §10 | G4 | 11 §10 |
+| LV-6 | Fault injection on the mock: one case per cancel-cause row of 50 §8.2.4, per cap (batch, cancel ids; 50 §8.2.3) and per journal bound (soft and hard, 50 §12); ambiguous POST (timeout, 5xx, reset) → `Unknown` then reconciliation, no double placement; 429 and 425 with `Retry-After`; 503 post-only window; cancel-only; heartbeat miss → exchange cancels all → `order_done(HeartbeatLoss)`; trade MATCHED then FAILED → reversal; late fill after cancel; fill before ack; duplicate fill via WS and REST; user-WS reconnect resync; clock-offset jump; journal disk stall (intents stop, cancels go out); lockfile held by another process | G4 | 50 §19, 10 §8, 22 §6.4 |
+| LV-7 | Signing vectors from the docs for every domain of 11 §10 and the signature type chosen at G4 (01 §12.1 item 4) | G4 | 11 §10 |
 | LV-8 | Shadow mode during a paper session: orders built and signed with a throwaway key, never sent | G4 | 01 M9 |
-| LV-9 | Safety: a binary without real-order support refuses `live` and has no code path that posts an order; `live` refuses without each gate condition (20 §7); `DRY_RUN` and other env never enable sending; a redaction scan of test journals finds none of the fixture secrets | G4 | R10, 20 §8.10, 22 §6.7 |
+| LV-9 | Safety: a `standard` build (D44) has no order-sending code, reports `realOrders: false`, refuses `live` (exit 2) and cannot reach a trading endpoint; `live` refuses without each gate condition (20 §7); `DRY_RUN` and other env never enable sending; a redaction scan of test journals finds none of the fixture secrets | G4 | R10, 20 §8 item 10, 22 §6.7, 50 §19 |
+| LV-10 | The live runtime crates, the adapter and its mock-exchange and golden-vector tests pass on `aarch64-unknown-linux-gnu` and `x86_64-unknown-linux-gnu`, in CI or by a local cross build | every milestone from M8 | 50 §4.4 |
 
-The AI agent never runs `live`, never loads real keys, and never builds the
-real-order variant against production (R10). Tests use throwaway keys only.
+The agent never runs `live`, never loads real keys, never runs
+`strategy:build-live` and never builds or runs the real-order feature
+against production (R10, 31 §5.5). The adapter's tests compile that feature
+only in `cargo test` against the mock exchange and recorded fixtures, with
+throwaway keys.
 
 ## 14. CI and local gates
 
 | Id | Runs on | When | Blocking | Contents |
 |---|---|---|---|---|
-| CI-1 `native-quality` | GitHub `ubuntu-latest` | every push to a PR | yes | `cargo fmt --check`; `clippy -D warnings` with the engine's determinism lints (30); `cargo test --locked` (unit, goldens, converted suites, property tests with fixed seed, conformance, approved snapshots, fixture-market parity against committed TS traces, DET-1/2/4/5/7/8/9/10 and BP-5 to BP-9 on fixtures); schema re-export diff (21 §3); `cargo deny` (31 §3); version check: a commit that changes any approved snapshot or expected fixture digest MUST bump `engineVersion` and add a CONTRACT changelog entry for it (30 §17) |
-| CI-2 `root-quality` (existing) | GitHub `ubuntu-latest` | every push to a PR | yes | existing checks, plus parity tooling tests (diff v2 rules, matchers, coverage), generated TS contract diff, ajv fixtures (21 §3), `native:goldens:check` (GF-4) |
+| CI-1 `native-quality` | GitHub `ubuntu-latest` | every push to a PR | yes | `cargo fmt --check`; `clippy -D warnings` with the engine's determinism lints (30); `cargo test --locked` (unit, goldens, converted suites, property tests with fixed seed, conformance, approved snapshots, fixture-market parity against committed TS traces, DET-1/2/4/5/7/8/9/10/13/14/15 and BP-5 to BP-9, BP-12 on fixtures); the contract CI items of 21 §3 (schema re-export diff, contract fixtures, default `ModelConfig` sha, RNG-7); `cargo deny` (31 §3); from M8, LV-10 on `x86_64-unknown-linux-gnu`; version check: a commit that changes any approved snapshot or expected fixture digest MUST bump `engineVersion` and add a CONTRACT changelog entry for it (30 §17) |
+| CI-2 `root-quality` (existing) | GitHub `ubuntu-latest` | every push to a PR | yes | existing checks, plus parity tooling tests (diff v2 rules, matchers, coverage), generated TS contract diff, ajv fixtures (21 §3), `native:goldens:check` (GF-4), BP-11 from M3a |
 | CI-3 `parity-rule` | GitHub | PRs to main after G2 | yes | OR-14 |
-| LG-1 `npm run native:verify:local` | m1-ivan | before every milestone proof, before each merge after G2 (result in the PR body) | by rule | canonical `artifact` and `parity-check` builds for `aarch64-apple-darwin` (31 §4, §8.1), `selftest` (20 §5.3), fixture parity on both, DET suite, digests equal to CI-1 (DET-7) |
-| LG-2 parity matrix | m1-ivan, 8 workers | every sync with engine-path changes, before G2, after structural optimizations (Rust-only) | gate | §4 |
-| LG-3 parity canary | m1-ivan | every sync; nightly if approved | no | OR-16 |
-| LG-4 fleet canary | every native host | before enabling native dispatch; every engine minor release | blocks enabling | 40 §12, DET-6 |
-| LG-5 nightly extras | m1-ivan | nightly if approved | no | property tests with fresh seeds, fuzzing, `smoke-50` benchmark (16 §13.1) |
+| LG-1 `npm run native:verify:local` | worker-1 | before every milestone proof, before each merge after G2 (result in the PR body) | by rule | canonical `artifact` and `parity-check` builds for `aarch64-apple-darwin` (31 §4.2, §7.6; §8.1), `selftest` (20 §5.3), fixture parity on both, DET suite, digests equal to CI-1 (DET-7) |
+| LG-2 parity matrix | worker-1, `--concurrency 4` (01 §8.1 H4) | every sync with engine-path changes, before G2, after structural optimizations (Rust-only) | gate | §4 |
+| LG-3 parity canary | worker-1 | every sync; nightly in the D47 window | no | OR-16 |
+| LG-4 fleet canary | the M6 native hosts (D55, 40 §2) | before enabling native dispatch; every engine minor release | blocks enabling | 40 §12, DET-6 |
+| LG-5 nightly extras | worker-1 | nightly in the D47 window (01 §8.1 H5) | no | property tests with fresh seeds, fuzzing, `smoke-50` benchmark (16 §13.1, only under the quiet-host conditions of 16 §13.5) |
 
-- The macOS target is verified by LG-1 and LG-4, not by GitHub, because the
-  logic is platform-independent (R7) and DET-7 proves cross-architecture
-  identity on every push. A GitHub-hosted macOS runner MAY be added (Open
-  question 1).
-- Before G2, CI runs only if the implementation branch has a pull request
-  (`.github/workflows/quality.yml:3-15` triggers on `pull_request` and on
-  pushes to main). If the user allows a draft PR titled "DO NOT MERGE before
-  G2" (Open question 4), the session opens it in M1 step 1. Either way, the
-  session runs `npm run native:ci:local` before each commit and records the
-  result in STATUS.md (R12); with a draft PR, GitHub CI repeats it on every
-  push.
+- No GitHub macOS runner runs per PR (D48). The macOS target is verified by
+  LG-1 and LG-4, because the logic is platform-independent (R7) and DET-7
+  proves cross-architecture identity on every push.
+- `native-engine` has the draft PR "DO NOT MERGE before gate 2" from M1
+  step 1 (D48), so GitHub CI checks every push
+  (`.github/workflows/quality.yml:3-15` triggers on `pull_request`). The
+  session still runs `npm run native:ci:local` before each commit and records
+  the result in STATUS.md (R12).
 
 ### 14.1 Verification tooling: owner and schedule
 
@@ -1085,6 +1134,7 @@ in that step's STATUS.md plan.
 | `native:parity:summary` | renders the PARITY.md matrix status and the gate evidence tables from manifests (HR-7, §15.2) | M1 step 6 (T15 cells) | PARITY.md, gate reports |
 | `native:oracle:sync-report` | OR-11 | M2 step 1 (the first pin change after M1; before it, the OR-11 line is the raw `git log` output) | every sync |
 | `native:spec-coverage` | §10.5 | M3b | G3, G4 reports |
+| `native:ab` | A/B runs and reports (13 §7.2, §11) | M3b, before the first fix | every fix's report |
 
 There is no separate gate-report generator (§15.2) and no CI check of
 conformance commits (CF-3); both were cut to keep tooling off the path to G2.
@@ -1106,7 +1156,7 @@ English (R15), with this structure:
 3. **Evidence tables** for every layer the gate requires (§1).
 4. **Deviations**: new 02 entries since the last gate, spec clarifications,
    masked markets (PM-4), non-gating cells and why (for example BTC 5m,
-   §4.1), uncovered clauses (§10.5; G3 and G4 only).
+   §4.1, D38), uncovered clauses (§10.5; G3 and G4 only).
 5. **Reproduce**: exact commands, oracle pin, engine commit, binary sha256s
    (`artifact` and `parity-check`), manifest paths and sha256, and the
    conformance commit list (CF-3).
@@ -1116,16 +1166,18 @@ English (R15), with this structure:
 
 The session writes the report by hand around tables rendered by
 `npm run native:parity:summary -- <manifest>…` (§14.1), pasted verbatim with
-the sha256 of each manifest they come from (VP-2). The session writes only
-the decisions, explanations and risks. Hand-edited numbers are forbidden.
+the sha256 of each manifest they come from (VP-2); A/B numbers come from the
+`native:ab` reports (13 §7.2) and benchmark numbers from the 16 §13.8
+reports. The session writes only the decisions, explanations and risks.
+Hand-edited numbers are forbidden.
 
 ### 15.3 Required content per gate
 
 | Gate | Criteria in the verdict table |
 |---|---|
-| G2 | Every gating matrix cell passes §4.4 (non-gating cells listed with the reason, §4.1); PARITY.md has zero unclassified and zero open Rust bugs; money-semantics rows independently reviewed (CL-10); coverage (§5.6, LS-2); L1, L2, L4, L5, L8 green; G2 conformance scope green (§10.2); oracle self-check (OR-9); TS self-parity (OR-17); harness validation (H-1); `parity-check` identity (§8.1); benchmark so far (16 §13.8); merge plan (01 §8) |
-| G3 | The calibration report of 51 §15; one A/B report per fix (§11); G3 conformance scope green; ts-compat matrix unchanged since G2 or re-run and passing |
-| G4 | LV-1 to LV-9; G4 conformance scope green; the safety checklist of 01 §7; the calibration runbook and frozen thresholds (51) |
+| G2 | Every gating BTC 15m cell passes §4.4 (E5 non-gating, D38; other non-gating cells listed with the reason); PARITY.md has zero unclassified and zero open Rust bugs; money-semantics rows independently reviewed (CL-10); coverage (§5.6, LS-2); LS-4; L1, L2, L4, L5, L8 green; G2 conformance scope green or triaged (§10.2); oracle self-check (OR-9); TS self-parity (OR-17); harness validation (H-1); `parity-check` identity (§8.1); benchmark and derived-tape numbers so far for the fleet-wide tape decision (16 §13.8, M-20; D46); merge plan (01 §8) |
+| G3 | The calibration report of 51 §15, per input mode with C9/C10 as headline if accepted at G4 (51 §12.4); one A/B report per fix (§11); historical evidence counted only from markets starting at or after 2026-08-17T11:00Z (11 TD6, D52) in fee eras verified by the fee study (11 FS1, D53), earlier markets flagged; G3 conformance scope green; ts-compat matrix unchanged since G2 or re-run and passing |
+| G4 | LV-1 to LV-10; G4 conformance scope green; the safety checklist of 01 §7; the calibration runbook, probe rehearsal and frozen thresholds (51); the questions of 01 §12.1 |
 
 ### 15.4 Presentation to the user
 
@@ -1134,7 +1186,7 @@ At a gate the session commits the report, sets STATUS.md "Waiting on user"
 numbered decisions requested, and the report path. Details stay in the
 report. The session MAY also publish the report as a private page for reading
 on a phone. Gated work stops until the user answers; independent work may
-continue on the branch (01 §6).
+continue on the branch (01 §6). G1 has no report (delegated, D56).
 
 ## 16. WIP salvage (verification tooling)
 
@@ -1147,31 +1199,16 @@ continue on the branch (01 §6).
 | `pmb-core/src/portfolio.rs:884-1153` tests ported from the TS capital suite | Keep as vectors for §7.3 and the live reconciliation layer |
 | `native/EXERCISER.md`, `native/TRACE.md` | Superseded by §5 and 22 |
 
+## Gate-4 questions
+
+None owned here (list: 01 §12.1). Two answers select test content: the
+wallet type (item 4) fixes the signature type of LV-7, and the live host
+(item 3) is where LV-4 and the latency reports are measured.
+
 ## Open questions
 
-1. **macOS in GitHub CI.** §14 verifies the shipped `aarch64-apple-darwin`
-   target locally (LG-1) and on the fleet (LG-4), with cross-architecture
-   digest identity on Linux CI (DET-7). Should a GitHub-hosted macOS runner be
-   added to every PR as well, given its higher minute cost?
-2. **Who writes the independent tests.** Some tests must be written by a
-   separate AI session that has not seen the engine code, so it does not
-   repeat the same mistakes; it also double-checks every parity
-   classification that changes money (§10). Gate 2 cannot pass without these
-   tests, so the answer is needed at gate 1. Which should it be: Fable, or a
-   separate Claude session started after the spec is approved? Either one
-   works in its own checkout on this machine, reads the spec and the
-   Polymarket docs, and is blocked from reading the engine sources (§10.0,
-   CF-2). Who starts it: you, or the launcher that starts the main session?
-3. **Unattended runs on m1-ivan.** May the nightly parity canary (OR-16) and
-   nightly extras (LG-5) be scheduled (launchd) on m1-ivan, which is also the
-   live-trading host? The alternative is running them only at syncs.
-4. **Draft PR before gate 2.** May the engine branch have a draft pull
-   request on GitHub marked "DO NOT MERGE before gate 2"? It never touches
-   main, but it makes GitHub CI check every commit. Without it, the same
-   checks run only locally before each commit (`native:ci:local`, §14.1).
-5. **Settlement updates in the parity trace.** 22 §3.2 does not trace
-   `ws_order_update` (settlement status) events, although TS delivers them to
-   strategies (`src/trading/StrategyRunner.ts:628-689`). The exerciser covers
-   status-dependent decisions indirectly (`x9s`, §5.3). Should trace v2 also
-   record them, so a strategy that reacts to statuses is verified directly?
-   (Owner: 22.)
+None. Settled at gate 1 (D56): no GitHub macOS runner and a draft PR before
+G2 (D48, §14); Fable as the conformance author, started by the launcher
+right after G1 (D45, §10.0); unattended nightly jobs on worker-1 in the
+01:00–07:00 window (D47, OR-16, LG-5). Settlement updates are traced in both
+profiles (22 §3.2), so status-driven decisions are verified directly.

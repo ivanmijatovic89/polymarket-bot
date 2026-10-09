@@ -7,25 +7,32 @@ sizes by order type, the fee curve families with a dated fee table (no fee
 before 2026-01-05), the taker delay dated by exchange time (250 → 50 → 150 ms),
 GTD lead and early expiry, batch and cancel caps, negRisk and the market
 version. It also defines the per-market rules snapshot that the producer
-captures from Gamma and CLOB and how it is captured, the provenance vocabulary
-(`RulesSource = snapshot | partial | fallback`), the dated fallback that lives
-only in the engine, the two versions (`rulesTableVersion` compiled into the
-engine, `snapshotParserVersion` of the TS extraction), the fee ground-truth
-study, and which source wins when docs and observations disagree. The
-realistic profile and the live adapter apply these rules; ts-compat uses the
-fixed TS constants of §4. Matching, latency and queue models are in
-`13-execution-models.md`, domain types and rounding in `10-domain-model.md`,
-the job field that carries the rules in `21-job-and-output-contract.md`, the
-snapshot table DDL in `42-persistence-and-stats.md`, and the pre-start capture
-service in `40-fleet-integration.md` §16. Paths are relative to the repository
-root. §17 lists the changes this document requires in documents it does not
-own.
+captures from Gamma and CLOB and how it is captured, including the pre-start
+capture script that runs before gate 2 (D37, §13.2.1), the provenance
+vocabulary (`RulesSource = snapshot | partial | fallback`), the dated fallback
+that lives only in the engine, the two versions (`rulesTableVersion` compiled
+into the engine, `snapshotParserVersion` of the TS extraction), the fee
+ground-truth study, and which source wins when docs and observations
+disagree. The realistic profile and the live adapter apply these rules;
+ts-compat uses the fixed TS constants of §4. Matching, latency and queue
+models are in `13-execution-models.md`, domain types and rounding in
+`10-domain-model.md`, the job field that carries the rules in
+`21-job-and-output-contract.md`, the snapshot table DDL in
+`42-persistence-and-stats.md`, and the operation of the capture service after
+M3a in `40-fleet-integration.md` §16. Paths are relative to the repository
+root.
 
 Binding decisions used here: D06 (BTC 5m/15m only), D21 (snapshot per
 condition_id, dated fallback, the rules version travels in the job and is
 stored on the run, no pooling across fee eras), D22 (charged amounts beat
 docs; realistic is not the default until every era matches), D30
-(heartbeat), D34 (day-0 rule probes), D35 (fee error 0 at 1e-6).
+(heartbeat), D34 (day-0 rule probes), D35 (fee error 0 at 1e-6), D36
+(worker-1 hosts the work), D37 (pre-start capture script merged early, local
+files), D38 (Telonex subscription expired), D50 (agent-applied additive
+migrations), D51 (multi-era realistic runs allowed with a per-era breakdown,
+FT2), D52 (pre-2026-08-17 taker-delay rows used but flagged, not gate-3
+evidence, TD6), D53 (fee study on the free path first, FS3) and D54
+(self-crossing orders blocked by the engine, §11).
 
 ---
 
@@ -79,6 +86,7 @@ All docs pages were fetched on 2026-10-09.
 | K5 | Era 1 start 2026-01-05 (changelog) vs 2026-01-06 (repo docs, on-chain analysis) | L until C proves otherwise: the fee study FS (§14.1) decides |
 | K6 | Era 2 rate 0.07 (docs, changelog Fee Structure V2 on 2026-03-30) vs 0.072 from 03-29/31 to ~05-08 (repo docs, on-chain analysis) | Unresolved: FS (§14.1) decides; until then the fallback row is flagged `unverified` (§5.3) |
 | K7 | Cancel-id cap 1,000 (changelog 2026-06-15) vs 3,000 (older docs, TS `src/trading/cancellation.ts:69`) | L: 1,000 (§9) |
+| K8 | `50-live-runtime.md` §6.2 lists negRisk among the CLOB market-info fields; the CLOB OpenAPI `ClobMarketDetails` schema has no such field (it has `t`, `mos`, `mts`, `mbf`, `tbf`, `rfqe`, `itode`, `ibce`, `fd {r, e, to}`, `oas`, `gst`, `r`; docs.polymarket.com/api-spec/clob-openapi.yaml, fetched 2026-10-09) | `negRisk` comes from Gamma only (§13.4) |
 
 ## 3. The `ExchangeRules` type
 
@@ -149,7 +157,7 @@ pub enum RulesChange {
 | Tick, bounds, min size, precision | not validated (only `price > 0`, `size > 0`) | `src/trading/OrderManager.ts:756-780` |
 | GTD | `expireAtMs >= decision now + 60_000`; expires exactly at `expireAtMs` | `src/trading/OrderManager.ts:189,770`; `src/trading/execution/BacktestExecution.ts:802-804` |
 | Taker delay | none | — |
-| Batch cap | none in the simulator | `native/crates/pmb-core/src/rules.rs:5-6` |
+| Batch cap | none in the simulator (TS live rejects above 15, which ts-compat does not model) | `src/trading/execution/BacktestExecution.ts:330-345` (loops every entry, no length check) |
 | Cancel-id cap | 3,000 | `src/trading/cancellation.ts:69` |
 | Post-only | rejected if crossing at execution time (equality crosses; empty opposite side accepts) | `src/trading/execution/BacktestExecution.ts:37-54` |
 
@@ -208,11 +216,14 @@ pub enum FeeCurve {
     0.00001, and smaller amounts round to zero. This is just the rounding:
     exact < 0.000005 → 0.
   - ts-compat `dp = 4`: results below 0.0001 → 0, as in `src/trading/fees.ts:20-24`.
-- **FC4.** Unknown and verified by the fee study FS (§14.1): the direction of the
-  5 dp rounding (assumed half-up, which equals half-away for fees ≥ 0), and
-  whether the exchange computes the fee per maker match or per taker order
-  (assumed per fill record: one per maker price level in the simulator, one
-  per trade/maker order in live). Era-1 `dp` is assumed 5.
+- **FC4.** Unknown and verified by the fee study FS (§14.1) and day-0 item 10
+  (`13-execution-models.md` §6.14): the direction of the 5 dp rounding
+  (assumed half-up, which equals half-away for fees ≥ 0), and whether the
+  exchange computes the fee per maker match or per taker order. The
+  simulator computes one fee per core fill (one per own order and price
+  level); the live adapter sums per-leg fees at the exchange's granularity.
+  The resulting backtest-vs-live dust and its bound are defined in 13 §4.5
+  F-U4. Era-1 `dp` is assumed 5.
 - **FC5.** Maker rebates (20% for crypto, per P) and taker rebate tiers (from
   ~2026-05-27, `docs/polymarket/index.md:181-183`) are not part of `fill.fee`
   or PnL. They are reported separately later (D35).
@@ -254,20 +265,23 @@ and is keyed differently (§6).
   - `feeSource`: the provenance of the fee field (§13.3).
 
   ts-compat outputs carry `null` for all three: its fee is the §4 constant.
-- **FT2. No pooling (D21), made concrete.** Two markets are poolable only
-  when their `feeCurve` values are identical. Eras whose curves are equal
-  (F2 and F3 if FS confirms 0.07) therefore pool, and a curve taken from a
-  snapshot that differs from its era's row does not. Required behavior:
-  - the producer, at submit of a realistic run, reports the market count per
-    `feeCurve` of the selection (the captured fee fields through the FE3
-    mapping, which the JC4 fixtures cover, where present; else the dated
-    table exported by `describe`, §13.5) and warns when more than one curve
-    is present;
-  - batch stats and segments of a realistic run that spans more than one
-    `feeCurve` are reported per curve, and any run-level figure that mixes
-    curves is flagged `mixedFeeCurves` (42 owns the mechanism);
+- **FT2. No pooling (D21), made concrete** (D51: allowed by default with a
+  per-era breakdown). A realistic run MAY span
+  several fee eras; it is never refused for that. Required behavior:
+  - the producer, at submit, prints the market count per `feeEra` of the
+    selection (from `market_start_ms` and the rows of the run's
+    `rulesTableVersion`, read from `describe`, §13.5) and warns when more
+    than one era is present;
+  - batch stats and segments of such a run are also reported per era (42
+    owns the mechanism: `fee_era` segments, the run's era list and the
+    "mixed fee eras" badge); a run-level figure that mixes eras carries
+    that badge;
   - comparisons between runs (`baseline_id`, dashboard) warn when the two
-    runs' curve sets differ.
+    runs' era sets differ;
+  - a market whose captured curve differs from its era row's curve keeps
+    its era for the breakdown, is counted in diagnostic
+    `fee_curve_differs_from_era`, and is listed in the rules coverage report
+    (§13.7). Its `feeCurve` output shows the curve actually used.
 
 ## 6. Taker delay
 
@@ -305,9 +319,11 @@ and is keyed differently (§6).
 
 - **TD6.** Rows D0–D3 are third-party, and the realistic profile uses them with
   `verification = ThirdParty`. Every market where at least one order hit such
-  a row records it in `unverifiedRules` (§14). `research/early-audits.md` dated
-  250 ms "from about 2026-06-05", which conflates D2 and D3. See Open
-  questions.
+  a row records it in `unverifiedRules` (§14). Per D52, markets starting
+  before 2026-08-17T11:00Z (`1786964400000`, the first
+  changelog row) are never counted as evidence for gate 3 (`realistic` as
+  default); only D4 and later rows count. `research/early-audits.md` dated
+  250 ms "from about 2026-06-05", which conflates D2 and D3.
 - **TD7.** The WIP has `taker_delay_ms = 0` in every row and keys the delay by
   market start (`native/crates/pmb-core/src/rules.rs:142-176`). Both are wrong.
 
@@ -355,10 +371,12 @@ invalid input.
   `AmountPrecision`. The engine never rounds silently. The official SDK rounds
   shares down, and our SDK makes that explicit (`10-domain-model.md` R4). The
   live adapter therefore signs exactly what the core validated.
-- **TK4.** Signing amounts (`makerAmount`/`takerAmount`) follow P's rounding
+- **TK4.** Signed amounts (`makerAmount`/`takerAmount`) follow P's rounding
   recipe ("round up to amount decimals + 4, then down to amount decimals").
-  They are computed in the live adapter (`50-live-runtime.md`). The
-  simulator's fill arithmetic is in `13-execution-models.md`.
+  `ExchangeRules` computes them once when the order is accepted; the live
+  adapter signs them (`50-live-runtime.md`), and the cash each fill moves,
+  maker fills from these amounts included, is defined once in
+  `13-execution-models.md` §6.4.1.
 - **TK5.** Fills carry up to 6 decimals (`10-domain-model.md` T4).
 
 ### 7.4 Minimum sizes
@@ -448,7 +466,7 @@ invalid input.
 
   - the balance asset type and the split/merge path (TS sidecar, D25).
 - **V3.** Matching and accounting in the core do not depend on the version.
-  Only the producer's asset-id mapping (`10-domain-model.md` M2) and the live
+  Only the producer's asset-id mapping (`10-domain-model.md` §5 M2) and the live
   adapter read it.
 - **V4.** Every BTC 15m fixture has `version: "v1"` and `negRisk: false`. A
   `neg_risk: true` market is out of scope (D06), and the producer refuses it.
@@ -460,7 +478,7 @@ invalid input.
 | Post-only | GTC/GTD only. Checked at exchange arrival against the book then in force: BUY `price ≥ best ask` or SELL `price ≤ best bid` → rejected whole with `PostOnlyWouldCross`, no partial fill. An empty opposite side is accepted. | P; TS behavior (`src/trading/execution/BacktestExecution.ts:37-54`, tests `BacktestExecution.postOnly.test.ts:116-185`) |
 | Order acceptance window | Orders are accepted from Gamma `acceptingOrdersTimestamp` (about 24 h before start in fixtures) until market end. An order arriving at or after end → `MarketClosed`. Resting orders at end → `Canceled(MarketClosed)`. | A; day-0 probe. The strategy is only called inside its window anyway (D23, `12-engine-core.md`). |
 | Minimum order age (`oas`, seconds) | Captured and journaled, not modeled until the probes establish what it means | S (CLOB schema "Minimum order age in seconds") |
-| Self-trade | Undocumented. What happens when our taker order meets our own resting order is decided in `13-execution-models.md`, and probed on day 0. | `research/early-audits.md` A9 |
+| Self-trade | Exchange behavior undocumented. The engine never sends an order that could match one of the session's own orders (same outcome, or the complementary mint/merge match; own orders as 10 N6 defines them): it is rejected with `SelfCross` before sending (`10-domain-model.md` N6; realistic, paper, live). Not probed. | `research/early-audits.md` A9; D54 |
 | Rewards and rebates | Excluded from fills and PnL | FC5 |
 
 Session-level live rules are specified in `50-live-runtime.md`:
@@ -485,20 +503,19 @@ Session-level live rules are specified in `50-live-runtime.md`:
 
 ### 13.1 Snapshot rows
 
-Append-only. One row per fetched response body, several rows per market. The
-DDL is in `42-persistence-and-stats.md` §3.3 and MUST carry these columns
-(§17).
+Append-only, several rows per market. The DDL and the column names are owned
+by `42-persistence-and-stats.md` §3.3, which carries these semantics.
 
-| Column | Meaning |
+| Item | Meaning |
 |---|---|
-| `condition_id`, `slug`, `market_start_ms` | market keys |
-| `origin` | `gamma` (Gamma `/markets/slug/{slug}`), `clob` (CLOB `/clob-markets/{condition_id}`), `v4_bootstrap` (the Gamma body Recorder V4 froze at market start), `live_gamma`, `live_clob` (fetched by the live runtime, §13.6). The origin fixes the body format: Gamma for `gamma`, `v4_bootstrap` and `live_gamma`; CLOB for `clob` and `live_clob`. |
-| `fetched_at_ms` | wall-clock receive time of the response. For `v4_bootstrap`: the receive time of the `market_metadata` frame that the bootstrap froze (`src/recorder-v4/coordinator.ts:350-352`). |
-| phase | derived, not stored separately: `pre_start` iff `fetched_at_ms < market_start_ms`, else `post_start` (the same rule as `40-fleet-integration.md` §16). 42 MAY store it as a generated column. |
-| `raw_json` | verbatim body, kept so that a parser change re-parses without re-fetching (§13.5) |
-| `raw_sha256` | sha256 of the body; unique together with (`condition_id`, `origin`) |
-| `parsed` | the normalized fields of §13.4 that this body provides; a field the body lacks is absent |
-| `snapshot_parser_version` | version of the extraction that produced `parsed` (§13.5) |
+| market keys | `condition_id`, `slug`, `market_start_ms` |
+| origin | `gamma` (Gamma `/markets/slug/{slug}`), `clob` (CLOB `/clob-markets/{condition_id}`), `v4_bootstrap` (the Gamma body Recorder V4 froze at market start), `live_gamma`, `live_clob` (fetched by the live runtime, §13.6). The origin fixes the body format: Gamma for `gamma`, `v4_bootstrap` and `live_gamma`; CLOB for `clob` and `live_clob`. |
+| fetch times | first and last wall-clock receive time of this body. For `v4_bootstrap`: the receive time of the `market_metadata` frame that the bootstrap froze (`src/recorder-v4/coordinator.ts:350-352`). |
+| phase | `pre_start` iff the receive time is `< market_start_ms`, else `post_start` (§13.2.1 uses the same rule) |
+| raw body | verbatim bytes as text, kept so that a parser change re-parses without re-fetching (§13.5) |
+| raw sha256 | sha256 of the body bytes. One row per distinct (`condition_id`, origin, phase, sha256); a repeat fetch of the same body updates only the last fetch time. |
+| parsed fields | the normalized fields of §13.4 that this body provides; a field the body lacks is absent (NULL) |
+| parser version | `snapshotParserVersion` of the extraction that produced the parsed fields (§13.5) |
 
 A Gamma body is about 5 KB (the one in
 `src/research-data/fixtures/july-01-merge.json:17` is 5,343 bytes), so 30k
@@ -506,28 +523,152 @@ historical markets add about 150 MB.
 
 ### 13.2 Capture
 
-All writers are TS and go through `src/db/exchangeRules.ts` (42 §3.3). They
-read public endpoints only and hold no credentials.
+Every capture reads public endpoints only and holds no credentials. Every
+database writer is TS and goes through `src/db/exchangeRules.ts` (42 §3.4).
 
 | Id | Market set | Command and schedule | Rows written |
 |---|---|---|---|
-| RC1 | Upcoming BTC 5m/15m markets | `npm run rules:capture-prestart -- --market btc:5m,btc:15m --watch`, a launchd service on worker-1; schedule, retries and monitoring in 40 §16 | `gamma`, `clob`; `pre_start` |
-| RC2 | Markets recorded by Recorder V4 | `npm run rules:import-v4 -- --timeframe 5m,15m [--from-ms X] [--to-ms Y]`, idempotent, then after every V4 catalog sync. It reads the raw bootstrap JSON, not the strategy-context allowlist (`src/recorder-v4/replay/package.ts:94-102` omits `feeType`, `version`, `secondsDelay`). V4 fetches only Gamma (`src/recorder-v4/markets.ts:127`), so the CLOB-only fields (`itode`, `oas`, CLOB `mts`) stay uncaptured. | `v4_bootstrap`; `pre_start` |
-| RC3 | Historical Telonex markets: every eligible BTC 5m/15m market (about 30k; the pre-flight prints the exact count) | `npm run rules:backfill -- --symbol btc --timeframe 5m,15m [--from-ms X] [--to-ms Y] [--limit N] [--concurrency 4] [--dry-run]`. One-time and resumable: markets that already have a `gamma` row are skipped. At most 10 requests/s by default, so about an hour for 30k markets. Market selection goes through `listEligibleTelonexMarkets` (CLAUDE.md single-source rule). | `gamma`; `post_start` |
-| RC4 | Historical markets, CLOB side | `npm run rules:backfill -- --probe-clob` first fetches `/clob-markets/{condition_id}` for 20 closed markets spread over the months of the universe and reports whether closed markets are still served, and with which fields. Only if they are does RC3 run with `--with-clob`. The probe result goes into the M3 report. | `clob`; `post_start` |
-| RC5 | New markets after RC3 | `telonex:sync-pricetobeat-and-final-price` already fetches each market's Gamma body; it additionally stores that body through `src/db/exchangeRules.ts`. No extra request. | `gamma`; `post_start` |
+| RC1 | Upcoming BTC 5m/15m markets | The pre-start capture script of §13.2.1 on worker-1, running from its early merge to main (D37) and writing local files; `rules:import-jsonl` loads them from M3a on | `gamma`, `clob`; `pre_start` |
+| RC2 | Markets recorded by Recorder V4 | `npm run rules:import-v4 -- --timeframe 5m,15m [--from-ms X] [--to-ms Y]`, idempotent, then after every V4 catalog sync. It reads the raw bootstrap JSON, not the strategy-context allowlist (`src/recorder-v4/replay/package.ts:94-102` omits `feeType`, `version`, `secondsDelay`). V4 fetches only Gamma (`src/recorder-v4/markets.ts:127`), so the CLOB-only fields (`itode`, `oas`, CLOB `mts`) come only from RC1. | `v4_bootstrap`; `pre_start` |
+| RC3 | Historical Telonex markets: every eligible BTC 15m market (about 31k; the pre-flight prints the exact count). BTC 5m has no eligible markets until the Telonex subscription is renewed (D38); the same command covers them then. | `npm run rules:backfill -- --symbol btc --timeframe 15m [--from-ms X] [--to-ms Y] [--limit N] [--concurrency 4] [--dry-run]`. One-time and resumable: markets that already have a `gamma` row are skipped. At most 10 requests/s by default, so about an hour. Market selection goes through `listEligibleTelonexMarkets` (CLAUDE.md single-source rule). | `gamma`; `post_start` |
+| RC4 | Historical markets, CLOB side | `npm run rules:backfill -- --probe-clob` first fetches `/clob-markets/{condition_id}` for 20 closed markets spread over the months of the universe and reports whether closed markets are still served, and with which fields. Only if they are does RC3 run with `--with-clob`. The probe result goes into the M3a report. | `clob`; `post_start` |
+| RC5 | New Telonex markets after RC3 | `telonex:sync-pricetobeat-and-final-price` already fetches each market's Gamma body; it additionally stores that body through `src/db/exchangeRules.ts`. No extra request. Idle while the Telonex subscription is expired (D38: no new markets are cataloged); RC1 covers those markets. | `gamma`; `post_start` |
 | RC6 | Live markets | the live runtime (§13.6); TS ingests the journaled bodies | `live_gamma`, `live_clob` |
 
-- **RC-G1. Nothing writes to production before gate 2.** The table and every
-  writer ship in M3, after the gate-2 merge (01 §8, D03). Whether RC1 may run
-  earlier, writing only local JSONL files that M3 imports with
-  `npm run rules:import-jsonl`, is `40-fleet-integration.md` Open question 5.
-- **RC-G2. M3 step order.** (1) the migration (42); (2) the RC4 probe; (3) RC2
-  and RC3, plus the CLOB side if RC4 found it served; (4) the RC5 hook; (5)
-  the RC1 service on worker-1 (40 §16); (6) the proof of §13.7; (7) the fee
-  study (§14.1). RF01 and the other realistic A/B reports of
-  `13-execution-models.md` §7.1 run only after step 6, and RF01 only after
-  step 7 (or with the FS1 fallback).
+- **RC-G1. No database writes before M3a** (01 §8, D03). Before gate 2 only
+  RC1 runs, writing local files on worker-1 (D37).
+- **RC-G2. M3a step order.** (1) the migrations of 42 §3.3 and §3.5, applied
+  to production by the agent with `npm run db:migrate` after the PR merges
+  (additive only, D50); (2) `rules:import-jsonl` of every RC1
+  file so far (PC10); (3) the RC4 probe; (4) RC2 and RC3, plus the CLOB side
+  if RC4 found it served; (5) the RC5 hook; (6) the periodic RC1 import
+  (40 §16); (7) the proof of §13.7; (8) the fee study (§14.1). The realistic
+  A/B reports of `13-execution-models.md` §7.1 (M3b) run only after step 7,
+  and RF01 only after step 8 (or with the FS1 fallback).
+
+#### 13.2.1 Pre-start capture script (D37)
+
+A standalone, engine-independent TS script, merged to main before gate 2 as
+its own PR (one-time exception to "main untouched until gate 2", D37) and run
+on worker-1. It captures what cannot be recovered later: the Gamma and CLOB
+bodies of every BTC 5m and 15m market shortly before it starts (TT1, RS2). It
+never writes a database.
+
+- **PC1. Endpoints.** Per market, two bodies:
+  - `gamma`: `GET https://gamma-api.polymarket.com/markets/slug/{slug}`;
+  - `clob`: `GET https://clob.polymarket.com/clob-markets/{conditionId}`
+    (CLOB OpenAPI `ClobMarketDetails`, K8), with `conditionId` from the
+    market's Gamma body, so CLOB is fetched only after a Gamma 200.
+
+  Header `accept: application/json`, 5 s timeout per request. No other
+  endpoint, no credentials, no `.env`.
+- **PC2. Markets.** `--market btc:5m,btc:15m` (the default). Slugs come from
+  the epoch grid, `btc-updown-{5m|15m}-{startSec}` with `startSec` a
+  multiple of 300 or 900, as `candidateBtcSlugs` builds them
+  (`src/recorder-v4/markets.ts:10-19`).
+- **PC3. Schedule.** One tick per wall-clock minute, at second 5. Per tick,
+  for each grid market with start in `(now + 15 s, now + 10 min]` and each
+  origin:
+  - slot `first`: fetched at every tick until one 200 arrives (normally at
+    start − 595 s);
+  - slot `final`: fetched once, at the tick with
+    `start − 90 s < now ≤ start − 15 s` (start − 55 s), whatever `first`
+    returned.
+
+  Up to 3 attempts per request inside a tick, with a jittered 1–3 s pause.
+  After a 429 or 5xx the next attempt waits for `Retry-After` when it is at
+  most 20 s; a longer or missing `Retry-After`, and a Gamma 404 (market not
+  created yet), defer the request to the next tick. Requests are sequential,
+  a few per minute. One market's failure never blocks another.
+  State is in memory only: after a restart, fetches repeat, which the import
+  deduplicates (PC10).
+- **PC4. Output.** One JSON object per line (UTF-8, `\n`), appended with one
+  `write` per line to `<outDir>/<yyyy-mm-dd>.jsonl`, named by the UTC date of
+  `fetchedAtMs`. One record per completed attempt, errors included:
+
+  | Field | Type | Meaning |
+  |---|---|---|
+  | `v` | `1` | record format version |
+  | `origin` | `gamma` \| `clob` | §13.1 |
+  | `slot` | `first` \| `final` | PC3 |
+  | `slug`, `timeframe`, `marketStartMs` | string, `5m` \| `15m`, int | from the grid |
+  | `conditionId` | string \| null | `clob`: the requested id; `gamma`: the body's `conditionId` on a 200, else null |
+  | `url` | string | request URL |
+  | `requestedAtMs`, `fetchedAtMs` | int | host wall clock (NTP-synced) at send and at the last body byte or the error |
+  | `httpStatus` | int | `0` for a transport error or timeout |
+  | `error` | string \| null | transport error text, `invalid_utf8`, `body_too_large` |
+  | `rawSha256` | hex \| null | sha256 of the received bytes |
+  | `rawBody` | string \| null | the body decoded with a fatal, BOM-preserving UTF-8 decoder, so re-encoding gives back the exact bytes; null above 1 MiB or on a decode error |
+  | `host`, `captureCommit` | string | `os.hostname()`; git sha of the checkout at start |
+
+  `<outDir>/status.json` is replaced atomically (temp file and rename) each
+  tick: `lastTickAtMs`, the last 200 per origin, the last 24 h coverage per
+  timeframe and origin (grid markets started vs markets with a `pre_start`
+  200), and the missed slugs.
+- **PC5. Command.**
+  `npm run rules:capture-prestart -- --out-dir <dir> [--market btc:5m,btc:15m] (--watch | --once | --report [--days N])`.
+  `--watch` runs PC3 until stopped; `--once` runs one tick now (proofs);
+  `--report` reads the files only and prints, per UTC day and timeframe, grid
+  markets, markets with a `pre_start` 200 per origin, coverage and missed
+  slugs. `--out-dir` is required.
+- **PC6. Code boundary.** `src/exchange-rules/prestartCapture.ts` and the CLI
+  `src/cli/rules-capture-prestart.ts`; package scripts
+  `rules:capture-prestart` and `rules:capture:test`. Imports only Node
+  built-ins and modules under `src/exchange-rules/`: nothing from
+  `src/config` (no `.env`), `src/db`, or any engine-semantics path
+  (`60-verification.md` OR-2). The PR therefore changes no TS behavior and
+  does not move the parity oracle. Bodies are read with `arrayBuffer()`;
+  `fetchGammaRaw` is not reused because its `text()` decoding is lossy.
+- **PC7. Host and deployment (worker-1, D36).** A pinned checkout
+  `/Users/worker-1/pmb-rules-capture/app` of the merged main commit
+  (`npm ci`), separate from the fleet copy
+  (`/Users/worker-1/Sites/polymarket-bot`, which fleet commands update and
+  restart) and from the goal checkout. Output in
+  `/Users/worker-1/pmb-rules-capture/prestart` and logs in
+  `/Users/worker-1/pmb-rules-capture/logs`, outside every checkout. A user
+  LaunchAgent `com.pmb.rules-capture` (`KeepAlive`, `RunAtLoad`, absolute
+  Node 20 path) runs
+  `--watch --market btc:5m,btc:15m --out-dir /Users/worker-1/pmb-rules-capture/prestart`.
+  It changes only when the checkout is re-pinned on purpose, and it keeps
+  running during benchmarks and fleet pauses: a missed market is
+  unrecoverable and the load is a few requests per minute. Disk: about 5 MB
+  per day.
+- **PC8. PR content and proof.** The PR adds PC6, a how-to page under
+  `docs/datasets/` (docs-writer skill, sidebar entry,
+  `npm --prefix docs run build` green) and one CLAUDE.md command line; CI
+  green, normal merge. Proof, recorded in the PR and in STATUS.md:
+  1. `npm run rules:capture:test` (node:test with injected fetch and clock):
+     grid slugs for both timeframes, slot selection per tick, retries on
+     404, 429, 5xx and timeout, record fields, sha over raw bytes with a BOM
+     fixture, UTC day rotation, `--report` tolerating a torn last line;
+  2. `--once` on worker-1 against the live endpoints: a 200 from both
+     origins for every market starting in the next 10 minutes;
+  3. 24 h after deployment, `--report --days 1`: at least 99% of grid
+     markets per timeframe have a `pre_start` 200 from both origins.
+
+  If CLOB returns no 200 for upcoming markets, the PR still merges (Gamma
+  alone is useful), the user is told, and `takerDelayEnabled` stays on the
+  fallback.
+- **PC9. Monitoring until M3a.** The goal session runs
+  `--report --days 7` at every milestone start and records the coverage in
+  STATUS.md; a day below 99% or a `lastTickAtMs` older than 10 min is
+  investigated and the LaunchAgent restarted. From M3a on, 40 §16 monitors
+  it.
+- **PC10. Import (M3a).**
+  `npm run rules:import-jsonl -- --dir <outDir> [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--dry-run]`,
+  run on worker-1 (DB credentials, 40 §16) from a checkout of main that
+  contains the M3a PR, never from the fleet copy (D36). For each line with
+  `httpStatus = 200` and a `rawBody`: recompute the sha256 of the body bytes
+  and require `rawSha256`; for `gamma`, require the body's `slug` to equal the
+  record's and take `conditionId` from the body; write through
+  `src/db/exchangeRules.ts` with the record's origin, market keys,
+  `fetchedAtMs` and body, parsed by the current snapshot parser. Idempotent
+  through the unique key of §13.1: a rerun imports nothing new. Non-200
+  lines are counted by status; a torn last line of a file is skipped and
+  counted (`torn_tail`); a sha or slug mismatch, or a malformed line
+  elsewhere, is counted and reported and makes the command exit 1 after it
+  imports the rest. It prints counts per day and timeframe. After RC-G2 step
+  2, 40 §16 runs it periodically; the files remain the archive.
 
 ### 13.3 Resolution and provenance
 
@@ -545,12 +686,13 @@ the tables (X2).
 - **RS2.** The initial tick comes only from `pre_start` (TT1). Without one,
   the field is not sent and the engine uses the fallback 0.01 plus TT3
   inference.
-- **RS3.** When Gamma and CLOB disagree: CLOB wins for tick, minimum size,
-  fee parameters and the delay flag (the matching engine's own view). Gamma
-  wins for `version`, `negRisk` and `feeType`. Every disagreement is counted
-  in `market.rules.disagreements` and logged.
+- **RS3.** When Gamma and CLOB disagree: CLOB wins for tick, minimum size and
+  fee parameters (the matching engine's own view). `version`, `negRisk`,
+  `feeType` and `secondsDelay` exist only in Gamma, and `takerDelayEnabled`
+  and `minOrderAgeS` only in CLOB. Every disagreement is counted in
+  `market.rules.disagreements` and logged.
 - **RS4. One provenance vocabulary**, computed by the engine and used
-  everywhere (00 glossary, 21 §7 and §17, 42 §3.4; §17 below):
+  everywhere (00 glossary, 21 §7 and §17, 42 §3.4, §3.5):
 
   ```rust
   pub enum RulesSource { Snapshot, Partial, Fallback }   // "snapshot" | "partial" | "fallback"
@@ -580,7 +722,7 @@ The per-market job field is `market.rules` (21 §5). The run-level part is
 { "rulesTableVersion": "rules-table-v1", "missingSnapshot": "dated_fallback" }
 
 // market.rules: per market, captured values only. Example: a V4-recorded
-// market before RC1 existed (Gamma pre_start, no CLOB body), so the engine
+// market before RC1 started (Gamma pre_start, no CLOB body), so the engine
 // fills takerDelayEnabled from the table and classifies it Partial (§13.7).
 { "snapshotParserVersion": 1,
   "captured": {
@@ -599,17 +741,18 @@ The per-market job field is `market.rules` (21 §5). The run-level part is
 |---|---|---|---|---|
 | `tick` | yes (`pre_start` only, RS2) | `orderPriceMinTickSize` | `mts` | initial tick of both outcomes (TT1) |
 | `minSizeResting` | yes | `orderMinSize` | `mos` | §7.4 |
-| `feesEnabled`, `feeType`, `feeSchedule` | yes | `feesEnabled`, `feeType`, `feeSchedule {rate, exponent, takerOnly}` | `fd {r, e, to}` (`50-live-runtime.md` §6.2) | §5.1 FE3 |
+| `feesEnabled`, `feeType`, `feeSchedule` | yes | `feesEnabled`, `feeType`, `feeSchedule {rate, exponent, takerOnly}` | `fd {r, e, to}` for `feeSchedule` only; a null member means CLOB does not provide that member | §5.1 FE3 |
 | `takerDelayEnabled` | yes | — | `itode` (absent from a CLOB body = false) | §6.3 |
-| `negRisk` | yes | `negRisk` | negRisk flag | §10 |
+| `negRisk` | yes | `negRisk` | — (K8) | §10 |
 | `version` | yes | `version` | — | §10 |
 | `secondsDelay` | no | `secondsDelay` | — | §6.3 |
 | `minOrderAgeS` | no | — | `oas` | §11 (recorded only) |
 | `acceptingOrdersTimestampMs` | no | `acceptingOrdersTimestamp` | — | §11 |
 
-The fields of PR3 (`takerBaseFee`, `makerBaseFee`, `mbf`, `tbf`) and
-`feeSchedule.rebateRate` are never extracted. Money and rate values are
-decimal strings (21 §6 representation rules).
+The fields of PR3 (`takerBaseFee`, `makerBaseFee`, `mbf`, `tbf`),
+`feeSchedule.rebateRate` and the CLOB fields `rfqe`, `ibce`, `gst` and `r`
+(rewards) are never extracted. Money and rate values are decimal strings
+(21 §6 representation rules).
 
 - **JC1.** The producer sends only captured values. It never sends a
   fallback value and keeps no copy of the dated tables. A field without a
@@ -624,7 +767,8 @@ decimal strings (21 §6 representation rules).
 - **JC4.** The mapping above and RS3 are implemented twice: in TS
   (`src/db/exchangeRules.ts`, for snapshot rows) and in the Rust live runtime
   (§13.6). Both run one shared fixture suite under `native/fixtures/rules/`
-  (raw bodies → expected `parsed` values, RS3 choices and FE3 `feeCurve`
+  (raw bodies, taken from RC1 files and the repository fixtures → expected
+  `parsed` values, RS3 choices and FE3 `feeCurve`
   text) and report the same
   `snapshotParserVersion`. A mapping change bumps it in both.
 
@@ -670,7 +814,7 @@ with the same fallback and RS4 classification, and applies
 `live_gamma` and `live_clob` rows (RC6). This replaces the TS lazy warmup
 (`src/trading/execution/LiveExecution.ts:118-142`).
 
-### 13.7 Proof of capture (M3)
+### 13.7 Proof of capture (M3a)
 
 Expected `RulesSource` per market set:
 
@@ -678,30 +822,33 @@ Expected `RulesSource` per market set:
 |---|---|---|
 | Telonex history before Recorder V4 coverage | `partial` | RC3 `post_start` Gamma gives the time-invariant fields; the initial tick is the fallback 0.01 plus TT3; `takerDelayEnabled` is the fallback `true` unless RC4 finds closed markets served |
 | V4-recorded markets before RC1 started | `partial` | RC2 gives `pre_start` Gamma including the tick; the CLOB-only `takerDelayEnabled` is the fallback |
-| Markets covered by RC1 | `snapshot` | Gamma and CLOB `pre_start` |
+| Markets captured by RC1 (from its deployment, §13.2.1) | `snapshot` | Gamma and CLOB `pre_start` |
 | No Gamma body obtainable (fetch failed, 404) | `fallback` | nothing captured |
 
-Proof, recorded in the M3 report:
+Proof, recorded in the M3a report:
 
 1. `npm run rules:coverage -- --symbol btc --timeframe 5m,15m` prints, per
-   month and timeframe, the eligible market count and how many would resolve
+   month and timeframe, the market count of each set above (eligible Telonex
+   markets, and grid markets since RC1 started) and how many would resolve
    to `snapshot`, `partial` and `fallback` (it applies the RS1–RS3 selection
    of `src/db/exchangeRules.ts` and the RS4 rule to the table exported by
-   `describe`), plus RS3 disagreement counts. Target: `fallback` ≤ 1% of
+   `describe`), plus RS3 disagreement counts and the
+   `fee_curve_differs_from_era` markets (FT2). Target: `fallback` ≤ 1% of
    eligible markets in every month.
-2. The same picture in SQL for audit:
+2. The same picture in SQL for audit (column names per 42 §3.3):
 
    ```sql
    SELECT FROM_UNIXTIME(market_start_ms DIV 1000, '%Y-%m') AS month, origin,
-          (fetched_at_ms < market_start_ms) AS pre_start,
-          COUNT(DISTINCT condition_id) AS markets
+          phase, COUNT(DISTINCT condition_id) AS markets
    FROM exchange_rules_snapshots
-   GROUP BY month, origin, pre_start
-   ORDER BY month, origin, pre_start;
+   GROUP BY month, origin, phase
+   ORDER BY month, origin, phase;
    ```
 
 3. A realistic run of 50 markets from each row of the table above echoes the
-   expected `RulesSource` for every market.
+   expected `RulesSource` for every market. RC1-captured markets after the
+   last Telonex sync have no Telonex input (D38); their row is checked by
+   step 1 in M3a and by a realistic run on their V4 recordings in M7.
 
 ### 13.8 Output fields
 
@@ -709,7 +856,7 @@ Each realistic market output (21 §11) carries
 `rules = { source, rulesTableVersion, snapshotParserVersion, feeEra, feeCurve, feeSource, unverifiedRules }`
 (FT1, RS4, §14). ts-compat outputs carry `rules: null`. 42 persists at least
 `rules_source enum('snapshot','partial','fallback')`, `fee_era`, `fee_curve`
-and `unverified_rules` per market row (§17).
+and `unverified_rules` per market row (42 §3.5).
 
 ## 14. Verification registry
 
@@ -723,8 +870,10 @@ output lists the ids of rules its orders touched whose status is
 | Rule id | Value | Status today | How it gets verified |
 |---|---|---|---|
 | `fee.f0`–`fee.f3` | §5.3 | L / P / conflicts K5, K6; all `unverified` | Fee study FS (§14.1) |
-| `fee.rounding` | 5 dp, half-up, per fill record | P (dp) / A (direction, granularity) | FS; calibration (D35: fee error 0 at 1e-6) |
-| `delay.d0`–`delay.d3` | §6.2 | T | Not probe-able (historical). See Open questions. |
+| `fee.rounding` | 5 dp, half-up | P (dp) / A (direction) | FS; calibration (D35: fee error 0 at 1e-6) |
+| `fee.granularity` | per core fill in the simulator; per leg in live (FC4) | A | FS; day-0 item 10 (13 §6.14) |
+| `fill.amounts` | cash per fill (13 §6.4.1, TK4) | A | Day-0 item 9 (13 §6.14) |
+| `delay.d0`–`delay.d3` | §6.2 | T | Not probe-able (historical). Markets that hit them are flagged and are not gate-3 evidence (TD6). |
 | `delay.d5` | 150 ms, irrevocable | L | Day-0 probe: POST status `delayed`, cancel attempt in the window |
 | `delay.response` | K3 | conflict | Day-0 probe |
 | `gtd.lead`, `gtd.early` | 180 s / 60 s | P | Day-0 probe |
@@ -735,7 +884,7 @@ output lists the ids of rules its orders touched whose status is
 | `post_only.cross` | §11 | P | Day-0 probe |
 | `batch.cap`, `cancel.cap` | 15 / 1,000 | L | Day-0 probe (batch), docs (cancel) |
 | `market.closed` | §11 | A | Day-0 probe |
-| `self_trade` | unknown | — | Day-0 probe |
+| `self_trade` | never exercised: the engine blocks self-crossing orders (§11, 10 N6) | — | Not probed (D54) |
 
 Day-0 probes are part of the calibration plan (D34, `51-calibration-plan.md`).
 `realistic` cannot become the default until every fee era matches charged
@@ -747,9 +896,9 @@ The study checks every fee row of §5.3 (formula, rate, rounding, start and
 end dates) against fees that were actually charged, and resolves K5, K6 and
 FC4.
 
-- **FS1. When.** M3 step 7 (RC-G2), before the RF01 A/B report
+- **FS1. When.** M3a step 8 (RC-G2), before the RF01 A/B report of M3b
   (`13-execution-models.md` §7.1). F3 can be checked at once from data
-  already on disk. If F1 or F2 data cannot be obtained in M3 (FS3), RF01
+  already on disk. If F1 or F2 data cannot be obtained in M3a (FS3), RF01
   ships with those rows flagged `unverified` (they then appear in
   `unverifiedRules`), and their check becomes a gate-3 prerequisite (D22).
 - **FS2. Command.**
@@ -758,9 +907,8 @@ FC4.
   per FS5 question) and `native/reports/fees-D22.csv` (one row per sampled
   fill: era, slug, transaction hash, occurrence index, side, liquidity role,
   price, size, charged fee, computed fee per candidate formula). It reads
-  local data only and writes only these two files.
-- **FS3. Sources**, in order of preference (the user chooses, Open
-  question 2):
+  local data only, runs on worker-1 (D36), and writes only these two files.
+- **FS3. Sources**, in order (D53: the free path first):
   1. The local research dataset (`npm run research:sql`, BTC 15m;
      `docs/datasets/polymarket-research/schema.md`). `trades` give price,
      size, side and `is_taker`; activity `usdc_size` already includes the fee
@@ -776,7 +924,10 @@ FC4.
      from the public Data API, if the API still serves that history; this is
      checked first on 3 days per era.
   2. Telonex `onchain_fills` (coverage columns in `src/db/schema.ts:424-425`).
-     Paid; used only if source 1 cannot serve F1 or F2.
+     Paid, and the subscription has expired (D38). Used only if source 1
+     cannot serve F1 or F2, and only after the user agrees to buy it; the
+     agent asks at that moment. Until then F1/F2 stay `unverified` and their
+     markets are not gate-3 evidence (FS1).
 - **FS4. Sample.** For each of F1, F2 and F3: at least 300 taker fills from
   at least 30 markets, stratified by price (bins of 0.1 from 0.05 to 0.95,
   at least 20 fills per bin where they exist) and by side (BUY and SELL). For
@@ -824,44 +975,15 @@ FC4.
 
 ## 17. Changes required in other documents
 
-These rules are owned here; the named owners align their text.
+None open: every item was applied in the gate-1 consolidation.
 
-| Owner | Required change |
-|---|---|
-| 00 glossary | "Rules snapshot / `rulesSource`": `snapshot \| partial \| fallback` (RS4), replacing `captured \| fallback`. |
-| 20 §5.1 | `describe.capabilities.rulesTables` per VR2 (versions, dated tables, verification statuses). |
-| 21 §5 | The job field is `market.rules` with the §13.4 shape (`captured` values only). There is no `MarketJobData.exchangeRules`; this document used that name before. |
-| 21 §6 | `ModelConfig.rules = { rulesTableVersion, missingSnapshot }` (§13.4), replacing `rulesVersion`. |
-| 21 §7, §17 | `rules.source` vocabulary `snapshot \| partial \| fallback`; the producer sends no normalized fallback snapshot (JC1); `v4_raw` becomes the origin `v4_bootstrap` of a captured field. |
-| 21 §10, §11 | Echo `rulesSource`, `rulesTableVersion` and `snapshotParserVersion`; `EngineMarketOutput.rules` per §13.8 (`feeEra`, `feeCurve`, `feeSource`, `unverifiedRules`). |
-| 42 §3.3 | Snapshot table per §13.1: one body per row, `origin enum('gamma','clob','v4_bootstrap','live_gamma','live_clob')`, `raw_json`, `raw_sha256`, `parsed`, `snapshot_parser_version`, phase derived from `fetched_at_ms < market_start_ms`; unique (`condition_id`, `origin`, `raw_sha256`). |
-| 42 §3.4 | `rules_source enum('snapshot','partial','fallback')`, `fee_era`, `fee_curve`, `unverified_rules` on `backtest_run_markets`; `model_config.rules.rulesTableVersion` instead of `rulesVersion`; per-curve batch stats and segments and the `mixedFeeCurves` flag (FT2). |
-| 40 §16 | Rows carry `origin` `gamma` / `clob` (§13.1). |
-| 01 M3 | The step order of RC-G2, including the fee study as step 7 before RF01. |
-| 13 §7.1 | RF01 runs after RC-G2 step 7, or with F1/F2 flagged `unverified` (FS1). |
+## Gate-4 questions
+
+None owned here (list: 01 §12.1).
 
 ## Open questions
 
-1. **Historical taker-delay rows D0–D3 (500 ms / none / 250 ms cancellable /
-   250 ms irrevocable).** Before 2026-08-17 the delay of instant orders is
-   known only from news articles and developer blogs, not from Polymarket's
-   own changelog, and that period covers most of our Telonex history (Dec
-   2025 – Aug 2026). Live test orders cannot check the past. Two options:
-   - (a) The realistic profile uses them as specified and flags the markets
-     (`unverifiedRules`).
-   - (b) Same as (a), but those markets do not count as evidence for gate 3
-     (realistic as default), and only markets from 2026-08-17 11:00 UTC on
-     (official changelog rows) are counted.
-
-   The user should choose at gate 1.
-2. **Where the real charged fees come from (FS3).** To check the historical
-   fee formulas we need fees that were actually charged in each fee period
-   (January–March, March–May, and May onward). The plan (§14.1) uses the free
-   research dataset this repository already downloads from the public
-   Polymarket Data API: it covers June 2026 onward today, and would be
-   extended back to January with `research:sync`, if the API still serves
-   that history. The alternative is to buy Telonex's on-chain fills channel.
-   Is the free path acceptable, with Telonex bought only if the Data API
-   cannot serve January–May? If neither happens, realistic results for
-   markets before June stay marked "fee unverified", and those periods cannot
-   count toward making realistic the default (D22).
+None. Former Open question 1 (historical taker-delay rows) is decided by TD6
+(D52) and former Open question 2 (fee ground truth) by FS3 (D53).
+A later user decision arises only if the free fee path cannot serve F1/F2
+(FS3, buying Telonex data).

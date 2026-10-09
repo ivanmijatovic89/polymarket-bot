@@ -109,8 +109,16 @@ that remain switchable for A/B reports are execution models, not core rules
 | `Feed` — Binance aggTrade, Chainlink round, PTB | Feed series with visibility stamps (14) | Feed clients (50) | Updates feed state in `SharedMarket`; no tick |
 | `SyntheticTick(kind)` | Synthetic schedule (14 §8.2) | Feed clients when opted in (14 §8.3) | §5.3 |
 | `Account` — REST response, user-WS frame, reconciliation result, sidecar result | — | CLOB V2 adapter I/O, TS sidecar (50) | `execution.on_account_input`, then drain |
-| `Timer(due)` | — (journal replay only) | Synthesized by the core before an input, or fired by the runtime's OS timer when idle (13 §2.3) | §5.1 |
-| `Control` — `SessionStart`, `WindowEnd`, `CapitalCap(usdc)`, `RulesUpdate`, `DataGap`, `AdoptPositions`, `Operator(cancel_order \| cancel_all \| kill_switch \| halt)`, `Shutdown` | Driver | Runtime (50) | §8, §10 |
+| `Timer(due)` | — (journal replay only) | Synthesized by the core before an input, or fired by the runtime's OS timer when idle (13 §2.3); stamps per E5 | §5.1 |
+| `Control` — `SessionStart{observe_only}`, `WindowEnd`, `CapitalCap(usdc)`, `RulesUpdate`, `DataGap`, `AdoptPositions`, `Guard(trip)`, `Operator(cancel_order{cid} \| cancel_all \| kill_switch)`, `Shutdown` | Driver | Runtime (50) | §8, §10 |
+
+Operator commands map to these payloads as in 50 §16: `kill` →
+`Operator(kill_switch)`; `pause` and `resume` take effect at the next window
+as `SessionStart{observe_only: true | false}`; `refresh_balance` and
+`heartbeat_pause` are runtime or adapter actions with no core payload (their
+effects arrive as later `CapitalCap` or `Account` envelopes). `Guard(trip)`
+carries a session-guard trip computed by the runtime across sessions (50
+§10.2; §8.3).
 
 `Control(WindowEnd)` is inserted at `at = window.end` in realistic only: by the
 driver into the merged backtest timeline (before data envelopes stamped
@@ -137,6 +145,12 @@ envelope (TC-C13).
   reproduces it.
 - **E4.** Envelopes are borrowed from decoded batches; the loop never copies
   payloads (§14).
+- **E5. Timer stamps.** A `Timer` envelope carries two times, kept apart
+  (50 §5.3): `due`, the scheduled time, which stays the exchange-side time of
+  the actions it runs and their `OrderLifecycle` and ledger stamps; and `at`,
+  its fire time: `max(due, now)` when the core synthesizes it before an input
+  (13 §2.3 TS1), the ingress stamp of the OS fire when idle (TS2). Delivered
+  events carry the loop clock (K2).
 
 ## 4. Clock model (D27)
 
@@ -203,10 +217,11 @@ Realistic replaces `L` with a synthesized receipt time:
 - **RS1.** For row `i` of the market file, in reader order:
   `R_i = max(R_{i−1}, E_i + d_i)`, with `R_{−1} = −∞` and `d_i` a sample of
   `ModelConfig.clock.marketData.delay` (§4.5): stream tag `md_row`, entity =
-  input row index `i` (entity kind 6, which 10 §6.1 RNG-4 must add), draw 0,
-  mapped per 10 RNG-6. The stream derives from the market seed, i.e. from
-  (run seed, slug) (10 RNG-2, 21 C5), so `R` is identical for every candidate
-  and computed once per market read, in the shared tape (16).
+  input row index `i` (entity kind 6 of 10 §6.1 RNG-4, §16), draw 0, mapped
+  per 10 RNG-6. The stream derives from the market seed, i.e. from (run seed,
+  slug) (10 RNG-2, 21 C5), so `R` is identical for every candidate. It is
+  computed once per market read into the decoded in-memory tape (16 §7.3) and
+  never stored on disk: the derived native tape (16 §7.5) is seed-independent.
 - **RS2.** Rows keep reader order; the clamp keeps `R` monotone, as frames
   arrive in order on one socket. All messages of one row share its `R`.
 - **RS3.** `now = R` drives the window gate (§5.4), plugins, feed visibility
@@ -214,7 +229,7 @@ Realistic replaces `L` with a synthesized receipt time:
   rule (14 F-40 with `C(t) = R_t`), the skew estimate (§4.4) and the latency
   start.
 - **RS4.** Cost: one counter-based draw per row (no state, no allocation);
-  measured in M5 (16).
+  measured in M5a (16).
 
 ### 4.4 Exchange-time estimate
 
@@ -223,9 +238,9 @@ Realistic replaces `L` with a synthesized receipt time:
   `skew = min(at − exchange_ts)`, starting at the first market envelope of the
   input (pre-window rows included). On V4 this is `receivedAtMs − exchange ts`;
   on realistic Telonex it is `R − E`. It is a pure function of the input, so
-  no job field carries it (§16: 21's `clockSkewMs` is superseded). Journal,
-  paper and live use the journaled clock samples
-  of 50 §5.3, which apply the same lower envelope plus `GET /time`.
+  no job field carries it (21 §4). Journal, paper and live use the journaled
+  clock samples of 50 §5.3, which apply the same lower envelope plus
+  `GET /time`.
 - **XT2.** The lower envelope estimates clock offset plus the minimum one-way
   delay. Its error is at most the spread of `md` (tens of ms), which is below
   the resolution of every rule it feeds: GTD lead 180 s and early expiry 60 s
@@ -257,11 +272,11 @@ apply; distribution kinds are those of 13 §7.3.
   emulated. For recorder-v4 and journal inputs the producer resolves the
   distribution of the host that recorded them (it is then used only by the
   latency model, 13 §6.8); for telonex-delta and paper, the live host's.
-  Until the live host is measured (M10), worker-2's distribution stands in,
-  and outputs are flagged uncalibrated.
+  Until the live host is chosen (01 §12.1 item 3) and measured (M10),
+  worker-2's distribution stands in, and outputs are flagged uncalibrated.
 - `md` samples are `receivedAtMs − exchange ts` of `book` and `price_change`
   frames on NTP-synced hosts. Host clock offsets of a few ms are not separated;
-  they stay inside the calibration tolerance (D35). The first M3 step measures
+  they stay inside the calibration tolerance (D35). The first M3b step measures
   worker-2's distribution on at least 50 recent V4 packages and commits it with
   the per-market lower envelopes (13 §7.4).
 - ts-compat: `{"kind":"constant","ms":0}`, required and unused.
@@ -322,8 +337,16 @@ on_market(ev):
   if dispatch: run_strategy_tick()                   // §5.3
 ```
 
+- A tick that reaches `counters.record` is a **counted tick**; a counted tick
+  that passes the window gate (`dispatch`) is a **strategy tick** (21 §1.1).
 - `TickSizeChange` updates the rules in force in `SharedMarket` (11 §7.5); it
   never produces a tick.
+- **Stale books (realistic, paper, live).** After a `BookReset` (15 I-6f, 50
+  §7) an outcome book is stale until its next `book` message: its events are
+  applied and counted (`produces_tick` and `counters.record` as usual) but
+  `dispatch` is false, so no strategy tick runs, and the simulator does not
+  match against that book (13 §6.5). ts-compat follows TS and has no stale
+  state.
 - `LastTrade` (trade prints) reaches the execution model in realistic (queue
   model, 13 §6.5). Prints never produce strategy ticks in v1, in either
   profile (30 §5 `TickCause` has no print cause; 21 §15 keys stay unchanged).
@@ -349,6 +372,10 @@ begin_tick(cause):                                   // before the execution ste
 run_strategy_tick():
   feeds.advance(tick)                                // high-water feed clock, 14 F-7 (clock per §4.1)
   plugins.on_tick(tick, market)      // synthetic: only plugins that declare it (14 F-37)
+  if !wake(tick):                                    // tick interest filter, below
+      counters.strategy_ticks_skipped += 1
+      trace(FeedView); trace(Decision{origin: Tick, intents: []})  // built only if a sink asks
+      return
   snapshot = plugins.snapshot(); feed_view = feeds.view()   // once per dispatched tick
   trace(FeedView)
   intents.clear()
@@ -370,6 +397,18 @@ run_strategy_tick():
 - **Tick causes** (closed vocabulary; the `eventsByType` keys of 21 §15 and the
   trace `cause`): `book`, `price_change`, `binance_agg_trade`,
   `chainlink_round`. Identical in both profiles.
+- **Tick interest filter** (opt-in, D41; declaration 30 §4.1,
+  wake rule 16 §9.4 TF-1/TF-2). `wake(tick)` is true unless the strategy
+  declared a tick interest other than `All` and no TF-2 condition holds.
+  Only the strategy callback is skipped (TF-3): counting, book apply,
+  execution, feed advance and plugin `on_tick` run on every event, and the
+  plugin snapshot and feed view are not built. For a conforming strategy
+  (TF-5) the trace is byte-identical with and without the filter, because a
+  skipped tick still emits its `TickStart`, `FeedView` (built only when a
+  sink requests it) and an empty tick `Decision`. Skips are counted in
+  diagnostics (`strategyTicksSkipped`, 21 §10), never in `eventsProcessed`.
+  The rule runs here, so backtest, paper and live behave identically (TF-4).
+  The ts-compat ports MUST NOT declare it (TF-1).
 
 ### 5.4 Window gate
 
@@ -389,9 +428,9 @@ simulator and live share one window-end model.
 
 ### 6.1 Callback contract
 
-- The tick and event callbacks write intents into an engine-owned, reused
-  `IntentSink` and never allocate a fresh `Vec` per call (10 §11 P3; WIP
-  `strategy.rs:39-43` returned one). Signatures: 30 §4.
+- The tick and event callbacks write intents into the engine-owned, reused
+  `Intents` buffer (30 §7) and never allocate a fresh `Vec` per call (10 §11
+  P3; WIP `strategy.rs:39-43` returned one). Signatures: 30 §4.
 - `ctx` is a stack value of borrows into session and shared state (30 §5).
   Reading it never allocates or copies; derived values are lazy and cached per
   tick.
@@ -559,8 +598,23 @@ cancel resolution later in this call.
 | `expire_at` on non-GTD | ignored | ignored | — |
 | Tick in force, price bounds, size and amount precision, minimum size and notional | yes | no | `InvalidTick`, `PriceOutOfBounds`, `SizePrecision`, `AmountPrecision`, `SizeBelowMinimum`, `NotionalBelowMinimum` |
 | Market open (`stamp < end`) | yes | no | `MarketClosed` |
+| No self-cross (below) | yes | no (TC-C14) | `SelfCross` |
 | Order meta ≤ 16 KiB (21 §16) | yes | yes | `MetaTooLarge` |
 
+- **Self-cross block (realistic, paper, live; D54, 10 N6).** A
+  placement is rejected if it could match an own order of the same market as
+  10 N6 defines it (non-terminal, any type, cancel not acknowledged, earlier
+  entries of the same batch included): directly
+  (same outcome, opposite side, BUY limit ≥ own SELL price or SELL limit ≤ own
+  BUY price), or through the exchange's complementary matching (other
+  outcome, same side: two BUY prices summing to ≥ 1, two SELL prices summing
+  to ≤ 1). Polymarket documents no self-trade prevention (11 §11), so the
+  engine never lets the exchange decide; no self-trade probe is run. The OM
+  keeps the best own price per (outcome, side) over those orders, updated at
+  emission, at `CancelAcked` delivery and at terminal delivery, so the check
+  is four comparisons. Because every order at the exchange has such a record
+  from emission until its terminal event or cancel acknowledgement is
+  delivered, no own taker can ever meet an own resting order (13 §6.12).
 - In live and paper the same realistic checks run before sending; the exchange
   remains final (11 §12).
 - The simulator re-applies exchange-side checks at arrival, because rules can
@@ -661,14 +715,16 @@ function:
 ### 8.3 Session guards (paper, live)
 
 - Kill switch, session loss including settlement, wallet exposure, order-rate
-  cap (D31, 50). Checked at §7.2 step 1; they persist across market rotation
-  and are fed by `Control` envelopes. A tripped kill switch rejects all
+  cap, reject burst (D31, 50 §10.2). Checked at §7.2 step 1; they persist
+  across market rotation and are fed by `Control(Guard)` and
+  `Control(Operator(kill_switch))` envelopes. A tripped kill switch rejects all
   placements (`KillSwitch`), issues an engine-originated `CancelAll` through
   the OM, and halts the strategy.
 - Engine-originated intents (kill switch, panic handling, operator commands,
-  window-end cancel) go through the same OM pipeline and ledger as strategy
-  intents, so they are journaled, validated and visible in the view. Their
-  cancels carry their cause (`CancelCause`, 10 §10.2).
+  window-end cancel, rotation teardown) go through the same OM pipeline and
+  ledger as strategy intents, so they are journaled, validated and visible in
+  the view. Their cancels carry their cause (`CancelCause`, 10 §10.2; 50
+  §8.2.4 records the same causes live).
 
 ## 9. Ledger
 
@@ -685,8 +741,9 @@ once, at the moment the loop processes it:
 | Engine commands: submission, cancel request, split request, merge request | When the OM emits them. The engine knows its own decisions at once, so reservations exist from decision time |
 | Exchange-originated events: accept, delay, open, fill, settlement update, done, reject, cancel ack, cancel failure, split/merge result | When they are delivered from the cascade queue (§6.2), the instant the strategy is told. In paper and live, delivery happens when the input arrives |
 
-Rationale (normative): the strategy's view in the callback for event *k*
-reflects exactly the events delivered so far. That is what live does (an
+Rationale (normative; confirmed at gate 1): the strategy's view in the
+callback for event *k* reflects exactly the events delivered so far. That is
+what live does (an
 exchange event cannot be known before it arrives) and what TS does (Portfolio
 applies at dequeue, `StrategyRunner.ts:597-629`). Applying simulator output at
 emission instead would let the callback for `OrderSubmitted` see that order's
@@ -876,11 +933,16 @@ Checked by debug assertions and property tests (60):
   in the current markets. An `AdoptPositions` control envelope records adopted
   inventory in the ledger, flagged read-only: excluded from `sellable` and from
   the per-market result (50).
-- **Late start (live):** if the first tick arrives later than the configured
-  delay after the window start (TS default 15 s, `src/cli/trading-bot.ts:582-585`),
-  the session goes from `Warming` to `Closing` without `Active`: no strategy
-  callbacks at all. TS still ran the simulator path and account callbacks for
-  skipped markets (`StrategyRunner.ts:363-369`); not reproduced.
+- **Observe-only (live, paper):** `SessionStart{observe_only: true}` keeps the
+  session from ever becoming `Active`: it goes from `Warming` to `Closing` at
+  `end` with no strategy callbacks, while plugins observe. The runtime sets it
+  for a late start (process started after `start + late_start_skip`, default
+  15 s, `src/cli/trading-bot.ts:582-585`; 50 §6.4) and for windows after an
+  operator `pause` (50 §16). TS still ran the simulator path and account
+  callbacks for skipped markets (`StrategyRunner.ts:363-369`); not reproduced.
+- **Early teardown (live, paper):** a session the runtime ends before `end`
+  (a market refused after a `RulesUpdate`, 50 §6.2) gets an engine-originated
+  `CancelMarket{Market}` with cause `Rotation` and enters `Closing`.
 
 ## 11. Fault semantics
 
@@ -890,9 +952,9 @@ are those of 20 §4.
 
 | Fault | Backtest (standalone or group) | Paper and live |
 |---|---|---|
-| Strategy panic or overflow in strategy code | The candidate stops; it fails with `strategy_fault` (detail `panic: <message>`) and emits no `MarketStats`; other candidates continue; not retried | D32: engine-originated `CancelAll` for the market, strategy halted until rotation, alert (50); exchange events keep being applied |
+| Strategy panic or overflow in strategy code | The candidate stops; it fails with `strategy_fault` (detail `panic: <message>`) and emits no `MarketStats`; other candidates continue; not retried | D32: engine-originated `CancelMarket{Market}` with cause `StrategyPanic` (50 §11), strategy halted until rotation, alert; exchange events keep being applied |
 | Cascade budget exceeded (§6.3) | The candidate stops; `strategy_fault` (detail `cascade_limit`), no `MarketStats` | As a panic; remaining events applied without callbacks |
-| Overflow in engine code (`overflow-checks`, D18) or ledger invariant violation | `engine_fault`; never continue silently | Kill switch on every session: `CancelAll`, runtime halts, alert |
+| Overflow in engine code (10 T3; both build profiles keep overflow checks, 31 §4.2) or ledger invariant violation | `engine_fault`; never continue silently | Kill switch on every session: `CancelAll`, runtime halts, alert |
 | Data anomaly | Per 15 §8 (counted diagnostics or `data_defect`) | Per 15 and 50 |
 | Adapter or network error | n/a | Mapped to events (13 §9); never a panic |
 
@@ -942,13 +1004,13 @@ path (01 §2). Requirements:
 | P3 | `ctx` and the strategy view are borrows; no snapshot copies per tick (TS rebuilt frozen snapshots per tick, `Portfolio.ts:129-137`) |
 | P4 | Plugin snapshot and feed view built once per dispatched tick; zero cost when nothing is requested |
 | P5 | `SharedMarket` (books, feeds, receipt timeline, skew) is immutable during session steps, so candidates of one market can step in lockstep on one thread (cache reuse) or on several threads; the choice and its measurement belong to 16 |
-| P6 | **Dispatch boundary.** Default: `Session<S: Strategy, E: Execution, T: TraceSink>` is generic over all three (30 §4 rule 1, §16 S9; 16 CG-2 keeps a group's candidates in one `Vec<S>`). The hot loop is therefore monomorphized in the strategy's bin crate and compiled with that crate's profile-wide settings (31 §4.2). Measurement **M-DSP** (M1 step 6; to be registered in 16 §15.2 under the next free id, since M-19 to M-22 are taken) compares this with an engine compiled once, as a dependency, that calls the strategy through one `&mut dyn` call per callback: warm rebuild time after a one-line strategy change (M4 mini and this M1 Pro) and `smoke-50` throughput for a single candidate and for a 20-candidate group. The option with the higher throughput is the default; the build-time limit is Open question 2. Declared interests (30 §4.1) skip callbacks the strategy ignores |
+| P6 | **Dispatch boundary.** Default: `Session<S: Strategy, E: Execution, T: TraceSink>` is generic over all three (30 §4 rule 1, §16 S9; 16 CG-2 keeps a group's candidates in one `Vec<S>`). The hot loop is therefore monomorphized in the strategy's bin crate and compiled with that crate's profile-wide settings (31 §4.2). Measurement **M-DSP** (M1 step 7, on worker-1 under 16 §13.5 conditions; registered as M-23 in 16 §15.2) compares this with an engine compiled once, as a dependency, that calls the strategy through one `&mut dyn` call per callback: `smoke-50` throughput of `artifact` builds for a single candidate and for a 20-candidate group, plus warm rebuild time after a one-line strategy change in the `iterate` and `artifact` profiles (31 §4.1). Published, fleet and live binaries are chosen for runtime speed (D18 as amended at gate 1: the fast profile serves local checks only), so the option with the higher `artifact` throughput is the default; only if both are within 3% does the faster `iterate` rebuild decide. Declared interests (30 §4.1) and the tick interest filter (§5.3) skip callbacks the strategy ignores |
 | P7 | Execution market-event processing costs O(own orders affected), not O(book) (13 §10) |
 | P8 | Ledger operations are O(1) per event except iteration over open orders |
 | P9 | No syscalls, locks or logging in the loop; logging is leveled and off on the fleet (30) |
 | P10 | Batch API: `Session::run(&[Envelope])` over decoded batches produced on other threads (15 I-3, 16) |
 | P11 | Live: the loop runs on a dedicated thread; `execution.submit` returns in microseconds and never blocks; I/O, signing and journaling run elsewhere (01 S4, 50). The journal records receipt and command-enqueue stamps, so decision latency is measured |
-| P12 | Counters for envelopes, ticks, deliveries, intents by kind, rejects by reason, dedupe drops and scheduled actions are always on (plain integers); per-phase timers sit behind a compile-time feature, off by default (16) |
+| P12 | Counters for envelopes, ticks, skipped strategy ticks, deliveries, intents by kind, rejects by reason, dedupe drops and scheduled actions are always on (plain integers); per-phase timers sit behind a compile-time feature, off by default (16) |
 
 ## 15. TS behaviors kept (oracle evidence)
 
@@ -974,40 +1036,17 @@ The converted TS suites that pin these behaviors are listed in 01 M1 and 60.
 
 ## 16. Changes required in other documents
 
-For the lead's consistency pass; this document does not edit them.
-
-| Document | Change |
-|---|---|
-| 21 §6, §6.3, §8 | Add the `clock` sub-object (owner 12, §4.5), run-level and never per candidate; its default comes from the latency calibration set (13 §7.4). C4 keeps "only `execution` may differ per candidate" |
-| 21 §4, §5, §5.1 | Remove `market.clockSkewMs`: the skew is derived from the input itself (§4.4), for every mode including realistic telonex-delta, and journals carry their own clock samples. A producer-resolved value would need the producer to decode the tape, and 15 and 51 define no such value |
-| 21 §11 | `upShares`/`downShares` are ≥ 0 in both profiles (§9.5 clamps naked sells) |
-| 21 §2 (counted tick), §13, §15 | No print-tick cause in v1 (§5.2); `strategy_fault: cascade_limit` emits no `MarketStats` (§6.3) |
-| 10 §10.2 | Mark `DuplicateActiveCid` as a diagnostics counter key, never emitted (§7.6) |
-| 10 §6.1 RNG-3, RNG-4 | Add entity kind 6 = input row index (§4.3) and the tags of 13 §6.8 (`cancelAck`, `md_row`, `md_cmd`, `settlement_failure`, `chain_failure`) |
-| 14 F-7, F-8, F-41, Open question 2 | Realistic feed clock = `now` (receipt time; synthesized `R` on Telonex, §4.3); realistic Telonex synthetic stamp = `max(v, now)`; `max(L, E)` is ts-compat only |
-| 15 §1, §4 | Realistic telonex-delta decision clock = synthesized `R` (§4.3); the tape stores `R` per row |
-| 15 §5.2 I-24 | Realistic V4 keeps pre-window envelopes (plugin warm-up) and envelopes after `end` up to the simulated market close (13 §6.6), since matching continues until then; the half-open drop stays for ts-compat |
-| 16 §15.2 | Register M-DSP (§14 P6) under the next free id |
-| 31 §4.2 | The `artifact` profile settings and the strategy crate's build time follow M-DSP and Open question 2 |
-| 50 §5.3, §6.4, §8.2.4 | Timer synthesis before inputs (13 §2.3); the user-WS cancellation of our window-end cancel maps to `Canceled(WindowEnd)`, the exchange's close to `Canceled(MarketClosed)` |
-| 60 §5.5 | x10 at 330 in realistic: "dropped, counted as `duplicate_active_cid`" (§7.6) |
+None open: every item was applied in the gate-1 consolidation.
 
 ## Open questions
 
-1. **Meaning of "one ledger applying events immediately".** This document
-   applies engine commands at emission and exchange-originated events at
-   delivery (§9.1). Applying simulator output at emission, as the approach audit
-   suggested, would let callbacks see events before they are delivered, which
-   neither live nor TS does, and would change cid release and in-cascade funding
-   against the ts-compat oracle. There is still exactly one ledger and no
-   overlay. In practice the difference is small: a crude scan found portfolio
-   reads inside `onAccountEvent` in only 3 in-repo strategy files and 1
-   polymarket-protocols tool. Confirm this reading at gate 1.
-2. **Backtest speed vs strategy rebuild time (user).** Calling the strategy
-   directly from a per-strategy compiled engine (static dispatch, §14 P6) can
-   make backtests faster, but every strategy change then recompiles the engine's
-   hot loop too, which may add several seconds per rebuild. That matters most
-   later, when AI agents iterate on Rust strategies. M-DSP measures both sides
-   in M1. If the measurement shows this trade-off, should maximum backtest speed
-   win regardless of rebuild time, or is there a rebuild-time limit (for example
-   10 s warm on an M4 mini) above which the faster-building option is chosen?
+None. Gate 1 settled the former questions: the one-ledger reading of §9.1
+stands, and the dispatch boundary is chosen for runtime speed (§14 P6, D18 as
+amended).
+
+## Gate-4 questions
+
+1. **Live host** (01 §12.1 item 3). Realistic telonex-delta runs and paper
+   emulate the `md` distribution of the live host (§4.5); until it is
+   measured in M10, worker-2's distribution stands in and outputs are flagged
+   uncalibrated.

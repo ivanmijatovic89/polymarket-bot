@@ -49,10 +49,10 @@ pub enum ExecCommand<'a> {
 Order details (side, type, price, `OrderSize`, post-only, `expire_at_ms`,
 signed amounts; 10 §7.2, 11 TK4) are read from the ledger's immutable order
 records; commands carry keys only. `cause` is `Strategy(op)` for strategy
-cancels and `WindowEnd`, `KillSwitch`, `StrategyPanic` or `Operator` for
-engine-originated ones (10 §10.2; 12 §8.3). `CancelOp` (with its `CancelSeq`)
-is defined in 10 §6; engine-originated cancels get one too, because they pass
-through the OM. The WIP `ExecCommand::Split.cost_per_share`
+cancels and `WindowEnd`, `KillSwitch`, `StrategyPanic`, `Rotation` or
+`Operator` for engine-originated ones (10 §10.2; 12 §8.3, §10). `CancelOp`
+(with its `CancelSeq`) is defined in 10 §6; engine-originated cancels get one
+too, because they pass through the OM. The WIP `ExecCommand::Split.cost_per_share`
 (`native/crates/pmb-core/src/execution.rs:30-35`) is dropped (10 N3).
 
 ### 2.2 Trait
@@ -105,9 +105,11 @@ Journaled timer production (live and paper):
   armed at `next_due()`, injects `Timer(t)`. The fire lateness
   (`recv_mono − t`) is journaled and shown as a timer-lateness histogram in the
   latency report (50 §18, 16 §12.3); 50 §13.5 attributes divergences to it.
-- **TS3. Event time.** A timer's actions run with event time `max(t, now)`
-  (12 K2, 50 §5.3). The due time `t` stays the exchange-side time in
-  `OrderLifecycle` and ledger records.
+- **TS3. Two stamps** (12 E5, 50 §5.3). The envelope's `at` is the fire
+  time: `max(t, now)` for TS1, the journaled ingress stamp for TS2. The
+  exchange-side effects of the due actions (simulated arrival, match, expiry,
+  report emission) keep the due time `t` in `OrderLifecycle` and ledger
+  records; events delivered from the timer carry the loop clock (12 K2).
 - **TS4. Replay.** Journal replay reads `Timer` envelopes back and synthesizes
   none. The core asserts that each replayed timer's `t` equals `next_due()`
   and that no action due before the next input was left unsynthesized; either
@@ -135,8 +137,8 @@ Journaled timer production (live and paper):
 | `Simulator` (realistic composition) | Backtest, realistic | Recorded | §6 | SelfTimed, exact time | No |
 | `Paper` | Live paper (D28) | Live envelopes | Realistic simulator | Journaled | No |
 | `Paper(DecisionsOnly)` | Diagnostics | Live envelopes | None: accept and open, never fill (TS dry-run, `src/trading/OrderManager.ts:508-521`) | — | No |
-| `ClobV2` | Live real orders (user-launched after G4) | Live envelopes plus REST and user-WS inputs | The exchange | Journaled (adapter deadlines) | Yes |
-| `JournalReplay` | Backtest path over a paper or live journal | Journal | Paper journal: realistic simulator with journaled timers. Live journal: `ClobV2` normalizer in replay mode (§9.4) | Journaled | No |
+| `ClobV2` | Live real orders (user-launched after G4); only in the `real-orders` build (§9.1) | Live envelopes plus REST and user-WS inputs | The exchange | Journaled (adapter deadlines) | Yes |
+| `JournalReplay` | Backtest path over a paper or live journal | Journal | Paper journal: realistic simulator with journaled timers. Live journal: the `ClobV2` normalizer in replay mode (§9.4), present in every build | Journaled | No |
 
 ## 4. Simulator architecture
 
@@ -259,9 +261,11 @@ ts-compat object of the defaults file (§7.4).
   Jitter `j = execution.compatLatency.jitterMs` applies only when `d > 0`
   (`runSingleMarket.ts:187`).
 - `execute_at = max(stamp, stamp + d + jitter)`, jitter a seeded integer in
-  `[−j, j]` from the `compat_jitter` stream keyed by `OrderKey` or `CancelSeq`.
-  TS uses unseeded `Math.random` (`BacktestExecution.ts:239-242`), so parity
-  runs MUST use `j = 0` (21 §6).
+  `[−j, j]` from the `compat_jitter` stream, one draw per command: entity =
+  the session's 0-based count of `submit` calls (10 RNG-4 kind 5; RNG-7
+  vectors), as TS draws once per scheduled action. TS uses unseeded
+  `Math.random` (`BacktestExecution.ts:239-242`), so parity runs MUST use
+  `j = 0` (21 §6).
 - ts-compat: `execute_at ≤ stamp` → executed inside `submit` (synchronous
   events). Otherwise queued by (`execute_at`, seq).
 - Queued actions run only inside `on_market_event` of a real in-window tick with
@@ -334,9 +338,10 @@ only; JS float tie behavior is not emulated (R1).
 **Reports — `CompatStatus` (`models.reports = compat`; TC-E8).** The status
 events of the taker steps above; nothing for GTC/GTD fills; never `Mined`. They
 are delivered to strategy callbacks, because TS delivers its `ws_order_update`
-events (`src/trading/StrategyRunner.ts:628-675`); the parity trace omits them
-(22 §3.2; `src/backtest/parity/trace.ts` `TRACED_EVENT_KINDS`). Accepts and
-fills are delivered instantly.
+events (`src/trading/StrategyRunner.ts:628-675`), and the parity trace
+records them as `settlement_update` in both profiles (22 §3.2); the TS
+`CANCELED` update after a FOK kill has no counterpart and is classified, not
+traced (§5.4). Accepts and fills are delivered instantly.
 
 **Split/merge (TC-E9).** Synchronous inside `submit`, no latency, never failing:
 `PositionsSplit{op, size, cost = size}`; merge `actual = min(requested,
@@ -363,6 +368,7 @@ realistic composition; "Fix" is the realistic fix of §7.1 whose report covers i
 | TC-C11 | TS clocks: `tick.ts` = TS tick timestamp incl. synthetic clamp; Telonex loop clock `E`, feed clock `max(L, E)`; no `md`; `xnow` = decision stamp | Receive clock: synthesized `R` on Telonex, feed clock = `now`, `tick.ts` = `now`, `xnow = now − skew` | `src/market/syntheticTick.ts:61`; `wireBacktestExternalFeeds.ts:46-64` | 12 §4 | RF15 |
 | TC-C12 | No batch cap; cancel-id cap 3000 | Batch cap 15, cancel-id cap 1000 (11 §9) | `cancellation.ts:69`; `LiveExecution.ts:166-178` (live only) | 12 §7.3 | RF02 |
 | TC-C13 | No action at market end; undue actions discarded at end of stream | Window-end cancel at client `end`, exchange-side market close; scheduler drained | `runSingleMarket.ts:491-590` (stats from final positions; nothing cancels resting orders or runs pending actions) | 12 §5.1, §5.4; §6.6 | RF13 |
+| TC-C14 | No self-cross check (own orders are never in the TS book, so they cannot match each other) | Placements that could match an own non-terminal order are rejected `SelfCross` | `OrderManager.ts:756-780`; `BacktestExecution.ts:139-190` (walks recorded levels only) | 12 §7.4; §6.12 | RF14 |
 | TC-E1 | `NextRealTick` latency, one delay for place and cancel | Exact-time scheduler, separate seeded latencies with `md` | `BacktestExecution.ts:195-242, 765-801` | §5.1, §6.8 | RF05 |
 | TC-E2 | Jitter only when delay > 0; parity requires 0 | Distributions per component | `runSingleMarket.ts:187`; `BacktestExecution.ts:240` | §5.1 | RF05 |
 | TC-E3 | Taker walk without depletion | Depletion overlay | `BacktestExecution.ts:139-190, 367-368, 523-524` | §6.4 | RF07 |
@@ -409,7 +415,10 @@ not coded separately. The exerciser's crossing order `x5` (60) covers it.
   latency, Chainlink gap and resolved feed availability (21, 60).
 - TS oracle pin per 01 §8.
 - After gate 2, a change to any TC rule needs a 02-decisions entry, a new
-  defaults file version and a parity re-run (00 §3.2).
+  defaults file version and a parity re-run (00 §3.2). The TS engine is then
+  frozen to bug fixes, plus features AI protocols need before they move to
+  Rust, which also get a Rust version and a parity test; any such TS change
+  re-pins the oracle (01 §8).
 
 ## 6. Realistic profile
 
@@ -441,10 +450,10 @@ batch order:
    have landed in flight; 11 §7.5) → `OrderRejected(<reason>)`.
 3. GTD lead at arrival (11 GT2): stated expiry ≥ arrival exchange time + 180 s,
    else `OrderRejected(GtdLeadTooShort)`.
-4. Post-only: crossing the effective opposite best, own resting orders included
-   (§6.12) → `OrderRejected(PostOnlyWouldCross)` (11 §11).
-5. Marketable = it would match the effective opposite best, own orders excluded
-   (11 TD1):
+4. Post-only: crossing the effective opposite best →
+   `OrderRejected(PostOnlyWouldCross)` (11 §11).
+5. Marketable = it would match the effective opposite best (11 TD1; own orders
+   never cross, §6.12):
    - not marketable: GTC/GTD rest (§6.5); FOK/FAK are killed (§6.7, verify);
    - marketable on a market with the taker delay enabled (11 §6.3) and
      `models.takerDelay = on`: delayed (§6.3);
@@ -455,7 +464,10 @@ batch order:
 
 - The delay is the row of 11 §6.2 in force at the arrival's exchange time
   (keyed by exchange time, not market start; the WIP table is wrong, 11 TD7),
-  on markets where `taker_delay_enabled` (11 §6.3).
+  on markets where `taker_delay_enabled` (11 §6.3). The rows before
+  2026-08-17 11:00 UTC (D0–D3, not in Polymarket's changelog) are used as
+  specified and flagged in `unverifiedRules`; only markets from that time on
+  count as gate-3 evidence (D52, 11 TD6).
 - During the delay the order is not on the book. A cancel arriving then fails
   with `CancelFailed(NotCancelableDuringDelay)` in eras where the order is
   irrevocable, and succeeds in eras where it is cancellable (11 TD4, §6.2
@@ -469,9 +481,9 @@ batch order:
 
 ### 6.4 Taker matching, depletion, collateral-sized BUY
 
-- Walk effective opposite levels best first while the price crosses the limit,
-  skipping own resting orders (§6.12). One TAKER fill per level at the level
-  price (§4.5); fee per §6.9.
+- Walk effective opposite levels best first while the price crosses the limit
+  (own resting orders are never among them, §6.12). One TAKER fill per level
+  at the level price (§4.5); fee per §6.9.
 - Shares-sized orders (GTC, GTD, SELL FOK/FAK): `min(remaining, effective level
   size)` per level.
 - **Collateral-sized BUY (FOK/FAK, RF04; 10 O2).** Amount `A` = the order's
@@ -490,7 +502,9 @@ batch order:
   - `none` (ts-compat, A/B arm): no deficit.
   Maker fills against crossing liquidity (§6.5) add to the deficit too. Total
   fills against a level never exceed the size the recorded stream offered there
-  (property test, 60).
+  (property test, 60). On a decontaminated input (§6.13), consuming quantity
+  marked `own_restored` ends that restoration instead of adding a deficit
+  (15 I-42a), so the real and the simulated order never both take it.
 
 #### 6.4.1 Fill amounts
 
@@ -511,7 +525,7 @@ is accepted and stored on the record (12 §9.2).
 - For a BUY order `makerAmount` is the collateral and `takerAmount` the shares;
   for a SELL order the reverse (11 TK4).
 - This table is the single definition; 10 R5/R6 (realistic column) and 11 TK4
-  are to point here (§12). The rules are verified on day 0 (§6.14 item 9; 51
+  point here. The rules are verified on day 0 (§6.14 item 9; 51
   R7 for the collateral BUY, the maker probes of 51 §6.4 for maker partial
   fills).
 
@@ -537,6 +551,11 @@ prints until follow-up F2 (research/early-audits.md:44).
 | Q5 No-prints mode | Q4 off; every decrease at our level reduces `q` by `α·d` (99.13% of top-of-book decrease volume is cancels, `protocols/pair-fable/memory/experiments/hf-fill-probe.md:209-213`); fills come only from Q3 |
 | Q6 Approximation | The recorded book is not adjusted for other traders' orders that our fill would have shielded |
 
+- **Stale books.** While an outcome book is stale (15 I-6f, 12 §5.2), the
+  simulator does not match against it: no taker walk, crossing check or
+  queue update uses it. Orders that reach the exchange side meanwhile are
+  validated, delayed or kept as on any book, and their matching for that
+  outcome runs, in arrival order, against its next `book` message.
 - `α = execution.makerQueue.cancelAheadShare ∈ [0, 1]`: the share of non-trade
   decreases at our level that happen ahead of us, the one explicitly calibrated
   queue parameter (research/requirements-sweep.json `maker-queue-parameter`).
@@ -635,10 +654,10 @@ the loop times of the exchange-side actions.
 | `fillReport` | Exchange change → user-WS message at the client | `TradeSeq` for fills of a trade; `OrderKey` for the order's terminal change without a trade (kill, expiry, cancel, market-close cancel) |
 | `mined`, `confirmed`, `failed` | Match → status message at the client | `TradeSeq` |
 | `chainSplit`, `chainMerge` | Request → completion, both at the client | `OpKey` |
-| `md_cmd` | The `md` adjustment of the components above, from `ModelConfig.clock.marketData.delay` (12 §4.5) | The entity of the adjusted component; draw index 0 `place`/`cancel`, 1 `ack`/`cancelAck`, 2 `fillReport`, 3 `mined`, 4 `confirmed`, 5 `failed` |
+| `md_cmd` | The `md` adjustment of the components above, from `ModelConfig.clock.marketData.delay` (12 §4.5) | The entity of the adjusted component; draw index 0 `place`/`cancel`, 1 `ack`/`cancelAck`, 2 `fillReport`, 3 `mined`, 4 `confirmed`, 5 `failed`, each mapped through 10 RNG-6 as that sub-sample's single `u` |
 | `md_row` | Receipt-time synthesis on Telonex (12 §4.3) | Input row index (entity kind 6) |
 | `settlement_failure`, `chain_failure` | Bernoulli draws of `failureRates` (§6.7, §6.10) | `TradeSeq`, `OpKey` |
-| `compat_jitter` | §5.1 | `OrderKey` or `CancelSeq` |
+| `compat_jitter` | §5.1 | Execution-command sequence (kind 5) |
 
 **Effective latencies (realistic, every input mode).** With `md_c` the
 `md_cmd` draw for the component's entity:
@@ -663,7 +682,7 @@ resolution of every rule (12 XT2).
 
 **Distributions:** `constant`, `uniform`, `empirical` (quantile table, inverse
 CDF with linear interpolation), `lognormal` (pure-Rust math, 10 D-2); samples
-are integer ms (10 R16).
+are integer ms (10 R16, RNG-6).
 
 **Calibration sets.** `execution.latency.calibrationId` and
 `clock.marketData.calibrationId` name committed files (§7.4) that the producer
@@ -678,7 +697,7 @@ defaults); provenance records the ids. Until M10 the default set is
 | `fillReport` | 58 ms | Assumed equal to `ack` |
 | `mined`, `confirmed`, `failed` | 2 s, 10 s, 2 s | Placeholders; MATCHED→MINED was never measured (research/early-audits.md:40) |
 | `chainSplit`, `chainMerge` | 4 s | Placeholder near TS live waits (`src/trading/execution/LiveExecution.ts:614-705`) |
-| `md` | Empirical, measured at the start of M3 | Worker-2 V4 packages, `receivedAtMs − exchange ts` of `book`/`price_change` frames (12 §4.5); worker-2 stands in for the live host until M10 |
+| `md` | Empirical, measured at the start of M3b | Worker-2 V4 packages, `receivedAtMs − exchange ts` of `book`/`price_change` frames (12 §4.5); worker-2 stands in for the live host until M10 |
 
 **RNG streams.** Seeds, stream derivation, draws and mappings are 10 §6.1
 (RNG-2 to RNG-6); this section owns the tags and entities above. A draw is a
@@ -724,16 +743,22 @@ same entities.
 ### 6.12 Self-trade
 
 Polymarket does not document self-trade prevention (research/early-audits.md:18;
-11 §11). Default: own resting orders are never counterparties to own takers
-(the walk skips them; a `self_cross` counter is reported), and post-only checks
-treat own opposite resting orders as crossing. See open question 1.
+11 §11). Per D54 the OM rejects any placement that could match a
+non-terminal own order, directly or by complementary matching (12 §7.4,
+`SelfCross`, TC-C14), in realistic backtests, paper and live; no self-trade
+probe is run. Every order at the exchange keeps a non-terminal record until
+its terminal event is delivered, so an own taker never meets an own resting
+order. The simulator asserts this in debug builds, and a property test checks
+it on fuzzed streams (60).
 
 ### 6.13 Decontaminated inputs (D24)
 
 Replays of markets we traded use inputs from which our own resting sizes and our
-print amounts were removed (journal join and transform: 51, 15). The simulator
-then inserts simulated own orders as usual; provenance records
-`decontaminated = true`.
+print amounts were removed and whose levels consumed by our real taker orders
+were restored as `own_restored` (journal join: 51 §9; normative transform: 15
+§6). The simulator then inserts simulated own orders as usual, and consuming
+`own_restored` quantity ends that restoration instead of adding depletion
+(§6.4); provenance records `decontaminated = true`.
 
 ### 6.14 Exchange behaviors to verify (day-0 probes, 51)
 
@@ -772,16 +797,16 @@ principles, never switched at runtime).
 | RF05 | Exact-time scheduler, separate seeded latencies, `md` adjustment | axis `latency` | `exact` (§6.8) | `compat` (§5.1) | Fills that moved in time; cancel/fill races; sensitivity at component latencies ×0.5 and ×2 and at `md` ×0.5 and ×2 |
 | RF06 | Taker delay | axis `takerDelay` | `on` (§6.3) | `off` | Taker fill rate; price move during the delay; killed FOK/FAK share; `NotCancelableDuringDelay` count |
 | RF07 | Liquidity depletion | axis `depletion` | `persistent_deficit` | `none`, `reset_on_update` | Taker VWAP change; same-tick double-consumption count; both policies |
-| RF08 | Sized maker fills, no free remainder fill | axis `maker` | `trade_through` (M3 intermediate; RF09 makes `queue` the final value) | `worst_queue` | Maker fill count and size; remainder fills removed |
+| RF08 | Sized maker fills, no free remainder fill | axis `maker` | `trade_through` (M3b intermediate; RF09 makes `queue` the final value) | `worst_queue` | Maker fill count and size; remainder fills removed |
 | RF09 | Queue-position maker model | axis `maker` | `queue` (§6.5) | `trade_through`, `worst_queue` | Fills vs RF08; α ∈ {0, 0.5, 1}; on V4, prints vs masked prints |
 | RF10 | Own resting orders in the strategy-visible book | rule | §6.11 | parent build | Decisions changed; markets affected |
 | RF11 | Settlement reports with latencies and statuses, `Failed` reversal, sellable gate | axis `reports` | `settlement` (§6.7) | `compat` (with `sellGate: Matched`) | Sells and merges delayed or rejected by the gate; ack/fill race effects |
 | RF12 | Async split/merge | rule | §6.10 (D25) | parent build | Timing and capital effects for split/merge strategies |
 | RF13 | D23 window rule, plugin warm-up, window-end cancel, market close | rule | 12 §5.4, §6.6 | parent build | Orders canceled at the end by cause; fills after `end`; warm-up effects |
-| RF14 | Core rules: first-principles OM order and risk, dedupe position, SELL inventory, loss-stop exits, uniform cancel resolution, deferred cancels, explicit cancel and merge failures | rule | 12 §7, §8 | parent build | Rejects by reason; naked sells removed; risk decisions changed |
+| RF14 | Core rules: first-principles OM order and risk, dedupe position, SELL inventory, loss-stop exits, uniform cancel resolution, deferred cancels, explicit cancel and merge failures, self-cross block | rule | 12 §7, §8 | parent build | Rejects by reason (incl. `SelfCross`); naked sells removed; risk decisions changed |
 | RF15 | Receive clock: synthesized receipt time on Telonex, feed clock = `now`, `tick.ts = now`, `now`-stamped decisions, skew estimate | rule | 12 §4 | parent build | Feed age at decision (Binance, Chainlink) vs ts-compat; decisions changed; gate-edge effects; sensitivity at `md` ×0.5 and ×2 |
 
-01 M3 also lists isolated per-market capital (D31). Backtest capital is already
+01 M3b also lists isolated per-market capital (D31). Backtest capital is already
 an isolated per-market allowance in both profiles (12 §9.4), so it needs no
 fix; the live `min()` cap applies only in paper and live.
 
@@ -789,32 +814,38 @@ Every TC rule of §5.2 is covered by exactly the fix in its "Fix" column.
 
 ### 7.2 A/B procedure and reports
 
-- **Development order (M3).** The realistic profile is assembled one fix per
-  commit. M3 starts with the realistic profile equal to the ts-compat
+- **Development order (M3b).** The realistic profile is assembled one fix per
+  commit. M3b starts with the realistic profile equal to the ts-compat
   composition; that and every intermediate state are transient development
-  states, never supported or tested after M3, and no runtime switch is left
+  states, never supported or tested after M3b, and no runtime switch is left
   behind for a rule fix. Recommended order: RF15, RF14, RF13 (so later fixes
   land on the final core), RF02, RF03, RF04, RF12, RF10, then the axes RF05,
   RF01, RF06, RF07, RF08, RF09, RF11. A rule fix MAY land together with fixes
   it cannot be separated from; the report then covers the group and lists each
   fix's attribution counters.
+- **Rules precondition.** A/B reports run only after the per-market rules
+  snapshots are proven (11 RC-G2 step 7; the D37 capture files are imported in
+  step 2), and RF01 only after the fee study (RC-G2 step 8), or with the
+  unverifiable fee rows flagged `unverified` (11 FS1).
 - **Arms.** An axis fix compares the full build with that axis at its
   alternative value against the realistic value, on the same build. A rule fix
   compares the realistic profile of the parent commit's build against the fix
   commit's build. Both arms use the same markets, run seed and per-market seeds.
-- **Leave-one-out.** At the end of M3, and whenever a model changes later, each
-  axis is reported as leave-one-out from full realistic (every alternative
-  value), because the axes interact (RF05–RF11).
-- **Profile pair.** At the end of M3, ts-compat vs full realistic on the M3 set:
-  the overall per-market delta, attributed with the attribution counters.
+- **Leave-one-out.** At the end of M3b, and whenever a model changes later,
+  each axis is reported as leave-one-out from full realistic (every
+  alternative value), because the axes interact (RF05–RF11).
+- **Profile pair.** At the end of M3b, ts-compat vs full realistic on the M3
+  set: the overall per-market delta, attributed with the attribution counters.
 - **Attribution counters.** Each realistic rule and model increments counters
   named by its fix (for example `rf02.reject.invalid_tick`,
   `rf13.cancel.window_end`, `rf14.sell.blocked`, `rf15.feed_age_ms` histogram)
   in `diagnostics` (21 §10). They are never part of the deterministic output.
-- **Markets.** The M3 set of ≥200 markets (selection per 60 §11 AB-1); RF09
-  prints mode and the masked-prints comparison use the V4 sets of M7.
-- **Execution.** Arms run as separate `run`/`serve` invocations with 8 local
-  workers. Once M4 lands, axis arms MAY run as one candidate group of
+- **Markets.** The M3 set of ≥200 markets (selection per 60 §11 AB-1; BTC 15m
+  until the Telonex renewal, D38); RF09 prints mode and the masked-prints
+  comparison use the V4 sets of M7.
+- **Execution.** Arms run on worker-1 (D36) as separate `run`/`serve`
+  invocations; the worker count only changes speed, never results (16 §5.4).
+  Once M4 lands, axis arms MAY run as one candidate group of
   `execution` variants with `--allow-model-variants` (21 §8, 41 §3.3); results
   MUST be identical either way (41 §10). Rule-fix arms always run as separate
   invocations of two binaries.
@@ -844,7 +875,7 @@ npm run native:ab -- --profile-pair --set m3
   with the largest |ΔPnL| with parity-trace diff excerpts (22); a determinism
   re-run check; and a short statement of what changed and why that is expected
   (pre-registered per 60 AB-2).
-- A fix lands only together with its report (01 M3). The ts-compat parity matrix
+- A fix lands only together with its report (01 M3b). The ts-compat parity matrix
   MUST still pass after every fix (60 AB-4).
 
 ### 7.3 `ModelConfig.execution` v1
@@ -943,7 +974,7 @@ from committed files. The file layout and the resolution order are owned by
 - **Timing.** The ts-compat default and the resolver land in M1, because
   fixture jobs and the M2 harness need them. `uncalibrated-2026-10` (with the
   `md` measured from worker-2 V4 packages, 12 §4.5) and the realistic default
-  land at the start of M3.
+  land at the start of M3b.
 
 ## 8. Paper adapter
 
@@ -951,8 +982,11 @@ from committed files. The file layout and the resolution order are owned by
   models and `ModelConfig` as a realistic backtest. The effective latencies use
   the live host's `md` distribution (`clock.marketData`, 12 §4.5), exactly as a
   V4 backtest uses worker-2's: paper is receive-clocked, so the order path still
-  needs `L_place = md + place` (§6.8).
+  needs `L_place = md + place` (§6.8). Until the live host is chosen (01
+  §12.1 item 3) and measured, worker-2's distribution stands in.
 - Timers per §2.3: synthesized before inputs, OS timer when idle, all journaled.
+- Window end and market close per §6.6: the OM's `CancelMarket` travels with
+  the cancel latency; nothing is canceled instantly at `end`.
 - Sends nothing, never sends heartbeats (D30), loads no credentials (R10).
 - `DecisionsOnly`: accept and `OrderOpen` at once, never fill or expire; a
   diagnostic mode, flagged in results.
@@ -967,9 +1001,14 @@ section fixes what the core relies on.
 
 ### 9.1 Submission
 
+- Two builds from one source (D44; 31 §5.5): the sending half of the adapter (request building, signing, the
+  I/O worker) is compiled only into the `real-orders` build
+  (`pmb-sdk/real-orders`), which only the user builds and launches (R10).
+  `standard` builds (fleet, agent, paper, backtest) contain the normalizer
+  but physically cannot send an order.
 - `submit` builds the request (V2 order fields; amounts per 11 §7), checks the
-  real-order gate (compile-time feature plus CLI flag, R10), hands it to the
-  I/O worker through a lock-free queue, and returns. It emits no events.
+  runtime real-order flag (20 §7), hands it to the I/O worker through a
+  lock-free queue, and returns. It emits no events.
 - Cancels arrive already resolved and deferred by the OM (12 §7.3), with their
   `CancelSeq` and cause.
 - Batches never exceed 15 orders (12 §7.3).
@@ -1047,8 +1086,9 @@ request is a determinism failure (01 M9, M10).
   at release); queue model scenarios (print before and after its decrease,
   α = 0 and 1, level vanishes, crossing liquidity); depletion conservation
   (property); collateral BUY vectors and fill-amount vectors (§6.4.1); window
-  end vs market close ordering and causes; report races (fill after ack, fill
-  after `CancelAcked`); `Failed` reversal keeps the PnL identity; RNG stream
+  end vs market close ordering and causes; self-cross block, direct and
+  complementary, plus the never-meets property (§6.12); report races (fill
+  after ack, fill after `CancelAcked`); `Failed` reversal keeps the PnL identity; RNG stream
   isolation (property); `md` self-test (`md` +X ms → arrival +X ms, reports −X
   ms, floored at 0); neutrality (simulator vs itself) and sensitivity (+X ms
   injected → +X ms measured) self-tests (51); masked-prints evaluation on V4
@@ -1062,27 +1102,12 @@ request is a determinism failure (01 M9, M10).
 
 ## 12. Changes required in other documents
 
-For the lead's consistency pass; this document does not edit them.
-
-| Document | Change |
-|---|---|
-| 21 §8 (C4), 41 §3.3 | C4 stays "only `execution` may differ"; its reasons change: no `fixes` ladder exists, and `execution` holds only model choices (§7.3). Plugin sharing no longer depends on `fixes.windowEndRule` (the window rule is core, per profile). 41's "variant-safe keys listed in 13" becomes "every key under `execution`" |
-| 21 §6, §6.3 | `execution` contents per §7.3 (`models` axes, `cancelAck`, no `fixes`, no `mdDelayMs`); the `execution.fixes` row of the §6.3 table becomes `execution.models` = the profile's defaults; add the `clock` sub-object (owner 12 §4.5) |
-| 21 Open question 1 | "A realistic run with every fix off equals ts-compat" no longer holds; cross-profile comparisons are the profile pair of §7.2 (separate runs) |
-| 20 §5.6 (flag table) | `--native-profile` sets the profile's default `execution`; `--latency-delay-ms`/`--latency-jitter-ms` are accepted iff the resolved `models.latency = compat` |
-| 01 M3 | Fix list RF01–RF15; rule fixes reported as commit pairs, axes as arms, leave-one-out and profile pair at the end of M3 (§7.2) |
-| 60 §11 AB-1, §15.2 | Same engine commit on both arms for axis fixes; parent and fix commit for rule fixes; add `npm run native:ab` next to `native:gate-report`; no "realistic all-off equals ts-compat" test; "cumulative ladder" becomes the procedure of §7.2 |
-| 50 §1 | Calibration artifacts live at `native/contract/calibrations/latency/<id>.json` (21 §6.3), referenced by `execution.latency.calibrationId` and `clock.marketData.calibrationId` |
-| 50 §8.1 | Paper uses the live host's `md` in effective latencies; timers per §2.3 |
-| 50 §5.3, §13.5, §18 | Timer synthesis before inputs (TS1); timer-lateness histogram in the latency report |
-| 50 §8.2.4, §8.2.5 | Aggregate legs into core fills per §4.5 (10 I3) with per-leg fee sums; cancel causes `WindowEnd` vs `MarketClosed` (§6.6) |
-| 10 §6.1 RNG-3, RNG-4 | Tags of §6.8 (`cancelAck`, `md_cmd`, `md_row`, `settlement_failure`, `chain_failure`); entity kind 6 = input row index |
-| 10 R5, 11 FC4, TK4, §14 | R5/R6 realistic amounts and TK4 point to §6.4.1; FC4 to §4.5 F-U4; registry entries for fill amounts and fee granularity |
-| 51 §6.1, §13 | Day-0 items 8–10 of §6.14; the live host's `md` distribution as a fitted product; F-U4 dust in the validity envelope |
+None open: every item was applied in the gate-1 consolidation.
 
 ## Open questions
 
-1. **Self-trade probe.** Polymarket does not document self-trade prevention, and
-   the default (§6.12: own orders are never counterparties) is a guess. May the
-   day-0 probe budget (D34, ~$5) include one deliberate $1 self-cross probe to
-   settle it?
+None. The self-trade question is settled by the self-cross block (D54;
+§6.12, 12 §7.4).
+
+Gate-4 dependency: the live host (01 §12.1 item 3) fixes the `md`
+distribution paper and realistic telonex-delta runs use (§8, §6.8).
