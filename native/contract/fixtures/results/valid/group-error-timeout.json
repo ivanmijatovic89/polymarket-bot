@@ -1,0 +1,44 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "timeout",
+    "cause": "deadline",
+    "message": "budget.wallMs 120000 expired after 250000 events"
+  },
+  "echo": {
+    "engineVersion": "0.1.0",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
+    "strategyId": "engine-exerciser.v2.rs",
+    "jobSchemaVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "rulesTableVersion": "rules-table-v1",
+    "snapshotParserVersion": null
+  },
+  "market": {
+    "slug": "btc-updown-15m-1780272000",
+    "conditionId": "0x8f3c1a2b",
+    "rulesSource": "fallback"
+  },
+  "candidates": [],
+  "resultDigest": "ab6029101b561de5c9db8754c03223c6e92a4ad3fb8737b68d503729b01f5265",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 1
+    },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

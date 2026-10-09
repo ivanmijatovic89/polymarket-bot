@@ -1,0 +1,132 @@
+{
+  "anomalies": {
+    "crossedBookTicks": 17,
+    "exchangeClockBackwards": 0,
+    "inWindowRows": 2942,
+    "localClockBackwards": 0,
+    "lockedTicks": 11,
+    "rows": 3696,
+    "strictlyCrossedTicks": 6
+  },
+  "catalogFeedChecks": {
+    "binance": "unverified",
+    "chainlink": "not_required"
+  },
+  "chainlinkCoverage": false,
+  "conditionId": "0x8d91a5536e6b7ee56a5436fcd005dd1d571db51079070d4583c26c0542246ce3",
+  "feeEra": "F1",
+  "feeds": {
+    "binance": {
+      "pair": "BTCUSDT",
+      "seedAggTradeId": 3858999935,
+      "tailMs": 2000
+    },
+    "chainlink": null,
+    "lookbackMs": 300000
+  },
+  "files": [
+    {
+      "bytes": 54194,
+      "day": null,
+      "path": "telonex-delta/btc-updown-5m-1770870900.parquet",
+      "role": "telonex_delta",
+      "rows": 3696,
+      "sha256": "bce0c1adcc003fea91de7762844da738f57b1464f9028402b99eccb82be8ca27",
+      "source": {
+        "bytes": 54194,
+        "path": "data/events/telonex/delta-typed/btc/5m/btc-updown-5m-1770870900.parquet",
+        "rows": 3696,
+        "sha256": "bce0c1adcc003fea91de7762844da738f57b1464f9028402b99eccb82be8ca27"
+      },
+      "trim": null
+    },
+    {
+      "bytes": 94486,
+      "day": "2026-02-12",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+      "role": "binance_agg_trades",
+      "rows": 11236,
+      "sha256": "9053c39f437cb79627f8b5028080aae359f4cd6894cc824b4542fed78f206b7e",
+      "source": {
+        "bytes": 14249716,
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+        "rows": 1859454,
+        "sha256": "42e196d802213d59fda87999639e8652e8bdac8d715219bbdd423d9421882c8f"
+      },
+      "trim": {
+        "annotationDifferences": [],
+        "holdsSeed": true,
+        "membershipRows": 11235
+      }
+    }
+  ],
+  "header": {
+    "contentPin": "ad2f11b81ab6ff003bb5febe280c00120255a944",
+    "generator": "scripts/native/fixtures-build.ts",
+    "generatorSha256": "467c0fadbdde5a4221951a51f9ab639e738aa50ae7d524475c142614b792e11a"
+  },
+  "manifestVersion": 2,
+  "outcome": "UP",
+  "priceToBeat": {
+    "status": "absent_pre_series_epoch",
+    "syncedAtMs": null,
+    "value": null
+  },
+  "proof": {
+    "feedSeries": [
+      {
+        "feed": "binance_agg_trades",
+        "length": 11236,
+        "sha256": "86109da211240f1f4463832aff9c96bdb46a322aeb707e266a3025fa9c4644cf"
+      }
+    ],
+    "oracleKnobs": {
+      "BACKTEST_BINANCE_FEED_LATENCY_MS": "110",
+      "BACKTEST_BINANCE_FEED_LOOKBACK_MS": "300000",
+      "BACKTEST_LATENCY_DELAY": "0",
+      "BACKTEST_LATENCY_JITTER": "0",
+      "BACKTEST_PRICE_TO_BEAT_LATENCY_MS": "2700",
+      "BACKTEST_RTDS_CHAINLINK_LATENCY_MS": "320",
+      "BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS": "300000",
+      "BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS": "300000",
+      "MAX_EVENTS_PER_DRAIN": "4200",
+      "WEB_UI_ORDERBOOK_LEVELS": "10"
+    },
+    "runs": [
+      {
+        "outputSha256": "e574d02c5bb763306b6554adacafcd3581cbb183fe4f6762b1b9da91bf56053a",
+        "params": {
+          "tickOnUpdate": false
+        },
+        "strategyId": "fixtures-feed-probe.binance-ptb",
+        "syntheticTicks": 0,
+        "ticks": 2942,
+        "traceLines": 5884,
+        "traceSha256": "b860cc483539ae40fb42c18b24dab902358937bd4f62614760b35d8e7948ddc5"
+      },
+      {
+        "outputSha256": "5d295d0597fac54af48e011abd3e28300a59af26882d6e5528783e42deb246f8",
+        "params": {
+          "tickOnUpdate": true
+        },
+        "strategyId": "fixtures-feed-probe.binance-ptb",
+        "syntheticTicks": 3967,
+        "ticks": 6909,
+        "traceLines": 13818,
+        "traceSha256": "3a663a00822f5a48b59691f6907c0555fbe458ccf4442683bc4fd081627ab759"
+      }
+    ]
+  },
+  "roles": ["5m", "fee-era:F1"],
+  "selection": "BTC 5m (local 5m telonex files exist, D38): the smallest local 5m file with at least 1,000 in-window rows; before the 5m price-to-beat epoch (absent_pre_series_epoch) and before Chainlink coverage.",
+  "slug": "btc-updown-5m-1770870900",
+  "timeframe": "5m",
+  "tokenIds": {
+    "DOWN": "108909577816286299018022137309075419776467539973279137537373424407909413810771",
+    "UP": "69777535833084290158383529445960069214422493270389746524315962345065414831982"
+  },
+  "window": {
+    "endMs": 1770871200000,
+    "startMs": 1770870900000
+  }
+}

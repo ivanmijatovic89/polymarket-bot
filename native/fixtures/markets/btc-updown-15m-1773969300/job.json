@@ -1,0 +1,114 @@
+{
+  "budget": {
+    "threads": 1,
+    "wallMs": 120000
+  },
+  "jobSchemaVersion": 1,
+  "market": {
+    "conditionId": "0x52f108716e0bb9d8cfa329235a293cf51bd42853a57c857a49ba944d041a7200",
+    "feedAvailability": {
+      "priceToBeat": null
+    },
+    "feedFiles": [],
+    "input": {
+      "bytes": 173756,
+      "format": {
+        "name": "telonex-delta-typed",
+        "version": 1
+      },
+      "path": "telonex-delta/btc-updown-15m-1773969300.parquet",
+      "sha256": "2f715e637f639e72dd642cf27c8300be072da1f62218f56fa18247b2e1cb4497"
+    },
+    "outcome": "DOWN",
+    "ownActivity": null,
+    "recorderV4": null,
+    "rules": {
+      "captured": {},
+      "disagreements": 0,
+      "snapshotParserVersion": null
+    },
+    "slug": "btc-updown-15m-1773969300",
+    "tokenIds": {
+      "DOWN": "45110149248594058422981178646553755739554643170960388777683519449527075405313",
+      "UP": "96824730952619885369684940515638199749929816590729570971177503983544327566672"
+    },
+    "window": {
+      "endMs": 1773970200000,
+      "startMs": 1773969300000
+    }
+  },
+  "outputs": {
+    "ledgerPath": null,
+    "traceLevel": "decisions",
+    "tracePath": null
+  },
+  "run": {
+    "candidates": [
+      {
+        "execution": null,
+        "index": 0,
+        "key": "fixture",
+        "params": {}
+      }
+    ],
+    "inputMode": "telonex-delta",
+    "modelConfig": {
+      "capital": {
+        "startingCapitalUsdc": "500"
+      },
+      "execution": {
+        "compatLatency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "models": {
+          "depletion": "none",
+          "fee": "flat_700bps_4dp",
+          "latency": "compat",
+          "maker": "worst_queue",
+          "reports": "compat",
+          "takerDelay": "off"
+        }
+      },
+      "feeds": {
+        "binance": {
+          "latency": {
+            "kind": "constant",
+            "ms": 110
+          }
+        },
+        "calibrationId": "feeds-2026-07-21",
+        "chainlink": {
+          "latency": {
+            "kind": "constant",
+            "ms": 320
+          },
+          "maxGapMs": 300000
+        },
+        "priceToBeat": {
+          "latency": {
+            "kind": "constant",
+            "ms": 2700
+          }
+        }
+      },
+      "modelConfigVersion": 1,
+      "profile": "ts-compat",
+      "risk": {
+        "maxAbsPosition": "2000",
+        "maxLossStopUsdc": "500",
+        "maxOpenOrders": 100,
+        "maxOrderSize": "2000"
+      },
+      "rules": {
+        "missingSnapshot": "dated_fallback",
+        "rulesTableVersion": "rules-table-v1"
+      },
+      "runner": {
+        "maxEventsPerDrain": 4200
+      },
+      "seed": 0
+    },
+    "strategyId": "engine-exerciser.rs"
+  }
+}

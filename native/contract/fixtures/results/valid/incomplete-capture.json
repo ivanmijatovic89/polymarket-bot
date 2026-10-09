@@ -1,0 +1,64 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "ok",
+  "error": null,
+  "echo": {
+    "engineVersion": "0.1.0",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
+    "strategyId": "engine-exerciser.v2.rs",
+    "jobSchemaVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "rulesTableVersion": "rules-table-v1",
+    "snapshotParserVersion": null
+  },
+  "market": {
+    "slug": "btc-updown-5m-1780272300",
+    "conditionId": null,
+    "rulesSource": "fallback"
+  },
+  "candidates": [
+    {
+      "key": "cand-a",
+      "index": 0,
+      "status": "ok",
+      "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "output": {
+        "slug": "btc-updown-5m-1780272300",
+        "marketStats": null,
+        "eventsProcessed": 0,
+        "eventsByType": {},
+        "skipReason": "incomplete_capture",
+        "coverageReasons": [
+          "binance_trades: gap 2026-06-01T10:00:00Z..10:00:41Z (41 s)",
+          "chainlink_spot: not captured"
+        ]
+      }
+    }
+  ],
+  "resultDigest": "eb5bb429d737e75cfdc42497aa233bafbe53d689fdc7e9af84230e03b6d93172",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000210,
+    "wallMs": 210,
+    "busyMs": 205,
+    "cpuMs": 205,
+    "peakRssBytes": 41000000,
+    "thread": 3,
+    "cache": {
+      "hits": 2,
+      "misses": 0
+    },
+    "skewMs": null,
+    "inputPath": "tape",
+    "anomalies": {
+      "staleBookEvents": 0,
+      "inexact_decimal": 1,
+      "skippedRows": {
+        "unknown_asset": 2
+      }
+    },
+    "counters": []
+  }
+}

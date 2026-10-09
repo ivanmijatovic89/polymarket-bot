@@ -320,6 +320,13 @@ export default withMermaid(
         },
 
         {
+          text: 'Rust Engine',
+          items: [
+            { text: 'Overview (live-first)', link: '/rust-engine/overview' },
+          ],
+        },
+
+        {
           text: 'Contribution',
           items: [
             { text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' },

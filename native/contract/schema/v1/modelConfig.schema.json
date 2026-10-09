@@ -1,0 +1,515 @@
+{
+  "$defs": {
+    "CancelBeforeAck": {
+      "description": "`ModelConfig.execution.cancelBeforeAck` (13 §7.3; realistic, M3b).",
+      "enum": ["defer_until_ack", "immediate"],
+      "type": "string"
+    },
+    "CapitalConfig": {
+      "additionalProperties": false,
+      "description": "Per-market capital allowance (12 §9.4).",
+      "properties": {
+        "startingCapitalUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["startingCapitalUsdc"],
+      "type": "object"
+    },
+    "ChainlinkFeed": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "maxGapMs": {
+          "description": "0 disables the gap check; otherwise at least 1,000 (14 §9).",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["latency", "maxGapMs"],
+      "type": "object"
+    },
+    "ClockConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.clock` (12 §4.5). Realistic, M3b.",
+      "properties": {
+        "marketData": {
+          "$ref": "#/$defs/MarketDataClock"
+        }
+      },
+      "required": ["marketData"],
+      "type": "object"
+    },
+    "CompatLatency": {
+      "additionalProperties": false,
+      "description": "TS latency parameters: one delay for every placement and cancel, jitter\nonly when the delay is positive (13 §5.1 `NextRealTick`).",
+      "properties": {
+        "delayMs": {
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitterMs": {
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["delayMs", "jitterMs"],
+      "type": "object"
+    },
+    "DepletionModel": {
+      "description": "`ModelConfig.execution.models.depletion` (13 §7.3).",
+      "enum": ["persistent_deficit", "reset_on_update", "none"],
+      "type": "string"
+    },
+    "Distribution": {
+      "description": "A latency distribution (13 §7.3).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "constant",
+              "type": "string"
+            },
+            "ms": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["kind", "ms"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "hiMs": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "uniform",
+              "type": "string"
+            },
+            "loMs": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["kind", "loMs", "hiMs"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "101 non-decreasing quantiles q0..q100.",
+          "properties": {
+            "kind": {
+              "const": "empirical",
+              "type": "string"
+            },
+            "quantilesMs": {
+              "items": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 101,
+              "minItems": 101,
+              "type": "array"
+            }
+          },
+          "required": ["kind", "quantilesMs"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Parameters of ln(ms), decimal strings.",
+          "properties": {
+            "kind": {
+              "const": "lognormal",
+              "type": "string"
+            },
+            "mu": {
+              "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+              "type": "string"
+            },
+            "sigma": {
+              "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "mu", "sigma"],
+          "type": "object"
+        }
+      ]
+    },
+    "ExecutionConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.execution` v1 (13 §7.3).",
+      "properties": {
+        "cancelBeforeAck": {
+          "$ref": "#/$defs/CancelBeforeAck",
+          "description": "M3b."
+        },
+        "compatLatency": {
+          "$ref": "#/$defs/CompatLatency",
+          "description": "Used iff `models.latency = compat` (13 §5.1)."
+        },
+        "failureRates": {
+          "$ref": "#/$defs/FailureRates",
+          "description": "M3b."
+        },
+        "latency": {
+          "$ref": "#/$defs/LatencyCalibration",
+          "description": "Realistic latency components (13 §6.8). M3b."
+        },
+        "makerQueue": {
+          "$ref": "#/$defs/MakerQueueConfig",
+          "description": "M3b."
+        },
+        "models": {
+          "$ref": "#/$defs/ExecutionModels"
+        },
+        "sellGate": {
+          "$ref": "#/$defs/SellGate",
+          "description": "M3b."
+        }
+      },
+      "required": ["models", "compatLatency"],
+      "type": "object"
+    },
+    "ExecutionModels": {
+      "additionalProperties": false,
+      "description": "The six model axes (13 §7.1, §7.3).",
+      "properties": {
+        "depletion": {
+          "$ref": "#/$defs/DepletionModel"
+        },
+        "fee": {
+          "$ref": "#/$defs/FeeModel"
+        },
+        "latency": {
+          "$ref": "#/$defs/LatencyModel"
+        },
+        "maker": {
+          "$ref": "#/$defs/MakerModel"
+        },
+        "reports": {
+          "$ref": "#/$defs/ReportsModel"
+        },
+        "takerDelay": {
+          "$ref": "#/$defs/TakerDelayModel"
+        }
+      },
+      "required": ["latency", "fee", "takerDelay", "depletion", "maker", "reports"],
+      "type": "object"
+    },
+    "FailureRates": {
+      "additionalProperties": false,
+      "description": "Failure rates (13 §7.3), each a probability in [0, 1]. M3b.",
+      "properties": {
+        "chain": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "settlement": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["settlement", "chain"],
+      "type": "object"
+    },
+    "FeeModel": {
+      "description": "`ModelConfig.execution.models.fee` (13 §7.3).",
+      "enum": ["schedule", "flat_700bps_4dp"],
+      "type": "string"
+    },
+    "FeedLatency": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": ["latency"],
+      "type": "object"
+    },
+    "FeedsConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.feeds` (14 §9).",
+      "properties": {
+        "binance": {
+          "$ref": "#/$defs/FeedLatency"
+        },
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "chainlink": {
+          "$ref": "#/$defs/ChainlinkFeed"
+        },
+        "priceToBeat": {
+          "$ref": "#/$defs/FeedLatency"
+        }
+      },
+      "required": ["calibrationId", "binance", "chainlink", "priceToBeat"],
+      "type": "object"
+    },
+    "LatencyCalibration": {
+      "additionalProperties": false,
+      "description": "Realistic latency calibration (13 §6.8, §7.4). M3b.",
+      "properties": {
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "components": {
+          "$ref": "#/$defs/LatencyComponents"
+        }
+      },
+      "required": ["calibrationId", "components"],
+      "type": "object"
+    },
+    "LatencyComponents": {
+      "additionalProperties": false,
+      "description": "The realistic latency components (13 §7.3).",
+      "properties": {
+        "ack": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "cancel": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "cancelAck": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "chainMerge": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "chainSplit": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "confirmed": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "failed": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "fillReport": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "mined": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "place": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": [
+        "place",
+        "cancel",
+        "ack",
+        "cancelAck",
+        "fillReport",
+        "mined",
+        "confirmed",
+        "failed",
+        "chainSplit",
+        "chainMerge"
+      ],
+      "type": "object"
+    },
+    "LatencyModel": {
+      "description": "`ModelConfig.execution.models.latency` (13 §7.3).",
+      "enum": ["exact", "compat"],
+      "type": "string"
+    },
+    "MakerModel": {
+      "description": "`ModelConfig.execution.models.maker` (13 §7.3).",
+      "enum": ["queue", "trade_through", "worst_queue"],
+      "type": "string"
+    },
+    "MakerQueueConfig": {
+      "additionalProperties": false,
+      "description": "Maker queue parameters (13 §6.5, §7.3). M3b.",
+      "properties": {
+        "cancelAheadShare": {
+          "description": "A share in [0, 1].",
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "printMatchWindowMs": {
+          "description": "At most [`PRINT_MATCH_WINDOW_MAX_MS`].",
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prints": {
+          "$ref": "#/$defs/MakerQueuePrints"
+        }
+      },
+      "required": ["cancelAheadShare", "printMatchWindowMs", "prints"],
+      "type": "object"
+    },
+    "MakerQueuePrints": {
+      "description": "`ModelConfig.execution.makerQueue.prints` (13 §7.3; realistic, M3b).",
+      "enum": ["auto", "off"],
+      "type": "string"
+    },
+    "MarketDataClock": {
+      "additionalProperties": false,
+      "properties": {
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "delay": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": ["calibrationId", "delay"],
+      "type": "object"
+    },
+    "MissingSnapshot": {
+      "description": "`ModelConfig.rules.missingSnapshot` (11 §13.4; one value in v1).",
+      "enum": ["dated_fallback"],
+      "type": "string"
+    },
+    "Profile": {
+      "description": "Execution profile (21 §17, 13 §7.2).",
+      "enum": ["ts-compat", "realistic"],
+      "type": "string"
+    },
+    "ReportsModel": {
+      "description": "`ModelConfig.execution.models.reports` (13 §7.3).",
+      "enum": ["settlement", "compat"],
+      "type": "string"
+    },
+    "RiskConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.risk` (12 §8).",
+      "properties": {
+        "maxAbsPosition": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "maxLossStopUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "maxOpenOrders": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxOrderSize": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["maxOpenOrders", "maxOrderSize", "maxAbsPosition", "maxLossStopUsdc"],
+      "type": "object"
+    },
+    "RulesConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.rules` (11 §13.4).",
+      "properties": {
+        "missingSnapshot": {
+          "$ref": "#/$defs/MissingSnapshot"
+        },
+        "rulesTableVersion": {
+          "pattern": "^rules-table-v[1-9][0-9]{0,5}$",
+          "type": "string"
+        }
+      },
+      "required": ["rulesTableVersion", "missingSnapshot"],
+      "type": "object"
+    },
+    "RunnerConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.runner` (12 §6.3).",
+      "properties": {
+        "maxEventsPerDrain": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": ["maxEventsPerDrain"],
+      "type": "object"
+    },
+    "SellGate": {
+      "description": "`ModelConfig.execution.sellGate` (13 §7.3; realistic, M3b).",
+      "enum": ["Matched", "Mined", "Confirmed"],
+      "type": "string"
+    },
+    "TakerDelayModel": {
+      "description": "`ModelConfig.execution.models.takerDelay` (13 §7.3).",
+      "enum": ["on", "off"],
+      "type": "string"
+    }
+  },
+  "$id": "https://pmb.invalid/contract/v1/modelConfig.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The complete, producer-resolved model settings of a run (21 §6).",
+  "properties": {
+    "capital": {
+      "$ref": "#/$defs/CapitalConfig"
+    },
+    "clock": {
+      "$ref": "#/$defs/ClockConfig",
+      "description": "Market-data clock (12 §4.5). Realistic only; absent in ts-compat\nuntil M3b (D57)."
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionConfig"
+    },
+    "feeds": {
+      "$ref": "#/$defs/FeedsConfig"
+    },
+    "modelConfigVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "risk": {
+      "$ref": "#/$defs/RiskConfig"
+    },
+    "rules": {
+      "$ref": "#/$defs/RulesConfig"
+    },
+    "runner": {
+      "$ref": "#/$defs/RunnerConfig"
+    },
+    "seed": {
+      "description": "Run seed in `[0, 2^53 - 1]` (10 §6.1 RNG-1).",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "modelConfigVersion",
+    "profile",
+    "seed",
+    "capital",
+    "execution",
+    "feeds",
+    "runner",
+    "risk",
+    "rules"
+  ],
+  "title": "ModelConfig",
+  "type": "object"
+}

@@ -1,0 +1,935 @@
+{
+  "$defs": {
+    "AnomalyValue": {
+      "anyOf": [
+        {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "additionalProperties": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "CacheStats": {
+      "additionalProperties": false,
+      "properties": {
+        "hits": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "misses": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["hits", "misses"],
+      "type": "object"
+    },
+    "CandidateCounters": {
+      "additionalProperties": false,
+      "description": "Capital-aware counters per candidate (21 §10).",
+      "properties": {
+        "buyNotionalUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "ordersCanceled": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ordersPlaced": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ordersRejected": {
+          "additionalProperties": false,
+          "description": "Keyed by reject reason code (the text before `(`; a closed\nvocabulary, 21 §17, 10 §10.2).",
+          "properties": {
+            "amount_precision": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "batch_too_large": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_expireAtMs_too_soon": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_lead_too_short": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_requires_expireAtMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_capital": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_exchange_balance": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_inventory": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_price": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_size": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_tick": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kill_switch": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "market_closed": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "meta_too_large": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "missing_assetId": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "not_found_after_ambiguous": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "notional_below_minimum": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "post_only_requires_gtc_or_gtd": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "post_only_would_cross": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "price_out_of_bounds": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "rate_limited": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_loss_stop": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_abs_position": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_open_orders": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_order_size": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "self_cross": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "size_below_minimum": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "size_precision": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "strategy_halted": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "trading_restricted": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unmapped": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "peakReservedUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "sellNotionalUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "strategyTicksSkipped": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "ordersPlaced",
+        "ordersRejected",
+        "ordersCanceled",
+        "buyNotionalUsdc",
+        "sellNotionalUsdc",
+        "peakReservedUsdc",
+        "strategyTicksSkipped"
+      ],
+      "type": "object"
+    },
+    "CandidateResult": {
+      "additionalProperties": false,
+      "description": "One candidate's result: `output` iff `status = ok`, `error` iff\n`status = error` (21 §10; in the schema and in\n[`CandidateResult::validate`]).",
+      "else": {
+        "properties": {
+          "error": true,
+          "output": false
+        },
+        "required": ["error"]
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        }
+      },
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/ErrorInfo"
+        },
+        "index": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "key": {
+          "pattern": "^[A-Za-z0-9._-]{1,128}$",
+          "type": "string"
+        },
+        "modelConfigSha256": {
+          "description": "Hash of this candidate's effective ModelConfig (21 §1.1).",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/$defs/EngineMarketOutput"
+        },
+        "status": {
+          "$ref": "#/$defs/ResultStatus"
+        }
+      },
+      "required": ["key", "index", "status", "modelConfigSha256"],
+      "then": {
+        "properties": {
+          "error": false,
+          "output": true
+        },
+        "required": ["output"]
+      },
+      "type": "object"
+    },
+    "Diagnostics": {
+      "additionalProperties": false,
+      "description": "Machine-dependent metrics; never compared, never persisted (21 §10).",
+      "properties": {
+        "anomalies": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AnomalyValue"
+          },
+          "description": "Data-anomaly, rules, engine and attribution counters under their\nowners' names (15 §8, 10, 11, 12, 13 §7.2); zero counters may be\nomitted. Values are counts or count-by-reason maps.",
+          "type": "object"
+        },
+        "busyMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cache": {
+          "$ref": "#/$defs/CacheStats"
+        },
+        "counters": {
+          "items": {
+            "$ref": "#/$defs/CandidateCounters"
+          },
+          "type": "array"
+        },
+        "cpuMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "finishedAtMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "inputPath": {
+          "$ref": "#/$defs/InputPath"
+        },
+        "peakRssBytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skewMs": {
+          "description": "Final exchange-time skew (12 §4.4 XT4); null without market events.",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": ["integer", "null"]
+        },
+        "startedAtMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "thread": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "wallMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startedAtMs",
+        "finishedAtMs",
+        "wallMs",
+        "busyMs",
+        "cpuMs",
+        "peakRssBytes",
+        "thread",
+        "cache",
+        "skewMs",
+        "inputPath",
+        "anomalies",
+        "counters"
+      ],
+      "type": "object"
+    },
+    "Echo": {
+      "additionalProperties": false,
+      "description": "Echo of the request for the shim's assertions (21 §12).",
+      "properties": {
+        "engineCommit": {
+          "description": "40-hex source commit (20 §3).",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "engineVersion": {
+          "description": "Engine crate semver (20 §3).",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "jobSchemaVersion": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "modelConfigSha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "rulesTableVersion": {
+          "description": "Copied from `modelConfig.rules` (21 §10).",
+          "pattern": "^rules-table-v[1-9][0-9]{0,5}$",
+          "type": "string"
+        },
+        "seed": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "snapshotParserVersion": {
+          "description": "Copied from `market.rules` (21 §10).",
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "strategyId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "engineVersion",
+        "engineCommit",
+        "strategyId",
+        "jobSchemaVersion",
+        "profile",
+        "seed",
+        "modelConfigSha256",
+        "rulesTableVersion",
+        "snapshotParserVersion"
+      ],
+      "type": "object"
+    },
+    "EngineMarketOutput": {
+      "additionalProperties": false,
+      "description": "`RunSingleMarketOutput` minus `idx` and `durationMs` (21 §11).",
+      "properties": {
+        "coverageReasons": {
+          "description": "1..32 non-empty strings of at most 512 characters (21 §13).",
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "eventsByType": {
+          "$ref": "#/$defs/EventsByType"
+        },
+        "eventsProcessed": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "marketStats": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineMarketStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null for the null-stats rows of 21 §13."
+        },
+        "skipReason": {
+          "$ref": "#/$defs/SkipReason"
+        },
+        "slug": {
+          "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
+          "type": "string"
+        }
+      },
+      "required": ["slug", "marketStats", "eventsProcessed", "eventsByType"],
+      "type": "object"
+    },
+    "EngineMarketStats": {
+      "additionalProperties": false,
+      "description": "`MarketStats` without `execution` and `recorderV4Capture` (21 §11).",
+      "properties": {
+        "avgEntryPriceDown": {
+          "decimalScale": 4,
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "type": ["number", "null"]
+        },
+        "avgEntryPriceUp": {
+          "decimalScale": 4,
+          "description": "BUY VWAP; null iff that outcome has no BUY fill (21 §11).",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "type": ["number", "null"]
+        },
+        "cost": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 10000000000,
+          "exclusiveMinimum": -10000000000,
+          "type": "number"
+        },
+        "downShares": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 1000000000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "feesPaid": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 10000000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "finalOutcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "intentMeta": {
+          "description": "Opaque strategy meta objects (21 §16).",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "marketId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mergableShares": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 1000000000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "pnl": {
+          "decimalScale": 2,
+          "description": "|x| < 1e10 (21 §11).",
+          "exclusiveMaximum": 10000000000,
+          "exclusiveMinimum": -10000000000,
+          "type": "number"
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketStatsRules"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Object in realistic, null in ts-compat (11 §13.8). Absent only on\nTS-engine rows, which are not engine output."
+        },
+        "skipReason": {
+          "$ref": "#/$defs/StatsSkipReason"
+        },
+        "slug": {
+          "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
+          "type": "string"
+        },
+        "splitCost": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 10000000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "tradeAsMaker": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tradeAsTaker": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tradeCount": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "upShares": {
+          "decimalScale": 2,
+          "exclusiveMaximum": 1000000000000,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "marketId",
+        "slug",
+        "finalOutcome",
+        "pnl",
+        "tradeCount",
+        "tradeAsMaker",
+        "tradeAsTaker",
+        "feesPaid",
+        "avgEntryPriceUp",
+        "avgEntryPriceDown",
+        "upShares",
+        "downShares",
+        "mergableShares",
+        "cost",
+        "splitCost",
+        "intentMeta",
+        "rules"
+      ],
+      "type": "object"
+    },
+    "ErrorClass": {
+      "description": "Error classes (20 §4; the only class list).",
+      "oneOf": [
+        {
+          "enum": [
+            "runtime",
+            "invalid_input",
+            "data_missing",
+            "data_defect",
+            "timeout",
+            "invalid_output",
+            "strategy_fault",
+            "engine_fault",
+            "killed"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "canceled",
+          "description": "`serve` only; shim-internal, never persisted.",
+          "type": "string"
+        }
+      ]
+    },
+    "ErrorDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "callback": {
+          "type": "string"
+        },
+        "fixCommand": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "seq": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tsMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ErrorInfo": {
+      "additionalProperties": false,
+      "description": "`ErrorInfo` (21 §10).",
+      "properties": {
+        "cause": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "type": "string"
+        },
+        "class": {
+          "$ref": "#/$defs/ErrorClass"
+        },
+        "detail": {
+          "$ref": "#/$defs/ErrorDetail"
+        },
+        "message": {
+          "description": "One line, at most 1,000 characters.",
+          "maxLength": 1000,
+          "pattern": "^[^\\n\\r]*$",
+          "type": "string"
+        }
+      },
+      "required": ["class", "cause", "message"],
+      "type": "object"
+    },
+    "EventsByType": {
+      "additionalProperties": false,
+      "description": "Counted ticks per cause (21 §15). Absent keys are zero. Values are\nintegers >= 0; the engine emits the canonical form, which omits unseen\ncauses as TS does ([`EventsByType::from_counts`]), and accepts an\nexplicit 0 on input as 21 §15 allows.",
+      "properties": {
+        "binance_agg_trade": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "book": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chainlink_round": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "price_change": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "InputPath": {
+      "description": "Input path taken by the reader (16 §7.5 NT-5), diagnostics only.",
+      "enum": ["tape", "v1"],
+      "type": "string"
+    },
+    "MarketEcho": {
+      "additionalProperties": false,
+      "properties": {
+        "conditionId": {
+          "description": "Market id of the first counted tick; null when there was none.",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": ["string", "null"]
+        },
+        "rulesSource": {
+          "$ref": "#/$defs/RulesSource"
+        },
+        "slug": {
+          "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
+          "type": "string"
+        }
+      },
+      "required": ["slug", "conditionId", "rulesSource"],
+      "type": "object"
+    },
+    "MarketStatsRules": {
+      "additionalProperties": false,
+      "description": "Per-market rules provenance (11 §13.8). Values of `feeEra`, `feeCurve`,\n`feeSource` and rule ids come from the run's rule table (11 VR2).",
+      "properties": {
+        "feeCurve": {
+          "type": "string"
+        },
+        "feeEra": {
+          "type": "string"
+        },
+        "feeSource": {
+          "type": "string"
+        },
+        "rulesTableVersion": {
+          "pattern": "^rules-table-v[1-9][0-9]{0,5}$",
+          "type": "string"
+        },
+        "snapshotParserVersion": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "source": {
+          "$ref": "#/$defs/RulesSource"
+        },
+        "unverifiedRules": {
+          "description": "Sorted, unique.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "rulesTableVersion",
+        "snapshotParserVersion",
+        "feeEra",
+        "feeCurve",
+        "feeSource",
+        "unverifiedRules"
+      ],
+      "type": "object"
+    },
+    "Outcome": {
+      "description": "Market outcome; also the `tokenIds` keys and `finalOutcome` (21 §17).",
+      "enum": ["UP", "DOWN"],
+      "type": "string"
+    },
+    "Profile": {
+      "description": "Execution profile (21 §17, 13 §7.2).",
+      "enum": ["ts-compat", "realistic"],
+      "type": "string"
+    },
+    "ResultStatus": {
+      "description": "Group-level and candidate-level result status (21 §10).",
+      "enum": ["ok", "error"],
+      "type": "string"
+    },
+    "RulesSource": {
+      "description": "Rules provenance of a market (11 RS4).",
+      "enum": ["snapshot", "partial", "fallback"],
+      "type": "string"
+    },
+    "SkipReason": {
+      "description": "Top-level `skipReason` of a market output (21 §13, §17).",
+      "enum": [
+        "no_slug",
+        "no_resolution",
+        "unresolved_outcome",
+        "no_activity",
+        "incomplete_capture"
+      ],
+      "type": "string"
+    },
+    "StatsSkipReason": {
+      "description": "`marketStats.skipReason` (MySQL enum, 21 §17).",
+      "enum": ["no_in_window_activity"],
+      "type": "string"
+    }
+  },
+  "$id": "https://pmb.invalid/contract/v1/engineResult.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The schema couples `status` with `error`, `echo`, `market` and the\ncandidates' statuses (21 §10, §14), so the TS shim's Ajv check rejects\nwhat [`EngineResult::validate`] rejects structurally; the class-dependent\necho rule and the digest stay Rust- and echo-check-side.",
+  "else": {
+    "properties": {
+      "candidates": {
+        "items": {
+          "properties": {
+            "status": {
+              "const": "error"
+            }
+          },
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "error": {
+        "type": "object"
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "status": {
+        "const": "ok"
+      }
+    }
+  },
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/CandidateResult"
+      },
+      "type": "array"
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/Diagnostics"
+    },
+    "echo": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Echo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null only in a group-level error of a class that can be raised\nbefore the job is read ([`ErrorClass::may_precede_job_read`]);\n`echo` and `market` are null together."
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present iff `status` is `error`."
+    },
+    "market": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MarketEcho"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null together with `echo` (see there)."
+    },
+    "outputSchemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "resultDigest": {
+      "description": "sha256 of the serialized deterministic section (every field except\n`diagnostics`).",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ResultStatus",
+      "description": "Group-level status."
+    }
+  },
+  "required": [
+    "outputSchemaVersion",
+    "status",
+    "error",
+    "echo",
+    "market",
+    "candidates",
+    "resultDigest",
+    "diagnostics"
+  ],
+  "then": {
+    "properties": {
+      "echo": {
+        "type": "object"
+      },
+      "error": {
+        "type": "null"
+      },
+      "market": {
+        "type": "object"
+      }
+    }
+  },
+  "title": "EngineResult",
+  "type": "object"
+}
