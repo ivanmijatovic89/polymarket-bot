@@ -1,0 +1,21 @@
+[package]
+name = "pmb-sdk-macros"
+description = "Proc macros of the strategy SDK: #[derive(Params)], #[derive(ParamEnum)] and the compile-time value macros price!, qty!, usdc!, cid!, meta! (30-strategy-sdk.md §6, §7.2, §9). Use them through pmb-sdk only."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+# Only the three standard proc-macro crates (pinned in the workspace). The
+# expansions name the runtime through `::pmb_sdk::__private`, so this crate
+# depends on no engine crate.
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+
+[lints]
+workspace = true

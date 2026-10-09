@@ -1,0 +1,15 @@
+{
+  "header": {
+    "contentPin": "d2d5b6dde5597f5c7fb17f90553d6280dd660577",
+    "generator": "native/crates/pmb-sdk/tests/fixtures/lagsnipe_params_gen.ts",
+    "generatorSha256": "e8567529a3004135ae7b476ac83def247dbbff8e30f296d9499f5f4adacaecb9"
+  },
+  "artifact": "304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8",
+  "normalized": {
+    "defaults": "{\"lookbackMs\":2000,\"moveUsd\":20,\"minEdge\":0.04,\"sigma\":0.0001,\"maxRemainingSec\":840,\"minRemainingSec\":10,\"stakeUsd\":30,\"fullEdge\":0.12,\"maxTrades\":3,\"cooldownMs\":5000,\"minPrice\":0.1,\"maxPrice\":0.9,\"slippage\":0.01,\"maxSpread\":0.04,\"depthFrac\":1,\"moveK\":0,\"moveMinUsd\":20,\"minVolSec\":60,\"sigmaAdapt\":0,\"sigmaMin\":0.00003,\"maxRv\":0,\"absEdge\":-1,\"absHi\":-1,\"absLoFrac\":1,\"fillEdge\":-1,\"depthSlip\":-1,\"revEdge\":-1,\"addEdge\":-1,\"trendMs\":15000,\"trendMin\":-1,\"imbCents\":0.03,\"minImb\":-1}",
+    "setCli": "{\"lookbackMs\":1500,\"moveUsd\":20,\"minEdge\":0.04,\"sigma\":0.0002,\"maxRemainingSec\":840,\"minRemainingSec\":10,\"stakeUsd\":30,\"stakeMinUsd\":12,\"fullEdge\":0.12,\"maxTrades\":5,\"cooldownMs\":5000,\"minPrice\":0.15,\"maxPrice\":0.9,\"slippage\":0.01,\"maxSpread\":0.04,\"depthFrac\":1,\"moveK\":0,\"moveMinUsd\":20,\"minVolSec\":60,\"sigmaAdapt\":0,\"sigmaMin\":0.00003,\"maxRv\":0,\"absEdge\":-0.5,\"absHi\":-1,\"absLoFrac\":1,\"fillEdge\":-1,\"depthSlip\":-1,\"revEdge\":-1,\"addEdge\":-1,\"trendMs\":15000,\"trendMin\":-1,\"imbCents\":0.03,\"minImb\":-1}",
+    "setTyped": "{\"lookbackMs\":1500,\"moveUsd\":20,\"minEdge\":0.04,\"sigma\":0.0002,\"maxRemainingSec\":840,\"minRemainingSec\":10,\"stakeUsd\":30,\"stakeMinUsd\":12,\"fullEdge\":0.12,\"maxTrades\":5,\"cooldownMs\":5000,\"minPrice\":0.15,\"maxPrice\":0.9,\"slippage\":0.01,\"maxSpread\":0.04,\"depthFrac\":1,\"moveK\":0,\"moveMinUsd\":20,\"minVolSec\":60,\"sigmaAdapt\":0,\"sigmaMin\":0.00003,\"maxRv\":0,\"absEdge\":-0.5,\"absHi\":-1,\"absLoFrac\":1,\"fillEdge\":-1,\"depthSlip\":-1,\"revEdge\":-1,\"addEdge\":-1,\"trendMs\":15000,\"trendMin\":-1,\"imbCents\":0.03,\"minImb\":-1}"
+  },
+  "spec": "native-spec-g1 30 §9 rules 9-10; 60 §6.4 LS-4",
+  "zodVersion": "4.4.3"
+}
