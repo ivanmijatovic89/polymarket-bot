@@ -1,0 +1,377 @@
+{
+  "anomalies": {
+    "crossedBookTicks": 27,
+    "exchangeClockBackwards": 0,
+    "inWindowRows": 36424,
+    "localClockBackwards": 0,
+    "lockedTicks": 24,
+    "rows": 40836,
+    "strictlyCrossedTicks": 3
+  },
+  "catalogFeedChecks": {
+    "binance": "usable",
+    "chainlink": "usable"
+  },
+  "chainlinkCoverage": true,
+  "conditionId": "0x5cb1f98b5c8ca390a3918705d6100daa7adefa93b89ecc69d7aa6079358a5875",
+  "feeEra": "F2",
+  "feeds": {
+    "binance": {
+      "pair": "BTCUSDT",
+      "seedAggTradeId": 3939336989,
+      "tailMs": 2000
+    },
+    "chainlink": {
+      "assetId": "btcusd",
+      "seedBroadcastUs": 1776556499855757,
+      "seedRoundUs": 1776556499000000,
+      "tailMs": 5000
+    },
+    "lookbackMs": 300000
+  },
+  "files": [
+    {
+      "bytes": 583331,
+      "day": null,
+      "path": "telonex-delta/btc-updown-15m-1776556800.parquet",
+      "role": "telonex_delta",
+      "rows": 40836,
+      "sha256": "a9fe52f780f14b3ccbbb2a1ccbad8a7d3dcf81cc72f3e8d42e8374e4f25f53c5",
+      "source": {
+        "bytes": 583331,
+        "path": "data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1776556800.parquet",
+        "rows": 40836,
+        "sha256": "a9fe52f780f14b3ccbbb2a1ccbad8a7d3dcf81cc72f3e8d42e8374e4f25f53c5"
+      },
+      "trim": null
+    },
+    {
+      "bytes": 8554,
+      "day": "2026-04-18",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-18.parquet",
+      "role": "binance_agg_trades",
+      "rows": 791,
+      "sha256": "b8f22737997d25ce6ea840cda81324f9883debf9bd8348945a66897904d3f031",
+      "source": {
+        "bytes": 4282853,
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-18.parquet",
+        "rows": 555611,
+        "sha256": "470742f81a5a7bfb36971b471e7b6cb4a4d15f4ac4a7beacc7045a23673dd281"
+      },
+      "trim": {
+        "annotationDifferences": [],
+        "holdsSeed": true,
+        "membershipRows": 790
+      }
+    },
+    {
+      "bytes": 33067,
+      "day": "2026-04-19",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-19.parquet",
+      "role": "binance_agg_trades",
+      "rows": 3580,
+      "sha256": "8b067e2c2e205d99ff7d8c58ddb93df7a49f58e1dd2ff5da36202d3ac2a41c6a",
+      "source": {
+        "bytes": 6213297,
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-19.parquet",
+        "rows": 790284,
+        "sha256": "f7cda83c10592c97aadd964fdf0e6d911983257b64678a70345b73538301b9b3"
+      },
+      "trim": {
+        "annotationDifferences": [],
+        "holdsSeed": false,
+        "membershipRows": 3580
+      }
+    },
+    {
+      "bytes": 9194,
+      "day": "2026-04-18",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-04-18.parquet",
+      "role": "chainlink_crypto_prices",
+      "rows": 300,
+      "sha256": "0ecaa738f4fbb7f4401437b1b0f050875c99e185238e33cb9ae1325b2138a724",
+      "source": {
+        "bytes": 2900562,
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-04-18.parquet",
+        "rows": 84962,
+        "sha256": "20a56a45fa6d6addc1fb6d5aa2cb834d60cdf1780cfcd65119ca695b90244e4d"
+      },
+      "trim": {
+        "annotationDifferences": [
+          {
+            "column": "timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "server_timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "local_timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "exchange",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "asset_id",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "symbol",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "source",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "price",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          }
+        ],
+        "holdsSeed": true,
+        "membershipRows": 299
+      }
+    },
+    {
+      "bytes": 23951,
+      "day": "2026-04-19",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-04-19.parquet",
+      "role": "chainlink_crypto_prices",
+      "rows": 887,
+      "sha256": "6b33c226ae24a69f45b064611ac5d3239a8396391160ec13fa28faa92bedb9da",
+      "source": {
+        "bytes": 2972799,
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-04-19.parquet",
+        "rows": 85311,
+        "sha256": "66c1fe702bd7a84b6f007353f79aa4aeb1e9c2a3ee7547b98f1b29d332e1b4e0"
+      },
+      "trim": {
+        "annotationDifferences": [
+          {
+            "column": "timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "server_timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "local_timestamp_us",
+            "source": {
+              "convertedType": null,
+              "logicalType": null
+            },
+            "trimmed": {
+              "convertedType": "INT_64",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "exchange",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "asset_id",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "symbol",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "source",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          },
+          {
+            "column": "price",
+            "source": {
+              "convertedType": "UTF8",
+              "logicalType": "StringType()"
+            },
+            "trimmed": {
+              "convertedType": "UTF8",
+              "logicalType": null
+            }
+          }
+        ],
+        "holdsSeed": false,
+        "membershipRows": 887
+      }
+    }
+  ],
+  "header": {
+    "contentPin": "ad2f11b81ab6ff003bb5febe280c00120255a944",
+    "generator": "scripts/native/fixtures-build.ts",
+    "generatorSha256": "467c0fadbdde5a4221951a51f9ab639e738aa50ae7d524475c142614b792e11a"
+  },
+  "manifestVersion": 2,
+  "outcome": "UP",
+  "priceToBeat": {
+    "status": "fed",
+    "syncedAtMs": 1784575374000,
+    "value": 75717.41
+  },
+  "proof": {
+    "feedSeries": [
+      {
+        "feed": "binance_agg_trades",
+        "length": 4371,
+        "sha256": "8ca84543e549671458d16a399461709691a29794cd35be0f8a8c958abbba36e7"
+      },
+      {
+        "feed": "chainlink_crypto_prices",
+        "length": 1187,
+        "sha256": "88fc87bf8dcce65d7486aff177881fdc7d42e4c1a92fcc8252f1d16120024e94"
+      }
+    ],
+    "oracleKnobs": {
+      "BACKTEST_BINANCE_FEED_LATENCY_MS": "110",
+      "BACKTEST_BINANCE_FEED_LOOKBACK_MS": "300000",
+      "BACKTEST_LATENCY_DELAY": "0",
+      "BACKTEST_LATENCY_JITTER": "0",
+      "BACKTEST_PRICE_TO_BEAT_LATENCY_MS": "2700",
+      "BACKTEST_RTDS_CHAINLINK_LATENCY_MS": "320",
+      "BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS": "300000",
+      "BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS": "300000",
+      "MAX_EVENTS_PER_DRAIN": "4200",
+      "WEB_UI_ORDERBOOK_LEVELS": "10"
+    },
+    "runs": [
+      {
+        "outputSha256": "1086103a1c1aee56601dcf1c2c4f80307d997d0bbe503409037d5307cde60dbf",
+        "params": {
+          "tickOnUpdate": false
+        },
+        "strategyId": "feedsParityProbe.v1",
+        "syntheticTicks": 0,
+        "ticks": 36424,
+        "traceLines": 72848,
+        "traceSha256": "a0cd87c2bff597696de43c571b41287704504b0cc3c0f4fd8310af4a4a8f5e2f"
+      },
+      {
+        "outputSha256": "799bd83872bb028b19b3fb1bece663e45e0166d9306ea1722c35111183030ac5",
+        "params": {
+          "tickOnUpdate": true
+        },
+        "strategyId": "feedsParityProbe.v1",
+        "syntheticTicks": 4461,
+        "ticks": 40885,
+        "traceLines": 81770,
+        "traceSha256": "d13fac82a464b3d8caa4bcb7302528d067699ffae13fbc30eee5b88467174253"
+      }
+    ]
+  },
+  "roles": ["fee-era:F2", "chainlink", "midnight-start"],
+  "selection": "F2 inside Chainlink coverage; window starts at 00:00 UTC, so the lookback crosses midnight: two Binance and two Chainlink day files, seeds in the previous day (14 F-12, F-14, F-20, F-22).",
+  "slug": "btc-updown-15m-1776556800",
+  "timeframe": "15m",
+  "tokenIds": {
+    "DOWN": "103136824054974678330843209337159641234240347679618088909835161229845392740290",
+    "UP": "51592877597697332373433049588589005203563192479788923966531835023708199450302"
+  },
+  "window": {
+    "endMs": 1776557700000,
+    "startMs": 1776556800000
+  }
+}
