@@ -12,7 +12,6 @@ import {
 import path from 'node:path'
 import { closeDb } from '../../db/index.js'
 import type { MarketJobData } from '../../backtest/jobTypes.js'
-import { utcDatesCovering } from '../../binance/paths.js'
 import {
   DEFAULT_DATA_ROOT,
   REPO_ROOT,
@@ -71,6 +70,7 @@ import {
 import {
   NativeError,
   describeNative,
+  feedDayFiles,
   runNativeJob,
   type NativeDescribe,
   type NativeMarketJobData,
@@ -162,34 +162,18 @@ function lastLines(text: string): string {
   return text.trim().split('\n').slice(-3).join(' | ')
 }
 
-/** Feed day files a market needs (window plus the 5 min lookback, 14 F-47). */
-function feedDayFiles(
+/**
+ * Feed day files a market needs: the same day set the shim passes to the
+ * binary (src/native `feedDayFiles`; 14 F-12, F-20, 21 §9 step 3).
+ */
+function feedDayFilesOf(
   job: MarketJobData,
   feeds: ReturnType<typeof externalFeedsRequest>,
   dataRoot: string,
 ): string[] {
   const w = job.strategyWindow
-  if (!w) return []
-  const days = utcDatesCovering(w.startMs - 300_000, w.endMs)
-  const out: string[] = []
-  // D-PENDING: the harness assumes BTC markets (S15-CL is BTC 15m, D38); feed pairs are BTCUSDT and btcusd as the TS loaders derive them from the slug.
-  if (feeds.binanceWsSpotPrice)
-    for (const d of days)
-      out.push(
-        path.join(dataRoot, 'binance', 'aggTrades', 'BTCUSDT', `BTCUSDT-aggTrades-${d}.parquet`),
-      )
-  if (feeds.rtdsCryptoPrices)
-    for (const d of days)
-      out.push(
-        path.join(
-          dataRoot,
-          'telonex',
-          'crypto_prices',
-          'btcusd',
-          `btcusd-crypto-prices-${d}.parquet`,
-        ),
-      )
-  return out
+  if (!w || !job.slug) return []
+  return feedDayFiles(dataRoot, job.slug, w, feeds).map((f) => f.path)
 }
 
 async function inputIdentities(
@@ -468,7 +452,7 @@ async function main(): Promise<number> {
     const tsTrace = path.join(tsDir, `${slug}.ts${traceExt}`)
     const entry: MarketEntry = {
       slug,
-      inputs: await inputIdentities(job, feedDayFiles(job, feeds, dataRoot)),
+      inputs: await inputIdentities(job, feedDayFilesOf(job, feeds, dataRoot)),
       ts: { ok: false, durationMs: 0 },
       verdict: null,
     }
