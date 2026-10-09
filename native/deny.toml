@@ -1,0 +1,72 @@
+# cargo-deny policy for the native engine workspace (31 §3 item 5; 60 §14 CI-1).
+#
+#   cargo deny --manifest-path native/Cargo.toml --locked check
+#
+# Schema: cargo-deny 0.20 (the version EmbarkStudios/cargo-deny-action v2.1.1
+# ships). Every relaxation below is explicit and carries a reason (R14).
+
+[graph]
+# The engine ships for these two targets only (31 §4.2: canonical builds on
+# aarch64-apple-darwin, CI-1 and LV-10 on x86_64-unknown-linux-gnu). Crates
+# that only exist for other platforms (wasm, windows, uefi) are out of scope.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin"]
+all-features = true
+
+[output]
+feature-depth = 1
+
+[advisories]
+# RustSec advisory database. Vulnerabilities are always errors in this schema;
+# unmaintained and unsound crates are errors anywhere in the tree, so a new one
+# fails CI and must either be fixed or added to `ignore` with a reason.
+db-urls = ["https://github.com/rustsec/advisory-db"]
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+ignore = [
+    # Unsoundness in anyhow `Error::downcast_mut()`, fixed in anyhow 1.0.103.
+    # anyhow is pinned `=1.0.98` in Cargo.toml and only used by pmb-replay,
+    # which never calls `downcast_mut`. Remove this entry with the version bump.
+    { id = "RUSTSEC-2026-0190", reason = "anyhow =1.0.98 pinned; downcast_mut unused; drop on bump to >=1.0.103" },
+    # `paste` is archived. It is a compile-time proc-macro dependency of
+    # parquet 56.2.0 with no maintained release to move to inside parquet 56.
+    { id = "RUSTSEC-2024-0436", reason = "paste: unmaintained proc-macro pulled in by parquet 56.2.0; no upgrade path" },
+]
+
+[licenses]
+# Only OSI-approved permissive licenses that actually occur in the current
+# native/Cargo.lock tree. A new license fails CI and needs a review here.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "MIT",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.93
+# A license listed in `allow` that no crate uses any more is reported, so the
+# list can be trimmed to what the tree needs.
+unused-allowed-license = "warn"
+
+[licenses.private]
+# Workspace crates are `publish = false` and carry no license field.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace-internal `path` dependencies have no version requirement; they are
+# allowed because every workspace crate is `publish = false`.
+allow-wildcard-paths = true
+highlight = "all"
+
+[sources]
+# Only crates.io; no other registry and no git dependencies.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
