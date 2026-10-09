@@ -1,35 +1,39 @@
 /**
  * Committed fixture markets generator (native/spec/60 §12 FX-1, FX-1a, FX-2,
- * FX-2a, FX-5).
+ * FX-2a, FX-3, FX-5).
  *
- *   npm run native:fixtures:build -- scan [--max-bytes N]   # read-only candidate scan
- *   npm run native:fixtures:build -- build [--slug a,b]     # (re)build + prove the selection
- *   npm run native:fixtures:build -- prove [--slug a,b]     # re-run the FX-2 proof on committed fixtures
- *   npm run native:fixtures:build -- check                  # bytes/sha256 + size cap of committed files
+ *   npm run native:fixtures:build -- scan [--max-bytes N] [--data-root DIR]    # read-only candidate scan
+ *   npm run native:fixtures:build -- build [--slug a,b | --prune] [--data-root DIR]  # (re)build + prove
+ *   npm run native:fixtures:build -- prove [--slug a,b] [--data-root DIR]      # re-run the proof on committed fixtures
+ *   npm run native:fixtures:build -- check                                      # offline integrity check (CI)
+ *   npm run native:fixtures:build -- jobs                                       # rewrite job.json from fixture.json
+ *
+ * `--data-root` defaults to `<repository root>/data` (01 §6 M1 step 1).
  *
  * `build` materializes `native/fixtures/markets/<slug>/` for every market of
  * SELECTION: the telonex-delta file (copied byte for byte, the canonical
- * input), the Binance and Chainlink day files trimmed per FX-2 (same columns,
- * types and row order; exactly the membership rows of 14 F-13/F-21 plus the
- * seed row of F-14/F-22 in the day file that holds it; one file per covered
- * day of F-12/F-20), `job.json` (an `EngineJob`, 21 §5, with fixture-relative
- * paths) and `fixture.json` (provenance, bytes and sha256 of every file, the
- * price to beat, anomaly counters and the proof results). It then runs the
- * TS engine (`runSingleMarket`, backtest mode, no persistence) on the full
- * and on the trimmed feed inputs and only moves the fixture into place when
- * both traces are byte-identical (FX-2). Without TechnicalIndicators (FX-2a).
+ * input), the Binance and Chainlink day files trimmed per FX-2
+ * (`fixtures-feeds.ts`), `job.json` (an `EngineJob`, 21 §5, for the engine
+ * exerciser, fixture-relative paths) and `fixture.json` (GF-2 header,
+ * provenance, bytes and sha256 of every file, the price to beat, anomaly
+ * counters and the proof). The proof (`prove`) checks the trimmed rows
+ * against their sources and the TS loaders, then runs the TS engine
+ * (`fixtures-oracle.ts`, one child per run under the OR-7 environment) on the
+ * full and on the trimmed feed inputs; the fixture is installed only when
+ * everything is identical (FX-2). Without TechnicalIndicators (FX-2a).
  *
- * Reads: local dataset files under data/ (read-only) and `telonex_markets`
+ * Reads: dataset files under the data root (read-only) and `telonex_markets`
  * through src/db/telonexMarkets.ts only (CLAUDE.md eligibility rule). Writes
- * only under native/fixtures/markets/. Never writes MySQL, Redis or R2, and
- * never runs `npm run backtest` (which persists runs).
+ * only under native/fixtures/markets/ and the OS temp dir (oracle requests).
+ * Never writes MySQL, Redis or R2, and never runs `npm run backtest`.
  */
 import '../../src/config/env.js'
-import { createHash } from 'node:crypto'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -37,24 +41,20 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import type { DuckDBConnection } from '@duckdb/node-api'
+import * as z from 'zod'
 import { closeDb } from '../../src/db/index.js'
 import {
   listEligibleTelonexMarkets,
   summarizeTelonexEligibility,
   type Market,
 } from '../../src/db/telonexMarkets.js'
-import { getInMemoryDuckDb, sqlQuote } from '../../src/utils/duckdb.js'
-import {
-  aggTradesDayPath,
-  defaultBinancePairForSymbol,
-  utcDatesCovering,
-} from '../../src/binance/paths.js'
+import { sqlQuote } from '../../src/utils/duckdb.js'
+import { defaultBinancePairForSymbol } from '../../src/binance/paths.js'
 import {
   CRYPTO_PRICES_COVERAGE_FROM_MS,
   assetIdForSymbol,
-  cryptoPricesDayPath,
 } from '../../src/telonex/cryptoPrices/paths.js'
 import { gammaPriceToBeatEpochMs } from '../../src/polymarket/gammaEventMetadata.js'
 import {
@@ -63,32 +63,50 @@ import {
   windowFromSlug,
 } from '../../src/polymarket/upDownSlugWindow.js'
 import { replayTelonexDeltaParquetForMarket } from '../../src/parquet/replay/replayTelonexDeltaParquetForMarket.js'
-import { runSingleMarket, type RunSingleMarketInput } from '../../src/backtest/runSingleMarket.js'
-import { isSyntheticFeedTick } from '../../src/market/syntheticTick.js'
-import { ExternalFeedsRequestPlugin } from '../../src/strategy/plugins/ExternalFeedsRequestPlugin.js'
-import type { StrategyDefinition } from '../../src/strategy/strategyDefinition.js'
-import { definition as feedsParityProbe } from '../../src/strategies/feedsParityProbe.v1.js'
-import * as prettier from 'prettier'
-import * as z from 'zod'
 import type { ExternalFeedsRequestConfig } from '../../src/strategy/plugins/ExternalFeedsRequestPlugin.js'
+import {
+  ENGINE_PATHS_FILE,
+  OR2_FALLBACK_ENGINE_PATHS,
+  OR7_KNOBS,
+  parseEnginePathsFile,
+} from './oracle-env-audit.js'
 import {
   FIXTURES_DIR,
   FIXTURES_MAX_TOTAL_BYTES,
+  FixtureProofRunSchema,
+  GENERATED_ENTRIES,
+  GENERATOR,
   JOB_FILE,
   MANIFEST_FILE,
   MANIFEST_VERSION,
   REPO_ROOT,
+  committedJob,
+  committedJson,
+  committedSlugs,
   fixtureDir,
+  generatorSha256,
   jsonText,
   readManifest,
-  sha256File,
+  readModelConfig,
   verifyFixtureFiles,
   type FixtureFile,
   type FixtureManifest,
   type FixtureProofRun,
 } from './fixtures-lib.js'
-
-const GENERATOR = 'scripts/native/fixtures-build.ts'
+import {
+  BINANCE_TAIL_MS,
+  CHAINLINK_TAIL_MS,
+  LOOKBACK_MS,
+  dataFeedRoots,
+  fileEntry,
+  fixtureFeedRoots,
+  rows,
+  sourceLabel,
+  trimBinance,
+  trimChainlink,
+  verifyTrimmedFeeds,
+  type FeedRoots,
+} from './fixtures-feeds.js'
 
 // ---------------------------------------------------------------------------
 // Spec constants
@@ -104,22 +122,6 @@ const FEE_ERA_STARTS: Array<{ id: FixtureManifest['feeEra']; fromMs: number }> =
 function feeEra(startMs: number): FixtureManifest['feeEra'] {
   return FEE_ERA_STARTS.find((e) => startMs >= e.fromMs)!.id
 }
-
-/** 14 §4.3: lookback and tails are engine constants (TS: wireBacktestExternalFeeds.ts DEFAULT_LOOKBACK_MS, the sources' SERIES_TAIL_MS). */
-const LOOKBACK_MS = 300_000
-const BINANCE_TAIL_MS = 2_000
-const CHAINLINK_TAIL_MS = 5_000
-
-/** Model config every fixture job carries (21 §6; committed ts-compat default). */
-const MODEL_CONFIG_FILE = path.join(
-  REPO_ROOT,
-  'native/contract/model-configs/ts-compat-default.json',
-)
-
-// D-PENDING: 60 §5.1 names the Rust exerciser `engine-exerciser.rs`, while the
-// contract fixture native/contract/fixtures/jobs/valid/telonex-delta-ts-compat.json
-// uses `engine-exerciser.v2.rs`. The spec id is used; `native:fixture-job --strategy-id` overrides.
-const DEFAULT_STRATEGY_ID = 'engine-exerciser.rs'
 
 // ---------------------------------------------------------------------------
 // Selection (found with `scan`; see native/fixtures/markets/README.md)
@@ -146,7 +148,7 @@ const SELECTION: Selected[] = [
   {
     slug: 'btc-updown-15m-1777152600',
     roles: ['edge:crossed-book', 'edge:local-clock-backwards', 'fee-era:F2', 'chainlink'],
-    why: 'Edge market: the most crossed-book ticks (574) among the scanned F2/F3 files up to 600 KB with local time stepping backwards (8 steps); 15 §8 crossedBookTicks, localClockBackwards. Found by `scan --max-bytes 600000`.',
+    why: 'Edge market: the most crossed-or-locked book ticks (15 §8 crossedBookTicks, 587; 574 of them strictly crossed) among the scanned F2/F3 files up to 600 KB with local time stepping backwards (8 steps, 15 §8 localClockBackwards). Found by `scan --max-bytes 600000`.',
   },
   {
     slug: 'btc-updown-5m-1770870900',
@@ -164,10 +166,6 @@ const SELECTION: Selected[] = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function rel(abs: string): string {
-  return path.relative(REPO_ROOT, abs).split(path.sep).join('/')
-}
-
 function num(v: unknown): number {
   if (typeof v === 'bigint') {
     const n = Number(v)
@@ -178,61 +176,168 @@ function num(v: unknown): number {
   throw new Error(`expected a number, got ${typeof v}`)
 }
 
-let connPromise: Promise<DuckDBConnection> | undefined
-async function duck(): Promise<DuckDBConnection> {
-  connPromise ??= (async () => {
-    const db = await getInMemoryDuckDb()
-    const conn = await db.connect()
-    // One thread: deterministic writer output for the trimmed files.
-    await conn.run('SET threads = 1')
-    return conn
-  })()
-  return connPromise
+function git(args: string[]): string {
+  const r = spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' })
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr.trim()}`)
+  return r.stdout.trim()
 }
 
-async function rows(sql: string): Promise<unknown[][]> {
-  const conn = await duck()
-  const res = await conn.run(sql)
-  return (await res.getRows()) as unknown[][]
-}
-
-async function parquetRowCount(file: string): Promise<number> {
-  return num((await rows(`SELECT count(*) FROM read_parquet(${sqlQuote(file)})`))[0]![0])
-}
-
-/** Column names and DuckDB types plus parquet physical types, for the "same columns and types" check. */
-async function schemaFingerprint(file: string): Promise<string> {
-  const logical = await rows(`DESCRIBE SELECT * FROM read_parquet(${sqlQuote(file)})`)
-  const physical = await rows(
-    `SELECT name, type, repetition_type FROM parquet_schema(${sqlQuote(file)}) WHERE type IS NOT NULL`,
-  )
-  return JSON.stringify({ logical: logical.map((r) => [r[0], r[1]]), physical })
-}
-
-async function fileEntry(args: {
-  role: FixtureFile['role']
-  dir: string
-  relPath: string
-  day: string | null
-  source: string
-  trim: FixtureFile['trim']
-}): Promise<FixtureFile> {
-  const abs = path.join(args.dir, args.relPath)
-  return {
-    role: args.role,
-    path: args.relPath,
-    bytes: statSync(abs).size,
-    sha256: await sha256File(abs),
-    rows: await parquetRowCount(abs),
-    day: args.day,
-    source: {
-      path: rel(args.source),
-      bytes: statSync(args.source).size,
-      sha256: await sha256File(args.source),
-      rows: await parquetRowCount(args.source),
-    },
-    trim: args.trim,
+/** The Telonex dataset path of a catalog row under the data root (`dataset` is `data/…`, repo-relative). */
+function telonexSource(dataRoot: string, dataset: string): string {
+  if (!dataset.startsWith('data/')) {
+    throw new Error(
+      `telonex dataset path ${dataset} is not under data/; cannot map it to --data-root`,
+    )
   }
+  return path.join(dataRoot, dataset.slice('data/'.length))
+}
+
+// ---------------------------------------------------------------------------
+// Oracle pin and tree (60 OR-1, OR-3, FX-3)
+// ---------------------------------------------------------------------------
+
+/** OR-1: the origin/main commit last merged into this branch. */
+function currentPin(): string {
+  return git(['merge-base', 'HEAD', 'origin/main'])
+}
+
+function enginePaths(): string[] {
+  const file = path.join(REPO_ROOT, ENGINE_PATHS_FILE)
+  return existsSync(file)
+    ? parseEnginePathsFile(readFileSync(file, 'utf8'))
+    : [...OR2_FALLBACK_ENGINE_PATHS]
+}
+
+/** Engine-path files that differ between two commits (OR-2 paths). */
+function engineDiff(from: string, to: string): string[] {
+  const out = git(['diff', '--name-only', from, to, '--', ...enginePaths()])
+  return out === '' ? [] : out.split('\n')
+}
+
+/**
+ * OR-3: the TS engine paths at HEAD equal the pin and the working tree is
+ * clean there, so the proof hashes belong to the pin. (No oracle allowlist
+ * file exists on this branch yet; when it does, its entries are tolerated.)
+ */
+function assertOracleTree(pin: string): void {
+  const allowFile = path.join(REPO_ROOT, 'native/parity/oracle-allowlist.txt')
+  const allowed = existsSync(allowFile)
+    ? new Set(parseEnginePathsFile(readFileSync(allowFile, 'utf8')))
+    : new Set<string>()
+  const changed = engineDiff(pin, 'HEAD').filter((f) => !allowed.has(f))
+  if (changed.length > 0) {
+    throw new Error(`OR-3: engine paths differ from the pin ${pin}: ${changed.join(', ')}`)
+  }
+  const dirty = git(['status', '--porcelain', '--', ...enginePaths()])
+  if (dirty !== '') throw new Error(`OR-3: engine paths have uncommitted changes:\n${dirty}`)
+}
+
+// ---------------------------------------------------------------------------
+// OR-7 environment of the oracle children
+// ---------------------------------------------------------------------------
+
+const ConstantLatency = z.object({ kind: z.literal('constant'), ms: z.number().int().min(0) })
+/** The ModelConfig fields the TS oracle reads through env knobs (the job embeds the whole file). */
+const OracleModelConfig = z.object({
+  capital: z.object({ startingCapitalUsdc: z.string().regex(/^[0-9]+(\.[0-9]+)?$/) }),
+  execution: z.object({
+    compatLatency: z.object({ delayMs: z.number().int().min(0), jitterMs: z.number().min(0) }),
+  }),
+  feeds: z.object({
+    binance: z.object({ latency: ConstantLatency }),
+    chainlink: z.object({ latency: ConstantLatency, maxGapMs: z.number().int().min(0) }),
+    priceToBeat: z.object({ latency: ConstantLatency }),
+  }),
+  runner: z.object({ maxEventsPerDrain: z.number().int().min(1) }),
+})
+type OracleModelConfig = z.infer<typeof OracleModelConfig>
+
+/** OR-7 knobs left unset: TA only (FX-2a, no TA in fixtures). */
+const UNSET_KNOBS = new Set([
+  'BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS',
+  'BACKTEST_TECH_IND_TIMEOUT_MS',
+  'BACKTEST_TECH_IND_POLL_MS',
+])
+
+/** Every OR-7 knob (plus D63's latency pair) from the committed ts-compat ModelConfig. */
+function oracleKnobs(mc: OracleModelConfig): Record<string, string> {
+  const knobs: Record<string, string> = {
+    BACKTEST_BINANCE_FEED_LATENCY_MS: String(mc.feeds.binance.latency.ms),
+    BACKTEST_BINANCE_FEED_LOOKBACK_MS: String(LOOKBACK_MS),
+    BACKTEST_RTDS_CHAINLINK_LATENCY_MS: String(mc.feeds.chainlink.latency.ms),
+    BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS: String(LOOKBACK_MS),
+    BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS: String(mc.feeds.chainlink.maxGapMs),
+    BACKTEST_PRICE_TO_BEAT_LATENCY_MS: String(mc.feeds.priceToBeat.latency.ms),
+    MAX_EVENTS_PER_DRAIN: String(mc.runner.maxEventsPerDrain),
+    // OR-7 cell value; not a ModelConfig field.
+    WEB_UI_ORDERBOOK_LEVELS: '10',
+    // D63: the env equals the job (jitter 0 in every ts-compat cell, OR-6).
+    BACKTEST_LATENCY_DELAY: String(mc.execution.compatLatency.delayMs),
+    BACKTEST_LATENCY_JITTER: '0',
+  }
+  for (const k of OR7_KNOBS) {
+    if (!(k.name in knobs) && !UNSET_KNOBS.has(k.name)) {
+      throw new Error(`OR-7 knob ${k.name} has no fixture-oracle value; extend oracleKnobs()`)
+    }
+  }
+  return knobs
+}
+
+let oracleTmp: string | undefined
+let oracleSeq = 0
+
+/** Runs one TS oracle child (fixtures-oracle.ts) with the OR-7 environment. */
+async function runOracle(args: {
+  manifest: ManifestDraft
+  telonexFile: string
+  roots: FeedRoots
+  strategyId: string
+  tickOnUpdate: boolean
+  mc: OracleModelConfig
+  knobs: Record<string, string>
+}): Promise<FixtureProofRun> {
+  oracleTmp ??= mkdtempSync(path.join(os.tmpdir(), 'pmb-fixtures-oracle-'))
+  oracleSeq += 1
+  const requestFile = path.join(oracleTmp, `request-${oracleSeq}.json`)
+  const outFile = path.join(oracleTmp, `result-${oracleSeq}.json`)
+  const m = args.manifest
+  writeFileSync(
+    requestFile,
+    JSON.stringify({
+      telonexFile: args.telonexFile,
+      slug: m.slug,
+      tokenIds: m.tokenIds,
+      outcome: m.outcome,
+      window: m.window,
+      priceToBeat: { value: m.priceToBeat.value, syncedAtMs: m.priceToBeat.syncedAtMs },
+      strategyId: args.strategyId,
+      tickOnUpdate: args.tickOnUpdate,
+      startingCapital: Number(args.mc.capital.startingCapitalUsdc),
+      latency: { delayMs: args.mc.execution.compatLatency.delayMs, jitterMs: 0 },
+      outFile,
+    }),
+  )
+  const env: Record<string, string> = {
+    PATH: process.env.PATH ?? '',
+    HOME: process.env.HOME ?? '',
+    TZ: 'UTC',
+    BINANCE_DATA_BASE_DIR: args.roots.binance,
+    TELONEX_CRYPTO_PRICES_BASE_DIR: args.roots.chainlink,
+    ...args.knobs,
+  }
+  const tsx = path.join(REPO_ROOT, 'node_modules/.bin/tsx')
+  const child = spawn(tsx, ['scripts/native/fixtures-oracle.ts', requestFile], {
+    cwd: REPO_ROOT,
+    env,
+    stdio: ['ignore', 'ignore', 'pipe'],
+  })
+  let stderr = ''
+  child.stderr.on('data', (d: Buffer) => {
+    stderr = (stderr + d.toString()).slice(-4000)
+  })
+  const code = await new Promise<number | null>((resolve) => child.on('close', resolve))
+  if (code !== 0) throw new Error(`oracle child failed (exit ${code}):\n${stderr}`)
+  return FixtureProofRunSchema.parse(JSON.parse(readFileSync(outFile, 'utf8')))
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +415,12 @@ async function telonexIdentity(
   return markets[0]![0]
 }
 
+/**
+ * Counters of 15 §8 on the Telonex file. `crossedBookTicks` uses the spec
+ * definition: ticks after which at least one token's book is crossed or
+ * locked (best bid >= best ask). `strictlyCrossedTicks` (bid > ask) and
+ * `lockedTicks` (bid == ask, with no token crossed) split it.
+ */
 async function anomalies(
   file: string,
   window: { startMs: number; endMs: number },
@@ -338,7 +449,7 @@ async function anomalies(
         else if (b.bestBid === b.bestAsk) l = true
       }
       if (c) crossed += 1
-      if (l) locked += 1
+      else if (l) locked += 1
     },
   })
   return {
@@ -346,350 +457,114 @@ async function anomalies(
     inWindowRows: num(r![1]),
     localClockBackwards: num(r![2]),
     exchangeClockBackwards: num(r![3]),
-    crossedBookTicks: crossed,
-    lockedBookTicks: locked,
+    crossedBookTicks: crossed + locked,
+    strictlyCrossedTicks: crossed,
+    lockedTicks: locked,
   }
 }
 
 // ---------------------------------------------------------------------------
-// FX-2 trimming
+// FX-2 proof
 // ---------------------------------------------------------------------------
 
-type SeedRow = { file: string; rowNumber: number; key: number[] }
-
-/** The single seed row, or null; a tie on the ordering key is refused (the TS pick would be arbitrary). */
-function pickSeed(found: unknown[][], what: string): SeedRow | null {
-  if (found.length === 0) return null
-  const key = (r: unknown[]): number[] => r.slice(2).map(num)
-  const first = found[0]!
-  if (found.length > 1 && JSON.stringify(key(found[1]!)) === JSON.stringify(key(first))) {
-    throw new Error(
-      `${what}: seed tie on ${JSON.stringify(key(first))}; refusing an ambiguous trim`,
-    )
-  }
-  return { file: String(first[0]), rowNumber: num(first[1]), key: key(first) }
-}
-
-function assertSeedPlaced(files: FixtureFile[], seed: SeedRow | null, what: string): void {
-  const holders = files.filter((f) => f.trim?.holdsSeed).length
-  if (holders !== (seed ? 1 : 0))
-    throw new Error(`${what}: seed row placed in ${holders} day files`)
-}
-
-async function writeTrimmed(args: {
-  source: string
-  dest: string
-  membership: string
-  seed: SeedRow | null
-  compression: 'zstd' | 'snappy'
-}): Promise<{ membershipRows: number; holdsSeed: boolean }> {
-  const holdsSeed = args.seed !== null && args.seed.file === args.source
-  const where = holdsSeed
-    ? `(${args.membership}) OR file_row_number = ${args.seed!.rowNumber}`
-    : args.membership
-  mkdirSync(path.dirname(args.dest), { recursive: true })
-  const conn = await duck()
-  await conn.run(
-    `COPY (SELECT * EXCLUDE (file_row_number)
-           FROM read_parquet(${sqlQuote(args.source)}, file_row_number = true)
-           WHERE ${where} ORDER BY file_row_number)
-     TO ${sqlQuote(args.dest)} (FORMAT parquet, COMPRESSION ${args.compression})`,
-  )
-  const [m] = await rows(
-    `SELECT count(*) FROM read_parquet(${sqlQuote(args.source)}) WHERE ${args.membership}`,
-  )
-  const membershipRows = num(m![0])
-  const written = await parquetRowCount(args.dest)
-  if (written !== membershipRows + (holdsSeed ? 1 : 0)) {
-    throw new Error(`${args.dest}: wrote ${written} rows, expected ${membershipRows} + seed`)
-  }
-  if ((await schemaFingerprint(args.dest)) !== (await schemaFingerprint(args.source))) {
-    throw new Error(`${args.dest}: schema differs from ${args.source}`)
-  }
-  return { membershipRows, holdsSeed }
-}
-
-async function trimBinance(args: {
-  dir: string
-  pair: string
-  window: { startMs: number; endMs: number }
-}): Promise<{ files: FixtureFile[]; seedAggTradeId: number | null }> {
-  const fromMs = args.window.startMs - LOOKBACK_MS
-  const days = utcDatesCovering(fromMs, args.window.endMs) // F-12
-  const sources = days.map((d) => aggTradesDayPath(args.pair, d))
-  for (const s of sources) if (!existsSync(s)) throw new Error(`missing Binance day file ${s}`)
-  const list = sources.map(sqlQuote).join(', ')
-  // F-14: highest agg_trade_id with ts_ms < start - lookback, covered day files only.
-  const seed = pickSeed(
-    await rows(
-      `SELECT filename, file_row_number, agg_trade_id FROM read_parquet([${list}], filename = true, file_row_number = true)
-       WHERE ts_ms < ${fromMs} ORDER BY agg_trade_id DESC LIMIT 2`,
-    ),
-    `binance ${args.pair}`,
-  )
-  // F-13 membership.
-  const membership = `ts_ms BETWEEN ${fromMs} AND ${args.window.endMs + BINANCE_TAIL_MS}`
-  const files: FixtureFile[] = []
-  for (let i = 0; i < days.length; i += 1) {
-    const relPath = `binance/aggTrades/${args.pair}/${path.basename(sources[i]!)}`
-    const trim = await writeTrimmed({
-      source: sources[i]!,
-      dest: path.join(args.dir, relPath),
-      membership,
-      seed,
-      compression: 'zstd',
-    })
-    files.push(
-      await fileEntry({
-        role: 'binance_agg_trades',
-        dir: args.dir,
-        relPath,
-        day: days[i]!,
-        source: sources[i]!,
-        trim,
-      }),
-    )
-  }
-  assertSeedPlaced(files, seed, `binance ${args.pair}`)
-  return { files, seedAggTradeId: seed ? seed.key[0]! : null }
-}
-
-async function trimChainlink(args: {
-  dir: string
-  assetId: string
-  window: { startMs: number; endMs: number }
-}): Promise<{ files: FixtureFile[]; seedRoundUs: number | null; seedBroadcastUs: number | null }> {
-  const fromMs = args.window.startMs - LOOKBACK_MS
-  const days = utcDatesCovering(Math.max(fromMs, CRYPTO_PRICES_COVERAGE_FROM_MS), args.window.endMs) // F-20
-  const sources = days.map((d) => cryptoPricesDayPath(args.assetId, d))
-  for (const s of sources) if (!existsSync(s)) throw new Error(`missing Chainlink day file ${s}`)
-  const list = sources.map(sqlQuote).join(', ')
-  // F-22: latest row with round < start - lookback in (broadcast, round) order.
-  const seed = pickSeed(
-    await rows(
-      `SELECT filename, file_row_number, server_timestamp_us, timestamp_us
-       FROM read_parquet([${list}], filename = true, file_row_number = true)
-       WHERE timestamp_us < ${fromMs} * 1000
-       ORDER BY server_timestamp_us DESC, timestamp_us DESC LIMIT 2`,
-    ),
-    `chainlink ${args.assetId}`,
-  )
-  // F-21 membership by round time.
-  const membership = `timestamp_us BETWEEN ${fromMs} * 1000 AND ${args.window.endMs + CHAINLINK_TAIL_MS} * 1000`
-  const files: FixtureFile[] = []
-  for (let i = 0; i < days.length; i += 1) {
-    const relPath = `chainlink/${args.assetId}/${path.basename(sources[i]!)}`
-    const trim = await writeTrimmed({
-      source: sources[i]!,
-      dest: path.join(args.dir, relPath),
-      membership,
-      seed,
-      compression: 'snappy',
-    })
-    files.push(
-      await fileEntry({
-        role: 'chainlink_crypto_prices',
-        dir: args.dir,
-        relPath,
-        day: days[i]!,
-        source: sources[i]!,
-        trim,
-      }),
-    )
-  }
-  assertSeedPlaced(files, seed, `chainlink ${args.assetId}`)
-  return {
-    files,
-    seedBroadcastUs: seed ? seed.key[0]! : null,
-    seedRoundUs: seed ? seed.key[1]! : null,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// FX-2 proof: TS traces on full vs trimmed inputs
-// ---------------------------------------------------------------------------
+type ManifestDraft = Omit<FixtureManifest, 'header' | 'proof'>
 
 /**
- * Interim feed probe for markets before Chainlink coverage, where every
- * existing all-feeds TS strategy hard-errors by policy (14 F-19). Same shape
- * as feedsParityProbe.v1 minus Chainlink: Binance + price to beat, no intents.
- * Replaced by the TS feed-exerciser twin (60 §5.8, `chainlink: false`).
+ * Runs the FX-2 proof for one fixture directory; throws on any difference:
+ * the trimmed rows against their sources and the TS loaders
+ * (`verifyTrimmedFeeds`), then the TS engine on full vs trimmed day files,
+ * each variant with `tickOnUpdate` false and true.
  */
-const ProbeSchema = z.strictObject({
-  tickOnUpdate: z
-    .union([z.boolean(), z.string()])
-    .transform((v) => v === true || v === 'true')
-    .default(false),
-})
-const preCoverageProbe: StrategyDefinition<z.infer<typeof ProbeSchema>> = {
-  id: 'fixtures-feed-probe.binance-ptb',
-  schema: ProbeSchema,
-  create: (cfg) => ({
-    strategy: {
-      name: 'fixtures-feed-probe.binance-ptb',
-      onMarketTick: () => [],
-      onAccountEvent: () => [],
-    },
-    plugins: [
-      new ExternalFeedsRequestPlugin({
-        binanceWsSpotPrice: cfg.tickOnUpdate ? { tickOnUpdate: true } : {},
-        polymarketPriceToBeat: { enabled: true },
-      }),
-    ],
-  }),
-}
-
-const replacer = (_k: string, v: unknown): unknown => (typeof v === 'bigint' ? v.toString() : v)
-
-type FeedRoots = { binance: string; chainlink: string }
-
-/** Pins every feed knob to the ts-compat model config so env cannot change the proof. */
-function pinFeedEnv(roots: FeedRoots): void {
-  process.env.BINANCE_DATA_BASE_DIR = roots.binance
-  process.env.TELONEX_CRYPTO_PRICES_BASE_DIR = roots.chainlink
-  process.env.BACKTEST_BINANCE_FEED_LOOKBACK_MS = String(LOOKBACK_MS)
-  process.env.BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS = String(LOOKBACK_MS)
-  process.env.BACKTEST_BINANCE_FEED_LATENCY_MS = '110'
-  process.env.BACKTEST_RTDS_CHAINLINK_LATENCY_MS = '320'
-  process.env.BACKTEST_PRICE_TO_BEAT_LATENCY_MS = '2700'
-  process.env.BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS = '300000'
-  delete process.env.FEEDS_PARITY_OUT
-  delete process.env.BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS
-}
-
-async function tsTrace(args: {
-  manifest: FixtureManifest
-  telonexFile: string
-  roots: FeedRoots
-  definition: StrategyDefinition<unknown>
-  params: Record<string, unknown>
-}): Promise<Omit<FixtureProofRun, 'strategyId' | 'params'>> {
-  pinFeedEnv(args.roots)
-  const hash = createHash('sha256')
-  let lines = 0
-  let ticks = 0
-  let syntheticTicks = 0
-  let tick: { kind: string; ts: number; local: number | null; feeds: string } | null = null
-  const emit = (line: string): void => {
-    hash.update(line)
-    hash.update('\n')
-    lines += 1
-  }
-  const observer: NonNullable<RunSingleMarketInput['observer']> = {
-    onTickStart: (t) => {
-      ticks += 1
-      if (isSyntheticFeedTick(t.msg)) syntheticTicks += 1
-      tick = {
-        kind: t.msg.event_type,
-        ts: t.snapshot.timestamp,
-        local: t.source.kind === 'parquet' ? (t.source.tsLocalMs ?? null) : null,
-        feeds: 'null',
-      }
-    },
-    onContext: (ctx) => {
-      // Serialize at once: the provider may hand out a mutable view.
-      if (tick) tick.feeds = JSON.stringify(ctx?.plugins?.['externalFeeds'] ?? null, replacer)
-    },
-    onDecision: (origin, intents) => emit(JSON.stringify({ decision: origin, intents }, replacer)),
-    onAccountEvent: (event) => emit(JSON.stringify({ account: event }, replacer)),
-    onTickEnd: () => {
-      if (!tick) return
-      emit(
-        `{"tick":${JSON.stringify(tick.kind)},"ts":${tick.ts},"local":${tick.local},"feeds":${tick.feeds}}`,
-      )
-      tick = null
-    },
-  }
-  const m = args.manifest
-  const out = await runSingleMarket({
-    idx: 0,
-    filePath: args.telonexFile,
-    slug: m.slug,
-    marketMeta: undefined,
-    marketResolution: {
-      tokenMap: { UP: m.tokenIds.UP, DOWN: m.tokenIds.DOWN },
-      outcome: m.outcome,
-    },
-    strategyId: args.definition.id,
-    strategyParams: args.params,
-    strategyDefinition: args.definition,
-    inputMode: 'telonex-delta',
-    order: 'recorded',
-    timeDriven: false,
-    latency: { delayMs: 0, jitterMs: 0 },
-    strategyWindow: m.window,
-    machineId: 'fixtures-build',
-    commitSha: 'fixtures-build',
-    gammaPriceToBeat: { priceToBeat: m.priceToBeat.value, syncedAtMs: m.priceToBeat.syncedAtMs },
-    observer,
+async function prove(
+  dir: string,
+  m: ManifestDraft,
+  dataRoot: string,
+): Promise<FixtureManifest['proof']> {
+  const mc = OracleModelConfig.parse(readModelConfig())
+  const knobs = oracleKnobs(mc)
+  const fullRoots = dataFeedRoots(dataRoot)
+  const feedSeries = await verifyTrimmedFeeds({
+    dir,
+    files: m.files,
+    sourceRoots: fullRoots,
+    pair: m.feeds.binance.pair,
+    chainlinkAssetId: m.feeds.chainlink?.assetId ?? null,
+    window: m.window,
+    maxGapMs: mc.feeds.chainlink.maxGapMs,
   })
-  const stats = out.marketStats ? { ...out.marketStats, execution: null } : null
-  const outputText = JSON.stringify(
-    {
-      marketStats: stats,
-      eventsProcessed: out.eventsProcessed,
-      eventsByType: out.eventsByType,
-      skipReason: out.skipReason ?? null,
-    },
-    replacer,
-  )
-  return {
-    traceSha256: hash.digest('hex'),
-    traceLines: lines,
-    ticks,
-    syntheticTicks,
-    outputSha256: createHash('sha256').update(outputText).digest('hex'),
-  }
-}
-
-const FULL_ROOTS: FeedRoots = {
-  binance: path.join(REPO_ROOT, 'data/binance'),
-  chainlink: path.join(REPO_ROOT, 'data/telonex/crypto_prices'),
-}
-
-/** Runs the FX-2 proof for one fixture directory; throws on any difference. */
-async function prove(dir: string, manifest: FixtureManifest): Promise<FixtureProofRun[]> {
-  const telonexFile = path.join(dir, manifest.files.find((f) => f.role === 'telonex_delta')!.path)
-  const trimmedRoots: FeedRoots = {
-    binance: path.join(dir, 'binance'),
-    chainlink: path.join(dir, 'chainlink'),
-  }
-  const definition = (
-    manifest.chainlinkCoverage ? feedsParityProbe : preCoverageProbe
-  ) as StrategyDefinition<unknown>
-  const results: FixtureProofRun[] = []
+  const input = m.files.find((f) => f.role === 'telonex_delta')
+  if (!input) throw new Error(`${m.slug}: no telonex_delta file`)
+  const telonexFile = path.join(dir, input.path)
+  const strategyId = m.chainlinkCoverage ? 'feedsParityProbe.v1' : 'fixtures-feed-probe.binance-ptb'
+  const runs: FixtureProofRun[] = []
   for (const tickOnUpdate of [false, true]) {
-    const params = definition.schema.parse({ tickOnUpdate }) as Record<string, unknown>
-    const full = await tsTrace({ manifest, telonexFile, roots: FULL_ROOTS, definition, params })
-    const trimmed = await tsTrace({
-      manifest,
-      telonexFile,
-      roots: trimmedRoots,
-      definition,
-      params,
-    })
-    if (JSON.stringify(full) !== JSON.stringify(trimmed)) {
+    const common = { manifest: m, telonexFile, strategyId, tickOnUpdate, mc, knobs }
+    const [full, trimmed] = await Promise.all([
+      runOracle({ ...common, roots: fullRoots }),
+      runOracle({ ...common, roots: fixtureFeedRoots(dir) }),
+    ])
+    if (jsonText(full) !== jsonText(trimmed)) {
       throw new Error(
-        `${manifest.slug}: FX-2 proof failed (tickOnUpdate=${tickOnUpdate}): full ${JSON.stringify(full)} != trimmed ${JSON.stringify(trimmed)}`,
+        `${m.slug}: FX-2 proof failed (tickOnUpdate=${tickOnUpdate}): full ${JSON.stringify(full)} != trimmed ${JSON.stringify(trimmed)}`,
       )
     }
     console.log(
-      `[fixtures] ${manifest.slug} proof ${definition.id} tickOnUpdate=${tickOnUpdate}: ` +
+      `[fixtures] ${m.slug} proof ${strategyId} tickOnUpdate=${tickOnUpdate}: ` +
         `trace ${full.traceSha256.slice(0, 16)} lines=${full.traceLines} synthetic=${full.syntheticTicks} (full == trimmed)`,
     )
-    results.push({ strategyId: definition.id, params: { tickOnUpdate }, ...full })
+    runs.push(full)
   }
-  return results
+  return { oracleKnobs: knobs, feedSeries, runs }
 }
 
 // ---------------------------------------------------------------------------
 // build
 // ---------------------------------------------------------------------------
 
-async function buildOne(sel: Selected): Promise<void> {
-  // Source day files resolve under the machine's data roots (the proof
-  // repoints the roots at the trimmed copies; reset them first).
-  pinFeedEnv(FULL_ROOTS)
+/** Top-level entries of an existing fixture directory that the generator does not own. */
+function foreignEntries(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter((e) => !GENERATED_ENTRIES.includes(e))
+    .sort()
+}
+
+function assertOnlyGenerated(dir: string): void {
+  const foreign = foreignEntries(dir)
+  if (foreign.length > 0) {
+    throw new Error(
+      `${dir} holds entries the generator does not own (${foreign.join(', ')}); ` +
+        'they may be stale once the inputs change: move them away first',
+    )
+  }
+}
+
+/** Replaces only the generated entries of `dest` with those of `staging`. */
+function install(staging: string, dest: string): void {
+  assertOnlyGenerated(dest)
+  mkdirSync(dest, { recursive: true })
+  for (const e of GENERATED_ENTRIES) rmSync(path.join(dest, e), { recursive: true, force: true })
+  for (const e of readdirSync(staging)) {
+    if (!GENERATED_ENTRIES.includes(e)) throw new Error(`staging produced unexpected entry ${e}`)
+    renameSync(path.join(staging, e), path.join(dest, e))
+  }
+  rmSync(staging, { recursive: true, force: true })
+}
+
+/** GF-2 content = the manifest without its header; `contentPin` moves only when the content changes. */
+function contentPinFor(slug: string, draft: Omit<FixtureManifest, 'header'>, pin: string): string {
+  const file = path.join(fixtureDir(slug), MANIFEST_FILE)
+  if (!existsSync(file)) return pin
+  const old = JSON.parse(readFileSync(file, 'utf8')) as { header?: { contentPin?: unknown } }
+  const oldContent = { ...old } as Record<string, unknown>
+  delete oldContent.header
+  return jsonText(oldContent) === jsonText(draft) && typeof old.header?.contentPin === 'string'
+    ? old.header.contentPin
+    : pin
+}
+
+async function buildOne(sel: Selected, dataRoot: string, pin: string): Promise<void> {
+  assertOnlyGenerated(fixtureDir(sel.slug))
   const window = windowFromSlug(sel.slug)
   const symbol = symbolFromSlug(sel.slug)
   const timeframe = timeframeFromSlug(sel.slug)
@@ -703,7 +578,7 @@ async function buildOne(sel: Selected): Promise<void> {
   const outcome = row.resultId === '0' ? 'UP' : row.resultId === '1' ? 'DOWN' : null
   if (!outcome) throw new Error(`${sel.slug}: unresolved (result_id=${row.resultId})`)
   const tokenIds = { UP: row.assetId0, DOWN: row.assetId1 }
-  const source = path.resolve(REPO_ROOT, row.dataset)
+  const source = telonexSource(dataRoot, row.dataset)
   if (row.conversionSizeBytes !== null && statSync(source).size !== row.conversionSizeBytes) {
     throw new Error(
       `${sel.slug}: local file size differs from telonex_market_conversions.size_bytes`,
@@ -723,6 +598,10 @@ async function buildOne(sel: Selected): Promise<void> {
 
   const telonexRel = `telonex-delta/${sel.slug}.parquet`
   copyFileSync(source, path.join(staging, telonexRel))
+  // D-PENDING: 15 I-18 / 21 §4 take the condition id from
+  // telonex_markets.market_id, which src/db/telonexMarkets.ts does not expose
+  // yet (crossStreamNeeds); until then the file's constant `market` column is
+  // used, so nothing cross-checks the file against the catalog here.
   const conditionId = await telonexIdentity(path.join(staging, telonexRel), tokenIds)
   const files: FixtureFile[] = [
     await fileEntry({
@@ -731,6 +610,7 @@ async function buildOne(sel: Selected): Promise<void> {
       relPath: telonexRel,
       day: null,
       source,
+      sourceLabel: sourceLabel(dataRoot, source),
       trim: null,
     }),
   ]
@@ -738,18 +618,17 @@ async function buildOne(sel: Selected): Promise<void> {
     throw new Error(`${sel.slug}: copy differs from source`)
 
   const pair = defaultBinancePairForSymbol(symbol)
-  const binance = await trimBinance({ dir: staging, pair, window })
+  const binance = await trimBinance({ dir: staging, dataRoot, pair, window })
   files.push(...binance.files)
   const chainlinkCoverage = window.startMs >= CRYPTO_PRICES_COVERAGE_FROM_MS
   const assetId = assetIdForSymbol(symbol)
   const chainlink = chainlinkCoverage
-    ? await trimChainlink({ dir: staging, assetId, window })
+    ? await trimChainlink({ dir: staging, dataRoot, assetId, window })
     : null
   if (chainlink) files.push(...chainlink.files)
 
-  const manifest: FixtureManifest = {
+  const draft: ManifestDraft = {
     manifestVersion: MANIFEST_VERSION,
-    generator: GENERATOR,
     slug: sel.slug,
     timeframe,
     window,
@@ -780,80 +659,23 @@ async function buildOne(sel: Selected): Promise<void> {
     },
     anomalies: await anomalies(path.join(staging, telonexRel), window),
     files,
-    proof: [],
   }
-  manifest.proof = await prove(staging, manifest)
+  const content = { ...draft, proof: await prove(staging, draft, dataRoot) }
+  const manifest: FixtureManifest = {
+    header: {
+      contentPin: contentPinFor(sel.slug, content, pin),
+      generator: GENERATOR,
+      generatorSha256: generatorSha256(),
+    },
+    ...content,
+  }
 
-  writeFileSync(path.join(staging, JOB_FILE), await committedJson(engineJob(manifest), JOB_FILE))
+  writeFileSync(path.join(staging, JOB_FILE), await committedJson(committedJob(manifest), JOB_FILE))
   writeFileSync(path.join(staging, MANIFEST_FILE), await committedJson(manifest, MANIFEST_FILE))
-  const dest = fixtureDir(sel.slug)
-  rmSync(dest, { recursive: true, force: true })
-  renameSync(staging, dest)
-  console.log(`[fixtures] ${sel.slug}: ${files.length} files, ${dirBytes(dest)} bytes`)
-}
-
-/**
- * `EngineJob` (21 §5) with fixture-relative paths (FX-1a); `native:fixture-job`
- * renders the absolute-path job. Feed day files have no sha256 field in the
- * contract (`FeedFile`), so their sha256 lives in fixture.json.
- * D-PENDING: FX-2 says "the job records each trimmed file's byte size and
- * sha256"; 21 §5 `feedFiles[]` has only `bytes`.
- */
-function engineJob(m: FixtureManifest): unknown {
-  const modelConfig = JSON.parse(readFileSync(MODEL_CONFIG_FILE, 'utf8')) as unknown
-  const input = m.files.find((f) => f.role === 'telonex_delta')!
-  return {
-    jobSchemaVersion: 1,
-    run: {
-      strategyId: DEFAULT_STRATEGY_ID,
-      inputMode: 'telonex-delta',
-      modelConfig,
-      candidates: [{ key: 'fixture', index: 0, params: {}, execution: null }],
-    },
-    market: {
-      slug: m.slug,
-      // D-PENDING: 15 I-18 takes this from telonex_markets.market_id, which
-      // src/db/telonexMarkets.ts does not expose yet; the file's constant
-      // `market` column (the same condition id) is used.
-      conditionId: m.conditionId,
-      window: m.window,
-      tokenIds: m.tokenIds,
-      outcome: m.outcome,
-      rules: { snapshotParserVersion: null, captured: {}, disagreements: 0 },
-      gammaPriceToBeat: { priceToBeat: m.priceToBeat.value, syncedAtMs: m.priceToBeat.syncedAtMs },
-      feedAvailability: { priceToBeat: { status: m.priceToBeat.status } },
-      input: {
-        path: input.path,
-        bytes: input.bytes,
-        sha256: input.sha256,
-        format: { name: 'telonex-delta-typed', version: 1 },
-      },
-      recorderV4: null,
-      ownActivity: null,
-      feedFiles: m.files
-        .filter((f) => f.role !== 'telonex_delta')
-        .map((f) => ({
-          feed: f.role,
-          symbol:
-            f.role === 'binance_agg_trades' ? m.feeds.binance.pair : m.feeds.chainlink!.assetId,
-          day: f.day,
-          path: f.path,
-          bytes: f.bytes,
-        })),
-    },
-    outputs: { tracePath: null, traceLevel: 'decisions', ledgerPath: null },
-    budget: { wallMs: 120000, threads: 1 },
-  }
-}
-
-/**
- * JSON as committed: the repo's pre-commit hook runs prettier on staged JSON,
- * so the generator writes prettier's form and a rebuild stays byte-identical.
- */
-async function committedJson(value: unknown, name: string): Promise<string> {
-  const target = path.join(FIXTURES_DIR, name)
-  const options = (await prettier.resolveConfig(target)) ?? {}
-  return prettier.format(jsonText(value), { ...options, filepath: target })
+  install(staging, fixtureDir(sel.slug))
+  console.log(
+    `[fixtures] ${sel.slug}: ${files.length} files, ${dirBytes(fixtureDir(sel.slug))} bytes, contentPin ${manifest.header.contentPin.slice(0, 8)}`,
+  )
 }
 
 function dirBytes(dir: string): number {
@@ -864,19 +686,36 @@ function dirBytes(dir: string): number {
   return total
 }
 
-function committedSlugs(): string[] {
-  if (!existsSync(FIXTURES_DIR)) return []
-  return readdirSync(FIXTURES_DIR, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-    .map((e) => e.name)
-    .sort()
-}
+// ---------------------------------------------------------------------------
+// check (offline) and jobs
+// ---------------------------------------------------------------------------
 
+/**
+ * Offline integrity check (CI): manifest shape, every listed file's bytes and
+ * sha256, no unlisted or foreign file, job.json equal to the job rendered
+ * from fixture.json and the current model config, the generator unchanged
+ * since the build (GF-2 `generatorSha256`), and the 25 MiB cap.
+ */
 async function check(): Promise<void> {
+  const slugs = committedSlugs()
+  if (slugs.length === 0) throw new Error(`no fixture markets under ${FIXTURES_DIR}`)
+  const generator = generatorSha256()
   let total = 0
-  for (const slug of committedSlugs()) {
+  for (const slug of slugs) {
     const manifest = readManifest(slug)
     await verifyFixtureFiles(slug, manifest)
+    const jobFile = path.join(fixtureDir(slug), JOB_FILE)
+    if (!existsSync(jobFile)) throw new Error(`${slug}: ${JOB_FILE} is missing`)
+    if (readFileSync(jobFile, 'utf8') !== (await committedJson(committedJob(manifest), JOB_FILE))) {
+      throw new Error(
+        `${slug}: ${JOB_FILE} differs from the job rendered from ${MANIFEST_FILE} and the model config (run \`jobs\`)`,
+      )
+    }
+    if (manifest.header.generatorSha256 !== generator) {
+      throw new Error(
+        `${slug}: generator changed since this fixture was built (generatorSha256 ${manifest.header.generatorSha256.slice(0, 16)} != ${generator.slice(0, 16)}); run \`build\``,
+      )
+    }
     const bytes = dirBytes(fixtureDir(slug))
     total += bytes
     console.log(`[fixtures] ${slug}: OK (${manifest.files.length} files, ${bytes} bytes)`)
@@ -892,13 +731,25 @@ async function check(): Promise<void> {
     throw new Error('fixture total exceeds the 25 MiB cap (FX-2)')
 }
 
+/** Rewrites every job.json from its fixture.json and the current model config (no DB, no data). */
+async function jobs(): Promise<void> {
+  for (const slug of committedSlugs()) {
+    const manifest = readManifest(slug)
+    writeFileSync(
+      path.join(fixtureDir(slug), JOB_FILE),
+      await committedJson(committedJob(manifest), JOB_FILE),
+    )
+    console.log(`[fixtures] ${slug}: ${JOB_FILE} written`)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // scan (read-only): candidates per fee era and edge markets
 // ---------------------------------------------------------------------------
 
 const SCAN_MIN_IN_WINDOW = 1_000
 
-async function scan(maxBytes: number): Promise<void> {
+async function scan(maxBytes: number, dataRoot: string): Promise<void> {
   const eras: Array<{ id: string; fromMs: number; toMs: number; timeframe: '5m' | '15m' }> = [
     {
       id: 'F1',
@@ -936,7 +787,8 @@ async function scan(maxBytes: number): Promise<void> {
         : {}),
     })
     const local = markets.flatMap((m) => {
-      const p = path.resolve(REPO_ROOT, m.dataset ?? '')
+      if (!m.dataset) return []
+      const p = telonexSource(dataRoot, m.dataset)
       return existsSync(p) && statSync(p).size <= maxBytes
         ? [{ slug: m.slug, file: p, bytes: statSync(p).size }]
         : []
@@ -950,7 +802,7 @@ async function scan(maxBytes: number): Promise<void> {
     for (const c of local.sort((x, y) => x.bytes - y.bytes)) {
       const a = await anomalies(c.file, windowFromSlug(c.slug)!)
       if (a.inWindowRows < SCAN_MIN_IN_WINDOW) continue
-      const line = `${c.slug} bytes=${c.bytes} rows=${a.rows} inWindow=${a.inWindowRows} localBack=${a.localClockBackwards} exchBack=${a.exchangeClockBackwards} crossed=${a.crossedBookTicks} locked=${a.lockedBookTicks}`
+      const line = `${c.slug} bytes=${c.bytes} rows=${a.rows} inWindow=${a.inWindowRows} localBack=${a.localClockBackwards} exchBack=${a.exchangeClockBackwards} crossedOrLocked=${a.crossedBookTicks} strictlyCrossed=${a.strictlyCrossedTicks} locked=${a.lockedTicks}`
       active.push({ line, a })
     }
     console.log(`  smallest active files (inWindow >= ${SCAN_MIN_IN_WINDOW}):`)
@@ -958,69 +810,162 @@ async function scan(maxBytes: number): Promise<void> {
     const edges = active
       .filter(({ a }) => a.crossedBookTicks > 0 && a.localClockBackwards > 0)
       .sort((x, y) => y.a.crossedBookTicks - x.a.crossedBookTicks)
-    console.log(`  edge candidates (crossed book and local clock backwards): ${edges.length}`)
+    console.log(
+      `  edge candidates (crossed or locked book and local clock backwards): ${edges.length}`,
+    )
     for (const { line } of edges.slice(0, 5)) console.log(`    ${line}`)
   }
 }
 
 // ---------------------------------------------------------------------------
-// CLI
+// CLI (R14: unknown subcommands, flags, positionals, repeats and values fail)
 // ---------------------------------------------------------------------------
 
-function flag(argv: string[], name: string): string | undefined {
-  const i = argv.indexOf(name)
-  if (i < 0) return undefined
-  const v = argv[i + 1]
-  if (v === undefined || v.startsWith('--')) throw new Error(`missing value for ${name}`)
-  return v
+const USAGE = [
+  'usage: fixtures-build.ts <subcommand> [flags]',
+  '  scan  [--max-bytes N] [--data-root DIR]',
+  '  build [--slug a,b | --prune] [--data-root DIR]',
+  '  prove [--slug a,b] [--data-root DIR]',
+  '  check',
+  '  jobs',
+].join('\n')
+
+const SUBCOMMANDS: Record<string, { values: string[]; switches: string[] }> = {
+  scan: { values: ['--max-bytes', '--data-root'], switches: [] },
+  build: { values: ['--slug', '--data-root'], switches: ['--prune'] },
+  prove: { values: ['--slug', '--data-root'], switches: [] },
+  check: { values: [], switches: [] },
+  jobs: { values: [], switches: [] },
+}
+
+export type Cli = { cmd: string; values: Map<string, string>; switches: Set<string> }
+
+export function parseCli(argv: string[]): Cli {
+  const [cmd, ...rest] = argv
+  const spec = cmd === undefined ? undefined : SUBCOMMANDS[cmd]
+  if (!cmd || !spec) throw new Error(`unknown or missing subcommand ${cmd ?? ''}\n${USAGE}`)
+  const values = new Map<string, string>()
+  const switches = new Set<string>()
+  for (let i = 0; i < rest.length; i += 1) {
+    const a = rest[i]!
+    if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}\n${USAGE}`)
+    if (values.has(a) || switches.has(a)) throw new Error(`${a} given twice`)
+    if (spec.switches.includes(a)) {
+      switches.add(a)
+    } else if (spec.values.includes(a)) {
+      const v = rest[i + 1]
+      if (v === undefined || v.startsWith('--')) throw new Error(`missing value for ${a}`)
+      values.set(a, v)
+      i += 1
+    } else {
+      throw new Error(`${a} is not a flag of ${cmd}\n${USAGE}`)
+    }
+  }
+  return { cmd, values, switches }
+}
+
+function parseMaxBytes(v: string | undefined): number {
+  if (v === undefined) return 600_000
+  const n = Number(v)
+  if (!/^[1-9][0-9]*$/.test(v) || !Number.isSafeInteger(n)) {
+    throw new Error(`--max-bytes must be a positive integer, got ${v}`)
+  }
+  return n
+}
+
+function parseDataRoot(v: string | undefined): string {
+  const dir = path.resolve(v ?? path.join(REPO_ROOT, 'data'))
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+    throw new Error(`--data-root ${dir} is not a directory`)
+  }
+  return dir
+}
+
+function parseSlugs(v: string | undefined, known: string[], what: string): string[] | undefined {
+  if (v === undefined) return undefined
+  const slugs = v.split(',')
+  if (new Set(slugs).size !== slugs.length) throw new Error('--slug lists a slug twice')
+  const unknown = slugs.filter((s) => !known.includes(s))
+  if (unknown.length > 0) throw new Error(`--slug: not ${what}: ${unknown.join(', ')}`)
+  return slugs
 }
 
 async function main(): Promise<void> {
-  const [cmd, ...argv] = process.argv.slice(2)
-  const known = new Set(['--slug', '--max-bytes'])
-  for (const a of argv)
-    if (a.startsWith('--') && !known.has(a)) throw new Error(`unknown flag ${a}`)
-  const slugFilter = flag(argv, '--slug')?.split(',')
+  const cli = parseCli(process.argv.slice(2))
   try {
-    if (cmd === 'scan') {
-      await scan(Number(flag(argv, '--max-bytes') ?? 600_000))
-    } else if (cmd === 'build') {
-      const picked = slugFilter ? SELECTION.filter((s) => slugFilter.includes(s.slug)) : SELECTION
-      if (slugFilter && picked.length !== slugFilter.length)
-        throw new Error('unknown --slug (not in SELECTION)')
-      for (const sel of picked) await buildOne(sel)
-      if (!slugFilter) {
-        // A full build owns the directory: drop fixtures no longer selected.
-        for (const slug of committedSlugs()) {
-          if (!SELECTION.some((s) => s.slug === slug)) {
-            rmSync(fixtureDir(slug), { recursive: true, force: true })
-            console.log(`[fixtures] ${slug}: removed (not in SELECTION)`)
-          }
+    if (cli.cmd === 'scan') {
+      const dataRoot = parseDataRoot(cli.values.get('--data-root'))
+      console.log(`[fixtures] data root ${dataRoot}`)
+      await scan(parseMaxBytes(cli.values.get('--max-bytes')), dataRoot)
+    } else if (cli.cmd === 'build') {
+      const slugs = parseSlugs(
+        cli.values.get('--slug'),
+        SELECTION.map((s) => s.slug),
+        'in SELECTION',
+      )
+      const prune = cli.switches.has('--prune')
+      if (slugs && prune) throw new Error('--prune applies to a full build only (no --slug)')
+      const dataRoot = parseDataRoot(cli.values.get('--data-root'))
+      const stale = committedSlugs().filter((s) => !SELECTION.some((x) => x.slug === s))
+      if (!slugs && stale.length > 0 && !prune) {
+        throw new Error(`committed fixtures not in SELECTION: ${stale.join(', ')}; pass --prune`)
+      }
+      for (const s of stale) assertOnlyGenerated(fixtureDir(s))
+      const pin = currentPin()
+      assertOracleTree(pin)
+      console.log(`[fixtures] data root ${dataRoot}, oracle pin ${pin}`)
+      for (const sel of slugs ? SELECTION.filter((s) => slugs.includes(s.slug)) : SELECTION) {
+        await buildOne(sel, dataRoot, pin)
+      }
+      if (!slugs && prune) {
+        for (const s of stale) {
+          rmSync(fixtureDir(s), { recursive: true, force: true })
+          console.log(`[fixtures] ${s}: removed (not in SELECTION, --prune)`)
         }
       }
       rmSync(path.join(FIXTURES_DIR, '.staging'), { recursive: true, force: true })
       await check()
-    } else if (cmd === 'prove') {
-      for (const slug of slugFilter ?? committedSlugs()) {
+    } else if (cli.cmd === 'prove') {
+      const slugs =
+        parseSlugs(cli.values.get('--slug'), committedSlugs(), 'a committed fixture') ??
+        committedSlugs()
+      const dataRoot = parseDataRoot(cli.values.get('--data-root'))
+      const pin = currentPin()
+      assertOracleTree(pin)
+      console.log(`[fixtures] data root ${dataRoot}, oracle pin ${pin}`)
+      for (const slug of slugs) {
         const manifest = readManifest(slug)
         await verifyFixtureFiles(slug, manifest)
-        const proof = await prove(fixtureDir(slug), manifest)
-        if (JSON.stringify(proof) !== JSON.stringify(manifest.proof)) {
+        const { header, proof: committed, ...draft } = manifest
+        const proof = await prove(fixtureDir(slug), draft, dataRoot)
+        if (jsonText(proof) !== jsonText(committed)) {
+          const changed = header.contentPin === pin ? [] : engineDiff(header.contentPin, pin)
           throw new Error(
-            `${slug}: proof differs from the committed fixture.json (TS changed? regenerate, FX-3)`,
+            `${slug}: proof content differs from the committed fixture.json (FX-3: regenerate with \`build\`). ` +
+              `contentPin ${header.contentPin}, current pin ${pin}; engine paths changed between them: ` +
+              `${changed.length > 0 ? changed.join(', ') : 'none'}`,
           )
         }
+        console.log(
+          header.contentPin === pin
+            ? `[fixtures] ${slug}: proof matches (contentPin ${pin.slice(0, 8)})`
+            : `[fixtures] ${slug}: proof matches; content unchanged since contentPin ${header.contentPin.slice(0, 8)} (pin now ${pin.slice(0, 8)})`,
+        )
+        if (header.generatorSha256 !== generatorSha256()) {
+          console.log(`[fixtures] ${slug}: note: generator changed since the build (check fails)`)
+        }
       }
-    } else if (cmd === 'check') {
+    } else if (cli.cmd === 'check') {
       await check()
-    } else {
-      throw new Error(
-        'usage: fixtures-build.ts scan|build|prove|check [--slug a,b] [--max-bytes N]',
-      )
+    } else if (cli.cmd === 'jobs') {
+      await jobs()
     }
   } finally {
+    if (oracleTmp) rmSync(oracleTmp, { recursive: true, force: true })
     await closeDb()
   }
 }
 
-await main()
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+  await main()
+}

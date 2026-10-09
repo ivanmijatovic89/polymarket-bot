@@ -1,105 +1,132 @@
 {
-  "manifestVersion": 1,
-  "generator": "scripts/native/fixtures-build.ts",
-  "slug": "btc-updown-5m-1770875700",
-  "timeframe": "5m",
-  "window": {
-    "startMs": 1770875700000,
-    "endMs": 1770876000000
+  "anomalies": {
+    "crossedBookTicks": 14,
+    "exchangeClockBackwards": 0,
+    "inWindowRows": 3847,
+    "localClockBackwards": 1,
+    "lockedTicks": 8,
+    "rows": 5309,
+    "strictlyCrossedTicks": 6
   },
-  "feeEra": "F1",
-  "chainlinkCoverage": false,
   "catalogFeedChecks": {
     "binance": "unverified",
     "chainlink": "not_required"
   },
-  "roles": ["5m", "fee-era:F1", "edge:local-clock-backwards"],
-  "selection": "Second BTC 5m market: the next smallest active 5m file, with crossed books and a backward local-clock step.",
+  "chainlinkCoverage": false,
   "conditionId": "0xc9cad23e85087f9fc9408fdf5e769b8b3bcfe90a1cf14bd18847803a374ba9c1",
-  "tokenIds": {
-    "UP": "61697100620860689102586394528070582226345600528811893652511767381696928190008",
-    "DOWN": "87256806828995973386749355790682230232397354076596019275292632185810124893341"
-  },
-  "outcome": "UP",
-  "priceToBeat": {
-    "value": null,
-    "syncedAtMs": null,
-    "status": "absent_pre_series_epoch"
-  },
+  "feeEra": "F1",
   "feeds": {
-    "lookbackMs": 300000,
     "binance": {
       "pair": "BTCUSDT",
-      "tailMs": 2000,
-      "seedAggTradeId": 3859081203
+      "seedAggTradeId": 3859081203,
+      "tailMs": 2000
     },
-    "chainlink": null
-  },
-  "anomalies": {
-    "rows": 5309,
-    "inWindowRows": 3847,
-    "localClockBackwards": 1,
-    "exchangeClockBackwards": 0,
-    "crossedBookTicks": 6,
-    "lockedBookTicks": 8
+    "chainlink": null,
+    "lookbackMs": 300000
   },
   "files": [
     {
-      "role": "telonex_delta",
-      "path": "telonex-delta/btc-updown-5m-1770875700.parquet",
       "bytes": 80069,
-      "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1",
-      "rows": 5309,
       "day": null,
+      "path": "telonex-delta/btc-updown-5m-1770875700.parquet",
+      "role": "telonex_delta",
+      "rows": 5309,
+      "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1",
       "source": {
-        "path": "data/events/telonex/delta-typed/btc/5m/btc-updown-5m-1770875700.parquet",
         "bytes": 80069,
-        "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1",
-        "rows": 5309
+        "path": "data/events/telonex/delta-typed/btc/5m/btc-updown-5m-1770875700.parquet",
+        "rows": 5309,
+        "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1"
       },
       "trim": null
     },
     {
-      "role": "binance_agg_trades",
-      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
       "bytes": 60828,
-      "sha256": "37ac6e510cf7d844e1f10367876431a886ec4ec94f44b3dedf0600dd665fd6d1",
-      "rows": 6899,
       "day": "2026-02-12",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+      "role": "binance_agg_trades",
+      "rows": 6899,
+      "sha256": "37ac6e510cf7d844e1f10367876431a886ec4ec94f44b3dedf0600dd665fd6d1",
       "source": {
-        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
         "bytes": 14249716,
-        "sha256": "42e196d802213d59fda87999639e8652e8bdac8d715219bbdd423d9421882c8f",
-        "rows": 1859454
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+        "rows": 1859454,
+        "sha256": "42e196d802213d59fda87999639e8652e8bdac8d715219bbdd423d9421882c8f"
       },
       "trim": {
-        "membershipRows": 6898,
-        "holdsSeed": true
+        "annotationDifferences": [],
+        "holdsSeed": true,
+        "membershipRows": 6898
       }
     }
   ],
-  "proof": [
-    {
-      "strategyId": "fixtures-feed-probe.binance-ptb",
-      "params": {
-        "tickOnUpdate": false
-      },
-      "traceSha256": "aed216984f5ad1cee540adb7499cf99cf85d4b9c6223e0955beb1088fc5e9ff4",
-      "traceLines": 7694,
-      "ticks": 3847,
-      "syntheticTicks": 0,
-      "outputSha256": "9715313cffbe652eeced1d2cebef663d9a73006f1f99a93a2a76cff69554edc3"
+  "header": {
+    "contentPin": "ad2f11b81ab6ff003bb5febe280c00120255a944",
+    "generator": "scripts/native/fixtures-build.ts",
+    "generatorSha256": "467c0fadbdde5a4221951a51f9ab639e738aa50ae7d524475c142614b792e11a"
+  },
+  "manifestVersion": 2,
+  "outcome": "UP",
+  "priceToBeat": {
+    "status": "absent_pre_series_epoch",
+    "syncedAtMs": null,
+    "value": null
+  },
+  "proof": {
+    "feedSeries": [
+      {
+        "feed": "binance_agg_trades",
+        "length": 6899,
+        "sha256": "8baf5a76e2721ee60a69a826435989a98b443cbef2844e8c14a78f94829b237d"
+      }
+    ],
+    "oracleKnobs": {
+      "BACKTEST_BINANCE_FEED_LATENCY_MS": "110",
+      "BACKTEST_BINANCE_FEED_LOOKBACK_MS": "300000",
+      "BACKTEST_LATENCY_DELAY": "0",
+      "BACKTEST_LATENCY_JITTER": "0",
+      "BACKTEST_PRICE_TO_BEAT_LATENCY_MS": "2700",
+      "BACKTEST_RTDS_CHAINLINK_LATENCY_MS": "320",
+      "BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS": "300000",
+      "BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS": "300000",
+      "MAX_EVENTS_PER_DRAIN": "4200",
+      "WEB_UI_ORDERBOOK_LEVELS": "10"
     },
-    {
-      "strategyId": "fixtures-feed-probe.binance-ptb",
-      "params": {
-        "tickOnUpdate": true
+    "runs": [
+      {
+        "outputSha256": "9715313cffbe652eeced1d2cebef663d9a73006f1f99a93a2a76cff69554edc3",
+        "params": {
+          "tickOnUpdate": false
+        },
+        "strategyId": "fixtures-feed-probe.binance-ptb",
+        "syntheticTicks": 0,
+        "ticks": 3847,
+        "traceLines": 7694,
+        "traceSha256": "aed216984f5ad1cee540adb7499cf99cf85d4b9c6223e0955beb1088fc5e9ff4"
       },
-      "traceSha256": "86dea78b56fe57a3edf2cef06e633fbe355dbd923cd069b9c1ca889eabb6bdca",
-      "traceLines": 14988,
-      "ticks": 7494,
-      "syntheticTicks": 3647,
-      "outputSha256": "63105bc0117670d1e10081666d733503bbbd7f8f2fd3342f69c4cf74eec39ee5"
-    }
-  ]
+      {
+        "outputSha256": "63105bc0117670d1e10081666d733503bbbd7f8f2fd3342f69c4cf74eec39ee5",
+        "params": {
+          "tickOnUpdate": true
+        },
+        "strategyId": "fixtures-feed-probe.binance-ptb",
+        "syntheticTicks": 3647,
+        "ticks": 7494,
+        "traceLines": 14988,
+        "traceSha256": "86dea78b56fe57a3edf2cef06e633fbe355dbd923cd069b9c1ca889eabb6bdca"
+      }
+    ]
+  },
+  "roles": ["5m", "fee-era:F1", "edge:local-clock-backwards"],
+  "selection": "Second BTC 5m market: the next smallest active 5m file, with crossed books and a backward local-clock step.",
+  "slug": "btc-updown-5m-1770875700",
+  "timeframe": "5m",
+  "tokenIds": {
+    "DOWN": "87256806828995973386749355790682230232397354076596019275292632185810124893341",
+    "UP": "61697100620860689102586394528070582226345600528811893652511767381696928190008"
+  },
+  "window": {
+    "endMs": 1770876000000,
+    "startMs": 1770875700000
+  }
 }
