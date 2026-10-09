@@ -563,3 +563,238 @@ in M3b; until then CI item 6 of 21 §3 checks only
 `native/contract/model-configs/ts-compat-default.json`. Rationale: the
 realistic sections cannot be validated before their models exist, and a
 placeholder would be hashed into run provenance.
+
+## D58. ts-compat compat-latency defaults and jitter
+
+**Decision (lead, 2026-10-09, first implementation run):** (1) The committed
+ts-compat default (`native/contract/model-configs/ts-compat-default.json`, 13
+§7.4, CI item 6 of 21 §3, D57) keeps `compatLatency` 0/0; it is the "pinned
+ts-compat default" of 13 §5.5. (2) The producer's built-in fallback of 21 §6.3
+stays `0`/`20` for fresh submissions with no flag and no env (TS parity,
+`src/cli/backtest.ts:745-750`); it is behavior-neutral at delay 0 (13 §5.1)
+and only changes the hash. (3) The binary accepts any `jitterMs ≥ 0` in
+ts-compat (13 §7.3 does not pin `compatLatency`; 13 §5.1 defines the seeded
+draw). (4) Zero jitter in parity is enforced by the harness (21 §6.1, 60 OR-6),
+never by the binary. Answers conformance A-01. A-02 is already answered by D57:
+the vectors pin the CI-item-6 sha of the committed file. A-19 needs no action.
+
+## D59. `RulesView` in ts-compat
+
+**Decision (lead, 2026-10-09, first implementation run):** the accessors of 30
+§5 whose ts-compat value in 11 §3 is "none" or "unbounded" return `Option`
+and give `None` in ts-compat: `min_order_size()`, `price_bounds()`,
+`taker_delay()`, `batch_cap()`. The others return the 11 §3 / §4 ts-compat
+values: `tick()` = 0.01, `fee_schedule()` = the 11 §4 curve, `gtd_min_lead()` =
+60 000 ms (decision-time offset), `gtd_early_expiry()` = 0. `source()` is the
+RS4 classification in both profiles (21 §10, 11 §13.3), even though ts-compat
+ignores the record (11 §4). Answers A-04.
+
+## D60. Empty `place_batch`
+
+**Decision (lead, 2026-10-09, first implementation run):** `PlaceBatch` stays
+`1..=N` by construction (10 §7.3). `out.place_batch(&[])` writes no intent: no
+event, no trace record, no dispatch (consistent with "none accepted → no
+dispatch", 12 §7.3). It is not an error, because an empty request asks for
+nothing (R14 covers unknown params, fields and modes). If a TS strategy emits an
+empty batch intent, the trace difference is classified like any field-only
+divergence (60 CL-1). Answers A-05.
+
+## D61. Simulator exchange order ids seen by strategies
+
+**Decision (lead, 2026-10-09, first implementation run):** in backtests the
+simulator gives `OrderAccepted.exchange_id` and the order view
+`Some("sim-{order_key}")` (10 §6 "rendered as `sim-{order_key}` at I/O"; 30
+§8). This keeps `out.cancel_exchange_id` working the same way in backtest and
+live, as TS backtests expose `bt-N-…` ids (`BacktestExecution.ts:350`). The id
+is opaque. Strategies and conformance tests MUST NOT rely on its format or
+density. Key-density assertions (`cg-01`) read the ledger (22 §4). The parity
+trace still omits exchange ids (22 §3.3). Answers A-14.
+
+## D62. Cancel-failure reason strings
+
+**Decision (lead, 2026-10-09, first implementation run):** 10 §10.2
+`CancelFailReason` serializes `TooManyIds` as `invalid_cancel_batch_size` and
+`ConflictingRefs` as `conflicting_order_reference`, as the cited
+`src/trading/cancellation.ts:70,90,99` does. TS `invalid_order_reference`
+(`:82`, a ref with no id or an invalid id) cannot be produced from typed
+intents: a cancel ref is exactly one id, and ids are validated when they are
+constructed (10 §6). No Rust variant is added, and a TS trace that contains it
+is classified. The "known code" of 22 §3.4 and CL-8 means a code from any 10
+§10.2 reason enum (reject, cancel-fail, split-fail, merge-fail), and the 21 §17
+row is read that way. Answers A-15.
+
+## D63. Oracle env audit scope (60 OR-2, OR-7)
+
+**Decision (lead, 2026-10-09, first implementation run):**
+(1) `BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` (read by
+`src/backtest/simulator/resolveMarket.ts:72-73` and `src/cli/backtest.ts:745-750`)
+are added to the OR-7 knob table. Their cell values are
+`compatLatency.delayMs` and `0`. They affect results, so they cannot go on the
+result-neutral allowlist. Excluding the file would edit the OR-2 single list.
+Pinning them is consistent with "latency travels in the job", because the env
+then equals the job.
+(2) The audit is not transitive. It greps only the OR-2 paths, as OR-7 says
+("a short grep script"), and the script states this limit.
+(3) The OR-7 "data-root variables" are `BINANCE_DATA_BASE_DIR`,
+`TELONEX_CRYPTO_PRICES_BASE_DIR` and `RECORDER_REPLAY_CACHE_DIR`
+(`src/binance/paths.ts:19`, `src/telonex/cryptoPrices/paths.ts:27`,
+`src/recorder-v4/replay/cacheDirectory.ts:8`). The harness sets them explicitly
+from `--data-root` (never inherited) and records them in `oracleEnv`.
+(4) `native/parity/engine-paths.txt` uses this format: repo-relative paths,
+one per line, `#` comments, two sections headed `# engine semantics` and
+`# input format` (OR-2). This is the format the audit script already parses.
+
+## D64. Parity inputs whose local size differs from the catalog
+
+**Decision (lead, 2026-10-09, first implementation run):** a market whose
+local converted file differs in size from `telonex_market_conversions.size_bytes`
+(today only `btc-updown-15m-1765684800`, data inventory 2026-10-09) counts as a
+market "without local data" under 60 MS-5. It is not selected, the next seeded
+market replaces it, and the set header records it with both sizes. The agent
+never re-downloads or repairs it (MS-5, D38, read-only data links of 01 §8.1).
+Rationale: MS-5 identifies every input by size and sha256, so an input that
+disagrees with its catalog row is not a trusted gating input (R14).
+
+## D65. cargo-deny: advisories without a fix yet, and target scope
+
+**Decision (lead, 2026-10-09, first implementation run):** (1) An advisory that
+cannot be fixed now goes into `native/deny.toml` `ignore` with its id, a reason,
+and an exit condition ("drop when X ≥ v" or "when parquet moves off Y"). Each
+ignore is listed in STATUS.md and checked again at every dependency bump and in
+every gate report. A fix that is available and compatible with the pinned
+toolchain is applied instead of ignored. (2) The graph is evaluated for
+`x86_64-unknown-linux-gnu` (CI-1, LV-10) and `aarch64-apple-darwin` (canonical
+builds, 31 §4.2) only. Applies 31 §3 item 5 and 60 CI-1. The current ignores
+(RUSTSEC-2026-0190 anyhow, RUSTSEC-2024-0436 paste) already meet (1).
+
+## D66. `selftest` before `serve` exists
+
+**Decision (lead, 2026-10-09, first implementation run):** until `serve` lands
+(M5a, 01 §6), `selftest` (20 §5.3) runs the embedded job twice through `run`
+and compares the deterministic sections. It reports the serve check
+explicitly, as `{name:"serve_vs_run", ok:true, detail:"skipped: serve not built
+(before M5a); run path compared twice"}`. The skip is visible in the output
+(R14). The binary's `describe` lists no `serve` capability. The canonical
+builder (31 §4.4 step 5) and LG-1 run `selftest` in M1, so a failing
+placeholder would block every build. From M5a the check runs as 20 §5.3 says
+and the skip is removed. This is an M5a proof item.
+
+## D67. Execution clock passed to `on_market_event` in ts-compat
+
+**Decision (lead, 2026-10-09, first implementation run):** the `now` argument
+of `Execution::on_market_event` (13 §2.2; 12 §5.2 pseudocode) is the profile's
+execution clock. In realistic it is the loop clock `now`. In ts-compat it is
+`tick.ts`, the TS tick timestamp of 12 §4.1, which TS passes to the simulator
+(`StrategyRunner.ts:327`, `nowMs: tick.snapshot.timestamp`; TC-C11, R4). The
+two differ on recorder-v4 (loop clock = receipt order) and wherever the
+exchange ts steps backwards. ts-compat calls `on_market_event` only on
+dispatched ticks (TC-C9), so `tick.ts` is always defined. 12 §5.2 is read
+with this substitution.
+
+## D68. RNG-6 open unit interval at the top of the range
+
+**Decision (lead, 2026-10-09, first implementation run):** the mapping stays
+`u = ((draw(i) >> 11) + 0.5) × 2^-53`, evaluated in IEEE-754 binary64
+(round-to-nearest-even), so RNG-7 row 7 is unchanged. It is exact for
+`draw >> 11 < 2^52` and rounds deterministically above that. The single result
+1.0 (`draw >> 11 = 2^53 − 1`) is mapped to `1 − 2^-53`, so `u ∈ (0, 1)` holds,
+as RNG-6 requires, and inverse CDFs stay finite. The "exact in f64" wording of
+RNG-6 is corrected accordingly. Changing the shift instead would change the
+committed golden vector (10 RNG-7).
+
+## D69. Clarifications from the first conformance triage (no behavior change)
+
+**Decision (lead, 2026-10-09, first implementation run):** the readings below are the ones the owner documents intend (00 §3.2 clarifications). They are recorded here instead of editing the frozen spec text one by one; vector ids are those of `native/conformance/PLAN.md` (60 §10.3 triage).
+
+- **A-03 `-0`.** 21 §18 N1 forbids `-0`. The 21 §6.1 regex is tightened to
+  `^(0|-?(0\.[0-9]*[1-9]|[1-9][0-9]*(\.[0-9]*[1-9])?))$`. Reject `-0`.
+- **A-06 + A-13 cid release on full fill.** By 12 §6.2 (ledger → OM rule 3 →
+  trace → callback), the cid is released before the callback of the fill that
+  completes the order. The last bullet of 12 §7.6 means a re-place issued
+  before that fill is delivered (realistic, between match and report) is
+  deduped. A re-place inside that fill's callback is accepted. The following
+  `OrderDone(Filled)` belongs to the old generation (by `OrderKey`). `dd-05`
+  and `dd-15` are correct.
+- **A-07 interests vs trace.** An interest-skipped event is still delivered:
+  applied to the ledger, processed by the OM and traced. Only the callback is
+  skipped (12 §6.1 "equivalent to one that returned no intents", 12 §6.2;
+  30 §4.1 "traces and outputs are unaffected"). In 22 §3.3, "never delivered"
+  means events the cascade never delivers (e.g. the TS `CANCELED` after a FOK
+  kill). `cs-05` is correct.
+- **A-08 cascade budget.** "Exceeded" means more than N. The fault is raised
+  when the (N+1)-th counted delivery would run (TS `processed >= max` before
+  the next event, `StrategyRunner.ts:574`). Interest-skipped deliveries count,
+  otherwise the declared interests would change outputs (30 §4.1, TF-3).
+  Deliveries with no callback by rule (Closing session, window gate) do not
+  count. `cs-06` is correct.
+- **A-09 `tick()` / `now()` in callbacks of tick N's execution step: the
+  conformance assumption is wrong, and the vectors need a fix.** `begin_tick`
+  runs before the execution step (12 §5.3), and those events "belong to that
+  tick" (12 §5.3). TS sets `lastMarket = tick N` before the simulator runs
+  (`StrategyRunner.ts:313` vs `:325-333`). So in those callbacks
+  `tick().seq == N`, ts-compat `now()` and the decision stamp are tick N's ts
+  (TC-C8), and only `plugins()`/`feeds()` are tick N−1's snapshot (12 §6.4).
+  Return to the conformance author to fix `cs-08` and `cs-10` (CF-4: the
+  implementation session does not edit them).
+- **A-10 realistic order failing precision.** Validation (step 3) precedes
+  funding (step 5) in 12 §7.2. A size of 0.000001 violates TK3 (2 size
+  decimals, 11 §7.3), so the order is rejected at decision with `SizePrecision`
+  and no reservation. The arrival re-check (13 §6.2) matters only when rules
+  change in flight. `c1-realistic-notional-ceil` uses its alternative size.
+- **A-11 reservation after a partial fill.** C1 is recomputed on the
+  outstanding quantity at the limit, not scaled. This is the literal 12 §9.4
+  text and TS `Portfolio.ts:161`
+  (`buyCommitment(price, outstanding, postOnly)`). `c3-release-partial-then-terminal`
+  is correct.
+- **A-12 second cancel (realistic).** It is silent iff the OM sees the target
+  terminal at emission (12 §7.3). Otherwise it is dispatched, and if the order
+  is gone by arrival it gets `CancelFailed(ExchangeNotCanceled)` (13 §6.6).
+  ts-compat: no event (TC-C5, TC-C10). `dd-12`, `cg-04` and `cg-06` are
+  correct.
+- **A-16 10 §8.2 rows** list lifecycle events only. Settlement updates
+  interleave as 13 §5.1 (ts-compat) and 13 §6 (realistic) define, and are
+  traced (22 §3.2). The vectors assert the 13 §5.1 sequence, which is correct.
+- **A-17 `marketId` source.** It is the market (condition) id of the first
+  counted tick of any cause. If that tick carries none (a synthetic tick
+  before any market event), it is taken from the next counted tick that
+  carries one (TS `if (!currentMarketId)`, `runSingleMarket.ts:302-304`, which
+  21 §11 cites). Read "book event" in 21 §11 as 21 §10 ("observed on the first
+  counted tick"). The 21 §3 job check against the first book event is a
+  separate validation and is unchanged.
+- **A-18 "700 bps".** It means the 11 §4 row-1 curve
+  `0.07 × p × (1 − p) × size` at 4 dp with rate 700 bps
+  (`capital.ts:16-28` → `computePolymarketTakerFee`), not 7 % of notional.
+  Reword 11 §4 row 2, 10 R9 and 12 §7.5. The vectors are correct.
+- **A-20 `sellable` in ts-compat.** `sellable(o)` = `qty` (30 §5.2). A
+  pending merge does not reduce `qty` or `sellable` until `PositionsMerged` is
+  delivered. The merge clamp uses the OM's own `mergeable` (12 §7.3), which
+  the SDK does not expose. Add one sentence to 30 §5.2.
+- **GF-2 header placement; generator `--check` modes.** Every golden is a JSON
+  object with a top-level `header` object
+  `{contentPin, generator, generatorSha256}` and its content in sibling keys.
+  GF-4 says "the header's `contentPin`", and `goldens-check.ts` already uses
+  this shape. `native:goldens:check` (GF-4) is the only check run by CI and
+  syncs. Generators need no `--check` mode, and existing ones may drop it when
+  they move to `native/fixtures/gen/` (GF-1).
+- **MS-2 fee eras vs Chainlink.** "Every fee era" means every era that
+  intersects the set's eligible range. MS-2 itself starts Chainlink sets at
+  2026-04-02, and AB-1 says SL "covers F2 and F3 only". So S15-CL and SL cover
+  F2 (2026-04-02…~05-08) and F3, while S15 covers F0–F3.
+- **S5 with 6 local BTC 5m markets.** This is already covered by MS-5 ("when a
+  whole set cannot be filled (BTC 5m) the header records the shortfall and the
+  affected cells are non-gating") and D38 (G2 covers BTC 15m only). Commit S5
+  with the 6 markets and the shortfall header, and run its cells as
+  non-gating.
+- **PARITY.md PE-R1…R3: subclass and status.** The subclass list of 60 §3.2 is
+  open ("e.g."), so `rounding` is fine. The class is `Intended model change`
+  (CL-4). `status: accepted` from the start (GF-5: "standing entries PE-R1…R3
+  count as accepted"). For `money = yes` entries, `independent review` is
+  pending until §10.4 and `user: pending` until G2 (CL-10, R6). These are
+  separate fields, not the status.
+- **PE-R1 and stats without an unrounded counterpart** (`mergableShares`,
+  `avgEntryPriceUp/Down`). PE-R1 applies only to stats with a counterpart in
+  `final.unrounded` (22 §3.4). A difference in any other quantized stat is
+  classified as a normal entry (CL-1), possibly with subclass `rounding` and
+  its evidence. Extending the auto-class would change a diff rule (CL-9, R5)
+  and would need the user. Raise it only if such divergences show up at
+  volume.

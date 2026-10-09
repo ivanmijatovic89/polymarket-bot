@@ -4,7 +4,7 @@
 
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
 - Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
-- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57)
+- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D69)
 - Milestone / step: M1 / steps 2–6 in parallel (workflow wave 1); steps 0 and 1 done
 - Oracle pin: main@ad2f11b8 (merged 2026-10-09 11:50; the only change since 9463830d is the rules capture, outside the OR-2 engine paths)
 - Binaries: none yet
@@ -35,6 +35,12 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 12:45 — lead decisions D58–D69
+
+- Added D58–D68 (compat-latency defaults, ts-compat `RulesView`, empty `place_batch`, `sim-{key}` exchange ids, cancel-failure strings, OR-7 audit scope, size-mismatched inputs under MS-5, cargo-deny ignores and targets, `selftest` before `serve`, ts-compat clock passed to `on_market_event`, RNG-6 top-of-range mapping) and D69 (clarifications from the conformance triage A-03…A-20, GF-2 header placement, MS-2 vs Chainlink coverage, S5 shortfall, PE-R1…R3 fields). No item needs the user.
+- A-09: the conformance vectors `cs-08`/`cs-10` assume tick N−1 for callbacks of tick N's execution step; the spec says tick N (12 §5.3). Sent back to the conformance author (CF-4).
+- FYI for the user (not blocking): the fleet dataset file `btc-updown-15m-1765684800` differs in size from its `telonex_market_conversions` row; native parity skips it (D64).
 
 ### 2026-10-09 12:35 — tooling merged; conformance C1 merged; pmb-core review
 
