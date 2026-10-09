@@ -2,8 +2,8 @@
 //! against the TS golden (`native/fixtures/decode/telonex_book_gen.ts`).
 //! Markets whose data file is absent on this host are skipped and reported.
 
-use pmb_book::{Level, MarketBooks, OutcomeBook, Side};
-use pmb_core::{MarketEvent, Outcome, QuoteSide};
+use pmb_book::{MarketBooks, OutcomeBook, Side};
+use pmb_core::{MarketEvent, Outcome};
 use pmb_replay::{read_telonex_delta, TelonexInput};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -37,6 +37,10 @@ fn telonex_book_matches_ts_golden() {
         &std::fs::read(root.join("native/fixtures/decode/telonex_book_golden.json")).unwrap(),
     )
     .unwrap();
+    assert_eq!(
+        golden["header"]["generator"].as_str(),
+        Some("native/fixtures/decode/telonex_book_gen.ts")
+    );
     let mut checked = 0;
     for m in golden["markets"].as_array().unwrap() {
         let path = root.join("data").join(m["file"].as_str().unwrap());
@@ -63,19 +67,10 @@ fn telonex_book_matches_ts_golden() {
         let mut head = Vec::new();
         for ev in tape.events() {
             let ty = match ev.event {
-                MarketEvent::Book {
-                    outcome,
-                    bids,
-                    asks,
-                } => {
+                MarketEvent::Book { outcome, .. } => {
                     if !seen.contains(&outcome) {
                         seen.push(outcome);
                     }
-                    let lv = |p: &pmb_core::PriceSize| Level {
-                        price: p.price,
-                        size: p.size,
-                    };
-                    books.apply_snapshot(outcome, bids.iter().map(lv), asks.iter().map(lv));
                     "book"
                 }
                 MarketEvent::PriceChange { changes } => {
@@ -83,17 +78,14 @@ fn telonex_book_matches_ts_golden() {
                         if !seen.contains(&c.outcome) {
                             seen.push(c.outcome);
                         }
-                        let side = match c.side {
-                            QuoteSide::Bid => Side::Bid,
-                            QuoteSide::Ask => Side::Ask,
-                        };
-                        books.apply_level(c.outcome, side, c.price, c.size);
                     }
                     "price_change"
                 }
                 _ => unreachable!(),
             };
-            let mut parts = vec![ev.exchange_ts.0.to_string(), ty.to_string()];
+            books.apply(Some(ev.exchange_ts), &ev.event);
+            let snapshot_ts = books.snapshot_ts().expect("timestamped").0;
+            let mut parts = vec![snapshot_ts.to_string(), ty.to_string()];
             for &o in &seen {
                 let (nb, tb) = top(books.get(o), Side::Bid);
                 let (na, ta) = top(books.get(o), Side::Ask);
