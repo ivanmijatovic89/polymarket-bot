@@ -388,6 +388,31 @@ fn stale_book_events_are_counted_but_not_dispatched_in_realistic() {
 }
 
 #[test]
+fn ts_compat_strategies_never_see_a_stale_book() {
+    // spec: 12 §5.2 ("ts-compat follows TS and has no stale state"), 30 §5.1
+    // is_stale
+    for (rules, expected) in [
+        (CoreRules::TsCompat, "false"),
+        (CoreRules::Realistic, "true"),
+    ] {
+        let script = Script {
+            on_tick: Some(Box::new(|ctx, _out, log| {
+                log.lock()
+                    .unwrap()
+                    .push(format!("down_stale={}", ctx.book(Outcome::Down).is_stale()));
+            })),
+            ..Script::default()
+        };
+        let mut h = H::new(config(rules), MockExec::sync(), script);
+        h.tick(0, BIDS, ASKS).unwrap();
+        h.control(5, Control::DataGap(Some(Outcome::Down))).unwrap();
+        h.tick(10, BIDS, ASKS).unwrap();
+        let last = h.log().last().unwrap().clone();
+        assert_eq!(last, format!("down_stale={expected}"), "{rules:?}");
+    }
+}
+
+#[test]
 fn ctx_exposes_profile_rules_book_and_portfolio() {
     // spec: 12 §6.5 (rules(): ts-compat rules of 11 §4; book(o): recorded
     // book; warmed() always true), 30 §5
