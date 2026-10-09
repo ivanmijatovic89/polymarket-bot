@@ -17,9 +17,19 @@
  * NOTE: an explicit publish is rarely needed — `--strategy-file <path.ts>`
  * on backtest / trade:bot publishes automatically. This CLI remains for
  * pre-publishing (e.g. CI) and inspection.
+ *
+ * Rust strategy packages (a Cargo.toml with [package.metadata.pmb], 31 §7)
+ * take the native branch, local-only until M3a (31 §7.5):
+ *
+ *   npm run strategy:publish -- --local-only --repo native/strategies --bin engine-exerciser
+ *
+ * It builds the canonical `artifact` binary, writes it and its build manifest
+ * to data/strategy-artifacts/native/, prints path and sha256, and touches
+ * neither R2 nor any database.
  */
 import path from 'node:path'
 import { closeDb } from '../db/index.js'
+import { isNativePublishInvocation, runNativePublishCli } from '../strategy/artifacts/native/cli.js'
 import { PublishError, publishStrategyArtifactFromSource } from '../strategy/artifacts/publish.js'
 
 type Args = {
@@ -79,13 +89,17 @@ async function main(): Promise<void> {
   }
 }
 
-main()
-  .then(async () => {
-    await closeDb().catch(() => {})
-    process.exit(0)
-  })
-  .catch(async (err) => {
-    console.error('[strategy:publish]', err instanceof PublishError ? err.message : err)
-    await closeDb().catch(() => {})
-    process.exit(err instanceof PublishError ? 2 : 1)
-  })
+if (isNativePublishInvocation(process.argv.slice(2))) {
+  void runNativePublishCli(process.argv.slice(2)).then((code) => process.exit(code))
+} else {
+  main()
+    .then(async () => {
+      await closeDb().catch(() => {})
+      process.exit(0)
+    })
+    .catch(async (err) => {
+      console.error('[strategy:publish]', err instanceof PublishError ? err.message : err)
+      await closeDb().catch(() => {})
+      process.exit(err instanceof PublishError ? 2 : 1)
+    })
+}
