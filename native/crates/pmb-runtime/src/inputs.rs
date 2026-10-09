@@ -16,7 +16,7 @@ use pmb_contract::job::{EngineJob, InputRef};
 use pmb_contract::num::SafeU64;
 use pmb_contract::result::{AnomalyValue, ErrorDetail};
 use pmb_contract::rules::{Captured, CapturedRules};
-use pmb_contract::vocab::{self, InputPath, RulesOrigin, RulesPhase};
+use pmb_contract::vocab::{self, ErrorClass, InputPath, RulesOrigin, RulesPhase};
 use pmb_core::ids::{ConditionId, Hash32, TokenId};
 use pmb_core::rules::{
     fee_era, ExchangeRules, FieldSource, Origin, Phase, RulesProvenance, RulesSource,
@@ -250,23 +250,24 @@ pub const INPUT_FIX_COMMAND: &str =
 pub fn verify_input(input: &InputRef, slug: &str) -> Result<bool, EngineError> {
     let path = Path::new(&input.path);
     let fix = INPUT_FIX_COMMAND.replace("<slug>", slug);
-    let meta = std::fs::metadata(path).map_err(|e| match e.kind() {
-        io::ErrorKind::NotFound => EngineError::data_missing(
+    // 20 §4 data_missing: the message names the fix command.
+    let missing = |what: &str| {
+        EngineError::data_missing(
             "input_missing",
-            format!("{} is absent on this host; run {fix}", input.path),
+            format!("{} {what} on this host; run {fix}", input.path),
         )
         .with_detail(ErrorDetail {
             path: Some(input.path.clone()),
             fix_command: Some(fix.clone()),
             ..ErrorDetail::default()
-        }),
+        })
+    };
+    let meta = std::fs::metadata(path).map_err(|e| match e.kind() {
+        io::ErrorKind::NotFound => missing("is absent"),
         _ => EngineError::runtime("io", format!("{}: {e}", input.path)),
     })?;
     if !meta.is_file() {
-        return Err(EngineError::data_missing(
-            "input_missing",
-            format!("{} is not a regular file", input.path),
-        ));
+        return Err(missing("is not a regular file"));
     }
     if meta.len() != input.bytes.get() {
         return Err(EngineError::data_defect(
@@ -317,6 +318,13 @@ fn count(out: &mut BTreeMap<String, AnomalyValue>, key: &str, v: u64) {
 }
 
 /// Reader counters under their 15 §8 names (zero counters omitted).
+///
+/// D-PENDING: `droppedChanges` (changes dropped inside a kept
+/// `price_change` row, I-16) has no 15 §8 name; it is kept under this name
+/// rather than dropped silently (R14) until 15 §8 names it (spec question).
+/// The telonex counters `deltaBeforeBook`, `crossedBookTicks` and
+/// `duplicateRows` of 15 §8 are not produced by the pmb-replay reader or the
+/// engine's book driver yet (crossStreamNeeds); they are absent, not zero.
 pub fn anomalies_of(d: &TelonexDiagnostics) -> BTreeMap<String, AnomalyValue> {
     let mut out = BTreeMap::new();
     count(&mut out, "localBehindExchange", d.local_behind_exchange);
@@ -447,14 +455,10 @@ pub fn build_inputs(
         tokens: [m.token_ids.up.as_str(), m.token_ids.down.as_str()],
         condition_id: m.condition_id.as_deref(),
     };
-    let tape = read_telonex_delta(Path::new(&input.path), &tin).map_err(|e| {
-        if verified && e.cause == "decode_unverified" {
-            // 15 I-8: a decode failure of a verified file is deterministic.
-            EngineError::data_defect("corrupt", e.detail)
-        } else {
-            EngineError::from(e)
-        }
-    })?;
+    let classify =
+        |e: EngineError| classify_decode_error(e, verified, || reread_input(input, &m.slug));
+    let tape = read_telonex_delta(Path::new(&input.path), &tin)
+        .map_err(|e| classify(EngineError::from(e)))?;
     let market_text = (!tape.market.is_empty()).then(|| tape.market.clone());
     let anomalies = anomalies_of(&tape.diagnostics);
     assemble(
@@ -464,6 +468,47 @@ pub fn build_inputs(
         market_text,
         anomalies,
     )
+    .map_err(classify)
+}
+
+/// The class of a decode-stage error by what is known about the input's
+/// bytes (20 §4): a decode failure of a file whose sha256 was verified is
+/// deterministic (`data_defect: corrupt`, 15 I-8); of an unverified file it
+/// is `runtime: decode_unverified` (another host may hold a good copy).
+///
+/// The reader reports I/O failures (open, row-group reads) under the same
+/// cause as decode failures. `recheck` reads the input again: when that
+/// fails, its error (`runtime: io`, or what the file now is) is the class,
+/// because the bytes could not be read, not decoded.
+// D-PENDING: the reader should report I/O as `runtime: io` itself
+// (crossStreamNeeds); the recheck then becomes unnecessary.
+pub fn classify_decode_error(
+    e: EngineError,
+    verified: bool,
+    recheck: impl FnOnce() -> Result<(), EngineError>,
+) -> EngineError {
+    match (e.class, e.cause) {
+        (ErrorClass::DataDefect, "corrupt") if !verified => {
+            EngineError::runtime("decode_unverified", e.message)
+        }
+        (ErrorClass::Runtime, "decode_unverified") => match recheck() {
+            Err(io) => io,
+            Ok(()) if verified => EngineError::data_defect("corrupt", e.message),
+            Ok(()) => e,
+        },
+        _ => e,
+    }
+}
+
+/// Reads the whole input again (after a reader failure): the 15 I-8 checks,
+/// then, without a sha256, every byte. Any read error is `runtime: io`.
+pub fn reread_input(input: &InputRef, slug: &str) -> Result<(), EngineError> {
+    if !verify_input(input, slug)? {
+        let io = |e: io::Error| EngineError::runtime("io", format!("{}: {e}", input.path));
+        let mut f = File::open(&input.path).map_err(io)?;
+        io::copy(&mut f, &mut io::sink()).map_err(io)?;
+    }
+    Ok(())
 }
 
 /// Inputs from an in-memory tape (selftest; no file I/O).
@@ -553,6 +598,115 @@ mod tests {
                 "inexact_decimal": 2, "skippedRows": {"blank_market": 1}
             })
         );
+    }
+
+    #[test]
+    fn decode_errors_are_classed_by_what_is_known_of_the_bytes() {
+        // spec: 20 §4 (runtime: decode failure of an unverified file;
+        // data_defect: decode failure of a verified file), 15 I-8
+        let decode = || EngineError::runtime("decode_unverified", "bad page");
+        let corrupt = || EngineError::data_defect("corrupt", "asset id is not UTF-8");
+        let readable = || Ok(());
+        let unread = || -> Result<(), EngineError> { panic!("no recheck for a decoded value") };
+        let c = |e: EngineError| (e.class, e.cause);
+        assert_eq!(
+            c(classify_decode_error(decode(), true, readable)),
+            (ErrorClass::DataDefect, "corrupt")
+        );
+        assert_eq!(
+            c(classify_decode_error(decode(), false, readable)),
+            (ErrorClass::Runtime, "decode_unverified")
+        );
+        // The file cannot be read again: I/O, transient, retried.
+        let io = || Err(EngineError::runtime("io", "EMFILE"));
+        assert_eq!(
+            c(classify_decode_error(decode(), true, io)),
+            (ErrorClass::Runtime, "io")
+        );
+        assert_eq!(
+            c(classify_decode_error(corrupt(), false, unread)),
+            (ErrorClass::Runtime, "decode_unverified")
+        );
+        assert_eq!(
+            c(classify_decode_error(corrupt(), true, unread)),
+            (ErrorClass::DataDefect, "corrupt")
+        );
+        let foreign = EngineError::data_defect("foreign_file", "asset 9");
+        assert_eq!(
+            c(classify_decode_error(foreign, false, unread)),
+            (ErrorClass::DataDefect, "foreign_file")
+        );
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let d =
+            std::env::temp_dir().join(format!("pmb-runtime-inputs-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn job_for(path: &Path, sha256: Option<String>) -> EngineJob {
+        let mut v: serde_json::Value = serde_json::from_str(crate::selftest::SELFTEST_JOB).unwrap();
+        let bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(1);
+        v["market"]["input"]["path"] = serde_json::Value::from(path.to_str().unwrap());
+        v["market"]["input"]["bytes"] = serde_json::Value::from(bytes);
+        v["market"]["input"]["sha256"] = sha256.map_or(serde_json::Value::Null, Into::into);
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn an_undecodable_file_is_a_defect_only_when_verified() {
+        // spec: 20 §4, 15 I-8 (end to end through the reader)
+        let d = scratch("garbage");
+        let f = d.join("btc-updown-15m-1780272000.parquet");
+        std::fs::write(&f, b"this is not a parquet file").unwrap();
+        let sha = {
+            let digest: [u8; 32] = Sha256::digest(std::fs::read(&f).unwrap()).into();
+            pmb_contract::num::Sha256Hex::from_digest(&digest).to_string()
+        };
+        let e = build_inputs(&job_for(&f, Some(sha)), RulesTableVersion::V1)
+            .err()
+            .unwrap();
+        assert_eq!(
+            (e.class, e.cause),
+            (ErrorClass::DataDefect, "corrupt"),
+            "{e}"
+        );
+        let e = build_inputs(&job_for(&f, None), RulesTableVersion::V1)
+            .err()
+            .unwrap();
+        assert_eq!(
+            (e.class, e.cause),
+            (ErrorClass::Runtime, "decode_unverified"),
+            "{e}"
+        );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_directory_input_names_the_fix_command() {
+        // spec: 20 §4 data_missing ("the message names the fix command")
+        let d = scratch("dir");
+        let job = job_for(&d, None);
+        let e = verify_input(&job.market.input, &job.market.slug).unwrap_err();
+        assert_eq!(
+            (e.class, e.cause),
+            (ErrorClass::DataMissing, "input_missing")
+        );
+        assert!(e.message.contains("is not a regular file"), "{}", e.message);
+        assert!(
+            e.message.contains("download-converted-r2-to-local"),
+            "{}",
+            e.message
+        );
+        let detail = e.detail.unwrap();
+        assert_eq!(detail.path.as_deref(), d.to_str());
+        assert!(detail
+            .fix_command
+            .unwrap()
+            .contains("--slug btc-updown-15m-1780272000"));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]
