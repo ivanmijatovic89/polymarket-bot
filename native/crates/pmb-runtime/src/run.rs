@@ -490,10 +490,21 @@ where
             seq: 0,
             at: pmb_core::TsMs(0),
         }),
-        Ok(()) => match sink.as_mut() {
+        // Engine panics are engine faults of the job (12 §11); strategy
+        // panics are caught inside the session and arrive as
+        // `RunFailure::Strategy`.
+        Ok(()) => catch(|| match sink.as_mut() {
             Some(s) => backend.run_candidate(&cx, cand, s),
             None => backend.run_candidate(&cx, cand, NoTrace),
-        },
+        })
+        .unwrap_or_else(|p| {
+            Err(RunFailure::Group(
+                EngineError::engine_fault("panic", p.message).with_detail(ErrorDetail {
+                    location: p.location,
+                    ..ErrorDetail::default()
+                }),
+            ))
+        }),
     };
 
     let (cand_result, skew, counters) = match run {
