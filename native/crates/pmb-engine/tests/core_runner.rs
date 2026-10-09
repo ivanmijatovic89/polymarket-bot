@@ -365,3 +365,37 @@ fn model_config_resolution_rejects_a_zero_budget() {
     .unwrap_err();
     assert!(err.message.contains("maxEventsPerDrain"), "{}", err.message);
 }
+
+#[test]
+fn ctx_now_may_step_back_after_a_synthetic_tick_in_ts_compat_only() {
+    // spec: 30 §5.0 (ts-compat now() is the TS tick timestamp and can step
+    // back after a synthetic tick; realistic now() is monotone), 12 §4.2,
+    // 14 §12.3, TC-C11
+    for rules in [CoreRules::TsCompat, CoreRules::Realistic] {
+        let mut h = H::new(config(rules), MockExec::sync(), Script::default());
+        h.tick(1000, BID, &[(0.45, 100.0)]).unwrap();
+        h.synth(1400, SyntheticKind::BinanceAggTrade).unwrap();
+        // A real row whose exchange time precedes the synthetic stamp.
+        let (b, a) = (lv(BID), lv(&[(0.45, 100.0)]));
+        h.env_step(
+            t(1200),
+            Some(t(1200)),
+            pmb_engine::Payload::Market(pmb_core::MarketEvent::Book {
+                outcome: Outcome::Up,
+                bids: &b,
+                asks: &a,
+            }),
+        )
+        .unwrap();
+        let nows: Vec<String> = h
+            .log()
+            .iter()
+            .map(|l| l.split(' ').nth(2).unwrap().to_string())
+            .collect();
+        match rules {
+            CoreRules::TsCompat => assert_eq!(nows, vec!["now=1000", "now=1400", "now=1200"]),
+            CoreRules::Realistic => assert_eq!(nows, vec!["now=1000", "now=1400", "now=1400"]),
+        }
+        assert_eq!(h.s.clocks().now, t(1400), "the loop clock is monotone (K2)");
+    }
+}

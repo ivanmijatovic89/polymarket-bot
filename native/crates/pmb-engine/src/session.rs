@@ -710,6 +710,13 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let realistic = self.config.core_rules == CoreRules::Realistic;
         match c {
             Control::SessionStart { observe_only } => {
+                if observe_only && !realistic {
+                    // D28: ts-compat is backtest-only; observe-only windows
+                    // exist only in paper and live (12 §10).
+                    return Err(self.engine_fault(
+                        "observe-only SessionStart delivered to a ts-compat session (D28)".into(),
+                    ));
+                }
                 self.observe_only = observe_only;
                 if observe_only && self.state == SessionState::Active {
                     self.state = SessionState::Warming;
@@ -740,6 +747,9 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             // D-PENDING: adoption of read-only inventory is live-only (50,
             // M9); chose a no-op in the core until the runtime sends it.
             Control::AdoptPositions => {}
+            // D-PENDING: 12 §7.2 step 1 rejects with the guard's reason, but
+            // 10 §10.2 defines only `KillSwitch`; chose `KillSwitch` for every
+            // guard trip.
             Control::Guard(_) | Control::Operator(OperatorCommand::KillSwitch) => {
                 self.om.set_halt(Halt::KillSwitch);
                 self.handle_engine(
