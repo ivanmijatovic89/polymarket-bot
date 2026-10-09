@@ -369,4 +369,170 @@ mod tests {
         );
         e.validate().unwrap();
     }
+
+    use std::sync::Arc;
+
+    use pmb_core::ids::{ConditionId, Hash32, TokenId};
+    use pmb_core::market::MarketVersion;
+    use pmb_core::order::MetaStore;
+    use pmb_core::{PerOutcome, Usdc};
+
+    use crate::stats::{FinalStats, MarketStatsAcc};
+    use crate::strategy::TickCause;
+
+    fn info() -> Arc<MarketInfo> {
+        Arc::new(
+            MarketInfo::new(
+                "btc-updown-15m-1780272000",
+                ConditionId(Hash32([0xab; 32])),
+                PerOutcome::new(TokenId([1; 32]), TokenId([2; 32])),
+                MarketVersion::V2,
+                false,
+            )
+            .expect("slug"),
+        )
+    }
+
+    fn session_output(ticks: &[TickCause]) -> SessionOutput {
+        let mut acc = MarketStatsAcc::default();
+        for &c in ticks {
+            acc.ticks.record(c);
+        }
+        SessionOutput {
+            stats: FinalStats {
+                pnl: Usdc::ZERO,
+                trade_count: 0,
+                trade_as_maker: 0,
+                trade_as_taker: 0,
+                fees_paid: Usdc::ZERO,
+                buy_vwap: PerOutcome::default(),
+                shares: PerOutcome::default(),
+                cost: Usdc::ZERO,
+                split_cost: Usdc::ZERO,
+                cash_end: Usdc::from_micros(500_000_000),
+                cash_start: Usdc::from_micros(500_000_000),
+                intent_meta: Vec::new(),
+            },
+            acc,
+            metas: MetaStore::new(),
+        }
+    }
+
+    fn cx(info: &MarketInfo) -> OutputContext<'_> {
+        OutputContext {
+            info,
+            outcome: FinalOutcome::new(Outcome::Up),
+            core_rules: CoreRules::TsCompat,
+            rules: None,
+        }
+    }
+
+    #[test]
+    fn no_counted_tick_is_the_null_row() {
+        // spec: 21 §13 row 3 (marketStats null, skipReason no_activity), §15
+        let info = info();
+        let o = market_output(&cx(&info), &session_output(&[])).unwrap();
+        assert_eq!(o.market_stats, None);
+        assert_eq!(o.skip_reason, Some(SkipReason::NoActivity));
+        assert_eq!(o.events_processed.get(), 0);
+        assert_eq!(serde_json::to_string(&o.events_by_type).unwrap(), "{}");
+    }
+
+    #[test]
+    fn split_merge_only_activity_is_a_zero_row_with_its_money() {
+        // spec: 21 §13 row 2 and "zero-row money fields come from the same
+        // formulas"; §15 (eventsByType omits unseen causes)
+        let info = info();
+        let mut s = session_output(&[TickCause::Book, TickCause::PriceChange, TickCause::Book]);
+        s.stats.split_cost = Usdc::from_micros(5_000_000);
+        s.stats.pnl = Usdc::from_micros(-1_005_000);
+        let o = market_output(&cx(&info), &s).unwrap();
+        let st = o.market_stats.as_ref().expect("zero row");
+        assert_eq!(o.skip_reason, Some(SkipReason::NoActivity));
+        assert_eq!(st.skip_reason, Some(StatsSkipReason::NoInWindowActivity));
+        assert_eq!(st.split_cost.to_string(), "5");
+        // 10 §4 Q3: -1.005 → -1.01 (half away from zero, not JS Math.round).
+        assert_eq!(st.pnl.to_string(), "-1.01");
+        assert_eq!(st.market_id, format!("0x{}", "ab".repeat(32)));
+        assert_eq!(st.rules, Some(None));
+        assert_eq!(
+            serde_json::to_string(&o.events_by_type).unwrap(),
+            r#"{"book":2,"price_change":1}"#
+        );
+    }
+
+    #[test]
+    fn a_position_without_fills_is_activity() {
+        // spec: 21 §13 row 1 ("fills or open positions"): split shares held
+        let info = info();
+        let mut s = session_output(&[TickCause::Book]);
+        s.stats.shares = PerOutcome::new(3_000_000, 3_000_000);
+        s.stats.split_cost = Usdc::from_micros(3_000_000);
+        let o = market_output(&cx(&info), &s).unwrap();
+        assert_eq!(o.skip_reason, None);
+        let st = o.market_stats.unwrap();
+        assert_eq!(st.skip_reason, None);
+        assert_eq!(st.mergable_shares.to_string(), "3");
+    }
+
+    #[test]
+    fn intent_meta_is_materialized_and_capped() {
+        // spec: 21 §16 (first fill per cid already chosen by the ledger walk;
+        // per-market cap 10,000 entries → strategy_fault intent_meta_limit)
+        let info = info();
+        let mut s = session_output(&[TickCause::Book]);
+        s.stats.trade_count = 1;
+        s.stats.trade_as_taker = 1;
+        let m = s.metas.insert(r#"{"k":1,"x":0.0412,"n":null}"#).unwrap();
+        s.stats.intent_meta.push(m);
+        let o = market_output(&cx(&info), &s).unwrap();
+        assert_eq!(
+            serde_json::to_string(&o.market_stats.unwrap().intent_meta).unwrap(),
+            r#"[{"k":1,"n":null,"x":0.0412}]"#
+        );
+        for _ in 0..10_000 {
+            s.stats.intent_meta.push(m);
+        }
+        let e = market_output(&cx(&info), &s).unwrap_err();
+        assert!(
+            matches!(
+                e,
+                OutputError::IntentMetaLimit {
+                    entries: 10_001,
+                    ..
+                }
+            ),
+            "{e:?}"
+        );
+    }
+
+    #[test]
+    fn rules_follow_the_profile_or_fail_loud() {
+        // spec: 21 §11 `rules` (null in ts-compat, object in realistic), R14
+        let info = info();
+        let s = session_output(&[TickCause::Book]);
+        let r = MarketStatsRules {
+            source: pmb_contract::vocab::RulesSource::Fallback,
+            rules_table_version: "rules-table-v1".into(),
+            snapshot_parser_version: None,
+            fee_era: "f0".into(),
+            fee_curve: "c".into(),
+            fee_source: "s".into(),
+            unverified_rules: Vec::new(),
+        };
+        let mut c = cx(&info);
+        c.rules = Some(&r);
+        assert!(matches!(
+            market_output(&c, &s),
+            Err(OutputError::SelfCheck(_))
+        ));
+        c.core_rules = CoreRules::Realistic;
+        let o = market_output(&c, &s).unwrap();
+        assert_eq!(o.market_stats.unwrap().rules, Some(Some(r.clone())));
+        c.rules = None;
+        assert!(matches!(
+            market_output(&c, &s),
+            Err(OutputError::SelfCheck(_))
+        ));
+    }
 }

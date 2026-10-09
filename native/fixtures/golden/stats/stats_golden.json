@@ -250,6 +250,105 @@
         "expected": {
           "eventsByType": {
             "book": 2,
+            "price_change": 3
+          },
+          "eventsProcessed": 5,
+          "marketStats": {
+            "avgEntryPriceDown": 0.54,
+            "avgEntryPriceUp": null,
+            "cost": 13,
+            "downShares": 23.32,
+            "feesPaid": 0.75,
+            "finalOutcome": "UP",
+            "intentMeta": [
+              {
+                "f": 1,
+                "w": 0.125
+              }
+            ],
+            "marketId": "0xabababababababababababababababababababababababababababababababab",
+            "mergableShares": 0,
+            "pnl": -13.55,
+            "slug": "btc-updown-15m-1780272000",
+            "splitCost": 0,
+            "tradeAsMaker": 0,
+            "tradeAsTaker": 2,
+            "tradeCount": 2,
+            "upShares": 0
+          },
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "name": "fok_losing_side",
+        "outcome": "UP",
+        "parquet": "native/fixtures/golden/stats/fok_losing_side.parquet",
+        "parquetSha256": "a5e903c69e2e0d59f0f79b04555a1d38b510afcad289d3d3e0864f1e641d093d",
+        "script": [
+          {
+            "intents": [
+              {
+                "cid": "f1",
+                "kind": "place",
+                "meta": {
+                  "f": 1,
+                  "w": 0.125
+                },
+                "orderType": "FOK",
+                "outcome": "DOWN",
+                "price": "0.55",
+                "side": "BUY",
+                "size": "33.33"
+              },
+              {
+                "cid": "f2",
+                "kind": "place",
+                "meta": {
+                  "f": 2
+                },
+                "orderType": "FOK",
+                "outcome": "UP",
+                "price": "0.47",
+                "side": "BUY",
+                "size": "100"
+              }
+            ],
+            "tick": 0
+          },
+          {
+            "intents": [
+              {
+                "cid": "q1",
+                "kind": "place",
+                "orderType": "GTC",
+                "outcome": "DOWN",
+                "price": "0.5",
+                "side": "SELL",
+                "size": "10.01"
+              }
+            ],
+            "tick": 1
+          }
+        ],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "FOK BUY filled across fractional sizes, FOK BUY killed for lack of depth (no fill, meta excluded), partial taker SELL of the losing outcome: negative pnl, fee rounding",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      },
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {
+            "book": 2,
             "price_change": 2
           },
           "eventsProcessed": 4,
@@ -427,6 +526,6 @@
   "header": {
     "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
     "generator": "native/fixtures/gen/stats_gen.ts",
-    "generatorSha256": "d61d7ef1f24a4cad4337f57a5ae7a692ba3a318b95345c22b0cdd3e499811b35"
+    "generatorSha256": "47bc5269b37dd3d0d1bc881124a3683e9bebfbf1ea16309ffac01414580ffb05"
   }
 }

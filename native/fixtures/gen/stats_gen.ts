@@ -258,6 +258,60 @@ const cases: Case[] = [
     ],
   },
   {
+    name: 'fok_losing_side',
+    what: 'FOK BUY filled across fractional sizes, FOK BUY killed for lack of depth (no fill, meta excluded), partial taker SELL of the losing outcome: negative pnl, fee rounding',
+    outcome: 'UP',
+    latency: { delayMs: 0, jitterMs: 0 },
+    rows: [
+      book(S - 1_000, 'UP', ...UP_BOOK),
+      book(S - 1_000, 'DOWN', ...DOWN_BOOK),
+      pc(S + 500, ['DOWN', 'SELL', '0.54', '50']),
+      pc(S + 700, ['UP', 'BUY', '0.45', '90']),
+      pc(S + 900, ['DOWN', 'BUY', '0.52', '80']),
+    ],
+    script: [
+      {
+        tick: 0,
+        intents: [
+          {
+            kind: 'place',
+            cid: 'f1',
+            outcome: 'DOWN',
+            side: 'BUY',
+            price: '0.55',
+            size: '33.33',
+            orderType: 'FOK',
+            meta: { f: 1, w: 0.125 },
+          },
+          {
+            kind: 'place',
+            cid: 'f2',
+            outcome: 'UP',
+            side: 'BUY',
+            price: '0.47',
+            size: '100',
+            orderType: 'FOK',
+            meta: { f: 2 },
+          },
+        ],
+      },
+      {
+        tick: 1,
+        intents: [
+          {
+            kind: 'place',
+            cid: 'q1',
+            outcome: 'DOWN',
+            side: 'SELL',
+            price: '0.5',
+            size: '10.01',
+            orderType: 'GTC',
+          },
+        ],
+      },
+    ],
+  },
+  {
     name: 'zero_row_idle',
     what: 'in-window ticks, a post-only order placed and canceled, no fill and no position: zero row tagged no_in_window_activity',
     outcome: 'UP',

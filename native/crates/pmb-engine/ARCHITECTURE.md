@@ -9,38 +9,40 @@ there.
 
 ## Module map
 
-| Module | Spec | Contents |
-|---|---|---|
-| `strategy` (`mod.rs`) | 30 §4, §4.1, §10, §12 | `Strategy` trait (`Params`, `ID`, `requirements`, `interests`, `new`, `on_tick`, `on_event`, `status`), `Interests`, `EventFlags`, `TickInterest`, `StrategyResult`, `StrategyError`, stand-in `Requirements` |
-| `strategy::ctx` | 30 §5, 12 §6.5 | `Ctx`: stack value of borrows, built once per callback |
-| `strategy::views` | 30 §5.1–§5.2, 12 §9.7 | `TickInfo`, `TickCause`, `BookView`, `Level`, `PortfolioView`, `OrderView` (= `ledger::OrderRecord`), `RulesView` |
-| `strategy::event` | 30 §8 | Author `AccountEvent<'a>` view, `FillView` |
-| `strategy::intents` | 10 §11 P3, 12 §6.1, 30 §7 | Engine-owned reused `Intents` buffer (buffer-local cids, interned by the OM), `Meta` |
-| `config` | 21 §6 | `EngineConfig` (resolved `ModelConfig`), `RiskLimits` |
-| `core_rules` | 12 §2.3 | `CoreRules::{TsCompat, Realistic}` |
-| `envelope` | 12 §3 | `Envelope`, `Payload`, `Source`, `Control`, `SyntheticKind` |
-| `shared` | 12 §2.1, §4.4 | `SharedMarket` (recorded books, rules in force, feed state, window, skew), driver `apply` |
-| `clock` | 12 §4 | `Clocks` (`now`, `tick_ts`), `EventClock`, decision stamp, `xnow`, `loop_time_of` |
-| `window` | 12 §5.4, §10 | `WindowRule`, `WindowGate`, `SessionState` |
-| `session` | 12 §2.1, §5.1, §10, §11 | `Session<S, E, T>`, `step`, `end_of_stream`, `finalize`, `drive`, `SessionFault` |
-| `cascade` | 12 §6.2–§6.3 | `Session::drain`, `CascadeBudget` |
-| `om` | 12 §7–§8 | `OrderManager`, `OmIo`, `EngineIntent`, `SelfCrossIndex`, `Halt` |
-| `ledger` | 12 §9 | `Ledger`, `OrderRecord`, `PendingOp`, `Delivered`, `LedgerCounters` |
-| `trace` | 22 §2, 12 §12 | `TraceSink`, `NoTrace`, `TraceEvent`, `OrderLifecycle`, `FillDetail`, `ExecTraceRecord` |
-| `stats` | 21 §10–§11, §13, §15–§16 | `TickCounters`, `CandidateCounters`, `MarketStatsAcc`, `FinalStats` |
-| `exec` (`mod.rs`) | 13 §2.1–§2.4 | `Execution`, `ExecCommand`, `CancelScope`, `ExecCtx`, `EventQueue`, `TimerFired`, `AccountInput`, `BookOverlay`, `ExecDiagnostics` |
-| `exec::sim::*` | 13 §3–§5 | `scheduler`, `book_overlay`, `fill`, `latency`, `fee`, `report`, `compat`, `simulator` (empty) |
-| `feeds_view`, `plugins_view` | 14 §2, §12.1 | STAND-INS for `pmb-feeds` / `pmb-plugins` (`FeedsView`, `FeedState`, `FeedObservation`, `PluginsView`, `PluginSet`) |
+| Module                       | Spec                             | Contents                                                                                                                                                                                                      |
+| ---------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strategy` (`mod.rs`)        | 30 §4, §4.1, §10, §12            | `Strategy` trait (`Params`, `ID`, `requirements`, `interests`, `new`, `on_tick`, `on_event`, `status`), `Interests`, `EventFlags`, `TickInterest`, `StrategyResult`, `StrategyError`, stand-in `Requirements` |
+| `strategy::ctx`              | 30 §5, 12 §6.5                   | `Ctx`: stack value of borrows, built once per callback                                                                                                                                                        |
+| `strategy::views`            | 30 §5.1–§5.2, 12 §9.7            | `TickInfo`, `TickCause`, `BookView`, `Level`, `PortfolioView`, `OrderView` (= `ledger::OrderRecord`), `RulesView`                                                                                             |
+| `strategy::event`            | 30 §8                            | Author `AccountEvent<'a>` view, `FillView`                                                                                                                                                                    |
+| `strategy::intents`          | 10 §11 P3, 12 §6.1, 30 §7        | Engine-owned reused `Intents` buffer (buffer-local cids, interned by the OM), `Meta`                                                                                                                          |
+| `config`                     | 21 §6                            | `EngineConfig` (resolved `ModelConfig`), `RiskLimits`                                                                                                                                                         |
+| `core_rules`                 | 12 §2.3                          | `CoreRules::{TsCompat, Realistic}`                                                                                                                                                                            |
+| `envelope`                   | 12 §3                            | `Envelope`, `Payload`, `Source`, `Control`, `SyntheticKind`                                                                                                                                                   |
+| `shared`                     | 12 §2.1, §4.4                    | `SharedMarket` (recorded books, rules in force, feed state, window, skew), driver `apply`                                                                                                                     |
+| `clock`                      | 12 §4                            | `Clocks` (`now`, `tick_ts`), `EventClock`, decision stamp, `xnow`, `loop_time_of`                                                                                                                             |
+| `window`                     | 12 §5.4, §10                     | `WindowRule`, `WindowGate`, `SessionState`                                                                                                                                                                    |
+| `session`                    | 12 §2.1, §5.1, §10, §11          | `Session<S, E, T>`, `step`, `end_of_stream`, `finalize`, `drive`, `SessionFault`                                                                                                                              |
+| `cascade`                    | 12 §6.2–§6.3                     | `Session::drain`, `CascadeBudget`                                                                                                                                                                             |
+| `om`                         | 12 §7–§8                         | `OrderManager`, `OmIo`, `EngineIntent`, `SelfCrossIndex`, `Halt`                                                                                                                                              |
+| `ledger`                     | 12 §9                            | `Ledger`, `OrderRecord`, `PendingOp`, `Delivered`, `LedgerCounters`                                                                                                                                           |
+| `trace`                      | 22 §2, 12 §12                    | `TraceSink`, `NoTrace`, `TraceEvent`, `OrderLifecycle`, `FillDetail`, `ExecTraceRecord`                                                                                                                       |
+| `stats`                      | 21 §10–§11, §13, §15–§16         | `TickCounters`, `CandidateCounters`, `MarketStatsAcc`, `FinalStats`                                                                                                                                           |
+| `exec` (`mod.rs`)            | 13 §2.1–§2.4                     | `Execution`, `ExecCommand`, `CancelScope`, `ExecCtx`, `EventQueue`, `TimerFired`, `AccountInput`, `BookOverlay`, `ExecDiagnostics`                                                                            |
+| `exec::sim::*`               | 13 §3–§5                         | `scheduler`, `book_overlay`, `fill`, `latency`, `fee`, `report`, `compat`, `simulator` (empty)                                                                                                                |
+| `feeds_view`, `plugins_view` | 14 §2, §12.1                     | STAND-INS for `pmb-feeds` / `pmb-plugins` (`FeedsView`, `FeedState`, `FeedObservation`, `PluginsView`, `PluginSet`)                                                                                           |
+| `backtest`                   | 12 §2.1, §4.1, §5.1              | `BacktestMarket`: one market's telonex-delta rows through `drive` and every candidate's `Session<S, Simulator, T>`, end of stream, finalize; `telonex_envelope`                                               |
+| `output`                     | 21 §11, §13, §15-§16, §18; 10 §4 | `market_output` (`SessionOutput` → `EngineMarketOutput` with the skip taxonomy and quantization), `OutputContext`, `OutputError`, `fault_error_info`                                                          |
 
 The skeleton's `#![allow(dead_code)]` was removed when the core bodies
 landed (M1 step 3).
 
 ## Ownership for the next two agents
 
-| Agent | Files (create and edit only these) |
-|---|---|
-| CORE | `src/{lib,config,core_rules,envelope,shared,clock,window,session,cascade,om,ledger,trace,stats,feeds_view,plugins_view}.rs`, `src/strategy/**`, `src/exec/mod.rs` (frozen interface, see below), `Cargo.toml`, `tests/core_*.rs`, `tests/skeleton.rs`, this file |
-| SIMULATOR | `src/exec/sim/**` only, plus `tests/sim_*.rs` |
+| Agent     | Files (create and edit only these)                                                                                                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CORE      | `src/{lib,config,core_rules,envelope,shared,clock,window,session,cascade,om,ledger,trace,stats,feeds_view,plugins_view}.rs`, `src/strategy/**`, `src/exec/mod.rs` (frozen interface, see below), `Cargo.toml`, `tests/core_*.rs`, `tests/skeleton.rs`, this file |
+| SIMULATOR | `src/exec/sim/**` only, plus `tests/sim_*.rs`                                                                                                                                                                                                                    |
 
 - `src/exec/mod.rs` is the contract between the two agents. It is owned by
   CORE but frozen: either agent asks the lead for a change (crossStreamNeeds),
@@ -64,17 +66,17 @@ measured in 16).
 
 ### What the simulator reads (never writes, 13 X5)
 
-| Source | Read through | Used for |
-|---|---|---|
-| Order request of a key | `cx.order(k).request()` (`OrderRequest`: cid, outcome, side, price, `OrderSize`, type, post-only, `expire_at_ms`) | Matching, post-only, GTD expiry (13 §2.1) |
-| Signed amounts (realistic) | `cx.order(k).signed_amounts()` | Exchange arithmetic (11 TK4, 13 §6.4.1) |
-| Cid of a key | `cx.order(k).cid()` | `OrderRejected { order: Some(k), cid, .. }` |
-| Delivered positions | `cx.ledger.position(o).qty` | ts-compat merge `min(requested, Up, Down)` (TC-E9) |
-| Recorded books | `cx.market.books` (`pmb_book::MarketBooks`), already updated for the current market event | Taker walks, maker trade-through (13 §5.1) |
-| Rules in force | `cx.market.rules` (`ExchangeRules`, `Copy`) | Fee curve, tick, arrival checks, taker delay (11) |
-| Window, market | `cx.market.window()`, `cx.market.info` | Market close (13 §6.6) |
-| Skew | `cx.market.skew_ms`, `cx.market.loop_time_of(now, x)`, `cx.market.exchange_time(now)` | Exchange-side times (12 §4.4 XT3, 13 §4.3) |
-| Config and seed | `cx.config` (`models`, `compat_latency`, `market_seed`) | Model choice, counter-based draws (13 X8) |
+| Source                     | Read through                                                                                                      | Used for                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Order request of a key     | `cx.order(k).request()` (`OrderRequest`: cid, outcome, side, price, `OrderSize`, type, post-only, `expire_at_ms`) | Matching, post-only, GTD expiry (13 §2.1)          |
+| Signed amounts (realistic) | `cx.order(k).signed_amounts()`                                                                                    | Exchange arithmetic (11 TK4, 13 §6.4.1)            |
+| Cid of a key               | `cx.order(k).cid()`                                                                                               | `OrderRejected { order: Some(k), cid, .. }`        |
+| Delivered positions        | `cx.ledger.position(o).qty`                                                                                       | ts-compat merge `min(requested, Up, Down)` (TC-E9) |
+| Recorded books             | `cx.market.books` (`pmb_book::MarketBooks`), already updated for the current market event                         | Taker walks, maker trade-through (13 §5.1)         |
+| Rules in force             | `cx.market.rules` (`ExchangeRules`, `Copy`)                                                                       | Fee curve, tick, arrival checks, taker delay (11)  |
+| Window, market             | `cx.market.window()`, `cx.market.info`                                                                            | Market close (13 §6.6)                             |
+| Skew                       | `cx.market.skew_ms`, `cx.market.loop_time_of(now, x)`, `cx.market.exchange_time(now)`                             | Exchange-side times (12 §4.4 XT3, 13 §4.3)         |
+| Config and seed            | `cx.config` (`models`, `compat_latency`, `market_seed`)                                                           | Model choice, counter-based draws (13 X8)          |
 
 The simulator keeps its own **exchange truth** (13 §4.1): resting orders,
 remaining sizes, fill-model state, scheduled actions, per-order `FillKey.seq`
@@ -103,14 +105,14 @@ counters and the `TradeSeq` counter. The ledger is client knowledge only.
 
 ### Calls the core makes, and when (12 §5)
 
-| Call | When |
-|---|---|
-| `submit(stamp, cmd, cx, out)` | OM dispatch; `stamp` = decision stamp (12 §4.2: realistic `now`; ts-compat tick ts, TC-C8) |
-| `next_due()` / `run_next_due` | Step (a) of 12 §5.1: every due time strictly before the next envelope's `at`, one cascade per time; at end of stream (realistic) until empty |
+| Call                                | When                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `submit(stamp, cmd, cx, out)`       | OM dispatch; `stamp` = decision stamp (12 §4.2: realistic `now`; ts-compat tick ts, TC-C8)                                                                                                                                                                                                                                     |
+| `next_due()` / `run_next_due`       | Step (a) of 12 §5.1: every due time strictly before the next envelope's `at`, one cascade per time; at end of stream (realistic) until empty                                                                                                                                                                                   |
 | `on_market_event(now, ev, cx, out)` | After the driver applied a real market event. ts-compat: only for in-window ticks (`book`/`price_change`), never out of window (TC-C9, X6). Realistic: every market event incl. prints and `TickSizeChange`, also while Warming/Closing; the simulator stops matching at the market close (13 §6.6). Never for synthetic ticks |
-| `on_timer` | Journaled mode only (paper, live, journal replay; 13 §2.3) |
-| `on_end_of_input()` | Backtest end of input, before the realistic scheduler drain; ts-compat discards undue actions (TC-C13) |
-| `book_overlay()` | Each `Ctx` build in realistic (12 §6.5 `book(o)`, 13 §6.11) |
+| `on_timer`                          | Journaled mode only (paper, live, journal replay; 13 §2.3)                                                                                                                                                                                                                                                                     |
+| `on_end_of_input()`                 | Backtest end of input, before the realistic scheduler drain; ts-compat discards undue actions (TC-C13)                                                                                                                                                                                                                         |
+| `book_overlay()`                    | Each `Ctx` build in realistic (12 §6.5 `book(o)`, 13 §6.11)                                                                                                                                                                                                                                                                    |
 
 ### Compat latency releases at market events (13 §5.1)
 
@@ -162,6 +164,32 @@ Contract notes for the simulator (no change to `exec/mod.rs`):
   not allow (for example `OrderOpen` after a terminal event).
 - The author view of `OrderAccepted` carries `ExchangeOrderId::Sim(key)`
   until the live adapter adds an exchange-id side table (M9).
+
+## Integration status (M1 steps 3–4)
+
+`ws/exec` is merged into `ws/core`: a ts-compat backtest session runs end
+to end on the real `Simulator`; no mock is left in non-test code (the
+compat-like `MockExec` stays in `tests/core_support/` for the converted core
+suites, which test core rules in isolation).
+
+- `backtest::BacktestMarket` takes telonex-delta rows (`TimedMarketEvent`
+  from the pmb-replay reader) as envelopes with `at = exchange_ts` (12 §4.1
+  row 1), drives them in reused batches of 256 and returns one
+  `Result<SessionOutput, SessionFault>` per candidate. It rejects realistic
+  and recorder-v4 configurations (R14): realistic Telonex needs the receipt
+  synthesis of 12 §4.3 (M3b), V4 envelopes come from the V4 reader.
+- `output::market_output` is the only place where engine values become
+  `pmb_contract::result` types. Every value is rounded once from exact state
+  (10 §3.1 R-3): 2 dp half away from zero from micros, average entry prices
+  in one step from the exact i128 rational. `intentMeta` is parsed from the
+  session meta store and checked with the contract's cap function; a
+  violation is `strategy_fault: intent_meta_limit` (21 §16). `rules` is
+  `null` in ts-compat and required from the caller in realistic.
+- Goldens: `native/fixtures/gen/stats_gen.ts` runs the TS `runSingleMarket`
+  over crafted telonex-delta files with a scripted strategy;
+  `tests/stats_golden.rs` replays the same files through the reader, the
+  driver, the sessions and `market_output` and matches every case (60 §7.2
+  stats row), byte-identically across runs and candidate groups (R7).
 
 ## Deferred
 
