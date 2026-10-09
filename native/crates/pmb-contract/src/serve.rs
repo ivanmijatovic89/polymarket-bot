@@ -2,7 +2,12 @@
 //! 20 §5.2, 21 §3). NDJSON, one message per line, tagged by `type`.
 //!
 //! [`ServeIn`] (TS to binary) is parsed by the binary and closed: a malformed
-//! line, an unknown `type` or an unknown field is fatal (20 §6.2).
+//! line, an unknown `type`, an unknown envelope field or a framing violation
+//! is fatal (20 §6.2). The run section of a `context` and the job of a `job`
+//! stay JSON at that level: [`resolve_job`] parses each job on its own,
+//! through the same [`EngineJob::parse_value`] path as `run`, so an invalid
+//! job gets its own `result` with its 21 §5.1 cause, identical to `run`
+//! (20 §6.3 S1), and no other in-flight job is affected.
 //! [`ServeOut`] (binary to TS) is emitted by the binary and validated by the
 //! shim against the `serveOut` schema; Rust never parses it back, because an
 //! `EngineResult` inside an internally tagged enum cannot carry exact
@@ -10,6 +15,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::job::{EngineJob, JobBudget, JobOutputs, MarketSection, RunSection, JOB_SCHEMA_VERSION};
 use crate::num::{SafeU64, Sha256Hex};
@@ -34,19 +40,23 @@ fn is_protocol_id(s: &str) -> bool {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ServeIn {
-    /// Caches the run-level section under `contextId`; idempotent.
+    /// Caches the run-level section under `contextId`; idempotent. The
+    /// binary parses it with each job that references it (20 §6.3 S1).
     #[serde(rename_all = "camelCase")]
     Context {
         #[schemars(regex(pattern = PROTOCOL_ID_PATTERN))]
         context_id: String,
-        run: Box<RunSection>,
+        #[schemars(with = "RunSection")]
+        run: Box<Value>,
     },
-    /// Starts a job; `job.run` is inline or replaced by `job.runRef`.
+    /// Starts a job; `job.run` is inline or replaced by `job.runRef`. An
+    /// invalid job gets its own error result, as in `run` (20 §6.3 S1).
     #[serde(rename_all = "camelCase")]
     Job {
         #[schemars(regex(pattern = PROTOCOL_ID_PATTERN))]
         job_id: String,
-        job: Box<ServeJob>,
+        #[schemars(with = "ServeJob")]
+        job: Box<Value>,
     },
     /// Cooperative abort; the job returns class `canceled`.
     #[serde(rename_all = "camelCase")]
@@ -87,7 +97,11 @@ pub struct ServeJob {
 
 impl ServeIn {
     /// Parses one stdin line. Any failure is fatal for the process
-    /// (`invalid_input: schema`, 20 §6.2).
+    /// (`invalid_input: schema`, 20 §6.2): malformed JSON, an unknown
+    /// `type`, an unknown envelope field, a bad id, a `context.run` or `job`
+    /// that is not an object, or a job without exactly one of `run` and a
+    /// string `runRef`. The job content is not read here (see
+    /// [`resolve_job`]).
     pub fn parse_line(line: &str) -> Result<ServeIn, ContractError> {
         let msg: ServeIn = serde_json::from_str(line)
             .map_err(|e| ContractError::invalid_input("schema", e.to_string()))?;
@@ -95,7 +109,7 @@ impl ServeIn {
         Ok(msg)
     }
 
-    /// Message-level rules beyond the schema.
+    /// Envelope rules beyond the serde shape (fatal, 20 §6.2).
     pub fn validate(&self) -> Result<(), ContractError> {
         let id_ok = |id: &str| {
             ensure(is_protocol_id(id), "schema", || {
@@ -103,13 +117,33 @@ impl ServeIn {
             })
         };
         match self {
-            ServeIn::Context { context_id, .. } => id_ok(context_id),
+            ServeIn::Context { context_id, run } => {
+                id_ok(context_id)?;
+                ensure(run.is_object(), "schema", || {
+                    "context.run must be a JSON object".into()
+                })
+            }
             ServeIn::Job { job_id, job } => {
                 id_ok(job_id)?;
-                ensure(job.run.is_some() != job.run_ref.is_some(), "schema", || {
-                    "a serve job carries exactly one of run and runRef".into()
-                })?;
-                job.run_ref.as_deref().map_or(Ok(()), id_ok)
+                let Some(obj) = job.as_object() else {
+                    return Err(ContractError::invalid_input(
+                        "schema",
+                        "job must be a JSON object",
+                    ));
+                };
+                ensure(
+                    obj.contains_key("run") != obj.contains_key("runRef"),
+                    "schema",
+                    || "a serve job carries exactly one of run and runRef".into(),
+                )?;
+                match obj.get("runRef") {
+                    None => Ok(()),
+                    Some(Value::String(id)) => id_ok(id),
+                    Some(_) => Err(ContractError::invalid_input(
+                        "schema",
+                        "job.runRef must be a string",
+                    )),
+                }
             }
             ServeIn::Cancel { job_id } => id_ok(job_id),
             ServeIn::Ping { .. } | ServeIn::Drain => Ok(()),
@@ -117,32 +151,38 @@ impl ServeIn {
     }
 }
 
-impl ServeJob {
-    /// The complete job, with `runRef` resolved by `lookup` (20 §6.2). An
-    /// unknown context is `invalid_input: context_missing`.
-    pub fn resolve(
-        self,
-        lookup: impl FnOnce(&str) -> Option<RunSection>,
-    ) -> Result<EngineJob, ContractError> {
-        let run = match (self.run, self.run_ref) {
-            (Some(run), None) => run,
-            (None, Some(id)) => lookup(&id).ok_or_else(|| {
+/// The complete, validated job of a `job` message whose envelope passed
+/// [`ServeIn::validate`] (20 §6.2). `runRef` is resolved by `lookup` to
+/// the cached `context.run`; an unknown context is
+/// `invalid_input: context_missing`. The job is then parsed exactly as
+/// `run` parses a job file ([`EngineJob::parse_value`]: strict schema,
+/// 21 §5.1 causes, [`EngineJob::validate`]), so its error, if any, is the
+/// per-job result `run` would give (20 §6.3 S1).
+///
+/// A referenced context is copied into the job document: a run section is
+/// a few KiB, parsed once per job, outside any per-event path.
+pub fn resolve_job<'a>(
+    job: &Value,
+    lookup: impl FnOnce(&str) -> Option<&'a Value>,
+) -> Result<EngineJob, ContractError> {
+    let Some(obj) = job.as_object() else {
+        return Err(ContractError::invalid_input(
+            "schema",
+            "job must be a JSON object",
+        ));
+    };
+    match obj.get("runRef") {
+        None => EngineJob::parse_value(job),
+        Some(r) => {
+            let id = r.as_str().unwrap_or_default();
+            let run = lookup(id).ok_or_else(|| {
                 ContractError::invalid_input("context_missing", format!("unknown runRef {id:?}"))
-            })?,
-            _ => {
-                return Err(ContractError::invalid_input(
-                    "schema",
-                    "a serve job carries exactly one of run and runRef",
-                ))
-            }
-        };
-        Ok(EngineJob {
-            job_schema_version: self.job_schema_version,
-            run,
-            market: self.market,
-            outputs: self.outputs,
-            budget: self.budget,
-        })
+            })?;
+            let mut doc = obj.clone();
+            doc.remove("runRef");
+            doc.insert("run".into(), run.clone());
+            EngineJob::parse_value(&Value::Object(doc))
+        }
     }
 }
 
@@ -296,13 +336,12 @@ mod tests {
         let ServeIn::Job { job: sj, .. } = ServeIn::parse_line(&line).unwrap() else {
             panic!("job");
         };
-        let resolved = sj
-            .clone()
-            .resolve(|id| (id == "ctx-1").then(|| (*run).clone()))
-            .unwrap();
+        let resolved = resolve_job(&sj, |id| (id == "ctx-1").then_some(&*run)).unwrap();
         assert_eq!(resolved, job);
-        let missing = sj.resolve(|_| None).unwrap_err();
+        let missing = resolve_job(&sj, |_| None).unwrap_err();
         assert_eq!(missing.cause, "context_missing");
+        let inline = serde_json::to_value(&job).unwrap();
+        assert_eq!(resolve_job(&inline, |_| None).unwrap(), job);
         for line in [
             r#"{"type":"cancel","jobId":"bull:42"}"#,
             r#"{"type":"ping","id":7}"#,
@@ -330,12 +369,65 @@ mod tests {
             r#"{"type":"cancel","jobId":"has space"}"#.to_owned(),
             both.to_string(),
             neither.to_string(),
+            r#"{"type":"job","jobId":"j","job":5}"#.to_owned(),
+            r#"{"type":"job","jobId":"j","job":{"runRef":7}}"#.to_owned(),
+            r#"{"type":"context","contextId":"c","run":[]}"#.to_owned(),
         ] {
             let e = ServeIn::parse_line(&line).unwrap_err();
             assert_eq!(
                 (e.class, e.cause),
                 (ErrorClass::InvalidInput, "schema"),
                 "{line}"
+            );
+        }
+    }
+
+    /// An invalid job is a per-job error with the cause `run` gives for the
+    /// same job, never a fatal protocol error, inline or through a context.
+    #[test]
+    fn invalid_jobs_get_the_run_error_not_a_fatal_one() {
+        // spec: 20 §6.3 S1 (serve result == run result), §6.2; 21 §5.1 causes
+        let job = serde_json::to_value(job_fixture()).unwrap();
+        type Patch = fn(&mut Value);
+        let patches: [(&str, Patch); 5] = [
+            ("rules", |j| {
+                j["market"]["rules"]["captured"]["takerBaseFee"] =
+                    json!({"value": "0", "origin": "gamma", "phase": "pre_start", "snapshotId": 5});
+            }),
+            ("window", |j| j["market"]["window"]["startMs"] = json!("x")),
+            ("version", |j| j["jobSchemaVersion"] = json!(2)),
+            ("path", |j| {
+                j["market"]["input"]["path"] = json!("r2://bucket/x.parquet")
+            }),
+            ("model_config", |j| {
+                j["run"]["modelConfig"]["capital"]["startingCapitalUsdc"] = json!(500)
+            }),
+        ];
+        for (cause, patch) in patches {
+            let mut bad = job.clone();
+            patch(&mut bad);
+            let run_err = EngineJob::parse(&bad.to_string()).unwrap_err();
+            assert_eq!(run_err.cause, cause, "{run_err}");
+            // Inline run.
+            let line = json!({"type": "job", "jobId": "j1", "job": bad}).to_string();
+            let ServeIn::Job { job: sj, .. } = ServeIn::parse_line(&line).unwrap() else {
+                panic!("job");
+            };
+            assert_eq!(resolve_job(&sj, |_| None).unwrap_err(), run_err, "{cause}");
+            // Through a context.
+            let run = bad["run"].clone();
+            let mut by_ref = bad.clone();
+            let obj = by_ref.as_object_mut().unwrap();
+            obj.remove("run");
+            obj.insert("runRef".into(), json!("ctx"));
+            let ctx = json!({"type": "context", "contextId": "ctx", "run": run}).to_string();
+            let ServeIn::Context { run, .. } = ServeIn::parse_line(&ctx).unwrap() else {
+                panic!("context");
+            };
+            assert_eq!(
+                resolve_job(&by_ref, |_| Some(&*run)).unwrap_err(),
+                run_err,
+                "{cause} by ref"
             );
         }
     }

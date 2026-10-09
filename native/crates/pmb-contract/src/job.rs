@@ -394,16 +394,20 @@ impl EngineJob {
     /// A schema violation gets the cause of the section it is in (21 §5.1:
     /// `version`, `input_mode`, `model_config`, `params`, `rules`, `window`,
     /// `feed_availability`, else `schema`); every error is `invalid_input`.
+    ///
+    /// The text is read as a JSON document first and then parsed by
+    /// [`Self::parse_value`], so `run` and `serve` (which embeds the job in
+    /// a protocol line) give byte-identical errors for the same job
+    /// (20 §6.3 S1).
     pub fn parse(text: &str) -> Result<EngineJob, ContractError> {
-        let job: EngineJob = match serde_json::from_str(text) {
-            Ok(job) => job,
-            Err(e) => {
-                return Err(match serde_json::from_str::<Value>(text) {
-                    Ok(doc) => diagnose(&doc),
-                    Err(_) => ContractError::invalid_input("schema", format!("not JSON: {e}")),
-                })
-            }
-        };
+        let doc: Value = serde_json::from_str(text)
+            .map_err(|e| ContractError::invalid_input("schema", format!("not JSON: {e}")))?;
+        Self::parse_value(&doc)
+    }
+
+    /// [`Self::parse`] over a JSON document.
+    pub fn parse_value(doc: &Value) -> Result<EngineJob, ContractError> {
+        let job = EngineJob::deserialize(doc).map_err(|_| diagnose(doc))?;
         job.validate()?;
         Ok(job)
     }

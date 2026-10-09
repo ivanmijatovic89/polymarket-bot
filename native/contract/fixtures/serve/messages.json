@@ -1,5 +1,5 @@
 {
-  "description": "serve NDJSON messages (20 \u00a76.2): every 'in' message parses with ServeIn::parse_line and reserializes unchanged (Rust) and validates against serveIn (TS); every 'out' message validates against serveOut (TS). Every 'invalidIn' message is a fatal invalid_input: schema error in Rust, and its 'jsonSchema' field says whether the serveIn schema rejects it too (the run/runRef exclusivity is a Rust-side rule). Every 'invalidOut' message fails the serveOut schema.",
+  "description": "serve NDJSON messages (20 §6.2): every 'in' message parses with ServeIn::parse_line and reserializes unchanged (Rust) and validates against serveIn (TS); every 'out' message validates against serveOut (TS). Every 'invalidIn' message is a fatal invalid_input: schema error in Rust, and its 'jsonSchema' field says whether the serveIn schema rejects it too (the run/runRef exclusivity is a Rust-side rule). The content of a job is not part of the envelope: an invalid job is a per-job error result, as in `run` (20 §6.3 S1), never a fatal one. Every 'invalidOut' message fails the serveOut schema.",
   "in": [
     {
       "type": "context",
@@ -580,6 +580,22 @@
         }
       },
       "jsonSchema": "accept"
+    },
+    {
+      "message": {
+        "type": "job",
+        "jobId": "j",
+        "job": 5
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "message": {
+        "type": "context",
+        "contextId": "c",
+        "run": []
+      },
+      "jsonSchema": "reject"
     }
   ],
   "invalidOut": [

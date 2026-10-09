@@ -1290,7 +1290,7 @@
   "oneOf": [
     {
       "additionalProperties": false,
-      "description": "Caches the run-level section under `contextId`; idempotent.",
+      "description": "Caches the run-level section under `contextId`; idempotent. The\nbinary parses it with each job that references it (20 §6.3 S1).",
       "properties": {
         "contextId": {
           "pattern": "^[!-~]{1,256}$",
@@ -1309,7 +1309,7 @@
     },
     {
       "additionalProperties": false,
-      "description": "Starts a job; `job.run` is inline or replaced by `job.runRef`.",
+      "description": "Starts a job; `job.run` is inline or replaced by `job.runRef`. An\ninvalid job gets its own error result, as in `run` (20 §6.3 S1).",
       "properties": {
         "job": {
           "$ref": "#/$defs/ServeJob"
