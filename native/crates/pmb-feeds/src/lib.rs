@@ -11,6 +11,29 @@
 //! from the job (`ModelConfig.feeds`, `feedFiles`, `feedAvailability`).
 //!
 //! Captured feeds (14 §7) and plugins (§12) are not in this crate yet.
+//!
+//! # Use from the engine loop (12 §4.1, §5.3)
+//!
+//! Per market read: [`load_market_feeds`] once, with a process-wide
+//! [`DayCache`]; the resulting `Arc<MarketFeeds>` is shared by every
+//! candidate (14 F-42). Per session: one [`FeedState`] and one
+//! [`SyntheticFlusher`]. For each real tick `t` with feed clock `C(t)`
+//! (ts-compat: [`ts_compat_feed_clock`]`(E, L)`; realistic: `R_t`):
+//!
+//! 1. `flusher.take_before(feeds.schedule(), C(t), has_book)` returns the
+//!    synthetic entries to dispatch first, in order (14 F-40). Each is
+//!    stamped [`synthetic_stamp`]`(v, base)` with `base` the exchange time of
+//!    the last real tick in ts-compat or `now` in realistic (F-41), counted
+//!    under its kind (§8.4), passed through the window gate and, when
+//!    delivered, `state.advance(&feeds, stamp)` before the strategy call.
+//! 2. The real tick is counted, gated and, when delivered,
+//!    `state.advance(&feeds, C(t))` (F-7: on every delivered tick, whether or
+//!    not the strategy reads feeds).
+//!
+//! After the input ends, `flusher.take_rest(..)` dispatches the remainder.
+//! `state.view()` is the tick-scoped [`pmb_core::FeedsView`] (12 §6.4). The
+//! test driver in `tests/feeds_golden.rs` is this loop, proven against the TS
+//! oracle.
 
 pub mod binance;
 pub mod cache;
