@@ -541,6 +541,11 @@ fn both_refs_follow_the_ts_conflict_rules() {
     )
     .unwrap();
     assert_eq!(h.cancel_failures(from), vec!["conflicting_order_reference"]);
+    // The failure names the cid's order, else the exchange id's.
+    assert!(h.since(from).iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::CancelFailed { order: Some(k), .. } if k == ka
+    )));
     assert_eq!(h.open_cids(), vec!["a", "b"]);
     // An unknown cid with an id that names nothing: TS forwards it and its
     // simulator finds nothing (TC-C10): no event.

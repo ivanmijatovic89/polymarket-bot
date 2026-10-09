@@ -815,9 +815,16 @@ impl OrderManager {
             .map(|k| (k, self.ts_cid_view(Some(ledger.order(k).cid()), ledger)));
         // `byExchange`: an open order of the view with that exchange id.
         let by_exchange = x_view.and_then(|(k, v)| (v.open == Some((k, true))).then_some(k));
+        // A conflict names the cid's order when there is one, else the
+        // exchange id's (as realistic resolution does; the TS event carries
+        // both refs).
+        let conflict = || {
+            let by_cid = cid.flatten().and_then(|c| ledger.current(c));
+            RefResolution::Fail(by_cid.or(xk.flatten()), CancelFailReason::ConflictingRefs)
+        };
         if let (Some(c), Some(bx)) = (cid, by_exchange) {
             if c != Some(ledger.order(bx).cid()) {
-                return RefResolution::Fail(Some(bx), CancelFailReason::ConflictingRefs);
+                return conflict();
             }
         }
         let bot = cid_view.open.or(by_exchange.map(|k| (k, true)));
@@ -831,7 +838,7 @@ impl OrderManager {
             .or(previous.filter(|h| h.has_id).map(|h| h.key));
         if let (Some(x), Some(kid)) = (xk, known_id) {
             if x != Some(kid) {
-                return RefResolution::Fail(Some(kid), CancelFailReason::ConflictingRefs);
+                return conflict();
             }
         }
         if bot.is_none() && previous.is_some_and(|h| h.terminal) {
