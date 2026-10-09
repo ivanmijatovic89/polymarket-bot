@@ -153,6 +153,10 @@
     "research:schedule": "tsx scripts/install-research-update.mts",
     "record:v4:catalog": "tsx src/cli/recorder-v4-catalog.ts",
     "native:ci:local": "scripts/native/ci-local.sh",
+    "native:contract:check": "scripts/native/contract-check.sh",
+    "native:contract:export": "scripts/native/contract-export.sh",
+    "native:contract:gen": "scripts/native/contract-gen.sh",
+    "native:test:ts": "tsx --test src/native/contract/*.test.ts",
     "native:verify:local": "scripts/native/verify-local.sh"
   },
   "lint-staged": {
