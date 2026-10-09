@@ -9,7 +9,9 @@
 /// meta (30 §14, 60 §6.2 LP-3). `format!("{:.k$}")` (ties to even) and
 /// `(x * 10^k).round()` (inexact product) do not meet it: `1.005` is
 /// `1.00499999999999989…` exactly, so it rounds to `1.0`, while the exact
-/// tie `0.125` rounds to `0.13`. Non-finite values are returned unchanged.
+/// tie `0.125` rounds to `0.13`. Non-finite values are returned unchanged;
+/// `-0.0` gives `+0.0`, while a negative value that rounds to zero gives
+/// `-0.0`, both as in JS.
 ///
 /// ```
 /// use pmb_sdk::toolkit::round_dp;
@@ -34,7 +36,9 @@ pub fn round_dp(x: f64, k: u32) -> f64 {
         (frac | (1u64 << 52), exp_field - 1075)
     };
     if m == 0 {
-        return x;
+        // JS `(-0).toFixed(k)` is "0.00…" (`-0 < 0` is false), so the
+        // result is +0.
+        return 0.0;
     }
     q += m.trailing_zeros() as i32;
     let digits = (-q).max(0) as usize;
@@ -94,6 +98,10 @@ mod tests {
             (0xbfe0000000000000, 0, 0xbff0000000000000), // -0.5 -> -1.0
             (0x4004000000000000, 0, 0x4008000000000000), // 2.5 -> 3.0
             (0xc004000000000000, 0, 0xc008000000000000), // -2.5 -> -3.0
+            (0x3fd0000000000000, 1, 0x3fd3333333333333), // 0.25 -> 0.3
+            (0xbfd0000000000000, 1, 0xbfd3333333333333), // -0.25 -> -0.3
+            (0x3fcfffffffffffff, 1, 0x3fc999999999999a), // 0.25 - 1ulp -> 0.2
+            (0x3fd0000000000001, 1, 0x3fd3333333333333), // 0.25 + 1ulp -> 0.3
             (0x3fc0000000000000, 2, 0x3fc0a3d70a3d70a4), // 0.125 -> 0.13
             (0xbfc0000000000000, 2, 0xbfc0a3d70a3d70a4), // -0.125 -> -0.13
             (0x3fa015bf8d7cb362, 4, 0x3fa013a92a305532), // 0.031415926 -> 0.0314
@@ -134,6 +142,9 @@ mod tests {
         assert_eq!(round_dp(f64::INFINITY, 2), f64::INFINITY);
         assert_eq!(round_dp(1e300, 2), 1e300);
         assert_eq!(round_dp(0.0, 3), 0.0);
+        // JS: (-0).toFixed(2) is "0.00", Number of it is +0.
+        assert!(round_dp(-0.0, 2).is_sign_positive());
+        assert!(round_dp(-0.0, 0).is_sign_positive());
         assert_eq!(round_dp(9.5, 0), 10.0);
         assert_eq!(round_dp(99.995, 2), 100.0); // 99.99500000000000454… exactly
         assert_eq!(round_dp(0.96, 1), 1.0);
