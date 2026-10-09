@@ -160,7 +160,8 @@
     "native:contract:check": "scripts/native/contract-check.sh",
     "native:contract:export": "scripts/native/contract-export.sh",
     "native:contract:gen": "scripts/native/contract-gen.sh",
-    "native:test:ts": "tsx --test src/native/contract/*.test.ts"
+    "native:test:ts": "tsx --test src/native/contract/*.test.ts",
+    "native:shim:test": "tsx --test src/native/*.test.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
