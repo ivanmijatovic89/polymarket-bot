@@ -269,6 +269,24 @@ impl TestMarket {
                 at.0
             ));
         }
+        // The path `describe`/`run` take (30 §4 rule 3, 20 §5.1): params
+        // parsed, bounded, validated and normalized idempotently, then
+        // `requirements` and `interests` evaluated, each behind the catch
+        // boundary. The run uses the evaluated params, never the caller's.
+        let normalized = params.to_normalized();
+        let evaluated = pmb_runtime::describe::evaluate::<S>(&normalized).map_err(|errs| {
+            let errs: Vec<String> = errs.iter().map(|e| e.to_json().to_string()).collect();
+            format!("invalid params for {}: [{}]", S::ID, errs.join(","))
+        })?;
+        if evaluated.normalized != normalized {
+            return Err(format!(
+                "params of {} do not round-trip: given {}, normalized {}",
+                S::ID,
+                Value::Object(normalized),
+                Value::Object(evaluated.normalized)
+            ));
+        }
+        let params = &evaluated.params;
         let job = self.job::<S>(params)?;
         let job = parse_job(job.as_bytes()).map_err(|e| e.reason())?;
         job.validate().map_err(|e| format!("job: {e:?}"))?;
