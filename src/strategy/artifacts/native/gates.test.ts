@@ -121,7 +121,7 @@ const DESCRIBE = {
   type: 'describe',
   protocolVersion: 2,
   binary: { target: 'aarch64-apple-darwin', buildProfile: 'artifact', engineVersion: '0.1.0' },
-  capabilities: { realOrders: false },
+  capabilities: { realOrders: false, subcommands: ['describe', 'schema', 'selftest', 'serve'] },
   strategy: { id: 'engine-exerciser.rs' },
 }
 
@@ -143,8 +143,25 @@ test('checkDescribe rejects a wrong profile, target, protocol, real-order capabi
     [{ ...DESCRIBE, capabilities: { realOrders: true } }, /realOrders/],
     [{ ...DESCRIBE, capabilities: {} }, /realOrders/],
     [
-      { ...DESCRIBE, capabilities: { realOrders: false, subcommands: ['describe', 'live'] } },
+      {
+        ...DESCRIBE,
+        capabilities: { realOrders: false, subcommands: ['describe', 'selftest', 'live'] },
+      },
       /no live subcommand/,
+    ],
+    // spec: 31 §5.5, 20 §1, 00 R14 — a missing or mistyped list is not a pass.
+    [{ ...DESCRIBE, capabilities: { realOrders: false } }, /MUST be an array/],
+    [{ ...DESCRIBE, capabilities: { realOrders: false, subcommands: 'live' } }, /MUST be an array/],
+    [
+      {
+        ...DESCRIBE,
+        capabilities: { realOrders: false, subcommands: ['describe', 'selftest', 'x'] },
+      },
+      /unknown "x"/,
+    ],
+    [
+      { ...DESCRIBE, capabilities: { realOrders: false, subcommands: ['describe'] } },
+      /lacks "selftest"/,
     ],
     [{ ...DESCRIBE, strategy: { id: '.bad' } }, /strategy\.id/],
     [{ ...DESCRIBE, strategy: { id: 'a'.repeat(129) } }, /strategy\.id/],

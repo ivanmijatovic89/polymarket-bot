@@ -12,6 +12,39 @@ import { NATIVE_TARGET, STRATEGY_ID_RE } from './policy.js'
 /** Protocol version the builder accepts from `describe` (20 §1). */
 export const NATIVE_PROTOCOL_VERSION = 2
 
+/** Subcommands of the 20 §1 table. `live` exists only in the real-orders variant (31 §5.5). */
+export const NATIVE_SUBCOMMANDS = [
+  'describe',
+  'schema',
+  'selftest',
+  'run',
+  'run-group',
+  'serve',
+  'paper',
+  'live',
+] as const
+
+/**
+ * `capabilities.subcommands` of a standard build (20 §1, 31 §5.5): an array
+ * of distinct names from the 20 §1 table, including `describe` and
+ * `selftest` (which the builder runs) and never `live`. Anything else is a
+ * violation, including a missing or mistyped field (00 R14).
+ */
+export function subcommandViolations(subs: unknown): string[] {
+  if (!Array.isArray(subs) || !subs.every((x) => typeof x === 'string'))
+    return ['capabilities.subcommands MUST be an array of subcommand names (20 §1)']
+  const known: readonly string[] = NATIVE_SUBCOMMANDS
+  const out: string[] = []
+  for (const x of subs as string[])
+    if (!known.includes(x)) out.push(`capabilities.subcommands lists unknown ${JSON.stringify(x)}`)
+  if (new Set(subs).size !== subs.length) out.push('capabilities.subcommands has duplicates')
+  for (const required of ['describe', 'selftest'])
+    if (!subs.includes(required)) out.push(`capabilities.subcommands lacks "${required}"`)
+  if (subs.includes('live'))
+    out.push('capabilities.subcommands lists "live"; a standard build has no live subcommand')
+  return out
+}
+
 /**
  * Install names printed by `otool -L <bin>` (31 §4.4 step 3). The first line
  * names the file itself and is skipped; each further line is
@@ -161,10 +194,7 @@ export function checkDescribe(
       )
     }
     // 31 §5.5: the standard variant has no `live` subcommand.
-    const subs = caps['subcommands']
-    if (Array.isArray(subs) && subs.includes('live')) {
-      errors.push('capabilities.subcommands lists "live"; a standard build has no live subcommand')
-    }
+    errors.push(...subcommandViolations(caps['subcommands']))
   }
   let id = ''
   if (!isRecord(strategy)) errors.push('strategy is missing')
