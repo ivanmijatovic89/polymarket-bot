@@ -78,6 +78,34 @@
 //! ```compile_fail
 //! #[derive(pmb_sdk::Params)]
 //! struct P {
+//!     #[param(default = 9007199254740992)] // beyond ±(2^53 - 1), 21 §18 N2
+//!     x: u64,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(max = -9007199254740992)] // beyond ±(2^53 - 1), 21 §18 N2
+//!     x: i64,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(default = 1234567890.123456)] // 16 significant digits
+//!     x: pmb_sdk::prelude::Usdc,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(default = 9007199254740992)] // beyond 2^53 - 1 ms
+//!     x: pmb_sdk::prelude::DurMs,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
 //!     #[param(default = 1)] // an Option defaults to None
 //!     x: Option<i64>,
 //! }
@@ -212,6 +240,16 @@ pub mod __private {
     pub use crate::params::value::{BoundView, ParamValue};
     pub use pmb_core::{ClientOrderId, DurMs, Price, Qty, Rate, Usdc};
     pub use serde_json::Value;
+
+    /// A `DurMs` of `ms` milliseconds. The one place the SDK builds a
+    /// `DurMs` from its integer, used by the params derive with values it
+    /// checked at compile time (non-negative, at most 2^53 - 1).
+    // D-PENDING: 30 P7 forbids public fields, but pmb-core's `DurMs(pub
+    // i64)` has one; chose to route every SDK construction through this
+    // function so a checked core constructor needs one change here.
+    pub const fn dur_ms(ms: i64) -> DurMs {
+        DurMs(ms)
+    }
 
     /// `cid!` expansion: the literal was validated at compile time (10 §6).
     // D-PENDING: 30 §6 requires cids of at most 24 bytes to be built without

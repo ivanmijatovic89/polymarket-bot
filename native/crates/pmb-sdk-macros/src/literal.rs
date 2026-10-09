@@ -13,6 +13,26 @@ use syn::{Expr, ExprLit, ExprUnary, Lit, Token, UnOp};
 /// Scale of every fixed-point type: 1e6 units per whole unit (10 §2 T4).
 pub(crate) const SCALE_DIGITS: u32 = 6;
 
+/// Largest integer magnitude a params value may have, `2^53 - 1`
+/// (21 §18 N2); the runtime enforces the same bound (`pmb-sdk` params).
+pub(crate) const SAFE_INT: i64 = (1 << 53) - 1;
+
+/// Most significant digits of a fixed-point params value: at most 15
+/// survive a round trip through a JSON number (30 §9 rule 6).
+pub(crate) const MAX_SIG_DIGITS: u32 = 15;
+
+/// Significant digits of the exact decimal `micros / 1e6`.
+pub(crate) fn significant_digits(micros: i64) -> u32 {
+    let mut m = micros.unsigned_abs();
+    if m == 0 {
+        return 1;
+    }
+    while m % 10 == 0 {
+        m /= 10;
+    }
+    m.ilog10() + 1
+}
+
 /// The fixed-point scalar types of 10 §2 that literals can produce.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FixedKind {

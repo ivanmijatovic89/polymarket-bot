@@ -122,33 +122,64 @@ impl ParamValue for bool {
     }
 }
 
-/// Integer text of a JSON number whose exact value is an integer (`20`,
-/// `20.0`, `2e1`), else `None`.
-fn integer_text(n: &str) -> Option<String> {
+/// Largest integer magnitude any payload may carry, `2^53 - 1` (21 §18 N2).
+/// Normalized params are stored by TS (`backtest_runs.params`, read back by
+/// `JSON.parse` on `--extend`, `--params-from-run` and the D14 duplicate
+/// check), so every integer param stays within it.
+pub(crate) const SAFE_INT: i128 = (1 << 53) - 1;
+
+/// Most significant digits a fixed-point param may have: every decimal of
+/// at most 15 significant digits survives a round trip through a JSON
+/// number (an IEEE double) unchanged, so normalized params stay idempotent
+/// through TS storage (30 §9 rule 6, 21 §18).
+pub(crate) const MAX_SIG_DIGITS: u32 = 15;
+
+/// The valid range of an integer type intersected with `±SAFE_INT`.
+pub(crate) const fn safe_range(min: i128, max: i128) -> (i128, i128) {
+    let lo = if min < -SAFE_INT { -SAFE_INT } else { min };
+    let hi = if max > SAFE_INT { SAFE_INT } else { max };
+    (lo, hi)
+}
+
+fn range_note(lo: i128, hi: i128) -> String {
+    format!(" (out of range: this param is from {lo} to {hi}; params integers stay within ±(2^53 - 1), 21 §18 N2)")
+}
+
+/// Exact value of a JSON number whose exact value is an integer (`20`,
+/// `20.0`, `2e1`). `InvalidValue` when it has a fraction, `OutOfRange` when
+/// it is integral but beyond `i128`.
+fn integral_value(n: &str) -> Result<i128, ParamErrorKind> {
     let (neg, rest) = match n.strip_prefix('-') {
         Some(r) => (true, r),
         None => (false, n),
     };
     let (mant, exp) = match rest.find(['e', 'E']) {
-        Some(i) => (&rest[..i], rest[i + 1..].parse::<i64>().ok()?),
+        Some(i) => (
+            &rest[..i],
+            rest[i + 1..]
+                .parse::<i64>()
+                .map_err(|_| ParamErrorKind::OutOfRange)?,
+        ),
         None => (rest, 0),
     };
     let (int, frac) = mant.split_once('.').unwrap_or((mant, ""));
     let mut digits: String = int.chars().chain(frac.chars()).collect();
-    let mut exp = exp.checked_sub(frac.len() as i64)?;
+    let mut exp = exp
+        .checked_sub(frac.len() as i64)
+        .ok_or(ParamErrorKind::OutOfRange)?;
     while exp < 0 && digits.ends_with('0') {
         digits.pop();
         exp += 1;
     }
     if exp < 0 {
-        return None;
+        return Err(ParamErrorKind::InvalidValue);
     }
     let digits = digits.trim_start_matches('0');
     if digits.is_empty() {
-        return Some("0".into());
+        return Ok(0);
     }
-    if exp > 40 {
-        return None;
+    if digits.len() as i64 + exp > 39 {
+        return Err(ParamErrorKind::OutOfRange);
     }
     let mut s = String::with_capacity(digits.len() + exp as usize + 1);
     if neg {
@@ -156,41 +187,79 @@ fn integer_text(n: &str) -> Option<String> {
     }
     s.push_str(digits);
     s.extend(std::iter::repeat_n('0', exp as usize));
-    Some(s)
+    s.parse::<i128>().map_err(|_| ParamErrorKind::OutOfRange)
+}
+
+/// The issue kind of a CLI integer string that Rust `FromStr` of the field
+/// type rejected: a valid integer outside the type is `OutOfRange`.
+fn int_error_kind(s: &str, e: &std::num::ParseIntError) -> ParamErrorKind {
+    use std::num::IntErrorKind;
+    match e.kind() {
+        IntErrorKind::PosOverflow | IntErrorKind::NegOverflow => ParamErrorKind::OutOfRange,
+        _ if s.parse::<i128>().is_ok() => ParamErrorKind::OutOfRange,
+        _ => ParamErrorKind::InvalidValue,
+    }
+}
+
+/// Parses an integer param of a type whose `±SAFE_INT`-clamped range is
+/// `lo..=hi` (30 §9 table, 21 §18 N2). CLI strings use Rust `FromStr` of
+/// the field type through `from_str`.
+fn parse_int<T: ParamValue>(
+    input: &Input,
+    path: &str,
+    errs: &mut ParamError,
+    (lo, hi): (i128, i128),
+    from_str: fn(&str) -> Result<i128, std::num::ParseIntError>,
+    make: fn(i128) -> T,
+) -> Option<T> {
+    let v = match input {
+        // CLI string: Rust `FromStr` (§9 table).
+        Input::String(s) => from_str(s).map_err(|e| int_error_kind(s, &e)),
+        // Typed JSON: a number whose exact value is an integer.
+        // D-PENDING: 30 §9 says "integer"; chose to accept any JSON number
+        // with an integral exact value (20.0, 2e1), consistent with rule 10,
+        // while CLI strings keep Rust FromStr ("20.0" is rejected).
+        Input::Number(n) => integral_value(n),
+        _ => Err(ParamErrorKind::InvalidValue),
+    };
+    match v {
+        Ok(v) if (lo..=hi).contains(&v) => Some(make(v)),
+        Ok(_) | Err(ParamErrorKind::OutOfRange) => invalid(
+            input,
+            path,
+            errs,
+            ParamErrorKind::OutOfRange,
+            &range_note(lo, hi),
+        ),
+        Err(kind) => invalid(input, path, errs, kind, ""),
+    }
 }
 
 macro_rules! int_param {
     ($($t:ty),*) => {$(
         impl ParamValue for $t {
             fn parse(input: &Input, path: &str, errs: &mut ParamError) -> Option<Self> {
-                let v = match input {
-                    // CLI string: Rust `FromStr` (§9 table).
-                    Input::String(s) => s.parse::<$t>().ok(),
-                    // Typed JSON: a number whose exact value is an integer.
-                    // D-PENDING: 30 §9 says "integer"; chose to accept any
-                    // JSON number with an integral exact value (20.0, 2e1),
-                    // consistent with rule 10, while CLI strings keep Rust
-                    // FromStr ("20.0" is rejected).
-                    Input::Number(n) => integer_text(n).and_then(|t| t.parse::<$t>().ok()),
-                    _ => None,
-                };
-                v.or_else(|| invalid(input, path, errs, ParamErrorKind::InvalidValue, ""))
+                parse_int(
+                    input,
+                    path,
+                    errs,
+                    safe_range(<$t>::MIN as i128, <$t>::MAX as i128),
+                    |s| s.parse::<$t>().map(|v| v as i128),
+                    // In range by the check in `parse_int`.
+                    |v| v as $t,
+                )
             }
             fn write_normalized(&self, out: &mut String) {
                 let _ = write!(out, "{}", self);
             }
             fn schema() -> Value {
-                // Type bounds only while they stay within ±(2^53 - 1), the
-                // largest integer any payload may carry (21 §18 N2).
-                const SAFE: i128 = (1 << 53) - 1;
-                let mut pairs: Vec<(&str, Value)> = vec![("type", "integer".into())];
-                if <$t>::MIN as i128 >= -SAFE {
-                    pairs.push(("minimum", (<$t>::MIN as i64).into()));
-                }
-                if <$t>::MAX as i128 <= SAFE {
-                    pairs.push(("maximum", (<$t>::MAX as i64).into()));
-                }
-                schema_of(&pairs)
+                // Every integer param stays within ±(2^53 - 1) (21 §18 N2).
+                let (lo, hi) = safe_range(<$t>::MIN as i128, <$t>::MAX as i128);
+                schema_of(&[
+                    ("type", "integer".into()),
+                    ("minimum", (lo as i64).into()),
+                    ("maximum", (hi as i64).into()),
+                ])
             }
             fn expected() -> String {
                 concat!("an integer (", stringify!($t), ")").into()
@@ -218,6 +287,15 @@ impl ParamValue for f64 {
         match text.parse::<f64>() {
             // -0 normalizes to 0 (§9 table).
             Ok(v) if v.is_finite() => Some(if v == 0.0 { 0.0 } else { v }),
+            // A number beyond the f64 range (`1e400`); `inf`, `NaN` and
+            // `Infinity` have no digit and stay invalid (§9 rule 7).
+            Ok(_) if text.bytes().any(|b| b.is_ascii_digit()) => invalid(
+                input,
+                path,
+                errs,
+                ParamErrorKind::OutOfRange,
+                " (beyond the f64 range)",
+            ),
             _ => invalid(input, path, errs, ParamErrorKind::InvalidValue, ""),
         }
     }
@@ -239,8 +317,20 @@ impl BoundView for f64 {
     }
 }
 
-/// Exact decimal parse into micros (10 §2 T6), at most 6 decimal places,
-/// within `lo..=hi`.
+/// Significant digits of the exact decimal `micros / 1e6`.
+pub(crate) fn significant_digits(micros: i64) -> u32 {
+    let mut m = micros.unsigned_abs();
+    if m == 0 {
+        return 1;
+    }
+    while m % 10 == 0 {
+        m /= 10;
+    }
+    m.ilog10() + 1
+}
+
+/// Exact decimal parse into micros (10 §2 T6), at most 6 decimal places
+/// and 15 significant digits, within `lo..=hi`.
 fn parse_fixed<T: ParamValue>(
     input: &Input,
     path: &str,
@@ -266,6 +356,14 @@ fn parse_fixed<T: ParamValue>(
         Ok(d) if d.micros < lo || d.micros > hi => {
             invalid(input, path, errs, ParamErrorKind::OutOfRange, range_note)
         }
+        Ok(d) if significant_digits(d.micros) > MAX_SIG_DIGITS => invalid(
+            input,
+            path,
+            errs,
+            ParamErrorKind::InvalidValue,
+            " (more than 15 significant digits: a JSON number keeps at most 15 exactly, so \
+             stored params would change; 30 §9 rule 6)",
+        ),
         Ok(d) => Some(make(d.micros)),
         Err(DecimalError::Range) => {
             invalid(input, path, errs, ParamErrorKind::OutOfRange, range_note)
@@ -338,25 +436,29 @@ fixed_param!(
 
 // D-PENDING: 30 §9 lists DurMs with the fixed-point types ("at most 6 dp"),
 // but DurMs is integer milliseconds (10 §2); chose a non-negative integer of
-// ms (typed JSON integral number or Rust FromStr integer string).
+// ms (typed JSON integral number or Rust FromStr integer string), at most
+// 2^53 - 1 (21 §18 N2).
 impl ParamValue for DurMs {
     fn parse(input: &Input, path: &str, errs: &mut ParamError) -> Option<Self> {
-        let v = match input {
-            Input::String(s) => s.parse::<i64>().ok(),
-            Input::Number(n) => integer_text(n).and_then(|t| t.parse::<i64>().ok()),
-            _ => None,
-        };
-        match v {
-            Some(ms) if ms >= 0 => Some(DurMs(ms)),
-            Some(_) => invalid(input, path, errs, ParamErrorKind::OutOfRange, ""),
-            None => invalid(input, path, errs, ParamErrorKind::InvalidValue, ""),
-        }
+        parse_int(
+            input,
+            path,
+            errs,
+            (0, SAFE_INT),
+            |s| s.parse::<i64>().map(i128::from),
+            // In 0..=2^53 - 1 by the check in `parse_int`.
+            |v| crate::__private::dur_ms(v as i64),
+        )
     }
     fn write_normalized(&self, out: &mut String) {
-        let _ = write!(out, "{}", self.0);
+        let _ = write!(out, "{self}");
     }
     fn schema() -> Value {
-        schema_of(&[("type", "integer".into()), ("minimum", 0.into())])
+        schema_of(&[
+            ("type", "integer".into()),
+            ("minimum", 0.into()),
+            ("maximum", (SAFE_INT as i64).into()),
+        ])
     }
     fn expected() -> String {
         "a non-negative integer number of milliseconds".into()
@@ -487,16 +589,42 @@ impl<T: ParamValue> ParamValue for Vec<T> {
 mod tests {
     use super::*;
 
+    // spec: 30 §9 table (typed JSON integers by exact value), 21 §18 N2
     #[test]
-    fn integer_text_is_exact() {
-        assert_eq!(integer_text("20").as_deref(), Some("20"));
-        assert_eq!(integer_text("20.0").as_deref(), Some("20"));
-        assert_eq!(integer_text("2e1").as_deref(), Some("20"));
-        assert_eq!(integer_text("2.50e1").as_deref(), Some("25"));
-        assert_eq!(integer_text("-0").as_deref(), Some("0"));
-        assert_eq!(integer_text("-3").as_deref(), Some("-3"));
-        assert_eq!(integer_text("0.5"), None);
-        assert_eq!(integer_text("25e-1"), None);
-        assert_eq!(integer_text("1e99"), None);
+    fn integral_value_is_exact() {
+        use ParamErrorKind::{InvalidValue, OutOfRange};
+        assert_eq!(integral_value("20"), Ok(20));
+        assert_eq!(integral_value("20.0"), Ok(20));
+        assert_eq!(integral_value("2e1"), Ok(20));
+        assert_eq!(integral_value("2.50e1"), Ok(25));
+        assert_eq!(integral_value("-0"), Ok(0));
+        assert_eq!(integral_value("-3"), Ok(-3));
+        assert_eq!(integral_value("0.5"), Err(InvalidValue));
+        assert_eq!(integral_value("25e-1"), Err(InvalidValue));
+        assert_eq!(integral_value("1e99"), Err(OutOfRange));
+        assert_eq!(integral_value("1e99999999999999999999"), Err(OutOfRange));
+        assert_eq!(integral_value("1e38"), Ok(10i128.pow(38)));
+        assert_eq!(integral_value("1e39"), Err(OutOfRange));
+    }
+
+    // spec: 30 §9 rule 6 (fixed point within 15 significant digits)
+    #[test]
+    fn significant_digit_count() {
+        assert_eq!(significant_digits(0), 1);
+        assert_eq!(significant_digits(1), 1);
+        assert_eq!(significant_digits(-530_000), 2);
+        assert_eq!(significant_digits(12_000_001), 8);
+        assert_eq!(significant_digits(5_000_000_000_000_000), 1);
+        assert_eq!(significant_digits(i64::MAX), 19);
+    }
+    // spec: 21 §18 N2
+    #[test]
+    fn safe_ranges() {
+        assert_eq!(safe_range(i8::MIN as i128, i8::MAX as i128), (-128, 127));
+        assert_eq!(safe_range(0, u64::MAX as i128), (0, SAFE_INT));
+        assert_eq!(
+            safe_range(i64::MIN as i128, i64::MAX as i128),
+            (-SAFE_INT, SAFE_INT)
+        );
     }
 }

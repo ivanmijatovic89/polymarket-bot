@@ -81,27 +81,11 @@ impl Input {
         })
     }
 
-    /// Converts a decoded value. Integers are exact; other numbers are the
-    /// shortest decimal of their `f64` (exact for at most 15 significant
-    /// digits).
-    pub fn from_value(v: &serde_json::Value) -> Input {
-        match v {
-            serde_json::Value::Null => Input::Null,
-            serde_json::Value::Bool(b) => Input::Bool(*b),
-            serde_json::Value::Number(n) => Input::Number(n.to_string().into()),
-            serde_json::Value::String(s) => Input::String(s.clone()),
-            serde_json::Value::Array(a) => Input::Array(a.iter().map(Input::from_value).collect()),
-            serde_json::Value::Object(m) => Input::Object(
-                m.iter()
-                    .map(|(k, v)| (k.clone(), Input::from_value(v)))
-                    .collect(),
-            ),
-        }
-    }
-
     /// An object of CLI strings from `key=value` arguments (split at the
-    /// first `=`).
-    pub fn from_cli<'a, I>(args: I) -> Result<Input, ParamError>
+    /// first `=`), and a `Syntax` issue for every argument that is not
+    /// `key=value` (reported together with the object's issues, 30 §9
+    /// rule 3).
+    pub fn from_cli<'a, I>(args: I) -> (Input, ParamError)
     where
         I: IntoIterator<Item = &'a str>,
     {
@@ -122,11 +106,7 @@ impl Input {
                 ),
             }
         }
-        if errs.is_empty() {
-            Ok(Input::Object(out))
-        } else {
-            Err(errs)
-        }
+        (Input::Object(out), errs)
     }
 
     /// A short description of the value for messages (`"abc"`, `0.5`,

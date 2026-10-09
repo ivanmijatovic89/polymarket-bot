@@ -7,7 +7,10 @@
 //! the default `validate`.
 
 use crate::attrs::{camel_case, doc_string, Kind};
-use crate::literal::{f64_tokens, format_f64, format_micros, NumLit};
+use crate::literal::{
+    f64_tokens, format_f64, format_micros, significant_digits, FixedKind, NumLit, MAX_SIG_DIGITS,
+    SAFE_INT,
+};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
@@ -545,25 +548,29 @@ fn compile_bounds(kind: &Kind, ty: &Type, raw: Vec<(BoundOp, NumLit)>) -> syn::R
         let span = lit.span();
         let (tokens, text, num) = match scalar {
             Kind::Fixed(k) => {
-                let m = lit.fixed_micros(*k)?;
+                let m = params_fixed_micros(&lit, *k)?;
                 (k.ctor(m), format_micros(m as i128), Num::I(m as i128))
             }
             Kind::Dur => {
                 let v = lit.integer()?;
-                let ms = i64::try_from(v).ok().filter(|v| *v >= 0).ok_or_else(|| {
-                    syn::Error::new(
-                        span,
-                        "a DurMs bound is a non-negative integer number of milliseconds",
-                    )
-                })?;
+                let ms = i64::try_from(v)
+                    .ok()
+                    .filter(|v| (0..=SAFE_INT).contains(v))
+                    .ok_or_else(|| {
+                        syn::Error::new(
+                            span,
+                            "a DurMs bound is a non-negative integer number of milliseconds, \
+                             at most 9007199254740991 (21 §18 N2)",
+                        )
+                    })?;
                 (
-                    quote!(::pmb_sdk::__private::DurMs(#ms)),
+                    quote!(::pmb_sdk::__private::dur_ms(#ms)),
                     ms.to_string(),
                     Num::I(v),
                 )
             }
             Kind::Int => {
-                let v = lit.integer()?;
+                let v = params_integer(&lit)?;
                 let t = lit.int_tokens();
                 (
                     quote!({ let __pmb_b: #scalar_ty = #t; __pmb_b }),
@@ -658,24 +665,28 @@ fn compile_default(
     if let Some(n) = NumLit::from_expr(&expr) {
         return match kind {
             Kind::Fixed(k) => {
-                let m = n.fixed_micros(*k)?;
+                let m = params_fixed_micros(&n, *k)?;
                 Ok(CompiledDefault::new(k.ctor(m), Some(Num::I(m as i128))))
             }
             Kind::Dur => {
                 let v = n.integer()?;
-                let ms = i64::try_from(v).ok().filter(|v| *v >= 0).ok_or_else(|| {
-                    syn::Error::new(
-                        n.span(),
-                        "a DurMs default is a non-negative integer number of milliseconds",
-                    )
-                })?;
+                let ms = i64::try_from(v)
+                    .ok()
+                    .filter(|v| (0..=SAFE_INT).contains(v))
+                    .ok_or_else(|| {
+                        syn::Error::new(
+                            n.span(),
+                            "a DurMs default is a non-negative integer number of milliseconds, \
+                             at most 9007199254740991 (21 §18 N2)",
+                        )
+                    })?;
                 Ok(CompiledDefault::new(
-                    quote!(::pmb_sdk::__private::DurMs(#ms)),
+                    quote!(::pmb_sdk::__private::dur_ms(#ms)),
                     Some(Num::I(v)),
                 ))
             }
             Kind::Int => {
-                let v = n.integer()?;
+                let v = params_integer(&n)?;
                 Ok(CompiledDefault::new(n.int_tokens(), Some(Num::I(v))))
             }
             Kind::Float => {
@@ -715,6 +726,40 @@ fn compile_default(
         }
     }
     Ok(CompiledDefault::new(quote!(#expr), None))
+}
+
+/// An integer literal of a params default or bound, within ±(2^53 - 1)
+/// like every params integer (21 §18 N2).
+fn params_integer(lit: &NumLit) -> syn::Result<i128> {
+    let v = lit.integer()?;
+    if v.unsigned_abs() > SAFE_INT as u128 {
+        return Err(syn::Error::new(
+            lit.span(),
+            format!(
+                "`{}` is beyond ±9007199254740991: params integers stay within ±(2^53 - 1) \
+                 because stored params are read back as JSON numbers (21 §18 N2)",
+                lit.source()
+            ),
+        ));
+    }
+    Ok(v)
+}
+
+/// A fixed-point literal of a params default or bound: at most 6 decimals,
+/// in range, and at most 15 significant digits (30 §9 rule 6).
+fn params_fixed_micros(lit: &NumLit, kind: FixedKind) -> syn::Result<i64> {
+    let m = lit.fixed_micros(kind)?;
+    if significant_digits(m) > MAX_SIG_DIGITS {
+        return Err(syn::Error::new(
+            lit.span(),
+            format!(
+                "`{}` has more than 15 significant digits: a JSON number keeps at most 15 \
+                 exactly, so stored params would change (30 §9 rule 6); shorten the literal",
+                lit.source()
+            ),
+        ));
+    }
+    Ok(m)
 }
 
 // D-PENDING: 30 §9 rule 1 gives Option fields the default None and rule 6

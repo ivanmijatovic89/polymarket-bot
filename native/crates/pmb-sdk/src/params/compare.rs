@@ -8,7 +8,9 @@ use super::input::Input;
 use super::{ParamError, ParamErrorKind};
 
 /// Compares two params JSON texts by rule 10. Numbers are compared from
-/// their exact text.
+/// their exact text; there is deliberately no variant over decoded
+/// `serde_json::Value`s, which hold decimals as `f64` and would call
+/// `0.1` and `0.10000000000000001` equal.
 ///
 /// ```
 /// use pmb_sdk::params::normalized_eq;
@@ -27,12 +29,6 @@ pub fn normalized_eq(a: &str, b: &str) -> Result<bool, ParamError> {
         })
     };
     Ok(input_eq(&parse(a)?, &parse(b)?))
-}
-
-/// [`normalized_eq`] on decoded values (exact for integers and for decimals
-/// of at most 15 significant digits, see `Params::from_json_value`).
-pub fn normalized_eq_value(a: &serde_json::Value, b: &serde_json::Value) -> bool {
-    input_eq(&Input::from_value(a), &Input::from_value(b))
 }
 
 fn input_eq(a: &Input, b: &Input) -> bool {
@@ -117,9 +113,7 @@ mod tests {
         // Exponents beyond i64 compare by text only.
         assert!(!eq("1e99999999999999999999", "1e0"));
         assert!(eq("1e99999999999999999999", "1e99999999999999999999"));
-        assert!(normalized_eq_value(
-            &serde_json::json!({"a": 20}),
-            &serde_json::json!({"a": 20.0})
-        ));
+        assert!(!eq("0.1", "0.10000000000000000001"));
+        assert!(!eq("12345678901.123457", "12345678901.123455"));
     }
 }

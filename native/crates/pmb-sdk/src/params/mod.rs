@@ -18,7 +18,7 @@ pub(crate) mod text;
 pub(crate) mod value;
 
 use crate::json;
-pub use compare::{normalized_eq, normalized_eq_value};
+pub use compare::normalized_eq;
 use input::Input;
 use std::fmt;
 use support::ParamsFields;
@@ -65,7 +65,10 @@ pub trait Params: ParamsFields {
     }
 
     /// Parses a JSON object whose values are typed JSON or CLI strings
-    /// (20 §5.1). Numbers keep their exact decimal text.
+    /// (20 §5.1). Numbers keep their exact decimal text: this and
+    /// [`Params::from_cli`] are the only entry points, because a decoded
+    /// `serde_json::Value` has already rounded decimals through `f64`
+    /// (10 §2 T6, 00 R2).
     fn from_json_str(text: &str) -> Result<Self, ParamError> {
         let input = Input::from_json_text(text).map_err(|e| {
             ParamError::single(
@@ -77,21 +80,23 @@ pub trait Params: ParamsFields {
         Self::from_input(&input)
     }
 
-    /// Parses an already decoded JSON value. `serde_json` holds decimals as
-    /// `f64`, so a fixed-point value is exact here only when it has at most
-    /// 15 significant digits; [`Params::from_json_str`] is exact for any
-    /// text.
-    fn from_json_value(value: &json::Value) -> Result<Self, ParamError> {
-        Self::from_input(&Input::from_value(value))
-    }
-
     /// Parses `--param` arguments, each `key=value` (split at the first `=`).
-    /// Values are CLI strings: JSON text for arrays and nested objects.
+    /// Values are CLI strings: JSON text for arrays and nested objects. An
+    /// argument without `=` is reported together with every issue of the
+    /// other arguments (§9 rule 3).
     fn from_cli<'a, I>(args: I) -> Result<Self, ParamError>
     where
         I: IntoIterator<Item = &'a str>,
     {
-        Self::from_input(&Input::from_cli(args)?)
+        let (input, mut errs) = Input::from_cli(args);
+        match Self::from_input(&input) {
+            Ok(v) if errs.is_empty() => Ok(v),
+            Ok(_) => Err(errs),
+            Err(e) => {
+                errs.extend_prefixed("", e);
+                Err(errs)
+            }
+        }
     }
 
     #[doc(hidden)]
@@ -165,9 +170,9 @@ pub trait ParamEnum: Sized + 'static {
 }
 
 // D-PENDING: 30 §3 lists only Params, ParamEnum and ParamError; chose to
-// also expose `pmb_sdk::params::{ParamIssue, ParamErrorKind, normalized_eq,
-// normalized_eq_value}` for the per-issue path/message of 20 §5.1 and the
-// comparison of §9 rule 10.
+// also expose `pmb_sdk::params::{ParamIssue, ParamErrorKind, normalized_eq}`
+// for the per-issue path/message of 20 §5.1 and the text-based comparison
+// of §9 rule 10.
 /// What a params issue is about (30 §9).
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

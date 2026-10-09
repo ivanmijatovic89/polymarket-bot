@@ -1,5 +1,7 @@
 //! `#[derive(Params)]` / `#[derive(ParamEnum)]` behavior (30 §9).
 
+mod common;
+
 use pmb_sdk::params::ParamErrorKind;
 use pmb_sdk::prelude::*;
 
@@ -103,19 +105,16 @@ fn one_issue(e: &ParamError) -> (&str, ParamErrorKind, &str) {
     (i.path(), i.kind(), i.message())
 }
 
-/// normalize(normalize(p)) == normalize(p) through both input forms.
-fn assert_idempotent(p: &LagParams) {
+/// normalize(normalize(p)) == normalize(p), also after the normalized text
+/// went through `f64` JSON numbers the way TS stores it (JSON.parse and
+/// JSON.stringify of `backtest_runs.params`, 30 §9 rule 6, 21 §18 N2).
+fn assert_idempotent<P: Params + PartialEq + std::fmt::Debug>(p: &P) {
     let n = p.normalized_json();
-    let again = LagParams::from_json_str(&n).unwrap();
+    let again = P::from_json_str(&n).unwrap();
     assert_eq!(&again, p);
     assert_eq!(again.normalized_json(), n);
-    let value: serde_json::Value = serde_json::from_str(&n).unwrap();
-    assert_eq!(
-        LagParams::from_json_value(&value)
-            .unwrap()
-            .normalized_json(),
-        n
-    );
+    let stored = P::from_json_str(&common::through_ts_storage(&n)).unwrap();
+    assert_eq!(stored.normalized_json(), n);
 }
 
 // spec: 30 §9 rules 1, 6 (defaults applied, keys sorted bytewise, None omitted)
@@ -215,9 +214,10 @@ fn typed_json_and_mixed() {
 // spec: 10 §2 T6, 30 §9 table: fixed point is parsed from the decimal text, never via f64
 #[test]
 fn fixed_point_from_exact_text() {
-    let p = LagParams::from_json_str(r#"{"stakeUsd":9223372036854.775807,"size":1e-6}"#).unwrap();
-    assert_eq!(p.stake_usd, Usdc::from_micros(i64::MAX));
+    let p = LagParams::from_json_str(r#"{"stakeUsd":999999999.999999,"size":1e-6}"#).unwrap();
+    assert_eq!(p.stake_usd, Usdc::from_micros(999_999_999_999_999));
     assert_eq!(p.size, Qty::from_micros(1));
+    assert_idempotent(&p);
     let p = LagParams::from_json_str(r#"{"size":0.1,"maxPrice":0.30000}"#).unwrap();
     assert_eq!(p.size, Qty::from_micros(100_000));
     assert_eq!(p.max_price, price!(0.3));
@@ -343,7 +343,48 @@ fn bounds() {
     let e = LagParams::from_cli(["cooldown=-1"]).unwrap_err();
     assert_eq!(one_issue(&e).1, ParamErrorKind::OutOfRange);
     let e = LagParams::from_cli(["maxTrades=-1"]).unwrap_err();
-    assert_eq!(one_issue(&e).1, ParamErrorKind::InvalidValue);
+    assert_eq!(
+        one_issue(&e),
+        (
+            "/maxTrades",
+            ParamErrorKind::OutOfRange,
+            "expected an integer (u32), got \"-1\" (out of range: this param is from 0 to 4294967295; params integers stay within ±(2^53 - 1), 21 §18 N2)"
+        )
+    );
+    let e = LagParams::from_cli(["maxTrades=4294967296"]).unwrap_err();
+    assert_eq!(one_issue(&e).1, ParamErrorKind::OutOfRange);
+    // A number beyond the f64 range is out of range; `inf` is invalid (rule 7).
+    let e = LagParams::from_json_str(r#"{"sigma":1e400}"#).unwrap_err();
+    assert_eq!(
+        one_issue(&e),
+        (
+            "/sigma",
+            ParamErrorKind::OutOfRange,
+            "expected a finite number, got 1e400 (beyond the f64 range)"
+        )
+    );
+}
+
+// spec: 30 §9 rule 6, 21 §18: fixed-point params keep at most 15
+// significant digits, so stored params read back through f64 are unchanged
+#[test]
+fn fixed_point_significant_digits() {
+    for text in [
+        r#"{"stakeUsd":9007199254.740993}"#,
+        r#"{"stakeUsd":12345678901.123457}"#,
+        r#"{"size":"1000000000.000001"}"#,
+        r#"{"size":9223372036854.775807}"#,
+    ] {
+        let e = LagParams::from_json_str(text).unwrap_err();
+        let (_, kind, msg) = one_issue(&e);
+        assert_eq!(kind, ParamErrorKind::InvalidValue, "{text}");
+        assert!(msg.ends_with("(more than 15 significant digits: a JSON number keeps at most 15 exactly, so stored params would change; 30 §9 rule 6)"), "{msg}");
+    }
+    // Trailing zeros and large round values are not significant digits.
+    let p = LagParams::from_cli(["size=1000000000000", "stakeUsd=123456789.123456000"]).unwrap();
+    assert_eq!(p.size, Qty::from_micros(1_000_000_000_000_000_000));
+    assert_eq!(p.stake_usd, Usdc::from_micros(123_456_789_123_456));
+    assert_idempotent(&p);
 }
 
 // spec: 30 §9 table (fixed point: at most 6 dp), 10 §2 T6
@@ -378,6 +419,18 @@ fn every_error_kind() {
             ParamErrorKind::Syntax,
             "--param \"size\" is not key=value; write it as --param key=value"
         )
+    );
+    // A malformed argument does not hide the issues of the others.
+    let e = WindowParams::from_cli(["nokey", "fromSec=abc", "zzz=1", "=1"]).unwrap_err();
+    assert_eq!(
+        kinds(&e),
+        [
+            ("".into(), ParamErrorKind::Syntax),
+            ("".into(), ParamErrorKind::Syntax),
+            ("/fromSec".into(), ParamErrorKind::InvalidValue),
+            ("/toSec".into(), ParamErrorKind::Missing),
+            ("".into(), ParamErrorKind::UnknownKeys),
+        ]
     );
     let e = LagParams::from_json_str("[1]").unwrap_err();
     assert_eq!(
@@ -576,16 +629,45 @@ pub struct IntParams {
 // spec: 30 §9 table (integers: Rust FromStr for CLI, integral numbers for typed JSON), 21 §18 N2
 #[test]
 fn integer_fields() {
-    let p =
-        IntParams::from_cli(["big=18446744073709551615", "signed=-9223372036854775808"]).unwrap();
-    assert_eq!(p.big, u64::MAX);
-    assert_eq!(p.signed, Some(i64::MIN));
+    let p = IntParams::from_cli(["big=9007199254740991", "signed=-9007199254740991"]).unwrap();
+    assert_eq!(p.big, (1 << 53) - 1);
+    assert_eq!(p.signed, Some(-(1 << 53) + 1));
     assert_eq!(
         p.normalized_json(),
-        r#"{"big":18446744073709551615,"n":7,"signed":-9223372036854775808,"small":-1}"#
+        r#"{"big":9007199254740991,"n":7,"signed":-9007199254740991,"small":-1}"#
     );
-    assert_eq!(IntParams::from_json_str(&p.normalized_json()).unwrap(), p);
-    for arg in ["small=200", "big=-1", "n=1.0", "signed=9223372036854775808"] {
+    assert_idempotent(&p);
+    // Integers beyond ±(2^53 - 1) are rejected in every integer type and
+    // input form: TS would read them back rounded (N2).
+    for arg in [
+        "big=9007199254740992",
+        "big=18446744073709551615",
+        "signed=-9007199254740992",
+        "signed=-9223372036854775808",
+        "signed=99999999999999999999999999999999999999999",
+        "small=200",
+        "small=-129",
+        "big=-1",
+    ] {
+        let e = IntParams::from_cli([arg]).unwrap_err();
+        assert_eq!(one_issue(&e).1, ParamErrorKind::OutOfRange, "{arg}");
+    }
+    for text in [
+        r#"{"big":9007199254740992}"#,
+        r#"{"big":1152921504606846977}"#,
+        r#"{"signed":-1e16}"#,
+        r#"{"signed":1e999}"#,
+        r#"{"small":1e5}"#,
+        r#"{"n":-1}"#,
+    ] {
+        let e = IntParams::from_json_str(text).unwrap_err();
+        assert_eq!(one_issue(&e).1, ParamErrorKind::OutOfRange, "{text}");
+    }
+    assert_eq!(
+        one_issue(&IntParams::from_cli(["big=9007199254740992"]).unwrap_err()).2,
+        "expected an integer (u64), got \"9007199254740992\" (out of range: this param is from 0 to 9007199254740991; params integers stay within ±(2^53 - 1), 21 §18 N2)"
+    );
+    for arg in ["n=1.0", "n=x", "small=1e2", "big=+-1"] {
         let e = IntParams::from_cli([arg]).unwrap_err();
         assert_eq!(one_issue(&e).1, ParamErrorKind::InvalidValue, "{arg}");
     }
@@ -593,16 +675,22 @@ fn integer_fields() {
         one_issue(&IntParams::from_json_str(r#"{"n":10}"#).unwrap_err()).2,
         "expected a number <= 9, got 10"
     );
-    // Schema type bounds only within ±(2^53 - 1).
+    // The schema bounds every integer type to its range within ±(2^53 - 1).
     let s = IntParams::params_schema();
     assert_eq!(s["properties"]["small"]["minimum"], -128);
     assert_eq!(s["properties"]["small"]["maximum"], 127);
     assert_eq!(s["properties"]["big"]["minimum"], 0);
-    assert!(s["properties"]["big"].get("maximum").is_none());
-    assert!(s["properties"]["signed"]["anyOf"][0]
-        .get("minimum")
-        .is_none());
+    assert_eq!(s["properties"]["big"]["maximum"], 9007199254740991_i64);
+    assert_eq!(s["properties"]["n"]["maximum"], 9);
+    let signed = &s["properties"]["signed"]["anyOf"][0];
+    assert_eq!(signed["minimum"], -9007199254740991_i64);
+    assert_eq!(signed["maximum"], 9007199254740991_i64);
     assert_eq!(s["required"], serde_json::json!([]));
+    // DurMs: integer ms from 0 to 2^53 - 1.
+    let e = LagParams::from_cli(["cooldown=9007199254740992"]).unwrap_err();
+    assert_eq!(one_issue(&e).1, ParamErrorKind::OutOfRange);
+    let e = LagParams::from_json_str(r#"{"cooldown":1.5}"#).unwrap_err();
+    assert_eq!(one_issue(&e).1, ParamErrorKind::InvalidValue);
 }
 
 // spec: 30 §9 rules 6, 9, 10: normalized output compares equal to an equivalent TS-style rendering

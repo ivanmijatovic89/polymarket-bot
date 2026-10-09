@@ -1,6 +1,8 @@
 //! Property tests: normalization is idempotent and lossless (30 §9 rule 6,
 //! 20 §5.1 `describe(describe(p).params).params == describe(p).params`).
 
+mod common;
+
 use pmb_sdk::prelude::*;
 use proptest::prelude::*;
 
@@ -47,21 +49,26 @@ fn positive() -> impl Strategy<Value = f64> {
     finite().prop_filter("positive", |v| *v > 0.0)
 }
 
+/// Largest params integer (21 §18 N2).
+const SAFE: i64 = (1 << 53) - 1;
+/// Largest micros of 15 significant digits (30 §9 rule 6).
+const FIXED_15: i64 = 999_999_999_999_999;
+
 prop_compose! {
     fn params()(
-        size in any::<i64>(),
+        size in -FIXED_15..=FIXED_15,
         max_price in 10_000i64..=990_000,
-        stake_usd in 1i64..=i64::MAX,
+        stake_usd in 1i64..=FIXED_15,
         stake_min_usd in proptest::option::of(positive()),
         max_trades in 1u32..,
-        cooldown in 0i64..=i64::MAX,
+        cooldown in 0i64..=SAFE,
         sigma in finite(),
         taker in any::<bool>(),
         dry in any::<bool>(),
         label in any::<String>(),
         ids in proptest::collection::vec(any::<String>(), 0..3),
         fee in 0i64..=1_000_000,
-        window in proptest::option::of(proptest::collection::vec(any::<i64>(), 0..3)),
+        window in proptest::option::of(proptest::collection::vec(-SAFE..=SAFE, 0..3)),
         depth_frac in 0.0f64..=5.0,
     ) -> P {
         P {
@@ -70,7 +77,7 @@ prop_compose! {
             stake_usd: Usdc::from_micros(stake_usd),
             stake_min_usd,
             max_trades,
-            cooldown: DurMs(cooldown),
+            cooldown: pmb_sdk::__private::dur_ms(cooldown),
             // Parsing maps -0 to 0 (30 §9 table); generate canonical values.
             sigma: if sigma == 0.0 { 0.0 } else { sigma },
             leg: if taker { Leg::Taker } else { Leg::Maker },
@@ -87,13 +94,18 @@ prop_compose! {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(512))]
 
-    // spec: 30 §9 rule 6 (idempotent, exact), rule 10 (values compare equal)
+    // spec: 30 §9 rule 6 (idempotent, exact), rule 10 (values compare
+    // equal), 21 §18 N2 (stored params read back through f64 are unchanged)
     #[test]
     fn normalize_round_trips(p in params()) {
         let n = p.normalized_json();
         let back = P::from_json_str(&n).unwrap();
         prop_assert_eq!(&back, &p);
         prop_assert_eq!(back.normalized_json(), n.clone());
+        // TS stores the normalized params with JSON.parse/JSON.stringify:
+        // every number becomes an f64 and is written back from it.
+        let stored = P::from_json_str(&common::through_ts_storage(&n)).unwrap();
+        prop_assert_eq!(stored.normalized_json(), n.clone());
         prop_assert!(pmb_sdk::params::normalized_eq(&n, &back.normalized_json()).unwrap());
         // Keys are sorted bytewise.
         let v: serde_json::Value = serde_json::from_str(&n).unwrap();
