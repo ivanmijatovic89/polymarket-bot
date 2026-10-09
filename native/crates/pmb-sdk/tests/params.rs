@@ -615,3 +615,25 @@ fn normalized_compares_by_value() {
     assert!(pmb_sdk::params::normalized_eq(&p.normalized_json(), ts_style).unwrap());
     assert!(!pmb_sdk::params::normalized_eq(&p.normalized_json(), "{}").unwrap());
 }
+
+/// A params tree that contains itself.
+#[derive(Params, Debug, PartialEq)]
+pub struct Node {
+    #[param(default)]
+    pub children: Vec<Node>,
+    #[param(default = 0)]
+    pub weight: i64,
+}
+
+// spec: 30 §9 rule 8 (schema of a recursive params struct terminates), table (nested Vec)
+#[test]
+fn recursive_params() {
+    let n = Node::from_json_str(r#"{"children":[{"weight":2,"children":[{}]}]}"#).unwrap();
+    assert_eq!(n.children[0].weight, 2);
+    assert_eq!(
+        n.normalized_json(),
+        r#"{"children":[{"children":[{"children":[],"weight":0}],"weight":2}],"weight":0}"#
+    );
+    let s = Node::params_schema();
+    assert_eq!(s["properties"]["children"]["items"]["type"], "object");
+}

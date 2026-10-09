@@ -351,11 +351,28 @@ pub fn struct_expected<T: ParamsFields>() -> String {
     format!("a JSON object of {} params", T::NAME)
 }
 
+/// Nesting limit of generated schemas: a params struct that contains
+/// itself (`children: Vec<Self>`) gets an open object schema below it
+/// instead of unbounded recursion.
+const SCHEMA_DEPTH: u32 = 16;
+
+thread_local! {
+    static SCHEMA_NESTING: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
 /// Schema of a params object (30 §9 rule 8).
 pub fn struct_schema<T: ParamsFields>() -> Value {
+    let depth = SCHEMA_NESTING.with(|d| d.get());
+    if depth >= SCHEMA_DEPTH {
+        let mut m = serde_json::Map::new();
+        m.insert("type".into(), "object".into());
+        return Value::Object(m);
+    }
+    SCHEMA_NESTING.with(|d| d.set(depth + 1));
     let mut props = Vec::new();
     let mut required = Vec::new();
     T::__schema_fields(&mut props, &mut required);
+    SCHEMA_NESTING.with(|d| d.set(depth));
     let mut m = serde_json::Map::new();
     m.insert("type".into(), "object".into());
     if !T::DOC.is_empty() {

@@ -40,7 +40,11 @@ fn input_eq(a: &Input, b: &Input) -> bool {
         (Input::Null, Input::Null) => true,
         (Input::Bool(x), Input::Bool(y)) => x == y,
         (Input::String(x), Input::String(y)) => x == y,
-        (Input::Number(x), Input::Number(y)) => decimal_key(x) == decimal_key(y),
+        (Input::Number(x), Input::Number(y)) => match (decimal_key(x), decimal_key(y)) {
+            (Some(a), Some(b)) => a == b,
+            // An exponent beyond i64: only the identical text is equal.
+            _ => x == y,
+        },
         (Input::Array(x), Input::Array(y)) => {
             x.len() == y.len() && x.iter().zip(y).all(|(p, q)| input_eq(p, q))
         }
@@ -62,26 +66,27 @@ fn input_eq(a: &Input, b: &Input) -> bool {
 
 /// Canonical form of a JSON number: (negative, significant digits without
 /// leading or trailing zeros, decimal exponent of the last digit). Zero is
-/// `(false, "", 0)`.
-fn decimal_key(text: &str) -> (bool, String, i64) {
+/// `(false, "", 0)`. `None` when the exponent does not fit an `i64`.
+fn decimal_key(text: &str) -> Option<(bool, String, i64)> {
     let (neg, rest) = match text.strip_prefix('-') {
         Some(r) => (true, r),
         None => (false, text),
     };
     let (mant, exp) = match rest.find(['e', 'E']) {
-        Some(i) => (&rest[..i], rest[i + 1..].parse::<i64>().unwrap_or(0)),
+        Some(i) => (&rest[..i], rest[i + 1..].parse::<i64>().ok()?),
         None => (rest, 0),
     };
     let (int, frac) = mant.split_once('.').unwrap_or((mant, ""));
     let digits: String = int.chars().chain(frac.chars()).collect();
-    let mut exp = exp - frac.len() as i64;
     let trimmed_end = digits.trim_end_matches('0');
-    exp += (digits.len() - trimmed_end.len()) as i64;
+    let exp = exp
+        .checked_sub(frac.len() as i64)?
+        .checked_add((digits.len() - trimmed_end.len()) as i64)?;
     let sig = trimmed_end.trim_start_matches('0');
     if sig.is_empty() {
-        return (false, String::new(), 0);
+        return Some((false, String::new(), 0));
     }
-    (neg, sig.to_owned(), exp)
+    Some((neg, sig.to_owned(), exp))
 }
 
 #[cfg(test)]
@@ -109,6 +114,9 @@ mod tests {
         assert!(!eq(r#"{"a":1}"#, r#"{"b":1}"#));
         assert!(!eq("[1,2]", "[2,1]"));
         assert!(normalized_eq("{", "{}").is_err());
+        // Exponents beyond i64 compare by text only.
+        assert!(!eq("1e99999999999999999999", "1e0"));
+        assert!(eq("1e99999999999999999999", "1e99999999999999999999"));
         assert!(normalized_eq_value(
             &serde_json::json!({"a": 20}),
             &serde_json::json!({"a": 20.0})
