@@ -22,3 +22,7 @@ var TELONEX_CONVERT_HEARTBEAT_MS     # conversion claim heartbeat (src/telonex/c
 var REDIS_URL                        # queue connection; parity runs never enqueue
 dynamic src/backtest/feeds/wireBacktestExternalFeeds.ts  # envInt(name) helper; call sites audited by name
 dynamic src/backtest/simulator/resolveMarket.ts          # envInt(name) helper; call sites audited by name
+var CARGO_HOME                       # canonical builder host setting (31 §4.5); build time only, never in a replay; artifact identity is the binary sha
+var RUSTUP_HOME                      # canonical builder host setting (31 §4.5); build time only, never in a replay
+var CARGO_BUILD_JOBS                 # builder parallelism (31 §4.5); cannot change the binary bytes (reproducible build, 31 §4.3)
+dynamic src/strategy/artifacts/native/host.ts  # tool env passthrough for cargo builds (31 §4.2); build time only, not a replay path
