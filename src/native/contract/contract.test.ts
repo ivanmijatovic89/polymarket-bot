@@ -16,6 +16,7 @@ import {
 } from './canonicalJson.js'
 import { candidateModelConfigSha256, checkEcho, effectiveModelConfig } from './echo.js'
 import { GENERATED_PATH, REPO_ROOT, generate, readBundle } from './gen.js'
+import { candidateDurationMs, toRunSingleMarketOutput } from './mapping.js'
 import type { EngineJob, EngineResult } from './generated.js'
 import { createContractValidators, hasDecimalScale } from './validate.js'
 
@@ -296,5 +297,61 @@ describe('echo assertions (21 §12)', () => {
     assert.equal(effectiveModelConfig(run, null), run)
     assert.notEqual(modelConfigSha256(effectiveModelConfig(run, variant)), modelConfigSha256(run))
     assert.deepEqual(effectiveModelConfig(run, variant).feeds, run.feeds)
+  })
+})
+
+describe('mapping to RunSingleMarketOutput (21 §11, §12)', () => {
+  const result = readJson(
+    path.join(CONTRACT_DIR, 'fixtures/results/valid/ok-ts-compat.json'),
+  ) as EngineResult
+  const stamps = {
+    machineId: 'a1b2c3d4e5f6',
+    workerChildId: 101,
+    startedAtMs: 1791500000000,
+    finishedAtMs: 1791500000210,
+    durationMs: 210,
+    commitSha: 'deadbeef',
+  }
+
+  it('stamps execution on non-null stats and keeps the engine fields', () => {
+    // spec: 21 §11 table, §12 (execution stamped for every non-null marketStats)
+    const out = result.candidates[0]!.output!
+    const mapped = toRunSingleMarketOutput(out, 7, stamps)
+    assert.equal(mapped.idx, 7)
+    assert.equal(mapped.durationMs, 210)
+    assert.deepEqual(mapped.eventsByType, { book: 1, price_change: 4823 })
+    assert.equal(mapped.marketStats?.pnl, -12.35)
+    assert.deepEqual(mapped.marketStats?.execution, {
+      ...stamps,
+      eventsProcessed: out.eventsProcessed,
+      eventsByType: { book: 1, price_change: 4823 },
+    })
+    assert.ok(!('rules' in (mapped.marketStats ?? {})))
+    const zero = toRunSingleMarketOutput(result.candidates[1]!.output!, 7, stamps)
+    assert.equal(zero.skipReason, 'no_activity')
+    assert.equal(zero.marketStats?.skipReason, 'no_in_window_activity')
+  })
+
+  it('fails loud on rules provenance TS cannot store yet', () => {
+    // spec: 11 §13.8, R14
+    const out = structuredClone(result.candidates[0]!.output!)
+    out.marketStats!.rules = {
+      source: 'fallback',
+      rulesTableVersion: 'rules-table-v1',
+      snapshotParserVersion: null,
+      feeEra: 'e',
+      feeCurve: 'c',
+      feeSource: 's',
+      unverifiedRules: [],
+    }
+    assert.throws(() => toRunSingleMarketOutput(out, 0, stamps))
+  })
+
+  it('splits a group span by token weight and candidate count', () => {
+    // spec: 21 §12 durationMs, 40 §7.1, 41 §7.4
+    assert.equal(candidateDurationMs(1000, 1210), 210)
+    assert.equal(candidateDurationMs(1000, 1210, { weight: 2, candidates: 3 }), 140)
+    assert.equal(candidateDurationMs(1000, 1001, { weight: 1, candidates: 3 }), 0)
+    assert.throws(() => candidateDurationMs(1210, 1000))
   })
 })
