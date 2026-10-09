@@ -337,8 +337,14 @@ impl Reader {
             let [event, market, a0, a1, ai] = &self.i32s;
             t.ingest_seq.extend_from_slice(&seq.values);
             t.ts_local_ms.extend_from_slice(&local.values);
-            t.event_type.extend(event.values.iter().map(|&v| v as u8));
-            t.market.extend(market.values.iter().map(|&v| v as u8));
+            // Codes and ids were written from u8; anything else is corrupt.
+            let byte = |v: i32| u8::try_from(v).map_err(|_| format!("code or id {v} out of range"));
+            for &v in &event.values {
+                t.event_type.push(byte(v)?);
+            }
+            for &v in &market.values {
+                t.market.push(byte(v)?);
+            }
             for r in 0..rows {
                 let mut flags = 0;
                 match exch.get(r) {
@@ -356,8 +362,8 @@ impl Reader {
                     }
                 }
                 t.flags.push(flags);
-                t.asset0.push(a0.get(r).map_or(NULL_ID, |&v| v as u8));
-                t.asset1.push(a1.get(r).map_or(NULL_ID, |&v| v as u8));
+                t.asset0.push(a0.get(r).map_or(Ok(NULL_ID), |&v| byte(v))?);
+                t.asset1.push(a1.get(r).map_or(Ok(NULL_ID), |&v| byte(v))?);
             }
             for (d, c) in self.decs.iter().enumerate() {
                 let l = &mut t.decimals[d];

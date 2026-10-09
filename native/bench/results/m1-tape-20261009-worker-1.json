@@ -14,14 +14,21 @@
     "threads": 1,
     "fleetWorker": "running (not paused, user rule for this run)",
     "globalRuntime": "running (not paused)",
-    "otherLoad": "other goal worktrees building and testing concurrently (ps snapshots in the .md)",
+    "otherLoad": "other goal worktrees building and testing concurrently; no ps snapshot was kept for sittings A-C (only the one-line summary in the .md). Sittings D-H (m1-tape-20261009-worker-1-2.json) carry ps snapshots.",
     "pageCache": "warm (one discarded warm-up pass per configuration)",
     "lowPowerMode": 0,
-    "decodeScope": "file on disk -> engine event stream (kind, outcome, levels, both timestamps) + skip/anomaly counters; file read included; no book apply"
+    "decodeScope": "file on disk -> engine event stream (kind, outcome, levels, both timestamps) + skip/anomaly counters; file read included; no book apply",
+    "qosEffective": "not recorded for sittings A-C (the tool did not record it then); sittings D-H record it"
   },
   "sets": {
-    "smoke-50": "native/bench/sets/smoke-50.json",
-    "heavy-1": "native/bench/sets/heavy-1.json"
+    "smoke-50": {
+      "path": "native/bench/sets/smoke-50.json",
+      "manifestSha256": "a48228eec3b440ad632a6a50041e71ebdaad660c202fba4e56dba77d6e0dedbc"
+    },
+    "heavy-1": {
+      "path": "native/bench/sets/heavy-1.json",
+      "manifestSha256": "671aea469636de670c94d8763375ff83610502764f476e2f3929966833c8052c"
+    }
   },
   "sittings": {
     "B": {
@@ -1052,5 +1059,6 @@
     "smoke-50": "50/50 identical",
     "heavy-1": "1/1 identical",
     "fixtureDigest": "6f2be512d177e68f4680b089bb29a1e46d1ad213c70465a6789b0a1c19e073f5"
-  }
+  },
+  "correction": "2026-10-09 review: the otherLoad text claimed ps snapshots that the .md did not contain; corrected. The .md no longer quotes numbers that are not in a JSON (see its Corrections section)."
 }
