@@ -1,21 +1,24 @@
 //! The plugin contract (14 §12.1) and the per-strategy-instance container.
 //!
-//! A [`PluginSet`] is created once per strategy instance (candidate) from its
-//! [`PluginRequest`], reset per market by [`PluginSet::start_market`]
-//! (14 P-3), updated once per tick by [`PluginSet::on_tick`] (14 P-4, P-5:
-//! the engine decides which ticks reach it), and read through
-//! [`PluginSet::view`], which stays fixed until the next `on_tick`
-//! (tick-scoped snapshot, 12 §6.4). Each plugin carries a change generation
-//! (14 P-13).
+//! A [`PluginPool`] holds one instance per distinct canonical plugin config
+//! of the candidates of a market read (14 P-6, 16 CG-3, 30 §16 S4); each
+//! candidate reads its instances through a [`PluginHandle`]. A [`PluginSet`]
+//! is the pool of a single strategy instance (candidate). Instances are
+//! reset per market by `start_market` (14 P-3), updated once per tick by
+//! `on_tick` (14 P-4, P-5: the engine decides which ticks reach them), and
+//! read through `view`, which stays fixed until the next `on_tick`
+//! (tick-scoped snapshot, 12 §6.4). Each instance carries a change
+//! generation (14 P-13).
 
 use crate::dwell_gate::{DwellGate, DwellGateConfig, DwellGateSnapshot};
 use crate::technical_indicators::{
-    TaInput, TaOutput, TechnicalIndicators, TechnicalIndicatorsConfig,
+    ta_supported, TaInput, TaOutput, TaUnavailable, TechnicalIndicators, TechnicalIndicatorsConfig,
 };
 use crate::time_window_gate::{TimeWindowGate, TimeWindowGateConfig, TimeWindowGateSnapshot};
 use crate::volatility::{TimeWindowVolatility, TimeWindowVolatilityConfig, VolatilitySnapshot};
 use crate::{CandleInterval, PluginMarket, PluginTick};
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 /// Plugin ids (the TS ids, snapshot keys at the TS-shape boundary, 12 §6.4).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -83,7 +86,7 @@ pub enum ConfigError {
 /// state, 14 P-7).
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PluginError {
-    #[error("technicalIndicators is requested but no candles were supplied at market start")]
+    #[error("technicalIndicators is requested for a BTC 15m market but no candles were supplied at market start")]
     MissingTaInput,
     #[error("TA candles were supplied but technicalIndicators is not requested")]
     UnexpectedTaInput,
@@ -126,162 +129,386 @@ impl PluginRequest {
     }
 }
 
-/// Read-only access to the tick-scoped snapshots (30 §5 `plugins()`).
-/// Unrequested plugins are `None`.
+/// Read-only access to one candidate's tick-scoped snapshots (30 §5
+/// `plugins()`). Unrequested plugins are `None`. A view borrows the
+/// instances, which may be shared by several candidates (14 P-6, 16 CG-3).
+#[derive(Copy, Clone, Debug)]
+pub struct PluginsView<'a> {
+    volatility: Option<&'a TimeWindowVolatility>,
+    ta: Option<&'a TechnicalIndicators>,
+    dwell: Option<&'a DwellGate>,
+    gate: Option<&'a TimeWindowGate>,
+}
+
+impl<'a> PluginsView<'a> {
+    pub fn time_window_volatility(&self) -> Option<&'a VolatilitySnapshot> {
+        self.volatility.map(Plugin::snapshot)
+    }
+
+    pub fn technical_indicators(&self) -> Option<&'a TaOutput> {
+        self.ta.map(Plugin::snapshot)
+    }
+
+    pub fn dwell_gate(&self) -> Option<&'a DwellGateSnapshot> {
+        self.dwell.map(Plugin::snapshot)
+    }
+
+    pub fn time_window_gate(&self) -> Option<&'a TimeWindowGateSnapshot> {
+        self.gate.map(Plugin::snapshot)
+    }
+}
+
+/// Per-market plugin diagnostics for the engine's per-market report
+/// (14 P-7, PF-7; 21 diagnostics).
+///
+/// Plugin time (PF-7) is measured by the engine around
+/// [`PluginPool::start_market`] and [`PluginPool::on_tick`]: plugins read no
+/// clock but the tick time (14 P-1), so this crate does not time itself.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct PluginDiagnostics {
+    /// Why TA has no values for this market, when TA is requested and
+    /// unavailable (14 P-7); count it under [`TaUnavailable::as_str`].
+    pub ta_unavailable: Option<TaUnavailable>,
+}
+
+/// One plugin instance with its change generation (14 P-13).
 #[derive(Clone, Debug)]
-pub struct PluginsView {
-    volatility: Option<TimeWindowVolatility>,
-    ta: Option<TechnicalIndicators>,
-    dwell: Option<DwellGate>,
-    gate: Option<TimeWindowGate>,
+struct Instance<P> {
+    plugin: P,
+    generation: u64,
 }
 
-impl PluginsView {
-    pub fn time_window_volatility(&self) -> Option<&VolatilitySnapshot> {
-        self.volatility.as_ref().map(Plugin::snapshot)
-    }
-
-    pub fn technical_indicators(&self) -> Option<&TaOutput> {
-        self.ta.as_ref().map(Plugin::snapshot)
-    }
-
-    pub fn dwell_gate(&self) -> Option<&DwellGateSnapshot> {
-        self.dwell.as_ref().map(Plugin::snapshot)
-    }
-
-    pub fn time_window_gate(&self) -> Option<&TimeWindowGateSnapshot> {
-        self.gate.as_ref().map(Plugin::snapshot)
-    }
+/// The distinct instances of one plugin kind, deduplicated by canonical
+/// config (16 CG-3). Indices are stable for the pool's lifetime.
+#[derive(Clone, Debug)]
+struct Slots<C, P> {
+    index: BTreeMap<C, u32>,
+    items: Vec<Instance<P>>,
 }
 
-/// Generation of each plugin slot, indexed like [`PluginId::ALL`].
-type Generations = [u64; 4];
-
-#[inline]
-fn observe<P: Plugin>(p: &mut Option<P>, tick: &PluginTick, gen: &mut u64) -> bool {
-    match p {
-        Some(p) if !tick.synthetic || P::HANDLES_SYNTHETIC_TICKS => {
-            let changed = p.on_tick(tick);
-            *gen += changed as u64;
-            changed
+impl<C: Ord + Clone, P> Slots<C, P> {
+    fn new() -> Self {
+        Slots {
+            index: BTreeMap::new(),
+            items: Vec::new(),
         }
-        _ => false,
+    }
+
+    /// The slot of `cfg`, creating the instance on first use; `created` is
+    /// set when a new instance was built.
+    fn slot<E>(
+        &mut self,
+        cfg: &C,
+        build: impl FnOnce(&C) -> Result<P, E>,
+        created: &mut bool,
+    ) -> Result<u32, E> {
+        if let Some(&i) = self.index.get(cfg) {
+            return Ok(i);
+        }
+        let i = u32::try_from(self.items.len()).expect("fewer than 2^32 plugin instances");
+        self.items.push(Instance {
+            plugin: build(cfg)?,
+            generation: 0,
+        });
+        self.index.insert(cfg.clone(), i);
+        *created = true;
+        Ok(i)
+    }
+
+    #[inline]
+    fn get(&self, i: Option<u32>) -> Option<&Instance<P>> {
+        i.map(|i| &self.items[i as usize])
+    }
+
+    fn reset_generations(&mut self) {
+        for it in &mut self.items {
+            it.generation = 0;
+        }
     }
 }
 
-/// The plugins of one strategy instance.
+impl<C, P: Plugin> Slots<C, P> {
+    /// Observes one tick on every instance (14 P-4, §12.4).
+    #[inline]
+    fn observe(&mut self, tick: &PluginTick) -> bool {
+        if tick.synthetic && !P::HANDLES_SYNTHETIC_TICKS {
+            return false;
+        }
+        let mut any = false;
+        for it in &mut self.items {
+            let changed = it.plugin.on_tick(tick);
+            it.generation += changed as u64;
+            any |= changed;
+        }
+        any
+    }
+}
+
+/// One candidate's plugins inside a [`PluginPool`]: an index per requested
+/// plugin kind. Candidates with equal canonical configs get equal indices
+/// and read the same instance (14 P-6).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PluginHandle {
+    vol: Option<u32>,
+    ta: Option<u32>,
+    dwell: Option<u32>,
+    gate: Option<u32>,
+}
+
+impl PluginHandle {
+    /// No plugin requested (12 §6.4).
+    pub fn is_empty(&self) -> bool {
+        self.vol.is_none() && self.ta.is_none() && self.dwell.is_none() && self.gate.is_none()
+    }
+}
+
+/// The plugin instances of one market read, shared by the candidates that
+/// request them (14 P-6, 16 CG-3, 30 §16 S4): one instance per distinct
+/// canonical config, updated once per tick, read by every candidate through
+/// its [`PluginHandle`]. A single candidate is the pool of a [`PluginSet`].
 #[derive(Clone, Debug)]
-pub struct PluginSet {
-    view: PluginsView,
-    generations: Generations,
-    combined: u64,
+pub struct PluginPool {
+    vol: Slots<TimeWindowVolatilityConfig, TimeWindowVolatility>,
+    ta: Slots<TechnicalIndicatorsConfig, TechnicalIndicators>,
+    dwell: Slots<DwellGateConfig, DwellGate>,
+    gate: Slots<TimeWindowGateConfig, TimeWindowGate>,
+    diagnostics: PluginDiagnostics,
     started: bool,
 }
 
-impl PluginSet {
-    /// Builds the requested plugins; every buffer is allocated here, so
-    /// `on_tick` is allocation-free in steady state (14 §14).
-    pub fn new(req: &PluginRequest) -> Result<PluginSet, ConfigError> {
-        Ok(PluginSet {
-            view: PluginsView {
-                volatility: req
-                    .time_window_volatility
-                    .as_ref()
-                    .map(TimeWindowVolatility::new)
-                    .transpose()?,
-                ta: req
-                    .technical_indicators
-                    .as_ref()
-                    .map(TechnicalIndicators::new),
-                dwell: req.dwell_gate.as_ref().map(DwellGate::new).transpose()?,
-                gate: req.time_window_gate.as_ref().map(TimeWindowGate::new),
-            },
-            generations: [0; 4],
-            combined: 0,
+impl Default for PluginPool {
+    fn default() -> Self {
+        PluginPool::new()
+    }
+}
+
+impl PluginPool {
+    pub fn new() -> PluginPool {
+        PluginPool {
+            vol: Slots::new(),
+            ta: Slots::new(),
+            dwell: Slots::new(),
+            gate: Slots::new(),
+            diagnostics: PluginDiagnostics::default(),
             started: false,
-        })
+        }
     }
 
-    /// No plugin requested: the snapshot step costs nothing (12 §6.4).
-    pub fn is_empty(&self) -> bool {
-        self.view.volatility.is_none()
-            && self.view.ta.is_none()
-            && self.view.dwell.is_none()
-            && self.view.gate.is_none()
+    /// Registers a candidate's request and returns its handle; equal configs
+    /// reuse one instance. Every buffer is allocated here, so `on_tick` is
+    /// allocation-free in steady state (14 §14). A request that creates a
+    /// new instance requires a [`PluginPool::start_market`] before the next
+    /// `on_tick` (14 P-3: instances start at market start).
+    pub fn add(&mut self, req: &PluginRequest) -> Result<PluginHandle, ConfigError> {
+        let mut created = false;
+        let handle = PluginHandle {
+            vol: req
+                .time_window_volatility
+                .as_ref()
+                .map(|c| self.vol.slot(c, TimeWindowVolatility::new, &mut created))
+                .transpose()?,
+            ta: req
+                .technical_indicators
+                .as_ref()
+                .map(|c| {
+                    self.ta.slot(
+                        c,
+                        |c| Ok::<_, ConfigError>(TechnicalIndicators::new(c)),
+                        &mut created,
+                    )
+                })
+                .transpose()?,
+            dwell: req
+                .dwell_gate
+                .as_ref()
+                .map(|c| self.dwell.slot(c, DwellGate::new, &mut created))
+                .transpose()?,
+            gate: req
+                .time_window_gate
+                .as_ref()
+                .map(|c| {
+                    self.gate.slot(
+                        c,
+                        |c| Ok::<_, ConfigError>(TimeWindowGate::new(c)),
+                        &mut created,
+                    )
+                })
+                .transpose()?,
+        };
+        if created {
+            self.started = false;
+        }
+        Ok(handle)
     }
 
-    /// Whether `start_market` needs TA candles.
-    pub fn needs_ta_input(&self) -> bool {
-        self.view.ta.is_some()
+    /// Number of distinct instances (computed once per tick each, CG-3).
+    pub fn instance_count(&self) -> usize {
+        self.vol.items.len() + self.ta.items.len() + self.dwell.items.len() + self.gate.items.len()
     }
 
-    /// Resets every plugin for a new market (14 P-3) and computes TA from
-    /// the supplied candles (14 P-10). Generations restart at 0.
+    /// Whether `start_market` needs TA candles for this market: TA is
+    /// requested and the market is supported (14 P-11, P-12).
+    pub fn needs_ta_input(&self, market: &PluginMarket) -> bool {
+        !self.ta.items.is_empty() && ta_supported(market)
+    }
+
+    /// Resets every instance for a new market (14 P-3) and computes TA once
+    /// per distinct config from the supplied candles (14 P-10). Generations
+    /// restart at 0.
+    ///
+    /// `ta` is required iff [`PluginPool::needs_ta_input`]; candles for an
+    /// unsupported market are ignored. On error nothing of the previous
+    /// market survives: the pool stays unstarted, so `on_tick` fails
+    /// (00 R14) until a successful `start_market`.
     pub fn start_market(
         &mut self,
         market: &PluginMarket,
         ta: Option<TaInput<'_>>,
-    ) -> Result<(), PluginError> {
-        match (&mut self.view.ta, ta) {
-            (Some(p), Some(input)) => p.start_market(market, input)?,
-            (Some(_), None) => return Err(PluginError::MissingTaInput),
-            (None, Some(_)) => return Err(PluginError::UnexpectedTaInput),
-            (None, None) => {}
+    ) -> Result<PluginDiagnostics, PluginError> {
+        self.started = false;
+        self.diagnostics = PluginDiagnostics::default();
+        for it in &mut self.vol.items {
+            it.plugin.start_market();
         }
-        if let Some(p) = &mut self.view.volatility {
-            p.start_market();
+        for it in &mut self.dwell.items {
+            it.plugin.start_market();
         }
-        if let Some(p) = &mut self.view.dwell {
-            p.start_market();
+        for it in &mut self.gate.items {
+            it.plugin.start_market(market);
         }
-        if let Some(p) = &mut self.view.gate {
-            p.start_market(market);
+        self.vol.reset_generations();
+        self.ta.reset_generations();
+        self.dwell.reset_generations();
+        self.gate.reset_generations();
+        if self.ta.items.is_empty() {
+            if ta.is_some() {
+                return Err(PluginError::UnexpectedTaInput);
+            }
+        } else {
+            for it in &mut self.ta.items {
+                it.plugin.start_market(market, ta)?;
+                if let TaOutput::Unavailable(reason) = it.plugin.snapshot() {
+                    self.diagnostics.ta_unavailable = Some(*reason);
+                }
+            }
         }
-        self.generations = [0; 4];
-        self.combined = 0;
         self.started = true;
-        Ok(())
+        Ok(self.diagnostics)
     }
 
-    /// Observes one tick (14 P-4); synthetic ticks reach only the plugins
-    /// that declare them (14 §12.4). Returns `true` iff any snapshot changed.
+    /// Observes one tick (14 P-4) on every distinct instance once; synthetic
+    /// ticks reach only the plugins that declare them (14 §12.4). Returns
+    /// `true` iff any instance's snapshot changed.
     pub fn on_tick(&mut self, tick: &PluginTick) -> Result<bool, PluginError> {
         if !self.started {
             return Err(PluginError::NotStarted);
         }
-        let g = &mut self.generations;
-        let v = &mut self.view;
-        let mut changed = observe(&mut v.volatility, tick, &mut g[0]);
-        changed |= observe(&mut v.ta, tick, &mut g[1]);
-        changed |= observe(&mut v.dwell, tick, &mut g[2]);
-        changed |= observe(&mut v.gate, tick, &mut g[3]);
-        self.combined += changed as u64;
+        let mut changed = self.vol.observe(tick);
+        changed |= self.ta.observe(tick);
+        changed |= self.dwell.observe(tick);
+        changed |= self.gate.observe(tick);
         Ok(changed)
+    }
+
+    /// One candidate's tick-scoped snapshots (12 §6.4).
+    #[inline]
+    pub fn view(&self, h: PluginHandle) -> PluginsView<'_> {
+        PluginsView {
+            volatility: self.vol.get(h.vol).map(|i| &i.plugin),
+            ta: self.ta.get(h.ta).map(|i| &i.plugin),
+            dwell: self.dwell.get(h.dwell).map(|i| &i.plugin),
+            gate: self.gate.get(h.gate).map(|i| &i.plugin),
+        }
+    }
+
+    /// Change generation of one of the candidate's plugins (14 P-13); `None`
+    /// if not requested.
+    pub fn generation(&self, h: PluginHandle, id: PluginId) -> Option<u64> {
+        match id {
+            PluginId::TimeWindowVolatility => self.vol.get(h.vol).map(|i| i.generation),
+            PluginId::TechnicalIndicators => self.ta.get(h.ta).map(|i| i.generation),
+            PluginId::DwellGate => self.dwell.get(h.dwell).map(|i| i.generation),
+            PluginId::TimeWindowGate => self.gate.get(h.gate).map(|i| i.generation),
+        }
+    }
+
+    /// The candidate's single dirty counter (16 TF-2 (e), TF-7): the sum of
+    /// its plugins' generations, which changes exactly when one of its
+    /// plugins' outputs changed.
+    #[inline]
+    pub fn combined_generation(&self, h: PluginHandle) -> u64 {
+        PluginId::ALL
+            .iter()
+            .filter_map(|&id| self.generation(h, id))
+            .sum()
+    }
+
+    /// Diagnostics of the current market (14 P-7).
+    pub fn diagnostics(&self) -> PluginDiagnostics {
+        self.diagnostics
+    }
+}
+
+/// The plugins of one strategy instance (14 P-3): a [`PluginPool`] with a
+/// single candidate.
+#[derive(Clone, Debug)]
+pub struct PluginSet {
+    pool: PluginPool,
+    handle: PluginHandle,
+}
+
+impl PluginSet {
+    /// Builds the requested plugins (see [`PluginPool::add`]).
+    pub fn new(req: &PluginRequest) -> Result<PluginSet, ConfigError> {
+        let mut pool = PluginPool::new();
+        let handle = pool.add(req)?;
+        Ok(PluginSet { pool, handle })
+    }
+
+    /// No plugin requested: the snapshot step costs nothing (12 §6.4).
+    pub fn is_empty(&self) -> bool {
+        self.handle.is_empty()
+    }
+
+    /// See [`PluginPool::needs_ta_input`].
+    pub fn needs_ta_input(&self, market: &PluginMarket) -> bool {
+        self.pool.needs_ta_input(market)
+    }
+
+    /// See [`PluginPool::start_market`].
+    pub fn start_market(
+        &mut self,
+        market: &PluginMarket,
+        ta: Option<TaInput<'_>>,
+    ) -> Result<PluginDiagnostics, PluginError> {
+        self.pool.start_market(market, ta)
+    }
+
+    /// See [`PluginPool::on_tick`].
+    pub fn on_tick(&mut self, tick: &PluginTick) -> Result<bool, PluginError> {
+        self.pool.on_tick(tick)
     }
 
     /// The tick-scoped snapshots (12 §6.4).
     #[inline]
-    pub fn view(&self) -> &PluginsView {
-        &self.view
+    pub fn view(&self) -> PluginsView<'_> {
+        self.pool.view(self.handle)
     }
 
-    /// Change generation of one requested plugin (14 P-13); `None` if not
-    /// requested.
+    /// See [`PluginPool::generation`].
     pub fn generation(&self, id: PluginId) -> Option<u64> {
-        let (present, i) = match id {
-            PluginId::TimeWindowVolatility => (self.view.volatility.is_some(), 0),
-            PluginId::TechnicalIndicators => (self.view.ta.is_some(), 1),
-            PluginId::DwellGate => (self.view.dwell.is_some(), 2),
-            PluginId::TimeWindowGate => (self.view.gate.is_some(), 3),
-        };
-        present.then_some(self.generations[i])
+        self.pool.generation(self.handle, id)
     }
 
-    /// Increments once per tick on which any plugin output changed: the
-    /// single dirty counter of the tick interest filter (16 TF-2 (e), TF-7).
+    /// See [`PluginPool::combined_generation`].
     #[inline]
     pub fn combined_generation(&self) -> u64 {
-        self.combined
+        self.pool.combined_generation(self.handle)
+    }
+
+    /// See [`PluginPool::diagnostics`].
+    pub fn diagnostics(&self) -> PluginDiagnostics {
+        self.pool.diagnostics()
     }
 }
 
@@ -343,7 +570,8 @@ mod tests {
         assert!(set.view().dwell_gate().unwrap().ok(Outcome::Up));
     }
 
-    // spec: 14 P-13 (generations count visible changes only)
+    // spec: 14 P-13 (generations count visible changes only); 16 TF-2 (e),
+    // TF-7 (the combined counter changes iff any requested plugin changed)
     #[test]
     fn generations_count_changes() {
         let mut set = PluginSet::new(&request()).unwrap();
@@ -351,18 +579,19 @@ mod tests {
         assert_eq!(set.generation(PluginId::DwellGate), Some(0));
         assert_eq!(set.generation(PluginId::TechnicalIndicators), None);
         assert!(set.on_tick(&tick(10, false, 500_000)).unwrap());
-        assert_eq!(set.combined_generation(), 1);
+        let c1 = set.combined_generation();
+        assert!(c1 > 0);
         // a synthetic tick at the same time and book: nothing visible changes
         // (a real one would add a volatility sample, n + 1)
         assert!(!set.on_tick(&tick(10, true, 500_000)).unwrap());
-        assert_eq!(set.combined_generation(), 1);
+        assert_eq!(set.combined_generation(), c1);
         assert_eq!(set.generation(PluginId::DwellGate), Some(1));
         // same time, price leaves the dwell band; mid changes too
         assert!(set.on_tick(&tick(10, false, 700_000)).unwrap());
         assert_eq!(set.generation(PluginId::DwellGate), Some(2));
         assert_eq!(set.generation(PluginId::TimeWindowGate), Some(1));
         assert_eq!(set.generation(PluginId::TimeWindowVolatility), Some(2));
-        assert_eq!(set.combined_generation(), 2);
+        assert_eq!(set.combined_generation(), 2 + 1 + 2);
         // a new market restarts generations
         set.start_market(&market(), None).unwrap();
         assert_eq!(set.combined_generation(), 0);
@@ -375,7 +604,15 @@ mod tests {
             .is_none());
     }
 
-    // spec: 14 P-3, P-10 (TA input at market start; misuse is an engine error)
+    fn ta_request() -> PluginRequest {
+        PluginRequest {
+            technical_indicators: Some(TechnicalIndicatorsConfig {}),
+            ..PluginRequest::default()
+        }
+    }
+
+    // spec: 14 P-3, P-10, P-11 (TA input at market start; misuse is an
+    // engine error, 00 R14), P-7 (the unavailable reason is reported)
     #[test]
     fn start_market_contract() {
         let mut set = PluginSet::new(&request()).unwrap();
@@ -388,34 +625,137 @@ mod tests {
             set.start_market(&market(), Some(input)),
             Err(PluginError::UnexpectedTaInput)
         );
-        let mut ta = PluginSet::new(&PluginRequest {
-            technical_indicators: Some(TechnicalIndicatorsConfig {}),
-            ..PluginRequest::default()
-        })
-        .unwrap();
-        assert!(ta.needs_ta_input());
+        let mut ta = PluginSet::new(&ta_request()).unwrap();
+        assert!(ta.needs_ta_input(&market()));
         assert_eq!(
             ta.start_market(&market(), None),
             Err(PluginError::MissingTaInput)
         );
         let none: [Candle; 0] = [];
-        ta.start_market(
-            &market(),
-            Some(TaInput {
-                h1: &none,
-                m15: &none,
-            }),
-        )
-        .unwrap();
-        assert!(matches!(
+        let diag = ta
+            .start_market(
+                &market(),
+                Some(TaInput {
+                    h1: &none,
+                    m15: &none,
+                }),
+            )
+            .unwrap();
+        let reason = crate::TaUnavailable::NotEnoughCandles {
+            interval: CandleInterval::H1,
+            have: 0,
+            need: 160,
+        };
+        assert_eq!(diag.ta_unavailable, Some(reason));
+        assert_eq!(ta.diagnostics().ta_unavailable, Some(reason));
+        assert_eq!(
             ta.view().technical_indicators(),
-            Some(TaOutput::Unavailable(
-                crate::TaUnavailable::NotEnoughCandles { .. }
-            ))
-        ));
+            Some(&TaOutput::Unavailable(reason))
+        );
         // TA never changes on ticks
         assert!(!ta.on_tick(&tick(0, false, 500_000)).unwrap());
         assert_eq!(ta.generation(PluginId::TechnicalIndicators), Some(0));
+    }
+
+    // spec: 14 P-11, P-12 (a 5m market needs no TA candles)
+    #[test]
+    fn unsupported_market_needs_no_candles() {
+        let m5 = PluginMarket::from_slug("btc-updown-5m-1760140800").unwrap();
+        let mut ta = PluginSet::new(&ta_request()).unwrap();
+        assert!(!ta.needs_ta_input(&m5));
+        let diag = ta.start_market(&m5, None).unwrap();
+        assert_eq!(
+            diag.ta_unavailable,
+            Some(crate::TaUnavailable::UnsupportedMarket)
+        );
+        assert!(!ta.on_tick(&tick(0, false, 500_000)).unwrap());
+    }
+
+    // spec: 14 P-3, 00 R14 (a failed market start keeps nothing of the
+    // previous market: the set is unstarted until a successful start)
+    #[test]
+    fn failed_start_leaves_no_previous_market_state() {
+        let mut req = request();
+        req.technical_indicators = Some(TechnicalIndicatorsConfig {});
+        let mut set = PluginSet::new(&req).unwrap();
+        let m5 = PluginMarket::from_slug("btc-updown-5m-1760140800").unwrap();
+        set.start_market(&m5, None).unwrap();
+        set.on_tick(&tick(10, false, 500_000)).unwrap();
+        assert!(set.view().dwell_gate().unwrap().side(Outcome::Up).in_range);
+        // the next market fails to start (no candles for a BTC 15m market)
+        assert_eq!(
+            set.start_market(&market(), None),
+            Err(PluginError::MissingTaInput)
+        );
+        assert_eq!(
+            set.on_tick(&tick(20, false, 500_000)),
+            Err(PluginError::NotStarted)
+        );
+        let v = set.view();
+        assert!(v.time_window_volatility().unwrap().as_of_ts().is_none());
+        assert!(!v.dwell_gate().unwrap().side(Outcome::Up).in_range);
+        assert_eq!(v.time_window_gate().unwrap().now_ms, None);
+        assert_eq!(
+            v.technical_indicators(),
+            Some(&TaOutput::Unavailable(crate::TaUnavailable::NotStarted))
+        );
+        // malformed candles fail the same way
+        let mut bad = vec![
+            Candle {
+                open_time: TsMs(0),
+                close_time: TsMs(3_599_999),
+                open: 1.0,
+                high: 1.0,
+                low: 1.0,
+                close: 1.0,
+                volume: 1.0,
+            };
+            2
+        ];
+        bad[1].open_time = TsMs(0);
+        assert_eq!(
+            set.start_market(&market(), Some(TaInput { h1: &bad, m15: &[] })),
+            Err(PluginError::CandleOrder {
+                interval: CandleInterval::H1,
+                index: 1
+            })
+        );
+        assert_eq!(
+            set.on_tick(&tick(20, false, 500_000)),
+            Err(PluginError::NotStarted)
+        );
+    }
+
+    // spec: 16 CG-3, 30 §16 S4, 14 P-6 (one instance per distinct canonical
+    // config; candidates with equal configs share it)
+    #[test]
+    fn pool_deduplicates_by_canonical_config() {
+        let mut pool = PluginPool::new();
+        let a = pool.add(&request()).unwrap();
+        let mut other = request();
+        other.dwell_gate.as_mut().unwrap().required_ms = 900;
+        let b = pool.add(&other).unwrap();
+        let c = pool.add(&request()).unwrap();
+        assert_eq!(a, c);
+        assert_ne!(a, b);
+        // volatility and gate shared, two dwell instances
+        assert_eq!(pool.instance_count(), 4);
+        assert!(pool.add(&PluginRequest::default()).unwrap().is_empty());
+        pool.start_market(&market(), None).unwrap();
+        pool.on_tick(&tick(10, false, 500_000)).unwrap();
+        assert!(std::ptr::eq(
+            pool.view(a).time_window_volatility().unwrap(),
+            pool.view(b).time_window_volatility().unwrap()
+        ));
+        // a new distinct config after the start needs a new market start
+        let mut third = request();
+        third.time_window_gate = None;
+        third.dwell_gate.as_mut().unwrap().required_ms = 1;
+        pool.add(&third).unwrap();
+        assert_eq!(
+            pool.on_tick(&tick(20, false, 500_000)),
+            Err(PluginError::NotStarted)
+        );
     }
 
     // spec: 12 §6.4 (no plugins: empty set)

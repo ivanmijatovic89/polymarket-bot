@@ -39,11 +39,27 @@ const DAY_MS: i64 = 86_400_000;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct TechnicalIndicatorsConfig {}
 
+/// Whether TA can be computed for this market: BTC 15m up/down markets only
+/// (14 P-11; the market identity comes from the single slug parser).
+pub fn ta_supported(market: &PluginMarket) -> bool {
+    market.symbol == Symbol::Btc && market.timeframe == Timeframe::M15
+}
+
 /// aggTrades range `[floorHour(t0) - 160 h, t0)` whose candles TA needs
-/// (14 P-12); `describe` exports it for the producer preflight.
-pub fn ta_trades_range(t0: TsMs) -> (TsMs, TsMs) {
-    let floor_hour = t0.0.div_euclid(HOUR_MS) * HOUR_MS;
-    (TsMs(floor_hour - TA_LOOKBACK_1H as i64 * HOUR_MS), t0)
+/// (14 P-12), or `None` for a market TA does not support (14 P-11), which
+/// needs no days at all (TS returns before any fetch,
+/// `TechnicalIndicatorsPlugin.ts:220-225`). `describe` exports this rule for
+/// the producer preflight.
+pub fn ta_trades_range(market: &PluginMarket) -> Option<(TsMs, TsMs)> {
+    if !ta_supported(market) {
+        return None;
+    }
+    let t0 = market.window.start_ms;
+    Some((TsMs(floor_hour(t0) - TA_LOOKBACK_1H as i64 * HOUR_MS), t0))
+}
+
+fn floor_hour(t: TsMs) -> i64 {
+    t.0.div_euclid(HOUR_MS) * HOUR_MS
 }
 
 /// Candles handed to TA at market start, ascending by open time.
@@ -184,11 +200,13 @@ impl TechnicalIndicators {
     }
 
     /// Computes the market's snapshot before the first callback (14 P-10).
+    /// On error the previous market's output is not kept (14 P-3).
     pub fn start_market(
         &mut self,
         market: &PluginMarket,
-        input: TaInput<'_>,
+        input: Option<TaInput<'_>>,
     ) -> Result<(), PluginError> {
+        self.out = TaOutput::Unavailable(TaUnavailable::NotStarted);
         self.out = compute(market, input)?;
         Ok(())
     }
@@ -222,47 +240,73 @@ fn check_series(c: &[Candle], interval: CandleInterval) -> Result<(), PluginErro
     Ok(())
 }
 
-/// The last `need` candles closed at or before `as_of`.
-fn closed_tail(
-    c: &[Candle],
-    as_of: TsMs,
-    need: usize,
-    interval: CandleInterval,
-) -> Result<&[Candle], TaUnavailable> {
-    let closed = &c[..c.partition_point(|k| k.close_time <= as_of)];
-    if closed.len() < need {
-        return Err(TaUnavailable::NotEnoughCandles {
-            interval,
-            have: closed.len(),
-            need,
-        });
-    }
-    Ok(&closed[closed.len() - need..])
+/// The candles of `c` inside `[from, as_of]` (open at or after `from`,
+/// closed at or before `as_of`). `c` is validated ascending and aligned, so
+/// this is at most one candle per interval slot.
+fn in_window(c: &[Candle], from: i64, as_of: TsMs) -> &[Candle] {
+    let lo = c.partition_point(|k| k.open_time.0 < from);
+    let hi = c.partition_point(|k| k.close_time <= as_of);
+    &c[lo..hi.max(lo)]
 }
 
-/// Computes TA for a market (14 P-9, P-11). Invalid candle input is an
-/// engine error; missing data is a typed unavailable state.
-pub fn compute(market: &PluginMarket, input: TaInput<'_>) -> Result<TaOutput, PluginError> {
-    check_series(input.h1, CandleInterval::H1)?;
-    check_series(input.m15, CandleInterval::M15)?;
-    if market.symbol != Symbol::Btc || market.timeframe != Timeframe::M15 {
+/// Computes TA for a market (14 P-9, P-11).
+///
+/// The market is checked first: an unsupported market (14 P-11) is
+/// unavailable whatever `input` holds, and needs none. For a supported
+/// market, missing or malformed candle input is an engine error (00 R14);
+/// missing data is a typed unavailable state (14 P-7).
+///
+/// The candles used are bounded by time, not by position: the 160 1h
+/// candles with open times in `[floorHour(t0) - 160 h, floorHour(t0))` and
+/// the 40 15m candles in `[t0 - 10 h, t0)`, which is the P-12 data range.
+/// Candles outside it are ignored, so the output depends only on `t0` and
+/// the dataset, never on how many days the caller passed (14 V-7 cold or
+/// warm day cache). Without gaps this equals TS's "last 160 of the 170
+/// klines ending at `t0 - 1`" (`TechnicalIndicatorsPlugin.ts:235-260`).
+// D-PENDING: a slot without a candle inside the P-12 range makes TA unavailable, while TS's positional window (last 160 of 170 REST klines) reaches further back; chose the time-bounded window (deterministic over the preflight day set); needs a PARITY classification if V-6 (a) ever finds a gap.
+pub fn compute(market: &PluginMarket, input: Option<TaInput<'_>>) -> Result<TaOutput, PluginError> {
+    if !ta_supported(market) {
         return Ok(TaOutput::Unavailable(TaUnavailable::UnsupportedMarket));
     }
+    let input = input.ok_or(PluginError::MissingTaInput)?;
+    check_series(input.h1, CandleInterval::H1)?;
+    check_series(input.m15, CandleInterval::M15)?;
     let t0 = market.window.start_ms;
     let as_of = TsMs(t0.0 - 1);
-    let c1h = match closed_tail(input.h1, as_of, TA_LOOKBACK_1H, CandleInterval::H1) {
-        Ok(c) => c,
-        Err(u) => return Ok(TaOutput::Unavailable(u)),
-    };
-    let c15m = match closed_tail(input.m15, as_of, TA_LOOKBACK_15M, CandleInterval::M15) {
-        Ok(c) => c,
-        Err(u) => return Ok(TaOutput::Unavailable(u)),
-    };
-    let last_close = c15m[c15m.len() - 1].close_time;
-    if last_close != as_of {
-        return Ok(TaOutput::Unavailable(TaUnavailable::Misaligned15m {
-            last_close,
-            expected: as_of,
+    let c1h = in_window(
+        input.h1,
+        floor_hour(t0) - TA_LOOKBACK_1H as i64 * HOUR_MS,
+        as_of,
+    );
+    let c15m = in_window(
+        input.m15,
+        t0.0 - TA_LOOKBACK_15M as i64 * CandleInterval::M15.ms(),
+        as_of,
+    );
+    if c1h.len() < TA_LOOKBACK_1H {
+        return Ok(TaOutput::Unavailable(TaUnavailable::NotEnoughCandles {
+            interval: CandleInterval::H1,
+            have: c1h.len(),
+            need: TA_LOOKBACK_1H,
+        }));
+    }
+    // The latest 15m slot must be present (TS checks the close of the last
+    // candle, `:272-277`); reported before the 15m count, which a missing
+    // latest slot also lowers.
+    let closed_15m = &input.m15[..input.m15.partition_point(|k| k.close_time <= as_of)];
+    if let Some(last) = closed_15m.last() {
+        if last.close_time != as_of {
+            return Ok(TaOutput::Unavailable(TaUnavailable::Misaligned15m {
+                last_close: last.close_time,
+                expected: as_of,
+            }));
+        }
+    }
+    if c15m.len() < TA_LOOKBACK_15M {
+        return Ok(TaOutput::Unavailable(TaUnavailable::NotEnoughCandles {
+            interval: CandleInterval::M15,
+            have: c15m.len(),
+            need: TA_LOOKBACK_15M,
         }));
     }
     let hour = t0.0.rem_euclid(DAY_MS) / HOUR_MS;
@@ -353,24 +397,37 @@ fn adx_last(c: &[Candle], period: usize) -> Option<f64> {
     wilder_ema_last(&dxs, period)
 }
 
-/// (mean, population SD) of the last `period` values (TS `SD`, `SMA`).
-// D-PENDING: technicalindicators SD/BollingerBands skip a window whose mean is exactly 0.0 (JS truthiness `if (mean)`) and keep the previous value; chose the plain definition (an exact zero mean of BTC closes or log returns does not occur in practice).
+/// (mean, population SD) of the last window of `period` values whose mean
+/// is not zero (TS `SD`, `SMA`, `BollingerBands`).
+///
+/// The `technicalindicators` package (14 P-9) skips a window whose SMA is
+/// falsy (`if (mean)` in `SD`, `if (calcSMA)` in `BollingerBands`) and
+/// repeats the previous window's value, or yields nothing before the first
+/// window with a non-zero mean; this reproduces that rule. The package's
+/// running sum can leave a rounding residual where the direct mean used here
+/// is exactly 0; that bit-level difference is not chased (00 R2).
 fn mean_sd_last(values: &[f64], period: usize) -> Option<(f64, f64)> {
     if period == 0 || values.len() < period {
         return None;
     }
-    let w = &values[values.len() - period..];
-    let mut sum = 0.0;
-    for x in w {
-        sum += x;
-    }
-    let mean = sum / period as f64;
-    let mut sq = 0.0;
-    for x in w {
-        let d = x - mean;
-        sq += d * d;
-    }
-    Some((mean, (sq / period as f64).sqrt()))
+    (period..=values.len()).rev().find_map(|end| {
+        let w = &values[end - period..end];
+        let mut sum = 0.0;
+        for x in w {
+            sum += x;
+        }
+        let mean = sum / period as f64;
+        // NaN is falsy too; the inputs here are finite.
+        if mean == 0.0 || mean.is_nan() {
+            return None;
+        }
+        let mut sq = 0.0;
+        for x in w {
+            let d = x - mean;
+            sq += d * d;
+        }
+        Some((mean, (sq / period as f64).sqrt()))
+    })
 }
 
 /// Population SD of the last `period` log returns; `None` if any close is not
@@ -413,10 +470,10 @@ fn wick_ratio(c: &Candle) -> f64 {
 fn compute_1h(c: &[Candle]) -> Tf1h {
     let closes: Vec<f64> = c.iter().map(|k| k.close).collect();
     let last_close = closes.last().copied();
-    let bb_width = mean_sd_last(&closes, PERIOD_BB).and_then(|(mid, sd)| {
-        // upper - lower with the stdDev multiplier 2 (TS BollingerBands)
-        (mid != 0.0).then(|| ((mid + sd * 2.0) - (mid - sd * 2.0)) / mid)
-    });
+    // upper - lower with the stdDev multiplier 2 (TS BollingerBands); the
+    // middle is never 0 here (mean_sd_last skips such windows).
+    let bb_width = mean_sd_last(&closes, PERIOD_BB)
+        .map(|(mid, sd)| ((mid + sd * 2.0) - (mid - sd * 2.0)) / mid);
     let rv20 = realized_vol(&closes, PERIOD_RV_FAST);
     let rv80 = realized_vol(&closes, PERIOD_RV_SLOW);
     Tf1h {
@@ -480,7 +537,7 @@ mod tests {
         let m15 = series(CandleInterval::M15, T0 - 900_000, 50);
         let out = compute(
             &market("btc-updown-15m-1760140800"),
-            TaInput { h1: &h1, m15: &m15 },
+            Some(TaInput { h1: &h1, m15: &m15 }),
         )
         .unwrap();
         let s = out.ready().expect("ready");
@@ -506,10 +563,10 @@ mod tests {
         let h1b = series(CandleInterval::H1, T0, 160); // open at T0 covers t0 - 1
         let out = compute(
             &m,
-            TaInput {
+            Some(TaInput {
                 h1: &h1b,
                 m15: &m15,
-            },
+            }),
         )
         .unwrap();
         assert_eq!(
@@ -522,10 +579,10 @@ mod tests {
         );
         let out = compute(
             &market("btc-updown-15m-1760140800"),
-            TaInput {
+            Some(TaInput {
                 h1: &h1,
                 m15: &m15[1..],
-            },
+            }),
         )
         .unwrap();
         assert_eq!(
@@ -545,7 +602,7 @@ mod tests {
         let m15 = series(CandleInterval::M15, T0 - 1_800_000, 60);
         let out = compute(
             &market("btc-updown-15m-1760140800"),
-            TaInput { h1: &h1, m15: &m15 },
+            Some(TaInput { h1: &h1, m15: &m15 }),
         )
         .unwrap();
         assert_eq!(
@@ -574,15 +631,67 @@ mod tests {
         );
     }
 
-    // spec: 14 P-11 (5m markets are unsupported)
+    // spec: 14 P-11, P-12 (5m markets are unsupported, need no candles and
+    // are checked before any candle validation)
     #[test]
     fn five_minute_markets_are_unsupported() {
-        let out = compute(
-            &market("btc-updown-5m-1760140800"),
-            TaInput { h1: &[], m15: &[] },
+        let m5 = market("btc-updown-5m-1760140800");
+        let unsupported = TaOutput::Unavailable(TaUnavailable::UnsupportedMarket);
+        assert_eq!(compute(&m5, None).unwrap(), unsupported);
+        let mut bad = series(CandleInterval::H1, T0 - HOUR_MS, 3);
+        bad.swap(0, 1);
+        assert_eq!(
+            compute(&m5, Some(TaInput { h1: &bad, m15: &[] })).unwrap(),
+            unsupported
+        );
+        assert_eq!(ta_trades_range(&m5), None);
+        assert!(!ta_supported(&m5));
+        // a supported market without candles is an engine error (00 R14)
+        assert_eq!(
+            compute(&market("btc-updown-15m-1760140800"), None),
+            Err(PluginError::MissingTaInput)
+        );
+    }
+
+    // spec: 14 P-9, P-12, V-7 (the window is bounded by time: extra candles
+    // before the P-12 range, as whole cached days bring, change nothing)
+    #[test]
+    fn output_ignores_candles_outside_the_range() {
+        let m = market("btc-updown-15m-1760142600"); // t0 = T0 + 30 min
+        let t0 = T0 + 1_800_000;
+        let h1 = series(CandleInterval::H1, T0, 400);
+        let m15 = series(CandleInterval::M15, t0 - 900_000, 300);
+        let exact_h1 = &h1[h1.len() - 161..h1.len() - 1]; // the open hour is not closed
+        let exact_m15 = &m15[m15.len() - 40..];
+        let want = compute(
+            &m,
+            Some(TaInput {
+                h1: exact_h1,
+                m15: exact_m15,
+            }),
         )
         .unwrap();
-        assert_eq!(out, TaOutput::Unavailable(TaUnavailable::UnsupportedMarket));
+        assert!(want.ready().is_some());
+        let got = compute(&m, Some(TaInput { h1: &h1, m15: &m15 })).unwrap();
+        assert_eq!(format!("{got:?}"), format!("{want:?}"));
+        // a hole inside the range makes TA unavailable, whatever lies before
+        let mut holed = h1.clone();
+        holed.remove(h1.len() - 100);
+        assert_eq!(
+            compute(
+                &m,
+                Some(TaInput {
+                    h1: &holed,
+                    m15: &m15
+                })
+            )
+            .unwrap(),
+            TaOutput::Unavailable(TaUnavailable::NotEnoughCandles {
+                interval: CandleInterval::H1,
+                have: 159,
+                need: 160
+            })
+        );
     }
 
     // spec: 00 R14 (bad candle input is an error, not a guess)
@@ -593,7 +702,7 @@ mod tests {
         assert_eq!(
             compute(
                 &market("btc-updown-15m-1760140800"),
-                TaInput { h1: &h1, m15: &[] }
+                Some(TaInput { h1: &h1, m15: &[] })
             ),
             Err(PluginError::CandleOrder {
                 interval: CandleInterval::H1,
@@ -605,7 +714,7 @@ mod tests {
         assert_eq!(
             compute(
                 &market("btc-updown-15m-1760140800"),
-                TaInput { h1: &[], m15: &m15 }
+                Some(TaInput { h1: &[], m15: &m15 })
             ),
             Err(PluginError::CandleShape {
                 interval: CandleInterval::M15,
@@ -614,17 +723,32 @@ mod tests {
         );
     }
 
-    // spec: 14 P-12 (lookback range)
+    // spec: 14 P-12 (lookback range of a supported market)
     #[test]
     fn trades_range() {
         assert_eq!(
-            ta_trades_range(TsMs(T0 + 900_000)),
-            (TsMs(T0 - 160 * HOUR_MS), TsMs(T0 + 900_000))
+            ta_trades_range(&market("btc-updown-15m-1760141700")),
+            Some((TsMs(T0 - 160 * HOUR_MS), TsMs(T0 + 900_000)))
         );
         assert_eq!(
-            ta_trades_range(TsMs(T0)),
-            (TsMs(T0 - 160 * HOUR_MS), TsMs(T0))
+            ta_trades_range(&market("btc-updown-15m-1760140800")),
+            Some((TsMs(T0 - 160 * HOUR_MS), TsMs(T0)))
         );
+    }
+
+    // spec: 14 P-9 (technicalindicators SD and BollingerBands skip a window
+    // whose mean is exactly 0 and repeat the previous window's value)
+    #[test]
+    fn zero_mean_windows_repeat_the_previous_value() {
+        // last window [0, 0] has mean 0: the value of the window [2, 0]
+        assert_eq!(mean_sd_last(&[1.0, 2.0, 0.0, 0.0], 2), Some((1.0, 1.0)));
+        // no window with a non-zero mean: nothing
+        assert_eq!(mean_sd_last(&[0.0, 0.0, 0.0], 2), None);
+        // flat closes after one doubling: the last 2 log returns are 0, so rv
+        // comes from the window holding ln 2
+        let ln2 = libm::log(2.0);
+        let rv = realized_vol(&[1.0, 1.0, 2.0, 2.0, 2.0], 2).unwrap();
+        assert!((rv - ln2 / 2.0).abs() < 1e-15, "{rv}");
     }
 
     // spec: 14 §12.5 P-9 (calendar and sessions)

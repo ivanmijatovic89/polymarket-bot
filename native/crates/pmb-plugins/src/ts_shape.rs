@@ -146,7 +146,11 @@ pub fn technical_indicators_json(s: &TechnicalIndicatorsSnapshot) -> Value {
 
 /// One plugin's TS-shape value; `None` when the key is absent in TS
 /// (unrequested plugin, unavailable TA).
-pub fn plugin_json(view: &PluginsView, id: PluginId, tokens: &PerOutcome<&str>) -> Option<Value> {
+pub fn plugin_json(
+    view: PluginsView<'_>,
+    id: PluginId,
+    tokens: &PerOutcome<&str>,
+) -> Option<Value> {
     match id {
         PluginId::TimeWindowVolatility => view
             .time_window_volatility()
@@ -162,7 +166,7 @@ pub fn plugin_json(view: &PluginsView, id: PluginId, tokens: &PerOutcome<&str>) 
 
 /// The TS `ctx.plugins` object (without `externalFeeds`, which is the feed
 /// view in Rust, 14 P-4).
-pub fn plugins_json(view: &PluginsView, tokens: &PerOutcome<&str>) -> Value {
+pub fn plugins_json(view: PluginsView<'_>, tokens: &PerOutcome<&str>) -> Value {
     let mut m = Map::new();
     for id in PluginId::ALL {
         if let Some(v) = plugin_json(view, id, tokens) {

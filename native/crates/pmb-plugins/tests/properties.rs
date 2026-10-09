@@ -5,8 +5,8 @@ use pmb_core::{PerOutcome, Price, TsMs};
 use pmb_plugins::ts_shape::plugins_json;
 use pmb_plugins::{
     build_candles, build_day_candles, AggTrade, BidOrAsk, BookTop, CandleInterval, DwellGateConfig,
-    PluginId, PluginMarket, PluginRequest, PluginSet, PluginTick, TimeWindowGateConfig,
-    TimeWindowVolatilityConfig, VolPrice, DAY_MS,
+    PluginId, PluginMarket, PluginPool, PluginRequest, PluginSet, PluginTick, TaInput,
+    TechnicalIndicatorsConfig, TimeWindowGateConfig, TimeWindowVolatilityConfig, VolPrice, DAY_MS,
 };
 use proptest::prelude::*;
 
@@ -71,8 +71,91 @@ fn market() -> PluginMarket {
     PluginMarket::from_slug("btc-updown-15m-1760140800").unwrap()
 }
 
+/// A candidate's request from a small menu, so that some candidates share
+/// configs and some do not: (volatility, dwell, gate, TA) variant indices,
+/// 0 = not requested.
+fn menu_request(v: u8, d: u8, g: u8, ta: bool) -> PluginRequest {
+    let tracks = [VolPrice::Mid, VolPrice::Bid];
+    PluginRequest {
+        time_window_volatility: (v % 3 != 0).then(|| {
+            TimeWindowVolatilityConfig::new(
+                [("1s", 1000), ("4s", 4000)],
+                tracks[usize::from(v % 3) - 1],
+            )
+        }),
+        technical_indicators: ta.then_some(TechnicalIndicatorsConfig {}),
+        dwell_gate: (d % 3 != 0).then(|| DwellGateConfig {
+            from: Price::from_micros(350_000),
+            to: Price::from_micros(650_000),
+            required_ms: 600 * i64::from(d % 3),
+            track_price: BidOrAsk::Ask,
+        }),
+        time_window_gate: (g % 3 != 0).then(|| TimeWindowGateConfig {
+            allow_after_ms: 1000 * i64::from(g % 3),
+            disable_after_ms: 40_000,
+        }),
+    }
+}
+
+/// Number of distinct configs of one plugin kind among the requests.
+fn distinct(reqs: &[PluginRequest], key: impl Fn(&PluginRequest) -> Option<String>) -> usize {
+    reqs.iter()
+        .filter_map(key)
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
+
+    // spec: 14 §13 V-7 ("shared plugin instances equal per-candidate
+    // instances"), P-6, 16 CG-3, 30 §10 / §16 S4: N candidates reading one
+    // pool (one instance per distinct config) see exactly what N private
+    // instances see, with the same generations and dirty counters (P-13,
+    // TF-7).
+    #[test]
+    fn shared_pool_equals_private_instances(
+        raw in prop::collection::vec(any::<RawTick>(), 1..300),
+        menu in prop::collection::vec((any::<u8>(), any::<u8>(), any::<u8>(), any::<bool>()), 1..12),
+    ) {
+        let tokens = PerOutcome::new("U", "D");
+        let reqs: Vec<PluginRequest> = menu.iter().map(|&(v, d, g, ta)| menu_request(v, d, g, ta)).collect();
+        let mut pool = PluginPool::new();
+        let handles: Vec<_> = reqs.iter().map(|r| pool.add(r).unwrap()).collect();
+        let mut private: Vec<PluginSet> = reqs.iter().map(|r| PluginSet::new(r).unwrap()).collect();
+        let want_instances = distinct(&reqs, |r| r.time_window_volatility.as_ref().map(|c| format!("{c:?}")))
+            + distinct(&reqs, |r| r.technical_indicators.map(|c| format!("{c:?}")))
+            + distinct(&reqs, |r| r.dwell_gate.map(|c| format!("{c:?}")))
+            + distinct(&reqs, |r| r.time_window_gate.map(|c| format!("{c:?}")));
+        prop_assert_eq!(pool.instance_count(), want_instances);
+        let ta = Some(TaInput { h1: &[], m15: &[] });
+        let pool_ta = pool.needs_ta_input(&market()).then_some(ta).flatten();
+        let pool_diag = pool.start_market(&market(), pool_ta).unwrap();
+        for (set, req) in private.iter_mut().zip(&reqs) {
+            let diag = set.start_market(&market(), req.technical_indicators.and(ta)).unwrap();
+            if req.technical_indicators.is_some() {
+                prop_assert_eq!(diag, pool_diag);
+            }
+        }
+        for t in ticks(&raw) {
+            let pool_before: Vec<u64> = handles.iter().map(|&h| pool.combined_generation(h)).collect();
+            let any_pool = pool.on_tick(&t).unwrap();
+            let mut any_private = false;
+            for ((set, &h), &shared_before) in private.iter_mut().zip(&handles).zip(&pool_before) {
+                let changed = set.on_tick(&t).unwrap();
+                any_private |= changed;
+                prop_assert_eq!(plugins_json(pool.view(h), &tokens), plugins_json(set.view(), &tokens));
+                for id in PluginId::ALL {
+                    prop_assert_eq!(pool.generation(h, id), set.generation(id));
+                }
+                // the candidate's dirty counter moves exactly when its own
+                // plugins changed (TF-7)
+                prop_assert_eq!(pool.combined_generation(h), set.combined_generation());
+                prop_assert_eq!(pool.combined_generation(h) != shared_before, changed);
+            }
+            prop_assert_eq!(any_pool, any_private);
+        }
+    }
 
     // spec: 14 §13 V-7 ("Volatility output unchanged by synthetic ticks"), §12.2, §12.4
     #[test]
@@ -99,9 +182,8 @@ proptest! {
         }
     }
 
-    // spec: 14 P-6, §13 V-7 (two instances with one config give identical
-    // outputs: sharing equals per-candidate), P-3 (a market restart equals a
-    // fresh instance), R7 determinism
+    // spec: 14 P-3 (a market restart equals a fresh instance: nothing of the
+    // previous market survives), R7 determinism
     #[test]
     fn instances_are_interchangeable(
         raw in prop::collection::vec(any::<RawTick>(), 1..300),

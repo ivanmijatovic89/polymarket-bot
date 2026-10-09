@@ -23,11 +23,14 @@ pub use candles::{
     build_candles, build_day_candles, AggTrade, Candle, CandleError, CandleInterval, DAY_MS,
 };
 pub use dwell_gate::{BidOrAsk, DwellGate, DwellGateConfig, DwellGateSnapshot, DwellSide};
-pub use set::{ConfigError, Plugin, PluginError, PluginId, PluginRequest, PluginSet, PluginsView};
+pub use set::{
+    ConfigError, Plugin, PluginDiagnostics, PluginError, PluginHandle, PluginId, PluginPool,
+    PluginRequest, PluginSet, PluginsView,
+};
 pub use technical_indicators::{
-    compute as compute_technical_indicators, ta_trades_range, Session, TaInput, TaMeta, TaOutput,
-    TaUnavailable, TechnicalIndicators, TechnicalIndicatorsConfig, TechnicalIndicatorsSnapshot,
-    Tf15m, Tf1h, TA_LOOKBACK_15M, TA_LOOKBACK_1H, TA_SYMBOL,
+    compute as compute_technical_indicators, ta_supported, ta_trades_range, Session, TaInput,
+    TaMeta, TaOutput, TaUnavailable, TechnicalIndicators, TechnicalIndicatorsConfig,
+    TechnicalIndicatorsSnapshot, Tf15m, Tf1h, TA_LOOKBACK_15M, TA_LOOKBACK_1H, TA_SYMBOL,
 };
 pub use tick::{BookTop, PluginMarket, PluginTick};
 pub use time_window_gate::{TimeWindowGate, TimeWindowGateConfig, TimeWindowGateSnapshot};
