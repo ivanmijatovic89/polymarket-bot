@@ -374,7 +374,6 @@ fn filtered_copy(
     to: i64,
     latency_ms: i64,
 ) -> Result<BinanceSeries, FeedError> {
-    let mut seed: Option<usize> = None; // index into `picked`
     let mut picked: Vec<(i64, i64, f64)> = Vec::new();
     let mut seed_row: Option<(i64, i64, f64)> = None;
     for d in days {
@@ -400,9 +399,9 @@ fn filtered_copy(
         }
     }
     picked.sort_by_key(|r| r.0);
+    let seeded = seed_row.is_some();
     if let Some(s) = seed_row {
         picked.insert(0, s);
-        seed = Some(0);
     }
     let ids: Vec<i64> = picked.iter().map(|r| r.0).collect();
     let price: Vec<f64> = picked.iter().map(|r| r.2).collect();
@@ -412,7 +411,7 @@ fn filtered_copy(
         ts: picked.iter().map(|r| r.1).collect(),
         price: price.into(),
         start: 0,
-        seeded: seed.is_some(),
+        seeded,
         latency_ms,
         vis: None,
         zero_copy: false,

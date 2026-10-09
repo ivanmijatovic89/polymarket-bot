@@ -274,13 +274,6 @@ pub fn build_chainlink_series_with_lookback(
     members.sort_by_key(|m| (m.0, m.1));
     let seeded = seed.is_some();
     let rows: Vec<(i64, i64, usize, usize)> = seed.into_iter().chain(members).collect();
-    let mut s = ChainlinkSeries {
-        round: Vec::with_capacity(rows.len()).into(),
-        broadcast: Vec::with_capacity(rows.len()).into(),
-        price: Vec::with_capacity(rows.len()).into(),
-        seeded,
-        latency_ms,
-    };
     let (mut round, mut broadcast, mut price) = (
         Vec::with_capacity(rows.len()),
         Vec::with_capacity(rows.len()),
@@ -313,9 +306,13 @@ pub fn build_chainlink_series_with_lookback(
         broadcast.push(bc.div_euclid(1000));
         price.push(days[di].price[i]);
     }
-    s.round = round.into();
-    s.broadcast = broadcast.into();
-    s.price = price.into();
+    let s = ChainlinkSeries {
+        round: round.into(),
+        broadcast: broadcast.into(),
+        price: price.into(),
+        seeded,
+        latency_ms,
+    };
     if s.is_empty() {
         let list: Vec<String> = days.iter().map(|d| d.day.to_string()).collect();
         let first = list.first().cloned().unwrap_or_default();
