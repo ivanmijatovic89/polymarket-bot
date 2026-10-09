@@ -377,3 +377,51 @@ export function feedCoverage(records: readonly TraceRecord[]): FeedCoverage {
   for (const r of records) acc.add(r)
   return acc.c
 }
+
+/** The coverage block of a manifest market entry (60 §5.6, HR-7). */
+export type MarketCoverage = {
+  generic: GenericCoverage
+  feeds?: FeedCoverage
+  exerciser?: string[]
+  /** Set when coverage counts only the records before this index (PM-4). */
+  prefixRecords?: number
+}
+
+/**
+ * Coverage of one TS trace fed record by record (60 §5.6): generic counters,
+ * feed counters at the `feeds` level, the exerciser checklist when the cell
+ * runs a schedule. With `prefixRecords`, only the records before that index
+ * count: a masked market's coverage is its identical prefix (60 PM-4).
+ */
+export class MarketCoverageAcc {
+  private readonly gen = new GenericCoverageAcc()
+  private readonly fc: FeedCoverageAcc | null
+  private readonly ex: ExerciserCoverageAcc | null
+  private seen = 0
+
+  constructor(
+    traceLevel: 'decisions' | 'feeds',
+    schedule: number | null,
+    private readonly prefixRecords?: number,
+  ) {
+    this.fc = traceLevel === 'feeds' ? new FeedCoverageAcc() : null
+    this.ex = schedule !== null ? new ExerciserCoverageAcc() : null
+  }
+
+  add(r: TraceRecord): void {
+    const i = this.seen++
+    if (this.prefixRecords !== undefined && i >= this.prefixRecords) return
+    this.gen.add(r)
+    this.fc?.add(r)
+    this.ex?.add(r)
+  }
+
+  result(): MarketCoverage {
+    return {
+      generic: this.gen.c,
+      ...(this.fc ? { feeds: this.fc.c } : {}),
+      ...(this.ex ? { exerciser: [...this.ex.result()].sort() } : {}),
+      ...(this.prefixRecords === undefined ? {} : { prefixRecords: this.prefixRecords }),
+    }
+  }
+}

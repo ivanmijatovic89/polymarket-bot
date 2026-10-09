@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
   EXERCISER_FEATURES_V1,
   EXERCISER_FEATURES_V2_ADDED,
+  MarketCoverageAcc,
   coverageVerdict,
   exerciserCoverage,
   exerciserFeatures,
@@ -167,5 +168,24 @@ describe('coverage (60 §5.6)', () => {
       syntheticChainlink: 1,
       plugins: { dwellGate: 1 },
     })
+  })
+
+  it('a masked market counts only its identical prefix', () => {
+    // spec: 60 PM-4 ("coverage (§5.6) counts only its identical prefix"), §5.6
+    const recs = [tick(0), intent(0, 'place_limit'), tick(1), tick(2)]
+    const full = new MarketCoverageAcc('decisions', null)
+    const prefix = new MarketCoverageAcc('decisions', null, 2)
+    for (const r of recs) {
+      full.add(r)
+      prefix.add(r)
+    }
+    assert.equal(full.result().generic.ticks, 3)
+    assert.equal(full.result().prefixRecords, undefined)
+    const p = prefix.result()
+    assert.equal(p.generic.ticks, 1)
+    assert.equal(p.generic.intents, 1)
+    assert.equal(p.prefixRecords, 2)
+    assert.equal(p.feeds, undefined)
+    assert.deepEqual(new MarketCoverageAcc('feeds', 2).result().exerciser, [])
   })
 })

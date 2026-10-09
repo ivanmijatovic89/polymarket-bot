@@ -14,8 +14,10 @@ import {
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
+  rustOnlyJobProblems,
   rustRunArgs,
 } from './rustJob.js'
+import { modelConfigSha256 } from './cell.js'
 
 const cell = loadCell(path.join(PARITY_DIR, 'cells', 'T15-on.json'))
 const params = { tickOnUpdate: true, trade: false, ta: false, chainlink: true }
@@ -151,5 +153,36 @@ describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
       engineJobFor(buildEngineJob, native, '/d', { tracePath: '/t', traceLevel: 'feeds' }),
       /short-circuited \(no_slug/,
     )
+  })
+
+  it('--rust-only refuses a reused native job whose ModelConfig, feeds or read mode differ from the cell', () => {
+    // spec: 60 VP-2, HR-7 (the manifest identifies the evidence); R14
+    const tsJob = {
+      strategyId: 'feed-exerciser',
+      slug: 'btc-updown-15m-1776556800',
+      filePath: '/d/events/x.parquet',
+      gammaPriceToBeat: { priceToBeat: 84000, syncedAtMs: 1 },
+    } as unknown as MarketJobData
+    const n = nativeJobFor(tsJob, cell, {
+      conditionId: '0xabc',
+      bytes: 123,
+      requiredFeeds: feeds,
+      asOfMs: 1_791_500_000_000,
+    })
+    const current = { modelConfigSha256: modelConfigSha256(cell.modelConfig), requiredFeeds: feeds }
+    assert.deepEqual(rustOnlyJobProblems(n, cell, current), [])
+    const edited = {
+      ...n,
+      modelConfig: {
+        ...n.modelConfig,
+        capital: { ...n.modelConfig.capital, startingCapitalUsdc: '600' },
+      },
+    }
+    assert.match(rustOnlyJobProblems(edited, cell, current).join(), /modelConfigSha256/)
+    assert.match(
+      rustOnlyJobProblems(n, cell, { ...current, requiredFeeds: null }).join(),
+      /requiredFeeds/,
+    )
+    assert.match(rustOnlyJobProblems({ ...n, readFrom: 'r2' }, cell, current).join(), /readFrom/)
   })
 })

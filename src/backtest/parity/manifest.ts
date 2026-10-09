@@ -8,7 +8,8 @@ import {
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import type { FeatureCoverageRow, FeedCoverage, GenericCoverage } from './coverage.js'
+import type { FeatureCoverageRow, FeedCoverage, MarketCoverage } from './coverage.js'
+import type { FailureClass } from './failureClass.js'
 import type { MarketVerdict } from './matchers.js'
 
 /**
@@ -36,10 +37,19 @@ export type MarketEntry = {
     /** OR-12 trace cache outcome, when a cache is used. */
     cache?: 'hit' | 'miss'
     cacheKey?: string
+    /** 60 CL-7: the 14 §10 class of a TS failure; null when unclassifiable. */
+    failure?: FailureClass | null
   }
   /** OR-9 re-run: byte-identical decompressed TS traces. */
   repeat?: { identical: boolean }
-  rust?: { ok: boolean; durationMs: number; error?: string; trace?: string }
+  rust?: {
+    ok: boolean
+    durationMs: number
+    error?: string
+    trace?: string
+    /** 60 CL-7: the class of a Rust failure (shim or result); null when unclassifiable. */
+    failure?: FailureClass | null
+  }
   diff?: {
     equal: boolean
     gating: boolean
@@ -50,7 +60,8 @@ export type MarketEntry = {
   }
   verdict: MarketVerdict | null
   openRustBug?: boolean
-  coverage?: { generic: GenericCoverage; feeds?: FeedCoverage; exerciser?: string[] }
+  /** Coverage of the TS trace; for a masked market only its identical prefix (60 PM-4, §5.6). */
+  coverage?: MarketCoverage
 }
 
 export type ParityManifest = {

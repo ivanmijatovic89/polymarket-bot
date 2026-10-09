@@ -13,7 +13,7 @@ import {
 } from '../../native/index.js'
 import type { EngineJob } from '../../native/contract/generated.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { canonicalJsonLoose, type ParityCell } from './cell.js'
+import { canonicalJsonLoose, modelConfigSha256, type ParityCell } from './cell.js'
 
 /**
  * The Rust side of a parity cell (60 HR-1, HR-2): the harness builds the
@@ -101,6 +101,34 @@ export async function engineJobFor(
   if (built.kind !== 'job')
     throw new Error(`${job.slug}: buildEngineJob short-circuited (${built.skipReason}, 21 §13)`)
   return built.job
+}
+
+/**
+ * `--rust-only` reuses `<dir>/jobs/<slug>.native.json`; the manifest records
+ * the current cell's `modelConfigSha256`, so the reused job must carry the
+ * same ModelConfig, required feeds, read mode and Rust strategy id (60 VP-2,
+ * HR-7, R14). Returns the problems (empty when the job matches the cell).
+ */
+export function rustOnlyJobProblems(
+  native: NativeMarketJobData,
+  cell: ParityCell,
+  current: { modelConfigSha256: string; requiredFeeds: ExternalFeedsRequestConfig | null },
+): string[] {
+  const problems: string[] = []
+  const sha = modelConfigSha256(native.modelConfig)
+  if (sha !== current.modelConfigSha256)
+    problems.push(`modelConfigSha256 ${sha} != cell ${current.modelConfigSha256}`)
+  if (
+    canonicalJsonLoose(native.requiredFeeds ?? null) !== canonicalJsonLoose(current.requiredFeeds)
+  )
+    problems.push(
+      `requiredFeeds ${JSON.stringify(native.requiredFeeds)} != ${JSON.stringify(current.requiredFeeds)}`,
+    )
+  if (native.readFrom !== cell.readFrom)
+    problems.push(`readFrom ${native.readFrom} != cell ${cell.readFrom}`)
+  if (native.strategyId !== cell.rustStrategyId)
+    problems.push(`strategyId ${native.strategyId} != cell ${cell.rustStrategyId}`)
+  return problems
 }
 
 /** 21 §5.1: `EngineJob.run.strategyId` equals the binary's id (HR-1). */
