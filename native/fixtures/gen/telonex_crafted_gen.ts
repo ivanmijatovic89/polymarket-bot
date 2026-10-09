@@ -5,21 +5,27 @@
  * Writes small Parquet files with the real converter schema
  * (`typedDeltaMarketEventParquetSchema`, so they double as the version-1
  * fingerprint test against the TS schema definition) plus files with other
- * footers and schemas, to `native/fixtures/decode/crafted/`. Every I-16 skip
+ * footers and schemas, to `native/fixtures/golden/telonex/crafted/`. Every I-16 skip
  * case, the I-17 asset-column rule, the 15 §8 anomaly cases and the
  * I-12/I-13/I-18 error cases have rows. Each file is then replayed by the
  * real `replayTelonexDeltaParquetForMarket`, and the raw events it hands to
  * `onSnapshot` (kind, asset id, level strings, exchange and local time) are
- * recorded; a TS error is recorded as such.
+ * recorded, with the TS book after the last event (`finalBook`, prices and
+ * sizes as `String(number)`); a TS error is recorded as such.
  *
  * `expect` holds what the spec requires of the Rust reader: the error
  * class/cause, or the 15 §8 counters for the file's crafted anomalies. It is
  * written by hand from the spec, not taken from TS (TS counts none of them).
+ * Where the spec value differs from TS (60 GF-5), `expect.divergence` names
+ * an entry of `divergences` (the classification proposed for PARITY.md) and
+ * `expect` holds the spec value: `dropTsEvents` (TS events the reader does
+ * not yield), `finalBook` (the reader's book after the last event) or an
+ * `error` where TS replays.
  *
- * Output: `native/fixtures/decode/telonex_crafted_golden.json`, sorted keys,
+ * Output: `native/fixtures/golden/telonex/telonex_crafted_golden.json`, sorted keys,
  * prettier-formatted, header {contentPin, generator, generatorSha256}.
  *
- * Usage (repo root): npx tsx native/fixtures/decode/telonex_crafted_gen.ts [--check]
+ * Usage (repo root): npx tsx native/fixtures/gen/telonex_crafted_gen.ts [--check]
  */
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -34,13 +40,14 @@ import {
 } from '../../../src/parquet/io/eventSchema.js'
 import { replayTelonexDeltaParquetForMarket } from '../../../src/parquet/replay/replayTelonexDeltaParquetForMarket.js'
 
-const GENERATOR = 'native/fixtures/decode/telonex_crafted_gen.ts'
+const GENERATOR = 'native/fixtures/gen/telonex_crafted_gen.ts'
 const repoRoot = path.resolve(import.meta.dirname, '../../..')
-const goldenPath = path.join(import.meta.dirname, 'telonex_crafted_golden.json')
+const goldenDir = path.join(repoRoot, 'native/fixtures/golden/telonex')
+const goldenPath = path.join(goldenDir, 'telonex_crafted_golden.json')
 const check = process.argv.includes('--check')
 const craftedDir = check
   ? path.join(os.tmpdir(), `telonex-crafted-${process.pid}`)
-  : path.join(import.meta.dirname, 'crafted')
+  : path.join(goldenDir, 'crafted')
 
 const UP = '111111'
 const DOWN = '222222'
@@ -107,7 +114,18 @@ const book = (
     ...o,
   })
 
-type Expect = { error: { class: string; cause: string } } | { counters: Record<string, number> }
+type Lvl = [string, string]
+type Book = Record<string, { bids: Lvl[]; asks: Lvl[] }>
+type Expect = {
+  error?: { class: string; cause: string }
+  counters?: Record<string, number>
+  /** Key of `divergences` when the spec value differs from TS (GF-5). */
+  divergence?: string
+  /** Indexes of TS events that the reader does not yield. */
+  dropTsEvents?: number[]
+  /** The reader's book after the last event (micros), when it differs from TS. */
+  finalBook?: Record<string, { bids: [number, number][]; asks: [number, number][] }>
+}
 type Crafted = {
   name: string
   note: string
@@ -118,8 +136,51 @@ type Crafted = {
   expect: Expect
 }
 
-const ok = (counters: Record<string, number>): Expect => ({ counters })
-const err = (cls: string, cause: string): Expect => ({ error: { class: cls, cause } })
+const ok = (counters: Record<string, number>, more: Expect = {}): Expect => ({ counters, ...more })
+const err = (cls: string, cause: string, divergence?: string): Expect => ({
+  error: { class: cls, cause },
+  ...(divergence ? { divergence } : {}),
+})
+
+/** Proposed PARITY.md classifications of the TS/spec differences (60 §3.3, GF-5). */
+const divergences = {
+  D1: {
+    class: 'TS bug',
+    clause: '15 I-18',
+    summary:
+      'TS replays a file whose asset ids are not the job tokens or whose market column changes on a row it skips; the reader refuses it (data_defect: foreign_file)',
+  },
+  D2: {
+    class: 'Intended model change',
+    clause: '15 I-11..I-13',
+    summary:
+      'TS ignores footer keys and the schema; the reader refuses any file that is not telonex-delta-typed v1 (data_defect: format_version)',
+  },
+  D3: {
+    class: 'TS bug',
+    clause: '15 I-16',
+    summary:
+      'a book row with a null asset_index: TS reads Number(null) = 0 and replays a book of asset0; the reader skips it as unresolvedBookAsset',
+  },
+  D4: {
+    class: 'Intended model change',
+    clause: '15 I-20, 10 T6',
+    summary:
+      'decimals are quantized to 1e-6 (HalfAwayFromZero, inexactDecimal): prices equal after rounding share one level and a positive size below 0.0000005 deletes the level; TS keeps float levels',
+  },
+  D5: {
+    class: 'Intended model change',
+    clause: '15 I-20, 10 T6',
+    summary:
+      'level strings outside the JSON number grammar (whitespace, empty, +, leading or trailing dot, hex) are decode failures; TS Number() accepts them',
+  },
+  D6: {
+    class: 'Intended model change',
+    clause: '15 I-20, 10 §2 and T3',
+    summary:
+      'a price outside 0..=1 or a level size beyond 1e9 shares is a decode failure; TS replays it',
+  },
+}
 
 function skipRows(): Row[] {
   seq = 0n
@@ -142,7 +203,7 @@ function skipRows(): Row[] {
     row({ event_type: 'last_trade_price', ts_exchange_ms: 1002n, ts_local_ms: 1054n }),
     row({ event_type: 'tick_size_change', ts_exchange_ms: 1002n, ts_local_ms: 1054n }),
     row({ event_type: 'BOOK', ts_exchange_ms: 1002n, ts_local_ms: 1054n }),
-    without(book(1003, 1055, 0, [['0.40', '1']], []), 'asset_index'), // null asset index: TS reads Number(null) = 0, a book of asset0 (kept)
+    without(book(1003, 1055, 0, [['0.40', '1']], []), 'asset_index'), // null asset index: unresolved (I-16); TS reads Number(null) = 0 and keeps it (D3)
     book(1003, 1055, 2, [['0.40', '1']], []), // index 2
     book(1003, 1055, -1, [['0.40', '1']], []), // index -1
     book(1003, 1055, 1, [['0.40', '1']], [], { asset1_id: undefined }), // index 1, no asset1
@@ -238,21 +299,26 @@ const files: Crafted[] = [
     name: 'skip_rows',
     note: 'every I-16 skip case, ragged lists, clocks, ingest_seq, duplicates, inexact decimals; 5-row groups',
     rows: skipRows(),
-    expect: ok({
-      blankMarket: 2,
-      noExchangeTs: 2,
-      otherEventType: 3,
-      unresolvedBookAsset: 4,
-      emptyPriceChange: 4,
-      droppedChanges: 5,
-      inexactDecimal: 3,
-      exchangeClockBackwards: 2,
-      localClockBackwards: 1,
-      localBehindExchange: 2,
-      ingestSeqBackwards: 1,
-      duplicateRows: 1,
-      rowsRead: 30,
-    }),
+    expect: ok(
+      {
+        blankMarket: 2,
+        noExchangeTs: 2,
+        otherEventType: 3,
+        unresolvedBookAsset: 5,
+        emptyPriceChange: 4,
+        droppedChanges: 5,
+        inexactDecimal: 3,
+        exchangeClockBackwards: 2,
+        localClockBackwards: 1,
+        localBehindExchange: 2,
+        ingestSeqBackwards: 1,
+        duplicateRows: 1,
+        raggedRows: 2,
+        offGridPrices: 1,
+        rowsRead: 30,
+      },
+      { divergence: 'D3', dropTsEvents: [1] },
+    ),
   },
   {
     name: 'asset_order',
@@ -282,21 +348,21 @@ const files: Crafted[] = [
     note: 'I-12/I-13: unknown version in the footer',
     footer: { pmb_format: 'telonex-delta-typed', pmb_format_version: '2' },
     rows: smallRows(),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'footer_other_format',
     note: 'I-12: footer names another format',
     footer: { pmb_format: 'telonex-paired', pmb_format_version: '1' },
     rows: smallRows(),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'footer_version_only',
     note: 'I-12: only one of the two footer keys (D-PENDING: refused)',
     footer: { pmb_format_version: '1' },
     rows: smallRows(),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'schema_raw_events',
@@ -305,7 +371,7 @@ const files: Crafted[] = [
     rows: [
       { ingest_seq: 1n, ts_local_ms: 1n, ts_exchange_ms: 1n, event_type: 'book', raw_json: '{}' },
     ],
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'schema_int64_asset_index',
@@ -315,7 +381,7 @@ const files: Crafted[] = [
       asset_index: { type: 'INT64', optional: true, compression: 'GZIP' },
     }),
     rows: smallRows().map((r) => ({ ...r, asset_index: BigInt(r.asset_index as number) })),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'schema_unannotated_event_type',
@@ -325,7 +391,7 @@ const files: Crafted[] = [
       event_type: { type: 'BYTE_ARRAY', compression: 'GZIP' },
     }),
     rows: smallRows(),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'schema_extra_column',
@@ -335,7 +401,7 @@ const files: Crafted[] = [
       extra: { type: 'INT32', optional: true, compression: 'GZIP' },
     }),
     rows: smallRows(),
-    expect: err('data_defect', 'format_version'),
+    expect: err('data_defect', 'format_version', 'D2'),
   },
   {
     name: 'foreign_asset',
@@ -344,19 +410,19 @@ const files: Crafted[] = [
       ...r,
       asset1_id: r.asset1_id === DOWN ? '999999' : r.asset1_id,
     })),
-    expect: err('data_defect', 'foreign_file'),
+    expect: err('data_defect', 'foreign_file', 'D1'),
   },
   {
     name: 'foreign_asset_on_skipped_row',
     note: 'I-18: a foreign asset id on a row that I-16 skips (TS skips the row)',
     rows: [...smallRows(), without(row({ asset1_id: '999999' }), 'ts_exchange_ms')],
-    expect: err('data_defect', 'foreign_file'),
+    expect: err('data_defect', 'foreign_file', 'D1'),
   },
   {
     name: 'padded_asset',
     note: 'I-17/I-18: asset ids match exactly; a padded id is foreign (TS keys a separate book)',
     rows: smallRows().map((r) => ({ ...r, asset0_id: ` ${UP}` })),
-    expect: err('data_defect', 'foreign_file'),
+    expect: err('data_defect', 'foreign_file', 'D1'),
   },
   {
     name: 'market_changes',
@@ -369,6 +435,100 @@ const files: Crafted[] = [
     note: 'I-20: an unparsable decimal in a kept row is a decode failure',
     rows: [...smallRows(), pc(16, 17, [[0, 0, '0.4.1', '1']])],
     expect: err('runtime', 'decode_unverified'),
+  },
+  {
+    name: 'market_changes_on_skipped_row',
+    note: 'I-18: the market column changes on a row that I-16 skips (TS skips the row)',
+    rows: [...smallRows(), without(row({ market: '0xBEEF' }), 'ts_exchange_ms')],
+    expect: err('data_defect', 'foreign_file', 'D1'),
+  },
+  {
+    name: 'unicode_blanks',
+    note: 'I-16/I-17: blank is ECMAScript trim() blank (NBSP, VT, U+FEFF); U+0085 is not blank',
+    rows: (() => {
+      seq = 0n
+      return [
+        book(10, 11, 0, [['0.4', '1']], [['0.6', '1']]),
+        book(11, 12, 0, [['0.4', '2']], [], { market: '\u00a0' }),
+        book(11, 12, 0, [['0.4', '2']], [], { market: '\u000b' }),
+        book(11, 12, 0, [['0.4', '2']], [], { market: '\ufeff \u3000' }),
+        book(12, 13, 1, [['0.3', '2']], [], { asset1_id: '\ufeff' }),
+        book(12, 13, 1, [['0.3', '2']], [], { asset1_id: '\u2028' }),
+        pc(14, 15, [[0, 0, '0.41', '1']], { asset1_id: '\u00a0' }),
+      ]
+    })(),
+    expect: ok({ rowsRead: 7, blankMarket: 3, unresolvedBookAsset: 2 }),
+  },
+  {
+    name: 'nel_asset',
+    note: 'I-17/I-18: U+0085 is not blank in ECMAScript trim(), so the id is foreign',
+    rows: smallRows().map((r) => ({ ...r, asset1_id: '\u0085' })),
+    expect: err('data_defect', 'foreign_file', 'D1'),
+  },
+  {
+    name: 'ts_number_syntax',
+    note: 'I-20: a level string that TS Number() accepts but the JSON grammar does not',
+    rows: [...smallRows(), pc(16, 17, [[0, 0, ' 0.30', '']])],
+    expect: err('runtime', 'decode_unverified', 'D5'),
+  },
+  {
+    name: 'price_out_of_range',
+    note: 'I-20, 10 §2: a price above 1 is a decode failure',
+    rows: [...smallRows(), pc(16, 17, [[0, 1, '1.5', '1']])],
+    expect: err('runtime', 'decode_unverified', 'D6'),
+  },
+  {
+    name: 'negative_price',
+    note: 'I-20, 10 §2: a negative price is a decode failure',
+    rows: [...smallRows(), book(16, 17, 0, [['-0.1', '1']], [])],
+    expect: err('runtime', 'decode_unverified', 'D6'),
+  },
+  {
+    name: 'size_out_of_range',
+    note: 'I-20, 10 T3: a level size beyond 1e9 shares is a decode failure',
+    rows: [...smallRows(), pc(16, 17, [[0, 0, '0.4', '2e9']])],
+    expect: err('runtime', 'decode_unverified', 'D6'),
+  },
+  {
+    name: 'inexact_collapse',
+    note: 'I-20/10 T6: 0.4500001 rounds onto the 0.45 level; a size of 4e-7 rounds to 0 and deletes the 0.55 ask',
+    rows: (() => {
+      seq = 0n
+      return [
+        book(
+          10,
+          11,
+          0,
+          [
+            ['0.45', '3'],
+            ['0.4', '1'],
+          ],
+          [
+            ['0.55', '1'],
+            ['0.6', '1'],
+          ],
+        ),
+        pc(12, 13, [
+          [0, 0, '0.4500001', '2'],
+          [0, 1, '0.55', '0.0000004'],
+        ]),
+      ]
+    })(),
+    expect: ok(
+      { rowsRead: 2, inexactDecimal: 2, offGridPrices: 0 },
+      {
+        divergence: 'D4',
+        finalBook: {
+          [UP]: {
+            bids: [
+              [450000, 2000000],
+              [400000, 1000000],
+            ],
+            asks: [[600000, 1000000]],
+          },
+        },
+      },
+    ),
   },
 ]
 
@@ -387,12 +547,21 @@ async function write(f: Crafted, file: string): Promise<void> {
 }
 
 type Lv = { price: string; size: string }
+type NumLv = { price: number; size: number }
 async function replay(file: string) {
   const events: unknown[] = []
+  let finalBook: Book = {}
   try {
     await replayTelonexDeltaParquetForMarket({
       filePath: file,
-      onSnapshot: (_snap, raw) => {
+      onSnapshot: (snap, raw) => {
+        const lvs = (ls: NumLv[]): Lvl[] => ls.map((l) => [String(l.price), String(l.size)])
+        finalBook = Object.fromEntries(
+          Object.entries(snap.byAssetId).map(([id, b]) => [
+            id,
+            { asks: lvs(b.asks as NumLv[]), bids: lvs(b.bids as NumLv[]) },
+          ]),
+        )
         const m = raw.msg
         const base = { local: raw.source.tsLocalMs ?? null, ts: Number(m.timestamp) }
         if (m.event_type === 'book') {
@@ -412,7 +581,7 @@ async function replay(file: string) {
         }
       },
     })
-    return { events }
+    return { events, finalBook }
   } catch (e) {
     return { error: (e as Error).message, eventsBeforeError: events.length }
   }
@@ -453,6 +622,7 @@ function sortKeys(v: unknown): unknown {
 
 const body = sortKeys({
   conditionId: MKT,
+  divergences,
   files: out,
   spec: 'native-spec-g1 15 §4.1 I-11..I-13, §4.2 I-15..I-20, §8, §10 I-V1; 60 §7.2',
 }) as Record<string, unknown>

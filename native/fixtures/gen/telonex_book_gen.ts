@@ -1,17 +1,23 @@
 /**
  * Golden generator (60 §7.1 GF-1/GF-2): runs the real TS telonex-delta replay
  * (`replayTelonexDeltaParquetForMarket`, the oracle for row decode and book
- * semantics, 15 §2.1 and §4.2) over real fixture markets and records, per
+ * semantics, 15 §2.1 and §4.2) over real markets and records, per
  * emitted event, the snapshot timestamp, the event type and the top 3 levels
  * of both assets in file token order. Prices and sizes are written as integer
  * micros. Output: sorted keys, prettier-formatted, header {contentPin,
  * generator, generatorSha256} (contentPin: the oracle pin at which the content
  * last changed, else `git merge-base HEAD origin/main`).
  *
+ * Markets are committed fixtures (`source: fixture`, paths relative to
+ * `native/fixtures/golden/telonex/`, for example `markets/<slug>.parquet`;
+ * always checked, also in CI) or dataset files (`source: data`, relative to
+ * `<repo>/data`; checked only where the data exists).
+ *
  * Usage (repo root):
- *   npx tsx native/fixtures/decode/telonex_book_gen.ts [--check] [<data-relative path>...]
+ *   npx tsx native/fixtures/gen/telonex_book_gen.ts [--check] [markets/<f>.parquet | <data-relative path>...]
  * Without paths, the markets of the existing golden are regenerated.
- * --check regenerates in memory and fails on any content difference (GF-4).
+ * --check regenerates in memory and fails on any content difference (GF-4);
+ * a data market whose file is absent on this host is reported and kept.
  */
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -22,6 +28,11 @@ import { replayTelonexDeltaParquetForMarket } from '../../../src/parquet/replay/
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..')
 const dataRoot = path.join(repoRoot, 'data')
+const goldenDir = path.join(repoRoot, 'native/fixtures/golden/telonex')
+type Source = 'fixture' | 'data'
+const sourceOf = (rel: string): Source => (rel.startsWith('markets/') ? 'fixture' : 'data')
+const fileOf = (source: Source, rel: string): string =>
+  path.join(source === 'fixture' ? goldenDir : dataRoot, rel)
 const micros = (v: number): number => Math.round(v * 1e6)
 
 type Lv = { price: number; size: number }
@@ -31,8 +42,8 @@ const top = (levels: Lv[] | undefined): string =>
     .map((l) => `${micros(l.price)}:${micros(l.size)}`)
     .join(',')
 
-async function one(rel: string) {
-  const file = path.join(dataRoot, rel)
+async function one(source: Source, rel: string) {
+  const file = fileOf(source, rel)
   const tokens: string[] = []
   const hash = createHash('sha256')
   const head: string[] = []
@@ -59,21 +70,33 @@ async function one(rel: string) {
       rows += 1
     },
   })
-  return { file: rel, tokens, rows, sha256: hash.digest('hex'), head }
+  return { file: rel, head, rows, sha256: hash.digest('hex'), source, tokens }
 }
 
-const GENERATOR = 'native/fixtures/decode/telonex_book_gen.ts'
-const target = path.join(import.meta.dirname, 'telonex_book_golden.json')
+const GENERATOR = 'native/fixtures/gen/telonex_book_gen.ts'
+const target = path.join(goldenDir, 'telonex_book_golden.json')
 const check = process.argv.includes('--check')
 const previousDoc = existsSync(target)
   ? (JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>)
   : null
-let files = process.argv.slice(2).filter((a) => a !== '--check')
-if (files.length === 0 && previousDoc) {
-  files = (previousDoc.markets as { file: string }[]).map((m) => m.file)
+type Market = { file: string; source: Source }
+const previousMarkets = (previousDoc?.markets ?? []) as Market[]
+let files: Market[] = process.argv
+  .slice(2)
+  .filter((a) => a !== '--check')
+  .map((file) => ({ file, source: sourceOf(file) }))
+if (files.length === 0) files = previousMarkets.map((m) => ({ file: m.file, source: m.source }))
+const markets: unknown[] = []
+for (const m of files) {
+  if (m.source === 'data' && !existsSync(fileOf(m.source, m.file))) {
+    const prev = previousMarkets.find((p) => p.file === m.file && p.source === m.source)
+    if (!check || !prev) throw new Error(`${m.file}: absent under ${dataRoot}`)
+    console.log(`${m.file}: not checked (no data on this host)`)
+    markets.push(prev)
+    continue
+  }
+  markets.push(await one(m.source, m.file))
 }
-const markets = []
-for (const f of files) markets.push(await one(f))
 
 function sortKeys(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(sortKeys)
@@ -119,5 +142,7 @@ if (check) {
     target,
     await prettier.format(JSON.stringify(doc), { ...options, filepath: target }),
   )
-  console.log(markets.map((m) => `${m.file} rows=${m.rows}`).join('\n'))
+  console.log(
+    (markets as { file: string; rows: number }[]).map((m) => `${m.file} rows=${m.rows}`).join('\n'),
+  )
 }

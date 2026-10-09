@@ -1,0 +1,1209 @@
+{
+  "conditionId": "0xC0FFEE",
+  "divergences": {
+    "D1": {
+      "class": "TS bug",
+      "clause": "15 I-18",
+      "summary": "TS replays a file whose asset ids are not the job tokens or whose market column changes on a row it skips; the reader refuses it (data_defect: foreign_file)"
+    },
+    "D2": {
+      "class": "Intended model change",
+      "clause": "15 I-11..I-13",
+      "summary": "TS ignores footer keys and the schema; the reader refuses any file that is not telonex-delta-typed v1 (data_defect: format_version)"
+    },
+    "D3": {
+      "class": "TS bug",
+      "clause": "15 I-16",
+      "summary": "a book row with a null asset_index: TS reads Number(null) = 0 and replays a book of asset0; the reader skips it as unresolvedBookAsset"
+    },
+    "D4": {
+      "class": "Intended model change",
+      "clause": "15 I-20, 10 T6",
+      "summary": "decimals are quantized to 1e-6 (HalfAwayFromZero, inexactDecimal): prices equal after rounding share one level and a positive size below 0.0000005 deletes the level; TS keeps float levels"
+    },
+    "D5": {
+      "class": "Intended model change",
+      "clause": "15 I-20, 10 T6",
+      "summary": "level strings outside the JSON number grammar (whitespace, empty, +, leading or trailing dot, hex) are decode failures; TS Number() accepts them"
+    },
+    "D6": {
+      "class": "Intended model change",
+      "clause": "15 I-20, 10 §2 and T3",
+      "summary": "a price outside 0..=1 or a level size beyond 1e9 shares is a decode failure; TS replays it"
+    }
+  },
+  "files": [
+    {
+      "bytes": 26265,
+      "expect": {
+        "counters": {
+          "blankMarket": 2,
+          "droppedChanges": 5,
+          "duplicateRows": 1,
+          "emptyPriceChange": 4,
+          "exchangeClockBackwards": 2,
+          "inexactDecimal": 3,
+          "ingestSeqBackwards": 1,
+          "localBehindExchange": 2,
+          "localClockBackwards": 1,
+          "noExchangeTs": 2,
+          "offGridPrices": 1,
+          "otherEventType": 3,
+          "raggedRows": 2,
+          "rowsRead": 30,
+          "unresolvedBookAsset": 5
+        },
+        "divergence": "D3",
+        "dropTsEvents": [1]
+      },
+      "file": "crafted/skip_rows.parquet",
+      "name": "skip_rows",
+      "note": "every I-16 skip case, ragged lists, clocks, ingest_seq, duplicates, inexact decimals; 5-row groups",
+      "sha256": "a0759fd98ed9c708e58157be3e06bc65b47ac0721d0236d9d1e80644e9cde88d",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.60", "7"]],
+            "asset": "111111",
+            "bids": [
+              ["0.40", "10"],
+              ["0.39", "5"]
+            ],
+            "kind": "book",
+            "local": 1050,
+            "ts": 1000
+          },
+          {
+            "asks": [],
+            "asset": "111111",
+            "bids": [["0.40", "1"]],
+            "kind": "book",
+            "local": 1055,
+            "ts": 1003
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "3"],
+              ["222222", "SELL", "0.58", "2"]
+            ],
+            "kind": "price_change",
+            "local": 1057,
+            "ts": 1005
+          },
+          {
+            "changes": [
+              ["111111", "SELL", "0.61", "1"],
+              ["222222", "BUY", "0.38", "2"]
+            ],
+            "kind": "price_change",
+            "local": 1058,
+            "ts": 1006
+          },
+          {
+            "asks": [["0.62", "1"]],
+            "asset": "222222",
+            "bids": [
+              ["0.38", "4"],
+              ["0.37", "5"]
+            ],
+            "kind": "book",
+            "local": 1059,
+            "ts": 1007
+          },
+          {
+            "asks": [["0.70", "2"]],
+            "asset": "222222",
+            "bids": [
+              ["0.30", "0"],
+              ["0.29", "-1"]
+            ],
+            "kind": "book",
+            "local": null,
+            "ts": 0
+          },
+          {
+            "changes": [["111111", "BUY", "0.42", "1"]],
+            "kind": "price_change",
+            "local": null,
+            "ts": 1100
+          },
+          {
+            "changes": [["111111", "BUY", "0.43", "1"]],
+            "kind": "price_change",
+            "local": 1150,
+            "ts": 1200
+          },
+          {
+            "changes": [["222222", "SELL", "0.57", "1"]],
+            "kind": "price_change",
+            "local": 1300,
+            "ts": 1190
+          },
+          {
+            "changes": [["222222", "SELL", "0.56", "1"]],
+            "kind": "price_change",
+            "local": 1250,
+            "ts": 1300
+          },
+          {
+            "changes": [["111111", "SELL", "0.59", "1"]],
+            "kind": "price_change",
+            "local": 1310,
+            "ts": 1301
+          },
+          {
+            "changes": [["111111", "SELL", "0.59", "2"]],
+            "kind": "price_change",
+            "local": 1311,
+            "ts": 1302
+          },
+          {
+            "changes": [["111111", "SELL", "0.59", "2"]],
+            "kind": "price_change",
+            "local": 1311,
+            "ts": 1302
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.1234565", "1.0000001"],
+              ["222222", "BUY", "5e-1", "1.5E1"],
+              ["222222", "SELL", "0.000000499", "2"]
+            ],
+            "kind": "price_change",
+            "local": 1312,
+            "ts": 1303
+          },
+          {
+            "asks": [
+              ["1", "1"],
+              ["0", "1"]
+            ],
+            "asset": "111111",
+            "bids": [
+              ["0.45", "0"],
+              ["0.44", "-3"],
+              ["0.43", "1e0"]
+            ],
+            "kind": "book",
+            "local": 1313,
+            "ts": 1304
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [
+              ["0", "1"],
+              ["1", "1"]
+            ],
+            "bids": [["0.43", "1"]]
+          },
+          "222222": {
+            "asks": [
+              ["4.99e-7", "2"],
+              ["0.56", "1"],
+              ["0.57", "1"],
+              ["0.7", "2"]
+            ],
+            "bids": [["0.5", "15"]]
+          }
+        }
+      }
+    },
+    {
+      "bytes": 4742,
+      "expect": { "counters": { "rowsRead": 3 } },
+      "file": "crafted/asset_order.parquet",
+      "name": "asset_order",
+      "note": "I-17: asset0 is the DOWN token; indexes refer to the row columns, not outcome order",
+      "sha256": "b9c33b31e837f9c25b5f357e58246275da4294b34dc23ad8b5f84dd7b97f801b",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "222222",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "111111",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["222222", "BUY", "0.41", "1"],
+              ["111111", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] },
+          "222222": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "bytes": 4821,
+      "expect": { "counters": { "rowsRead": 3 } },
+      "file": "crafted/footer_v1.parquet",
+      "name": "footer_v1",
+      "note": "I-12: footer keys naming version 1 are accepted",
+      "sha256": "052f834c876e80aeba30abe451b3a68dcc1293f7ad56a995b9af2d15a97e3236",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 362,
+      "expect": { "counters": { "rowsRead": 0 } },
+      "file": "crafted/empty.parquet",
+      "name": "empty",
+      "note": "v1 schema, no rows",
+      "sha256": "8f9ec2e465b52b97f5e293a41749b404e83062a9fa2816386e7fde0d10dac80e",
+      "tokens": ["111111", "222222"],
+      "ts": { "events": [], "finalBook": {} }
+    },
+    {
+      "bytes": 4800,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/footer_v2.parquet",
+      "name": "footer_v2",
+      "note": "I-12/I-13: unknown version in the footer",
+      "sha256": "fc6d485794ce42bf3913a2bfb365ec4589e0d86429d508b859c19ad1eb45a580",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4795,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/footer_other_format.parquet",
+      "name": "footer_other_format",
+      "note": "I-12: footer names another format",
+      "sha256": "265a970f60dd041b7828edcab485803b6c21cdc08ae2f949cdf809f71e22f007",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4766,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/footer_version_only.parquet",
+      "name": "footer_version_only",
+      "note": "I-12: only one of the two footer keys (D-PENDING: refused)",
+      "sha256": "eea601732d68a6cb8bd8896ee4e1bfe1c7d93589316060a3dfc2be1d73514875",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 1542,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/schema_raw_events.parquet",
+      "name": "schema_raw_events",
+      "note": "I-12: the legacy raw-event schema is not v1",
+      "sha256": "0b61770c5daca5847a0ccbfbd5ee7180d1fa64acbeb2b3b6e9ea54c3d203b361",
+      "tokens": ["111111", "222222"],
+      "ts": { "events": [], "finalBook": {} }
+    },
+    {
+      "bytes": 4798,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/schema_int64_asset_index.parquet",
+      "name": "schema_int64_asset_index",
+      "note": "I-11: a physical type differs",
+      "sha256": "8598c1be9dd7742b5e31004c668902de0fe6bfd78e381214e0a3aa5a4cb9e88f",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4740,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/schema_unannotated_event_type.parquet",
+      "name": "schema_unannotated_event_type",
+      "note": "I-11: a logical type differs (BYTE_ARRAY without UTF8)",
+      "sha256": "241d30026991957e8f3cc3a061509f8ddb01756998e955928786ab72a93a2f38",
+      "tokens": ["111111", "222222"],
+      "ts": { "events": [], "finalBook": {} }
+    },
+    {
+      "bytes": 4906,
+      "expect": {
+        "divergence": "D2",
+        "error": { "cause": "format_version", "class": "data_defect" }
+      },
+      "file": "crafted/schema_extra_column.parquet",
+      "name": "schema_extra_column",
+      "note": "I-11: a 17th column",
+      "sha256": "800dec35b7fe73b07bd14f8262ed69c1b94e098cac61d52061237abb9e720f1b",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4742,
+      "expect": {
+        "divergence": "D1",
+        "error": { "cause": "foreign_file", "class": "data_defect" }
+      },
+      "file": "crafted/foreign_asset.parquet",
+      "name": "foreign_asset",
+      "note": "I-18: an asset id that is not a job token (TS replays it: TS bug)",
+      "sha256": "c8c59f32e78ce89f6a98b9b336d57780ea6ae242fca0a15b392b3ccca1a8f45d",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "999999",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["999999", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "999999": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4753,
+      "expect": {
+        "divergence": "D1",
+        "error": { "cause": "foreign_file", "class": "data_defect" }
+      },
+      "file": "crafted/foreign_asset_on_skipped_row.parquet",
+      "name": "foreign_asset_on_skipped_row",
+      "note": "I-18: a foreign asset id on a row that I-16 skips (TS skips the row)",
+      "sha256": "d839daeea79eaf8dde797ac33fcc3202444b1d72f3218d61bc9b48b34cb41a1d",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4757,
+      "expect": {
+        "divergence": "D1",
+        "error": { "cause": "foreign_file", "class": "data_defect" }
+      },
+      "file": "crafted/padded_asset.parquet",
+      "name": "padded_asset",
+      "note": "I-17/I-18: asset ids match exactly; a padded id is foreign (TS keys a separate book)",
+      "sha256": "5f86bf928c2208699c26a4292c2a95260d3657bbb71ac3b336a1850e6035172e",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": " 111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              [" 111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] },
+          " 111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "bytes": 4741,
+      "expect": { "error": { "cause": "foreign_file", "class": "data_defect" } },
+      "file": "crafted/market_changes.parquet",
+      "name": "market_changes",
+      "note": "I-18: the market column changes inside the file (TS throws)",
+      "sha256": "b982ea57b2f5ecb89bd0b43ddf8633d6717f7425b673e91f64da52ccdaf436ed",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "error": "[orderbook] market mismatch on price_change: expected=0xC0FFEE got=0xBEEF",
+        "eventsBeforeError": 3
+      }
+    },
+    {
+      "bytes": 4765,
+      "expect": { "error": { "cause": "decode_unverified", "class": "runtime" } },
+      "file": "crafted/bad_decimal.parquet",
+      "name": "bad_decimal",
+      "note": "I-20: an unparsable decimal in a kept row is a decode failure",
+      "sha256": "2758e883e9ae378b39cc6d9198cd18bcbf71d8d18e1fe27e354c3a2b3df71cf8",
+      "tokens": ["111111", "222222"],
+      "ts": { "error": "[orderbook] invalid price_change.price: \"0.4.1\"", "eventsBeforeError": 3 }
+    },
+    {
+      "bytes": 4742,
+      "expect": {
+        "divergence": "D1",
+        "error": { "cause": "foreign_file", "class": "data_defect" }
+      },
+      "file": "crafted/market_changes_on_skipped_row.parquet",
+      "name": "market_changes_on_skipped_row",
+      "note": "I-18: the market column changes on a row that I-16 skips (TS skips the row)",
+      "sha256": "cca229e5867cbd8794a180fae45385253891218799a2b2dfa8472364e33a3616",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 8409,
+      "expect": { "counters": { "blankMarket": 3, "rowsRead": 7, "unresolvedBookAsset": 2 } },
+      "file": "crafted/unicode_blanks.parquet",
+      "name": "unicode_blanks",
+      "note": "I-16/I-17: blank is ECMAScript trim() blank (NBSP, VT, U+FEFF); U+0085 is not blank",
+      "sha256": "09bbe53ca24cdb168917742853f463cac387499f7dc3f8ab3c4de8bb395b030a",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "changes": [["111111", "BUY", "0.41", "1"]],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "bytes": 4686,
+      "expect": {
+        "divergence": "D1",
+        "error": { "cause": "foreign_file", "class": "data_defect" }
+      },
+      "file": "crafted/nel_asset.parquet",
+      "name": "nel_asset",
+      "note": "I-17/I-18: U+0085 is not blank in ECMAScript trim(), so the id is foreign",
+      "sha256": "e57125688abd51d566bef40732d9294a19a1091bb3cc0c99648457472ece5e1e",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4762,
+      "expect": {
+        "divergence": "D5",
+        "error": { "cause": "decode_unverified", "class": "runtime" }
+      },
+      "file": "crafted/ts_number_syntax.parquet",
+      "name": "ts_number_syntax",
+      "note": "I-20: a level string that TS Number() accepts but the JSON grammar does not",
+      "sha256": "ea8336f835a40601beee4de803cd0d31b0d365a61bd8f780282ed7e380d0133e",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          },
+          {
+            "changes": [["111111", "BUY", " 0.30", ""]],
+            "kind": "price_change",
+            "local": 17,
+            "ts": 16
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4752,
+      "expect": {
+        "divergence": "D6",
+        "error": { "cause": "decode_unverified", "class": "runtime" }
+      },
+      "file": "crafted/price_out_of_range.parquet",
+      "name": "price_out_of_range",
+      "note": "I-20, 10 §2: a price above 1 is a decode failure",
+      "sha256": "d6355ba6b49bf3921f550ce3695a49e89ce9718d0bc8aac0de2831db957f95c1",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          },
+          {
+            "changes": [["111111", "SELL", "1.5", "1"]],
+            "kind": "price_change",
+            "local": 17,
+            "ts": 16
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [
+              ["0.6", "1"],
+              ["1.5", "1"]
+            ],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4770,
+      "expect": {
+        "divergence": "D6",
+        "error": { "cause": "decode_unverified", "class": "runtime" }
+      },
+      "file": "crafted/negative_price.parquet",
+      "name": "negative_price",
+      "note": "I-20, 10 §2: a negative price is a decode failure",
+      "sha256": "163c82c63f7e6b6ddcabb3da80fda25b8ceaaf88d5867372f0ebe95445b056dc",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          },
+          {
+            "asks": [],
+            "asset": "111111",
+            "bids": [["-0.1", "1"]],
+            "kind": "book",
+            "local": 17,
+            "ts": 16
+          }
+        ],
+        "finalBook": {
+          "111111": { "asks": [], "bids": [["-0.1", "1"]] },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4768,
+      "expect": {
+        "divergence": "D6",
+        "error": { "cause": "decode_unverified", "class": "runtime" }
+      },
+      "file": "crafted/size_out_of_range.parquet",
+      "name": "size_out_of_range",
+      "note": "I-20, 10 T3: a level size beyond 1e9 shares is a decode failure",
+      "sha256": "049f4b3cd5514f95617559775200a0e00e83007e6c33a2f8b7510e51fd52d05e",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          },
+          {
+            "changes": [["111111", "BUY", "0.4", "2e9"]],
+            "kind": "price_change",
+            "local": 17,
+            "ts": 16
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.41", "1"],
+              ["0.4", "2000000000"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
+      "bytes": 4829,
+      "expect": {
+        "counters": { "inexactDecimal": 2, "offGridPrices": 0, "rowsRead": 2 },
+        "divergence": "D4",
+        "finalBook": {
+          "111111": {
+            "asks": [[600000, 1000000]],
+            "bids": [
+              [450000, 2000000],
+              [400000, 1000000]
+            ]
+          }
+        }
+      },
+      "file": "crafted/inexact_collapse.parquet",
+      "name": "inexact_collapse",
+      "note": "I-20/10 T6: 0.4500001 rounds onto the 0.45 level; a size of 4e-7 rounds to 0 and deletes the 0.55 ask",
+      "sha256": "698a9e35721baee010ee112d47415f4c8c3214cc599dad01a3c99b844074bbed",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [
+              ["0.55", "1"],
+              ["0.6", "1"]
+            ],
+            "asset": "111111",
+            "bids": [
+              ["0.45", "3"],
+              ["0.4", "1"]
+            ],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.4500001", "2"],
+              ["111111", "SELL", "0.55", "0.0000004"]
+            ],
+            "kind": "price_change",
+            "local": 13,
+            "ts": 12
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [
+              ["0.55", "4e-7"],
+              ["0.6", "1"]
+            ],
+            "bids": [
+              ["0.4500001", "2"],
+              ["0.45", "3"],
+              ["0.4", "1"]
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "header": {
+    "contentPin": "ad2f11b81ab6ff003bb5febe280c00120255a944",
+    "generator": "native/fixtures/gen/telonex_crafted_gen.ts",
+    "generatorSha256": "b9a6242118de8d824fdee68d0fefa84d44cacacf0bece528f30492bbd14b0912"
+  },
+  "spec": "native-spec-g1 15 §4.1 I-11..I-13, §4.2 I-15..I-20, §8, §10 I-V1; 60 §7.2"
+}
