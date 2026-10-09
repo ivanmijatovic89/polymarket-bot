@@ -41,17 +41,13 @@ function git(args: string[]): string {
   }).trim()
 }
 
-/** Hash of a path's blob listing at a commit, without parity tooling and test files. */
-function filteredTreeHash(commit: string, p: string): string {
+/** Hash of a path's blob listing at a commit, without test files and the excluded prefixes. */
+function filteredTreeHash(commit: string, p: string, excluded: readonly string[]): string {
   const lines = git(['ls-tree', '-r', commit, '--', p])
     .split('\n')
     .filter((l) => {
       const file = l.slice(l.indexOf('\t') + 1)
-      return (
-        l !== '' &&
-        !file.endsWith('.test.ts') &&
-        !KEY_EXCLUDED_PREFIXES.some((x) => file.startsWith(x))
-      )
+      return l !== '' && !file.endsWith('.test.ts') && !excluded.some((x) => file.startsWith(x))
     })
   return sha256Hex(lines.join('\n'))
 }
@@ -71,9 +67,9 @@ export function cacheTreeHashes(
 ): Record<string, string> {
   const out: Record<string, string> = {}
   for (const p of [...paths.engine, ...paths.inputFormat, 'src/strategies'])
-    out[p] = filteredTreeHash(engineCommit, p)
-  for (const f of [...TRACE_WRITER_FILES, 'src/strategies/testing'])
-    out[f] = git(['rev-parse', `${toolingCommit}:${f}`])
+    out[p] = filteredTreeHash(engineCommit, p, KEY_EXCLUDED_PREFIXES)
+  for (const f of TRACE_WRITER_FILES) out[f] = git(['rev-parse', `${toolingCommit}:${f}`])
+  out['src/strategies/testing'] = filteredTreeHash(toolingCommit, 'src/strategies/testing', [])
   return out
 }
 
