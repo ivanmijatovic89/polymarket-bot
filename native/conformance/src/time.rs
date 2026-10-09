@@ -24,10 +24,22 @@ pub fn parse_iso_utc(s: &str) -> i64 {
         Some((d, t)) => (d, t.trim_end_matches('Z')),
         None => (s, "00:00:00"),
     };
-    let mut dp = date.split('-').map(|p| p.parse::<i64>().expect("date part"));
-    let (y, m, d) = (dp.next().unwrap(), dp.next().unwrap() as u32, dp.next().unwrap() as u32);
-    let mut tp = time.split(':').map(|p| p.parse::<u32>().expect("time part"));
-    let (h, mi, sec) = (tp.next().unwrap(), tp.next().unwrap_or(0), tp.next().unwrap_or(0));
+    let mut dp = date
+        .split('-')
+        .map(|p| p.parse::<i64>().expect("date part"));
+    let (y, m, d) = (
+        dp.next().unwrap(),
+        dp.next().unwrap() as u32,
+        dp.next().unwrap() as u32,
+    );
+    let mut tp = time
+        .split(':')
+        .map(|p| p.parse::<u32>().expect("time part"));
+    let (h, mi, sec) = (
+        tp.next().unwrap(),
+        tp.next().unwrap_or(0),
+        tp.next().unwrap_or(0),
+    );
     epoch_ms(y, m, d, h, mi, sec)
 }
 

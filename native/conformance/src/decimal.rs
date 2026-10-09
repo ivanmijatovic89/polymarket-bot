@@ -39,7 +39,10 @@ impl Dec {
             Some((a, b)) => (a, b),
             None => (rest, ""),
         };
-        assert!(!int.is_empty() || !frac.is_empty(), "empty decimal {text:?}");
+        assert!(
+            !int.is_empty() || !frac.is_empty(),
+            "empty decimal {text:?}"
+        );
         assert!(
             int.chars().all(|c| c.is_ascii_digit()) && frac.chars().all(|c| c.is_ascii_digit()),
             "not a plain decimal: {text:?}"
@@ -51,7 +54,11 @@ impl Dec {
             .map(|b| b - b'0')
             .collect();
         trim(&mut mant);
-        Dec { neg: neg && !mant.is_empty(), mant, scale: frac.len() as u32 }
+        Dec {
+            neg: neg && !mant.is_empty(),
+            mant,
+            scale: frac.len() as u32,
+        }
     }
 
     pub fn from_i64(v: i64) -> Dec {
@@ -82,7 +89,11 @@ impl Dec {
         }
         assert_eq!(carry, 0);
         trim(&mut mant);
-        Dec { neg: (self.neg != other.neg) && !mant.is_empty(), mant, scale: self.scale + other.scale }
+        Dec {
+            neg: (self.neg != other.neg) && !mant.is_empty(),
+            mant,
+            scale: self.scale + other.scale,
+        }
     }
 
     pub fn pow(&self, n: u32) -> Dec {
@@ -100,19 +111,35 @@ impl Dec {
         if a.neg == b.neg {
             let mut mant = add_mag(&a.mant, &b.mant);
             trim(&mut mant);
-            Dec { neg: a.neg && !mant.is_empty(), mant, scale }
+            Dec {
+                neg: a.neg && !mant.is_empty(),
+                mant,
+                scale,
+            }
         } else {
             match cmp_mag(&a.mant, &b.mant) {
-                Ordering::Equal => Dec { neg: false, mant: vec![], scale },
+                Ordering::Equal => Dec {
+                    neg: false,
+                    mant: vec![],
+                    scale,
+                },
                 Ordering::Greater => {
                     let mut mant = sub_mag(&a.mant, &b.mant);
                     trim(&mut mant);
-                    Dec { neg: a.neg, mant, scale }
+                    Dec {
+                        neg: a.neg,
+                        mant,
+                        scale,
+                    }
                 }
                 Ordering::Less => {
                     let mut mant = sub_mag(&b.mant, &a.mant);
                     trim(&mut mant);
-                    Dec { neg: b.neg, mant, scale }
+                    Dec {
+                        neg: b.neg,
+                        mant,
+                        scale,
+                    }
                 }
             }
         }
@@ -123,7 +150,11 @@ impl Dec {
     }
 
     pub fn neg(&self) -> Dec {
-        Dec { neg: !self.neg && !self.mant.is_empty(), mant: self.mant.clone(), scale: self.scale }
+        Dec {
+            neg: !self.neg && !self.mant.is_empty(),
+            mant: self.mant.clone(),
+            scale: self.scale,
+        }
     }
 
     /// Same value with at least `scale` fractional digits.
@@ -135,7 +166,11 @@ impl Dec {
         if self.mant.is_empty() {
             mant.clear();
         }
-        Dec { neg: self.neg, mant, scale }
+        Dec {
+            neg: self.neg,
+            mant,
+            scale,
+        }
     }
 
     /// One rounding step to `dp` fractional digits (10 R-3: exactly one).
@@ -159,7 +194,11 @@ impl Dec {
             mant = add_mag(&mant, &[1]);
         }
         trim(&mut mant);
-        Dec { neg: self.neg && !mant.is_empty(), mant, scale: dp }
+        Dec {
+            neg: self.neg && !mant.is_empty(),
+            mant,
+            scale: dp,
+        }
     }
 
     /// Numeric comparison.
@@ -192,11 +231,19 @@ impl Dec {
         }
         // Little-endian: the first `scale` digits are the fraction.
         let scale = self.scale as usize;
-        let int_part: String = digits[scale..].iter().rev().map(|d| (b'0' + d) as char).collect();
+        let int_part: String = digits[scale..]
+            .iter()
+            .rev()
+            .map(|d| (b'0' + d) as char)
+            .collect();
         s.push_str(&int_part);
         if scale > 0 {
             s.push('.');
-            let frac: String = digits[..scale].iter().rev().map(|d| (b'0' + d) as char).collect();
+            let frac: String = digits[..scale]
+                .iter()
+                .rev()
+                .map(|d| (b'0' + d) as char)
+                .collect();
             s.push_str(&frac);
         }
         s
@@ -303,10 +350,28 @@ mod tests {
         assert_eq!(v.to_plain(), "-1.01");
         let v = Dec::parse("-1.004").round(2, Rounding::HalfAwayFromZero);
         assert_eq!(v.to_plain(), "-1.00");
-        assert_eq!(Dec::parse("0.0000003").round(6, Rounding::Ceil).to_plain(), "0.000001");
-        assert_eq!(Dec::parse("0.0000003").round(6, Rounding::HalfAwayFromZero).to_plain(), "0.000000");
-        assert_eq!(Dec::parse("-0.0000003").round(6, Rounding::Floor).to_plain(), "-0.000001");
-        assert_eq!(Dec::parse("-0.0000003").round(6, Rounding::TowardZero).to_plain(), "0.000000");
+        assert_eq!(
+            Dec::parse("0.0000003").round(6, Rounding::Ceil).to_plain(),
+            "0.000001"
+        );
+        assert_eq!(
+            Dec::parse("0.0000003")
+                .round(6, Rounding::HalfAwayFromZero)
+                .to_plain(),
+            "0.000000"
+        );
+        assert_eq!(
+            Dec::parse("-0.0000003")
+                .round(6, Rounding::Floor)
+                .to_plain(),
+            "-0.000001"
+        );
+        assert_eq!(
+            Dec::parse("-0.0000003")
+                .round(6, Rounding::TowardZero)
+                .to_plain(),
+            "0.000000"
+        );
     }
 
     #[test]
