@@ -1,0 +1,177 @@
+import '../../config/env.js'
+import { existsSync, statSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { closeDb } from '../../db/index.js'
+import { utcDatesCovering } from '../../binance/paths.js'
+import { DEFAULT_DATA_ROOT, REPO_ROOT } from '../../backtest/parity/cell.js'
+import { dateMsArg, intArg, one, paramArgs, parseArgv } from '../../backtest/parity/cliArgs.js'
+import {
+  listParityCandidates,
+  resolveParityStrategy,
+  stratifiedByMonth,
+  type StratifiedCandidate,
+} from '../../backtest/parity/marketJob.js'
+import { PARITY_DIR, resolvePin } from '../../backtest/parity/oracle.js'
+import {
+  externalFeedsRequest,
+  type ExternalFeedsRequestConfig,
+} from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+
+const USAGE = `Usage (from the repository root):
+  npx tsx scripts/parity/select-set.ts --set <name> --strategy <id> [--param k=v ...]
+      --from <ISO date> [--to <ISO date>] --per-month <n> --seed <n> [--edge <n>]
+      [--data-root <repo>/data] [--dry-run]
+
+Selects a committed parity market set native/parity/sets/<name>.txt
+(native/spec/60-verification.md §4.2): seeded random through
+listEligibleTelonexMarkets with the strategy's required feeds (MS-2, read-only
+on MySQL), stratified by calendar month, local inputs only (MS-5: a market
+whose telonex-delta or feed day files are missing is replaced by the next
+seeded market and recorded), plus --edge markets with the largest and
+smallest input files (MS-3 proxy for most/fewest events).`
+
+// 11 §5.3 dated fee eras (market start), used only to report era coverage (MS-2).
+const FEE_ERAS: Array<{ id: string; fromMs: number }> = [
+  { id: 'F0', fromMs: Number.NEGATIVE_INFINITY },
+  { id: 'F1', fromMs: 1767571200000 },
+  { id: 'F2', fromMs: 1774828800000 },
+  { id: 'F3', fromMs: 1778198400000 },
+]
+
+function feeEra(ms: number): string {
+  let era = 'F0'
+  for (const e of FEE_ERAS) if (ms >= e.fromMs) era = e.id
+  return era
+}
+
+/** MS-5: the market file and every feed day file the strategy needs exist locally. */
+function localInputs(
+  c: StratifiedCandidate,
+  feeds: ExternalFeedsRequestConfig,
+  dataRoot: string,
+): boolean {
+  if (!existsSync(c.localPath)) return false
+  const days = utcDatesCovering(c.marketStartMs - 300_000, c.marketStartMs + 15 * 60_000)
+  for (const d of days) {
+    if (
+      feeds.binanceWsSpotPrice &&
+      !existsSync(
+        path.join(dataRoot, 'binance', 'aggTrades', 'BTCUSDT', `BTCUSDT-aggTrades-${d}.parquet`),
+      )
+    )
+      return false
+    if (
+      feeds.rtdsCryptoPrices &&
+      !existsSync(
+        path.join(
+          dataRoot,
+          'telonex',
+          'crypto_prices',
+          'btcusd',
+          `btcusd-crypto-prices-${d}.parquet`,
+        ),
+      )
+    )
+      return false
+  }
+  return true
+}
+
+async function main(): Promise<number> {
+  const p = parseArgv(process.argv.slice(2), {
+    values: ['set', 'strategy', 'param', 'from', 'to', 'per-month', 'seed', 'edge', 'data-root'],
+    switches: ['dry-run', 'help'],
+  })
+  if (p.switches.has('help')) {
+    console.log(USAGE)
+    return 0
+  }
+  const set = one(p, 'set')
+  const strategyId = one(p, 'strategy')
+  const fromMs = dateMsArg(p, 'from')
+  const toMs = dateMsArg(p, 'to')
+  if (
+    !set ||
+    !/^[A-Za-z0-9-]+$/.test(set) ||
+    !strategyId ||
+    fromMs === undefined ||
+    one(p, 'per-month') === undefined ||
+    one(p, 'seed') === undefined
+  )
+    throw new Error(`missing --set/--strategy/--from/--per-month/--seed\n\n${USAGE}`)
+  const perMonth = intArg(p, 'per-month', 0)
+  const seed = intArg(p, 'seed', 0)
+  const edge = intArg(p, 'edge', 0)
+  const dataRoot = path.resolve(one(p, 'data-root') ?? DEFAULT_DATA_ROOT)
+  const params = paramArgs(p)
+  const built = await resolveParityStrategy({ strategyId, rawParams: params }, dataRoot)
+  const requiredFeeds = externalFeedsRequest(built)
+  const candidates = await listParityCandidates({
+    symbol: 'btc',
+    timeframe: '15m',
+    fromMs,
+    ...(toMs !== undefined ? { toMs } : {}),
+    requiredFeeds,
+    dataRoot,
+  })
+  await closeDb()
+  if (candidates.length === 0) throw new Error('no eligible candidates')
+  const hasLocal = (c: StratifiedCandidate) => localInputs(c, requiredFeeds, dataRoot)
+  const { selected, replaced, months } = stratifiedByMonth(candidates, perMonth, seed, hasLocal)
+  const chosen = new Set(selected.map((c) => c.slug))
+  // MS-3 proxy: largest and smallest input files among the remaining local candidates.
+  const rest = candidates
+    .filter((c) => !chosen.has(c.slug) && hasLocal(c))
+    .map((c) => ({ c, bytes: statSync(c.localPath).size }))
+    .sort((a, b) => a.bytes - b.bytes || a.c.slug.localeCompare(b.c.slug))
+  const half = Math.floor(edge / 2)
+  const edges = [
+    ...rest.slice(-(edge - half)).map((x) => ({ ...x, why: 'largest input file' })),
+    ...rest.slice(0, half).map((x) => ({ ...x, why: 'smallest input file' })),
+  ].slice(0, edge)
+  const all = [...selected, ...edges.map((e) => e.c)].sort(
+    (a, b) => a.marketStartMs - b.marketStartMs,
+  )
+  const eras: Record<string, number> = {}
+  for (const c of all) eras[feeEra(c.marketStartMs)] = (eras[feeEra(c.marketStartMs)] ?? 0) + 1
+  const first = new Date(candidates[0]!.marketStartMs).toISOString()
+  const last = new Date(candidates.at(-1)!.marketStartMs).toISOString()
+  const pin = resolvePin()
+  const header = [
+    `# Parity market set ${set} (native/spec/60-verification.md §4.2 MS-0..MS-5)`,
+    `# Selection command: npx tsx scripts/parity/select-set.ts ${process.argv.slice(2).join(' ')}`,
+    `# Seed: ${seed}; per month: ${perMonth}; edge markets: ${edge}`,
+    `# Eligibility (MS-2): listEligibleTelonexMarkets ${JSON.stringify({ symbol: 'btc', timeframe: '15m', converter: 'delta-typed', readFrom: 'local', requiredFeeds, fromMs, toMs: toMs ?? null })}`,
+    `# Eligible candidates: ${candidates.length}, market starts ${first} .. ${last} (the range ends where the local Telonex catalog ends, D38)`,
+    `# Stratification (calendar month, UTC): ${Object.entries(months)
+      .map(([m, n]) => `${m}=${n}`)
+      .join(' ')}`,
+    `# Fee eras (11 §5.3): ${Object.entries(eras)
+      .sort()
+      .map(([e, n]) => `${e}=${n}`)
+      .join(' ')}`,
+    `# MS-3 edge markets (proxy: input file size; the other MS-3 scan criteria are pending): ${edges.map((e) => `${e.c.slug} (${e.why}, ${e.bytes} B)`).join(', ') || 'none'}`,
+    `# MS-5 replaced (missing local input or feed day file): ${replaced.length}${replaced.length > 0 ? ` -- ${replaced.join(', ')}` : ''}`,
+    `# Oracle pin: ${pin}`,
+    `# Date: ${new Date().toISOString().slice(0, 10)}`,
+    `# Markets: ${all.length}`,
+  ]
+  const body = header.join('\n') + '\n' + all.map((c) => c.slug).join('\n') + '\n'
+  const out = path.join(PARITY_DIR, 'sets', `${set}.txt`)
+  if (p.switches.has('dry-run')) process.stdout.write(body)
+  else {
+    writeFileSync(out, body)
+    console.error(`[select-set] ${all.length} markets -> ${path.relative(REPO_ROOT, out)}`)
+  }
+  return 0
+}
+
+main()
+  .then((code) => {
+    process.exitCode = code
+  })
+  .catch(async (err: unknown) => {
+    console.error(`[select-set] ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`)
+    await closeDb().catch(() => {})
+    process.exitCode = 2
+  })

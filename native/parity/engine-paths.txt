@@ -1,0 +1,20 @@
+# Engine paths (native/spec/60-verification.md §2.2 OR-2).
+# The single list of TS paths whose changes can alter engine semantics.
+# Read by run-parity (OR-3 oracle-tree check), the trace cache key (OR-12),
+# the oracle env audit (OR-7) and, after G2, the CI parity rule (OR-14).
+# One path per line (file or directory, relative to the repository root).
+
+[engine]
+src/trading
+src/strategy
+src/market
+src/backtest
+src/parquet
+# window and token map (OR-2)
+src/polymarket/upDownSlugWindow.ts
+src/polymarket/gammaMarketMeta.ts
+
+[input-format]
+# A change here also triggers the format-version check of 15 §4.1.
+src/telonex/converters
+src/telonex/convert.ts

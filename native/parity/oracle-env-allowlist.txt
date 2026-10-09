@@ -1,0 +1,25 @@
+# Result-neutral environment reads under the engine paths
+# (native/spec/60-verification.md §2.3 OR-7; `npm run native:oracle:env-audit`).
+# The audit fails on any `process.env` read (or env helper call) under the
+# engine paths that is neither an OR-7 knob (src/backtest/parity/cell.ts
+# ORACLE_ENV_KEYS) nor listed here.
+#
+# Format: `var <NAME>  # reason` or `dynamic <file>  # reason` (a helper that
+# reads `process.env[name]`; its call sites are audited by name).
+
+var POLYGON_RPC_URL                  # live on-chain RPC (LiveExecution), never used in backtest
+var POLYMARKET_TX_MODE_SPLIT         # live split transport (LiveExecution)
+var POLYMARKET_TX_MODE_MERGE         # live merge transport (LiveExecution)
+var POLYMARKET_EOA_GAS_MULTIPLIER    # live gas pricing (LiveExecution)
+var SPLIT_MAX_RETRY                  # live split retries (LiveExecution)
+var SPLIT_RETRY_DELAY_MS             # live split retries (LiveExecution)
+var MERGE_MAX_RETRY                  # live merge retries (LiveExecution)
+var MERGE_RETRY_DELAY_MS             # live merge retries (LiveExecution)
+var STRATEGY_ARTIFACT_CACHE_DIR      # artifact cache location; bundles are sha256-verified on load
+var WORKER_LAUNCH_SHA                # commit gate of the worker path; provenance only
+var TELONEX_CONVERT_HEARTBEAT_MS     # conversion claim heartbeat (src/telonex/convert.ts); never in a replay
+var REDIS_URL                        # queue connection; parity runs never enqueue
+var BACKTEST_LATENCY_DELAY           # Market Simulator only (src/backtest/simulator); replay latency travels in the job
+var BACKTEST_LATENCY_JITTER          # Market Simulator only (src/backtest/simulator); replay latency travels in the job
+dynamic src/backtest/feeds/wireBacktestExternalFeeds.ts  # envInt(name) helper; call sites audited by name
+dynamic src/backtest/simulator/resolveMarket.ts          # envInt(name) helper; call sites audited by name

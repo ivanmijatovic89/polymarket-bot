@@ -1,0 +1,81 @@
+{
+  "cell": "T15-on",
+  "milestone": "M1 step 6 checkpoint (60 §4.1)",
+  "gating": false,
+  "set": "S15-CL",
+  "profile": "ts-compat",
+  "traceLevel": "feeds",
+  "inputMode": "telonex-delta",
+  "readFrom": "local",
+  "tsStrategy": {
+    "id": "feed-exerciser"
+  },
+  "rustStrategyId": "feed-exerciser.rs",
+  "params": {
+    "source": "inline",
+    "values": {
+      "tickOnUpdate": true,
+      "trade": false,
+      "ta": false,
+      "chainlink": true
+    }
+  },
+  "waitForTechnicalIndicators": false,
+  "modelConfig": {
+    "modelConfigVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "capital": {
+      "startingCapitalUsdc": "500"
+    },
+    "execution": {
+      "models": {
+        "latency": "compat",
+        "fee": "flat_700bps_4dp",
+        "takerDelay": "off",
+        "depletion": "none",
+        "maker": "worst_queue",
+        "reports": "compat"
+      },
+      "compatLatency": {
+        "delayMs": 0,
+        "jitterMs": 0
+      }
+    },
+    "feeds": {
+      "calibrationId": "feeds-2026-07-21",
+      "binance": {
+        "latency": {
+          "kind": "constant",
+          "ms": 110
+        }
+      },
+      "chainlink": {
+        "latency": {
+          "kind": "constant",
+          "ms": 320
+        },
+        "maxGapMs": 300000
+      },
+      "priceToBeat": {
+        "latency": {
+          "kind": "constant",
+          "ms": 2700
+        }
+      }
+    },
+    "runner": {
+      "maxEventsPerDrain": 4200
+    },
+    "risk": {
+      "maxOpenOrders": 100,
+      "maxOrderSize": "2000",
+      "maxAbsPosition": "2000",
+      "maxLossStopUsdc": "500"
+    },
+    "rules": {
+      "rulesTableVersion": "rules-table-v1",
+      "missingSnapshot": "dated_fallback"
+    }
+  }
+}
