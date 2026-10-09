@@ -1,0 +1,48 @@
+{
+  "benchSetVersion": 1,
+  "name": "heavy-1",
+  "description": "The heavy market btc-updown-15m-1780925400 (16 §13.1): per-market phase profile, same market as the Codex profile.",
+  "createdAt": "2026-10-09T09:59:42.416Z",
+  "inputMode": "telonex-delta",
+  "format": {
+    "name": "telonex-delta-typed",
+    "version": 1
+  },
+  "symbol": "btc",
+  "timeframe": "15m",
+  "strategy": "engine-exerciser",
+  "params": {},
+  "modelConfig": {
+    "path": "native/contract/model-configs/ts-compat-default.json",
+    "sha256": "c4b1c5f98785746010139fb73a229068ab87f8c47cf647e5aedf64b03a0df797"
+  },
+  "selection": {
+    "tool": "scripts/native/bench-sets.ts",
+    "source": "listEligibleTelonexSlugs",
+    "query": {
+      "symbol": "btc",
+      "timeframe": "15m",
+      "converter": "delta-typed",
+      "readFrom": "local"
+    },
+    "method": "fixed slug (16 §13.1)"
+  },
+  "totals": {
+    "markets": 1,
+    "bytes": 6444733,
+    "rows": 449314
+  },
+  "markets": [
+    {
+      "slug": "btc-updown-15m-1780925400",
+      "file": "data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1780925400.parquet",
+      "bytes": 6444733,
+      "sha256": "6cb68b9cd0408610b39d23ed1652594cb1339813965cfee2daa09949d2d79ab5",
+      "rows": 449314,
+      "tokens": {
+        "up": "24054595421060892265491572436562499410860829142855194311692931247378073741324",
+        "down": "33225363215944050958233467349136910051043645336887449789024372515306006054522"
+      }
+    }
+  ]
+}

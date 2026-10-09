@@ -1,0 +1,25 @@
+[package]
+name = "pmb-tape"
+description = "Derived native tape of telonex-delta files: typed rows, encoder, decoder, writer, lookup (16 §7.5)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "pmb-tape"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+parquet.workspace = true
+pmb-core.workspace = true
+pmb-replay.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+zstd.workspace = true
+
+[lints]
+workspace = true
