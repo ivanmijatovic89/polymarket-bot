@@ -3,8 +3,10 @@
 //! bid/ask, and the per-event "apply + read both tops" step of the replay.
 //!
 //! The stream is synthetic and deterministic (SplitMix64, no RNG crate): a
-//! random-walk mid on the 0.01 grid, level updates within 20 ticks of it
-//! (20% deletes), and a `book` snapshot of 30 + 30 levels every 100 events.
+//! random-walk mid on the 0.01 grid, kept within [0.22, 0.78] so every level
+//! update (within 20 ticks of it, 20% deletes) lies on the dense ladder in
+//! (0, 1) and none takes the overflow path; and a `book` snapshot of 30 + 30
+//! levels every 100 events (clipped to (0, 1)). `stream()` asserts this.
 //! Recorded streams are benched in `pmb-replay` (`--bench decode`).
 //! Run: `cargo bench -p pmb-book --bench book`.
 
@@ -17,6 +19,12 @@ const EVENTS: usize = 100_000;
 const SNAPSHOT_EVERY: usize = 100;
 const SNAPSHOT_DEPTH: i64 = 30;
 const TICK: i64 = 10_000; // 0.01 in micros
+/// Level offsets reach 19 ticks beyond the touch (bids one tick lower), so a
+/// mid in [MID_MIN, MID_MAX] keeps every level price in (0, 1) for both
+/// outcomes (the DOWN mid is 1 - mid).
+const MAX_OFFSET_TICKS: i64 = 19;
+const MID_MIN: i64 = 220_000;
+const MID_MAX: i64 = 1_000_000 - MID_MIN;
 
 fn splitmix(state: &mut u64) -> u64 {
     *state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
@@ -83,18 +91,22 @@ fn stream() -> Vec<Ev> {
         }
         if splitmix(&mut s) % 16 == 0 {
             let step = (splitmix(&mut s) % 3) as i64 - 1;
-            mid = (mid + step * TICK).clamp(100_000, 900_000);
+            mid = (mid + step * TICK).clamp(MID_MIN, MID_MAX);
         }
         let side = if splitmix(&mut s) % 2 == 0 {
             Side::Bid
         } else {
             Side::Ask
         };
-        let off = (splitmix(&mut s) % 20) as i64 * TICK;
+        let off = (splitmix(&mut s) % (MAX_OFFSET_TICKS as u64 + 1)) as i64 * TICK;
         let price = match side {
             Side::Bid => m - TICK - off,
             Side::Ask => m + off,
         };
+        assert!(
+            price > 0 && price < 1_000_000,
+            "synthetic level {price} is off the dense ladder"
+        );
         let size = if splitmix(&mut s) % 5 == 0 {
             0
         } else {

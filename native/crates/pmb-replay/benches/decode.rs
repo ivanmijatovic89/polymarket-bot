@@ -11,12 +11,17 @@
 //!   the top-change bit (BK-7) and both outcomes' best bid/ask per event.
 //!
 //! Inputs: the markets of the committed decode fixture
-//! (`native/fixtures/decode/telonex_book_golden.json`) and `heavy-1`
-//! (`btc-updown-15m-1780925400`, 16 §13.1), each only when its file exists
-//! under the data root (`PMB_BENCH_DATA_ROOT`, default `<repo>/data`); a
-//! missing file is skipped with a message. Files are read through the
-//! page cache (warm after criterion's warm-up).
-//! Run: `cargo bench -p pmb-replay --bench decode`.
+//! (`native/fixtures/decode/telonex_book_golden.json`) and `heavy-1` from its
+//! frozen manifest (`native/bench/sets/heavy-1.json`, 16 §13.1), whose size
+//! and sha256 are verified before any measurement (a changed source
+//! invalidates comparisons). Files are resolved under the data root
+//! (`PMB_BENCH_DATA_ROOT`, default `<repo>/data`; the L0 driver passes its
+//! `--data-root`). A missing market is an error unless
+//! `PMB_BENCH_ALLOW_MISSING=1` (the driver's `--allow-missing-markets`), in
+//! which case it is skipped with a message. These env variables configure
+//! the bench harness only, never an engine binary (R7). Files are read
+//! through the page cache (warm after criterion's warm-up).
+//! Run: `cargo bench -p pmb-replay --bench decode` or `npm run native:bench:l0`.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use parquet::data_type::{ByteArrayType, DataType, Int32Type, Int64Type};
@@ -24,15 +29,16 @@ use parquet::file::reader::{FileReader, RowGroupReader, SerializedFileReader};
 use parquet::schema::types::ColumnDescriptor;
 use pmb_book::{Level, MarketBooks, Side};
 use pmb_core::fixed::parse_decimal;
-use pmb_core::{parse_slug, MarketEvent, Outcome, QuoteSide};
+use pmb_core::{MarketEvent, Outcome, QuoteSide};
 use pmb_replay::telonex::file_asset_ids;
 use pmb_replay::{read_telonex_delta, TelonexInput, TelonexTape};
+use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const HEAVY_1: &str = "btc-updown-15m-1780925400";
+const HEAVY_1_MANIFEST: &str = "native/bench/sets/heavy-1.json";
 const DECIMAL_COLUMNS: [&str; 6] = [
     "bid_prices",
     "bid_sizes",
@@ -63,15 +69,70 @@ fn data_root() -> PathBuf {
     }
 }
 
-/// Canonical local path of a converted file
-/// (`data/events/telonex/<converter>/<symbol>/<timeframe>/<slug>.parquet`,
-/// `src/telonex/localOutputPath.ts`), relative to the data root.
-fn delta_typed_rel(slug: &str) -> PathBuf {
-    let info = parse_slug(slug).unwrap_or_else(|e| panic!("bench slug {slug}: {e}"));
-    PathBuf::from("events/telonex/delta-typed")
-        .join(info.symbol.as_str())
-        .join(info.timeframe.as_str())
-        .join(format!("{slug}.parquet"))
+fn allow_missing() -> bool {
+    std::env::var_os("PMB_BENCH_ALLOW_MISSING").is_some_and(|v| v == "1")
+}
+
+/// A market file that is absent: an error unless skipping was asked for.
+fn missing(what: &str, path: &Path) {
+    assert!(
+        allow_missing(),
+        "{what}: {} does not exist (set PMB_BENCH_ALLOW_MISSING=1 to skip it)",
+        path.display()
+    );
+    eprintln!(
+        "skip {what} (PMB_BENCH_ALLOW_MISSING=1): {}",
+        path.display()
+    );
+}
+
+fn sha256_hex(path: &Path) -> String {
+    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// `heavy-1` from its frozen manifest, with the pinned size and sha256
+/// verified (16 §13.1); `None` only when missing and skipping is allowed.
+fn heavy_1(data: &Path) -> Option<Market> {
+    let manifest_path = repo_root().join(HEAVY_1_MANIFEST);
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(&manifest_path)
+            .unwrap_or_else(|e| panic!("{}: {e}", manifest_path.display())),
+    )
+    .expect("heavy-1 manifest JSON");
+    let markets = manifest["markets"].as_array().expect("manifest markets");
+    assert_eq!(markets.len(), 1, "heavy-1 has exactly one market");
+    let m = &markets[0];
+    let slug = m["slug"].as_str().expect("slug");
+    let path = data.join(m["file"].as_str().expect("file"));
+    if !path.exists() {
+        missing("heavy-1", &path);
+        return None;
+    }
+    let bytes = std::fs::metadata(&path).expect("heavy-1 metadata").len();
+    assert_eq!(
+        Some(bytes),
+        m["bytes"].as_u64(),
+        "heavy-1 {}: size differs from the manifest (source changed, 16 §13.1)",
+        path.display()
+    );
+    assert_eq!(
+        sha256_hex(&path),
+        m["sha256"].as_str().expect("sha256"),
+        "heavy-1 {}: sha256 differs from the manifest (source changed, 16 §13.1)",
+        path.display()
+    );
+    let ids = file_asset_ids(&path).expect("heavy-1 asset ids");
+    assert!(ids.len() == 2, "heavy-1: expected 2 asset ids, got {ids:?}");
+    Some(Market {
+        label: format!("heavy-1/{slug}"),
+        path,
+        tokens: [ids[0].clone(), ids[1].clone()],
+        rows: 0,
+    })
 }
 
 fn markets() -> Vec<Market> {
@@ -90,10 +151,7 @@ fn markets() -> Vec<Market> {
             .and_then(|s| s.to_str())
             .expect("slug file name");
         if !path.exists() {
-            eprintln!(
-                "skip fixture market (no file on this host): {}",
-                path.display()
-            );
+            missing("fixture market", &path);
             continue;
         }
         let toks: Vec<String> = m["tokens"]
@@ -109,19 +167,7 @@ fn markets() -> Vec<Market> {
             rows: 0,
         });
     }
-    let heavy = data.join(delta_typed_rel(HEAVY_1));
-    if heavy.exists() {
-        let ids = file_asset_ids(&heavy).expect("heavy-1 asset ids");
-        assert!(ids.len() == 2, "heavy-1: expected 2 asset ids, got {ids:?}");
-        out.push(Market {
-            label: format!("heavy-1/{HEAVY_1}"),
-            path: heavy,
-            tokens: [ids[0].clone(), ids[1].clone()],
-            rows: 0,
-        });
-    } else {
-        eprintln!("skip heavy-1 (no file on this host): {}", heavy.display());
-    }
+    out.extend(heavy_1(&data));
     for m in &mut out {
         m.rows = read(m).diagnostics.rows_read;
     }

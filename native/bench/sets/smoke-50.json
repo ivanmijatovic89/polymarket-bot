@@ -1,0 +1,441 @@
+{
+  "name": "smoke-50",
+  "description": "50 BTC 15m markets stratified by row count: per-commit A/B and determinism suite (16 §13.1)",
+  "selection": {
+    "tool": "scripts/native/bench-select-set.ts",
+    "query": "listEligibleTelonexMarkets {symbol btc, timeframe 15m, converter delta-typed, readFrom local, resolvedOnly}",
+    "fromMs": 1764547200000,
+    "toMs": 1789603200000,
+    "eligible": 27614,
+    "usable": 27613,
+    "excluded": [
+      {
+        "slug": "btc-updown-15m-1765684800",
+        "reason": "local size 622721 differs from conversion size 587871 (D64)"
+      }
+    ],
+    "method": "sort by (rows, slug); 50 equal-count strata; each stratum's median market",
+    "universeRows": {
+      "min": 2,
+      "median": 126934,
+      "max": 566496,
+      "mean": 137207
+    },
+    "workload": "engine-exerciser.rs (30 §18, no params) with native/contract/model-configs/ts-compat-default.json",
+    "selectedAt": "2026-10-09T11:04:31.887Z"
+  },
+  "inputMode": "telonex-delta",
+  "strategy": {
+    "id": "engine-exerciser.rs",
+    "params": {}
+  },
+  "modelConfig": {
+    "modelConfigVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "capital": {
+      "startingCapitalUsdc": "500"
+    },
+    "execution": {
+      "models": {
+        "latency": "compat",
+        "fee": "flat_700bps_4dp",
+        "takerDelay": "off",
+        "depletion": "none",
+        "maker": "worst_queue",
+        "reports": "compat"
+      },
+      "compatLatency": {
+        "delayMs": 0,
+        "jitterMs": 0
+      }
+    },
+    "feeds": {
+      "calibrationId": "feeds-2026-07-21",
+      "binance": {
+        "latency": {
+          "kind": "constant",
+          "ms": 110
+        }
+      },
+      "chainlink": {
+        "latency": {
+          "kind": "constant",
+          "ms": 320
+        },
+        "maxGapMs": 300000
+      },
+      "priceToBeat": {
+        "latency": {
+          "kind": "constant",
+          "ms": 2700
+        }
+      }
+    },
+    "runner": {
+      "maxEventsPerDrain": 4200
+    },
+    "risk": {
+      "maxOpenOrders": 100,
+      "maxOrderSize": "2000",
+      "maxAbsPosition": "2000",
+      "maxLossStopUsdc": "500"
+    },
+    "rules": {
+      "rulesTableVersion": "rules-table-v1",
+      "missingSnapshot": "dated_fallback"
+    }
+  },
+  "markets": [
+    {
+      "slug": "btc-updown-15m-1765205100",
+      "sha256": "4f30abbfc6df80030f2614972685c9b2992732e347d2f6417d2e9fa8991776c9",
+      "bytes": 1535611,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1765205100.parquet",
+      "rows": 109027
+    },
+    {
+      "slug": "btc-updown-15m-1765360800",
+      "sha256": "2bfe358193a59542297c2b5ca2e1caa46048e02b9d71cda401909f8563e85183",
+      "bytes": 1601327,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1765360800.parquet",
+      "rows": 112218
+    },
+    {
+      "slug": "btc-updown-15m-1766351700",
+      "sha256": "cbd2601aef5500e05725208263165089a697955c1154f892bc3eb9a0a691c20e",
+      "bytes": 531464,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1766351700.parquet",
+      "rows": 36144
+    },
+    {
+      "slug": "btc-updown-15m-1766374200",
+      "sha256": "b8ecdf9a5fabbab1fc5b366d8c43d1be6cb54f0c2097a33ba0a88028a8568c6b",
+      "bytes": 1105999,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1766374200.parquet",
+      "rows": 75744
+    },
+    {
+      "slug": "btc-updown-15m-1766974500",
+      "sha256": "e6b23c1761ccba941cbf8bbebaf84d10dfd5e134c04fcf63ce5aa9f747e6297a",
+      "bytes": 914165,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1766974500.parquet",
+      "rows": 65471
+    },
+    {
+      "slug": "btc-updown-15m-1767641400",
+      "sha256": "9e63d95d26383669c63377b6c84ae2a01963c40d4847ee418e83b18c92521ff2",
+      "bytes": 676076,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1767641400.parquet",
+      "rows": 45585
+    },
+    {
+      "slug": "btc-updown-15m-1769033700",
+      "sha256": "a3eddff9e5e3de4c67d1acdcd4c7d9899808aaf5ac7ba5b8ec692b88c2258b10",
+      "bytes": 1576908,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1769033700.parquet",
+      "rows": 106187
+    },
+    {
+      "slug": "btc-updown-15m-1769519700",
+      "sha256": "8044ab7a397ab5facd64ffe23ac8f877d7d4b864e502f02547ddcba7814e8e88",
+      "bytes": 1815320,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1769519700.parquet",
+      "rows": 118780
+    },
+    {
+      "slug": "btc-updown-15m-1769955300",
+      "sha256": "1f43ff0d8a7b87e194b0d5ee9dc210f38f5e4638084ae9438749f877b6a4993c",
+      "bytes": 3259215,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1769955300.parquet",
+      "rows": 216815
+    },
+    {
+      "slug": "btc-updown-15m-1770137100",
+      "sha256": "783eb112b1340bc857ddbec408809e46b2ee724946501149c0118425a18e937d",
+      "bytes": 5249467,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1770137100.parquet",
+      "rows": 346317
+    },
+    {
+      "slug": "btc-updown-15m-1770405300",
+      "sha256": "1603cac83017215c5ee8e582e771134423c0d737e2ee52e519e3e4f8046b5c7b",
+      "bytes": 2754285,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1770405300.parquet",
+      "rows": 176773
+    },
+    {
+      "slug": "btc-updown-15m-1770798600",
+      "sha256": "549feec960b3b0b58f1f6bfaf5b470add97bb5e7f3fdcf0f66b8676ca0fd5299",
+      "bytes": 3611634,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1770798600.parquet",
+      "rows": 237320
+    },
+    {
+      "slug": "btc-updown-15m-1771011900",
+      "sha256": "67db73a6425cf2d57c79489d0cbb52b4a521dd5d60de33ca170a365c615e304c",
+      "bytes": 2894499,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1771011900.parquet",
+      "rows": 193801
+    },
+    {
+      "slug": "btc-updown-15m-1771324200",
+      "sha256": "5ffe32a6669c94f3cf260737ed3e356391147f6a97105543a46cf1e731e1bc73",
+      "bytes": 2309418,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1771324200.parquet",
+      "rows": 154114
+    },
+    {
+      "slug": "btc-updown-15m-1771445700",
+      "sha256": "3113fcd2777e2584577997d0c200a1d237e2b537fd6a53566b028e505e768f63",
+      "bytes": 2829745,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1771445700.parquet",
+      "rows": 187798
+    },
+    {
+      "slug": "btc-updown-15m-1772088300",
+      "sha256": "823a47ade408d108938a485b1f0122913f20ab9f7c4b9af477c34623b7066169",
+      "bytes": 1713449,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1772088300.parquet",
+      "rows": 115488
+    },
+    {
+      "slug": "btc-updown-15m-1772758800",
+      "sha256": "ec236500d34bff10914e699c8dfe861e9eeeaa45fccfa936b3a7e059321e2cb5",
+      "bytes": 2434174,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1772758800.parquet",
+      "rows": 166705
+    },
+    {
+      "slug": "btc-updown-15m-1773122400",
+      "sha256": "777921ce41f49d5a5660560e1750631dbb6997b9d3b7a14d01334a0c196ec981",
+      "bytes": 2132781,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1773122400.parquet",
+      "rows": 146302
+    },
+    {
+      "slug": "btc-updown-15m-1773390600",
+      "sha256": "cbe60bd7450cf27de693787a8aced80e35ac537faba76d48574d5254c484ebe3",
+      "bytes": 1964870,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1773390600.parquet",
+      "rows": 135297
+    },
+    {
+      "slug": "btc-updown-15m-1773603000",
+      "sha256": "d279a2cacffad9ba288494395ef28fc9d1cd82607de00ec8108cab611061254f",
+      "bytes": 2043037,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1773603000.parquet",
+      "rows": 138986
+    },
+    {
+      "slug": "btc-updown-15m-1774026000",
+      "sha256": "8c3615a5d48602b019d89419875d7100b5c95190c08f1c328f6c9921442181af",
+      "bytes": 3751921,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1774026000.parquet",
+      "rows": 267391
+    },
+    {
+      "slug": "btc-updown-15m-1774327500",
+      "sha256": "171695b6c6a0af3c8f19e38b35f67f0c918405b234bc1585994514d123a15fcc",
+      "bytes": 2247266,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1774327500.parquet",
+      "rows": 150231
+    },
+    {
+      "slug": "btc-updown-15m-1774719000",
+      "sha256": "180d4fe5cfb4afdb8e99dbfd607ee906de2ec9c7eff405bfc782ac8a3a569db5",
+      "bytes": 1298419,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1774719000.parquet",
+      "rows": 89490
+    },
+    {
+      "slug": "btc-updown-15m-1775017800",
+      "sha256": "9bf28855bf3c3d50104b30a901c067f8b7552a9f9cded6ba472a5809cd49e10d",
+      "bytes": 1206983,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1775017800.parquet",
+      "rows": 82569
+    },
+    {
+      "slug": "btc-updown-15m-1775631600",
+      "sha256": "16fdc01a66e30515dd72e4c5c9176d8305f02252daae237edf76273e17a6f14b",
+      "bytes": 1853118,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1775631600.parquet",
+      "rows": 128578
+    },
+    {
+      "slug": "btc-updown-15m-1775909700",
+      "sha256": "9557b5dec3c974b1a2216f964c91943d97aca6eabc470ba407f53497ce75f4e3",
+      "bytes": 848970,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1775909700.parquet",
+      "rows": 61407
+    },
+    {
+      "slug": "btc-updown-15m-1776837600",
+      "sha256": "f83f22248e7dbb5429f5328eb8581e00d85dcadd54215c867bcc4711cab1bef1",
+      "bytes": 1882706,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1776837600.parquet",
+      "rows": 131939
+    },
+    {
+      "slug": "btc-updown-15m-1776871800",
+      "sha256": "d30966c2e3cc4d18deb97cec3d18186e7429f862ccdb5f47c362bc63ec6cf199",
+      "bytes": 1965405,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1776871800.parquet",
+      "rows": 142577
+    },
+    {
+      "slug": "btc-updown-15m-1777002300",
+      "sha256": "50989dab5bbec590b06307199fbb6ef48cf54835b2216c58581521264a3d5db7",
+      "bytes": 1096584,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1777002300.parquet",
+      "rows": 78955
+    },
+    {
+      "slug": "btc-updown-15m-1777065300",
+      "sha256": "850ca6cdeee9e40d23f02941d8e357692b6182c03a881793366a54fd233de511",
+      "bytes": 979446,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1777065300.parquet",
+      "rows": 72429
+    },
+    {
+      "slug": "btc-updown-15m-1777086900",
+      "sha256": "713374d419605783cc29442f5b8171aeb89a867565eb60f11945f8c55e782826",
+      "bytes": 765636,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1777086900.parquet",
+      "rows": 57061
+    },
+    {
+      "slug": "btc-updown-15m-1777369500",
+      "sha256": "a0a776987701a877a8670615dc804a86e077da81d0a6ea8bcca8f06a14303d95",
+      "bytes": 1364146,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1777369500.parquet",
+      "rows": 95988
+    },
+    {
+      "slug": "btc-updown-15m-1778617800",
+      "sha256": "0054e7e937972270ec73466476a38a9ab96d365ace22e06791a8c9990b138796",
+      "bytes": 695899,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1778617800.parquet",
+      "rows": 52138
+    },
+    {
+      "slug": "btc-updown-15m-1779479100",
+      "sha256": "4e61614ffac528f71ec4905f6e0772c35ff97dc2844f5924a612b9aa99b47a2b",
+      "bytes": 2876249,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1779479100.parquet",
+      "rows": 200484
+    },
+    {
+      "slug": "btc-updown-15m-1779711300",
+      "sha256": "303d9de3e239e889a3ceff5f16dbc0ddf00d60f0741f79192afa554d1c10a234",
+      "bytes": 1763399,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1779711300.parquet",
+      "rows": 125450
+    },
+    {
+      "slug": "btc-updown-15m-1780227000",
+      "sha256": "ac063107c5b319b53bf8820d158054e07deb541a2a570dc3a4aef59e4266317e",
+      "bytes": 938984,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1780227000.parquet",
+      "rows": 69125
+    },
+    {
+      "slug": "btc-updown-15m-1780303500",
+      "sha256": "b050bd0654c86f43ee84578983d1d537fc90d159f048d7cca5ab0ebc36e5a176",
+      "bytes": 1199684,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1780303500.parquet",
+      "rows": 86207
+    },
+    {
+      "slug": "btc-updown-15m-1780733700",
+      "sha256": "e27ae323f58da6900d5a62972d3e2fc9253cf645989f9216242d4b7d336dd517",
+      "bytes": 3008234,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1780733700.parquet",
+      "rows": 226328
+    },
+    {
+      "slug": "btc-updown-15m-1781126100",
+      "sha256": "dfb4a3080f501ae648d1d1a8ff23d42c0d0dd6b328d8953f9e8d074a4372a38d",
+      "bytes": 2302758,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1781126100.parquet",
+      "rows": 162414
+    },
+    {
+      "slug": "btc-updown-15m-1781694000",
+      "sha256": "0b946dbeec19eaa67b23afba7eb83767d0ac844a2f977b95125d62f95a62a0e5",
+      "bytes": 2369466,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1781694000.parquet",
+      "rows": 171510
+    },
+    {
+      "slug": "btc-updown-15m-1782043200",
+      "sha256": "b0d3b998a29977da635eacd30b11a6bf97111dd75fef1058526c2bbe7e113796",
+      "bytes": 2480861,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1782043200.parquet",
+      "rows": 182504
+    },
+    {
+      "slug": "btc-updown-15m-1782983700",
+      "sha256": "b5032eab14f2b87a86e8c1f92340379db11426382649720ea619b9be2f9d9ca8",
+      "bytes": 1661549,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1782983700.parquet",
+      "rows": 122207
+    },
+    {
+      "slug": "btc-updown-15m-1783661400",
+      "sha256": "d0dde77e8ee1894a73260beca1dfcc06134dbb88ca8b37fa33cb9e379bf31276",
+      "bytes": 2093918,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1783661400.parquet",
+      "rows": 158145
+    },
+    {
+      "slug": "btc-updown-15m-1785050100",
+      "sha256": "a7f7a140bb43d41923d936e0d837bc2fc9e2d05880a0e4bf2b37b9ab24aa17a0",
+      "bytes": 1268335,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1785050100.parquet",
+      "rows": 99292
+    },
+    {
+      "slug": "btc-updown-15m-1785682800",
+      "sha256": "0673a3b81285710f74e009d328a49967ee711e1284de266500c78d44bdef1b0f",
+      "bytes": 1212253,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1785682800.parquet",
+      "rows": 92821
+    },
+    {
+      "slug": "btc-updown-15m-1786782600",
+      "sha256": "bd1014c7ca7b623406a4897f0c6a7305edfb75f6458f9b56276ace46be560dba",
+      "bytes": 1359826,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1786782600.parquet",
+      "rows": 102628
+    },
+    {
+      "slug": "btc-updown-15m-1787116500",
+      "sha256": "2286d84d17eda216f0e37d55b34eb9bc7de677b49bd683dcba176652a75f5679",
+      "bytes": 18906,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1787116500.parquet",
+      "rows": 748
+    },
+    {
+      "slug": "btc-updown-15m-1787344200",
+      "sha256": "550159368f7fc3daa223168e84468040138ff4eb7da7f7f564a8a386ddca4236",
+      "bytes": 3594489,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1787344200.parquet",
+      "rows": 251082
+    },
+    {
+      "slug": "btc-updown-15m-1787693400",
+      "sha256": "fc44b808c3f9c6746625cd2c5f1ecff37cfb107557e7de8b4e72baa55726e4df",
+      "bytes": 2833739,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1787693400.parquet",
+      "rows": 208324
+    },
+    {
+      "slug": "btc-updown-15m-1788127200",
+      "sha256": "86c325d82d956cdf157a49feb045e09c51147b8aebddaed66a3d9400e3477ced",
+      "bytes": 4175262,
+      "file": "events/telonex/delta-typed/btc/15m/btc-updown-15m-1788127200.parquet",
+      "rows": 292250
+    }
+  ]
+}
