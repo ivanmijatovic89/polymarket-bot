@@ -209,6 +209,18 @@ fn typed_json_and_mixed() {
     // Integral JSON numbers are integers by exact value (rule 10).
     let p = LagParams::from_json_str(r#"{"maxTrades":20.0,"cooldown":2e3}"#).unwrap();
     assert_eq!((p.max_trades, p.cooldown), (20, DurMs(2000)));
+    // JS JSON.stringify renderings (`1e+21`, `1e-7`) read back by value.
+    let p = LagParams::from_json_str(
+        r#"{"sigma":1e+300,"size":5e+0,"maxTrades":2e+1,"cooldown":1.5e+3,"stakeUsd":1e-6}"#,
+    )
+    .unwrap();
+    assert_eq!(p.sigma, 1e300);
+    assert_eq!(
+        (p.size, p.max_trades, p.cooldown),
+        (qty!(5), 20, DurMs(1500))
+    );
+    assert_eq!(p.stake_usd, usdc!(0.000001));
+    assert_idempotent(&p);
 }
 
 // spec: 10 §2 T6, 30 §9 table: fixed point is parsed from the decimal text, never via f64
