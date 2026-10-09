@@ -442,3 +442,23 @@ Options:
 Why: Pre-registration prevents moving the goalposts, and $100 cannot validate size effects or edge.
 
 Decision: Accepted as recommended (lead, 2026-10-08; user may change at gate 1).
+
+## D36. Which machine hosts implementation, builds, parity runs and benchmarks?
+
+**Decision (user, 2026-10-09):** worker-1 (Mac mini M4, 4P+6E, 16 GB, 77 GB free, all 31,186 BTC 15m telonex-delta files and Binance day files present, Claude Code installed). The MacBook has only 2.6 GB free disk. The goal session runs on worker-1 in its own checkout; Rust toolchain 1.89.0 is installed there via rustup (user-level). The fleet worker and Global Runtime on worker-1 are paused while benchmarks run.
+
+## D37. Capture per-market exchange rules before gate 2?
+
+**Decision (user, 2026-10-09):** yes. A small, engine-independent capture script (Gamma/CLOB rules before each market starts) is merged to main on its own and runs on worker-1, writing local files imported into the rules table in M3a. One-time exception to "main untouched until gate 2".
+
+## D38. BTC 5m data for parity?
+
+**Decision (user, 2026-10-09):** the Telonex subscription has expired, so no new Telonex sync now. Gate 2 covers BTC 15m only (existing local data). BTC 5m parity and the Telonex trades follow-up wait until the user renews the subscription; Recorder V4 recordings are unaffected.
+
+## D39. When do AI protocols move to authoring Rust strategies?
+
+**Decision (user, 2026-10-09):** right after M6 (fleet integration), in parallel with live/calibration work, so the fleet-wide speedup arrives sooner.
+
+## D40. lagsnipe.v15 source
+
+**Decision (lead, 2026-10-09):** port from the built artifact `304eceb3…` (complete and readable); no user input needed.
