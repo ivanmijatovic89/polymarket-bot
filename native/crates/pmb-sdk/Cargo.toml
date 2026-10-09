@@ -16,3 +16,6 @@ serde_json = { workspace = true, features = ["raw_value"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

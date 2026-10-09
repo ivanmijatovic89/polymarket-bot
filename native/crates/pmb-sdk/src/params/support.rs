@@ -238,6 +238,10 @@ pub fn merge_validate<T: ParamsFields>(v: &T, path: &str, errs: &mut ParamError)
 
 /// Parses a params object: duplicate keys, fields, unknown keys
 /// (30 §9 rule 3), then `validate` when every field parsed.
+// D-PENDING: 30 §9 rule 3 is silent on repeated keys; chose a DuplicateKey
+// error (R14) for a key repeated in a JSON object or in --param arguments.
+// Unknown keys are one issue at the object's path that lists every unknown
+// key and every valid key (rule 3 wording).
 pub(crate) fn parse_object<T: ParamsFields>(
     entries: &[(String, Input)],
     path: &str,

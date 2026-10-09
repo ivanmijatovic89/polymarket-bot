@@ -167,6 +167,10 @@ macro_rules! int_param {
                     // CLI string: Rust `FromStr` (§9 table).
                     Input::String(s) => s.parse::<$t>().ok(),
                     // Typed JSON: a number whose exact value is an integer.
+                    // D-PENDING: 30 §9 says "integer"; chose to accept any
+                    // JSON number with an integral exact value (20.0, 2e1),
+                    // consistent with rule 10, while CLI strings keep Rust
+                    // FromStr ("20.0" is rejected).
                     Input::Number(n) => integer_text(n).and_then(|t| t.parse::<$t>().ok()),
                     _ => None,
                 };
@@ -392,6 +396,8 @@ impl<T: ParamValue> ParamValue for Option<T> {
         match input {
             // Typed `null` and the CLI string "null" are None (§9 table).
             Input::Null => Some(None),
+            // D-PENDING: a mixed object cannot tell a CLI string from a typed
+            // string, so Option<String> also reads "null" as None.
             Input::String(s) if s == "null" => Some(None),
             _ => T::parse(input, path, errs).map(Some),
         }

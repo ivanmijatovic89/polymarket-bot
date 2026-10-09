@@ -164,6 +164,10 @@ pub trait ParamEnum: Sized + 'static {
     fn from_name(name: &str) -> Option<Self>;
 }
 
+// D-PENDING: 30 §3 lists only Params, ParamEnum and ParamError; chose to
+// also expose `pmb_sdk::params::{ParamIssue, ParamErrorKind, normalized_eq,
+// normalized_eq_value}` for the per-issue path/message of 20 §5.1 and the
+// comparison of §9 rule 10.
 /// What a params issue is about (30 §9).
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

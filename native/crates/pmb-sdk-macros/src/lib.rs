@@ -26,6 +26,23 @@ fn emit(r: syn::Result<proc_macro2::TokenStream>) -> TokenStream {
 }
 
 /// Derives `pmb_sdk::Params` for a struct of named fields (30 §9).
+///
+/// Keys are the camelCase field names (`max_price` → `maxPrice`). Field
+/// options, in `#[param(..)]`:
+///
+/// | Option | Meaning |
+/// |---|---|
+/// | `default = <literal or expr>` | Value when the key is absent. Fixed-point literals (`Price`, `Qty`, `Usdc`, `Rate`) are parsed from their digits at compile time; a string literal on a `#[derive(ParamEnum)]` field names a variant (checked at compile time). Not allowed on `Option` fields (they default to `None`). |
+/// | `default` | `Default::default()` (for example an empty `Vec`). |
+/// | `min = <lit>`, `max = <lit>` | Inclusive bounds of a numeric field (or of the value inside an `Option`). |
+/// | `exclusive_min = <lit>`, `exclusive_max = <lit>` | Exclusive bounds (Zod `.positive()` is `exclusive_min = 0`). |
+/// | `rename = "key"` | Another key (30 §9 rule 4). |
+/// | `flatten` | Merge the keys of a nested `#[derive(Params)]` struct into this object (rule 5); key collisions fail compilation. |
+///
+/// A field without `default` is required, except `Option` fields. Doc
+/// comments become schema descriptions. On the struct, `#[param(validate)]`
+/// leaves `impl Params for T { fn validate(&self) .. }` to the author for
+/// cross-field rules; without it the derive writes an empty `impl Params`.
 #[proc_macro_derive(Params, attributes(param))]
 pub fn derive_params(input: TokenStream) -> TokenStream {
     emit(params::derive(syn::parse_macro_input!(

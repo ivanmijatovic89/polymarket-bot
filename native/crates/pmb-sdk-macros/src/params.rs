@@ -13,6 +13,9 @@ use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Expr, ExprLit, Field, Fields, Ident, Lit, LitStr, Token, Type};
 
+// D-PENDING: 30 §9 rule 2 names only min/max; chose to add exclusive_min and
+// exclusive_max (JSON Schema exclusiveMinimum/exclusiveMaximum) because TS
+// ports use Zod `.positive()` (lagsnipe.v15 sigma, stakeUsd, ...).
 const FIELD_OPTIONS: &str = "default, min, max, exclusive_min, exclusive_max, rename, flatten";
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -353,6 +356,10 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 }
 
 /// Container options: `#[param(validate)]` only.
+// D-PENDING: 30 §9 rule 2 makes `validate` a trait method with a default,
+// but the derive implements the trait; chose a container opt-in
+// `#[param(validate)]` that leaves `impl Params` (with `validate`) to the
+// author.
 fn parse_container(input: &DeriveInput) -> syn::Result<bool> {
     let mut validate = false;
     for attr in &input.attrs {
@@ -710,6 +717,10 @@ fn compile_default(
     Ok(CompiledDefault::new(quote!(#expr), None))
 }
 
+// D-PENDING: 30 §9 rule 1 gives Option fields the default None and rule 6
+// omits None; an explicit Some default would make `null` normalize to absent
+// and absent re-parse to Some (not idempotent); chose to reject a default on
+// an Option field at compile time.
 fn option_default_error(span: Span) -> syn::Error {
     syn::Error::new(
         span,
