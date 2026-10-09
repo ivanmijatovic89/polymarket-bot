@@ -1,5 +1,5 @@
 import '../../config/env.js'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import {
   createWriteStream,
   existsSync,
@@ -61,6 +61,8 @@ import {
 } from '../../backtest/parity/oracle.js'
 import {
   assertEngineJobStrategy,
+  checkDescribe,
+  describeArgs,
   loadEngineJobBuilder,
   nativeJobFor,
   rustRunArgs,
@@ -218,6 +220,7 @@ async function main(): Promise<number> {
       'rust-bin',
       'tolerance',
       'trace-cache',
+      'engine-job-builder',
     ],
     switches: ['repeat-ts', 'rust-only', 'plain', 'help'],
   })
@@ -342,15 +345,37 @@ async function main(): Promise<number> {
       `rust=${rustBin ? cell.rustStrategyId : 'off'} level=${cell.traceLevel} concurrency=${concurrency} pin=${pin.slice(0, 10)} oracleTreeClean=${tree.oracleTreeClean}`,
   )
 
-  const buildEngineJob = rustBin ? await loadEngineJobBuilder() : null
+  const builderOverride = one(p, 'engine-job-builder')
+  if (builderOverride) nonGating.push(`--engine-job-builder ${builderOverride} (harness self-test)`)
+  const buildEngineJob = rustBin ? await loadEngineJobBuilder(builderOverride) : null
   const rustSha = rustBin ? await fileSha256(rustBin) : null
-  const rustDir = path.join(outDir, 'rust')
-  if (rustBin) mkdirSync(rustDir, { recursive: true })
-  const matchers = loadMatchers(path.join(PARITY_DIR, 'matchers'))
   const childEnvRust: Record<string, string> = {
     TZ: 'UTC',
     ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
   }
+  // 20 §5.1 pre-flight: same strategy id, params, feeds, trace format (fail loud, R14).
+  let rustBinary: unknown = null
+  if (rustBin) {
+    const doc = JSON.parse(
+      execFileSync(rustBin, describeArgs(built.params as Record<string, unknown>), {
+        env: childEnvRust,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      }),
+    ) as { binary?: unknown }
+    const problems = checkDescribe(doc, cell, {
+      params: built.params as Record<string, unknown>,
+      requiredFeeds: feeds,
+    })
+    if (problems.length > 0)
+      throw new Error(
+        `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
+      )
+    rustBinary = doc.binary ?? null
+  }
+  const rustDir = path.join(outDir, 'rust')
+  if (rustBin) mkdirSync(rustDir, { recursive: true })
+  const matchers = loadMatchers(path.join(PARITY_DIR, 'matchers'))
   const tsTraceEntry = path.join(REPO_ROOT, 'src', 'cli', 'parity', 'ts-trace.ts')
 
   // OR-12 trace cache (HR-4): only on a clean working tree, whose tree hashes describe the code.
@@ -573,7 +598,10 @@ async function main(): Promise<number> {
       size: setSlugs.length,
       selected: slugs.length,
     },
-    rust: rustBin && rustSha ? { bin: path.resolve(rustBin), sha256: rustSha } : null,
+    rust:
+      rustBin && rustSha
+        ? { bin: path.resolve(rustBin), sha256: rustSha, binary: rustBinary }
+        : null,
     markets,
     totals: computeTotals(markets),
     coverage: {

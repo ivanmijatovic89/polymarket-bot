@@ -90,7 +90,8 @@ export type ParityManifest = {
   tolerance: number | null
   modelConfigSha256: string
   marketSet: { name: string; file: string; sha256: string; size: number; selected: number }
-  rust: { bin: string; sha256: string } | null
+  /** The canonical binary (VP-7) and its `describe` identity (20 §5.1). */
+  rust: { bin: string; sha256: string; binary: unknown } | null
   markets: MarketEntry[]
   totals: Totals
   coverage: {
