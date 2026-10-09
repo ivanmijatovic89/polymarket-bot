@@ -1,0 +1,47 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "engine_fault",
+    "cause": "invariant",
+    "message": "pnl identity violated: cashEnd - cashStart + winningShares != pnl",
+    "detail": {
+      "location": "crates/pmb-engine/src/stats.rs:120"
+    }
+  },
+  "echo": {
+    "engineVersion": "0.1.0",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
+    "strategyId": "engine-exerciser.v2.rs",
+    "jobSchemaVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "rulesTableVersion": "rules-table-v1",
+    "snapshotParserVersion": null
+  },
+  "market": {
+    "slug": "btc-updown-15m-1780272000",
+    "conditionId": "0x8f3c1a2b",
+    "rulesSource": "fallback"
+  },
+  "candidates": [],
+  "resultDigest": "a8f3bc12ee5f227cb18f282c4560df862584fdba59f453121bd2a117f56a572d",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 1
+    },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

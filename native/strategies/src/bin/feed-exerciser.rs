@@ -1,0 +1,402 @@
+//! Feed exerciser `feed-exerciser.rs` (60 §5.8, 14 §13 V-3, D20): a
+//! deterministic parity-test strategy for feeds, plugins and synthetic ticks,
+//! not a trading strategy. TS twin: `src/strategies/testing/feed-exerciser.ts`
+//! (id `feed-exerciser`).
+//!
+//! It requests every historical feed (Binance aggTrades, Chainlink unless
+//! `chainlink: false`, price to beat) with `tickOnUpdate` per the param, and
+//! the plugins TimeWindowVolatility, DwellGate, TimeWindowGate and, only when
+//! `ta`, TechnicalIndicators (D19 as amended). The parity trace at level
+//! `feeds` records what the strategy can see on every tick (22 §3.2); the
+//! strategy itself reads nothing.
+//!
+//! - `trade: false` returns no intents (the T15 tick-stream checkpoint).
+//! - `trade: true` runs the engine exerciser schedule
+//!   ([`native_strategies::exerciser`]) on real ticks only: synthetic feed
+//!   ticks never count (60 §5.1). Both twins run the schedule of
+//!   `EXERCISER_SCHEDULE_VERSION`, as the TS twin does.
+
+// D-PENDING: 60 §5.8 says `trade: true` runs schedule v2, which 01 §4.1
+// stages in M2. Until v2 lands in both twins, both run the schedule version
+// they implement (v1), so a `trade: true` cell behaves the same on both
+// sides instead of running on TS and failing `describe` on Rust.
+
+use native_strategies::exerciser::Exerciser;
+use pmb_sdk::prelude::*;
+
+/// Feed exerciser params (60 §5.8): `{tickOnUpdate, trade, ta, chainlink}`;
+/// only `chainlink` has a default.
+#[derive(Params, Clone, Debug)]
+#[param(selftest = r#"{"tickOnUpdate":false,"trade":false,"ta":false}"#)]
+struct FeedExerciserParams {
+    /// Opt into synthetic strategy ticks on every update of each requested
+    /// spot feed (Binance aggTrade, Chainlink round; 14 §8).
+    tick_on_update: bool,
+    /// Run the engine exerciser schedule on real ticks.
+    trade: bool,
+    /// Also request the TechnicalIndicators plugin.
+    ta: bool,
+    /// Request Chainlink. `false` exists for agent-run paper sessions, which
+    /// load no Chainlink credentials; every parity cell uses `true`.
+    #[param(default = true)]
+    chainlink: bool,
+}
+
+// D-PENDING: 60 §5.8 names the plugins but not their configs; the TS twin
+// fixed them in `FEED_EXERCISER_PLUGIN_CONFIG` (volatility 10 s and 60 s on
+// the mid, dwell band [0.40, 0.60] for 5 s on the bid, gate open 60 s to
+// 840 s after the start). Mirrored here; the tests compare them with the
+// shared fixture `fixtures/feed-exerciser-plugin-config.json`.
+
+/// TimeWindowVolatility: windows 10 s and 60 s on the mid (TS
+/// `trackPrice: 'mid'`).
+fn time_window_volatility_config() -> TimeWindowVolatilityConfig {
+    TimeWindowVolatilityConfig::new([("10s", 10_000), ("60s", 60_000)], VolPrice::Mid)
+}
+
+/// DwellGate: band [0.40, 0.60] held for 5 s, on the bid.
+fn dwell_gate_config() -> DwellGateConfig {
+    DwellGateConfig {
+        from: price!(0.40),
+        to: price!(0.60),
+        required_ms: 5_000,
+        track_price: BidOrAsk::Bid,
+    }
+}
+
+/// TimeWindowGate: open from 60 s to 840 s after the market start.
+fn time_window_gate_config() -> TimeWindowGateConfig {
+    TimeWindowGateConfig {
+        allow_after_ms: 60_000,
+        disable_after_ms: 840_000,
+    }
+}
+
+/// The feed exerciser (60 §5.8). One instance per market (30 §4 rule 4).
+#[derive(Debug)]
+struct FeedExerciser {
+    /// The engine exerciser schedule when `trade: true`.
+    trade: Option<Exerciser>,
+}
+
+impl Strategy for FeedExerciser {
+    type Params = FeedExerciserParams;
+    const ID: &'static str = "feed-exerciser.rs";
+
+    fn requirements(p: &FeedExerciserParams) -> Requirements {
+        // Symbols follow the traded market (14 F-49).
+        let feed = FeedOptions::default().tick_on_update(p.tick_on_update);
+        let mut r = Requirements::new().binance_spot(feed.clone());
+        if p.chainlink {
+            r = r.chainlink(feed);
+        }
+        r = r
+            .price_to_beat()
+            .time_window_volatility(time_window_volatility_config())
+            .dwell_gate(dwell_gate_config())
+            .time_window_gate(time_window_gate_config());
+        if p.ta {
+            r = r.technical_indicators(TechnicalIndicatorsConfig::default());
+        }
+        r
+    }
+
+    // `interests` keeps its default (all events, every tick): a ts-compat
+    // port MUST NOT declare a tick interest (30 §4.1). Synthetic ticks are
+    // opted into per feed above.
+
+    fn new(p: &FeedExerciserParams, _market: &MarketInfo) -> Self {
+        FeedExerciser {
+            trade: p.trade.then(Exerciser::default),
+        }
+    }
+
+    /// `trade: false`: no intents, on real and synthetic ticks alike.
+    /// `trade: true`: the schedule, which skips synthetic ticks itself.
+    fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) -> StrategyResult {
+        if let Some(schedule) = &mut self.trade {
+            schedule.on_tick(ctx, out);
+        }
+        Ok(())
+    }
+
+    fn on_event(&mut self, ctx: &Ctx, event: &AccountEvent, out: &mut Intents) -> StrategyResult {
+        if let Some(schedule) = &mut self.trade {
+            schedule.on_event(ctx, event, out);
+        }
+        Ok(())
+    }
+}
+
+pmb_sdk::strategy_main!(FeedExerciser);
+
+/// Params, requirements and `trade` behavior (60 §5.8, 30 §9, §10, §15).
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pmb_sdk::json::Value;
+    use pmb_sdk::testkit::{Profile, TestMarket};
+
+    /// The TS twin's `FEED_EXERCISER_PLUGIN_CONFIG`, in its JSON shape. Both
+    /// twins check their configs against this one file.
+    const TS_PLUGIN_CONFIG: &str = include_str!("../../fixtures/feed-exerciser-plugin-config.json");
+
+    fn params(args: &[&str]) -> Result<FeedExerciserParams, ParamError> {
+        FeedExerciserParams::from_cli(args.iter().copied())
+    }
+
+    /// The three plugin configs built from the shared fixture, independently
+    /// of the strategy's own config functions.
+    fn fixture_configs() -> (
+        TimeWindowVolatilityConfig,
+        DwellGateConfig,
+        TimeWindowGateConfig,
+    ) {
+        let v: Value = TS_PLUGIN_CONFIG.parse().expect("fixture is JSON");
+        let ms = |v: &Value| v.as_i64().expect("fixture duration is an integer");
+        let price = |v: &Value| {
+            let x = v.as_f64().expect("fixture price is a number");
+            Price::from_f64(x, Rounding::HalfAwayFromZero).expect("fixture price is finite")
+        };
+
+        let vol = &v["timeWindowVolatility"];
+        let track_vol = match vol["trackPrice"].as_str() {
+            Some("mid") => VolPrice::Mid,
+            Some("bid") => VolPrice::Bid,
+            Some("ask") => VolPrice::Ask,
+            other => panic!("fixture timeWindowVolatility.trackPrice {other:?}"),
+        };
+        let windows: Vec<(String, i64)> = vol["windows"]
+            .as_object()
+            .expect("fixture windows is an object")
+            .iter()
+            .map(|(label, w)| (label.clone(), ms(w)))
+            .collect();
+
+        let dwell = &v["dwellGate"];
+        let track = match dwell["trackPrice"].as_str() {
+            Some("bid") => BidOrAsk::Bid,
+            Some("ask") => BidOrAsk::Ask,
+            other => panic!("fixture dwellGate.trackPrice {other:?}"),
+        };
+
+        let gate = &v["timeWindowGate"];
+        (
+            TimeWindowVolatilityConfig::new(windows, track_vol),
+            DwellGateConfig {
+                from: price(&dwell["from"]),
+                to: price(&dwell["to"]),
+                required_ms: ms(&dwell["requiredMs"]),
+                track_price: track,
+            },
+            TimeWindowGateConfig {
+                allow_after_ms: ms(&gate["allowAfterMs"]),
+                disable_after_ms: ms(&gate["disableAfterMs"]),
+            },
+        )
+    }
+
+    #[test]
+    fn plugin_configs_equal_the_ts_twin() {
+        // spec: 60 §5.8 (D-PENDING plugin configs, identical in both twins)
+        let (vol, dwell, gate) = fixture_configs();
+        assert_eq!(time_window_volatility_config(), vol);
+        assert_eq!(dwell_gate_config(), dwell);
+        assert_eq!(time_window_gate_config(), gate);
+    }
+
+    #[test]
+    fn chainlink_defaults_to_true_and_the_rest_is_required() {
+        // spec: 60 §5.8 (`chainlink` defaults to true), 30 §9 rules 1, 3, 6, 7
+        let p = params(&["tickOnUpdate=true", "trade=false", "ta=false"]).unwrap();
+        assert!(p.chainlink);
+        assert_eq!(
+            p.normalized_json(),
+            r#"{"chainlink":true,"ta":false,"tickOnUpdate":true,"trade":false}"#
+        );
+        let err = params(&["chainlink=false"]).unwrap_err();
+        let mut paths: Vec<&str> = err.issues().iter().map(|i| i.path()).collect();
+        paths.sort_unstable();
+        assert_eq!(paths, ["/ta", "/tickOnUpdate", "/trade"]);
+        assert!(params(&["tickOnUpdate=1", "trade=false", "ta=false"]).is_err());
+        assert!(params(&["tickOnUpdate=true", "trade=false", "ta=false", "tick=true"]).is_err());
+    }
+
+    #[test]
+    fn trade_true_is_accepted() {
+        // spec: 60 §5.8 (`trade: true` runs the exerciser schedule), 00 R14
+        let p = params(&["tickOnUpdate=false", "trade=true", "ta=false"]).unwrap();
+        assert!(p.trade);
+        assert_eq!(
+            p.normalized_json(),
+            r#"{"chainlink":true,"ta":false,"tickOnUpdate":false,"trade":true}"#
+        );
+    }
+
+    #[test]
+    #[ignore = "TODO(feeds-merge): needs the engine Requirements and feed inputs (pmb-sdk requirements.rs)"]
+    fn requirements_follow_the_params() {
+        // spec: 60 §5.8 (Binance, Chainlink only when `chainlink`, price to
+        // beat, tickOnUpdate per the param; TechnicalIndicators only when
+        // `ta`), 30 §10. Expected configs come from the shared fixture.
+        let req = |args: &[&str]| FeedExerciser::requirements(&params(args).unwrap());
+        let with_plugins = |r: Requirements| {
+            let (vol, dwell, gate) = fixture_configs();
+            r.price_to_beat()
+                .time_window_volatility(vol)
+                .dwell_gate(dwell)
+                .time_window_gate(gate)
+        };
+
+        let quiet = FeedOptions::default();
+        let expected = with_plugins(
+            Requirements::new()
+                .binance_spot(quiet.clone())
+                .chainlink(quiet.clone()),
+        );
+        assert_eq!(
+            req(&["tickOnUpdate=false", "trade=false", "ta=false"]),
+            expected
+        );
+        // `trade` changes no requirement.
+        assert_eq!(
+            req(&["tickOnUpdate=false", "trade=true", "ta=false"]),
+            expected
+        );
+
+        let ticking = FeedOptions::default().tick_on_update(true);
+        assert_eq!(
+            req(&["tickOnUpdate=true", "trade=false", "ta=false"]),
+            with_plugins(
+                Requirements::new()
+                    .binance_spot(ticking.clone())
+                    .chainlink(ticking)
+            )
+        );
+
+        assert_eq!(
+            req(&[
+                "tickOnUpdate=false",
+                "trade=false",
+                "ta=false",
+                "chainlink=false",
+            ]),
+            with_plugins(Requirements::new().binance_spot(quiet))
+        );
+
+        assert_eq!(
+            req(&["tickOnUpdate=false", "trade=false", "ta=true"]),
+            expected.technical_indicators(TechnicalIndicatorsConfig::default())
+        );
+    }
+
+    /// `btc-updown-15m-1760140800`.
+    const START_MS: i64 = 1_760_140_800_000;
+    /// Real tick `i` happens at `T0 + 100 ms × i`; a Binance trade 50 ms
+    /// after each.
+    const T0_MS: i64 = START_MS + 1_000;
+    /// Real ticks scripted: `n = 0..=REAL_LAST`.
+    const REAL_LAST: u64 = 60;
+
+    /// A ts-compat market with both books, then filler price changes, and a
+    /// Binance trade between every two real ticks. Chainlink is not
+    /// requested (`chainlink=false`), so none is scripted.
+    fn market() -> TestMarket {
+        let mut m = TestMarket::btc_15m(TsMs(START_MS))
+            .profile(Profile::TsCompat)
+            .starting_capital(usdc!(1000));
+        m.price_to_beat(TsMs(START_MS), 100_000.0);
+        for i in 0..=REAL_LAST {
+            let at = TsMs(T0_MS + 100 * i as i64);
+            match i {
+                0 => m.book(
+                    at,
+                    Outcome::Up,
+                    &[(price!(0.48), qty!(100))],
+                    &[(price!(0.52), qty!(100))],
+                ),
+                1 => m.book(
+                    at,
+                    Outcome::Down,
+                    &[(price!(0.47), qty!(100))],
+                    &[(price!(0.53), qty!(100))],
+                ),
+                _ => {
+                    let size = if i % 2 == 0 { qty!(1) } else { qty!(2) };
+                    m.price_change(at, Outcome::Up, Side::Buy, price!(0.40), size)
+                }
+            };
+            let trade_at = TsMs(T0_MS + 100 * i as i64 + 50);
+            m.binance_trade(trade_at, 100_000.0 + i as f64);
+        }
+        m
+    }
+
+    fn is_real(cause: &Value) -> bool {
+        cause == "book" || cause == "price_change"
+    }
+
+    #[test]
+    #[ignore = "TODO(feeds-merge): needs the engine Requirements and feed inputs (pmb-sdk requirements.rs)"]
+    fn trade_false_returns_no_intents_on_any_tick() {
+        // spec: 60 §5.8 (`trade: false` returns no intents, the T15
+        // checkpoint)
+        let p = params(&[
+            "tickOnUpdate=true",
+            "trade=false",
+            "ta=false",
+            "chainlink=false",
+        ])
+        .unwrap();
+        let run = market().run::<FeedExerciser>(&p);
+        let trace = run.trace();
+        assert!(trace
+            .iter()
+            .any(|r| r["t"] == "tick" && !is_real(&r["cause"])));
+        assert!(trace.iter().all(|r| r["t"] != "intent"));
+    }
+
+    #[test]
+    #[ignore = "TODO(feeds-merge): needs the engine Requirements and feed inputs (pmb-sdk requirements.rs)"]
+    fn trade_true_runs_the_schedule_on_real_ticks_only() {
+        // spec: 60 §5.8 (`trade: true` runs the exerciser schedule on real
+        // ticks only), 60 §5.1 (synthetic feed ticks never count), 60 §5.2
+        // row 50 (x1)
+        let p = params(&[
+            "tickOnUpdate=true",
+            "trade=true",
+            "ta=false",
+            "chainlink=false",
+        ])
+        .unwrap();
+        let run = market().run::<FeedExerciser>(&p);
+        let trace = run.trace();
+        let ticks: Vec<(u64, &Value)> = trace
+            .iter()
+            .filter(|r| r["t"] == "tick")
+            .map(|r| (r["seq"].as_u64().expect("tick seq"), &r["cause"]))
+            .collect();
+        assert!(
+            ticks.iter().any(|(_, cause)| !is_real(cause)),
+            "the run delivers synthetic ticks"
+        );
+
+        let first = trace
+            .iter()
+            .find(|r| r["t"] == "intent" && r["src"] == "tick")
+            .expect("x1 is placed");
+        assert_eq!(first["cid"], "x1");
+        let x1_seq = first["seq"].as_u64().expect("intent seq");
+        let (_, x1_cause) = ticks
+            .iter()
+            .find(|(seq, _)| *seq == x1_seq)
+            .expect("x1 has a tick record");
+        assert!(is_real(x1_cause), "x1 fires on a real tick");
+        // x1 fires at n = 50: 50 real ticks come before its tick.
+        let real_before = ticks
+            .iter()
+            .filter(|(seq, cause)| *seq < x1_seq && is_real(cause))
+            .count();
+        assert_eq!(real_before, 50);
+    }
+}

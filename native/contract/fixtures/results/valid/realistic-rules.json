@@ -1,0 +1,155 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "ok",
+  "error": null,
+  "echo": {
+    "engineVersion": "0.1.0",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
+    "strategyId": "engine-exerciser.v2.rs",
+    "jobSchemaVersion": 1,
+    "profile": "realistic",
+    "seed": 0,
+    "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "rulesTableVersion": "rules-table-v1",
+    "snapshotParserVersion": 1
+  },
+  "market": {
+    "slug": "btc-updown-15m-1780272000",
+    "conditionId": "0x8f3c1a2b",
+    "rulesSource": "partial"
+  },
+  "candidates": [
+    {
+      "key": "cand-a",
+      "index": 0,
+      "status": "ok",
+      "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "output": {
+        "slug": "btc-updown-15m-1780272000",
+        "marketStats": {
+          "marketId": "0x8f3c1a2b",
+          "slug": "btc-updown-15m-1780272000",
+          "finalOutcome": "UP",
+          "pnl": -12.35,
+          "tradeCount": 3,
+          "tradeAsMaker": 1,
+          "tradeAsTaker": 2,
+          "feesPaid": 0.17,
+          "avgEntryPriceUp": 0.5123,
+          "avgEntryPriceDown": null,
+          "upShares": 10,
+          "downShares": 0,
+          "mergableShares": 0,
+          "cost": 5.12,
+          "splitCost": 0,
+          "intentMeta": [
+            {
+              "signal": "lag",
+              "edge": 0.0123,
+              "windowsMetrics": {
+                "w60": [1, 2.5, null]
+              }
+            }
+          ],
+          "rules": {
+            "source": "partial",
+            "rulesTableVersion": "rules-table-v1",
+            "snapshotParserVersion": 1,
+            "feeEra": "f3",
+            "feeCurve": "crypto_fees_v2",
+            "feeSource": "captured",
+            "unverifiedRules": ["fe3_curve", "tt3_inference"]
+          }
+        },
+        "eventsProcessed": 4830,
+        "eventsByType": {
+          "book": 1,
+          "price_change": 4823,
+          "binance_agg_trade": 6,
+          "chainlink_round": 0
+        }
+      }
+    },
+    {
+      "key": "cand-b",
+      "index": 1,
+      "status": "ok",
+      "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "output": {
+        "slug": "btc-updown-15m-1780272000",
+        "marketStats": {
+          "marketId": "0x8f3c1a2b",
+          "slug": "btc-updown-15m-1780272000",
+          "finalOutcome": "UP",
+          "pnl": 0,
+          "tradeCount": 0,
+          "tradeAsMaker": 0,
+          "tradeAsTaker": 0,
+          "feesPaid": 0,
+          "avgEntryPriceUp": null,
+          "avgEntryPriceDown": null,
+          "upShares": 0,
+          "downShares": 0,
+          "mergableShares": 0,
+          "cost": 0,
+          "splitCost": 0,
+          "intentMeta": [],
+          "skipReason": "no_in_window_activity",
+          "rules": {
+            "source": "partial",
+            "rulesTableVersion": "rules-table-v1",
+            "snapshotParserVersion": 1,
+            "feeEra": "f3",
+            "feeCurve": "crypto_fees_v2",
+            "feeSource": "captured",
+            "unverifiedRules": []
+          }
+        },
+        "eventsProcessed": 4824,
+        "eventsByType": {
+          "book": 1,
+          "price_change": 4823
+        },
+        "skipReason": "no_activity"
+      }
+    }
+  ],
+  "resultDigest": "385b5a6b23a4d2994f81f35ad98fe0961db6343e3882f535100d2c9e2f02e0c2",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000210,
+    "wallMs": 210,
+    "busyMs": 205,
+    "cpuMs": 205,
+    "peakRssBytes": 41000000,
+    "thread": 3,
+    "cache": {
+      "hits": 2,
+      "misses": 0
+    },
+    "skewMs": 9,
+    "inputPath": "tape",
+    "anomalies": {
+      "staleBookEvents": 0,
+      "inexact_decimal": 1,
+      "skippedRows": {
+        "unknown_asset": 2
+      }
+    },
+    "counters": [
+      {
+        "key": "cand-a",
+        "ordersPlaced": 4,
+        "ordersRejected": {
+          "insufficient_capital": 2,
+          "post_only_would_cross": 1
+        },
+        "ordersCanceled": 2,
+        "buyNotionalUsdc": "12.4",
+        "sellNotionalUsdc": "0",
+        "peakReservedUsdc": "6.2",
+        "strategyTicksSkipped": 0
+      }
+    ]
+  }
+}

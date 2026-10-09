@@ -1,0 +1,1064 @@
+{
+  "report": "M1 step 7 derived tape (pmb-tape): decode v1 vs tape, bytes, NT-6 (b)",
+  "date": "2026-10-09",
+  "host": "worker-1",
+  "label": "non-idle",
+  "conditions": {
+    "chip": "Apple M4 (4P+6E), 16 GB",
+    "macos": "26.2 (25C56)",
+    "rustc": "1.89.0 (29483883e 2025-08-04)",
+    "profile": "cargo release (workspace default; not the canonical artifact build)",
+    "sourceCommit": "6c1bdebc",
+    "binarySha256": "229aad62acc32daf60c068eba95632f8525ead2f56b1e7c7b330ca37134cce09",
+    "qos": "utility (taskpolicy -c utility)",
+    "threads": 1,
+    "fleetWorker": "running (not paused, user rule for this run)",
+    "globalRuntime": "running (not paused)",
+    "otherLoad": "other goal worktrees building and testing concurrently; no ps snapshot was kept for sittings A-C (only the one-line summary in the .md). Sittings D-H (m1-tape-20261009-worker-1-2.json) carry ps snapshots.",
+    "pageCache": "warm (one discarded warm-up pass per configuration)",
+    "lowPowerMode": 0,
+    "decodeScope": "file on disk -> engine event stream (kind, outcome, levels, both timestamps) + skip/anomaly counters; file read included; no book apply",
+    "qosEffective": "not recorded for sittings A-C (the tool did not record it then); sittings D-H record it"
+  },
+  "sets": {
+    "smoke-50": {
+      "path": "native/bench/sets/smoke-50.json",
+      "manifestSha256": "a48228eec3b440ad632a6a50041e71ebdaad660c202fba4e56dba77d6e0dedbc"
+    },
+    "heavy-1": {
+      "path": "native/bench/sets/heavy-1.json",
+      "manifestSha256": "671aea469636de670c94d8763375ff83610502764f476e2f3929966833c8052c"
+    }
+  },
+  "sittings": {
+    "B": {
+      "smoke-50": {
+        "binarySha256": "229aad62acc32daf60c068eba95632f8525ead2f56b1e7c7b330ca37134cce09",
+        "order": ["v1", "tape", "tape-full", "tape-full", "tape", "v1", "v1", "tape", "tape-full"],
+        "loadAvgStart": "{ 7.78 6.35 5.37 }",
+        "loadAvgEnd": "{ 6.90 6.24 5.35 }",
+        "loadAvgAfterPass": [
+          "{ 7.42 6.32 5.37 }",
+          "{ 7.42 6.32 5.37 }",
+          "{ 7.42 6.32 5.37 }",
+          "{ 7.42 6.32 5.37 }",
+          "{ 7.42 6.32 5.37 }",
+          "{ 7.15 6.28 5.36 }",
+          "{ 7.15 6.28 5.36 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "perMarketMedianMs": 10.401438,
+            "perMarketMs": [
+              0.190917, 2.4147079999999996, 3.505458, 3.4588330000000003, 3.973125, 4.308458,
+              5.594167, 5.142917000000001, 6.068667, 4.528875, 5.613959, 5.209167,
+              5.960125000000001, 6.884417, 5.957166, 7.0958749999999995, 8.928375, 7.39075,
+              10.421292000000001, 6.814875, 7.027708, 8.786208, 7.7957909999999995, 8.254333,
+              10.107332999999999, 10.77425, 12.033125, 11.115875, 14.061916, 10.381584, 13.996959,
+              13.913542, 13.206166999999999, 15.825959000000001, 13.845875000000001, 16.337667,
+              13.535166, 15.845667, 16.780542, 16.0455, 15.167625000000001, 16.349709, 18.364833,
+              15.561916, 18.481041, 20.171000000000003, 19.844, 18.30975, 19.855958, 27.751541
+            ],
+            "totalMs": {
+              "max": 623.4062099999999,
+              "median": 584.631375,
+              "min": 392.1155820000001,
+              "reps": [623.4062099999999, 584.631375, 392.1155820000001]
+            }
+          },
+          "tape-full": {
+            "perMarketMedianMs": 9.1246665,
+            "perMarketMs": [
+              0.170791, 2.1265419999999997, 4.578041, 5.124499999999999, 7.024958000000001,
+              5.128458, 3.6588749999999997, 4.1768339999999995, 5.050208, 7.510458, 6.646292,
+              8.315167, 6.29825, 5.513708, 7.353083, 8.91925, 7.918875000000001, 7.862832999999999,
+              6.989292, 8.17775, 7.921374999999999, 9.097707999999999, 7.457083, 9.2505, 9.050791,
+              8.727666000000001, 11.022666000000001, 11.700624999999999, 11.202791, 13.717,
+              13.389084, 10.168583, 9.151625, 13.210458, 14.591750000000001, 11.840083, 14.131708,
+              17.202624999999998, 15.893500000000001, 14.431667000000001, 15.705375,
+              14.446250000000001, 13.0995, 12.88775, 13.691375, 19.458709000000002, 15.301667,
+              24.072083000000003, 25.388375, 27.161916
+            ],
+            "totalMs": {
+              "max": 645.8729940000001,
+              "median": 570.421375,
+              "min": 378.587038,
+              "reps": [645.8729940000001, 570.421375, 378.587038]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 64.305917,
+            "perMarketMs": [
+              0.500458, 24.939625, 25.8595, 29.297250000000002, 30.585084, 38.504959, 38.801833,
+              53.108209, 45.456458, 41.869167, 55.297332999999995, 66.022959, 45.666042,
+              43.727000000000004, 45.951792, 46.86450000000001, 56.512874999999994, 58.758666,
+              51.492625, 52.149291, 53.218458000000005, 57.572416000000004, 62.98416699999999,
+              59.412709, 64.426625, 64.18520899999999, 63.430249999999994, 65.767167, 76.447,
+              80.00787500000001, 75.192416, 70.674625, 76.64154099999999, 74.52241699999999,
+              87.637459, 87.469375, 84.203291, 84.18808299999999, 86.892625, 95.054875, 101.562375,
+              95.989375, 98.846709, 104.469958, 118.288125, 110.338458, 120.258541, 123.469458,
+              142.001167, 175.162
+            ],
+            "totalMs": {
+              "max": 5019.287665999998,
+              "median": 3835.672627000001,
+              "min": 3302.819666,
+              "reps": [5019.287665999998, 3835.672627000001, 3302.819666]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 38773937,
+          "tapeFrames": 38732040,
+          "tapeOverV1": 0.39557420769542545,
+          "tapeRawColumns": 257891851,
+          "v1": 98019376
+        },
+        "speedupMedianTotal": 6.560839515327073
+      },
+      "heavy-1": {
+        "binarySha256": "229aad62acc32daf60c068eba95632f8525ead2f56b1e7c7b330ca37134cce09",
+        "order": ["v1", "tape", "tape-full", "tape-full", "tape", "v1", "v1", "tape", "tape-full"],
+        "loadAvgStart": "{ 6.90 6.24 5.35 }",
+        "loadAvgEnd": "{ 6.90 6.24 5.35 }",
+        "loadAvgAfterPass": [
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }",
+          "{ 6.90 6.24 5.35 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "perMarketMedianMs": 27.881834,
+            "perMarketMs": [27.881834],
+            "totalMs": {
+              "max": 27.923042,
+              "median": 27.881834,
+              "min": 24.837292,
+              "reps": [27.923042, 24.837292, 27.881834]
+            }
+          },
+          "tape-full": {
+            "perMarketMedianMs": 26.379167,
+            "perMarketMs": [26.379167],
+            "totalMs": {
+              "max": 26.994542,
+              "median": 26.379167,
+              "min": 25.238667,
+              "reps": [26.379167, 25.238667, 26.994542]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 210.604083,
+            "perMarketMs": [210.604083],
+            "totalMs": {
+              "max": 213.35175,
+              "median": 210.604083,
+              "min": 208.782417,
+              "reps": [210.604083, 208.782417, 213.35175]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 2519035,
+          "tapeFrames": 2517441,
+          "tapeOverV1": 0.39086723996168654,
+          "tapeRawColumns": 16195661,
+          "v1": 6444733
+        },
+        "speedupMedianTotal": 7.5534515771093105
+      }
+    },
+    "C": {
+      "smoke-50": {
+        "binarySha256": "229aad62acc32daf60c068eba95632f8525ead2f56b1e7c7b330ca37134cce09",
+        "order": ["v1", "tape", "tape-full", "tape-full", "tape", "v1", "v1", "tape", "tape-full"],
+        "loadAvgStart": "{ 6.22 6.12 5.32 }",
+        "loadAvgEnd": "{ 6.80 6.25 5.38 }",
+        "loadAvgAfterPass": [
+          "{ 6.41 6.16 5.34 }",
+          "{ 6.41 6.16 5.34 }",
+          "{ 6.41 6.16 5.34 }",
+          "{ 6.41 6.16 5.34 }",
+          "{ 6.41 6.16 5.34 }",
+          "{ 6.70 6.23 5.37 }",
+          "{ 6.80 6.25 5.38 }",
+          "{ 6.80 6.25 5.38 }",
+          "{ 6.80 6.25 5.38 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "perMarketMedianMs": 9.388104,
+            "perMarketMs": [
+              0.111542, 2.4770410000000003, 4.040208, 5.587625, 5.696375, 6.062084, 5.417667,
+              5.056625, 5.961208, 6.003083, 7.643166, 6.026125, 7.173292, 7.945458, 7.342291,
+              9.155208, 10.925832999999999, 9.224417, 8.112333, 9.375541, 7.376333,
+              9.995042000000002, 8.169541, 9.643583000000001, 11.033042, 9.980125, 11.119583,
+              14.212125, 12.517292, 9.874832999999999, 8.95825, 8.555292000000001, 9.201166,
+              9.211959, 10.747583, 9.400667, 10.015625, 10.786667, 14.150041, 18.278458, 11.446875,
+              15.471125, 14.939499999999999, 12.953334, 15.801625, 13.260958, 14.615875, 13.826166,
+              17.528083, 21.898750000000003
+            ],
+            "totalMs": {
+              "max": 560.882544,
+              "median": 533.038122,
+              "min": 396.01775200000003,
+              "reps": [560.882544, 533.038122, 396.01775200000003]
+            }
+          },
+          "tape-full": {
+            "perMarketMedianMs": 7.4135415,
+            "perMarketMs": [
+              0.0975, 2.451208, 2.760208, 3.1565, 3.197583, 3.761209, 3.938583, 3.983583,
+              4.455042000000001, 4.811666, 4.826124999999999, 4.480417, 5.2485, 5.2710420000000004,
+              5.337167, 5.591459, 5.8706249999999995, 6.305167000000001, 7.070333, 6.397, 6.349459,
+              6.5658330000000005, 8.244833, 8.350290999999999, 7.2721670000000005, 6.991542,
+              7.405583, 7.4215, 8.66925, 8.871208000000001, 8.345208999999999, 8.205041999999999,
+              8.755917, 9.022541, 10.780625, 10.046167, 10.254917, 10.665125, 14.976666,
+              12.723208999999999, 11.441209, 15.104583, 19.334459, 19.36, 21.829375000000002,
+              16.738792, 14.161999999999999, 16.721875, 25.510291000000002, 24.621667
+            ],
+            "totalMs": {
+              "max": 632.7966690000002,
+              "median": 464.594626,
+              "min": 398.17450400000007,
+              "reps": [464.594626, 632.7966690000002, 398.17450400000007]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 68.325042,
+            "perMarketMs": [
+              0.5271250000000001, 21.28275, 23.503, 27.707541, 35.031958, 32.316375,
+              43.049499999999995, 40.297875, 46.675792, 45.7265, 53.310083, 47.339458,
+              44.144166999999996, 45.795417, 54.695458, 56.447292000000004, 55.905, 58.400458,
+              64.31025, 68.25275, 60.27575, 58.136041, 62.167167, 74.795125, 65.241833,
+              63.896207999999994, 68.397334, 72.03779200000001, 74.564166, 71.818583, 83.728208,
+              92.249, 75.80975, 94.129333, 115.680666, 97.68383299999999, 123.38312499999999,
+              103.359417, 99.855, 137.814292, 119.21654099999999, 120.75004200000001,
+              125.46691700000001, 124.307125, 122.337542, 136.904166, 153.13816699999998,
+              141.67079199999998, 157.26195800000002, 221.300625
+            ],
+            "totalMs": {
+              "max": 4910.134085,
+              "median": 4096.867706999999,
+              "min": 3599.793459,
+              "reps": [4096.867706999999, 4910.134085, 3599.793459]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 38773937,
+          "tapeFrames": 38732040,
+          "tapeOverV1": 0.39557420769542545,
+          "tapeRawColumns": 257891851,
+          "v1": 98019376
+        },
+        "speedupMedianTotal": 7.685881249221419
+      },
+      "heavy-1": {
+        "binarySha256": "229aad62acc32daf60c068eba95632f8525ead2f56b1e7c7b330ca37134cce09",
+        "order": ["v1", "tape", "tape-full", "tape-full", "tape", "v1", "v1", "tape", "tape-full"],
+        "loadAvgStart": "{ 6.22 6.12 5.32 }",
+        "loadAvgEnd": "{ 6.22 6.12 5.32 }",
+        "loadAvgAfterPass": [
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }",
+          "{ 6.22 6.12 5.32 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "perMarketMedianMs": 28.535541000000002,
+            "perMarketMs": [28.535541000000002],
+            "totalMs": {
+              "max": 38.402875,
+              "median": 28.535541000000002,
+              "min": 23.952083,
+              "reps": [28.535541000000002, 23.952083, 38.402875]
+            }
+          },
+          "tape-full": {
+            "perMarketMedianMs": 26.330375,
+            "perMarketMs": [26.330375],
+            "totalMs": {
+              "max": 30.293750000000003,
+              "median": 26.330375,
+              "min": 24.193165999999998,
+              "reps": [26.330375, 24.193165999999998, 30.293750000000003]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 216.95420900000002,
+            "perMarketMs": [216.95420900000002],
+            "totalMs": {
+              "max": 234.22595900000002,
+              "median": 216.95420900000002,
+              "min": 212.659416,
+              "reps": [212.659416, 216.95420900000002, 234.22595900000002]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 2519035,
+          "tapeFrames": 2517441,
+          "tapeOverV1": 0.39086723996168654,
+          "tapeRawColumns": 16195661,
+          "v1": 6444733
+        },
+        "speedupMedianTotal": 7.60294711076268
+      }
+    },
+    "A": {
+      "smoke-50": {
+        "binarySha256": "c55f9a61c180a95b9b7ac94ee804edf05f61f0440eb0cb39cf7156660947b343",
+        "order": ["v1", "tape", "tape", "v1", "v1", "tape"],
+        "loadAvgStart": "{ 7.30 5.80 4.82 }",
+        "loadAvgEnd": "{ 8.82 6.31 5.04 }",
+        "loadAvgAfterPass": [
+          "{ 8.20 6.04 4.92 }",
+          "{ 8.20 6.04 4.92 }",
+          "{ 8.20 6.04 4.92 }",
+          "{ 7.86 6.01 4.91 }",
+          "{ 8.98 6.30 5.03 }",
+          "{ 8.82 6.31 5.04 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "loadDecodeTotalMsMedian": 491.55383200000006,
+            "perMarketMedianMs": 13.9237915,
+            "perMarketMs": [
+              0.194458, 2.31075, 5.976584, 5.958458, 5.903792, 7.531209, 7.931916000000001,
+              7.487292, 7.64, 11.272499999999999, 10.539458999999999, 10.041917, 7.974708000000001,
+              12.589958, 11.141625000000001, 10.63125, 9.631416999999999, 12.015834, 13.400834,
+              12.491708000000001, 12.595959, 14.745958, 13.841125, 13.742459, 14.239208999999999,
+              14.006457999999999, 16.153458999999998, 17.032875, 15.279708, 13.594375000000001,
+              15.012792000000001, 20.019790999999998, 14.854417, 17.015583, 18.178832999999997,
+              16.096417, 14.796583, 21.422916, 12.4975, 23.198125, 19.231292, 21.744875, 22.653334,
+              20.786292000000003, 22.302791999999997, 22.943833, 27.818125, 25.725917000000003,
+              31.188750000000002, 40.424125
+            ],
+            "replayTotalMsMedian": 275.050626,
+            "totalMs": {
+              "max": 824.5905019999999,
+              "median": 766.6044579999998,
+              "min": 713.9143779999998,
+              "reps": [824.5905019999999, 713.9143779999998, 766.6044579999998]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 83.505875,
+            "perMarketMs": [
+              0.9902500000000001, 28.635792, 35.321583, 41.059958, 44.0205, 51.001833000000005,
+              55.195125, 59.193583000000004, 55.330042000000006, 62.814083000000004, 66.037541,
+              69.102792, 54.99575, 75.110917, 81.9735, 83.446292, 59.866291000000004, 66.884084,
+              55.347667, 75.209666, 78.538125, 83.56545799999999, 65.777041, 65.505833,
+              70.27362500000001, 101.009042, 84.497959, 76.714416, 105.759583, 126.18350000000001,
+              145.097917, 139.48691699999998, 125.47525000000002, 125.06125000000002, 303.249667,
+              94.286, 94.714917, 125.96670800000001, 131.902, 131.657792, 110.191, 178.076042,
+              172.258583, 168.139709, 157.26416700000001, 202.489959, 215.36708399999998,
+              241.282083, 274.882875, 359.768583
+            ],
+            "totalMs": {
+              "max": 10264.596921,
+              "median": 5118.068541000001,
+              "min": 4607.62392,
+              "reps": [4607.62392, 5118.068541000001, 10264.596921]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 38773971,
+          "tapeFrames": 38732040,
+          "tapeOverV1": 0.39557455456561974,
+          "tapeRawColumns": 257891851,
+          "v1": 98019376
+        },
+        "speedupMedianTotal": 6.67628330045532
+      },
+      "heavy-1": {
+        "binarySha256": "c55f9a61c180a95b9b7ac94ee804edf05f61f0440eb0cb39cf7156660947b343",
+        "order": ["v1", "tape", "tape", "v1", "v1", "tape"],
+        "loadAvgStart": "{ 8.82 6.31 5.04 }",
+        "loadAvgEnd": "{ 8.82 6.31 5.04 }",
+        "loadAvgAfterPass": [
+          "{ 8.82 6.31 5.04 }",
+          "{ 8.82 6.31 5.04 }",
+          "{ 8.82 6.31 5.04 }",
+          "{ 8.82 6.31 5.04 }",
+          "{ 8.82 6.31 5.04 }",
+          "{ 8.82 6.31 5.04 }"
+        ],
+        "reps": 3,
+        "results": {
+          "tape": {
+            "loadDecodeTotalMsMedian": 22.314542,
+            "perMarketMedianMs": 37.146458,
+            "perMarketMs": [37.146458],
+            "replayTotalMsMedian": 16.938292,
+            "totalMs": {
+              "max": 47.58375,
+              "median": 37.146458,
+              "min": 36.298167,
+              "reps": [37.146458, 36.298167, 47.58375]
+            }
+          },
+          "v1": {
+            "perMarketMedianMs": 363.24704099999997,
+            "perMarketMs": [363.24704099999997],
+            "totalMs": {
+              "max": 364.69825000000003,
+              "median": 363.24704099999997,
+              "min": 232.82370799999998,
+              "reps": [232.82370799999998, 363.24704099999997, 364.69825000000003]
+            }
+          }
+        },
+        "bytes": {
+          "tape": 2519037,
+          "tapeFrames": 2517441,
+          "tapeOverV1": 0.39086755029261877,
+          "tapeRawColumns": 16195661,
+          "v1": 6444733
+        },
+        "speedupMedianTotal": 9.778780011811623
+      }
+    }
+  },
+  "perMarket": [
+    {
+      "levels": 1430,
+      "rows": 588,
+      "slug": "btc-updown-15m-1765406700",
+      "tapeBytes": 6092,
+      "v1Bytes": 16329,
+      "events": 588,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "4ddb7776d5dd7cfc137254f48e4f82a0d29c2cedc6a354171f3a4a0fcdaadc64",
+      "convertMsUtility": 35.8
+    },
+    {
+      "levels": 87580,
+      "rows": 36456,
+      "slug": "btc-updown-15m-1765319400",
+      "tapeBytes": 232545,
+      "v1Bytes": 529695,
+      "events": 36456,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "3eb480419ea85332ddf4a3e11e5248ee83732a41a69faebb1195df07702dfa57",
+      "convertMsUtility": 102.9
+    },
+    {
+      "levels": 105386,
+      "rows": 44127,
+      "slug": "btc-updown-15m-1765041300",
+      "tapeBytes": 257823,
+      "v1Bytes": 600210,
+      "events": 44127,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "039e4230b710878a001f0f0ffc08d108b15b3a992effe18f22d0f9e0f2eb4ca2",
+      "convertMsUtility": 217.6
+    },
+    {
+      "levels": 120906,
+      "rows": 50452,
+      "slug": "btc-updown-15m-1765268100",
+      "tapeBytes": 301895,
+      "v1Bytes": 714745,
+      "events": 50452,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "f356d7502c9c9b47efda0b3b12297d3461f55aea186f5abb0ce07481727824c8",
+      "convertMsUtility": 191.4
+    },
+    {
+      "levels": 138610,
+      "rows": 57471,
+      "slug": "btc-updown-15m-1771805700",
+      "tapeBytes": 343768,
+      "v1Bytes": 817583,
+      "events": 57471,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "7a5904c156c9b3cae95744a9ad9dab1ba8213fda8b946660394812575e5fb872",
+      "convertMsUtility": 91.1
+    },
+    {
+      "levels": 146320,
+      "rows": 60787,
+      "slug": "btc-updown-15m-1766237400",
+      "tapeBytes": 373473,
+      "v1Bytes": 883019,
+      "events": 60787,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "e7eb4eaf36a9a1c2a72a6d8ed60824e3ffd75164c96010f7ad73b7a873179f5a",
+      "convertMsUtility": 199.1
+    },
+    {
+      "levels": 155822,
+      "rows": 64674,
+      "slug": "btc-updown-15m-1771828200",
+      "tapeBytes": 389513,
+      "v1Bytes": 929486,
+      "events": 64674,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "557aa8f7d480f16df15bfc42dcd8f235214462d70e7e0833cfb74d71edd10129",
+      "convertMsUtility": 96.7
+    },
+    {
+      "levels": 168736,
+      "rows": 70233,
+      "slug": "btc-updown-15m-1771644600",
+      "tapeBytes": 421810,
+      "v1Bytes": 1016266,
+      "events": 70233,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "3ed3e7ffb11a532f6f4059c6a44fe5ea57edd58ed0690eefac2116a7c17a55de",
+      "convertMsUtility": 221.8
+    },
+    {
+      "levels": 174346,
+      "rows": 72846,
+      "slug": "btc-updown-15m-1786606200",
+      "tapeBytes": 361695,
+      "v1Bytes": 909426,
+      "events": 72846,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "e8c3c4d114e4a2769da7226b974dc43c848af666fabbf185a545baa51f7a1bf1",
+      "convertMsUtility": 123.8
+    },
+    {
+      "levels": 178308,
+      "rows": 74544,
+      "slug": "btc-updown-15m-1780234200",
+      "tapeBytes": 431882,
+      "v1Bytes": 1012149,
+      "events": 74544,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "65c6cf9555f20584386e1c7b37e1e669ddf565a44bfee4bb10935a6b33c9c5f9",
+      "convertMsUtility": 235.6
+    },
+    {
+      "levels": 191798,
+      "rows": 79791,
+      "slug": "btc-updown-15m-1771590600",
+      "tapeBytes": 490738,
+      "v1Bytes": 1174313,
+      "events": 79791,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "a0b86158b77e3f1474afe5a30f29db86e1869bc780fb8454c43767cfe9a223fb",
+      "convertMsUtility": 134.2
+    },
+    {
+      "levels": 196478,
+      "rows": 82030,
+      "slug": "btc-updown-15m-1775716200",
+      "tapeBytes": 495173,
+      "v1Bytes": 1164060,
+      "events": 82030,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "735ae1aed5a44dfbe299942c2040102e8362f28f1ddd9b8b9957ed031114618c",
+      "convertMsUtility": 240.5
+    },
+    {
+      "levels": 202778,
+      "rows": 84631,
+      "slug": "btc-updown-15m-1775455200",
+      "tapeBytes": 507376,
+      "v1Bytes": 1212903,
+      "events": 84631,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "f31f23d6b9570ce0ff97551a8f2d913de40937544421f2edb6c2bba6d51bf72a",
+      "convertMsUtility": 230.2
+    },
+    {
+      "levels": 216896,
+      "rows": 89806,
+      "slug": "btc-updown-15m-1774006200",
+      "tapeBytes": 538337,
+      "v1Bytes": 1292462,
+      "events": 89806,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "e42899f48bb360743cbf2b6e62976f43168c05c012b2507107b1031cf325dd21",
+      "convertMsUtility": 297.3
+    },
+    {
+      "levels": 223244,
+      "rows": 93333,
+      "slug": "btc-updown-15m-1772964000",
+      "tapeBytes": 540212,
+      "v1Bytes": 1330530,
+      "events": 93333,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "9484fea011fa8e1ffc1c89e6bd672ceb38cbdc6a9199264af4a6e985a72239ef",
+      "convertMsUtility": 250.5
+    },
+    {
+      "levels": 228960,
+      "rows": 95430,
+      "slug": "btc-updown-15m-1771650900",
+      "tapeBytes": 552934,
+      "v1Bytes": 1346651,
+      "events": 95430,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "15c5feeb5d60bd9146dc76504766cbda2e65eb8332faac9578fa421463642208",
+      "convertMsUtility": 169.0
+    },
+    {
+      "levels": 235462,
+      "rows": 98423,
+      "slug": "btc-updown-15m-1782333000",
+      "tapeBytes": 601199,
+      "v1Bytes": 1418702,
+      "events": 98423,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "b1c94e1ae8701588590642c998ba912a6cbb4345034cdce0655299c8e5123da5",
+      "convertMsUtility": 268.9
+    },
+    {
+      "levels": 248416,
+      "rows": 103539,
+      "slug": "btc-updown-15m-1774863900",
+      "tapeBytes": 596370,
+      "v1Bytes": 1480621,
+      "events": 103539,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "daf36a385b9d16f173ebe72b46c0f1d7a45709017ca22cbf75fb0094e32fb1b4",
+      "convertMsUtility": 428.6
+    },
+    {
+      "levels": 259397,
+      "rows": 107466,
+      "slug": "btc-updown-15m-1782297900",
+      "tapeBytes": 593203,
+      "v1Bytes": 1466440,
+      "events": 107466,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "87a41de115207e4c7b2f7f770e3951ec125e95cd91a0dc6bc5e67c63bea18505",
+      "convertMsUtility": 221.9
+    },
+    {
+      "levels": 260160,
+      "rows": 108811,
+      "slug": "btc-updown-15m-1776412800",
+      "tapeBytes": 667780,
+      "v1Bytes": 1559997,
+      "events": 108811,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "d0d93f5e0009773c2c9c9c3dba87b21123024b8802e875e7210f1605efca453c",
+      "convertMsUtility": 334.3
+    },
+    {
+      "levels": 270096,
+      "rows": 113408,
+      "slug": "btc-updown-15m-1785007800",
+      "tapeBytes": 580264,
+      "v1Bytes": 1491368,
+      "events": 113408,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "9dd9c74d4263509d5ab8b3c4f847556c2c4e898fef031b109d5bdc5cf009549a",
+      "convertMsUtility": 170.0
+    },
+    {
+      "levels": 278708,
+      "rows": 116193,
+      "slug": "btc-updown-15m-1774527300",
+      "tapeBytes": 699714,
+      "v1Bytes": 1691378,
+      "events": 116193,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "908c1aff29f0011f3e3a6108b04821fe7b67bd5633976a57662bb669924b5cc8",
+      "convertMsUtility": 313.2
+    },
+    {
+      "levels": 287016,
+      "rows": 119239,
+      "slug": "btc-updown-15m-1771892100",
+      "tapeBytes": 701657,
+      "v1Bytes": 1734922,
+      "events": 119239,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "3993ab030ce72b8e3758eef6ee11913f88970f7fab5217e102b558fa278d9dc9",
+      "convertMsUtility": 248.5
+    },
+    {
+      "levels": 291366,
+      "rows": 121734,
+      "slug": "btc-updown-15m-1769572800",
+      "tapeBytes": 710053,
+      "v1Bytes": 1796630,
+      "events": 121734,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "4a901e6e6c144828d5c7bbb9a70bb608fdb83cd2622473f389b3449cb935f6e5",
+      "convertMsUtility": 319.8
+    },
+    {
+      "levels": 298558,
+      "rows": 124580,
+      "slug": "btc-updown-15m-1776906000",
+      "tapeBytes": 653998,
+      "v1Bytes": 1701661,
+      "events": 124580,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "838d4c7fcc98b64eede7772b5ac1306c8abf53073268981998c8dca7f4e5acb6",
+      "convertMsUtility": 241.1
+    },
+    {
+      "levels": 310494,
+      "rows": 128908,
+      "slug": "btc-updown-15m-1768162500",
+      "tapeBytes": 768637,
+      "v1Bytes": 1918441,
+      "events": 128908,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "52217730f16b15fd9d0a7bb27bcd65d5afbe5a4d0d49ad0c842f8fac2f46ba12",
+      "convertMsUtility": 247.4
+    },
+    {
+      "levels": 313808,
+      "rows": 130682,
+      "slug": "btc-updown-15m-1778064300",
+      "tapeBytes": 773310,
+      "v1Bytes": 1879802,
+      "events": 130682,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "a5bd0c6cf8d3cdec1632f35bce6ae56c3f9c446efde632ff5663fdeba74c65f4",
+      "convertMsUtility": 248.7
+    },
+    {
+      "levels": 326398,
+      "rows": 136427,
+      "slug": "btc-updown-15m-1782405000",
+      "tapeBytes": 727403,
+      "v1Bytes": 1867533,
+      "events": 136427,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "4d74b2438e2fa6016b47cbe90e181c5feb707da0900894745c1beff3d6a71753",
+      "convertMsUtility": 294.0
+    },
+    {
+      "levels": 333750,
+      "rows": 138284,
+      "slug": "btc-updown-15m-1771065000",
+      "tapeBytes": 792514,
+      "v1Bytes": 2039549,
+      "events": 138284,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "2062d054ab1c76ed3beff9fd242fd7f9b8820a1aacecc486ddd7070cf1f37173",
+      "convertMsUtility": 267.2
+    },
+    {
+      "levels": 344944,
+      "rows": 143757,
+      "slug": "btc-updown-15m-1772748900",
+      "tapeBytes": 876492,
+      "v1Bytes": 2158302,
+      "events": 143757,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "130b57f64506b56f21cf3deac677bc4848a8ee0747ccd0f2b34a8092adba892b",
+      "convertMsUtility": 219.1
+    },
+    {
+      "levels": 352052,
+      "rows": 146447,
+      "slug": "btc-updown-15m-1769913000",
+      "tapeBytes": 856621,
+      "v1Bytes": 2219000,
+      "events": 146447,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "aa4c527990319a87b6947acf43e4ddf5a21530d80cb799e225e33ef6d4c7b102",
+      "convertMsUtility": 383.0
+    },
+    {
+      "levels": 360786,
+      "rows": 150867,
+      "slug": "btc-updown-15m-1782285300",
+      "tapeBytes": 815606,
+      "v1Bytes": 2084457,
+      "events": 150867,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "e00c52c10ff6bd6b54cb36e7128bff493c78d58f1cb9961939ae5b3e0a5d9cc9",
+      "convertMsUtility": 234.8
+    },
+    {
+      "levels": 369158,
+      "rows": 152605,
+      "slug": "btc-updown-15m-1780456500",
+      "tapeBytes": 835774,
+      "v1Bytes": 2072192,
+      "events": 152605,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "f4530161d8825c6e638c2c4bd275086f8c537f7fc70c48981e930e9e636d3d4b",
+      "convertMsUtility": 303.3
+    },
+    {
+      "levels": 376338,
+      "rows": 157207,
+      "slug": "btc-updown-15m-1779174900",
+      "tapeBytes": 923085,
+      "v1Bytes": 2267422,
+      "events": 157207,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "8daa35304810eafa9e40d4e952d627136419869d12e5b638a9a09d0d8ca1b69d",
+      "convertMsUtility": 398.8
+    },
+    {
+      "levels": 396536,
+      "rows": 164196,
+      "slug": "btc-updown-15m-1787125500",
+      "tapeBytes": 849605,
+      "v1Bytes": 2199829,
+      "events": 164196,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "2ac6d2bf19a31e0875fcca9631f0a197ee974ae30b68f239bdfd3c5fc744544a",
+      "convertMsUtility": 222.7
+    },
+    {
+      "levels": 390936,
+      "rows": 165137,
+      "slug": "btc-updown-15m-1789429500",
+      "tapeBytes": 902774,
+      "v1Bytes": 2275604,
+      "events": 165137,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "8aee5af081b158f7f4cd2d30df4cc411e15e61a32502416acabcf6119c1c315c",
+      "convertMsUtility": 283.5
+    },
+    {
+      "levels": 417594,
+      "rows": 173387,
+      "slug": "btc-updown-15m-1770286500",
+      "tapeBytes": 1028375,
+      "v1Bytes": 2681909,
+      "events": 173387,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "696dfbe9bb11aa6e22423521720adf6ce4b546fb82dc0bc55200319d81dbd0a8",
+      "convertMsUtility": 762.6
+    },
+    {
+      "levels": 428244,
+      "rows": 178755,
+      "slug": "btc-updown-15m-1772767800",
+      "tapeBytes": 1009990,
+      "v1Bytes": 2597698,
+      "events": 178755,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "5fe012ae6b890886bef3ae3ff0ea5e5ab2d444c0043cfbd52e9dbc602efe4cd9",
+      "convertMsUtility": 410.8
+    },
+    {
+      "levels": 430674,
+      "rows": 179876,
+      "slug": "btc-updown-15m-1781775900",
+      "tapeBytes": 951562,
+      "v1Bytes": 2452094,
+      "events": 179876,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "3154a13d355a59baecf24bffabaeb39ead8d7c960ba7d894e95bfbdc4fd02a2b",
+      "convertMsUtility": 245.3
+    },
+    {
+      "levels": 455256,
+      "rows": 189690,
+      "slug": "btc-updown-15m-1769003100",
+      "tapeBytes": 1093265,
+      "v1Bytes": 2797681,
+      "events": 189690,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "ea1a3d284e843013ee817757f6fcb77410f1d6c12f169c675d3936f8176874ce",
+      "convertMsUtility": 369.1
+    },
+    {
+      "levels": 465650,
+      "rows": 195189,
+      "slug": "btc-updown-15m-1773100800",
+      "tapeBytes": 1143926,
+      "v1Bytes": 2859306,
+      "events": 195189,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "b90f04c3ae09f283b7660bb9ad86e138ca45b3ca90f6c25488599b206c3569c3",
+      "convertMsUtility": 563.9
+    },
+    {
+      "levels": 492502,
+      "rows": 204298,
+      "slug": "btc-updown-15m-1773046800",
+      "tapeBytes": 1162100,
+      "v1Bytes": 2995257,
+      "events": 204298,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "0c1e2c607804daa8d46949020d9670aac55fe7d6a730ce344e2dd346f259a2f6",
+      "convertMsUtility": 568.4
+    },
+    {
+      "levels": 507552,
+      "rows": 212282,
+      "slug": "btc-updown-15m-1787409900",
+      "tapeBytes": 1180760,
+      "v1Bytes": 3032783,
+      "events": 212282,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "c1393fa977a3d0e49620a1b9ec3ca37c424a066ab2d346e620bd1d3b479d0b9f",
+      "convertMsUtility": 299.8
+    },
+    {
+      "levels": 514764,
+      "rows": 213251,
+      "slug": "btc-updown-15m-1770645600",
+      "tapeBytes": 1285542,
+      "v1Bytes": 3296327,
+      "events": 213251,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "abaedf8069e6dbd1375512b158c35660687bc57fe1329ba0a07fd2d029b2f713",
+      "convertMsUtility": 520.5
+    },
+    {
+      "levels": 547150,
+      "rows": 227717,
+      "slug": "btc-updown-15m-1770870600",
+      "tapeBytes": 1302933,
+      "v1Bytes": 3425275,
+      "events": 227717,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "28288416be9b21012f07dc30e944d14237451827672fdf9f62d1f9d953806626",
+      "convertMsUtility": 474.4
+    },
+    {
+      "levels": 573968,
+      "rows": 239932,
+      "slug": "btc-updown-15m-1780744500",
+      "tapeBytes": 1262592,
+      "v1Bytes": 3218704,
+      "events": 239932,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "f0f36428152df612f95857d5d81dd8677692f5f9f5bf2182c00501991c70c50b",
+      "convertMsUtility": 323.9
+    },
+    {
+      "levels": 602178,
+      "rows": 249271,
+      "slug": "btc-updown-15m-1770912900",
+      "tapeBytes": 1452187,
+      "v1Bytes": 3865841,
+      "events": 249271,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "c815eaf9592fe7560354adf7a60904725b6b59dcaea3f63576eb74f05c288fe7",
+      "convertMsUtility": 543.1
+    },
+    {
+      "levels": 620012,
+      "rows": 259846,
+      "slug": "btc-updown-15m-1784361600",
+      "tapeBytes": 1141964,
+      "v1Bytes": 3133474,
+      "events": 259846,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "72a4205c5299258e00dd468997125efa8fe27c66a60e514f75908e2fd120b6c4",
+      "convertMsUtility": 429.2
+    },
+    {
+      "levels": 682366,
+      "rows": 283719,
+      "slug": "btc-updown-15m-1784813400",
+      "tapeBytes": 1566690,
+      "v1Bytes": 4051613,
+      "events": 283719,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "70a0912a96409a70062bf7a3795fe2185c9fcf058d1068c9c0047c27c79b71c6",
+      "convertMsUtility": 418.0
+    },
+    {
+      "levels": 916620,
+      "rows": 378134,
+      "slug": "btc-updown-15m-1789136100",
+      "tapeBytes": 2020726,
+      "v1Bytes": 5337737,
+      "events": 378134,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "1c86ea13ff36a9ab167bf0522b9e7d13239f814a3105b8365367761496d568dd",
+      "convertMsUtility": 579.3
+    },
+    {
+      "levels": 1075793,
+      "rows": 449314,
+      "slug": "btc-updown-15m-1780925400",
+      "tapeBytes": 2519035,
+      "v1Bytes": 6444733,
+      "events": 449314,
+      "skipped": 0,
+      "inexact": 0,
+      "digest": "7263e195e52324b2a8bce74fc0e5ae7113b2d3d9e7266791229d590adead44b8",
+      "convertMsUtility": 679.2
+    }
+  ],
+  "nt6b": {
+    "smoke-50": "50/50 identical",
+    "heavy-1": "1/1 identical",
+    "fixtureDigest": "6f2be512d177e68f4680b089bb29a1e46d1ad213c70465a6789b0a1c19e073f5"
+  },
+  "correction": "2026-10-09 review: the otherLoad text claimed ps snapshots that the .md did not contain; corrected. The .md no longer quotes numbers that are not in a JSON (see its Corrections section)."
+}

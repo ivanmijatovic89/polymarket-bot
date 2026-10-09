@@ -1,0 +1,116 @@
+{
+  "spec": "12 §6.1 (callback contract), 12 §6.2 (cascade queue, breadth-first FIFO, delivery order), 12 §6.3 (cascade budget), 12 §6.4 (plugin and feed snapshot timing), 12 §4.2 (event_clock, decision stamp), 12 §5.3, 12 §9.1 (ledger applied at delivery), 30 §4 rules 5–8, 30 §4.1 (interests), 22 §3.3 (ordering contract)",
+  "source": "native-spec-g1:native/spec/12-engine-core.md §6; 30-strategy-sdk.md §4",
+  "notes": [
+    "Each vector is a scripted strategy for the testkit (30 §15): `script` says what the strategy does in which callback; `expect` is the required observable (callback sequence, portfolio view inside a callback, trace record order, diagnostics).",
+    "Callback sequences are written as (event kind, cid). Where the exact per-order sequence depends on the profile (13 §5.1 vs 13 §6.7) the expectation is an ORDER INVARIANT that holds in both profiles rather than a literal list.",
+    "The breadth-first rule (12 §6.2): intents written in the callback for event k are handled immediately and their events are appended to the BACK of the FIFO queue; everything already queued is delivered first."
+  ],
+  "vectors": [
+    {
+      "id": "cs-01-breadth-first",
+      "spec": "12 §6.2, 30 §4 rule 6, 22 §3.3",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "on_tick (first in-window tick): place A = GTC BUY UP @ bid-0.01 size 5 cid a, B = GTC BUY DOWN @ bid-0.01 size 5 cid b (two place intents in one callback). on_event(OrderSubmitted a): place C = GTC BUY UP @ bid-0.02 size 5 cid c. No other intents.",
+      "expect": {
+        "invariant": "every event of C is delivered after every event of A and B that was already in the queue when the OrderSubmitted(a) callback ran; in ts-compat (synchronous events, delay 0) the delivered sequence is exactly [sub a, acc a, su a, open a, sub b, acc b, su b, open b, sub c, acc c, su c, open c]",
+        "ts_compat_sequence": [["order_submitted", "a"], ["order_accepted", "a"], ["settlement_update", "a"], ["order_open", "a"], ["order_submitted", "b"], ["order_accepted", "b"], ["settlement_update", "b"], ["order_open", "b"], ["order_submitted", "c"], ["order_accepted", "c"], ["settlement_update", "c"], ["order_open", "c"]],
+        "realistic_invariant": "[sub a, sub b] are delivered in the tick's drain before sub c; later exchange reports of a and b (arrival + L_ack) are delivered before those of c because c is submitted later and latencies are constant"
+      }
+    },
+    {
+      "id": "cs-02-second-level-cascade",
+      "spec": "12 §6.2 (siblings first), 60 §5.4 A1/A2",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "as cs-01, plus on_event(OrderOpen c): cancel a.",
+      "expect": { "invariant": "the cancel's events (ts-compat: order_done(a, canceled); realistic: cancel_acked / order_done) come after every event of c that was queued before the OrderOpen(c) callback; the cancel intent is traced right after the Decision record of the OrderOpen(c) callback (22 §3.3)" }
+    },
+    {
+      "id": "cs-03-delivery-pipeline-ledger-first",
+      "spec": "12 §6.2 (ledger -> OM -> trace -> strategy -> trace Decision -> OM), 12 §9.1, 12 §9.2",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "place A = GTC BUY UP 5 @ 0.50 (resting); later a tick fills it as maker; record portfolio() inside each callback.",
+      "expect": {
+        "in_order_submitted_callback": "portfolio().open_orders() contains a; order(a).state == InFlight; capital().reserved == reservation(a) (12 §9.4: reservation exists from decision time; 12 §9.2 OrderSubmitted sets submitted_delivered)",
+        "in_order_open_callback": "order(a).state == Live",
+        "in_fill_callback": "position(Up).qty == 5; order(a).filled == 5; order(a).remaining == 0 (ledger applied before the callback)",
+        "in_order_done_callback": "order(a).state == Filled; capital().reserved == 0; open_orders() does not contain a"
+      }
+    },
+    {
+      "id": "cs-04-every-event-offered",
+      "spec": "12 §6.1 (every delivered event is offered, incl. OrderSubmitted and every SettlementUpdate), 30 §4.1",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "interests = all (default). Place one FOK BUY that fills. Count callbacks by kind.",
+      "expect": { "ts_compat_callback_kinds": ["order_submitted", "order_accepted", "settlement_update(Matched)", "fill", "order_done(Filled)", "settlement_update(Confirmed)"], "invariant": "number of on_event callbacks == number of `event` records in the parity trace (22 §3.2: both write every kind delivered to the strategy)" }
+    },
+    {
+      "id": "cs-05-interests-skip-only-the-callback",
+      "spec": "30 §4.1 (event flags), 12 §6.1 (skipped callback == no intents), 16 TF-3",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "same as cs-04 but interests omit LIFECYCLE (OrderSubmitted, OrderAccepted, OrderDelayed, OrderOpen, CancelAcked, OrderDone).",
+      "expect": { "callbacks": "only fill and settlement_update callbacks run", "unchanged": "MarketStats, resultDigest, the parity trace and the final portfolio are byte-identical to cs-04 (the trace still records every delivered event)", "note": "see PLAN.md ambiguity A-07 on whether a skipped-by-interest event counts as delivered for 22 §3.3" }
+    },
+    {
+      "id": "cs-06-cascade-budget-fault",
+      "spec": "12 §6.3, 21 §13 (strategy_fault), 20 §4.1 cause cascade_limit, 30 §12",
+      "profiles": ["ts-compat", "realistic"],
+      "model_config_override": { "runner": { "maxEventsPerDrain": 8 } },
+      "script": "on_tick: place GTC BUY UP @ bid-0.01 size 1 cid r0. on_event(OrderSubmitted r{n}): place cid r{n+1} (same price/size). Unbounded cascade.",
+      "expect": { "candidate_status": "error", "error": { "class": "strategy_fault", "cause": "cascade_limit", "detail_has": ["seq", "tsMs"] }, "market_stats": "absent (no MarketStats for that candidate)", "other_candidates_in_group": "unaffected (21 §14)", "note": "TS clears the queue silently and continues; not reproduced (12 §6.3). Threshold semantics (> vs >= maxEventsPerDrain) is PLAN.md ambiguity A-08." }
+    },
+    {
+      "id": "cs-07-event-clock",
+      "spec": "12 §4.2 (event_clock = TS portfolio.nowMs), 30 §5 event_clock()",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "ticks at start+1000 (t0), start+2000 (t1), start+3000 (t2). on_tick at t1: place FOK BUY UP at best ask size 1 (fills synchronously in ts-compat with delay 0). Read event_clock() in every callback.",
+      "expect": { "at_t0_tick": "event_clock() == t0 (set by the first dispatched strategy tick)", "at_t1_tick_before_intents": "event_clock() == t0 (ticks do not advance it)", "in_account_callbacks_of_t1": "event_clock() == t1 (max over delivered account event timestamps)", "at_t2_tick": "event_clock() == t1" }
+    },
+    {
+      "id": "cs-08-decision-stamp-ts-compat",
+      "spec": "12 §4.2 (decision stamp), 13 TC-C8, 11 §4 (GTD check uses the stamp)",
+      "profiles": ["ts-compat"],
+      "decision": "D69 (A-09): events of tick N's execution step belong to tick N; inside their callbacks tick().seq == N and the ts-compat decision stamp / now() is tick N's ts",
+      "script": "tick N-1 at T0: on_tick places GTC BUY UP @ P (rests). tick N at T1 = T0 + 30000 with best ask < P: the execution step fills it as maker and the Fill/OrderDone(Filled) callbacks run before tick N's own on_tick. In the OrderDone(Filled) callback: read ctx.tick().seq and ctx.now(); place GTD g1 with expire_at = T1 + 60000, g2 with expire_at = T1 + 59999, g3 with expire_at = T0 + 60000.",
+      "expect": { "tick_seq_in_callback": "N (not N-1)", "now_in_callback": "T1 (tick N's ts; TC-C8, D67)", "g1": "accepted (OrderSubmitted)", "g2": "OrderRejected(GtdExpiryTooSoon{min_offset_ms: 60000})", "g3": "OrderRejected(GtdExpiryTooSoon{min_offset_ms: 60000}) — T0 + 60000 = T1 + 30000 < T1 + 60000: the stamp is tick N's ts, not tick N-1's" }
+    },
+    {
+      "id": "cs-09-no-callbacks-outside-window",
+      "spec": "12 §5.4, 60 INV-13, D23, 13 TC-C9/TC-C13",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "resting GTC at the window end; ticks continue after end in the input.",
+      "expect": { "ts_compat": "no on_tick and no on_event after the last in-window tick (tick.ts <= end inclusive); the order stays open in the final view; no OrderDone at end (TC-C13)", "realistic": "no strategy callback with now >= end; the engine's CancelMarket(WindowEnd) at end and the MarketClosed cancel are applied to the ledger without callbacks; final view shows the order terminal (Canceled(WindowEnd) or Canceled(MarketClosed))" }
+    },
+    {
+      "id": "cs-10-plugin-snapshot-previous-tick",
+      "spec": "12 §6.4, 12 §5.2 (callbacks see the new book and the previous snapshot), 14 P-4",
+      "profiles": ["ts-compat", "realistic"],
+      "requires": "a plugin (DwellGate or TimeWindowVolatility, 14) — G2 scope only if the testkit exposes plugins; else outlined",
+      "script": "request DwellGate; place a resting order at tick N-1; tick N changes the book so that the order fills (maker) and the plugin output changes.",
+      "decision": "D69 (A-09)",
+      "expect": { "in_fill_callback_of_tick_N": "ctx.tick().seq == N and ctx.now() == tick N's ts (begin_tick runs before the execution step, 12 §5.3; the events belong to tick N); ctx.book() shows tick N's book; ctx.plugins() and ctx.feeds() equal the snapshot built at tick N-1 (12 §6.4); in tick N's own on_tick, plugins() is tick N's snapshot" }
+    },
+    {
+      "id": "cs-11-synthetic-tick-no-execution",
+      "spec": "12 §5.3 (synthetic ticks never run the execution step), 14 F-36",
+      "profiles": ["ts-compat", "realistic"],
+      "requires": "binance_spot with tick_on_update (14); G2 scope if the testkit scripts feed updates (30 §15 lists feed updates)",
+      "script": "resting GTC BUY @ P; a feed update arrives while the recorded best ask is already < P without a new book event.",
+      "expect": "no fill on the synthetic tick; the fill happens on the next real book/price_change tick"
+    },
+    {
+      "id": "cs-12-fresh-instance-per-market",
+      "spec": "30 §4 rule 4, 12 §6.1 (one instance per session)",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "strategy with a counter in its state; run two markets in one process (group or sequential).",
+      "expect": "the counter starts at 0 in each market; Strategy::new is called once per (candidate, market)"
+    },
+    {
+      "id": "cs-13-engine-origin-events-offered",
+      "spec": "12 §6.1 (the engine's own OrderSubmitted), 60 §5.4 A1 (intent from an engine-synthesized event)",
+      "profiles": ["ts-compat", "realistic"],
+      "script": "on_event(OrderSubmitted x11): place x11-sib at x11 price - 0.01; on_event(OrderOpen x11-sib): cancel x11.",
+      "expect": "both callbacks run; x11-sib's OrderSubmitted appears after x11's remaining queued events; the cancel of x11 is processed after x11-sib's queued events (cs-02)"
+    }
+  ]
+}

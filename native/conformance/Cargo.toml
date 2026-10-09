@@ -1,0 +1,28 @@
+[package]
+name = "pmb-conformance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Independent spec-conformance tests for the native engine (60-verification.md §10, D45)"
+license = "UNLICENSED"
+
+[lib]
+# Pure helpers shared by the test files: vector loading, SHA-256, the RNG-5
+# derivation, exact decimal arithmetic and civil-date epochs. Written from the
+# spec only; none of it comes from the engine crates (CF-2).
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# C2 (60 §10.0): the test skeletons bind to the real SDK and testkit once
+# M1 step 5 delivers them. Nothing else is allowed here (30 P1, D16).
+# pmb-sdk = { path = "../crates/pmb-sdk", features = ["testkit"] }
+
+# Standalone until C2. This empty table keeps the crate out of any parent
+# workspace so that `cargo test --manifest-path native/conformance/Cargo.toml`
+# works with no engine sources present. C2 removes it when the crate joins the
+# engine workspace (60 §10.0: "cargo test -p pmb-conformance").
+[workspace]

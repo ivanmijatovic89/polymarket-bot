@@ -1,0 +1,26 @@
+[package]
+name = "pmb-engine"
+description = "Deterministic engine core: serial loop, order manager, ledger, execution trait, simulator and ts-compat models (12, 13)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+pmb-book.workspace = true
+pmb-feeds.workspace = true
+# Closed vocabularies and model axes of `ModelConfig` (21 §6, §17; 13 §7.3).
+# Read once at session construction into `EngineConfig`; never on the hot path.
+pmb-contract.workspace = true
+# `intentMeta` materialization at the output boundary only (21 §16, 10 §7.5
+# E2): stored meta JSON becomes `pmb_contract` objects once per market.
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+pmb-replay.workspace = true
+sha2.workspace = true

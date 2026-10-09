@@ -1,0 +1,27 @@
+[package]
+name = "pmb-plugins"
+description = "Tick-scoped strategy plugins: TimeWindowVolatility, TechnicalIndicators (offline aggTrade candles), DwellGate, TimeWindowGate (14-feeds-and-plugins.md §12)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+libm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# V-6 (a) reads the local aggTrades day files in tests/ta_klines.rs.
+parquet.workspace = true
+proptest.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "plugins"
+harness = false

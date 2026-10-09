@@ -1,0 +1,37 @@
+{
+  "spec": "11 §5.3 (dated fallback fee table F0–F3, FT1, FT2), 11 K5/K6, 11 §14 verification statuses, D51, D52",
+  "source": "native-spec-g1:native/spec/11-exchange-rules.md §5.3",
+  "notes": [
+    "The fee fallback is keyed by MARKET START TIME (market_start_ms from the slug), unlike the taker delay, which is keyed by exchange arrival time (11 §6).",
+    "Row windows are [from, to). Epoch values are the spec's; each was recomputed from its ISO label (tests/g3_fee_curves.rs checks that again).",
+    "Every row is `unverified` until the fee study FS (11 §14.1) verifies it; markets whose orders touched an unverified rule list it in unverifiedRules (11 §14).",
+    "ts-compat ignores this table entirely (fee of 11 §4 on every date) and outputs feeEra, feeCurve, feeSource = null (FT1)."
+  ],
+  "vectors": [
+    { "id": "F0", "spec": "11 §5.3 row F0", "from_iso": null, "to_iso": "2026-01-05T00:00:00Z", "from_ms": null, "to_ms": 1767571200000, "curve": "none", "family": "None", "rate": null, "exponent": null, "dp": null, "status": "unverified (L; boundary conflict K5: repo docs and on-chain analysis say 2026-01-06)" },
+    { "id": "F1", "spec": "11 §5.3 row F1", "from_iso": "2026-01-05T00:00:00Z", "to_iso": "2026-03-30T00:00:00Z", "from_ms": 1767571200000, "to_ms": 1774828800000, "curve": "price_weighted:0.25:2:5", "family": "PriceWeighted", "rate": "0.25", "exponent": 2, "dp": 5, "status": "unverified (L peak 1.56% + repo docs on-chain formula; dp 5 assumed)" },
+    { "id": "F2", "spec": "11 §5.3 row F2", "from_iso": "2026-03-30T00:00:00Z", "to_iso": "2026-05-08T00:00:00Z", "from_ms": 1774828800000, "to_ms": 1778198400000, "to_approximate": true, "curve": "symmetric:0.07:1:5", "family": "Symmetric", "rate": "0.07", "exponent": 1, "dp": 5, "status": "unverified (conflict K6: 0.072 claimed by repo docs)" },
+    { "id": "F3", "spec": "11 §5.3 row F3", "from_iso": "2026-05-08T00:00:00Z", "to_iso": null, "from_ms": 1778198400000, "from_approximate": true, "to_ms": null, "curve": "symmetric:0.07:1:5", "family": "Symmetric", "rate": "0.07", "exponent": 1, "dp": 5, "status": "unverified until FS checks it on the local research dataset (P + S)" }
+  ],
+  "lookups": [
+    { "id": "lookup-before-F1", "spec": "11 §5.3 (keyed by market start)", "market_slug": "btc-updown-15m-1767570300", "market_start_ms": 1767570300000, "expected_era": "F0", "note": "the last 15m market starting before 2026-01-05T00:00Z (23:45Z on 2026-01-04)" },
+    { "id": "lookup-F1-start", "spec": "11 §5.3 ([from, to) window)", "market_start_ms": 1767571200000, "expected_era": "F1", "note": "the boundary instant belongs to the later row" },
+    { "id": "lookup-F1-end", "spec": "11 §5.3", "market_start_ms": 1774828799000, "expected_era": "F1" },
+    { "id": "lookup-F2-start", "spec": "11 §5.3", "market_start_ms": 1774828800000, "expected_era": "F2" },
+    { "id": "lookup-F3-start", "spec": "11 §5.3", "market_start_ms": 1778198400000, "expected_era": "F3" },
+    { "id": "lookup-fixture-slug", "spec": "11 §5.3", "market_slug": "btc-updown-15m-1780272000", "market_start_ms": 1780272000000, "expected_era": "F3", "note": "the RNG-7 fixture slug (2026-06-01T00:00Z) lies in F3" },
+    { "id": "lookup-btc-5m-launch", "spec": "11 §5.3 (BTC 5m launched 2026-02-12, follows the 15-minute curve)", "market_slug": "btc-updown-5m-1770854400", "market_start_ms": 1770854400000, "expected_era": "F1", "note": "2026-02-12T00:00:00Z = 1770854400" }
+  ],
+  "ft1_output": {
+    "spec": "11 FT1, 11 §13.8, 21 §11",
+    "realistic": { "feeEra": "F0|F1|F2|F3 (row containing the market start, whether the curve came from a snapshot or the fallback)", "feeCurve": "canonical text of the FeeCurve actually used, e.g. none | price_weighted:0.25:2:5 | symmetric:0.07:1:5", "feeSource": "per-field provenance (11 §13.3)" },
+    "ts_compat": { "feeEra": null, "feeCurve": null, "feeSource": null, "rules": null }
+  },
+  "ft2_mixed_eras": {
+    "spec": "11 FT2 (D51)",
+    "statements": [
+      "A realistic run MAY span several fee eras; it is never refused for that.",
+      "A market whose captured curve differs from its era row keeps its era for the breakdown and is counted in diagnostic fee_curve_differs_from_era; its feeCurve output shows the curve actually used."
+    ]
+  }
+}

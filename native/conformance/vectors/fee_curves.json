@@ -1,0 +1,40 @@
+{
+  "spec": "11 §5.1 (FE1, FE2), 11 §5.2 (FC1–FC4 and the test-vector table), 10 §3.3 R8, 11 §4 (ts-compat fee)",
+  "source": "native-spec-g1:native/spec/11-exchange-rules.md §5.2 table; 10-domain-model.md §3.3 R8",
+  "notes": [
+    "Formulas (exact decimal, then one HalfAwayFromZero rounding to dp, FC3): PriceWeighted{rate, exp, dp}: fee = C x p x rate x (p(1-p))^exp; Symmetric{rate, exp, dp}: fee = C x rate x (p(1-p))^exp. C = fill quantity, p = fill price. Taker only; maker fee 0 (FC2).",
+    "Realistic dp = 5 (minimum fee 0.00001; exact < 0.000005 -> 0). ts-compat dp = 4 and result < 0.0001 -> 0 (src/trading/fees.ts:18-24); ts-compat fee is Symmetric(0.07, 1, 4) on every date (11 §4).",
+    "The `wip_wrong` column reproduces the WIP bug of 11 K4/FE2 (Symmetric family with era-1 parameters, 2x too high at p = 0.5); it is listed so a test can assert the engine does NOT produce it.",
+    "All 7 rows were recomputed with an independent exact-decimal implementation and match the spec table.",
+    "FC3 allows truncating intermediates below 1e-12 USDC; that never changes a HalfAwayFromZero result at 4 or 5 dp (truncation cannot move a value across or onto a half)."
+  ],
+  "curves": {
+    "era1": { "family": "PriceWeighted", "rate": "0.25", "exponent": 2, "dp": 5, "text": "price_weighted:0.25:2:5" },
+    "era3": { "family": "Symmetric", "rate": "0.07", "exponent": 1, "dp": 5, "text": "symmetric:0.07:1:5" },
+    "ts_compat": { "family": "Symmetric", "rate": "0.07", "exponent": 1, "dp": 4, "floor": "0.0001", "text": "n/a (11 §4 constant; outputs carry feeCurve null)" },
+    "wip_wrong": { "family": "Symmetric", "rate": "0.25", "exponent": 2, "dp": 5, "text": "WIP bug (11 FE2): MUST NOT be produced" }
+  },
+  "vectors": [
+    { "id": "fee-100-0.50", "spec": "11 §5.2 row 1", "C": "100", "p": "0.50", "era1": "0.78125", "era3": "1.75000", "ts_compat": "1.7500", "wip_wrong": "1.56250", "note": "FE1: 100 shares at $0.50 cost $1.75 (P). FE2: era-1 fraction of notional 0.25 x 0.0625 = 1.5625% of 50 = 0.78125." },
+    { "id": "fee-10-0.53", "spec": "11 §5.2 row 2", "C": "10", "p": "0.53", "era1": "0.08222", "era3": "0.17437", "ts_compat": "0.1744", "wip_wrong": "0.15513", "note": "exact era1 = 0.082217323250; era3 = 0.174370 exactly; ts-compat 4 dp of 0.17437 -> 0.1744." },
+    { "id": "fee-800-0.60", "spec": "11 §5.2 row 3", "C": "800", "p": "0.60", "era1": "6.91200", "era3": "13.44000", "ts_compat": "13.4400", "wip_wrong": "11.52000" },
+    { "id": "fee-6-0.64", "spec": "11 §5.2 row 4", "C": "6", "p": "0.64", "era1": "0.05096", "era3": "0.09677", "ts_compat": "0.0968", "wip_wrong": "0.07963", "note": "exact era1 = 0.0509607936; era3 = 0.096768." },
+    { "id": "fee-5-0.01", "spec": "11 §5.2 row 5", "C": "5", "p": "0.01", "era1": "0.00000", "era3": "0.00347", "ts_compat": "0.0035", "wip_wrong": "0.00012", "note": "era3 exact = 0.003465: an exact 5-dp half, HalfAwayFromZero -> 0.00347 (half-up equals half-away for fees >= 0, R8). ts-compat: 0.003465 -> 0.0035." },
+    { "id": "fee-5-0.99", "spec": "11 §5.2 row 6", "C": "5", "p": "0.99", "era1": "0.00012", "era3": "0.00347", "ts_compat": "0.0035", "wip_wrong": "0.00012", "note": "Symmetric is symmetric in p; PriceWeighted is not (era1 differs from the p = 0.01 row)." },
+    { "id": "fee-0.05-0.01", "spec": "11 §5.2 row 7", "C": "0.05", "p": "0.01", "era1": "0.00000", "era3": "0.00003", "ts_compat": "0", "wip_wrong": "0.00000", "note": "era3 exact = 0.00003465 -> 0.00003 (above the 0.00001 minimum); ts-compat 4 dp -> 0.0000 -> below 0.0001 -> 0." }
+  ],
+  "rules": [
+    { "id": "fc1-once-per-fill", "spec": "11 FC1, 10 §9.1", "statement": "The fee is computed once per fill record by ExchangeRules and stored on the Fill; portfolio, stats and traces only sum fill.fee; nothing recomputes it from a rate." },
+    { "id": "fc2-taker-only", "spec": "11 FC2, 60 INV-10", "statement": "Only TAKER fills pay; MAKER fills carry fee 0; fee >= 0; charged in USDC (added to a BUY spend, deducted from SELL proceeds)." },
+    { "id": "fe3-snapshot-mapping", "spec": "11 FE3", "cases": [
+      { "captured": { "feesEnabled": false }, "curve": "None" },
+      { "captured": { "feeSchedule": { "rate": "0", "exponent": 1, "takerOnly": true } }, "curve": "None" },
+      { "captured": {}, "curve": "fallback row for the market start (11 §5.3), provenance fallback" },
+      { "captured": { "feeType": "crypto_fees_v2", "feeSchedule": { "rate": "0.07", "exponent": 1, "takerOnly": true } }, "curve": "Symmetric{0.07, 1}" },
+      { "captured": { "feeType": "unknown_type", "feeSchedule": { "rate": "0.07", "exponent": 1, "takerOnly": true } }, "curve": "fallback row for the market start, provenance fallback, diagnostic unknown_fee_type" },
+      { "captured": { "feeType": "crypto_fees_v2", "feeSchedule": { "rate": "0.07", "exponent": 5, "takerOnly": true } }, "curve": "invalid_input (exponent must be an integer in 0..=4)" },
+      { "captured": { "feeType": "crypto_fees_v2", "feeSchedule": { "rate": "0.07", "exponent": -1, "takerOnly": true } }, "curve": "invalid_input" }
+    ] },
+    { "id": "pr3-misleading-fields-ignored", "spec": "11 PR3", "statement": "Gamma takerBaseFee/makerBaseFee, CLOB mbf/tbf, WS last_trade_price.fee_rate_bps and Gamma secondsDelay (as a crypto taker delay) are never used as fee or delay evidence." }
+  ]
+}

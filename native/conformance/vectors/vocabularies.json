@@ -1,0 +1,86 @@
+{
+  "spec": "21 §17 (closed vocabularies), 20 §4 (error classes and exit codes), 20 §4.1 (causes), 20 §4.4 (drift guard), 10 §10.2 (reason enums and TS strings), 10 §9.2 (settlement statuses), 12 §5.3 (tick causes), 11 RS4 (RulesSource), 22 §3.2 (trace record kinds)",
+  "source": "native-spec-g1:native/spec/21-job-and-output-contract.md §17; 20-binary-protocol.md §4; 10-domain-model.md §9.2, §10",
+  "notes": [
+    "Every enum is a Rust enum with exhaustive serde; an unknown value is a schema violation, never a string passed through (21 §17).",
+    "`ts_string` columns are the exact serializations the trace renderer MUST reproduce (10 §10.2); parameters inside parentheses print numbers as exact decimals with trailing zeros trimmed.",
+    "Reason codes without a TS string have none in 10 §10.2; the parity diff compares the code before the first `(` and reports reason_code_unmapped if either side's code is unknown (22 §3.4) — D62 fixes the cancel-failure strings (TooManyIds = invalid_cancel_batch_size, ConflictingRefs = conflicting_order_reference; TS invalid_order_reference is unreachable from typed intents and has no Rust variant)."
+  ],
+  "vectors": [
+    { "id": "voc-input-mode", "spec": "21 §17 row 1, 20 §5.6", "name": "inputMode", "values": ["telonex-delta", "recorder-v4", "journal"], "rejected": ["recorded", "telonex-paired"] },
+    { "id": "voc-profile", "spec": "21 §17 row 2", "name": "profile", "values": ["ts-compat", "realistic"] },
+    { "id": "voc-outcome", "spec": "21 §17 row 3, 10 M1", "name": "finalOutcome / market.outcome / tokenIds keys", "values": ["UP", "DOWN"], "indexes": { "UP": 0, "DOWN": 1 } },
+    { "id": "voc-top-skip-reason", "spec": "21 §17 row 4", "name": "top-level skipReason", "values": ["no_slug", "no_resolution", "unresolved_outcome", "no_activity", "incomplete_capture"] },
+    { "id": "voc-stats-skip-reason", "spec": "21 §17 row 5", "name": "marketStats.skipReason", "values": ["no_in_window_activity"] },
+    { "id": "voc-events-by-type", "spec": "21 §17 row 6, 12 §5.3", "name": "eventsByType keys / tick causes", "values": ["book", "price_change", "binance_agg_trade", "chainlink_round"] },
+    { "id": "voc-error-class", "spec": "21 §17 row 7, 20 §4", "name": "error class", "values": ["runtime", "invalid_input", "data_missing", "data_defect", "timeout", "invalid_output", "strategy_fault", "engine_fault", "canceled", "killed"], "exit_codes": { "runtime": 1, "invalid_input": 2, "data_missing": 3, "data_defect": 4, "timeout": 5, "invalid_output": 6, "strategy_fault": 7, "engine_fault": 8, "engine_fault_escaped_panic": 101, "canceled": null, "killed": "signal" }, "never_retried": ["invalid_input", "data_defect", "strategy_fault", "engine_fault", "invalid_output", "killed"] },
+    { "id": "voc-error-cause", "spec": "21 §17 row 8, 20 §4.1", "name": "error cause", "pattern": "^[a-z][a-z0-9_]{0,47}$", "known": {
+      "runtime": ["io", "decode_unverified", "r2_download", "resource"],
+      "invalid_input": ["args", "schema", "version", "profile", "input_mode", "rules_table_version", "rules", "market", "params", "path", "strategy_id", "model_config", "feed_availability", "window", "symbol", "unsupported_feed", "context_missing", "target_mismatch", "artifact_incompatible", "engine_blocklisted", "flag"],
+      "data_missing": ["day_file_missing", "input_missing", "integrity_mismatch"],
+      "data_defect": ["corrupt", "integrity_mismatch", "format_version", "foreign_file", "pre_coverage", "upstream_hole", "pipeline_incomplete"],
+      "timeout": ["deadline"],
+      "invalid_output": ["self_check", "schema", "echo_mismatch", "line_too_large"],
+      "strategy_fault": ["panic", "error", "cascade_limit", "intent_meta_limit", "result_too_large"],
+      "engine_fault": ["panic", "invariant"],
+      "killed": ["signal", "oom_budget", "pong_missing", "backstop_timeout"]
+    } },
+    { "id": "voc-failure-class", "spec": "21 §17 row 9, 21 §14", "name": "failure_class", "values": ["runtime", "invalid_input", "data_missing", "data_defect", "timeout", "invalid_output", "strategy_fault", "engine_fault", "killed", "market_skip", "missing_child_result", "invalid_market_stats"], "excluded": ["canceled"] },
+    { "id": "voc-rules-source", "spec": "21 §17 row 10, 11 RS4", "name": "rulesSource", "values": ["snapshot", "partial", "fallback"] },
+    { "id": "voc-captured-origin", "spec": "21 §17 row 11, 11 §13.1", "name": "captured[*].origin", "values": ["gamma", "clob", "v4_bootstrap", "live_gamma", "live_clob"] },
+    { "id": "voc-captured-phase", "spec": "21 §17 row 12", "name": "captured[*].phase", "values": ["pre_start", "post_start"], "constraint": "tick only pre_start (11 RS2)" },
+    { "id": "voc-captured-fields", "spec": "21 §17 row 13, 21 §7.1", "name": "captured field names", "values": ["tick", "minSizeResting", "feesEnabled", "feeType", "feeSchedule", "takerDelayEnabled", "negRisk", "version", "secondsDelay", "minOrderAgeS", "acceptingOrdersTimestampMs"], "required_for_snapshot": ["tick", "minSizeResting", "feesEnabled", "feeType", "feeSchedule", "takerDelayEnabled", "negRisk", "version"] },
+    { "id": "voc-captured-version", "spec": "21 §17 row 14, 11 V1", "name": "captured.version.value", "values": ["v1", "v2"] },
+    { "id": "voc-missing-snapshot", "spec": "21 §17 row 15", "name": "rules.missingSnapshot", "values": ["dated_fallback"] },
+    { "id": "voc-feed-ids", "spec": "21 §17 row 17", "name": "feedFiles[].feed", "values": ["binance_agg_trades", "chainlink_crypto_prices"] },
+    { "id": "voc-reject-reason-engine", "spec": "21 §17 row 16, 10 §10.2 (engine origin)", "name": "RejectReason (engine)", "values": [
+      { "variant": "InvalidPrice", "ts_string": "invalid_price" },
+      { "variant": "InvalidSize", "ts_string": "invalid_size" },
+      { "variant": "UnknownOutcome", "ts_string": "missing_assetId" },
+      { "variant": "PostOnlyRequiresResting", "ts_string": "post_only_requires_gtc_or_gtd" },
+      { "variant": "GtdRequiresExpiry", "ts_string": "gtd_requires_expireAtMs" },
+      { "variant": "GtdExpiryTooSoon{min_offset_ms}", "ts_string": "gtd_expireAtMs_too_soon(min_offset_ms=60000)", "ts_code": "gtd_expireAtMs_too_soon" },
+      { "variant": "InsufficientCapital{required, available}", "ts_string": "insufficient_capital(required=X,available=Y)", "ts_code": "insufficient_capital" },
+      { "variant": "InsufficientInventory{required, available}", "ts_string": null },
+      { "variant": "RiskMaxOpenOrders{max}", "ts_string": "risk_max_open_orders(max=100)", "ts_code": "risk_max_open_orders" },
+      { "variant": "RiskMaxOrderSize{max}", "ts_string": null },
+      { "variant": "RiskMaxAbsPosition{max}", "ts_string": null },
+      { "variant": "RiskLossStop{realized}", "ts_string": null },
+      { "variant": "BatchTooLarge{max}", "ts_string": "batch_too_large(max_15_orders)", "ts_code": "batch_too_large" },
+      { "variant": "SelfCross{resting}", "ts_string": null, "never_in_ts_compat": true },
+      { "variant": "MetaTooLarge", "ts_string": "meta_too_large", "note": "21 §16 names the reject reason meta_too_large" },
+      { "variant": "StrategyHalted", "ts_string": null },
+      { "variant": "KillSwitch", "ts_string": null }
+    ], "not_a_reason": ["duplicate_active_cid"] },
+    { "id": "voc-reject-reason-exchange", "spec": "10 §10.2 (exchange origin)", "name": "RejectReason (exchange)", "values": [
+      { "variant": "InvalidTick{price, tick}" }, { "variant": "PriceOutOfBounds{min, max}" }, { "variant": "SizeBelowMinimum{min}" }, { "variant": "NotionalBelowMinimum{min}" }, { "variant": "SizePrecision" }, { "variant": "AmountPrecision" },
+      { "variant": "PostOnlyWouldCross", "ts_string": "post_only_would_cross" },
+      { "variant": "GtdLeadTooShort{min_lead_ms}" }, { "variant": "MarketClosed" },
+      { "variant": "TradingRestricted{mode}", "modes": ["PostOnly", "CancelOnly", "Disabled", "Restarting"] },
+      { "variant": "RateLimited{retry_after_ms}" }, { "variant": "InsufficientExchangeBalance" }, { "variant": "NotFoundAfterAmbiguous" }, { "variant": "Unmapped(code)", "note": "raw text in the journal only" }
+    ] },
+    { "id": "voc-done-reason", "spec": "10 §10.2", "name": "DoneReason", "values": ["Filled", "Canceled(CancelCause)", "Expired", "Killed"] },
+    { "id": "voc-cancel-cause", "spec": "10 §10.2", "name": "CancelCause", "values": ["Strategy(CancelOp)", "Rotation", "WindowEnd", "MarketClosed", "HeartbeatLoss", "KillSwitch", "StrategyPanic", "Operator", "Exchange"] },
+    { "id": "voc-cancel-fail-reason", "spec": "10 §10.2", "name": "CancelFailReason", "values": [
+      { "variant": "UnknownClientOrder", "ts_string": "unknown_client_order" },
+      { "variant": "ConflictingRefs", "ts_string": "conflicting_order_reference", "decision": "D62" },
+      { "variant": "MissingExchangeOrderId", "ts_string": "missing_exchange_order_id" },
+      { "variant": "NotCancelableDuringDelay", "ts_string": null },
+      { "variant": "ExchangeNotCanceled(code)", "ts_string": null },
+      { "variant": "TooManyIds", "ts_string": "invalid_cancel_batch_size", "decision": "D62" },
+      { "variant": "Ambiguous", "ts_string": null }
+    ] },
+    { "id": "voc-split-merge-fail-reason", "spec": "10 §10.2", "name": "SplitFailReason / MergeFailReason", "values": ["InvalidSize", "InsufficientCollateral", "InsufficientPairs", "TxFailed", "Ambiguous"] },
+    { "id": "voc-settlement-status", "spec": "10 §9.2, 22 §3.2", "name": "SettlementStatus", "values": [
+      { "variant": "Matched", "rank": 1, "terminal": false, "ts_string": "MATCHED", "also_from": "MATCHED_NOT_BROADCASTED (normalized, same rank)" },
+      { "variant": "Retrying", "rank": "keeps previous", "terminal": false, "ts_string": "RETRYING" },
+      { "variant": "Mined", "rank": 2, "terminal": false, "ts_string": "MINED" },
+      { "variant": "Confirmed", "rank": 3, "terminal": true, "ts_string": "CONFIRMED" },
+      { "variant": "Failed", "rank": null, "terminal": true, "ts_string": "FAILED", "effect": "reverses the fill (10 F1)" }
+    ] },
+    { "id": "voc-account-event-kinds", "spec": "10 §10.1, 22 §3.2", "name": "account event TS kinds", "values": ["order_submitted", "order_rejected", "order_accepted", "order_open", "fill", "settlement_update", "order_done", "cancel_failed", "positions_split", "split_failed", "positions_merged", "merge_failed"], "realistic_and_live_only": ["order_delayed", "cancel_acked"], "never_traced": ["account_stream_status"] },
+    { "id": "voc-order-state-ts", "spec": "10 §8.4", "name": "OrderLifecycleState (TS)", "values": ["requested", "open", "partially_filled", "filled", "canceled", "expired", "killed", "rejected"] },
+    { "id": "voc-superseded-names", "spec": "20 §4.4 drift guard", "name": "superseded class names that MUST NOT appear", "values": ["input_invalid", "data_unavailable", "runtime_error", "strategy_panic", "executor_crash", "output_invalid"], "allowlisted": ["the 20 §4.4 paragraph itself", "live alert kind strategy_panic (50)"] },
+    { "id": "voc-diagnostics-counters", "spec": "21 §10 (anomalies), 10 T6, 10 C1, 12 §7.6, 12 §9.5, 11 TT3, 11 FT2, 14 F-51", "name": "diagnostics.anomalies keys named in the spec", "values": ["staleBookEvents", "inexact_decimal", "skippedRows", "duplicate_active_cid", "reservation_dust", "oversold_qty", "reversal_deficit", "tick_inferred", "tick_coarsened", "fee_curve_differs_from_era", "unknown_fee_type", "unexpected_seconds_delay", "feedLatencyClamps", "self_cross"], "note": "zero counters MAY be omitted; never compared or persisted" }
+  ]
+}

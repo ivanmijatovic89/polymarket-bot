@@ -181,3 +181,50 @@ jobs:
           # so next.config.ts + lib/db.ts don't throw at boot.
           DATABASE_NAME: ci_placeholder
           REDIS_URL: redis://localhost:6379
+
+  native-quality:
+    name: Native Rust engine (fmt + clippy + test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
+          rustup default 1.89.0
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: native-${{ runner.os }}-${{ hashFiles('native/Cargo.lock') }}
+
+      - name: Engine workspace (fmt, clippy, test)
+        working-directory: native
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+
+      # Dependency gate (31 §3 item 5): advisories, bans, licenses and
+      # sources per native/deny.toml. v2.1.1 ships cargo-deny 0.20.2.
+      - name: Engine dependencies (cargo deny)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: native/Cargo.toml
+          rust-version: '1.89.0'
+          arguments: --all-features --locked
+          command: check
+
+      - name: Strategy package (fmt, clippy, test)
+        if: hashFiles('native/strategies/Cargo.toml') != ''
+        working-directory: native/strategies
+        run: |
+          cargo fmt --all --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked

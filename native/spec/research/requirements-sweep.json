@@ -1,0 +1,1170 @@
+{
+ "sweeps": [
+  {
+   "area": "Results, statistics and database: what the Rust engine must output per market, and what stays in TypeScript (aggregation, segments, extend, rebuilds, research, dashboard)",
+   "requirements": [
+    {
+     "id": "rust-output-contract",
+     "requirement": "Rust emits exactly RunSingleMarketOutput {idx (echoed), slug, marketStats|null, eventsProcessed, eventsByType, durationMs, skipReason?, coverageReasons?}. marketStats = marketId (condition id from book events), slug, finalOutcome, pnl (= realized + min(up,down)*1 + winning remainder*1 - remaining cost basis - splitCost), tradeCount, tradeAsMaker, tradeAsTaker, feesPaid, avgEntryPriceUp/Down (BUY VWAP, null if no buys), upShares, downShares, mergableShares, cost (remaining fee-inclusive cost basis), splitCost, intentMeta, skipReason. Keep the null-vs-zero-row distinction: ticks seen but no fills or positions gives a zero row with marketStats.skipReason='no_in_window_activity' and top-level 'no_activity' (counted in the denominators). No ticks at all, or no resolution, gives marketStats=null, which TS turns into a failure row.",
+     "evidence": "src/backtest/runSingleMarket.ts:132-156, 494-590; src/backtest/stats/marketStats.ts:27-61, 100-200; src/backtest/aggregateProcessor.ts:36-51, 96-124; src/db/backtests.ts:440-480",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "ts-owned-derivations",
+     "requirement": "These stay in TypeScript and must not be ported: market_start_ms = slugTs(slug) (also on extend), computeBatchStats, computeBacktestSegments (all, last_n 500/1000/3000/6000, daily/weekly/monthly; sorted by marketStartMs, capital resets per bucket), unionBusyMs wall clock (shared with the dashboard via @polymarket-bot/stats), status, markets_persisted, failures_count, input_markets_total, failure rows (null stats + failed or missing children), the extension merge, rebuild-backtest-segments, walkForwardRank and research run synthesis. Invariant: segments must stay recomputable from backtest_run_markets rows alone, so every stats input must be a persisted per-market column.",
+     "evidence": "src/backtest/aggregateProcessor.ts:162-196; src/backtest/stats/backtestSegments.ts:38,162-192; src/backtest/stats/wallClock.ts:1-52 + src/backtest/stats/package.json + dashboard/src/lib/queries/batches.ts:11,604; src/db/backtests.ts:838-1082 (extend recomputes from DB rows); src/cli/rebuild-backtest-segments.ts:1-20; src/backtest/stats/walkForwardRank.ts:87-153 (pure on segments, used by protocols/pair-fable/tools/evaluate.ts:37); src/cli/research/insert-in-db-backtest-feature-tests.ts:6-9; note CLAUDE.md still names rebuild:chunked-batch-stats, which no longer exists (package.json:113-114)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "execution-meta-stamped-by-ts",
+     "requirement": "machineId, workerChildId, startedAtMs, finishedAtMs, durationMs and the worker commitSha (marketStats.execution) must be stamped by the TS worker around the binary call. MarketJobData has no machine identity, and the native path returns the binary's JSON unchanged. Without the stamp, machine_id and the timing columns are NULL: the leaderboard and executionSummary drop the run, and durationTotalMs and wall clock persist as 0. recorderV4Capture (pure manifest provenance) should likewise be stamped by TS.",
+     "evidence": "src/backtest/marketProcessor.ts:45-61 (native returns runNativeJob output directly); src/backtest/jobTypes.ts:18-56 (no machineId/workerChildId); src/db/backtests.ts:471-478; dashboard/src/lib/queries/leaderboard.ts:38-60; dashboard/src/lib/queries/batches.ts:546-549; src/backtest/stats/batchStats.ts:183-191, 280-289; src/backtest/runSingleMarket.ts:449-458 (capture reference built from manifest)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "closed-vocab-finite-values",
+     "requirement": "One bad value aborts the whole run's insert transaction, so every market of the run is lost. Rust output must respect the DB contract: finalOutcome only UP or DOWN; marketStats.skipReason only 'no_in_window_activity' (a new per-market reason needs a migration and a TS mapping first); only finite numbers within the column ranges (pnl/cost/fees decimal(14,4), avg prices decimal(10,6), shares decimal(18,6)); null only for avgEntryPrice*. NaN or Infinity is forbidden.",
+     "evidence": "src/db/schema.ts:199-214; src/db/backtests.ts:186-198 (coerceMarketStatsRow), 403-501 (single transaction); src/backtest/stats/batchStats.ts:166-176 (precedent: quality guard added after a DECIMAL overflow failed inserts)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "output-quantization-policy",
+     "requirement": "The spec must define the quantization at the output boundary (dp per field, tie rule on fixed-point integers). It matters because: TS rounds money/shares to 2 dp and avg prices to 4 dp with JS Math.round (ties toward +inf); batch stats classify won/lost/flat by the sign of the ROUNDED pnl (pnl==0 counts as skipped even with trades; marketsPlayed = pnl!=0, not tradeCount>0 as the comments claim); and --extend recomputes segments from DB decimals, while a fresh run uses in-memory values. Emitted values must already be at or below the column scale, so a fresh run and an extended run cannot diverge. Parity must be judged on unrounded trace values: a 1e-6 internal difference can flip a 0.01 rounding and a win/flat classification.",
+     "evidence": "src/backtest/stats/marketStats.ts:182-200; src/backtest/stats/batchStats.ts:22-30 vs 205-259, 297-298; src/db/backtests.ts:904-945, 1039-1045; src/db/schema.ts:202-214 (columns hold 4/6 dp); native/GOAL.md:38-39 (1e-6 tolerance); native/crates/pmb-core/src/stats.rs:184-191, 268-279 (Rust rounds half-away-from-zero, which differs from JS on negative ties)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Keep 2-decimal per-market money values (comparable with all historical runs, but tiny wins and losses count as 'flat'), or switch to 4 decimals (the column scale) with an explicit flat threshold in the TS stats?",
+     "recommendedDefault": "Keep 2 dp, half-away-from-zero on fixed-point, in both profiles. Record ties that differ from JS as an intended difference in PARITY.md. Revisit 4 dp only together with a stats version bump."
+    },
+    {
+     "id": "fee-single-source",
+     "requirement": "Each Fill must carry its fee in USDC, computed once by ExchangeRules (feeSchedule by date, 5 dp rounding in the realistic profile). Portfolio cost basis and proceeds, marketStats.feesPaid and the simulator trace all sum fill.fee and never recompute it from a rate. Today three places recompute it independently from feeRateBps. pnl is already net of fees and fees_paid is informational, so any divergence silently breaks the pnl/fees relationship that protocols rely on.",
+     "evidence": "src/trading/Portfolio.ts:894-940; src/backtest/stats/marketStats.ts:128-134; src/backtest/simulator/traceWriter.ts:219-224; src/trading/fees.ts:19-42; protocols/pair-fable/memory/capabilities/metrics-storage.md:32",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "intent-meta-contract-lossless",
+     "requirement": "intentMeta is built like this: for each fill in fill order, take the placing order's meta (arbitrary JSON per order, including each order inside place_batch), dedupe by clientOrderId (first fill wins), and exclude unfilled orders. The Rust SDK must keep this order and dedup. Plugin-derived meta keys (windowsMetrics, orderbookLevels, technicalIndicators) must keep their names, because research reads intentMeta[0] and protocol tools parse intent_meta in SQL. Collection must be lossless: TS harvests from a 500-fill ring and a 10k order-meta map (overflow drops fills and meta silently; classify this as a TS bug). The spec should also cap meta size: results sit in Redis until aggregation and are inserted 250 rows per statement.",
+     "evidence": "src/backtest/stats/marketStats.ts:171-180; src/backtest/runSingleMarket.ts:322-337; src/trading/Portfolio.ts:109,115,139-140,347-351,838-841; src/strategy/Strategy.ts:18,39,130; src/cli/research/export-trade-features.ts:230-236; src/cli/research/insert-in-db-backtest-feature-tests.ts:237; protocols/pair-fable/tools/anatomy.ts:90-109; src/db/backtests.ts:136; src/backtest/queue.ts:80-89",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "engine-provenance-persisted",
+     "requirement": "Today, extend and the Market Simulator reconstruct a run by parsing the cmd string (startingCapital, latency, nativeProfile). Env-sourced jitter is unseeded, and backtest_runs has no engine, profile, engine-version or seed column. The binary reads the profile from job.nativeProfile without echoing it back, so a silent ts-compat fallback is undetectable. Requirements: the output echoes {engineVersion, profile, seed} and TS asserts they match the request; the producer persists a structured engine config per run (hand-written migration, mirrored in dashboard/src/lib/schema.ts); extend inherits it and enforces equality; A/B runs per realistic fix are paired through the existing baseline_id.",
+     "evidence": "src/db/schema.ts:96-165 (no engine columns), 139 (baseline_id); src/cli/backtest.ts:354-358, 737-755; src/backtest/simulator/resolveMarket.ts:61-81; src/trading/execution/BacktestExecution.ts:240 (Math.random jitter); src/backtest/marketProcessor.ts:55 + src/strategy/artifacts/native.ts:151-160 (no --profile passed); native/BINARY-PROTOCOL.md:15-40 (engineVersion only in describe)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should backtest_runs get a structured engine column set (engine kind, engine version, profile, latency model + seed, fill model, starting capital, fee mode), so we stop parsing it out of the cmd string?",
+     "recommendedDefault": "Yes: an indexed `engine` varchar ('ts' | 'native-ts-compat' | 'native-realistic') plus an `engine_config` JSON column. Extend refuses on mismatch, and the simulator reads it instead of cmd."
+    },
+    {
+     "id": "seed-independent-of-idx",
+     "requirement": "The realistic profile's per-market RNG seed must derive only from (run seed, slug), never from idx, worker, or position in a group. idx is re-based on --extend (nextIdx + local idx). A grouped candidate must equal its standalone run. The simulator re-runs one market by slug and compares the result with the stored values.",
+     "evidence": "src/db/backtests.ts:948-955, 1022-1031; src/backtest/simulator/captureTrace.ts:27-60 (expected pnl/cost/shares/eventsProcessed); src/backtest/simulator/resolveMarket.ts:80-81; native/GOAL.md:61, 83",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "shared-replay-result-routing",
+     "requirement": "Today one market job is a child of exactly one per-submission aggregate flow, keyed by idx; run-group returns N results and fails the whole group on any bad job. The spec must define: each candidate is its own backtest_runs row (own submissionUid, shared batch label); how group results reach the N aggregates; that each output echoes idx plus a candidate key; per-candidate failure isolation (a strategy error becomes that run's failure row, while data or IO errors retry the group); and how durationMs/eventsProcessed are attributed, since copying them to N rows inflates the per-machine leaderboard and durationTotalMs N times. A later --extend of one candidate runs standalone and must reproduce the group result.",
+     "evidence": "src/backtest/aggregateProcessor.ts:85-124, 211-229; src/backtest/jobTypes.ts:58, 60-110, 123-133; src/backtest/queue.ts:80-102; native/BINARY-PROTOCOL.md:43-51; dashboard/src/lib/queries/leaderboard.ts:50-60; src/backtest/stats/batchStats.ts:183-191",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "For shared replay: should one submission with N parameter sets produce N separate runs (one row each, same batch label) written by a single aggregate job, and how should compute time be split across candidates?",
+     "recommendedDefault": "N separate runs, written by one group aggregate in one transaction per run. Per-candidate durationMs = group wall time / N; eventsProcessed = the full count. The group's wall interval goes into every candidate's startedAt/finishedAt, so union wall clock stays correct."
+    },
+    {
+     "id": "portfolio-snapshot-consumers",
+     "requirement": "The claim is refuted. Outside the engine and strategies, PortfolioSnapshot is read by (a) the live WebUI state and its cancel commands, (b) the dashboard Market Simulator, which is an existing feature and not a future one (per account event: capital, positions qty/costBasis/avgEntryPrice, realizedPnlTotal, openOrdersByClientId, ordersByClientId[cid].meta), and (c) the backtest harness that builds MarketStats (it moves into Rust). No DB table, dashboard query, research export or protocol tool reads it; they all read the persisted MarketStats projection. So: the Rust TraceSink must emit the simulator trace contract, or the simulator must refuse native runs explicitly. Today it falls back to getStrategyDefinition(run.strategy), which throws or silently replays a registry strategy with the same id. The live Rust runtime must expose the WebUI snapshot fields and cancel-by-clientOrderId.",
+     "evidence": "src/cli/trading-bot.ts:1141-1147, 1211-1250; webui/src/components/PortfolioPanels.tsx (recentFills, ordersByClientId, marketByAssetId, wsOpenOrdersByOrderId, realizedPnlTotal, positionsByAssetId, openOrdersByClientId, nowMs); dashboard/src/lib/server/simulatorJobs.ts:100 -> src/cli/backtest-simulator.ts -> src/backtest/simulator/captureTrace.ts:50 -> traceWriter.ts:158-180, 215-260; src/backtest/simulator/resolveMarket.ts:98-111; src/backtest/runSingleMarket.ts:322-337, 529-531; native/GOAL.md:64, 92 (simulator treated as future/out of scope); docs/backtest/market-simulator.md",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should Rust runs be viewable in the existing dashboard Market Simulator (Rust writes the simulator trace format), or should the simulator show a clear 'not supported for native runs' message for now?",
+     "recommendedDefault": "Block native runs explicitly now (a small TS guard in resolveMarket on the native r2Url). Make the simulator trace format a TraceSink implementation in the milestone after parity."
+    },
+    {
+     "id": "events-counting-semantics",
+     "requirement": "Define eventsProcessed and eventsByType. Today they count every dispatched strategy tick before the window gate, including out-of-window and synthetic binance_agg_trade/chainlink_round ticks, keyed by event_type. They are persisted, summed per machine on the leaderboard, and checked by the simulator as an expected value. If Rust delivers last_trade_price/tick_size_change to strategies (per GOAL), counts and keys change compared with TS and with stored runs.",
+     "evidence": "src/backtest/runSingleMarket.ts:297-315; dashboard/src/lib/queries/leaderboard.ts:50-60; src/backtest/simulator/captureTrace.ts:30-45; native/GOAL.md:57-58",
+     "priority": "should",
+     "decisionNeeded": false,
+     "recommendedDefault": "eventsProcessed = strategy callbacks dispatched; each new market-event type gets its own eventsByType key and is delivered only in the realistic profile."
+    },
+    {
+     "id": "native-error-classification",
+     "requirement": "Market jobs retry 3 times with exponential backoff; native exit 1 is retried and exit 2 becomes UnrecoverableError. Deterministic strategy panics or invariant violations must exit 2 (or, in a group, be reported per candidate in the output), so they become failure rows right away instead of burning 3 retries. Transient R2/parquet IO must exit 1. The last stderr line must be a one-line human reason, because the stderr tail becomes backtest_run_failures.reason.",
+     "evidence": "src/backtest/queue.ts:86-95; src/strategy/artifacts/native.ts:121-124; src/backtest/marketProcessor.ts:55-60; src/backtest/aggregateProcessor.ts:131-148",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "fill-ledger-for-calibration",
+     "requirement": "Only per-market aggregates are persisted: backtests have no per-order or per-fill record, and live has no per-market results at all (pnl-report reads the Polymarket Data API). Calibrating live trades against backtests on worker-2's V4 recordings needs per-market orders (placed, accepted or rejected with reason, cancel sent and acknowledged times) and fills (ts, price, size, liquidity, fee, latency). Rust should emit an optional ledger (the TRACE.md JSONL is a candidate), and the live runtime should emit the same RunSingleMarketOutput plus ledger per window.",
+     "evidence": "src/db/schema.ts:183-246 (no fill storage); src/backtest/runSingleMarket.ts:132-156; src/cli/pnl-report.ts:4, 508-573; native/TRACE.md; native/GOAL.md:97-101",
+     "priority": "should",
+     "decisionNeeded": true,
+     "question": "Where should per-fill/per-order records and live per-market results be stored: gzipped files in R2 per run and market, a new MySQL table, or live results as normal runs with input_mode='live'?",
+     "recommendedDefault": "Opt-in ledger as gzipped JSONL in R2, keyed by run id and slug. Live windows persisted as a backtest_runs row with input_mode='live', so the dashboard and verify-backtest-diff can compare live and backtest per slug."
+    },
+    {
+     "id": "capital-aware-counters",
+     "requirement": "While the contract is open, add optional per-market fields: buyNotional, sellNotional, ordersPlaced, ordersRejected (by reason), ordersCancelled, peakCapitalReserved. Capital constraints in the realistic profile can silently under-trade, and the protocol evaluator flagged that buy notional is computed and then discarded (P-002). These are additive nullable columns; the TS stats ignore unknown fields.",
+     "evidence": "src/backtest/stats/marketStats.ts:109-139; protocols/pair-fable/memory/capabilities/metrics-storage.md:38-41; src/cli/backtest.ts:354-358 (per-market startingCapital), 737 (separate INITIAL_CAPITAL used only for capital_initial)",
+     "priority": "could",
+     "decisionNeeded": false
+    }
+   ]
+  },
+  {
+   "area": "Fleet and operations (native binary dispatch, BullMQ, aggregation, machines, Global Runtime)",
+   "requirements": [
+    {
+     "id": "native-job-version-gate-and-queue",
+     "requirement": "Do not gate native market jobs on the producer's git SHA. Gate them on worker shim version, binary protocolVersion and job schema version, and send them to their own queue (e.g. backtest-markets-native) that only native-capable workers consume. The binary sha already pins engine and strategy, so the producer SHA becomes provenance only, and the dirty-tree block should record producerDirty instead of refusing native runs.",
+     "evidence": "src/backtest/marketProcessor.ts:33-45 (SHA gate runs before the native branch at 49-63); src/backtest/commitGate.ts:39-48 (ancestor check); scripts/run-worker.sh:97-107 (exit 1 and the worker stays down when a pull cannot reach the job SHA); src/cli/backtest.ts:1365-1386 (dirty-tree block); memory note: local-branch fleet runs hang forever",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should native jobs skip the git-SHA gate (checked only by protocol/schema versions) and run on their own queue?",
+     "recommendedDefault": "Yes. Use a separate native queue plus a version gate, and keep producer SHA and dirty flag as provenance columns."
+    },
+    {
+     "id": "job-carries-all-result-semantics",
+     "requirement": "The producer must set every input that changes a native result, send it in the job and store it on the run row. That covers feed latencies, Chainlink max gap, TA warmup wait, execution profile and the rules/fee-schedule version. The binary may read only data-root paths from the environment, so a worker's local .env can no longer change results.",
+     "evidence": "native/crates/pmb-replay/src/feeds/mod.rs:60-89 (BACKTEST_*_LATENCY_MS / MAX_GAP read from worker env); src/backtest/feeds/wireBacktestExternalFeeds.ts:95-100 (same flaw in TS); src/trading/StrategyRunner.ts:404-417; src/backtest/jobTypes.ts:51-55 (nativeProfile only in the job) and src/backtest/marketProcessor.ts:58 (no --profile passed); src/cli/backtest.ts:747-749 (profile recoverable only by re-parsing cmd, no column)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "native-process-supervision",
+     "requirement": "Define how the worker supervises each binary. Set a wall-clock budget per job (scaled by events x candidates) and on timeout SIGKILL the binary's own process group. The binary exits when stdin closes or its parent dies (macOS has no PDEATHSIG). Exit codes are typed: 0 ok, 2 input (unrecoverable), 101 panic (deterministic, unrecoverable), killed by signal (OOM/jetsam: retry once elsewhere), 1 runtime (retry). Each result reports peak RSS and CPU time, stdout size is bounded, and fleet stray detection also finds native binaries.",
+     "evidence": "src/strategy/artifacts/native.ts:88-119 (spawn with no timeout, no kill, unbounded stdout buffer); native.ts:114 (`code ?? 1` drops the signal; panics and jetsam kills are retried 3x per src/backtest/queue.ts:86-91); queue.ts:116-120 (lock keeps renewing while Node awaits, so a hung binary stays active forever and the batch never finishes); src/cli/backtestWorker.ts:289 (self-update drain waits forever); ops/ansible/lib/worker-control.sh:18-22 (strays() matches only node backtestWorker.ts) + ops/ansible/stop-workers.yml:8 (120s grace then SIGKILL leaves orphaned binaries)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "native-env-and-network-isolation",
+     "requirement": "Start the binary with an allowlisted environment: no REDIS_URL, R2_*, DATABASE_*, PRIVATE_KEY or POLYMARKET_*, TZ=UTC, cwd set to a per-job temp dir. TS copies every input to a local file first, and --read-from r2 means a temp file that is deleted afterwards. Run the binary under a deny-network sandbox profile. These binaries hold agent-written code and run on all 4 Macs, including the producer/aggregator/live-trading machine.",
+     "evidence": "src/strategy/artifacts/native.ts:95 (spawn without env, so the full process.env is inherited); native/crates/pmb-replay/src/pq.rs:15-16 (File::open only; an r2:// filePath would fail); docs/backtest/fleet/overview.md architecture (producer + aggregator + worker on the user's Mac, which holds live keys with DRY_RUN=false); DB: protocol overnight-opus55 = 669 runs / 2.57M markets in the last 30 days (agent strategies dominate fleet use)",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Env allowlist is mandatory. Use a sandbox-exec deny-network profile with writes allowed only to the job temp dir."
+    },
+    {
+     "id": "candidate-group-bullmq-mapping",
+     "requirement": "Specify how a candidate group maps onto flows, jobs and rows. Recommended: one backtest_runs row per candidate under one group aggregate parent, because a BullMQ child can have only one parent. Each candidate gets its own submission_uid; candidates share batch_uid and a new candidate_group_uid. Each market job runs one market for a chunk of candidates. run-group returns an ok result or an error for each candidate, so one bad candidate does not fail the others. Every candidate run must be extendable on its own and give identical results.",
+     "evidence": "src/cli/backtest.ts:1508-1525 (one flow = one aggregate parent); src/backtest/aggregateProcessor.ts:24-30,83-118 (one result per child, idx parsed from -m-<idx>); src/db/schema.ts:100-106 (batch_uid = 'every cell of one param sweep'; submission_uid UNIQUE); dashboard/src/lib/queries/batches.ts:111-138,708-731 (one strategy/params/totalMarkets per aggregate job); native/BINARY-PROTOCOL.md:43-51 (one bad job fails the whole group with exit 2)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Confirm: one run row per candidate, all fed by one group aggregate job, with each candidate's error kept separate?",
+     "recommendedDefault": "Yes. submission_uid `<groupUid>-c<k>`, shared batch_uid, candidate_group_uid column, about 5-10 s of compute per market job, and the aggregate protocol version bumped."
+    },
+    {
+     "id": "sweep-result-volume-redis-db",
+     "requirement": "Candidate sweeps cannot keep every child result in Redis until aggregation. Results must leave Redis as each chunk finishes, and there must be a storage tier for sweeps plus a hard cap on candidates x markets per group. Example: 100 candidates x 5,523 markets = 552k results, about 6.6 GB of Redis on a 16 GB Mac that also runs MySQL and 8 workers.",
+     "evidence": "src/backtest/queue.ts:79-91 (removeOnComplete:false); src/backtest/aggregateProcessor.ts:83 (getChildrenValues loads everything into one process); docs/backtest/fleet/overview.md:180-189 (~12 KB/market, ~30k-market ceiling); measured: Redis on worker-1 with maxmemory 0 / noeviction, peak 1.15 GB; backtest_run_markets = 5.73M rows / 7.58 GB, +2.17M rows in the last 7 days",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "For a sweep, store per-market rows for every candidate, or summaries for all candidates and full rows only for the top/promoted ones?",
+     "recommendedDefault": "Segments for all candidates; per-market rows only for the top 5 and for promoted candidates. Any other candidate can be re-run on demand, since replay is deterministic and cheap in Rust."
+    },
+    {
+     "id": "cpu-slots-and-job-granularity",
+     "requirement": "The binary is single-threaded unless the worker passes --threads, and cores_for_backtest counts concurrent native threads. Native slots run from one Node supervisor at concurrency N, not one tsx child per slot. Job size (markets x candidates) is chosen so that Redis round trips, spawn, sha verify and JSON stay under about 5% of compute, and a memory budget per slot bounds chunk size. The M6 benchmark reports fleet throughput (market-candidates per hour on 4 Macs), not only single-process speed.",
+     "evidence": "measured: TS averages 1.2-2.6 s/market (backtest_run_segments.duration_avg_ms; 2.29-2.61 s per machine), so ~6x Rust gives ~0.2-0.4 s, the same order as per-job overhead (Redis on worker-1 over Tailscale; per-process sha256 at src/strategy/artifacts/native.ts:46-84); scripts/run-worker.sh:29-50 + src/cli/backtestWorker.ts:136-176 (one Node child per slot); dashboard/src/data/machines.json (16 GB on 3 of 4 active Macs; cores_for_backtest 4/8/8/4)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "reproducible-native-builds",
+     "requirement": "The same source and lockfile must give the same sha on any machine. That means a pinned rust-toolchain.toml, --locked, --remap-path-prefix for home/registry/workspace paths, one canonical release profile, strip, then ad-hoc codesign after strip, and a fixed MACOSX_DEPLOYMENT_TARGET no newer than the oldest fleet macOS. strategy_artifacts also needs kind, target triple, rustc version, engine version/commit and lockfile hash. The job ref carries the target so non-Mac workers (the 'PC' entry, Hetzner bursts) never consume native jobs.",
+     "evidence": "native/BINARY-PROTOCOL.md:3-7 (identity = sha of binary bytes); src/strategy/artifacts/types.ts:62-68 (JS invariant: nothing machine-dependent in hashed bytes); src/db/schema.ts:673-697 (builtWith {esbuild,node}, no kind/target/toolchain); src/cli/helpers/strategyArgs.ts:232 (native detected only by R2 URL prefix); worker-1 runs Darwin 25.2 vs Darwin 27 on this machine; docs/backtest/fleet/cloud-and-costs.md:38,109 (x86 Hetzner CCX bursts)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "cross-machine-determinism",
+     "requirement": "The same binary and job must give byte-identical output JSON on every fleet Mac. Math that affects decisions uses the pure-Rust libm crate, not the OS libm. No iteration over std HashMap/HashSet (seeded randomly per process) may affect decisions or output; use BTreeMap/IndexMap and lint for it. The M5 proof runs the same jobs on all 4 machines and diffs the outputs.",
+     "evidence": "native/crates/pmb-core/src/plugins/technical_indicators.rs:281 (`.ln()` uses the OS libm, and the fleet runs different macOS versions); native/crates/pmb-core/src/portfolio.rs:177-198 (std HashMap/HashSet); backtest_run_markets.machine_id shows each run is split across 4 machines, so a per-machine difference mixes silently into one run; docs/backtest/fleet/overview.md:191 (spot-rerun trust check relies on determinism)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "run-provenance-engine-profile",
+     "requirement": "Run rows get first-class columns for engine (ts|native), native profile, engine version and binary sha. The TS worker stamps execution data on each native result: machineId, slot id, binary sha, wall time including spawn, and peak RSS. Dashboard and baseline comparisons flag or refuse runs that mix engines or profiles, so agents cannot compare ts-compat, realistic and TS numbers as if they were equal.",
+     "evidence": "src/backtest/jobTypes.ts:76-98 (insertMeta has no engine/profile/version); src/backtest/marketProcessor.ts:58 vs 88-109 (native result returned as-is; only the TS path stamps machineId/workerChildId/commitSha); native/crates/pmb-core/src/stats.rs:282 (`execution: None`), which nulls backtest_run_markets machine_id/duration_ms/commit_sha (src/db/schema.ts:219-226) and segment compute-cost columns (schema.ts:319-326)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "agent-build-placement",
+     "requirement": "Specify where and how native strategies are built when a sandboxed Global Runtime agent writes them, and set a build-time budget per iteration. The sandbox currently blocks crates.io, ~/.cargo and native/target. GR daemons share 10-core hosts with 8-slot backtest workers, and LTO with codegen-units=1 means a slow relink on every iteration.",
+     "evidence": "/Users/mijat/Sites/polymarket-protocols/srt-settings.template.json:22-34 (writes allowed only to workspace, /tmp, bot data/strategy-artifacts), :58-75 (network allowlist has no crates.io); protocols/game-overnight-opus-5-5/GAME-RULES.md:44-46 (agents must use the fleet); ops/ansible/global-runtime-start.yml:45 (daemon runs from the worker checkout); native/Cargo.toml:30-31",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Will GR agents write Rust strategies in this goal? If yes, do builds run inside the sandbox (vendored crates, offline) or in a build step outside it?",
+     "recommendedDefault": "Not in this goal; M5 builds only on m1-ivan. Design a build step outside the sandbox with a shared target dir per machine and a cargo -j cap, so agents can be enabled later without protocol changes."
+    },
+    {
+     "id": "fleet-branch-switch-runbook",
+     "requirement": "The M5 'switch fleet to branch, then back' step needs a runbook: pause every GR run, drain both queues, switch all 4 workers plus the aggregator host and the dashboard, test, drain again, switch back, resume. Better: avoid the switch by merging an inactive native worker shim and the native queue to main first. GR daemons and pte run from the worker checkout, so a branch switch changes engine code under live missions, and main-SHA jobs would kill branch workers.",
+     "evidence": "native/GOAL.md:83 (M5 fleet switch); ops/ansible/global-runtime-start.yml:45 + ops/ansible/pull-workers.yml:35-40 (GR daemon and pte use the worker checkout); src/cli/backtestWorker.ts:303-319 (aggregate jobs are SHA-gated too); scripts/run-worker.sh:102-107; memory note: daemon restarts kill in-flight sessions, so pause first",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "For M5, merge an inactive native shim and queue to main instead of switching the whole fleet to the rust-engine branch?",
+     "recommendedDefault": "Yes. Merge the inactive shim and queue to main; if a switch is still needed, use the pause-drain-switch-test-switch back-resume runbook."
+    },
+    {
+     "id": "calibration-host-isolation",
+     "requirement": "During the ~$100 live calibration, backtest workers and GR sessions must be stopped or capped on the live-bot host and on worker-2 (the Recorder V4 host), and host load is written to the journal. The live journal and the recording come from two different Macs, so the clock offset between them must be measured and recorded, and timelines aligned on exchange timestamps where possible.",
+     "evidence": "dashboard/src/data/machines.json (m1-ivan: cores_for_backtest 4 plus GR runtimeUrl; worker-2: 8 of 10 cores plus GR runtimeUrl); docs/datasets/recording/recorder-v4-worker-2.md:91 (worker-2 records continuously; only the automatic-clock setting is checked); measured per-machine TS market duration max 6.9-13.4 s vs avg ~2.3 s (scheduler pressure)",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "native-artifact-cache-lifecycle",
+     "requirement": "Each machine's native binary cache has a size cap with LRU eviction, and a sha in use is never evicted. Hash verification happens once per machine (marker file), not once per process. At submit time the binary is pre-fetched to every worker so many slots do not cold-download it at once. fleet:status shows cache size.",
+     "evidence": "src/strategy/artifacts/native.ts:46-84 (memo per process; nothing ever evicted); main checkout already holds 155 JS artifacts; native binaries are MBs each (statically linked parquet with zstd/lz4/snappy codecs, native/Cargo.toml:16) x hundreds of agent iterations per month",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "fair-scheduling-heavy-jobs",
+     "requirement": "With run-group, one job can be N times heavier, so the queue needs fair share or priority across submissions (BullMQ priority or round-robin). User runs and calibration replays must not wait behind one agent's 100-candidate sweep.",
+     "evidence": "src/backtest/queue.ts:86-91 (no priority; FIFO); DB: 1,638 runs in the last 30 days, ~80% of markets from GR protocol overnight-opus55",
+     "priority": "could",
+     "decisionNeeded": false
+    }
+   ]
+  },
+  {
+   "area": "Strategy authoring in the Rust world: who writes strategies (AI agents in sandboxed protocol sessions on the Mac fleet), SDK ergonomics, crate layout, build/check/publish pipeline, params, and coexistence with TS protocols",
+   "requirements": [
+    {
+     "id": "sandbox-offline-build",
+     "requirement": "A Rust strategy must build inside the srt protocol sandbox on the owning machine. Builds run with `--locked --offline` on a pinned toolchain (template `rust-toolchain.toml` = 1.89.0). Crate sources come from a vendored or fleet-provisioned CARGO_HOME, and CARGO_HOME plus the target dir must be in sandbox-writable paths. Fleet provisioning (ansible) must install the toolchain with clippy and rustfmt on all 4 Macs. Today the sandbox blocks crates.io and ~/.cargo writes, and nothing on the fleet installs Rust.",
+     "evidence": "polymarket-protocols/srt-settings.template.json:23-35 (allowWrite has no ~/.cargo or target dir; only __BOT__/data/strategy-artifacts at :30) and :58-75 (allowedDomains has no crates.io); ops/ansible/*.yml contains no cargo/rustup; `rustup show` default toolchain is unpinned `stable` (native/rust-toolchain.toml only applies under native/); README.md:142 (bot checkout is read-only inside the sandbox)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "May strategy crates add their own third-party crates, or only use what the SDK re-exports?",
+     "recommendedDefault": "No extra crates. The SDK re-exports a small allowlist (serde and maybe one stats crate). This keeps offline builds working, keeps the dependency closure identical to what CI tested, and blocks nondeterministic crates such as rand or chrono::Utc::now."
+    },
+    {
+     "id": "lockfile-and-engine-pinning",
+     "requirement": "The strategy crate template must ship a Cargo.lock derived from native/Cargo.lock, and every build uses `--locked`. Today the protocol crate's own lock would choose transitive versions, because native/Cargo.toml pins only direct deps with `=`. The binary would then link a different parquet/zstd tree than CI tested, and resolving it needs the network. The engine is reached by a path dependency into the sibling checkout, which workers self-update (fleet:git:pull / commit gate). The build must therefore record exactly which engine revision and lock hash went into each binary.",
+     "evidence": "native/Cargo.toml [workspace.dependencies] (only direct deps pinned); native/crates/pmb-sdk/Cargo.toml (path deps); docs/strategy/external-artifacts.md:34 (TS engine is supplied by the running machine, gated by worker commit); src/cli/backtest.ts:1365-1386 (commit gate); polymarket-protocols/README.md:20-21 (compat symlink to ../polymarket-bot)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "engine-in-binary-versioning",
+     "requirement": "Each native artifact embeds its own engine. Old shas therefore keep old engine behavior forever, and an engine fix only reaches a strategy when it is rebuilt. `describe` must report engineCommit, sdkVersion, toolchain, jobSchemaVersion, supported profiles and supported subcommands. Run rows must store engine kind (ts|native), engine version and execution profile, and `--extend` must inherit them. The spec needs: (a) a rebuild-from-recorded-source command for apples-to-apples comparisons, (b) a defined commit-gate rule for native jobs, (c) a minimum engine version for fleet jobs and for live.",
+     "evidence": "src/strategy/artifacts/native.ts:126-132 (NativeDescribe has engineVersion only, no commit/profile/capabilities); native/BINARY-PROTOCOL.md:20-27; src/db/schema.ts:686-690 (engine_commit described as 'execution engine is gated separately', builtWith typed {esbuild,node}); schema.ts:96-160 (backtest_runs has no engine/profile column); src/backtest/commitGate.ts used by marketProcessor.ts:11",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should fleet workers keep the engine-commit gate for native jobs, or gate only on a job-schema version, since the engine travels inside the binary?",
+     "recommendedDefault": "Gate native jobs on jobSchemaVersion and protocolVersion, not on the worker's git SHA. Keep the SHA gate for TS jobs. Store engineCommit and profile on every run and flag cross-engine comparisons in the dashboard."
+    },
+    {
+     "id": "artifact-identity-reproducibility",
+     "requirement": "The TS promise that the same code yields the same sha on any machine does not hold for Rust binaries. A tiny release binary built here contained 74 absolute `/Users/mijat/...` paths (cargo registry and crate paths), and linker versions differ between Macs. The spec must define one canonical build invocation (`--remap-path-prefix` for CARGO_HOME and the repo, fixed profile, target aarch64-apple-darwin, no build.rs embedding time or git). It must also record a source_hash (crate sources + Cargo.lock + engine rev + toolchain + profile) and dedupe publishes on it, so a byte-different rebuild of identical source does not create a new artifact identity.",
+     "evidence": "Measured 2026-10-08: `strings target/release/ctbench | grep -c /Users/mijat` = 74 (parquet/serde_json/thrift source paths); docs/strategy/external-artifacts.md:36-38 (code-only sha promise); src/strategy/artifacts/types.ts:11-18; strategy_artifacts has a unique sha256 but no source hash (schema.ts:673-701). A cross-directory determinism test was aborted with ENOSPC, see the build-profile requirement.",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Is artifact identity the binary sha built on any machine (with source_hash for dedupe), or must all publishes be built on one canonical builder so the same source always gives the same sha?",
+     "recommendedDefault": "Build on any machine with path remapping. Identity = binary sha, plus a source_hash column used for dedupe and for verified rebuilds before live."
+    },
+    {
+     "id": "build-profile-compile-time-disk",
+     "requirement": "Check, iterate and publish must share one build profile and one RUSTFLAGS set, so switching between them never invalidates the cache. That profile must allow fast warm iteration, and it needs `panic=unwind` (required by the fault-handling requirement) and `overflow-checks=true` or checked fixed-point ops. Builds on Mac-mini workers must cap jobs (CARGO_BUILD_JOBS) because 8 of 10 cores already run backtests. Disk use needs a budget: one gitignored target dir per protocol with a sweep/GC policy, plus LRU GC of data/strategy-artifacts/native.",
+     "evidence": "Measured on M1 Pro, tiny crate with the engine's exact deps (parquet 56.2 + serde_json + chrono + flate2 + sha2), registry already cached: thin LTO + cgu=1 (current native/Cargo.toml [profile.release]): cold 27.9s, warm rebuild 7.3s. lto=false + cgu=16: cold 14.8s, warm 0.84s. Binary 1.8 MB vs avg TS artifact 31.7 KB (strategy_artifacts: 372 rows, max 309 KB). native/target is already 443 MB. df /System/Volumes/Data showed 100% used (~139 MiB free) before I removed my own scratch builds (now ~650 MiB). dashboard/src/data/machines.json:34,52 (cores_for_backtest 8 on worker-1/2, where Global Runtime sessions run per polymarket-protocols/README.md:48)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should published strategy binaries use the fast-iteration profile (no LTO, cgu=16) or the current thin-LTO/cgu=1 profile, which is ~9x slower to rebuild per change but may run faster?",
+     "recommendedDefault": "Use lto=false, codegen-units=16, panic=unwind, overflow-checks=true for every artifact build. Revisit in the M6 benchmark only if replay CPU, rather than parquet IO, dominates."
+    },
+    {
+     "id": "gitignore-target",
+     "requirement": "Every strategy crate location must gitignore `target/`, both the polymarket-protocols root .gitignore and the template. The protocol save loop runs `git add .` from the protocol folder and would otherwise commit hundreds of MB of build output on the first build.",
+     "evidence": "polymarket-protocols/.gitignore (only node_modules, .DS_Store, srt-settings local files, logs/, *.log, .smoke-layout-*/); polymarket-protocols/_shared/GIT.md:20,28 (`git add .` per unit)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "determinism-isolation-lints",
+     "requirement": "The check gate must enforce determinism and candidate isolation with an engine-owned clippy config (CLIPPY_CONF_DIR set by the engine, so a protocol cannot weaken it). The config disallows std HashMap/HashSet (RandomState iteration order), SystemTime::now and Instant::now, env::var, std::fs, std::net, thread::spawn and rand. `unsafe` is forbidden via RUSTFLAGS `-F unsafe_code`. Global mutable state is banned (statics holding atomics/Mutex/OnceLock, thread_local!), because run-group runs N candidates in one process. Publish runs a smoke test: run-group of [p, p] and reversed candidate order on a fixture market must equal the standalone runs.",
+     "evidence": "native/BINARY-PROTOCOL.md:43-51 (run-group = N param sets in one process); polymarket-protocols/AGENTS.md:41-42 (no cross-market state); today's TS authors are already deterministic: 0 protocol strategy files use Date.now/Math.random/randomUUID, and clientOrderIds are derived (`${name}:${slug}:${favAssetId}:buy`, 28 uses). In Rust these conventions must be enforced rather than assumed.",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "strategy-fault-semantics",
+     "requirement": "The spec must define what happens when strategy code panics or overflows. In TS, an exception fails that backtest market, while live logs it and keeps dispatching. In Rust, a panic aborts the process: inside run-group that kills all N candidates, and in live it kills the bot with open orders. Required behavior: catch_unwind per candidate per callback. In backtests, a panic produces a failure row for that candidate and market only, and the other candidates continue. Live behavior is explicitly chosen.",
+     "evidence": "src/trading/StrategyRunner.ts:211-245 (errors propagate to the awaiting backtest caller; live fire-and-forget logs and continues); native/BINARY-PROTOCOL.md:43-51; Rust release default overflow-checks=false (silent wrap in fixed-point 1e6 money math)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "In live, when the strategy panics: halt the market (cancel_all, stop calling the strategy) or skip that callback and continue as TS does?",
+     "recommendedDefault": "Live: cancel_all for that market, stop calling the strategy until the next market rotation, and alert loudly. Backtest: candidate-level failure row."
+    },
+    {
+     "id": "typed-param-schema",
+     "requirement": "Params must be typed and self-describing. Provide a derive (e.g. #[derive(Params)]) with these properties. Defaults apply. CLI strings are coerced (`--param size=2` arrives as a string). Unknown keys are rejected. Composition is supported via flatten, because strategies extend other versions' schemas. Doc comments are exported as JSON Schema through `describe --schema`. Normalized output is stable and key-sorted, and is stored as backtest_runs.params, compared in the dashboard, and used to group run-group jobs. Typed JSON from --extend must be accepted too. Params stay runtime-only: one binary serves every sweep. Feed and plugin requirements must be computable from params alone, before any market, because describe runs before enqueue.",
+     "evidence": "native/crates/pmb-core/src/strategy.rs:49 (`create(&self, params: &serde_json::Value)`, untyped, no schema/defaults); docs/strategy/external-artifacts.md:84-86 (z.coerce because params arrive as strings); src/cli/helpers/strategyArgs.ts:331-350 (normalized parsed.data stored as params) and :57-65 (only key introspection exists); polymarket-protocols/protocols/game-overnight/strategies/late-direction.v16.ts:3,6 (imports entry-depth.v16 and extends its schema with .and)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "curated-sdk-surface",
+     "requirement": "pmb-sdk must expose a curated, semver'd prelude, not the whole core. It is the Rust counterpart of the TS `#pmb` allowlist, so engine internals can change without breaking strategy crates. It is designed for AI authors:\n- no lifetimes or generics in author code\n- intent builders\n- Price/Qty/Usdc newtypes with no implicit float conversion and tick rounding with an explicit direction\n- typed ms timestamps for market start/end\n- a leveled logging API that is off by default on fleet runs\n\nThe plugin surface actually used by active authors is ExternalFeeds, DwellGate and TimeWindowGate. TechnicalIndicators and TimeWindowVolatility are used only by inactive in-repo SplitSellRedeem.v5.x variants and can be deferred.",
+     "evidence": "native/crates/pmb-sdk/src/lib.rs:3 (`pub use pmb_core::*`); docs/strategy/external-artifacts.md:164-173 (#pmb allowlist as semi-stable SDK). Protocol strategy usage: safeProbabilityPrice 17x, isWarmed 31x, ctx.market.endDate parsed with Date.parse 34x. Plugin constructions in polymarket-protocols: ExternalFeedsRequest 61, DwellGate 17, TimeWindowGate 17, Deribit 1, no custom plugins. TA/Volatility appear only under src/strategies/split/SplitSellRedeem.v5.*. native.ts:158 forwards every stderr line to the worker console.",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should the first SDK release include only the plugins active authors use (ExternalFeeds, DwellGate, TimeWindowGate) and defer TechnicalIndicators/TimeWindowVolatility?",
+     "recommendedDefault": "Yes. Ship the three used plugins and defer TA/Volatility until a Rust strategy needs them. The WIP already spent ~720 lines porting them."
+    },
+    {
+     "id": "rust-strategy-file-pipeline",
+     "requirement": "`--strategy-file` and `strategy:check` must handle Rust transparently, with the language detected from the file or manifest. Layout: one Cargo package per protocol, each strategy version a bin target (src/bin/*.rs) plus a shared lib, because agents mint a new id per code change and a crate per version would pay a cold build every time. Pipeline: resolve package and bin, canonical build, sha256, run `describe` (validates exec, params, id and requiredFeeds; ids come from code because bin names cannot contain dots), upload to R2 `strategy-artifacts/native/<sha>`, insert a DB row with kind=native, then run. `--strategy-artifact <sha>` must resolve the kind from the DB. `strategy:check -- --repo` runs cargo fmt --check, clippy -D warnings and cargo test alongside tsc/eslint. A `strategy:new --lang rust` scaffold generates Cargo.toml, Cargo.lock, rust-toolchain.toml, .gitignore and an example strategy with tests.",
+     "evidence": "DB, read-only: strategy_artifacts publishes == distinct ids every day (up to 129 on 2026-09-24); lagsnipe v1..v24 and late-direction v1..v16 composing entry-depth.v16. strategy_artifacts has no kind column (src/db/schema.ts:673-701). src/strategy/artifacts/types.ts:38-46 (kind only on the job ref); src/strategy/artifacts/externalRepoCheck.ts (TS-only tsc+eslint); scripts/pte:35 (PTE_CALLER_PWD); docs/reference/pte-cli.md:11-12",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "candidate-sweep-cli",
+     "requirement": "Shared candidate replay is unusable without an authoring/CLI surface that submits N param sets in one command (e.g. `--candidates file.json` or `--param-grid`). Today every batch has exactly one run, so sweeps are launched as N separate backtests. The spec must define the result shape. Candidates whose feed or plugin config differs must still group: plugins are declared as data (PluginRequest) so equal configs share computation, and feeds are unioned. All candidates in a group share one profile.",
+     "evidence": "DB, read-only, last 60d: 2187 batch_uids, all with runs_in_batch = 1. native/BINARY-PROTOCOL.md:43-51 (run-group takes jobs differing only in strategyParams); native/crates/pmb-core/src/strategy.rs:23-28 (declarative Requirements{feeds, plugins})",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Does one candidate submission produce N backtest_runs rows (one per param set) or one run with N candidates?",
+     "recommendedDefault": "N backtest_runs rows sharing one batch_uid. Existing protocol tools and the dashboard, which key on run id and params, keep working unchanged, and only job dispatch is grouped per market."
+    },
+    {
+     "id": "coexistence-and-port-scope",
+     "requirement": "The spec must state which strategies are ported and how both engines coexist for protocols. Usage data shows almost all activity is AI-authored TS artifacts that are iterated and discarded quickly. Only exerciser + lagsnipe.v15 are ported. Running protocols stay TS, because their evidence pins source contents. New protocols opt into Rust when the SDK and toolchain are ready. Rust strategies are artifact-only: no native registry, and never members of the native/ Cargo workspace, which keeps protocol failures fail-soft and outside CI. A Rust port must not reuse the TS id unless runs carry engine kind, because the dashboard groups by `strategy`. Authors need a Rust ENGINE-CONTRACT per profile, since the current one documents TS semantics, including the in-market merge PnL bug that a realistic profile may fix.",
+     "evidence": "DB, read-only, last 90d: artifact runs 3396 (298 ids, 4.16M market-runs); registry 441 runs (44 ids); pair-fable 218 runs; pair-game-opus 5128 small runs. Last 60d registry use: only SplitSellRedeem.v5 (Recorder V4 validation) and pair-manual baselines. Top families: overnight-opus55-lagsnipe (~2.5M market-runs), game-overnight late-direction, directional-game-opus. Code counts: 60 definitions in src/strategies, 14 in in-repo protocols, 84 in polymarket-protocols. protocols/README.md (polymarket-protocols):14 (evidence pins exact contents); _shared/ENGINE-CONTRACT.md:240-245; _shared/lib/engine.ts openDb (tools query backtest_runs directly); protocols/README.md (engine):113-131 (fail-soft, no CI for protocols/**)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should Rust ports keep the TS strategy id (distinguished only by an engine column) or get a distinct id (e.g. suffix `.rs`)?",
+     "recommendedDefault": "Use a distinct id, e.g. `overnight-opus55-lagsnipe.v15.rs`, and also store the engine kind and profile on the run row."
+    },
+    {
+     "id": "testkit-and-local-run",
+     "requirement": "The SDK must ship an in-process testkit (synthetic book/tick builders, fill and account-event drivers, a mini simulator) so `cargo test` can do what protocol authors do today with the TS StrategyRunner + BacktestExecution. It also needs a one-command local single-market run (`--sequential --slug ... --trace`) that does not need the fleet or hand-written MarketJobData JSON.",
+     "evidence": "polymarket-protocols/protocols/pair-manual/strategies/baseline/strategy.test.ts:12-15,184-188 (and pair-manual-convex, pair-game-astra/tools/player*.test.ts) construct StrategyRunner + BacktestExecution in-process; native/BINARY-PROTOCOL.md:33-41 (`run` needs a full MarketJobData)",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "live-subcommand-and-trust",
+     "requirement": "Every binary embeds its engine, so the live entry point (dry-run now, CLOB later) and a capability list must be in binary protocol v1. Otherwise every strategy must be rebuilt before it can go live. Live start must refuse binaries below a minimum live-safe engine version, binaries built from a dirty source tree, and binaries whose source does not reproducibly rebuild to the same sha. A native binary is opaque, unlike today's ~30 KB readable TS bundle, so reproducible rebuild from the recorded commit is the only way to review it.",
+     "evidence": "native/BINARY-PROTOCOL.md (only describe/run/run-group); native/GOAL.md:85 (M7 live dry-run on the same core); docs/strategy/external-artifacts.md:192-201 (artifacts are trusted, unsandboxed, selectable by the live bot holding keys); avg TS artifact 31.7 KB (strategy_artifacts)",
+     "priority": "should",
+     "decisionNeeded": true,
+     "question": "Must a strategy binary be rebuilt from its clean recorded commit on the live machine, and match the sha, before the live bot may load it?",
+     "recommendedDefault": "Yes. Require a clean source tree, an engine at or above the live-safe minimum, and a verified reproducible rebuild before live."
+    }
+   ]
+  },
+  {
+   "area": "Live trading runtime (src/cli/trading-bot.ts, src/polymarket/**, src/blockchain/**, redeem watcher, WebUI, env loading) vs the Rust live runtime",
+   "requirements": [
+    {
+     "id": "live-ownership-split",
+     "requirement": "The spec must list every live responsibility and its owner. Rust owns anything that changes what the strategy sees or what orders are sent: discovery and rotation, market WS and feeds, ExchangeRules fetch, user WS and REST reconciliation, place/cancel/heartbeat, paper execution, kill switch, journal, per-market result. TS sidecars keep pUSD wrapping and approvals, redeem, the balance display, and the WebUI server. Split and merge are async operations in Rust (intent, then a completion or failure event); the TS sidecar may send the transaction.",
+     "evidence": "trading-bot.ts:292-305,498-557 (balance/approval startup), LiveExecution.ts:614-641,748-775 (split/merge via relayer or CTF, retries, blocking), relayerClient.ts + package.json:188-190 (relayer SDK is TS-only), redeem-watcher.ts:1-283 (independent process), GOAL.md:24 (only 'WS inputs, rotation, dry-run execution, journal' listed)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should split/merge transactions be signed and sent from Rust (alloy plus a relayer port), or by a TS sidecar that Rust calls through an async request and response?",
+     "recommendedDefault": "Use a TS sidecar for the on-chain tx (relayer SDK exists only in TS). Rust models the operation as async with latency and success or failure events, the same in paper and backtest."
+    },
+    {
+     "id": "single-serial-event-loop",
+     "requirement": "All live inputs go through one deterministic serial loop, each stamped with a sequence number, a monotonic receive time and a wall receive time. Inputs: market frames, feed updates, user WS/REST account events, REST order responses, simulator/expiry timer wake-ups, operator commands, rotation. Order and cancel REST calls must never block that loop; their responses come back in as inputs, so the strategy keeps getting ticks while orders are in flight, as it does in the backtest latency model.",
+     "evidence": "StrategyRunner.ts:192-246 (serial funnel; in immediate mode the tick body awaits the REST round trip, OrderManager.ts:523, LiveExecution.ts:313-328, so all later ticks queue behind it); trading-bot.ts:1210-1263 (WebUI cancel commands call orderManager.handleIntents outside runSerial, which is a race); execution.rs:58-62 (advance_to runs only before market events, so nothing fires in quiet periods)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "replayable-journal-format",
+     "requirement": "The live journal must be a replay input, not a log. It must hold every input envelope from the serial loop (raw frames incl. Gamma metadata, rules and resolution; account events; REST requests and responses with send and ack times; timer firings; operator commands) plus binary sha256, params, profile and RNG seed. The backtest path must replay it to the same decisions and fills. GOAL M7 requires this replay, but M1 only builds telonex-delta input and V4 input is stretch M9, so the replay input must be in scope.",
+     "evidence": "GOAL.md:85-87 (M7 'replay journal through backtest path' vs M9 stretch V4 input); trading-bot.ts:223-240 (today's LOG_TO_FILE is a text JSONL log, not replayable); liveCapturedFeeds.ts:96-115 (V4 live capture already builds envelopes: sequence, receivedAtMs, monotonicNs, source, connectionId, rawJson)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should the live journal be the Recorder V4 capture envelope (schemaVersion 4) extended with account/order/timer/command streams, so one Rust V4 reader replays both worker-2 recordings and live journals?",
+     "recommendedDefault": "Yes: reuse the V4 envelope, add account, REST and timer sources, and pull a minimal V4/journal reader into the M7 scope."
+    },
+    {
+     "id": "explicit-clock-model",
+     "requirement": "The spec must say which clock drives strategy now, GTD validation and expiry, the latency and taker-delay scheduler, the late-start gate, and feed visibility. Live and replay must use the same clocks. Every input carries both the exchange timestamp and the local receive time, and clock skew to the exchange is measured and journaled at startup.",
+     "evidence": "OrderBookEngine.ts:82 + StrategyRunner.ts:457 (live tick time = exchange timestamp); trading-bot.ts:647 (synthetic ticks use Date.now()); externalFeeds.ts:138-147 (feed receivedAtMs = Date.now()); userWsAccountSource.ts:66-83 (seconds/ms heuristic, falls back to Date.now()); market.rs:454-462 (Rust tick has ts_ms plus optional local_ts_ms, no rule saying which drives decisions)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "In live and recorded/journal replay, should ctx.now be the local receive time, with the exchange timestamp exposed separately? Telonex input has no local time and keeps the exchange timestamp.",
+     "recommendedDefault": "Yes: now = local receive time whenever the input has it. GTD and expiry are checked against the exchange-estimated time, which is local time minus the measured skew."
+    },
+    {
+     "id": "paper-execution-semantics",
+     "requirement": "Rust live dry-run must be defined as paper execution: the same simulator and profile as the backtest, running on live inputs, with fills and expiries replayable from the journal. TS dry-run is not usable as a reference: orders are accepted and open but never fill or expire, merges succeed instantly, and splits return no event at all.",
+     "evidence": "trading-bot.ts:559-570 (dry-run exec stub returns [] for everything incl. splitPositions); OrderManager.ts:508-521 (dry-run place \u2192 accepted+open, never filled), 434-452 (dry-run merge succeeds instantly), 386 (split has no dry-run branch \u2192 stub \u2192 no positions_split/split_failed)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should Rust paper mode simulate fills with the realistic profile, or only record decisions with no simulated fills, like TS dry-run?",
+     "recommendedDefault": "Simulate fills with the realistic profile. Decision-only mode can be a flag."
+    },
+    {
+     "id": "order-lifecycle-states",
+     "requirement": "The order state machine must include in-flight (sent, not yet acked), delayed (accepted but held for the taker-delay window), unmatched, live, matched, and terminal states. The simulator must produce the same states and timings that the live REST responses and user WS order events produce.",
+     "evidence": "docs.polymarket.com/trading/place-orders (statuses live/matched/delayed/unmatched; delayed orders have zero making/taking amounts); clob-openapi.yaml ClobMarketDetails.itode ('marketable orders are held for the 250 ms taker-delay window'); model.rs:182-191 (Rust OrderState has no Delayed/InFlight); LiveExecution.ts:373-386 (TS emits only order_accepted and ignores response status); LiveExecution.ts:37-42 (no FAK mapping)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "trade-settlement-and-sellable-inventory",
+     "requirement": "Each fill carries a settlement status (MATCHED, MATCHED_NOT_BROADCASTED, MINED, CONFIRMED, RETRYING, FAILED); FAILED reverses the fill. SELL and merge are checked against settled, unreserved shares, and the gating status is configurable. The backtest must simulate the MINED/CONFIRMED progression with a calibrated settlement-latency model, so strategies that wait for MINED behave the same in both.",
+     "evidence": "userWsAccountSource.ts:42-49,275-281 (fill emitted once at the emitAt status; a later FAILED is never reversed); docs/engine/backtest-execution.md:146-156 (backtest emits only MATCHED, so MINED-gated strategies never sell; split/merge are instant); Portfolio.ts:925 (an oversized SELL is silently clamped, not rejected); riskLimits.ts:133,199 (negative projected positions allowed); model.rs:282-350 (Rust AccountEvent has no trade status); CLAUDE.md gotcha 'wait for MINED before selling/merging'",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "exchange-rules-fetched-and-journaled",
+     "requirement": "Before a market's first tick, the runtime fetches its rules from CLOB /clob-markets/{condition_id} and Gamma: tick (mts), min size (mos), fee curve (fd r/e/to and feeSchedule), taker delay (itode), minimum order age (oas), negRisk, exchange version. It journals them and applies tick_size_change live. This replaces the TS lazy clob-client warmup and the ctx.warmed gate. ExchangeRules must gain the missing fields; oas semantics must be confirmed during calibration before it is modeled.",
+     "evidence": "LiveExecution.ts:118-142 (warmup = lazy getTickSize/getNegRisk/getFeeRateBps), 313-321 (createOrder gets no tickSize/negRisk); clob-openapi.yaml ClobMarketDetails (mos, mts, itode, fd, oas 'Minimum order age in seconds'); src/research-data/fixtures/july-01-merge.json:17 (orderPriceMinTickSize 0.001, feeSchedule {exponent:1, rate:0.07, takerOnly:true, rebateRate:0.2}, version v1) vs june-04-terminal-merge.json:19 (tick 0.01); model.rs:396-410 (no min order age, negRisk or version); strategy.rs:20 (warmed)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "rotation-discovery-resolution",
+     "requirement": "Markets are discovered ahead of time (slug from the epoch, Gamma prefetch) and the next market is pre-subscribed with the WS subscribe operation, not by closing and reopening the socket at the boundary. The episode window [start, end) must match the backtest strategyWindow. Each finished market is tracked until resolution (cancel/expiry of resting orders, late fills, market_resolved winning asset), and its per-market result is emitted then.",
+     "evidence": "trading-bot.ts:1036-1059 (stop/start WS at wall-clock boundary), upDown15mWindowGuard.ts:31-49 (Gamma returns previous slug near boundary \u2192 500ms retries), StrategyRunner.ts:267-289 (old orders canceled only on first tick of the next market), asyncapi.json (SubscriptionRequestUpdate subscribe/unsubscribe; new_market and market_resolved with custom_feature_enabled), runSingleMarket.ts:107 strategyWindow, liveCapturedFeeds.ts:49-50 (5m only in V4 mode)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "reconnect-and-startup-reconciliation",
+     "requirement": "A market WS reconnect rebuilds books from the fresh book snapshot, keeps strategy and plugin state, and emits a journaled data-gap event; V4 replay with gaps follows the same rule. A user WS reconnect and process startup both reconcile from REST (open orders and trades since the last seen), because the stream does not replay missed events. The protocol sends a text PING every 10s.",
+     "evidence": "trading-bot.ts:997-1006 (on every 'connected' the TS resets marketEngine and pluginSet mid-market); trading-bot.ts:892-954 (REST poller only after 10s stable + 3s disconnect); restPollAccountSource.ts:204 (polls trades only, never orders); docs.polymarket.com/trading/realtime-order-updates ('real-time updates don't replay missed changes'; PING every 10s); marketWs.ts:22-25 and userWsAccountSource.ts:494 (ws-level ping frames, not text PING)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "At startup, when open orders from a crashed run exist in the current market, should the runtime cancel them or adopt them into the portfolio?",
+     "recommendedDefault": "Cancel them (cancel_market for the current condition IDs) and journal it. Positions are adopted read-only and flagged."
+    },
+    {
+     "id": "account-attribution-and-heartbeat-ownership",
+     "requirement": "Only events for orders this instance placed may change its portfolio, and the user channel is subscribed filtered by the current condition IDs. Each API key has one owner process, because CLOB heartbeats are chained per key and a missed heartbeat cancels all of that user's orders. Heartbeat-caused mass cancellations must map to order_done with a cause.",
+     "evidence": "userWsAccountSource.ts:456-457,513 + trading-bot.ts:875-880 (subscribes to all markets; maker fills filtered only by owner == apiKey); docs/live-trading/multiple-bots.md:25 (BOT_ENV bots may share a wallet/key); clob-openapi.yaml /heartbeats and /v1/heartbeats ('If heartbeats are not sent regularly, all open orders for the user will be automatically canceled'; heartbeat_id chaining fails on mismatch)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should the live CLOB adapter turn on the heartbeat dead-man switch? Should the runtime refuse to start when another local instance already uses the same API key (lockfile)?",
+     "recommendedDefault": "Turn on the heartbeat only in real-order mode, with one owner per key enforced by a lockfile. Paper mode never sends heartbeats."
+    },
+    {
+     "id": "live-capital-source",
+     "requirement": "The spec must define live available cash. TS uses a virtual 500 USDC per market, unrelated to the wallet, and refreshed every market. The real collateral is pUSD in the CLOB balance-allowance COLLATERAL, and it is partly locked in unredeemed earlier markets. With a $100 calibration wallet, the strategy must not size orders against money it does not have. ctx.balance can be dropped from the strategy context because no strategy reads it.",
+     "evidence": "StrategyRunner.ts:53-54 ('USDC per market. Defaults to 500; unrelated to actual wallet balances'), 291-293 (fresh Portfolio per market); contractAddresses.ts:4 + checkBalanceAndApproval.ts:144 (balance read as on-chain USDC.e, wrong under pUSD); docs.polymarket.com/concepts/pusd; grep: no strategy under src/strategies or protocols reads ctx.balance",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should live available cash be the smaller of the configured per-market allocation and (CLOB collateral balance minus reservations across all still-open markets)?",
+     "recommendedDefault": "Yes. The backtest keeps isolated per-market capital equal to the same allocation."
+    },
+    {
+     "id": "session-risk-and-no-event-drop",
+     "requirement": "The live runtime needs session-level guards that do not reset when the market rotates: max session loss including settlement, max wallet exposure, an order-rate cap, and a kill switch that cancels everything and stops processing intents. Account events must never be dropped: if the cascade limit trips, the strategy halts but every fill and status is still applied.",
+     "evidence": "riskLimits.ts:28,86 (maxLossStop 500 is computed on the per-market portfolio, which StrategyRunner.ts:291-293 recreates each market); StrategyRunner.ts:574-585 (maxEventsPerDrain clears the queue, so fills are lost)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "real-order-gate-and-secrets",
+     "requirement": "Real-order mode is enabled only by an explicit CLI flag plus a compile-time feature. It is never inferred from DRY_RUN in .env or .env.$BOT_ENV, because this machine has DRY_RUN=false and the bot file overrides shell env. Keys and API secrets come only through env or a file descriptor and must never be written to the journal, logs or state stream.",
+     "evidence": "trading-bot.ts:166-168 (dryRun derived from env); src/config/env.ts:16-29 (.env.$BOT_ENV loaded with override=true); MEMORY this-machine-roles (DRY_RUN=false in .env/.env.bot1/.env.bot2); userWsAccountSource.ts:515-535 (raw user messages and partial apiKey logged); GOAL.md:47-48",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "live-market-result-and-balance-reconciliation",
+     "requirement": "After a live or paper market resolves, the runtime emits the same RunSingleMarketOutput/MarketStats as the backtest, using the official outcome, and stores it keyed by slug so the dashboard can compare it with the worker-2 V4 backtest of that market. Real mode also reconciles the portfolio against CLOB collateral and share balances, to catch fee, rounding and share-count drift.",
+     "evidence": "runSingleMarket.ts:132-155 (backtest stats require marketResolution/finalOutcome); trading-bot.ts produces no per-market result; Portfolio.ts:915-918 (qty/avg rounded to 2 dp) vs exchange 6-decimal amounts (place-orders doc); api-integrations doc ('BUY fees add to collateral spend; SELL fees are deducted from proceeds')",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "calibration-join-keys",
+     "requirement": "For every order the journal records client id, exchange order id, local submit time, REST ack time, the exchange PLACEMENT/created_at time, and every trade's id, match_time, status changes, transaction_hash, maker/taker role, and per-maker-level price, size and fee_rate_bps. The Rust LastTradePrice event must keep transaction_hash, so live fills can be joined to worker-2's V4 trade prints to fit latency and queue-position models.",
+     "evidence": "market.rs:37-45 (Rust LastTradePrice has no transaction_hash/hash); asyncapi.json LastTradePriceEvent (transaction_hash) and BookEvent (hash); asyncapi-user.json TradeEvent (transaction_hash, match_time, maker_orders[].price/matched_amount/fee_rate_bps); userWsAccountSource.ts:259-272 (status progression keyed on taker_order_id only)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "binary-live-subcommand-and-ui-contract",
+     "requirement": "BINARY-PROTOCOL needs a long-running live/paper subcommand on the same sha256 binary used for backtests. Its I/O contract covers: config in, secrets channel, journal path, a state-snapshot stream that replaces BotUiSnapshot (top-N books, portfolio, plugin snapshots, strategy meta, feed/WS status), and an operator command input (cancel_order, cancel_all, refresh_balance) that goes through the serial loop. The redeem watcher must keep working by sending refresh_balance to the WebUI WS. The command and state channel binds to 127.0.0.1 by default.",
+     "evidence": "BINARY-PROTOCOL.md:12-51 (only describe/run/run-group); botUiState.ts:12-26; createTradingBotWebUiServer.ts:55-58 (commands); redeem-watcher.ts:57-104 (sends refresh_balance to ws://WEB_UI_HOST:WEB_UI_PORT/ws); trading-bot.ts:1099 (WebUI default host 0.0.0.0 with unauthenticated cancel_all)",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "clob-v2-market-version",
+     "requirement": "MarketInfo carries the market's exchange version (Gamma version v1/v2). The version selects the asset IDs (clobTokenIds or positionIds) used for WS subscriptions, datasets and orders. It also selects the signing domain (version 2 or 3, ExchangeV3 verifying contract), the order struct (timestamp, metadata, builder), the balance asset_type (CONDITIONAL or CONDITIONAL-V2), and the split/merge/redeem path (CTF or Router/PositionManager). The TS on-chain stack is V1/USDC.e-only and will not carry over.",
+     "evidence": "docs.polymarket.com/migrate/polymarket-v2/api-integrations (version selects positionIds vs clobTokenIds; domain version 3, verifyingContract 0xe3333700\u2026; CONDITIONAL-V2); place-orders doc (order struct: timestamp ms, metadata, builder; signatureType 3); conditionalTokens.ts:95,143,180 (CTF + USDC_ADDRESS); package.json:190 (@polymarket/clob-client ^5.1.2); fixture july-01-merge.json:17 ('version':'v1')",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "single-feed-model-no-plugin-io",
+     "requirement": "The Rust live runtime implements one feed model: the V4 receipt-ordered capture (Polymarket WS, Binance, PolyBolt Chainlink, PTB). The visibility-latency constants measured for replay must then describe the same sources live. Plugins may not do network I/O; any external data such as klines becomes a captured, journaled feed.",
+     "evidence": "trading-bot.ts:213-220,399-484 (legacy mode: RTDS + Binance WS + 1s Gamma PTB poll) vs liveCapturedFeeds.ts:24-40,315-321 (recorder-v4 mode with PolyBolt Chainlink; bookTicker/TWAP require it); TechnicalIndicatorsPlugin.ts:236-242 (fetches Binance klines over REST inside the engine, live and backtest); CLAUDE.md PTB latency 2.7s and Chainlink two-clock model",
+     "priority": "should",
+     "decisionNeeded": false
+    }
+   ]
+  },
+  {
+   "area": "Backtest feature inventory for native (Rust) strategies, plus how a shared-candidate group is submitted and stored",
+   "requirements": [
+    {
+     "id": "native-flag-matrix",
+     "requirement": "The spec needs an explicit table of flags and modes for native artifacts, and the producer must check it before enqueue using capabilities reported by `describe` (inputModes, profiles, protocolVersion). Today an unsupported combination is only discovered when every market job exits 2 and becomes an UnrecoverableError failure row. v1 MUST work: telonex-delta with --read-from local|r2|local-or-download-from-r2-to-local; selection by --symbol/--timeframe/--slug/--dir/paths/--limit/--latest/--random/--from-ms/--to-ms; --starting-capital, --latency-delay-ms, --latency-jitter-ms, --native-profile; --sequential, --detach, Ctrl+C-detach; --extend with its selection flags; labels --batchUid/--baselineId/--comment/--protocol/--model (+BACKTEST_PROTOCOL/MODEL env); feed preflights and producer-side gammaPriceToBeat. REJECT for native: recorded mode, --order exchange_time, --time-driven/--realtime, telonex-paired, and --native-profile on non-native strategies (today it is silently ignored).",
+     "evidence": "src/cli/helpers/backtestArgs.ts:8,203-231,339-347,571-644; src/cli/backtest.ts:994-1098,1146-1175,1460-1483; src/backtest/marketProcessor.ts:49-63; src/strategy/artifacts/native.ts:120-123",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Add `capabilities` to the `describe` JSON and validate it in resolveNativeStrategy before any job is built."
+    },
+    {
+     "id": "recorder-v4-before-calibration",
+     "requirement": "Live micro-trading calibration needs a backtest of the exact markets the bot traded, using worker-2's Recorder V4 packages (the only source with last_trade_price/tick_size_change prints). Telonex data only becomes eligible after TELONEX_DATASET_MIN_AGE_DAYS and has no trade prints. So V4 input cannot stay stretch M9 if calibration is in scope. The V4 contract to keep: manifest + event sha verification, coverage gate returning skipReason incomplete_capture with coverageReasons, --allow-capture-gaps, recorded receipt order only (no feed latency offsets), --capture-prefix/--list-eligible/--dir/exact manifest inputs, and recorderV4Capture provenance stamped into marketStats.",
+     "evidence": "native/GOAL.md:88,91,97-101; src/backtest/runSingleMarket.ts:392-401,417-468; src/recorder-v4/marketFrame.ts:47-49,85; src/config/telonex.ts:62; src/cli/helpers/backtestArgs.ts:527-543",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should Recorder V4 input move from stretch milestone 9 into v1 (as a prerequisite of the live-calibration milestone), since same-day calibration cannot use Telonex data?",
+     "recommendedDefault": "Yes. Keep telonex-delta as the first parity target, and make V4 input a hard prerequisite of calibration."
+    },
+    {
+     "id": "model-config-in-job",
+     "requirement": "Several model settings are read from the worker machine's env at replay time and are never recorded, so with different .env files the 4 Macs can silently produce different results: BACKTEST_BINANCE_FEED_LATENCY_MS/_LOOKBACK_MS, BACKTEST_RTDS_CHAINLINK_LATENCY_MS/_LOOKBACK_MS/_MAX_GAP_MS, BACKTEST_PRICE_TO_BEAT_LATENCY_MS, BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS/TECH_IND_*. Today --extend and the simulator recover latency, capital and profile by regex-parsing the saved cmd. The binary must never read env for behavior. Instead the producer resolves one versioned ModelConfig (feed latencies and lookbacks, gap thresholds, place/cancel latency, jitter, seed, profile, rules version, per-market startingCapital), sends it in the job, and persists it on the run so --extend and the simulator inherit it. The profile has one source of truth: today the job carries `nativeProfile` but the protocol defines a `--profile` flag that marketProcessor never passes. Per-market startingCapital (default 500, enforced by the engine) must stay separate from the aggregate INITIAL_CAPITAL (default 1000, used only for batch and segment stats).",
+     "evidence": "src/backtest/feeds/wireBacktestExternalFeeds.ts:39-99,228,275,297; src/trading/StrategyRunner.ts:404-418; src/cli/backtest.ts:737,745-757; src/cli/helpers/backtestArgs.ts:703-735; src/cli/helpers/capitalArgs.ts:26-28; src/trading/capital.ts:5-6; native/BINARY-PROTOCOL.md:36-41; src/backtest/jobTypes.ts (nativeProfile)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should all execution and feed model settings be stored as one versioned JSON column on backtest_runs, which --extend and the simulator inherit, instead of re-parsing the saved shell command?",
+     "recommendedDefault": "Yes: add a `model_config` JSON column. Keep the cmd only as human provenance."
+    },
+    {
+     "id": "seeded-rng-keyed-by-slug",
+     "requirement": "TS jitter uses unseeded Math.random and only applies when delay > 0 (default jitter env is 20 ms). Each Rust market RNG seed must be derived only from (run seed, market slug), never from candidate index, group composition, worker or job idx. The run seed must be recorded so that standalone, group, --extend and simulator replays produce identical fills. ts-compat must keep the rule 'jitter is ignored when delay is 0'.",
+     "evidence": "src/trading/execution/BacktestExecution.ts:240-241; src/backtest/runSingleMarket.ts:187; src/cli/backtest.ts:754-757; src/backtest/simulator/resolveMarket.ts:83-84; docs/backtest/parallelization.md:264",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "native-worker-identity",
+     "requirement": "For native jobs the worker passes MarketJobData unchanged, but machineId and workerChildId are not in that payload. The TS path stamps machineId, workerChildId and the worker's WORKER_LAUNCH_SHA into execution metadata. backtest_run_markets.machine_id is indexed and drives the per-machine leaderboard. The protocol must deliver worker identity to the binary, and must define what commit_sha means for native rows (record engineVersion + artifact sha + worker TS sha).",
+     "evidence": "src/backtest/marketProcessor.ts:58 vs 106-108; src/backtest/stats/marketStats.ts:16-25; src/db/schema.ts:216-224,240; native/crates/pmb-core/src/stats.rs:102",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Wrap the job as {job, worker:{machineId, workerChildId, tsCommitSha}} and add execution.engineVersion and execution.artifactSha256."
+    },
+    {
+     "id": "output-skip-taxonomy-and-intent-meta",
+     "requirement": "Native output must reproduce the full RunSingleMarketOutput taxonomy, which the aggregator and segments depend on. skipReason is one of no_slug / no_resolution / unresolved_outcome / no_activity / incomplete_capture. no_activity has two shapes: with no ticks at all, marketStats is null and the market becomes a failure row; with ticks but no positions or trades, a zero-stats row is written with marketStats.skipReason='no_in_window_activity' and it counts in the denominator. eventsProcessed and eventsByType count every tick, including out-of-window and synthetic ones, keyed by TS event_type strings. intentMeta has one entry per unique clientOrderId in fill order, taken from arbitrary strategy JSON meta on the order, so the Rust SDK must let intents carry free-form JSON meta. export-trade-features consumes it.",
+     "evidence": "src/backtest/runSingleMarket.ts:132-156,297-337,494-567; src/backtest/stats/marketStats.ts:186-196; src/backtest/aggregateProcessor.ts:104-117; docs/backtest/statistics/run-markets.md:100-104; src/cli/research/export-trade-features.ts:53,230",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "window-gate-semantics",
+     "requirement": "The window gate is inclusive [startMs,endMs] on snapshot.timestamp and is set only for telonex modes (null for V4). Out-of-window ticks update the books but invoke neither plugins, the strategy, nor the execution simulator, which only advances inside runner.onMarketTick. Resting orders and latency-delayed intents therefore freeze at the window edge. The dashboard simulator gates V4 by the window even though the V4 backtest did not. The spec must state one rule per input mode, used by backtest, simulator and live: ts-compat copies TS exactly, and the realistic profile defines what happens to resting orders and in-flight intents at the window end and whether plugins may warm up on pre-window ticks.",
+     "evidence": "src/backtest/runSingleMarket.ts:302-319; src/trading/StrategyRunner.ts:327,402,453; src/cli/backtest.ts:942-951; src/backtest/simulator/resolveMarket.ts:241",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "In the realistic profile, what happens at the end of the market window to resting orders and latency-delayed intents, and may plugins see pre-window ticks?",
+     "recommendedDefault": "Call the strategy only inside the window. Keep matching already-submitted orders against book events until endMs, then expire everything still open. Let plugins observe pre-window ticks without strategy calls. Apply the same rule to every input mode and to the simulator."
+    },
+    {
+     "id": "exchange-rules-provenance",
+     "requirement": "In backtests, telonex market metadata is built from the token map only (slug, outcomes, token ids, eventStartTime, start/end date, question). telonex_markets has no tick size, min order size, fee schedule, negRisk or taker-delay columns. The realistic profile's per-market ExchangeRules therefore have no source today. The spec must define where the rules come from, how they are versioned by date, and that the resolved rules (or a rulesVersion) travel in the job and are stored on the run.",
+     "evidence": "src/cli/backtest.ts:174-207; src/db/schema.ts:380-445; native/GOAL.md:55-57,68-72",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Where do backtests get per-market tick size, min size, fee schedule and taker delay: a dated rules table compiled into the engine, or a new Gamma-backed catalog column?",
+     "recommendedDefault": "Use a versioned dated rules table inside the engine, recording rulesVersion per run, with recorded V4 tick_size_change events overriding it."
+    },
+    {
+     "id": "inputs-resolved-locally-by-ts",
+     "requirement": "Input fetching runs inside TS runSingleMarket today: the r2Fallback download for local-or-download-from-r2-to-local, direct r2:// reads for --read-from r2, and the V4 manifestUrl download with a canonical manifest check. A native job would otherwise hand the binary r2:// paths. The spec must state that the TS worker turns every input into a verified local file before spawning, so the binary is offline with no R2 credentials, and that the [read-from] LOCAL-hit/R2-download log stays in TS.",
+     "evidence": "src/backtest/runSingleMarket.ts:386-415,392-401; native/BINARY-PROTOCOL.md:39; src/strategy/artifacts/native.ts:153-163",
+     "priority": "should",
+     "decisionNeeded": false,
+     "recommendedDefault": "The TS worker resolves inputs; the binary gets only local paths and fails with exit 2 on an r2:// path."
+    },
+    {
+     "id": "failure-classes-and-timeout",
+     "requirement": "The protocol must define exit-code classes that match BullMQ semantics: 2 = invalid input, never retried; a separate code for data unavailable (missing aggTrades/crypto_prices day file, Chainlink gap of 5 minutes or more, pre-coverage market) that is retryable and may succeed on another worker, with the exact fix command in the message; 1 = runtime bug. A per-job wall-clock timeout must kill the child. Today a hung binary holds a fleet slot forever, because the free event loop keeps renewing the 3-minute BullMQ lock. The timeout must scale with group size.",
+     "evidence": "src/strategy/artifacts/native.ts:38-45,86-118,120-123; src/backtest/queue.ts:87,94,117; src/cli/backtest.ts:1032-1036,1084-1096",
+     "priority": "should",
+     "decisionNeeded": false
+    },
+    {
+     "id": "params-normalization-idempotent",
+     "requirement": "`describe` receives CLI strings on fresh runs (e.g. {size:'2'}) but typed JSON from the DB on --extend and in the simulator (parent.params / run.params), and group candidates will arrive typed from a grid file. Native param validation must accept both forms and be idempotent (describe(describe(p).params).params equals describe(p).params). Normalized params are what gets stored, de-duplicated and compared across candidates.",
+     "evidence": "src/cli/helpers/strategySelection.test.ts:22; src/backtest/extendPlanner.ts:145,151; src/backtest/simulator/resolveMarket.ts:99-111; src/cli/helpers/strategyArgs.ts:283-300",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "simulator-native-guard",
+     "requirement": "The dashboard market simulator already ships and replays a saved run through TS runSingleMarket. For a native run, resolveStrategyFromArtifact returns no definition, so `artifact?.definition ?? getStrategyDefinition(run.strategy)`, called with allowRegistryIdCollision:true, either throws or silently replays a same-id TS registry strategy and labels it as that run. v1 must detect native runs and refuse with a clear message. The later TraceSink must emit the existing dashboard trace format (TraceChunk/DisplayState with CapitalSnapshot, and the `insufficient_capital(required=..,available=..)` rejection string) by running the binary. GOAL lists the simulator UI as out of scope, but it already exists.",
+     "evidence": "docs/backtest/market-simulator.md:1-6,64-80; src/backtest/simulator/resolveMarket.ts:98-111; src/backtest/simulator/contracts.ts:39-50,183-197; src/cli/helpers/strategyArgs.ts:300-310; native/GOAL.md:64,92",
+     "priority": "must",
+     "decisionNeeded": false
+    },
+    {
+     "id": "native-commit-gate",
+     "requirement": "Native jobs still pass the exact-commit worker gate (canRunJobCommit on the producer SHA) and the producer's dirty-tree block, even though the engine is inside the hash-verified binary and the TS worker only moves JSON. As a result every native test forces the fleet onto the producer's branch (or --sequential). The spec must decide what gates a native job.",
+     "evidence": "src/backtest/marketProcessor.ts:33,49; src/backtest/commitGate.ts:40-49; src/cli/backtest.ts:1371-1387; native/GOAL.md:83",
+     "priority": "should",
+     "decisionNeeded": true,
+     "question": "Should native market jobs be gated on a native protocol version / worker capability instead of the producer's exact git commit (keeping the commit gate for aggregate jobs)?",
+     "recommendedDefault": "Yes: gate native market jobs on protocolVersion, keep the commit gate on the aggregate queue."
+    },
+    {
+     "id": "artifact-registry-target",
+     "requirement": "A native artifact is one aarch64-apple-darwin binary, recognized only by a substring of its R2 URL. strategy_artifacts has no kind, target triple, engineVersion or protocolVersion (builtWith is {esbuild,node}), there is no native publish CLI equivalent to --strategy-file, and the fleet docs plan x86 Hetzner workers. The spec must define the artifact record, how workers refuse a target they cannot run, and the cross-target determinism policy: money is fixed-point, but f64 plugin math using exp/ln/pow needs a pure-Rust libm or results vary by target.",
+     "evidence": "native/BINARY-PROTOCOL.md:3-7; src/cli/helpers/strategyArgs.ts:232,269; src/db/schema.ts:673-700; docs/backtest/fleet/cloud-and-costs.md:38,109",
+     "priority": "should",
+     "decisionNeeded": true,
+     "question": "Is v1 Apple-Silicon-only (the 4 Macs), with Linux/x86 cloud workers explicitly deferred?",
+     "recommendedDefault": "Yes for v1, but record the target triple now, refuse jobs on a mismatched target, and use a pure-Rust libm."
+    },
+    {
+     "id": "ta-plugin-offline",
+     "requirement": "In backtests, TechnicalIndicatorsPlugin fetches Binance REST klines over the network and the runner waits on wall-clock time for them (3 s timeout, poll). The result is non-deterministic, depends on the network, and indicators silently go missing on timeout. 6 strategy files use it. The Rust port must be offline and deterministic, or TA strategies are explicitly excluded from native v1.",
+     "evidence": "src/strategy/plugins/TechnicalIndicatorsPlugin.ts:5,37,215-260; src/trading/StrategyRunner.ts:404-433",
+     "priority": "should",
+     "decisionNeeded": true,
+     "question": "Should the native TechnicalIndicators plugin build its candles from the local Binance aggTrades day files the feed already uses, or should TA-dependent strategies stay on the TS engine?",
+     "recommendedDefault": "Build candles from local aggTrades files (extended lookback in the preflight); no network calls inside the binary."
+    },
+    {
+     "id": "candidate-group-submission",
+     "requirement": "The natural users of shared candidate replay are the research protocol's coordinate-search passes (one batchUid per pass; one submission per value of a single param; screen = --latest --limit 1000; each submissionUid is recorded in FAMILY.json) and generate-jobs.ts, which expands a Cartesian grid into one CLI command per cell. Today each cell selects its markets separately at a different time (--latest drifts, --random re-samples) and re-reads every parquet. walkForwardRank.ts has no callers. The spec must define one submission of N candidates. The producer runs `describe` on each candidate, rejects duplicate normalized params, selects markets once, requires identical eligibility-relevant data needs (params can change requiredFeeds and therefore eligibility), sends one job per market with shared context plus a candidate list (not N copies of MarketJobData as BINARY-PROTOCOL run-group does now), and prints a machine-readable candidate \u2192 submissionUid \u2192 params map.",
+     "evidence": "strategy-research-protocol/tools/runBacktest.md:62,66-80,129; docs/backtest/generate-backtest-jobs.md:1-40; src/backtest/generate-jobs.ts:66-150; src/backtest/stats/walkForwardRank.ts:87 (no callers); docs/backtest/running-backtests.md:40; src/cli/backtest.ts:622-639; native/BINARY-PROTOCOL.md:43-51",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "What is the group submission syntax, and what happens when candidates need different feeds (and so different eligible markets): reject, or split automatically into sub-groups?",
+     "recommendedDefault": "Use `--candidates <file.json>` accepting {base params, sweep:{param:[values]}, mode: coordinate|cartesian} or an explicit list, and reject groups with mixed feed requirements in v1."
+    },
+    {
+     "id": "candidate-group-storage",
+     "requirement": "Each candidate becomes its own backtest_runs row with its own unique submissionUid, sharing batchUid/baselineId/comment/protocol/model, plus new nullable candidate_group_uid and candidate_index columns. Each row's cmd must be a standalone-equivalent command with that candidate's --param values and a trailing --starting-capital, because --extend and the simulator re-parse cmd. BullMQ allows one parent per child, so one aggregate job per group writes the N runs idempotently per submissionUid on retry. A failed market job becomes a failure row in every candidate run, while a single candidate's panic fails only that candidate. The dashboard's `<submissionUid>-m-<idx>`/`-agg` job-id parsing must keep working. Group wall time must not be counted N times in duration_total_ms or the machine leaderboard (record the group duration plus groupSize).",
+     "evidence": "src/db/schema.ts:96-107,183-240; src/cli/helpers/capitalArgs.ts:26-28; src/cli/helpers/backtestArgs.ts:717-735; src/backtest/aggregateProcessor.ts:83-117; src/backtest/jobTypes.ts (marketJobId/aggregateJobId); dashboard/src/lib/queries/batches.ts:78,708; src/backtest/stats/batchStats.ts:61-70",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Should a group be stored as N normal backtest_runs rows (one per candidate) linked by new candidate_group_uid/candidate_index columns, with each row extendable on its own?",
+     "recommendedDefault": "Yes. v1 extends a single candidate run with the normal standalone --extend; a whole-group --extend comes later."
+    },
+    {
+     "id": "group-isolation-and-proof",
+     "requirement": "Each candidate in a group gets its own strategy, plugins, Portfolio, OrderManager, execution simulator and RNG stream. Only immutable decoded market and feed data is shared, while per-candidate synthetic-tick subscriptions (tickOnUpdate) may differ. A group job runs single-threaded by default, because fleet parallelism already comes from one forked child per core (--market-concurrency defaults to cores-2). The M4 proof must compare the persisted DB rows (backtest:verify-diff on segments and market rows), not just the JSON: group runs must equal standalone runs, and a later standalone --extend of one candidate must equal fresh, as the existing extension-equals-fresh invariant requires.",
+     "evidence": "docs/backtest/parallelization.md:135-167,264-297; docs/backtest/extending-a-run.md:303-309; src/cli/verify-backtest-diff.ts:6-13; src/backtest/runSingleMarket.ts:340-367; native/GOAL.md:82",
+     "priority": "must",
+     "decisionNeeded": false
+    }
+   ]
+  },
+  {
+   "area": "Execution realism and live calibration: exchange-rules capture, fee ground truth, live journal, joining it to Recorder V4, removing our own orders, calibration metrics and thresholds, what ~$100 can and cannot calibrate",
+   "requirements": [
+    {
+     "id": "exchange-rules-snapshot",
+     "requirement": "The producer must capture one ExchangeRules snapshot per market and store it in MySQL keyed by condition_id. It holds the raw Gamma market JSON, the raw CLOB `/markets/{condition_id}` JSON (tick size, minimum order size, feeSchedule/feesEnabled, the taker-delay field such as `seconds_delay`, negRisk) and fetched_at. Telonex markets get it from an extension of the existing Gamma backfill; V4 markets get it from the `RecordedMarket.rawJson` that is frozen at market start. MarketJobData carries the snapshot, the Rust binary never fetches over the network, and each market output records where its rules came from (captured or dated fallback). Tick size can change inside a market (`tick_size_change`), so validation uses the rule in force when the order reaches the simulated exchange.",
+     "evidence": "src/db/schema.ts:380-440 (telonex_markets has no tick/min-size/fee/delay columns); src/recorder-v4/markets.ts:127 (V4 fetches only Gamma /markets/slug, never the CLOB market object); src/recorder-v4/replay/package.ts:94-102 (allowlist has feeSchedule/orderMinSize/orderPriceMinTickSize but no delay field); src/recorder-v4/coordinator.test.ts:643-670 (rules revised before start; bootstrap freezes the latest); native/crates/pmb-core/src/rules.rs:142-171 (taker_delay_ms=0 marked 'not verified'; fees hardcoded by date)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Some markets have no rules snapshot (old Telonex markets, failed fetches). Should realistic-profile runs use the hardcoded dated fallback for them, flagged in the output, or skip those markets?",
+     "recommendedDefault": "Use the dated fallback and mark the market with rulesSource=fallback. Aggregation refuses to pool results across fee eras."
+    },
+    {
+     "id": "fee-ground-truth",
+     "requirement": "Check each fee era (formula, rate, rounding, start and end dates) against fees that were actually charged: on-chain fills (Telonex onchain_fills) or Data API activity `usdc_size`. Do not rely on `fee_rate_bps` fields or the docs. Live Portfolio fees must also come from actual cash deltas. `realistic` cannot become the default until, for a sample of fills from every era, the computed fee equals the charged fee to the rounding unit.",
+     "evidence": "Measured: all 1,123 last_trade_price prints in data/events/btc/btc-updown-15m-1784637900.parquet (2026-07-21, an era that charged 0.07 fees) have fee_rate_bps=0. src/trading/Portfolio.ts:894-899 charges a fee only when fill.feeRateBps>0, so live fees depend on an unverified WS field. docs/polymarket/index.md:139-145 and native/crates/pmb-core/src/rules.rs:129-171 disagree: era 1 is 0.25*p*(p(1-p))^2 per share in the docs vs 0.25*(p(1-p))^2 in Rust; era 2 is 0.072 from 03-29/31 vs 0.07 from 03-30; the start is 01-06 vs 01-05; the docs' ~05-08 era 3 boundary is missing in Rust. docs/datasets/polymarket-research/accounting.md:36-38 (usdc_size already includes the fee). src/db/schema.ts:424 (onchain_fills coverage is tracked).",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "When the docs and observed data disagree about a fee era, which one wins?",
+     "recommendedDefault": "Charged amounts from on-chain data or the Data API. Update the dated table and docs/polymarket/index.md to match them."
+    },
+    {
+     "id": "rules-verification-probes",
+     "requirement": "Before fill calibration starts, a cheap live probe phase must check every realistic-profile rule using non-marketable or $1-notional orders: GTD minimum lead time and early expiry; which orders get the taker delay and for how long (POST status `delayed`); tick-size boundaries and `tick_size_change`; the 5-share GTC/GTD minimum vs the $1 FOK/FAK minimum; FOK/FAK BUY sized in collateral and the resulting share truncation; post-only rejection when crossing; the batch cap of 15. Each rule is stored as verified with a date and evidence. Rules that are not verified stay flagged in the profile.",
+     "evidence": "native/crates/pmb-core/src/rules.rs:142-144 (delay not verified), 200-214 (assumes 3-min GTD lead and 60 s early expiry); src/trading/OrderManager.ts:84-85,189,770 (TS uses a 60 s minimum); docs/polymarket/index.md:199-207 (minimums by order type), 219-238 (on-chain truncation: 6 requested, 5.994806 received); src/trading/execution/LiveExecution.ts:329-386 (POST response status is ignored)",
+     "priority": "should",
+     "decisionNeeded": false,
+     "recommendedDefault": "Run it as day 0 of calibration with a budget under $2."
+    },
+    {
+     "id": "live-execution-journal",
+     "requirement": "The live runtime (M7 dry-run first, real trading later) must write a journal that can be replayed. It records every received frame (market WS including last_trade_price and tick_size_change, user WS, feeds, REST bodies) with wall-clock and monotonic receive stamps in the V4 envelope format. A per-intent execution sidecar records: decision tick sequence; send and response wall/monotonic times; the full POST and cancel responses (status live/matched/delayed/unmatched, orderID, making/taking amounts, transaction hashes, errors); periodic clock-offset samples. An event's tsMs must never use the decision time in place of an ack or fill time. Dry-run and real trading use the same schema.",
+     "evidence": "src/trading/execution/LiveExecution.ts:249-254,377-384 (order_accepted stamped with ctx.nowMs, the decision tick time, not the ack time); src/polymarket/ws/userWsAccountSource.ts:209 (fill time = exchange timestamp; no local receive time; transaction_hash dropped); src/cli/trading-bot.ts:221-235 (only a log JSONL exists); docs/other/MeasureLatency.md:18-24 (only measures intent to open-orders snapshot, via Date.now); src/recorder-v4/types.ts:22-23,64-84 (existing ingress-stamp envelope that can be reused); native/GOAL.md:85 (M7 journal format not specified)",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "V4 compact envelope for inputs plus a JSONL execution sidecar, written by a TraceSink-like journal sink in the live runtime."
+    },
+    {
+     "id": "own-fill-attribution",
+     "requirement": "The live adapter must attribute every own fill, maker and taker, with trade id, order id, transaction hash, match time, local receive time and actual matched amounts. It must know its owner identity at startup. A reconciliation step must show that the journal's fills match the wallet's cash ledger (REST trades / Data API activity) for each market. Markets with unreconciled fills are excluded from calibration.",
+     "evidence": "src/polymarket/ws/userWsAccountSource.ts:236-240 (trades without an id are dropped), 283-287 (maker fills are silently dropped until the owner id has been learned from a later message), 292-323 (maker fills keep no tx hash or match time); src/polymarket/restPollAccountSource.ts:151-162 (REST trades fallback); src/polymarket/dataApi.ts:218 (activity has transactionHash)",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Take the owner from the configured credentials and check it against the first order message. Reconcile after each market resolves."
+    },
+    {
+     "id": "latency-decomposition-clock-base",
+     "requirement": "LatencyModel must be a set of named, seeded empirical distributions, each calibrated separately: market-data delay (exchange timestamp to bot receipt), client send (signing plus HTTP), resting placement, marketable placement including taker delay, cancel, REST ack, user-WS fill delivery, MATCHED to MINED to CONFIRMED (plus the FAILED rate), and split/merge/redeem transactions. Each input mode must declare its clock and which components apply: telonex-delta decides on exchange time, so it needs the market-data delay; V4 is already on worker-2 receive time; journal replay is on the bot's receive time. Latencies are measured only as monotonic intervals within one process. Comparisons across hosts use an offset estimated from identical public events.",
+     "evidence": "src/trading/execution/BacktestExecution.ts:239-242 (one delay plus uniform Math.random jitter for every operation), 378-443 (MATCHED then CONFIRMED emitted instantly, never MINED), while the CLAUDE.md gotcha requires waiting for MINED before sell/merge; docs/engine/backtest-execution.md:42-43,156 (split/merge are instant) vs src/trading/execution/LiveExecution.ts:614-705 (on-chain retries with 3 s waits); native/crates/pmb-replay/src/telonex.rs:28-45 (engine time = exchange timestamp). Measured on the trading machine's 2026-07-21 recording (data/events/btc/btc-updown-15m-1784637900.parquet, 163k price_change events): receive time minus exchange timestamp is p50 -33 ms, p01 -79 ms, p99 8.85 s. The clock offset is the same size as the latencies being measured, and the tail reaches seconds.",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Store each component as a quantile table per calibration id and sample it with a per-market seeded RNG. The executor fires at the exact event time, not at the next tick."
+    },
+    {
+     "id": "journal-v4-join",
+     "requirement": "Define how the live journal joins the V4 recording. Scope: BTC 5m/15m markets that worker-2 recorded with complete V4 coverage. Markets join on condition_id. Own trades join to V4 last_trade_price by transaction_hash. Book states are aligned by book hash plus exchange timestamp. The clock offset between the bot host and worker-2 is the median receive-time difference over identical public events, computed per market. Both hosts must run time sync. Markets with incomplete coverage, or with own prints that cannot be matched, are excluded.",
+     "evidence": "src/recorder-v4/storage/compactShapes.ts:45-63 (book hash kept), 80-90 (last_trade_price keeps transaction_hash); measured: 1,123 prints and 1,123 distinct transaction hashes in one 15m market, so one print per transaction and a 1:1 join key; docs/datasets/recording/recorder-v4.md:111 (V4 cannot reproduce another machine's timing), 230 (price_change hashes dropped; book and transaction hashes kept); docs/datasets/recording/recorder-v4-worker-2.md:91 (worker-2's automatic clock setting is checked); nothing manages the trading machine's clock",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Calibration trades only markets worker-2 records. Run a join report after each market; an unmatched own print excludes the market."
+    },
+    {
+     "id": "own-order-decontamination",
+     "requirement": "Recordings (V4 and Telonex) of markets we traded contain our own orders and fills, so the engine needs a deterministic step that removes them. (1) Find own prints by transaction hash and subtract our matched amount; do not delete the print, because it can include other makers. (2) For each own order, find the price_change that inserted it: same asset, side and price, size increase of at least our size, within [send, send + max latency] on the recording's clock. Subtract our remaining size from that level until the order is cancelled or filled. (3) Flag ambiguous matches and exclude those episodes. The market catalog must mark markets with own activity.",
+     "evidence": "src/recorder-v4/storage/compactShapes.ts:9-23 (price_change has no order id, so matching has to be heuristic); src/recorder-v4/marketFrame.ts:40-51 (book, price_change and last_trade_price reach the shared engine unchanged); protocols/pair-fable/memory/experiments/hf-fill-probe.md:155-171 (queue and capture ceilings are computed from prints at our level, so our own prints would count as market flow and fill the simulated order a second time)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Research backtests over markets we traded live: should they use de-contaminated books, or leave those markets out?",
+     "recommendedDefault": "Use de-contaminated books for calibration. Leave own-activity markets out of strategy research universes by default."
+    },
+    {
+     "id": "pinned-execution-harness",
+     "requirement": "Calibration needs two modes. (A) Execution-pinned: the journaled intents are injected at their journaled send times, converted to the recording's clock, into the simulator with no strategy running; every per-order metric comes from this mode. (B) End-to-end: the strategy replays the bot's own journal and must make the same decisions; this proves determinism only, and the M7 dry-run produces no evidence about fill realism. The harness must pass two self-tests: neutrality (the simulator compared with itself shows zero error) and sensitivity (injecting +X ms measures +X ms). It runs on V4 within hours of the live run, and on telonex-delta for the same markets once they become eligible. `run-group` must also accept jobs that differ only in execution-model parameters (fill model, queue parameter, latency calibration id). All variants use the same per-market seed so that one market read can fit calibration parameters and A/B the realistic fixes.",
+     "evidence": "docs/datasets/price-feeds/parity-harness.md:69-77 (neutrality and sensitivity self-tests), 52-58 (tune never writes defaults); native/GOAL.md:85 (M7 'identical decisions'); CLAUDE.md TELONEX_DATASET_MIN_AGE_DAYS default 3; native/BINARY-PROTOCOL.md:43-51 (run-group jobs may differ only in strategyParams); src/trading/execution/BacktestExecution.ts:240 (unseeded jitter makes A/B noisy), 803-834 (one differing fill changes the Portfolio and every later intent, so mode B diverges)",
+     "priority": "must",
+     "decisionNeeded": false,
+     "recommendedDefault": "Mode A is the calibration verdict. Mode B is a separate pass/fail determinism check. The telonex-delta readout follows 3+ days after the live window."
+    },
+    {
+     "id": "calibration-metrics-thresholds",
+     "requirement": "The spec must define calibration metrics and pass thresholds, frozen before the live run: accept/reject agreement; exact fee per fill; FOK/FAK fill-or-kill agreement; taker VWAP error and share-quantity error; for maker orders, per-episode fill/no-fill agreement, filled-share ratio, time to fill and partial-fill count; latency bias and quantile error per component; MINED delay. PnL error is computed per market in execution-pinned mode and split into fee, price, quantity, missed-or-extra fills and settlement. The ground-truth live PnL comes from the wallet accounting rule (cash plus final payout), not from the bot's Portfolio. Rewards, rebates and gas are reported separately.",
+     "evidence": "docs/datasets/polymarket-research/accounting.md:26-44 (cash profit rule; fees included in usdc_size; rewards kept separate); docs/datasets/price-feeds/parity-harness.md:35-41 (precedent: target |mean bias| <= 50 ms); protocols/pair-fable/memory/experiments/hf-fill-probe.md:12-71 (pre-registered, frozen verdict bars); docs/engine/backtest-execution.md:94 (the simulator fills a maker order's whole remainder at once, never partially)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "Which pass thresholds are enough to make `realistic` the default profile?",
+     "recommendedDefault": "Accept/reject agreement >= 99%. Fee error 0 at 1e-6 USDC. FOK/FAK outcome agreement >= 95%. At least 90% of taker fills at the same VWAP, with mean |error| <= 0.25 tick. Maker filled-share ratio sim/live within [0.8, 1.25] at 95% CI. Median time to fill within \u00b130%. Each latency component: |median bias| <= 10 ms and p90 within \u00b120% (n >= 200). MINED-delay median within \u00b120%. Pinned PnL error mean <= 0.5 cents per traded share, with a 95% CI that contains 0."
+    },
+    {
+     "id": "sample-size-budget",
+     "requirement": "The spec must state which sample sizes ~$100 can reach and design probes with no directional exposure. Place/cancel latency: far-from-touch 5-share orders, about $0 cost, 2,000+ samples, enough to resolve p99. Taker path: $1-notional FAK round trips, about $0.045 per fill at p\u22480.5, so ~500 taker fills for ~$25; enough for p90 and to detect a VWAP bias of ~0.1 tick. Maker: 5-share post-only bids on both outcomes, held as pairs; the cost is adverse selection, about $0.30 per fill, so ~100 fills for ~$30, giving the filled-share ratio to about \u00b120%; non-fill episodes are free and number in the thousands. Settlement timing comes free with every fill. Capital recycles every 5/15 minutes, so the binding limits are the loss budget and directional variance; pairs and round trips remove the variance.",
+     "evidence": "docs/polymarket/index.md:199-207 (GTC/GTD 5 shares, FOK/FAK $1), 113-118 (fee formula); fee arithmetic: 2 sh \u00d7 0.07 \u00d7 0.25 = $0.035 plus half a 1-cent spread \u2248 $0.01; docs/other/MeasureLatency.md:44-51 (place/cancel cycles at price 0.01); protocols/pair-fable/memory/experiments/hf-fill-probe.md:127 (E-014: about -0.06 per share adverse selection per start), 217-222 (top-of-book T140 ceiling \u2248 97 fills per market), 265-269 (~2.8 cents pair margin)",
+     "priority": "must",
+     "decisionNeeded": true,
+     "question": "How should the ~$100 be split between rules/latency probes, taker probes and maker probes, and what cumulative loss stops the run?",
+     "recommendedDefault": "$5 rules and latency, $25 taker, $30 maker. Stop at $60 cumulative loss. 2-4 days of BTC 5m and 15m markets recorded by worker-2."
+    },
+    {
+     "id": "maker-queue-parameter",
+     "requirement": "The queue-position fill model must expose one explicitly calibrated parameter: the share of level decreases (cancels as well as trades) that happen ahead of our order. Queue-ahead starts at the displayed size when our order becomes visible on the exchange, excluding our own size. It is consumed by prints at our level, and partial maker fills are allowed. The model runs only where prints exist: V4 now, Telonex after trades ingestion. Elsewhere the fallback is worst-queue.",
+     "evidence": "protocols/pair-fable/memory/experiments/hf-fill-probe.md:209-213 (99.13% of top-of-book decrease volume is cancels), 201-205 (trade-confirmed front-of-queue T140/W140 = 0.646), 69-71 (capture grows less than linearly with size); src/trading/execution/BacktestExecution.ts:73-137 (a maker fill takes the whole remainder once price passes through the level); native/GOAL.md:97-100 (Telonex trades follow-up)",
+     "priority": "should",
+     "decisionNeeded": false,
+     "recommendedDefault": "Fit the cancel-ahead share on the live maker episodes using execution-variant run-group; report worst-queue alongside it."
+    },
+    {
+     "id": "calibration-validity-envelope",
+     "requirement": "A calibration result is a versioned artifact: id, date range, host, execution stack, input mode, order-size range, sample sizes and CIs. Every run that uses it references its id, and the engine warns when a run's sizes, prices or markets fall outside the validated range. The spec must state what ~$100 cannot calibrate: size effects above ~5-10 shares (walking the book, our share of the queue, impact); strategy edge and PnL significance; rare paths (RETRYING/FAILED, rejects under load, outages); maker rewards and rebate tiers; market regimes outside the calibration window; and client-side latency of a different host, or of the Rust signing stack if the calibration was done with the TS bot.",
+     "evidence": "docs/live-trading/live-trading-bot.md:166 (500-USDC per-market allowance, far above probe sizes); native/crates/pmb-core/src/rules.rs:290 (existing tests use 800-share orders); protocols/pair-fable/memory/experiments/hf-fill-probe.md:69-71 (size dependence confounder); docs/datasets/price-feeds/parity-harness.md:52-58 (tuned values become defaults only through a deliberate commit); CLAUDE.md (latency flags are recorded in the run cmd)",
+     "priority": "should",
+     "decisionNeeded": false,
+     "recommendedDefault": "Store artifacts in MySQL and reference them from MarketJobData. Re-calibrate the client-side components when switching from the TS bot to the Rust live adapter, and repeat the calibration monthly."
+    }
+   ]
+  }
+ ],
+ "critic": {
+  "missingAngles": [
+   "Calibration is blocked by a dependency nobody covered. Live trading is disabled until the CLOB V2 signing and collateral migration is done (docs/live-trading/live-trading-bot.md:11, issue #249; package.json:190 still uses @polymarket/clob-client ^5.1.2). GOAL.md keeps the CLOB V2 adapter as stretch M8, 'NOT activated', and hard rule 8 forbids real orders. The ~$100 calibration therefore has no order path. The spec must state which stack places calibration orders and must change rule 8 to 'the agent never places real orders; the user may launch calibration'.",
+   "Live order-path failure semantics are missing. TS has no timeout, retry or rate-limit handling for order placement: only split and merge retry (LiveExecution.ts:617,751). The spec must define four things. (1) An ambiguous POST or cancel (timeout or 5xx) becomes an 'unknown' state that is reconciled from REST open orders and trades, with no blind retry that could double-place. (2) 429 and rate-limit backoff, and the exchange order and cancel rate limits. (3) One error-to-rejection-reason taxonomy shared by the live adapter and the simulator, so backtests can produce the same rejection classes. (4) Startup checks for account and region eligibility, plus close-only or market-closed states.",
+   "Live observability, alerting and process supervision are missing. No notification channel exists anywhere: there is no telegram/slack/ntfy in src, scripts or ops, and ops/swiftbar/polybot.mjs only shows fleet status from the dashboard. For real money the spec needs: alerts (kill switch tripped, session loss stop, WS data gap, heartbeat failure, reconciliation mismatch, strategy panic); structured logs with rotation; a launchd service for the live runtime like ops/macos/recorder-v4/*.plist.template (the trading bot has none); and an upgrade rule that the binary may only be swapped at a market boundary with no open orders.",
+   "The TS oracle keeps moving. Main has 18 commits touching src/trading, src/strategy, src/market and src/backtest in the last 60 days (post-only #252, batch cancel #254, capital #264, simulator #265, V4 integration). ts-compat parity is measured against a moving target. The spec needs: a pinned TS oracle commit per parity cycle; a rule that every engine-semantics PR on main adds an exerciser case or a PARITY.md entry; and a nightly parity canary on a Mac that has data. CI runs on ubuntu-latest (quality.yml:187) with no market data, so real-market parity never runs in CI.",
+   "Test infrastructure beyond trace parity is missing. Nobody specified invariant or property tests: cash plus reservations conserved, fills never exceed order size, reservations released on every terminal state, no negative positions in realistic. Nobody specified fuzzed event streams either: duplicates, out-of-order exchange timestamps, a price_change before the first book, crossed books, tick_size_change mid-market, empty sides. Small fixture markets must be committed so CI runs a full job end to end without R2 or DB. CI also builds x86_64 Linux while the shipped artifact is aarch64-apple-darwin, so the shipped target needs a macOS runner or a fleet canary.",
+   "There is no single source of truth for the TS/Rust contract. MarketJobData and RunSingleMarketOutput are mirrored by hand in TS types and Rust serde, and native.ts:151-172 does `JSON.parse(r.stdout) as TResult` with no validation. The spec needs: JSON Schema generated from the Rust types and checked in CI against the TS types; validation at the ingestion boundary, where an invalid output fails that market only instead of aborting the whole run's insert transaction; and an explicit unknown-field policy tied to jobSchemaVersion.",
+   "Input data contracts are not versioned. telonex_market_conversions has only a `converter` name and no format or schema version (src/db/schema.ts:503-525). The Rust reader hardcodes the TS converter's parquetjs column layout (native/crates/pmb-replay/src/telonex.rs:73, 441-443), so a converter change on main would silently break or mis-read native replays. Conversion rows and jobs need a format version that the reader can refuse. The job should also carry input integrity (etag or size, sha where it exists).",
+   "There is no rollback or run invalidation for engine bugs. Nothing defines a fleet-wide kill switch that disables native dispatch, a blocklist of known-bad engine versions enforced by workers and by the live start, or how runs produced by a bad engine version are flagged or quarantined in the dashboard and protocol evidence. This depends on the provenance columns but is a separate operational requirement.",
+   "Data retention and cost are not specified. backtest_run_markets is 5.73M rows / 7.58 GB and grows by +2.17M rows a week (finder measurements). Rust at ~6x speed plus candidate sweeps multiplies that. No retention policy exists for old runs, R2 native binaries, traces, fill ledgers or live journals. Live journals hold account data (order ids, wallet) and are calibration ground truth, so they need a private bucket and long retention.",
+   "There is no long-term policy for running two engines. GOAL.md:9-10 keeps the TS engine 'untouched' indefinitely, so every future engine feature must be built twice or the engines diverge. The spec should define the freeze or sunset policy, which engine is the default for new protocols, and how historical TS evidence is re-baselined once realistic numbers differ.",
+   "Market universe scope is not stated. GOAL never says which symbols and timeframes v1 must support. slug.rs parses eth, sol and 4h, Telonex also has 1h/4h/1d (src/config/telonex.ts:55), but fee and taker-delay rules, Binance pairs and Chainlink coverage differ per symbol, and Recorder V4 records BTC only, so calibration is BTC-only.",
+   "Supply-chain and publish authorization are not specified. The protocol sandbox can reach R2 (*.r2.cloudflarestorage.com in polymarket-protocols/srt-settings.template.json:67), so whoever holds sandbox R2 credentials can publish a binary that then runs on every fleet Mac, including the producer and live-key Mac. Nobody specified who may write strategy-artifacts/native/, or a cargo-deny/cargo-audit gate on the engine's dependency tree.",
+   "Success and kill criteria for the migration are missing. M6 asks only for 'report', with no speedup target, and no criterion says when to stop or keep TS. The user's question about the odds of live parity can only be answered against measurable targets: parity identity rate, fleet throughput multiple, calibration thresholds.",
+   "Docs and handoff material are missing. Nobody planned the VitePress pages (each needs a sidebar entry and must pass `npm --prefix docs run build`), CLAUDE.md updates (CLAUDE.md still names the removed rebuild:chunked-batch-stats), a Rust ENGINE-CONTRACT for agent authors per profile, or session-handoff rules so a fresh session can resume any milestone from STATUS.md alone.",
+   "Goal execution process is undecided. The WIP commit fef5f199 ('does not compile yet', 51 files, +9,953 lines including TS-side changes in backtest.ts and strategyArgs.ts) was built against a spec missing most of the requirements above: its portfolio uses HashMap, its TA plugin uses the OS libm, its feed latencies are read from env, and it has no ExchangeRules snapshot and no in-flight or delayed order states. Restart versus continue, the time-limit policy and user review gates were never decided."
+  ],
+  "openDecisions": [
+   {
+    "question": "Start the new goal on a fresh branch and worktree from the current main, or continue the rust-engine WIP branch?",
+    "options": [
+     "Continue the WIP branch (fef5f199) and fix it until it compiles",
+     "Fresh branch from main, spec committed first. Freeze the WIP branch as a read-only reference and port only reviewed pieces (fixed.rs, slug.rs, the telonex reader, parity tooling, golden fixtures).",
+     "Fresh branch, ignore the WIP entirely"
+    ],
+    "recommended": "Fresh branch from main with the spec committed first. Keep the WIP frozen as a reference and cherry-pick only reviewed modules and test fixtures.",
+    "why": "The WIP does not compile and was built against an incomplete spec (HashMap iteration, OS libm, env-read latencies, missing order states and rules snapshot). Main has also moved by 18 engine commits. Its fixed-point, slug and reader code and its TS-generated goldens are still useful test assets."
+   },
+   {
+    "question": "How is the autonomous goal bounded: a wall-clock limit (e.g. 10 h), per-milestone time boxes, or user review gates?",
+    "options": [
+     "Global wall-clock limit",
+     "Per-milestone time boxes",
+     "No time limit; milestone proofs plus explicit user gates, with every milestone resumable from STATUS.md by a fresh session"
+    ],
+    "recommended": "No time limit. User gates after spec freeze, after M2 parity, before realistic becomes default, and before any real order. Each milestone ends with a demo command, a commit and a STATUS.md entry that a new session can resume from.",
+    "why": "The user considers the 10 h limit unnecessary. The scope is multi-week, and decision gates prevent drift better than timers."
+   },
+   {
+    "question": "Integration strategy: one long-lived branch with a final PR, or incremental merges to main behind flags?",
+    "options": [
+     "Single PR at the end; switch the fleet to the branch for M5",
+     "Incremental PRs to main: contract schemas, DB migrations, an inactive native worker shim and native queue, then the engine crates. Native dispatch disabled by default."
+    ],
+    "recommended": "Incremental, inactive by default. The fleet never switches branch. If a switch is ever needed, use the pause-GR, drain, switch, test, switch-back, resume runbook.",
+    "why": "GR daemons and pte run from the worker checkouts. Branch workers die on main-SHA jobs. Main changes weekly, and a 10k+ line PR cannot be reviewed."
+   },
+   {
+    "question": "What happens to the TS engine during and after the migration?",
+    "options": [
+     "Keep evolving TS freely; re-check parity occasionally",
+     "Pin a TS oracle commit per parity cycle; every engine-semantics PR on main must add an exerciser case or a PARITY.md entry; after acceptance, freeze TS to bug fixes and build new features Rust-first",
+     "Delete TS after acceptance"
+    ],
+    "recommended": "Pinned oracle plus a parity-entry rule during the migration. After acceptance, TS is frozen to bug fixes, new engine features are Rust-first, and a sunset review is set for a fixed date.",
+    "why": "A moving oracle makes ts-compat parity unverifiable, and maintaining two engines indefinitely doubles every feature."
+   },
+   {
+    "question": "Calibration needs real orders, and the TS live bot is blocked by CLOB V2 (#249). Which pieces move from stretch into core?",
+    "options": [
+     "Keep the CLOB V2 adapter and Recorder V4 input as stretch; calibration is outside this goal",
+     "Promote Recorder V4 input only; calibrate later",
+     "Promote both: Rust CLOB V2 adapter (user-activated only) and V4 input as hard prerequisites of a calibration milestone",
+     "Fix TS #249 and calibrate with the TS bot"
+    ],
+    "recommended": "Promote both. Change rule 8 to: the agent never places real orders, and the user launches calibration with an explicit flag and a compile-time feature.",
+    "why": "Client-side latency must be calibrated on the stack that will trade. Same-day calibration needs V4 (Telonex data lags 3+ days and has no trade prints), and fixing the TS bot would mean calibrating twice."
+   },
+   {
+    "question": "Which markets must native v1 support?",
+    "options": [
+     "BTC 15m only",
+     "BTC 5m + 15m",
+     "Every symbol and timeframe Telonex has"
+    ],
+    "recommended": "BTC 5m + 15m guaranteed (parity, benchmark, calibration). Other symbols and timeframes are accepted when data and feeds exist, but are flagged 'unvalidated' in the run row.",
+    "why": "Recorder V4 and calibration are BTC-only. Rules, feeds and Chainlink coverage differ per symbol."
+   },
+   {
+    "question": "What measurable criteria declare the migration a success, or stop it?",
+    "options": [
+     "Report only",
+     "Explicit thresholds for parity, throughput and calibration"
+    ],
+    "recommended": "ts-compat: 100% identical order, fill and cancel sequences on the exerciser and lagsnipe.v15 over 200+ markets, with zero unclassified mismatches. At least 4x fleet throughput (market-candidates per hour on 4 Macs) on 1,000 markets (the earlier prototype measured 6.19x). Realistic becomes default only on the calibration thresholds. If mismatches stay unclassified after a full cycle, stop and report.",
+    "why": "The user asks for odds of live parity. Only fixed targets make that verifiable."
+   },
+   {
+    "question": "Per-market money quantization in the output: keep 2 dp or switch to 4 dp (the column scale)?",
+    "options": [
+     "2 dp, half-away-from-zero on fixed-point, in both profiles (JS tie differences documented)",
+     "4 dp plus an explicit flat threshold in the TS stats and a stats version bump"
+    ],
+    "recommended": "Keep 2 dp, half-away-from-zero. Record the negative-tie difference from JS as intended in PARITY.md. Emitted values must already be at or below the column scale, so fresh and extended runs agree. Judge parity on unrounded trace values.",
+    "why": "This keeps results comparable with every historical run. 4 dp changes win, loss and flat classification and needs a stats migration."
+   },
+   {
+    "question": "Should every result-affecting setting be stored as structured engine provenance per run instead of being re-parsed from the cmd string?",
+    "options": [
+     "Keep parsing cmd",
+     "Indexed `engine` column ('ts' | 'native-ts-compat' | 'native-realistic') plus engine_version, engine_commit, binary sha and a versioned `model_config` JSON column (latencies, jitter, seed, gap thresholds, PTB latency, rulesVersion, fill model, per-market starting capital)",
+     "Fully normalized columns"
+    ],
+    "recommended": "Indexed `engine` plus `engine_version` plus a `model_config` JSON column, via a hand-written migration mirrored in the dashboard schema. The producer resolves ModelConfig and the job carries it, and the binary never reads env for behavior. The output echoes engineVersion, profile and seed, and TS asserts they match the request. Extend inherits and enforces equality. The dashboard flags comparisons across engines.",
+    "why": "Worker .env files can silently change results today, a silent profile fallback is undetectable, and agents would compare TS, ts-compat and realistic numbers as if they were equal."
+   },
+   {
+    "question": "The dashboard Market Simulator and native runs: block them now, or have Rust emit the simulator trace format now?",
+    "options": [
+     "Block native runs with a clear message (TS guard in resolveMarket)",
+     "Implement the simulator TraceSink in this goal"
+    ],
+    "recommended": "Block now. Make the simulator trace format a TraceSink in the milestone after parity.",
+    "why": "Today a native run either throws or silently replays a TS registry strategy with the same id and labels it as that run."
+   },
+   {
+    "question": "Where are per-order and per-fill records and live per-market results stored?",
+    "options": [
+     "Gzipped JSONL ledger in R2 per run and slug",
+     "New MySQL fill and order tables",
+     "Live and paper windows stored as normal backtest_runs rows with input_mode='live' or 'paper'"
+    ],
+    "recommended": "Opt-in ledger as gzipped JSONL in R2, plus live and paper windows as backtest_runs rows with input_mode='live' or 'paper', so live and backtest can be compared per slug with existing tools.",
+    "why": "Calibration needs order and fill granularity. Adding a MySQL fill table to a 7.6 GB table set is expensive."
+   },
+   {
+    "question": "How are native market jobs gated and dispatched on the fleet?",
+    "options": [
+     "Keep the producer git-SHA gate on the shared queue",
+     "Separate native queue; gate on worker shim version, protocolVersion, jobSchemaVersion and target triple; producer SHA and dirty flag kept as provenance only"
+    ],
+    "recommended": "Separate native queue with version and target gates. v1 is aarch64-apple-darwin only, and workers refuse other targets. Keep the commit gate on aggregate jobs and TS jobs.",
+    "why": "The engine travels inside the hash-verified binary. The SHA gate forces branch switches and stalls the fleet on local branches."
+   },
+   {
+    "question": "Shared candidate replay: how is a group stored and attributed?",
+    "options": [
+     "One run row with N candidates",
+     "N backtest_runs rows (own submission_uid, shared batch_uid, new candidate_group_uid and candidate_index columns) written by one group aggregate job"
+    ],
+    "recommended": "N rows written by one group aggregate, one transaction per run, idempotent per submission_uid. A candidate's strategy panic fails only that candidate; data and IO errors retry the market job. durationMs per candidate = group wall time / N, eventsProcessed = the full count, and every candidate gets the group's start and finish times. Each row's cmd is standalone-equivalent, and standalone --extend of one candidate must reproduce the group result.",
+    "why": "Existing dashboard, protocol tools, extend and walk-forward all key on run id and params. The leaderboard and wall clock must not count compute time N times."
+   },
+   {
+    "question": "What is the group submission syntax, and what do execution-model variants and mixed feed requirements do?",
+    "options": [
+     "`--candidates <file.json>` (explicit list, or {base, sweep, mode: coordinate|cartesian})",
+     "`--param-grid` inline",
+     "Mixed feed requirements: reject",
+     "Mixed feed requirements: split automatically into sub-groups"
+    ],
+    "recommended": "`--candidates <file.json>`. Reject duplicate normalized params and mixed feed or eligibility requirements in v1. Also allow candidates that differ only in ModelConfig (fill model, queue parameter, latency calibration id) for internal calibration and A/B use. One shared per-market seed derived from (run seed, slug).",
+    "why": "Calibration and the realistic A/B reports need execution variants on one market read. Mixed feeds change the eligible universe."
+   },
+   {
+    "question": "Should sweep results store per-market rows for every candidate, or only for the best ones? What retention policy applies to old runs and artifacts?",
+    "options": [
+     "Full per-market rows for every candidate",
+     "Segments for all candidates; per-market rows only for the top-5 and promoted candidates (others re-run on demand)",
+     "Plus a retention policy (e.g. drop market rows of unpromoted runs older than N days; keep segments)"
+    ],
+    "recommended": "Segments for all, rows for the top-5 and promoted, results moved out of Redis as chunks finish, a hard cap on candidates x markets per group, and a retention policy for unpromoted runs, R2 traces and ledgers. Live journals are kept long-term in a private bucket.",
+    "why": "100 candidates x 5.5k markets is about 6.6 GB of Redis on a 16 GB Mac, and the DB already grows by 2M+ rows a week."
+   },
+   {
+    "question": "Will sandboxed Global Runtime agents write Rust strategies in this goal, and which dependencies may strategy crates use?",
+    "options": [
+     "Yes, built inside the sandbox (vendored crates, offline)",
+     "Yes, built in a step outside the sandbox",
+     "Not in this goal (only the implementation session builds, on m1-ivan)",
+     "Crates: free choice / only SDK re-exports"
+    ],
+    "recommended": "Not in this goal. Design a build step outside the sandbox now (shared target dir per machine, capped -j). Strategy crates use only SDK re-exports, with no extra crates.",
+    "why": "The sandbox blocks crates.io and ~/.cargo, and GR hosts run 8 backtest slots. Extra crates break offline builds and add nondeterminism (rand, wall clock)."
+   },
+   {
+    "question": "Artifact identity and trust: is the sha of a binary built on any machine acceptable, and what must hold before the live runtime loads a binary?",
+    "options": [
+     "Binary sha from any machine plus a source_hash for dedupe",
+     "Only one canonical builder publishes",
+     "Live requires a clean recorded commit, engine at or above the live-safe minimum, and a verified reproducible rebuild to the same sha"
+    ],
+    "recommended": "Any machine with path remapping (--remap-path-prefix, pinned toolchain, --locked, one profile, ad-hoc codesign after strip), identity = binary sha, plus source_hash, target, rustc and engine commit columns. Live requires a reproducible rebuild from a clean commit that matches the sha.",
+    "why": "A test build contained 74 absolute /Users paths. A binary cannot be reviewed the way a 30 KB TS bundle can, so a reproducible rebuild is the only way to review it."
+   },
+   {
+    "question": "Which build profile do strategy artifacts use?",
+    "options": [
+     "Fast: lto=false, codegen-units=16, panic=unwind, overflow-checks=true",
+     "Current: thin LTO, cgu=1"
+    ],
+    "recommended": "Fast profile for check, iterate and publish alike. Revisit only if the M6 benchmark shows replay CPU rather than parquet IO dominates.",
+    "why": "Measured warm rebuild 0.84 s vs 7.3 s. catch_unwind requires unwind, and overflow checks guard the fixed-point money math."
+   },
+   {
+    "question": "Plugin scope of the first SDK release, and how TechnicalIndicators works when it is ported.",
+    "options": [
+     "Port all five plugins now",
+     "Ship ExternalFeeds, DwellGate and TimeWindowGate; defer TA and Volatility",
+     "TA candles from local Binance aggTrades files",
+     "TA strategies stay on the TS engine"
+    ],
+    "recommended": "Ship the three plugins that active authors use. When TA is ported, build candles from local aggTrades (extended preflight lookback), with no network calls inside the binary.",
+    "why": "Only inactive SplitSellRedeem.v5.x uses TA and Volatility, and TS TA fetches REST klines with a wall-clock wait, which is nondeterministic."
+   },
+   {
+    "question": "Should a Rust port of a TS strategy keep the TS id, or get a distinct one?",
+    "options": [
+     "Same id, distinguished only by the engine column",
+     "Distinct id (e.g. `overnight-opus55-lagsnipe.v15.rs`)"
+    ],
+    "recommended": "Distinct id, and also store the engine and profile on the run row.",
+    "why": "The dashboard and protocol tools group by `strategy`, so a shared id would mix engines."
+   },
+   {
+    "question": "Where do backtests get per-market ExchangeRules (tick, min size, fee schedule, taker delay, negRisk, version), and what happens when a snapshot is missing?",
+    "options": [
+     "Dated rules table compiled into the engine",
+     "Per-market snapshot (raw Gamma plus CLOB market JSON) stored per condition_id by a backfill, plus V4 rawJson",
+     "Missing snapshot: dated fallback with a flag",
+     "Missing snapshot: skip the market"
+    ],
+    "recommended": "Snapshot table per condition_id (producer backfill plus V4). Use the dated fallback when it is missing, marked rulesSource=fallback. tick_size_change events override in force. rulesVersion travels in the job and is stored on the run. Aggregation does not pool across fee eras.",
+    "why": "telonex_markets has no rules columns, and the Rust rules are hardcoded and marked 'not verified'."
+   },
+   {
+    "question": "When the docs and observed data disagree on a fee era (formula, rate, start date), which one wins?",
+    "options": [
+     "Docs",
+     "Charged amounts (on-chain fills or Data API usdc_size)"
+    ],
+    "recommended": "Charged amounts. Update the dated table and docs/polymarket/index.md to match. Realistic cannot become default until a sample from every era matches to the rounding unit.",
+    "why": "The docs and Rust already disagree on era 1, era 2 and the boundaries, and WS fee_rate_bps was 0 on every print in a fee-charging era."
+   },
+   {
+    "question": "In the realistic profile, what happens to resting orders and in-flight intents at the end of the window, and may plugins see pre-window ticks?",
+    "options": [
+     "Copy TS (everything freezes at the window edge)",
+     "Strategy called only inside the window; keep matching already-submitted orders until endMs, then expire everything; plugins observe pre-window ticks without strategy calls"
+    ],
+    "recommended": "The second option, applied identically to every input mode, the simulator and live.",
+    "why": "TS gates differently per mode (V4 not gated, while the simulator gates V4), so backtest, simulator and live disagree today."
+   },
+   {
+    "question": "Research backtests over markets we traded live: use books with our own orders removed, or leave those markets out?",
+    "options": [
+     "Use de-contaminated books everywhere",
+     "Exclude own-activity markets from research",
+     "De-contaminated for calibration; excluded from research universes by default"
+    ],
+    "recommended": "De-contaminated for calibration. Exclude own-activity markets from research by default, and flag them in the catalog.",
+    "why": "Our own prints would otherwise count as market flow and fill the simulated order a second time."
+   },
+   {
+    "question": "Who sends split, merge and redeem transactions in the Rust live runtime?",
+    "options": [
+     "Rust (alloy plus a relayer port)",
+     "TS sidecar called through an async request and response"
+    ],
+    "recommended": "TS sidecar for the on-chain tx. Rust models split and merge as async operations with latency and success or failure events, identical in paper and backtest.",
+    "why": "The relayer SDK exists only in TS, and the core must not block on chain calls."
+   },
+   {
+    "question": "Live journal format?",
+    "options": [
+     "New ad-hoc JSONL",
+     "Recorder V4 envelope (schemaVersion 4) extended with account, REST, timer and operator-command sources, plus an execution sidecar"
+    ],
+    "recommended": "The extended V4 envelope, with a minimal V4/journal reader in the paper-mode milestone. Journal raw frames, rules, REST request and response pairs with send and ack times, clock-offset samples, binary sha, params, profile and seed.",
+    "why": "One Rust reader then replays both worker-2 recordings and live journals, and journal replay is the M7 proof."
+   },
+   {
+    "question": "Which clock drives ctx.now in live and recorded or journal replay?",
+    "options": [
+     "Exchange timestamp",
+     "Local receive time, with the exchange timestamp exposed separately"
+    ],
+    "recommended": "Local receive time whenever the input has it (Telonex keeps the exchange time). GTD and expiry are checked against the estimated exchange time (local minus measured skew), and the skew is journaled at startup.",
+    "why": "Today live mixes exchange timestamps and Date.now(), and the Rust tick has no rule for which one drives decisions."
+   },
+   {
+    "question": "Rust paper mode: simulate fills, or record decisions only?",
+    "options": [
+     "Simulate fills with the realistic profile",
+     "Decisions only, like the TS dry-run"
+    ],
+    "recommended": "Simulate fills with the realistic profile; decision-only mode as a flag.",
+    "why": "The TS dry-run never fills, splits or expires orders, so it is useless as a reference."
+   },
+   {
+    "question": "At startup or after a crash, what happens to open orders and positions from a previous instance in the current market?",
+    "options": [
+     "Cancel orders and adopt positions read-only (flagged)",
+     "Adopt orders and positions"
+    ],
+    "recommended": "Cancel (cancel_market for the current condition ids), journal it, adopt positions read-only and flag them.",
+    "why": "Strategy state is lost on restart, so adopted orders would be invisible to the decision logic."
+   },
+   {
+    "question": "Turn on the CLOB heartbeat dead-man switch, and enforce a single owner per API key?",
+    "options": [
+     "Heartbeat off",
+     "Heartbeat on in real-order mode only, with a lockfile enforcing one process per key"
+    ],
+    "recommended": "On in real-order mode only, with one owner per key enforced by a lockfile. Paper mode never sends heartbeats. Heartbeat-caused cancels map to order_done with a cause.",
+    "why": "Heartbeats are chained per key, and a missed one cancels all of that user's orders, including another bot's."
+   },
+   {
+    "question": "What is live available cash?",
+    "options": [
+     "Virtual 500 USDC per market (as in TS)",
+     "min(configured per-market allocation, CLOB collateral balance minus reservations across all still-open markets)"
+    ],
+    "recommended": "The min() rule. Backtests keep isolated per-market capital equal to the same allocation. Also add session-level guards that do not reset on market rotation (session loss including settlement, wallet exposure, order-rate cap, kill switch), and fills are never dropped.",
+    "why": "A $100 wallet partly locked in unredeemed markets cannot back a 500 USDC virtual budget."
+   },
+   {
+    "question": "Live behavior when the strategy panics (backtest: candidate-level failure row)?",
+    "options": [
+     "Skip that callback and continue (TS behavior)",
+     "cancel_all for that market, stop calling the strategy until the next rotation, alert"
+    ],
+    "recommended": "cancel_all, halt until rotation, alert.",
+    "why": "Continuing with a strategy whose state is corrupt while orders rest is the riskiest option."
+   },
+   {
+    "question": "Which alert channel does the live runtime use?",
+    "options": [
+     "macOS notifications or SwiftBar only",
+     "Phone push (Telegram bot or ntfy)",
+     "Email"
+    ],
+    "recommended": "Phone push plus a SwiftBar status line. Alert on kill switch, session loss stop, WS gap over a threshold, heartbeat failure, reconciliation mismatch, strategy panic and rejected-order bursts.",
+    "why": "No alerting exists today, and an unattended live run with real money needs one."
+   },
+   {
+    "question": "How is the ~$100 calibration budget split, and what loss stops the run?",
+    "options": [
+     "Equal split",
+     "Rules and latency $5 / taker $25 / maker $30, stop at $60 cumulative loss, over 2-4 days of worker-2-recorded BTC 5m/15m markets"
+    ],
+    "recommended": "$5 / $25 / $30 with a $60 stop. Day 0 is rules probes (GTD lead, taker delay, tick, minimum sizes, post-only, batch cap), using non-marketable or $1 orders.",
+    "why": "Paired or round-trip probes remove directional variance, so loss budget and sample size are the binding limits."
+   },
+   {
+    "question": "Which frozen pass thresholds make `realistic` the default profile?",
+    "options": [
+     "Judgment after looking at results",
+     "Pre-registered thresholds frozen before the live run"
+    ],
+    "recommended": "Accept/reject agreement >= 99%. Fee error 0 at 1e-6 USDC. FOK/FAK agreement >= 95%. At least 90% of taker fills at the same VWAP, with mean |error| <= 0.25 tick. Maker filled-share ratio within [0.8, 1.25] at 95% CI. Median time to fill within \u00b130%. Per latency component: |median bias| <= 10 ms and p90 within \u00b120% (n >= 200). Pinned PnL error <= 0.5 cents per share, with a CI containing 0. The result applies only within the calibrated validity envelope (sizes up to ~10 shares, BTC, that host).",
+    "why": "Pre-registration prevents moving the goalposts, and $100 cannot validate size effects or edge."
+   }
+  ],
+  "specOutline": [
+   "native/spec/00-README.md: Index and reading order for a fresh session. Glossary (profile, candidate, group, ExchangeRules, ModelConfig, journal, ledger). How spec, DECISIONS, STATUS and PARITY relate. The hard anti-drift rules (idiomatic Rust, no JS emulation, TS = behavior oracle, not a bug spec). Handoff rule: every milestone must be resumable from STATUS.md alone.",
+   "native/spec/01-scope-milestones.md: Replaces GOAL.md. Objective and the Rust/TS ownership boundary (backtest and live). Market universe for v1. Out-of-scope list. Milestones with proof commands and user gates: spec freeze, core, ts-compat parity, realistic profile, candidate groups, artifacts and fleet, benchmark, paper live plus V4 input, CLOB V2 adapter (user-activated), calibration. Success and kill criteria. TS oracle pin and drift policy. Incremental merge-to-main strategy with native dispatch off by default. Amended rule 8 (no agent real orders; user-launched calibration allowed).",
+   "native/spec/02-decisions.md: Decision log: every open decision with options, chosen answer, date and rationale. A fresh session treats anything unresolved here as blocking and never improvises.",
+   "native/spec/10-domain-model.md: Fixed-point types (Price, Qty, Usdc, 1e6 base), the rounding direction for every operation, and the output quantization rule (2 dp half-away-from-zero, ties documented). Outcome and asset indexing. Ids (clientOrderId rules). The clock model: exchange ts vs local receive ts, which clock drives ctx.now per input mode, skew estimation. Determinism rules: no HashMap iteration in decisions, pure-Rust libm, seeded RNG from (run seed, slug) only.",
+   "native/spec/11-exchange-rules.md: ExchangeRules fields (tick, min size per order type, price bounds, fee curve and feeSchedule, taker delay, GTD lead and early expiry, batch cap 15, negRisk, exchange version v1/v2, minimum order age). Sources: per-condition snapshot table, V4 rawJson, dated fallback with rulesSource. Fee-era table with charged-amount evidence. tick_size_change handling. Per-rule verification status, set by the probes.",
+   "native/spec/12-engine-core.md: Single serial event loop and input envelope (seq, mono and wall receive times). Intents and validation. Order state machine (in-flight, delayed, live, matched, terminal; unknown on ambiguous REST). Settlement statuses (MATCHED, MINED, CONFIRMED, FAILED reversal) and sellable inventory. Capital reservation. Portfolio and cost basis, with the fee taken from fill.fee only. Cascade semantics and limits, without dropping fills. Strategy lifecycle per market. Window-gate rule per input mode. catch_unwind fault semantics for backtest, group and live.",
+   "native/spec/13-execution-models.md: Execution trait (simulator, paper, CLOB V2). The ts-compat quirk-flag list. Each realistic fix with its A/B report requirement. FillModel options: worst-queue, queue-position with the calibrated cancel-ahead parameter, partial maker fills. LatencyModel as named seeded quantile tables per component (market data, send, place resting and marketable incl. taker delay, cancel, ack, user-WS fill delivery, MINED/CONFIRMED, split/merge). Discrete-event scheduler firing at exact event times. Async split and merge model. Removal of our own orders from recorded books.",
+   "native/spec/14-feeds-and-plugins.md: Binance aggTrades, Chainlink two-clock and PTB visibility models with their parameters coming from ModelConfig, never env. Data-gap and coverage errors classified retryable vs fatal. Synthetic feed ticks. v1 plugin set (ExternalFeeds, DwellGate, TimeWindowGate) with math references and golden fixtures. Deferred TA and Volatility, with the offline-candles rule. No network I/O inside plugins or the binary.",
+   "native/spec/15-inputs.md: telonex-delta reader contract with a converted-parquet format version (new column plus job field; reader refuses unknown). Recorder V4 reader: manifest and sha verification, coverage gate, incomplete_capture, --allow-capture-gaps, receipt order. Live journal reader. TS resolves every input to a verified local file before spawn. Data-anomaly policy (duplicates, out-of-order, missing first book, crossed books), with each case counted in diagnostics.",
+   "native/spec/20-binary-protocol.md: Replaces BINARY-PROTOCOL.md. Subcommands describe, run, run-group, paper and live. The describe capabilities block (inputModes, profiles, protocolVersion, jobSchemaVersion, engineVersion and commit, sdkVersion, toolchain, target, JSON Schema of params). Typed exit codes (0 ok, 1 retryable runtime, 2 invalid input, 3 data-unavailable retryable, 101 panic) and a one-line stderr reason. Stdin and parent-death exit. Env allowlist and secrets-by-fd rule. Live and paper state stream plus operator command channel bound to 127.0.0.1.",
+   "native/spec/21-job-and-output-contract.md: MarketJobData, including the ModelConfig, rules snapshot, worker identity, candidates list and input integrity. RunSingleMarketOutput field by field. Null-vs-zero-row and skip taxonomy. Closed vocabularies and finite numeric ranges per DB column. intentMeta construction (fill order, dedupe by clientOrderId, size cap). eventsProcessed and eventsByType semantics. Echoed engineVersion, profile and seed. Per-candidate ok-or-error results. JSON Schemas generated from Rust and checked in CI against the TS types. TS ingestion validation, where an invalid output fails that market only.",
+   "native/spec/22-trace-ledger-journal.md: Canonical parity trace (TRACE.md content). Opt-in per-market order and fill ledger (gz JSONL in R2 keyed by run and slug). Dashboard simulator trace format as a future TraceSink, plus the v1 native-run guard. Live journal schema: extended V4 envelope plus an execution sidecar with send, ack and match times, transaction hashes, status progression and clock-offset samples. Redaction rules (no secrets).",
+   "native/spec/30-strategy-sdk.md: Curated, semver'd pmb-sdk prelude. Intent builders with free-form JSON meta. Price, Qty and Usdc newtypes with explicit tick rounding. Typed market times. Params derive (defaults, string coercion, unknown-key rejection, flatten composition, idempotent normalization, JSON Schema export, feeds and plugins computable from params). Leveled logging, off by default on the fleet. Engine-owned clippy and lint config for determinism and candidate isolation. Testkit and local single-market run. Example strategy. Rust ENGINE-CONTRACT text for agent authors, per profile.",
+   "native/spec/31-artifacts-build-publish.md: Crate layout (one package per protocol, one bin per strategy version) and gitignore of target/. Pinned toolchain, Cargo.lock derived from native/, --locked --offline. Canonical build flags (path remap, fast profile, panic=unwind, overflow-checks, ad-hoc codesign after strip, deployment target). source_hash and strategy_artifacts columns (kind, target, rustc, engine commit, lock hash). R2 keys. Publish authorization. Dedupe. Rebuild-from-source command. Live trust gate. Local cache LRU and prefetch. Out-of-sandbox build step design for later agent use.",
+   "native/spec/40-fleet-integration.md: Native queue and the version and target gate. Worker shim supervision: wall-clock budget scaled by events x candidates, process-group kill, peak RSS and CPU reporting, bounded stdout. Execution stamping by TS (machineId, slot, timing, worker sha). Slot and thread accounting and job granularity. Env allowlist plus sandbox-exec deny-network profile. Fair scheduling across submissions. Kill switch to disable native dispatch. Engine-version blocklist. Cross-machine determinism proof (same jobs on 4 Macs, byte-identical output). Runbooks: deploy, rollback, pause-drain-switch.",
+   "native/spec/41-candidate-groups.md: --candidates file format (explicit list or sweep spec, coordinate or cartesian; execution-model variants for internal use). Producer flow: describe each candidate, reject duplicates and mixed feeds, select markets once, print a candidate-to-submissionUid map. Shared-context job shape. BullMQ mapping with one group aggregate writing N runs idempotently. Failure isolation. Duration attribution. Redis offload and caps. Storage tier (top-N rows). Standalone-extend equivalence. M4 proof on persisted DB rows via verify-backtest-diff.",
+   "native/spec/42-persistence-and-stats.md: DB migrations, hand-written and mirrored in dashboard/src/lib/schema.ts: engine, engine_version, model_config, seed, candidate_group_uid and index, strategy_artifacts kind and target, rules snapshot table, conversion format version. What TS keeps computing (segments, batch stats, wall clock, failures, extend merge). The invariant that segments are recomputable from per-market rows. Dashboard changes (engine badges, refusal to compare across engines). Live and paper results as runs. Retention policy for rows, traces, ledgers, binaries and journals.",
+   "native/spec/50-live-runtime.md: Ownership split (Rust core vs TS sidecars for approvals, redeem, split/merge tx, WebUI). Discovery, pre-subscription and rotation. Resolution tracking per finished market. Reconnect and startup reconciliation with text PING. CLOB V2 specifics (version-selected asset ids, signing domain, order struct, collateral asset types). REST failure semantics (ambiguous outcomes, 429 backoff, error taxonomy shared with the simulator). Heartbeat ownership and lockfile. Live capital source. Session risk guards and kill switch. Real-order gate (CLI flag plus compile feature, never DRY_RUN). Secrets handling. Alerting channel and triggers. launchd service and an upgrade rule at market boundaries only.",
+   "native/spec/51-calibration-plan.md: Prerequisites (CLOB V2 adapter, V4 input, journal). Day-0 rules probes. Probe designs and budget split with stop-loss. Host isolation (stop or cap workers and GR on the bot host and worker-2). Join with V4 by condition_id, transaction_hash and book hash, with a measured clock offset. Own-fill attribution and wallet reconciliation. Removal of our own orders from recorded books. Execution-pinned harness (mode A) vs end-to-end determinism replay (mode B), with neutrality and sensitivity self-tests. Pre-registered metrics and thresholds. Calibration artifact versioning and its validity envelope (what $100 cannot calibrate). Re-calibration cadence.",
+   "native/spec/60-verification.md: PARITY.md classification rules and the pinned TS oracle. Exerciser spec (EXERCISER.md content) plus required cases for every engine-semantics change on main. lagsnipe.v15 parity set. Invariant and property tests, and fuzzed anomaly streams. Committed fixture markets for CI. CI matrix (ubuntu checks plus a macOS or fleet canary for the shipped target). Nightly real-market parity canary. Benchmark methodology (fleet throughput, same 1,000 markets) and acceptance targets."
+  ]
+ }
+}

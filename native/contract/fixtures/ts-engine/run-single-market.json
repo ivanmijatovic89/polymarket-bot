@@ -1,0 +1,223 @@
+{
+  "description": "TS-engine RunSingleMarketOutput scenarios (21 \u00a73 CI item 5). Each 'stats' scenario is run through the TS engine's own computeMarketStats (src/backtest/stats/marketStats.ts) and assembled as runSingleMarket does (zero row tagged no_in_window_activity, execution stamped); each 'nullStats' scenario is a literal runSingleMarket null-stats return. contract.test.ts maps every output to its engine form (toEngineMarketOutput) and validates it against the EngineMarketOutput schema, and checks every MarketStats row against the DB contract.",
+  "stats": [
+    {
+      "name": "activity: taker and maker buys, a sell, meta deduped by client order id",
+      "eventsProcessed": 4824,
+      "eventsByType": {
+        "book": 1,
+        "price_change": 4823
+      },
+      "input": {
+        "marketId": "0x8f3c1a2b",
+        "slug": "btc-updown-15m-1780272000",
+        "finalOutcome": "UP",
+        "tokenMap": {
+          "UP": "1111",
+          "DOWN": "2222"
+        },
+        "realizedPnl": 0.42,
+        "trades": [
+          {
+            "id": "f1",
+            "tsMs": 1780272001000,
+            "assetId": "1111",
+            "side": "BUY",
+            "price": 0.51,
+            "size": 10,
+            "liquidity": "TAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "c1",
+            "intentMeta": {
+              "signal": "lag",
+              "edge": 0.0123
+            }
+          },
+          {
+            "id": "f2",
+            "tsMs": 1780272002000,
+            "assetId": "1111",
+            "side": "BUY",
+            "price": 0.52,
+            "size": 5,
+            "liquidity": "TAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "c1",
+            "intentMeta": {
+              "signal": "lag",
+              "edge": 0.0123
+            }
+          },
+          {
+            "id": "f3",
+            "tsMs": 1780272003000,
+            "assetId": "2222",
+            "side": "BUY",
+            "price": 0.47,
+            "size": 4,
+            "liquidity": "MAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "c2",
+            "intentMeta": {
+              "signal": "hedge"
+            }
+          },
+          {
+            "id": "f4",
+            "tsMs": 1780272004000,
+            "assetId": "1111",
+            "side": "SELL",
+            "price": 0.6,
+            "size": 3,
+            "liquidity": "TAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "c3"
+          }
+        ],
+        "finalPositions": {
+          "1111": {
+            "assetId": "1111",
+            "qty": 12,
+            "avgEntryPrice": 0.5133,
+            "costBasis": 6.16
+          },
+          "2222": {
+            "assetId": "2222",
+            "qty": 4,
+            "avgEntryPrice": 0.47,
+            "costBasis": 1.88
+          }
+        }
+      }
+    },
+    {
+      "name": "zero row: split then merge, no fills",
+      "eventsProcessed": 1200,
+      "eventsByType": {
+        "book": 1,
+        "price_change": 1190,
+        "chainlink_round": 9
+      },
+      "input": {
+        "marketId": "0x8f3c1a2b",
+        "slug": "btc-updown-15m-1780272000",
+        "finalOutcome": "DOWN",
+        "tokenMap": {
+          "UP": "1111",
+          "DOWN": "2222"
+        },
+        "realizedPnl": 10,
+        "trades": [],
+        "splits": [
+          {
+            "id": "s1",
+            "tsMs": 1780272001000,
+            "assetIdA": "1111",
+            "assetIdB": "2222",
+            "size": 10,
+            "splitCost": 10
+          }
+        ],
+        "finalPositions": {}
+      }
+    },
+    {
+      "name": "large in-range values (21 \u00a718 N6 at ~1e9..1e11)",
+      "eventsProcessed": 3,
+      "eventsByType": {
+        "book": 1,
+        "price_change": 2
+      },
+      "input": {
+        "marketId": "0x8f3c1a2b",
+        "slug": "btc-updown-15m-1780272000",
+        "finalOutcome": "UP",
+        "tokenMap": {
+          "UP": "1111",
+          "DOWN": "2222"
+        },
+        "realizedPnl": 0,
+        "trades": [
+          {
+            "id": "f1",
+            "tsMs": 1780272001000,
+            "assetId": "1111",
+            "side": "BUY",
+            "price": 0.37,
+            "size": 3711187239.63,
+            "liquidity": "MAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "big"
+          },
+          {
+            "id": "f2",
+            "tsMs": 1780272002000,
+            "assetId": "2222",
+            "side": "BUY",
+            "price": 0.5,
+            "size": 154627778778.55,
+            "liquidity": "MAKER",
+            "feeRateBps": 1000,
+            "clientOrderId": "big2"
+          }
+        ],
+        "finalPositions": {
+          "1111": {
+            "assetId": "1111",
+            "qty": 3711187239.63,
+            "avgEntryPrice": 0.37,
+            "costBasis": 1373139278.66
+          },
+          "2222": {
+            "assetId": "2222",
+            "qty": 154627778778.55,
+            "avgEntryPrice": 0.5,
+            "costBasis": 0
+          }
+        }
+      }
+    }
+  ],
+  "nullStats": [
+    {
+      "name": "no counted tick",
+      "output": {
+        "idx": 3,
+        "slug": "btc-updown-15m-1780272000",
+        "marketStats": null,
+        "eventsProcessed": 0,
+        "eventsByType": {},
+        "durationMs": 12,
+        "skipReason": "no_activity"
+      }
+    },
+    {
+      "name": "V4 coverage incomplete",
+      "output": {
+        "idx": 4,
+        "slug": "btc-updown-5m-1780272300",
+        "marketStats": null,
+        "eventsProcessed": 0,
+        "eventsByType": {},
+        "durationMs": 5,
+        "skipReason": "incomplete_capture",
+        "coverageReasons": ["binance_trades: gap of 41 s"]
+      }
+    },
+    {
+      "name": "no resolution after a full replay",
+      "output": {
+        "idx": 5,
+        "slug": "btc-updown-15m-1780272000",
+        "marketStats": null,
+        "eventsProcessed": 4824,
+        "eventsByType": {
+          "book": 1,
+          "price_change": 4823
+        },
+        "durationMs": 300,
+        "skipReason": "no_resolution"
+      }
+    }
+  ]
+}

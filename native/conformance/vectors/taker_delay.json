@@ -1,0 +1,37 @@
+{
+  "spec": "11 §6.1 (TD1–TD5), 11 §6.2 (dated delay table D0–D5, TD6, TD7), 11 §6.3, 13 §6.3, D52",
+  "source": "native-spec-g1:native/spec/11-exchange-rules.md §6",
+  "notes": [
+    "Keyed by EXCHANGE ARRIVAL TIME of the order (TD5, 13 §6.3), never by market start (TD7: the WIP keyed it by market start and had 0 ms everywhere; both wrong).",
+    "Row windows are [from, to); the first row starts at the first market. Each epoch below was recomputed from its ISO label.",
+    "Applies only to orders marketable at exchange arrival on a market with taker_delay_enabled (CLOB itode; fallback true for BTC up/down). Non-marketable orders are not delayed; post-only orders are never delayed (TD1, a marketable post-only is rejected).",
+    "Rows D0–D3 are third-party (verification = ThirdParty); markets that hit them record the rule id in unverifiedRules and never count as gate-3 evidence (TD6, D52). Only D4 and D5 are changelog rows.",
+    "ts-compat: no taker delay at all (11 §4, TC-E10); taker_delay_enabled = false."
+  ],
+  "vectors": [
+    { "id": "D0", "spec": "11 §6.2 row D0", "from_iso": null, "from_ms": null, "to_iso": "2026-02-15T00:00:00Z", "to_ms": 1771113600000, "to_approximate": true, "delay_ms": 500, "cancelable_in_window": null, "status": "ThirdParty (protos.com 2026-02-20); mechanism details unknown", "rule_id": "delay.d0" },
+    { "id": "D1", "spec": "11 §6.2 row D1", "from_iso": "2026-02-15T00:00:00Z", "from_ms": 1771113600000, "from_approximate": true, "to_iso": "2026-02-25T00:00:00Z", "to_ms": 1771977600000, "to_time_of_day_unknown": true, "delay_ms": 0, "cancelable_in_window": null, "status": "ThirdParty", "rule_id": "delay.d1" },
+    { "id": "D2", "spec": "11 §6.2 row D2", "from_iso": "2026-02-25T00:00:00Z", "from_ms": 1771977600000, "to_iso": "2026-06-05T00:00:00Z", "to_ms": 1780617600000, "delay_ms": 250, "cancelable_in_window": true, "status": "ThirdParty (rollout across 5m/15m/1h crypto)", "rule_id": "delay.d2" },
+    { "id": "D3", "spec": "11 §6.2 row D3", "from_iso": "2026-06-05T00:00:00Z", "from_ms": 1780617600000, "to_iso": "2026-08-17T11:00:00Z", "to_ms": 1786964400000, "delay_ms": 250, "cancelable_in_window": false, "status": "ThirdParty + P (order-lifecycle: held for 250 ms, cannot be canceled)", "rule_id": "delay.d3" },
+    { "id": "D4", "spec": "11 §6.2 row D4", "from_iso": "2026-08-17T11:00:00Z", "from_ms": 1786964400000, "to_iso": "2026-09-04T14:00:00Z", "to_ms": 1788530400000, "delay_ms": 50, "cancelable_in_window": false, "status": "Changelog (L)", "rule_id": "delay.d4" },
+    { "id": "D5", "spec": "11 §6.2 row D5", "from_iso": "2026-09-04T14:00:00Z", "from_ms": 1788530400000, "to_iso": null, "to_ms": null, "delay_ms": 150, "cancelable_in_window": false, "status": "Changelog (L); day-0 probe verifies", "rule_id": "delay.d5" }
+  ],
+  "lookups": [
+    { "id": "lookup-D2-arrival", "spec": "11 §6.2, TD5", "arrival_exchange_ms": 1775088000000, "note": "2026-04-02T00:00Z (Chainlink coverage start)", "expected": { "row": "D2", "delay_ms": 250, "cancelable": true } },
+    { "id": "lookup-D3-boundary-start", "spec": "11 §6.2 [from, to)", "arrival_exchange_ms": 1780617600000, "expected": { "row": "D3", "delay_ms": 250, "cancelable": false } },
+    { "id": "lookup-D2-fixture-market", "spec": "11 §6.2", "arrival_exchange_ms": 1780272300000, "note": "inside the RNG-7 fixture market (2026-06-01T00:05Z), four days before D3 starts", "expected": { "row": "D2", "delay_ms": 250, "cancelable": true } },
+    { "id": "lookup-D4-start", "spec": "11 §6.2", "arrival_exchange_ms": 1786964400000, "expected": { "row": "D4", "delay_ms": 50, "cancelable": false } },
+    { "id": "lookup-D4-last-ms", "spec": "11 §6.2", "arrival_exchange_ms": 1788530399999, "expected": { "row": "D4", "delay_ms": 50, "cancelable": false } },
+    { "id": "lookup-D5-start", "spec": "11 §6.2", "arrival_exchange_ms": 1788530400000, "expected": { "row": "D5", "delay_ms": 150, "cancelable": false } },
+    { "id": "lookup-market-start-vs-arrival", "spec": "11 TD7, 13 §6.3 (keyed by arrival, not market start)", "market_start_ms": 1788530100000, "arrival_exchange_ms": 1788530400500, "expected": { "row": "D5", "delay_ms": 150 }, "note": "a market that started under D4 whose order arrives after 2026-09-04T14:00Z uses D5" },
+    { "id": "gate3-evidence-cutoff", "spec": "11 TD6, D52", "market_start_ms_min_for_gate3": 1786964400000, "statement": "markets starting before 2026-08-17T11:00Z are never gate-3 evidence; only D4 and later rows count" }
+  ],
+  "semantics": [
+    { "id": "td1-marketable-only", "spec": "11 TD1", "statement": "Delayed iff marketable at arrival: BUY price >= best ask or SELL price <= best bid, on a market with taker_delay_enabled. Non-marketable: rests normally. Post-only: never delayed (rejected if marketable)." },
+    { "id": "td2-delayed-status", "spec": "11 TD2, 10 §8.2 row 6", "statement": "Accepted with status delayed: OrderAccepted, OrderDelayed{release_at}; REST returns zero amounts and no trade ids." },
+    { "id": "td3-revalidate-at-release", "spec": "11 TD3, 10 §8.2 rows 7–9", "statement": "At release: re-validation against the state at that moment (market state, balance, risk, tick in force); failure -> OrderRejected{Exchange}; else match the book then; resting-type remainder rests (OrderOpen), market-type remainder killed (OrderDone(Killed, filled)); a FOK not fully fillable is killed with no fills." },
+    { "id": "td4-cancel-in-window", "spec": "11 TD4, 10 §8.2 row 10", "statement": "A cancel arriving during the window fails with CancelFailed(NotCancelableDuringDelay) in rows with cancelable_in_window = false (D3–D5); it succeeds in D2." },
+    { "id": "td5-timing", "spec": "11 TD5", "statement": "arrival = send + place latency; match = arrival + delay; measured in exchange time; the simulator releases at the exact time." },
+    { "id": "seconds-delay-override", "spec": "11 §6.3", "statement": "Gamma secondsDelay > 0 on a BTC market replaces the dated value with secondsDelay x 1000 for that market, flagged unexpected_seconds_delay; secondsDelay = 0 is not evidence about the crypto delay." }
+  ]
+}
