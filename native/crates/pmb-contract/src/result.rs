@@ -794,14 +794,15 @@ impl EngineResult {
             return Err(bad("echo/market", "null together or present together"));
         }
         if self.echo.is_none()
-            && !self
-                .error
-                .as_ref()
-                .is_some_and(|e| e.class.may_precede_job_read())
+            && !(self.candidates.is_empty()
+                && self
+                    .error
+                    .as_ref()
+                    .is_some_and(|e| e.class.may_precede_job_read()))
         {
             return Err(bad(
                 "echo/market",
-                "null only in a group-level error raised before the job is read",
+                "null only in a group-level error raised before the job is read (no candidates)",
             ));
         }
         // 21 §14: a group-level error fails the market for every candidate.
@@ -904,9 +905,11 @@ impl EngineResult {
     /// Egress self-check against the job that produced the result (21 §19
     /// Rust egress; the same facts the shim asserts in §12): the echo
     /// equals the request, `market.slug` and every `finalOutcome` equal the
-    /// job's, and the candidates match the request's keys, indices and
-    /// effective ModelConfig hashes, in order. A mismatch is an engine bug:
-    /// `invalid_output: self_check`.
+    /// job's, the candidates match the request's keys, indices and
+    /// effective ModelConfig hashes, in order; `market.rulesSource` is
+    /// `fallback` iff the job captured no rules field (11 RS4); an observed
+    /// `market.conditionId` equals the job's when both are set (21 §5.1). A
+    /// mismatch is an engine bug: `invalid_output: self_check`.
     pub fn validate_against(&self, job: &crate::job::EngineJob) -> Result<(), ContractError> {
         self.validate()?;
         let mc = &job.run.model_config;

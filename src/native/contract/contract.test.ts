@@ -288,6 +288,20 @@ describe('echo assertions (21 §12)', () => {
     assert.equal(checkEcho(job, matchingResult(), { engineVersion }), null)
   })
 
+  it('lets only a pre-read group error omit the echo', () => {
+    // spec: 21 §10 (echo null only before the job is read), §12
+    const preRead = readJson(
+      path.join(CONTRACT_DIR, 'fixtures/results/valid/group-error-invalid-input.json'),
+    ) as EngineResult
+    assert.equal(checkEcho(job, preRead, { engineVersion }), null)
+    const late = structuredClone(preRead)
+    late.error = { class: 'data_defect', cause: 'upstream_hole', message: 'x' }
+    assert.equal(checkEcho(job, late, { engineVersion })?.cause, 'echo_mismatch')
+    const ok = matchingResult()
+    ok.echo = null
+    assert.equal(checkEcho(job, ok, { engineVersion })?.cause, 'echo_mismatch')
+  })
+
   it('fails every echoed field that differs as invalid_output: echo_mismatch', () => {
     // spec: 21 §12, §19 TS shim, 20 §4.1 echo_mismatch
     const mutations: Array<[string, (r: EngineResult) => void]> = [

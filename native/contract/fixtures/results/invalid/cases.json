@@ -887,6 +887,38 @@
         "cause": "self_check"
       },
       "jsonSchema": "reject"
+    },
+    {
+      "name": "pre-read error with candidates",
+      "rule": "21 §10 (no echo means the job was not read: no candidates)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "invalid_input",
+          "cause": "schema",
+          "message": "x"
+        },
+        "/echo": null,
+        "/market": null,
+        "/candidates": [
+          {
+            "key": "cand-c",
+            "index": 0,
+            "status": "error",
+            "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "error": {
+              "class": "strategy_fault",
+              "cause": "panic",
+              "message": "x"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
     }
   ]
 }

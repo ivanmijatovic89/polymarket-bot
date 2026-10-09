@@ -74,7 +74,10 @@ export function checkEcho(
   })
   if (result.echo === null || result.market === null) {
     const cls = result.error?.class
-    return result.status === 'error' && cls !== undefined && PRE_READ_CLASSES.has(cls)
+    return result.status === 'error' &&
+      cls !== undefined &&
+      PRE_READ_CLASSES.has(cls) &&
+      result.candidates.length === 0
       ? null
       : mismatch('echo', null, 'present (only a pre-read group error omits it)')
   }
