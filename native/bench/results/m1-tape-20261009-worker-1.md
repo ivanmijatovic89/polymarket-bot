@@ -12,7 +12,7 @@ Raw data (every repetition, per-market rows, conditions, `ps` snapshots):
 
 - sittings A–C (first version of this report):
   [`m1-tape-20261009-worker-1.json`](m1-tape-20261009-worker-1.json)
-- sittings D–H (review follow-up), the conversion log and NT-6 (b):
+- sittings D–I (review follow-up), the conversion log and NT-6 (b):
   [`m1-tape-20261009-worker-1-2.json`](m1-tape-20261009-worker-1-2.json)
 
 ## Summary
@@ -30,6 +30,10 @@ Raw data (every repetition, per-market rows, conditions, `ps` snapshots):
 - **M-19 (16 §15.2): the raw SoA + zstd tape stays.** Flat Parquet INT64 +
   ZSTD of the same typed rows decodes to typed rows 1.80–1.96× slower than
   the tape and is 1.87–2.80× larger (rule: Parquet only if within 10%).
+- The review fixes (header checks, dictionary compare, soft reservations)
+  cost nothing measurable on the executor path: interleaved against the
+  pre-review binary, streamed tape decode moved by −0.5% on `smoke-50` and
+  +1.2% on `heavy-1` (sitting I), inside the run spread.
 - NT-6 (b) holds on both sets at the versioned tape path: 51 of 51 markets
   identical on both paths; all 51 stream digests equal those of sittings
   A–C.
@@ -65,16 +69,16 @@ Raw data (every repetition, per-market rows, conditions, `ps` snapshots):
 
 ## Conditions
 
-| Item               | Sittings D–H                                                                                                                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Host               | worker-1 (`Worker-1s-Mac-mini`), Apple M4 (4 P + 6 E cores), 16 GB, macOS 26.2 (25C56), AC power, Low Power Mode 0                                                                                            |
-| Toolchain, profile | rustc 1.89.0 (29483883e 2025-08-04); the workspace `release` profile (opt-level 3, debug false), not the canonical artifact build (31 §4)                                                                     |
-| Binaries           | E–H: `7b83dd87…6086` @ `137e99be`. D: `6d929afb…501e` @ `2970b02b` and `b2fcc646…5511` @ `089b6357`. Conversion: `e79e76b8…68e7` @ `2cabe764` (same codec)                                                    |
-| Sets               | `smoke-50.json` sha256 `a48228ee…dbc`, `heavy-1.json` sha256 `671aea46…052c`; every source re-checked against the manifest (bytes, sha256) and every tape against its source before timing                    |
-| QoS, threads       | E–H: `taskpolicy -c utility`, declared `--qos utility`, effective priority 20 (utility) recorded by the tool. D: `taskpolicy -c utility` (those binaries record no QoS). One thread                           |
-| ModelConfig, cache | not used by decode; no in-process cache, warm OS page cache (the first read of each sitting is in the JSON; the page cache was not purged, so it is not a cold read)                                          |
-| Concurrent load    | `ps` at the start and end of every run (JSON): another worktree's decode benchmark (`ws-bench`) at ~100% CPU throughout E–H, `node` at ~200% CPU during E, other agents' `rustc` builds at 40–100% during E–G |
-| 1-min load average | D 3.40 → 2.50; E 3.87 → 4.12; F 4.12 → 4.11; G 3.94 → 3.93; H 3.78 → 3.58 (after every pass in the JSON)                                                                                                      |
+| Item               | Sittings D–I                                                                                                                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host               | worker-1 (`Worker-1s-Mac-mini`), Apple M4 (4 P + 6 E cores), 16 GB, macOS 26.2 (25C56), AC power, Low Power Mode 0                                                                                                           |
+| Toolchain, profile | rustc 1.89.0 (29483883e 2025-08-04); the workspace `release` profile (opt-level 3, debug false), not the canonical artifact build (31 §4)                                                                                    |
+| Binaries           | E–H: `7b83dd87…6086` @ `137e99be`. D: `6d929afb…501e` @ `2970b02b` and `b2fcc646…5511` @ `089b6357`. I: `1c2ee5c3…c6d2` @ `e621c2f6` and `429cb1a6…a6a5` @ `27d8518f`. Conversion: `e79e76b8…68e7` @ `2cabe764` (same codec) |
+| Sets               | `smoke-50.json` sha256 `a48228ee…dbc`, `heavy-1.json` sha256 `671aea46…052c`; every source re-checked against the manifest (bytes, sha256) and every tape against its source before timing                                   |
+| QoS, threads       | E–I: `taskpolicy -c utility`, declared `--qos utility`, effective priority 20 (utility) recorded by the tool. D: `taskpolicy -c utility` (those binaries record no QoS). One thread                                          |
+| ModelConfig, cache | not used by decode; no in-process cache, warm OS page cache (the first read of each sitting is in the JSON; the page cache was not purged, so it is not a cold read)                                                         |
+| Concurrent load    | `ps` at the start and end of every run (JSON): another worktree's decode benchmark (`ws-bench`) at ~100% CPU throughout E–H, `node` at ~200% CPU during E, other agents' `rustc` builds at 40–100% during E–G                |
+| 1-min load average | D 3.40 → 2.50; E 3.87 → 4.12; F 4.12 → 4.11; G 3.94 → 3.93; H 3.78 → 3.58; I 4.94 → 3.79 (after every pass in the JSON)                                                                                                      |
 
 Sittings A–C (first version) used binaries `c55f9a61` (A, @ `089b6357`) and
 `229aad62` (B, C, @ `6c1bdebc`), the same host and QoS, at load 6.2–8.8;
@@ -202,6 +206,27 @@ runs). v1, which the commit did not touch, moved by 2% or less: the noise
 floor of this sitting. Stream digests did not change (the fixture digest is
 pinned).
 
+### Sitting I: the review fixes, before/after
+
+Interleaved runs of `e621c2f6` (branch head before the review, binary
+`1c2ee5c3…c6d2`) and `27d8518f` (after, binary `429cb1a6…a6a5`): smoke-50
+old, new, new, old, then heavy-1 in the same order, 13:23:14–13:24:20,
+load 4.94 → 3.79, `ps` in the second JSON. The old binary read the same
+tape files through a temporary compatibility root with its unversioned
+path layout.
+
+| Set      | Config    | e621c2f6 (before) | 27d8518f (after) | after / before (mean of the two medians) |
+| -------- | --------- | ----------------- | ---------------- | ---------------------------------------- |
+| smoke-50 | tape      | 357.1, 361.4      | 356.6, 358.3     | 0.995                                    |
+| smoke-50 | tape-full | 356.2, 357.1      | 356.1, 357.8     | 1.001                                    |
+| smoke-50 | v1        | 3007.8, 2978.7    | 2987.5, 2987.5   | 0.998                                    |
+| heavy-1  | tape      | 25.4, 25.9        | 24.7, 27.1       | 1.012                                    |
+| heavy-1  | tape-full | 25.1, 25.6        | 25.7, 25.8       | 1.017                                    |
+| heavy-1  | v1        | 194.4, 193.5      | 193.8, 208.0     | 1.036                                    |
+
+All changes are within the spread of the runs (v1, untouched by the
+fixes, moved by up to 3.6%).
+
 ### Bytes
 
 | Set      | v1 bytes   | tape bytes (zstd 3) | tape / v1 | raw column bytes → zstd frames   | tape bytes (zstd 9, sitting H) | zstd 9 / v1 |
@@ -302,6 +327,6 @@ for s in heavy-1 smoke-50; do
     --configs v1,tape,tape-full,tape-rows,pq-full,pq-rows --json <out.json>
 done
 # sitting H: convert --zstd-level 9 into data/native-tapes/scratch-zstd9, bench --configs tape,tape-rows, remove it
-# sitting D: release builds of `git archive 2970b02b|089b6357 native`, each run as
+# sittings D and I: release builds of `git archive <commit> native`, each run as
 #   taskpolicy -c utility <bin> bench --data-root "$R/data" --tape-root "$R/data/native-tapes" --set <set> --reps 3 --json <out>
 ```

@@ -1,5 +1,5 @@
 {
-  "report": "M1 step 7 derived tape (pmb-tape): review follow-up sittings D-H",
+  "report": "M1 step 7 derived tape (pmb-tape): review follow-up sittings D-I",
   "date": "2026-10-09",
   "host": "worker-1",
   "label": "non-idle",
@@ -5691,6 +5691,2654 @@
         "set": "smoke-50",
         "speedupMedianTotal": null
       }
+    },
+    "I": {
+      "what": "before/after of the whole review fix series: e621c2f6 (branch head before the review) against 27d8518f (after), interleaved; v1, tape (streamed, the executor path) and tape-full on both sets. The old binary read the same tape files through a compatibility root with its unversioned path layout (data/native-tapes/compat-e621, a symlink, removed afterwards)",
+      "binaries": {
+        "e621c2f6": {
+          "sha256": "1c2ee5c34c330bd7ab0e29f7d61f6d97d6e391883cb11f4dd651eb16d3e2c6d2",
+          "build": "git archive e621c2f6 native; cargo build --release --locked -p pmb-tape"
+        },
+        "27d8518f": {
+          "sha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+          "build": "cargo build --release --locked -p pmb-tape in the worktree at 27d8518f"
+        }
+      },
+      "qos": "taskpolicy -c utility (declared --qos utility for 27d8518f, which verified effective priority 20)",
+      "order": "smoke-50: e621c2f6, 27d8518f, 27d8518f, e621c2f6; then heavy-1 in the same order",
+      "started": "13:23:14",
+      "ended": "13:24:20",
+      "psBefore": [
+        "Fri Oct  9 13:23:14 CEST 2026",
+        "{ 4.94 4.01 3.96 }",
+        "  PID  %CPU %MEM COMM",
+        "17544 100.0  0.6 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+        "28221 100.0  2.1 /Users/worker-1/.rustup/toolchains/1.89.0-aarch64-apple-darwin/bin/clippy-driver",
+        "76658   4.2  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+        "   98   1.8  0.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd",
+        "  541   0.6  0.2 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
+        "  300   0.3  0.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+        "  123   0.3  0.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds",
+        "  468   0.1  0.1 /usr/libexec/wifip2pd",
+        "  504   0.1  0.2 /Applications/Barrier.app/Contents/MacOS/barrier",
+        "28240   0.1  0.0 sleep",
+        "22023   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+        "22022   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+        "22021   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd"
+      ],
+      "psAfter": [
+        "Fri Oct  9 13:24:20 CEST 2026",
+        "{ 3.79 3.86 3.91 }",
+        "  PID  %CPU %MEM COMM",
+        "17544 100.0  0.3 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+        "    1   6.2  0.1 /sbin/launchd",
+        "76658   6.0  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+        "   98   0.4  0.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd",
+        "  468   0.1  0.1 /usr/libexec/wifip2pd",
+        "  134   0.1  0.1 /usr/libexec/opendirectoryd",
+        "  469   0.1  0.1 /usr/libexec/UserEventAgent",
+        "  306   0.1  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+        "  160   0.1  0.0 /usr/sbin/notifyd",
+        "28667   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+        "28666   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+        "28665   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+        "28664   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd"
+      ],
+      "runs": [
+        {
+          "seq": 1,
+          "set": "smoke-50",
+          "commit": "e621c2f6",
+          "bench": {
+            "binarySha256": "1c2ee5c34c330bd7ab0e29f7d61f6d97d6e391883cb11f4dd651eb16d3e2c6d2",
+            "bytes": {
+              "tape": 38774002,
+              "tapeFrames": 38732040,
+              "tapeOverV1": 0.39557487082962045,
+              "tapeRawColumns": 257891851,
+              "v1": 98019376
+            },
+            "loadAvgAfterPass": [
+              "{ 4.95 4.04 3.97 }",
+              "{ 4.95 4.04 3.97 }",
+              "{ 4.95 4.04 3.97 }",
+              "{ 4.95 4.04 3.97 }",
+              "{ 4.95 4.04 3.97 }",
+              "{ 4.71 4.00 3.96 }",
+              "{ 4.71 4.00 3.96 }",
+              "{ 4.71 4.00 3.96 }",
+              "{ 4.71 4.00 3.96 }"
+            ],
+            "loadAvgEnd": "{ 4.71 4.00 3.96 }",
+            "loadAvgStart": "{ 4.94 4.01 3.96 }",
+            "markets": 50,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1430,
+                "rows": 588,
+                "slug": "btc-updown-15m-1765406700",
+                "tapeBytes": 6092,
+                "v1Bytes": 16329
+              },
+              {
+                "levels": 87580,
+                "rows": 36456,
+                "slug": "btc-updown-15m-1765319400",
+                "tapeBytes": 232547,
+                "v1Bytes": 529695
+              },
+              {
+                "levels": 105386,
+                "rows": 44127,
+                "slug": "btc-updown-15m-1765041300",
+                "tapeBytes": 257823,
+                "v1Bytes": 600210
+              },
+              {
+                "levels": 120906,
+                "rows": 50452,
+                "slug": "btc-updown-15m-1765268100",
+                "tapeBytes": 301896,
+                "v1Bytes": 714745
+              },
+              {
+                "levels": 138610,
+                "rows": 57471,
+                "slug": "btc-updown-15m-1771805700",
+                "tapeBytes": 343771,
+                "v1Bytes": 817583
+              },
+              {
+                "levels": 146320,
+                "rows": 60787,
+                "slug": "btc-updown-15m-1766237400",
+                "tapeBytes": 373475,
+                "v1Bytes": 883019
+              },
+              {
+                "levels": 155822,
+                "rows": 64674,
+                "slug": "btc-updown-15m-1771828200",
+                "tapeBytes": 389516,
+                "v1Bytes": 929486
+              },
+              {
+                "levels": 168736,
+                "rows": 70233,
+                "slug": "btc-updown-15m-1771644600",
+                "tapeBytes": 421812,
+                "v1Bytes": 1016266
+              },
+              {
+                "levels": 174346,
+                "rows": 72846,
+                "slug": "btc-updown-15m-1786606200",
+                "tapeBytes": 361696,
+                "v1Bytes": 909426
+              },
+              {
+                "levels": 178308,
+                "rows": 74544,
+                "slug": "btc-updown-15m-1780234200",
+                "tapeBytes": 431884,
+                "v1Bytes": 1012149
+              },
+              {
+                "levels": 191798,
+                "rows": 79791,
+                "slug": "btc-updown-15m-1771590600",
+                "tapeBytes": 490739,
+                "v1Bytes": 1174313
+              },
+              {
+                "levels": 196478,
+                "rows": 82030,
+                "slug": "btc-updown-15m-1775716200",
+                "tapeBytes": 495175,
+                "v1Bytes": 1164060
+              },
+              {
+                "levels": 202778,
+                "rows": 84631,
+                "slug": "btc-updown-15m-1775455200",
+                "tapeBytes": 507377,
+                "v1Bytes": 1212903
+              },
+              {
+                "levels": 216896,
+                "rows": 89806,
+                "slug": "btc-updown-15m-1774006200",
+                "tapeBytes": 538340,
+                "v1Bytes": 1292462
+              },
+              {
+                "levels": 223244,
+                "rows": 93333,
+                "slug": "btc-updown-15m-1772964000",
+                "tapeBytes": 540215,
+                "v1Bytes": 1330530
+              },
+              {
+                "levels": 228960,
+                "rows": 95430,
+                "slug": "btc-updown-15m-1771650900",
+                "tapeBytes": 552937,
+                "v1Bytes": 1346651
+              },
+              {
+                "levels": 235462,
+                "rows": 98423,
+                "slug": "btc-updown-15m-1782333000",
+                "tapeBytes": 601198,
+                "v1Bytes": 1418702
+              },
+              {
+                "levels": 248416,
+                "rows": 103539,
+                "slug": "btc-updown-15m-1774863900",
+                "tapeBytes": 596373,
+                "v1Bytes": 1480621
+              },
+              {
+                "levels": 259397,
+                "rows": 107466,
+                "slug": "btc-updown-15m-1782297900",
+                "tapeBytes": 593204,
+                "v1Bytes": 1466440
+              },
+              {
+                "levels": 260160,
+                "rows": 108811,
+                "slug": "btc-updown-15m-1776412800",
+                "tapeBytes": 667780,
+                "v1Bytes": 1559997
+              },
+              {
+                "levels": 270096,
+                "rows": 113408,
+                "slug": "btc-updown-15m-1785007800",
+                "tapeBytes": 580266,
+                "v1Bytes": 1491368
+              },
+              {
+                "levels": 278708,
+                "rows": 116193,
+                "slug": "btc-updown-15m-1774527300",
+                "tapeBytes": 699711,
+                "v1Bytes": 1691378
+              },
+              {
+                "levels": 287016,
+                "rows": 119239,
+                "slug": "btc-updown-15m-1771892100",
+                "tapeBytes": 701658,
+                "v1Bytes": 1734922
+              },
+              {
+                "levels": 291366,
+                "rows": 121734,
+                "slug": "btc-updown-15m-1769572800",
+                "tapeBytes": 710056,
+                "v1Bytes": 1796630
+              },
+              {
+                "levels": 298558,
+                "rows": 124580,
+                "slug": "btc-updown-15m-1776906000",
+                "tapeBytes": 653999,
+                "v1Bytes": 1701661
+              },
+              {
+                "levels": 310494,
+                "rows": 128908,
+                "slug": "btc-updown-15m-1768162500",
+                "tapeBytes": 768637,
+                "v1Bytes": 1918441
+              },
+              {
+                "levels": 313808,
+                "rows": 130682,
+                "slug": "btc-updown-15m-1778064300",
+                "tapeBytes": 773311,
+                "v1Bytes": 1879802
+              },
+              {
+                "levels": 326398,
+                "rows": 136427,
+                "slug": "btc-updown-15m-1782405000",
+                "tapeBytes": 727403,
+                "v1Bytes": 1867533
+              },
+              {
+                "levels": 333750,
+                "rows": 138284,
+                "slug": "btc-updown-15m-1771065000",
+                "tapeBytes": 792514,
+                "v1Bytes": 2039549
+              },
+              {
+                "levels": 344944,
+                "rows": 143757,
+                "slug": "btc-updown-15m-1772748900",
+                "tapeBytes": 876494,
+                "v1Bytes": 2158302
+              },
+              {
+                "levels": 352052,
+                "rows": 146447,
+                "slug": "btc-updown-15m-1769913000",
+                "tapeBytes": 856620,
+                "v1Bytes": 2219000
+              },
+              {
+                "levels": 360786,
+                "rows": 150867,
+                "slug": "btc-updown-15m-1782285300",
+                "tapeBytes": 815608,
+                "v1Bytes": 2084457
+              },
+              {
+                "levels": 369158,
+                "rows": 152605,
+                "slug": "btc-updown-15m-1780456500",
+                "tapeBytes": 835775,
+                "v1Bytes": 2072192
+              },
+              {
+                "levels": 376338,
+                "rows": 157207,
+                "slug": "btc-updown-15m-1779174900",
+                "tapeBytes": 923085,
+                "v1Bytes": 2267422
+              },
+              {
+                "levels": 396536,
+                "rows": 164196,
+                "slug": "btc-updown-15m-1787125500",
+                "tapeBytes": 849606,
+                "v1Bytes": 2199829
+              },
+              {
+                "levels": 390936,
+                "rows": 165137,
+                "slug": "btc-updown-15m-1789429500",
+                "tapeBytes": 902775,
+                "v1Bytes": 2275604
+              },
+              {
+                "levels": 417594,
+                "rows": 173387,
+                "slug": "btc-updown-15m-1770286500",
+                "tapeBytes": 1028374,
+                "v1Bytes": 2681909
+              },
+              {
+                "levels": 428244,
+                "rows": 178755,
+                "slug": "btc-updown-15m-1772767800",
+                "tapeBytes": 1009991,
+                "v1Bytes": 2597698
+              },
+              {
+                "levels": 430674,
+                "rows": 179876,
+                "slug": "btc-updown-15m-1781775900",
+                "tapeBytes": 951563,
+                "v1Bytes": 2452094
+              },
+              {
+                "levels": 455256,
+                "rows": 189690,
+                "slug": "btc-updown-15m-1769003100",
+                "tapeBytes": 1093268,
+                "v1Bytes": 2797681
+              },
+              {
+                "levels": 465650,
+                "rows": 195189,
+                "slug": "btc-updown-15m-1773100800",
+                "tapeBytes": 1143929,
+                "v1Bytes": 2859306
+              },
+              {
+                "levels": 492502,
+                "rows": 204298,
+                "slug": "btc-updown-15m-1773046800",
+                "tapeBytes": 1162101,
+                "v1Bytes": 2995257
+              },
+              {
+                "levels": 507552,
+                "rows": 212282,
+                "slug": "btc-updown-15m-1787409900",
+                "tapeBytes": 1180764,
+                "v1Bytes": 3032783
+              },
+              {
+                "levels": 514764,
+                "rows": 213251,
+                "slug": "btc-updown-15m-1770645600",
+                "tapeBytes": 1285543,
+                "v1Bytes": 3296327
+              },
+              {
+                "levels": 547150,
+                "rows": 227717,
+                "slug": "btc-updown-15m-1770870600",
+                "tapeBytes": 1302935,
+                "v1Bytes": 3425275
+              },
+              {
+                "levels": 573968,
+                "rows": 239932,
+                "slug": "btc-updown-15m-1780744500",
+                "tapeBytes": 1262593,
+                "v1Bytes": 3218704
+              },
+              {
+                "levels": 602178,
+                "rows": 249271,
+                "slug": "btc-updown-15m-1770912900",
+                "tapeBytes": 1452190,
+                "v1Bytes": 3865841
+              },
+              {
+                "levels": 620012,
+                "rows": 259846,
+                "slug": "btc-updown-15m-1784361600",
+                "tapeBytes": 1141965,
+                "v1Bytes": 3133474
+              },
+              {
+                "levels": 682366,
+                "rows": 283719,
+                "slug": "btc-updown-15m-1784813400",
+                "tapeBytes": 1566690,
+                "v1Bytes": 4051613
+              },
+              {
+                "levels": 916620,
+                "rows": 378134,
+                "slug": "btc-updown-15m-1789136100",
+                "tapeBytes": 2020728,
+                "v1Bytes": 5337737
+              }
+            ],
+            "reps": 3,
+            "results": {
+              "tape": {
+                "perMarketMedianMs": 6.615562499999999,
+                "perMarketMs": [
+                  0.107833, 1.9812089999999998, 2.564458, 2.699084, 2.968333, 3.3262919999999996,
+                  3.794791, 3.678292, 3.743958, 3.776667, 4.175209, 4.327541, 4.420459, 4.630125,
+                  4.889417, 4.9811250000000005, 5.201125, 5.390833000000001, 5.458374999999999,
+                  5.602625, 5.689583, 6.005084, 6.103125, 6.398292, 6.360166, 6.832833, 7.447625,
+                  8.039292, 7.164791999999999, 7.579084, 7.572208000000001, 7.588832999999999,
+                  7.832375000000001, 8.039582999999999, 8.478583, 8.474917, 9.048209,
+                  9.521875000000001, 9.162625, 9.871709, 10.176291, 10.624375, 10.843250000000001,
+                  10.994292, 11.653917, 12.065291, 13.028875000000001, 12.477917, 16.503959,
+                  19.438750000000002
+                ],
+                "totalMs": {
+                  "max": 362.850086,
+                  "median": 357.1382520000001,
+                  "min": 354.286332,
+                  "reps": [362.850086, 354.286332, 357.1382520000001]
+                }
+              },
+              "tape-full": {
+                "perMarketMedianMs": 6.5886664999999995,
+                "perMarketMs": [
+                  0.08729100000000001, 1.9725, 2.32175, 2.658459, 2.950459, 3.311708,
+                  3.4810000000000003, 3.714583, 3.741709, 3.796125, 4.181958000000001,
+                  4.3227910000000005, 4.430541, 4.666458, 4.889208, 4.92475, 5.206458, 5.445208,
+                  5.538625000000001, 5.632583, 5.700292, 6.036874999999999, 6.147875,
+                  6.400834000000001, 6.4607909999999995, 6.716542, 6.807292, 6.938959, 7.211375,
+                  7.499167, 7.687, 7.681875000000001, 7.797583, 7.9415830000000005, 8.411792,
+                  8.401542, 9.053749999999999, 9.248542, 9.125, 9.861165999999999, 10.342542,
+                  10.633166, 10.93675, 11.100666, 11.721917, 12.087208, 13.063625, 12.865584,
+                  14.659500000000001, 19.493083000000002
+                ],
+                "totalMs": {
+                  "max": 357.0383349999999,
+                  "median": 356.2071680000001,
+                  "min": 354.290875,
+                  "reps": [357.0383349999999, 356.2071680000001, 354.290875]
+                }
+              },
+              "v1": {
+                "perMarketMedianMs": 55.618396,
+                "perMarketMs": [
+                  0.464375, 16.0135, 18.516916000000002, 21.577875, 24.830333, 26.384999999999998,
+                  27.945375000000002, 30.515416, 30.595667, 32.631040999999996, 35.643208,
+                  36.440583, 36.84075, 39.934292000000006, 40.886292, 41.419959, 42.797333,
+                  45.186749999999996, 46.134916, 47.724375, 48.216792, 51.382833000000005, 52.003,
+                  53.277708, 54.214541999999994, 57.566917000000004, 57.02225, 58.1315, 61.232042,
+                  64.199917, 65.118792, 65.49404100000001, 66.417125, 68.848958, 70.437917,
+                  71.242334, 79.282458, 79.225375, 77.270625, 83.757208, 85.260292,
+                  89.30229100000001, 92.783375, 95.624125, 100.617709, 102.436792, 111.512333,
+                  105.86975, 123.55149999999999, 162.75120800000002
+                ],
+                "totalMs": {
+                  "max": 3012.745164,
+                  "median": 3007.777794,
+                  "min": 2988.1933309999995,
+                  "reps": [3012.745164, 3007.777794, 2988.1933309999995]
+                }
+              }
+            },
+            "set": "smoke-50",
+            "speedupMedianTotal": 8.421886418372232
+          }
+        },
+        {
+          "seq": 2,
+          "set": "smoke-50",
+          "commit": "27d8518f",
+          "bench": {
+            "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+            "bytes": {
+              "m19": null,
+              "tape": 38774002,
+              "tapeFrames": 38732040,
+              "tapeOverV1": 0.39557487082962045,
+              "tapeRawColumns": 257891851,
+              "v1": 98019376
+            },
+            "conditions": {
+              "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+              "cacheBudget": "none: no in-process cache; OS page cache warmed by one discarded pass per configuration",
+              "canonicalBuild": false,
+              "chip": "Apple M4",
+              "dataRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data",
+              "effCores": "6",
+              "host": "Worker-1s-Mac-mini",
+              "label": "non-idle",
+              "lowPowerMode": "0",
+              "macos": "26.2 (25C56)",
+              "memBytes": "17179869184",
+              "modelConfig": {
+                "path": "native/contract/model-configs/ts-compat-default.json",
+                "sha256": "c4b1c5f98785746010139fb73a229068ab87f8c47cf647e5aedf64b03a0df797",
+                "usedByDecode": false
+              },
+              "perfCores": "4",
+              "power": "Now drawing from 'AC Power'",
+              "profile": "release (opt-level 3, debug false)",
+              "qos": {
+                "effective": "utility",
+                "effectivePri": 20,
+                "requested": "utility"
+              },
+              "rustc": "rustc 1.89.0 (29483883e 2025-08-04)",
+              "setManifest": {
+                "path": "native/bench/sets/smoke-50.json",
+                "sha256": "a48228eec3b440ad632a6a50041e71ebdaad660c202fba4e56dba77d6e0dedbc"
+              },
+              "tapeRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data/native-tapes",
+              "threads": 1
+            },
+            "firstRead": {
+              "bytes": 136793378,
+              "ms": 8.815835,
+              "note": "v1 + tape file reads of the source check, the first reads of the sitting; page cache not purged"
+            },
+            "loadAvgAfterPass": [
+              "{ 4.61 4.00 3.96 }",
+              "{ 4.61 4.00 3.96 }",
+              "{ 4.61 4.00 3.96 }",
+              "{ 4.61 4.00 3.96 }",
+              "{ 4.61 4.00 3.96 }",
+              "{ 4.40 3.97 3.95 }",
+              "{ 4.40 3.97 3.95 }",
+              "{ 4.40 3.97 3.95 }",
+              "{ 4.40 3.97 3.95 }"
+            ],
+            "loadAvgEnd": "{ 4.40 3.97 3.95 }",
+            "loadAvgStart": "{ 4.71 4.00 3.96 }",
+            "markets": 50,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1430,
+                "m19Bytes": null,
+                "rows": 588,
+                "slug": "btc-updown-15m-1765406700",
+                "tapeBytes": 6092,
+                "v1Bytes": 16329
+              },
+              {
+                "levels": 87580,
+                "m19Bytes": null,
+                "rows": 36456,
+                "slug": "btc-updown-15m-1765319400",
+                "tapeBytes": 232547,
+                "v1Bytes": 529695
+              },
+              {
+                "levels": 105386,
+                "m19Bytes": null,
+                "rows": 44127,
+                "slug": "btc-updown-15m-1765041300",
+                "tapeBytes": 257823,
+                "v1Bytes": 600210
+              },
+              {
+                "levels": 120906,
+                "m19Bytes": null,
+                "rows": 50452,
+                "slug": "btc-updown-15m-1765268100",
+                "tapeBytes": 301896,
+                "v1Bytes": 714745
+              },
+              {
+                "levels": 138610,
+                "m19Bytes": null,
+                "rows": 57471,
+                "slug": "btc-updown-15m-1771805700",
+                "tapeBytes": 343771,
+                "v1Bytes": 817583
+              },
+              {
+                "levels": 146320,
+                "m19Bytes": null,
+                "rows": 60787,
+                "slug": "btc-updown-15m-1766237400",
+                "tapeBytes": 373475,
+                "v1Bytes": 883019
+              },
+              {
+                "levels": 155822,
+                "m19Bytes": null,
+                "rows": 64674,
+                "slug": "btc-updown-15m-1771828200",
+                "tapeBytes": 389516,
+                "v1Bytes": 929486
+              },
+              {
+                "levels": 168736,
+                "m19Bytes": null,
+                "rows": 70233,
+                "slug": "btc-updown-15m-1771644600",
+                "tapeBytes": 421812,
+                "v1Bytes": 1016266
+              },
+              {
+                "levels": 174346,
+                "m19Bytes": null,
+                "rows": 72846,
+                "slug": "btc-updown-15m-1786606200",
+                "tapeBytes": 361696,
+                "v1Bytes": 909426
+              },
+              {
+                "levels": 178308,
+                "m19Bytes": null,
+                "rows": 74544,
+                "slug": "btc-updown-15m-1780234200",
+                "tapeBytes": 431884,
+                "v1Bytes": 1012149
+              },
+              {
+                "levels": 191798,
+                "m19Bytes": null,
+                "rows": 79791,
+                "slug": "btc-updown-15m-1771590600",
+                "tapeBytes": 490739,
+                "v1Bytes": 1174313
+              },
+              {
+                "levels": 196478,
+                "m19Bytes": null,
+                "rows": 82030,
+                "slug": "btc-updown-15m-1775716200",
+                "tapeBytes": 495175,
+                "v1Bytes": 1164060
+              },
+              {
+                "levels": 202778,
+                "m19Bytes": null,
+                "rows": 84631,
+                "slug": "btc-updown-15m-1775455200",
+                "tapeBytes": 507377,
+                "v1Bytes": 1212903
+              },
+              {
+                "levels": 216896,
+                "m19Bytes": null,
+                "rows": 89806,
+                "slug": "btc-updown-15m-1774006200",
+                "tapeBytes": 538340,
+                "v1Bytes": 1292462
+              },
+              {
+                "levels": 223244,
+                "m19Bytes": null,
+                "rows": 93333,
+                "slug": "btc-updown-15m-1772964000",
+                "tapeBytes": 540215,
+                "v1Bytes": 1330530
+              },
+              {
+                "levels": 228960,
+                "m19Bytes": null,
+                "rows": 95430,
+                "slug": "btc-updown-15m-1771650900",
+                "tapeBytes": 552937,
+                "v1Bytes": 1346651
+              },
+              {
+                "levels": 235462,
+                "m19Bytes": null,
+                "rows": 98423,
+                "slug": "btc-updown-15m-1782333000",
+                "tapeBytes": 601198,
+                "v1Bytes": 1418702
+              },
+              {
+                "levels": 248416,
+                "m19Bytes": null,
+                "rows": 103539,
+                "slug": "btc-updown-15m-1774863900",
+                "tapeBytes": 596373,
+                "v1Bytes": 1480621
+              },
+              {
+                "levels": 259397,
+                "m19Bytes": null,
+                "rows": 107466,
+                "slug": "btc-updown-15m-1782297900",
+                "tapeBytes": 593204,
+                "v1Bytes": 1466440
+              },
+              {
+                "levels": 260160,
+                "m19Bytes": null,
+                "rows": 108811,
+                "slug": "btc-updown-15m-1776412800",
+                "tapeBytes": 667780,
+                "v1Bytes": 1559997
+              },
+              {
+                "levels": 270096,
+                "m19Bytes": null,
+                "rows": 113408,
+                "slug": "btc-updown-15m-1785007800",
+                "tapeBytes": 580266,
+                "v1Bytes": 1491368
+              },
+              {
+                "levels": 278708,
+                "m19Bytes": null,
+                "rows": 116193,
+                "slug": "btc-updown-15m-1774527300",
+                "tapeBytes": 699711,
+                "v1Bytes": 1691378
+              },
+              {
+                "levels": 287016,
+                "m19Bytes": null,
+                "rows": 119239,
+                "slug": "btc-updown-15m-1771892100",
+                "tapeBytes": 701658,
+                "v1Bytes": 1734922
+              },
+              {
+                "levels": 291366,
+                "m19Bytes": null,
+                "rows": 121734,
+                "slug": "btc-updown-15m-1769572800",
+                "tapeBytes": 710056,
+                "v1Bytes": 1796630
+              },
+              {
+                "levels": 298558,
+                "m19Bytes": null,
+                "rows": 124580,
+                "slug": "btc-updown-15m-1776906000",
+                "tapeBytes": 653999,
+                "v1Bytes": 1701661
+              },
+              {
+                "levels": 310494,
+                "m19Bytes": null,
+                "rows": 128908,
+                "slug": "btc-updown-15m-1768162500",
+                "tapeBytes": 768637,
+                "v1Bytes": 1918441
+              },
+              {
+                "levels": 313808,
+                "m19Bytes": null,
+                "rows": 130682,
+                "slug": "btc-updown-15m-1778064300",
+                "tapeBytes": 773311,
+                "v1Bytes": 1879802
+              },
+              {
+                "levels": 326398,
+                "m19Bytes": null,
+                "rows": 136427,
+                "slug": "btc-updown-15m-1782405000",
+                "tapeBytes": 727403,
+                "v1Bytes": 1867533
+              },
+              {
+                "levels": 333750,
+                "m19Bytes": null,
+                "rows": 138284,
+                "slug": "btc-updown-15m-1771065000",
+                "tapeBytes": 792514,
+                "v1Bytes": 2039549
+              },
+              {
+                "levels": 344944,
+                "m19Bytes": null,
+                "rows": 143757,
+                "slug": "btc-updown-15m-1772748900",
+                "tapeBytes": 876494,
+                "v1Bytes": 2158302
+              },
+              {
+                "levels": 352052,
+                "m19Bytes": null,
+                "rows": 146447,
+                "slug": "btc-updown-15m-1769913000",
+                "tapeBytes": 856620,
+                "v1Bytes": 2219000
+              },
+              {
+                "levels": 360786,
+                "m19Bytes": null,
+                "rows": 150867,
+                "slug": "btc-updown-15m-1782285300",
+                "tapeBytes": 815608,
+                "v1Bytes": 2084457
+              },
+              {
+                "levels": 369158,
+                "m19Bytes": null,
+                "rows": 152605,
+                "slug": "btc-updown-15m-1780456500",
+                "tapeBytes": 835775,
+                "v1Bytes": 2072192
+              },
+              {
+                "levels": 376338,
+                "m19Bytes": null,
+                "rows": 157207,
+                "slug": "btc-updown-15m-1779174900",
+                "tapeBytes": 923085,
+                "v1Bytes": 2267422
+              },
+              {
+                "levels": 396536,
+                "m19Bytes": null,
+                "rows": 164196,
+                "slug": "btc-updown-15m-1787125500",
+                "tapeBytes": 849606,
+                "v1Bytes": 2199829
+              },
+              {
+                "levels": 390936,
+                "m19Bytes": null,
+                "rows": 165137,
+                "slug": "btc-updown-15m-1789429500",
+                "tapeBytes": 902775,
+                "v1Bytes": 2275604
+              },
+              {
+                "levels": 417594,
+                "m19Bytes": null,
+                "rows": 173387,
+                "slug": "btc-updown-15m-1770286500",
+                "tapeBytes": 1028374,
+                "v1Bytes": 2681909
+              },
+              {
+                "levels": 428244,
+                "m19Bytes": null,
+                "rows": 178755,
+                "slug": "btc-updown-15m-1772767800",
+                "tapeBytes": 1009991,
+                "v1Bytes": 2597698
+              },
+              {
+                "levels": 430674,
+                "m19Bytes": null,
+                "rows": 179876,
+                "slug": "btc-updown-15m-1781775900",
+                "tapeBytes": 951563,
+                "v1Bytes": 2452094
+              },
+              {
+                "levels": 455256,
+                "m19Bytes": null,
+                "rows": 189690,
+                "slug": "btc-updown-15m-1769003100",
+                "tapeBytes": 1093268,
+                "v1Bytes": 2797681
+              },
+              {
+                "levels": 465650,
+                "m19Bytes": null,
+                "rows": 195189,
+                "slug": "btc-updown-15m-1773100800",
+                "tapeBytes": 1143929,
+                "v1Bytes": 2859306
+              },
+              {
+                "levels": 492502,
+                "m19Bytes": null,
+                "rows": 204298,
+                "slug": "btc-updown-15m-1773046800",
+                "tapeBytes": 1162101,
+                "v1Bytes": 2995257
+              },
+              {
+                "levels": 507552,
+                "m19Bytes": null,
+                "rows": 212282,
+                "slug": "btc-updown-15m-1787409900",
+                "tapeBytes": 1180764,
+                "v1Bytes": 3032783
+              },
+              {
+                "levels": 514764,
+                "m19Bytes": null,
+                "rows": 213251,
+                "slug": "btc-updown-15m-1770645600",
+                "tapeBytes": 1285543,
+                "v1Bytes": 3296327
+              },
+              {
+                "levels": 547150,
+                "m19Bytes": null,
+                "rows": 227717,
+                "slug": "btc-updown-15m-1770870600",
+                "tapeBytes": 1302935,
+                "v1Bytes": 3425275
+              },
+              {
+                "levels": 573968,
+                "m19Bytes": null,
+                "rows": 239932,
+                "slug": "btc-updown-15m-1780744500",
+                "tapeBytes": 1262593,
+                "v1Bytes": 3218704
+              },
+              {
+                "levels": 602178,
+                "m19Bytes": null,
+                "rows": 249271,
+                "slug": "btc-updown-15m-1770912900",
+                "tapeBytes": 1452190,
+                "v1Bytes": 3865841
+              },
+              {
+                "levels": 620012,
+                "m19Bytes": null,
+                "rows": 259846,
+                "slug": "btc-updown-15m-1784361600",
+                "tapeBytes": 1141965,
+                "v1Bytes": 3133474
+              },
+              {
+                "levels": 682366,
+                "m19Bytes": null,
+                "rows": 283719,
+                "slug": "btc-updown-15m-1784813400",
+                "tapeBytes": 1566690,
+                "v1Bytes": 4051613
+              },
+              {
+                "levels": 916620,
+                "m19Bytes": null,
+                "rows": 378134,
+                "slug": "btc-updown-15m-1789136100",
+                "tapeBytes": 2020728,
+                "v1Bytes": 5337737
+              }
+            ],
+            "psEnd": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.5 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "28573 100.0  2.2 native/target/prefix/bin/pmb-tape-27d8518f",
+              "  206  55.7  0.2 /usr/libexec/airportd",
+              "  306   3.6  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+              "  468   2.6  0.1 /usr/libexec/wifip2pd",
+              "  142   1.9  0.1 /usr/libexec/locationd",
+              "76658   1.5  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "95063   1.0  2.4 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "   94   0.5  0.2 /usr/libexec/logd",
+              "    1   0.2  0.1 /sbin/launchd",
+              "51159   0.1  0.2 /usr/libexec/PerfPowerServices",
+              "28662   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28661   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28574   0.0  0.0 ugrep",
+              "28248   0.0  0.0 /bin/zsh"
+            ],
+            "psStart": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.6 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "76658   0.6  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "  468   0.4  0.1 /usr/libexec/wifip2pd",
+              "79159   0.4  0.1 /Applications/Barrier.app/Contents/MacOS/barrierc",
+              "  504   0.3  0.2 /Applications/Barrier.app/Contents/MacOS/barrier",
+              "  306   0.3  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+              "  512   0.1  0.4 /Applications/Tailscale.app/Contents/MacOS/Tailscale",
+              "  650   0.1  0.4 /Library/SystemExtensions/1DEC5DE6-3689-4BED-8BB0-479E7F574C73/io.tailscale.ipn.macsys.network-extension.systemextension/Contents/MacOS/io.tailscale.ipn.macsys.network-extension",
+              "17537   0.0  0.3 /Users/worker-1/.rustup/toolchains/1.89.0-aarch64-apple-darwin/bin/cargo",
+              " 3327   0.0  0.0 /bin/zsh",
+              "  353   0.0  0.0 /bin/zsh",
+              "63252   0.0  0.0 ugrep",
+              "63251   0.0  0.0 tail",
+              "63250   0.0  0.0 /bin/zsh",
+              "63091   0.0  0.0 /bin/zsh"
+            ],
+            "ratios": {
+              "pqFullOverTapeFull": null,
+              "pqRowsOverTapeRows": null,
+              "tapeRowsOverTapeFull": null
+            },
+            "reps": 3,
+            "results": {
+              "tape": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 6.646438,
+                "perMarketMs": [
+                  0.09775, 2.1692500000000003, 2.328958, 3.204958, 3.050208, 3.3487080000000002,
+                  3.5274170000000002, 3.770125, 3.7228339999999998, 3.7607920000000004, 4.196709,
+                  4.2995, 4.407375, 4.629917, 4.842125, 4.9177919999999995, 5.153792, 5.394792,
+                  5.42375, 5.506375, 5.663792, 6.270833, 6.077084, 6.675417, 6.3525409999999995,
+                  6.617459, 7.286, 7.782708, 7.031583, 7.508084, 7.555833, 7.478542, 7.69275,
+                  7.813624999999999, 8.298458, 8.408042, 9.31425, 9.165833, 8.982208, 9.701625,
+                  9.995292, 10.536708, 10.731208, 10.81125, 11.651458, 12.149125,
+                  12.900417000000001, 12.388417, 15.277959000000001, 19.033958
+                ],
+                "totalMs": {
+                  "max": 357.82391699999994,
+                  "median": 356.5525380000001,
+                  "min": 350.14570699999996,
+                  "reps": [356.5525380000001, 350.14570699999996, 357.82391699999994]
+                }
+              },
+              "tape-full": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 6.771687,
+                "perMarketMs": [
+                  0.084583, 2.191, 2.327792, 2.664708, 2.9511670000000003, 3.339125, 3.478583,
+                  3.631291, 3.689, 3.841667, 4.260541, 4.311125, 4.4345, 4.681208, 4.894667,
+                  4.990292, 5.1835830000000005, 5.403665999999999, 5.539667, 5.683709,
+                  5.6922500000000005, 5.999708, 6.085875, 6.787833, 6.436041, 6.755541,
+                  6.8462499999999995, 7.026333, 7.206375, 7.454917, 7.603042, 7.599959, 7.69025,
+                  7.981375000000001, 8.418, 8.431542, 9.063583, 9.228833, 9.169375,
+                  9.848958999999999, 10.122208, 10.691, 10.946292, 11.053833000000001, 11.707,
+                  12.255125, 13.158708, 12.794417000000001, 14.677709, 19.417208
+                ],
+                "totalMs": {
+                  "max": 357.87245700000005,
+                  "median": 356.130583,
+                  "min": 355.5710370000001,
+                  "reps": [357.87245700000005, 355.5710370000001, 356.130583]
+                }
+              },
+              "v1": {
+                "inputPath": "v1 (telonex-delta Parquet)",
+                "perMarketMedianMs": 54.9994165,
+                "perMarketMs": [
+                  0.45199999999999996, 15.708583, 18.265125, 21.204875, 24.665667, 26.091208,
+                  27.664417, 30.375, 30.429666, 32.601167000000004, 35.614541, 36.18775, 37.173125,
+                  39.718875000000004, 41.190458, 41.263625, 42.903999999999996, 45.047584,
+                  46.402041999999994, 47.543792, 48.598875, 50.958125, 51.8925, 53.045542,
+                  53.495208000000005, 57.119749999999996, 56.503625, 58.24875, 60.782125, 63.582417,
+                  65.12958400000001, 64.721625, 66.297792, 68.33416700000001, 70.177209, 70.776416,
+                  78.578125, 78.467625, 77.21975, 83.50183299999999, 85.054542, 89.569917,
+                  92.304334, 95.434083, 100.671125, 102.44945799999999, 111.591542,
+                  106.72095900000001, 123.24579200000001, 162.205709
+                ],
+                "totalMs": {
+                  "max": 2996.8255020000006,
+                  "median": 2987.500003,
+                  "min": 2986.5390450000004,
+                  "reps": [2987.500003, 2986.5390450000004, 2996.8255020000006]
+                }
+              }
+            },
+            "set": "smoke-50",
+            "speedupMedianTotal": 8.378849354874033
+          }
+        },
+        {
+          "seq": 3,
+          "set": "smoke-50",
+          "commit": "27d8518f",
+          "bench": {
+            "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+            "bytes": {
+              "m19": null,
+              "tape": 38774002,
+              "tapeFrames": 38732040,
+              "tapeOverV1": 0.39557487082962045,
+              "tapeRawColumns": 257891851,
+              "v1": 98019376
+            },
+            "conditions": {
+              "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+              "cacheBudget": "none: no in-process cache; OS page cache warmed by one discarded pass per configuration",
+              "canonicalBuild": false,
+              "chip": "Apple M4",
+              "dataRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data",
+              "effCores": "6",
+              "host": "Worker-1s-Mac-mini",
+              "label": "non-idle",
+              "lowPowerMode": "0",
+              "macos": "26.2 (25C56)",
+              "memBytes": "17179869184",
+              "modelConfig": {
+                "path": "native/contract/model-configs/ts-compat-default.json",
+                "sha256": "c4b1c5f98785746010139fb73a229068ab87f8c47cf647e5aedf64b03a0df797",
+                "usedByDecode": false
+              },
+              "perfCores": "4",
+              "power": "Now drawing from 'AC Power'",
+              "profile": "release (opt-level 3, debug false)",
+              "qos": {
+                "effective": "utility",
+                "effectivePri": 20,
+                "requested": "utility"
+              },
+              "rustc": "rustc 1.89.0 (29483883e 2025-08-04)",
+              "setManifest": {
+                "path": "native/bench/sets/smoke-50.json",
+                "sha256": "a48228eec3b440ad632a6a50041e71ebdaad660c202fba4e56dba77d6e0dedbc"
+              },
+              "tapeRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data/native-tapes",
+              "threads": 1
+            },
+            "firstRead": {
+              "bytes": 136793378,
+              "ms": 9.145374,
+              "note": "v1 + tape file reads of the source check, the first reads of the sitting; page cache not purged"
+            },
+            "loadAvgAfterPass": [
+              "{ 4.19 3.94 3.93 }",
+              "{ 4.19 3.94 3.93 }",
+              "{ 4.19 3.94 3.93 }",
+              "{ 4.19 3.94 3.93 }",
+              "{ 4.19 3.94 3.93 }",
+              "{ 4.02 3.91 3.92 }",
+              "{ 4.02 3.91 3.92 }",
+              "{ 4.02 3.91 3.92 }",
+              "{ 4.01 3.91 3.92 }"
+            ],
+            "loadAvgEnd": "{ 4.01 3.91 3.92 }",
+            "loadAvgStart": "{ 4.40 3.97 3.95 }",
+            "markets": 50,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1430,
+                "m19Bytes": null,
+                "rows": 588,
+                "slug": "btc-updown-15m-1765406700",
+                "tapeBytes": 6092,
+                "v1Bytes": 16329
+              },
+              {
+                "levels": 87580,
+                "m19Bytes": null,
+                "rows": 36456,
+                "slug": "btc-updown-15m-1765319400",
+                "tapeBytes": 232547,
+                "v1Bytes": 529695
+              },
+              {
+                "levels": 105386,
+                "m19Bytes": null,
+                "rows": 44127,
+                "slug": "btc-updown-15m-1765041300",
+                "tapeBytes": 257823,
+                "v1Bytes": 600210
+              },
+              {
+                "levels": 120906,
+                "m19Bytes": null,
+                "rows": 50452,
+                "slug": "btc-updown-15m-1765268100",
+                "tapeBytes": 301896,
+                "v1Bytes": 714745
+              },
+              {
+                "levels": 138610,
+                "m19Bytes": null,
+                "rows": 57471,
+                "slug": "btc-updown-15m-1771805700",
+                "tapeBytes": 343771,
+                "v1Bytes": 817583
+              },
+              {
+                "levels": 146320,
+                "m19Bytes": null,
+                "rows": 60787,
+                "slug": "btc-updown-15m-1766237400",
+                "tapeBytes": 373475,
+                "v1Bytes": 883019
+              },
+              {
+                "levels": 155822,
+                "m19Bytes": null,
+                "rows": 64674,
+                "slug": "btc-updown-15m-1771828200",
+                "tapeBytes": 389516,
+                "v1Bytes": 929486
+              },
+              {
+                "levels": 168736,
+                "m19Bytes": null,
+                "rows": 70233,
+                "slug": "btc-updown-15m-1771644600",
+                "tapeBytes": 421812,
+                "v1Bytes": 1016266
+              },
+              {
+                "levels": 174346,
+                "m19Bytes": null,
+                "rows": 72846,
+                "slug": "btc-updown-15m-1786606200",
+                "tapeBytes": 361696,
+                "v1Bytes": 909426
+              },
+              {
+                "levels": 178308,
+                "m19Bytes": null,
+                "rows": 74544,
+                "slug": "btc-updown-15m-1780234200",
+                "tapeBytes": 431884,
+                "v1Bytes": 1012149
+              },
+              {
+                "levels": 191798,
+                "m19Bytes": null,
+                "rows": 79791,
+                "slug": "btc-updown-15m-1771590600",
+                "tapeBytes": 490739,
+                "v1Bytes": 1174313
+              },
+              {
+                "levels": 196478,
+                "m19Bytes": null,
+                "rows": 82030,
+                "slug": "btc-updown-15m-1775716200",
+                "tapeBytes": 495175,
+                "v1Bytes": 1164060
+              },
+              {
+                "levels": 202778,
+                "m19Bytes": null,
+                "rows": 84631,
+                "slug": "btc-updown-15m-1775455200",
+                "tapeBytes": 507377,
+                "v1Bytes": 1212903
+              },
+              {
+                "levels": 216896,
+                "m19Bytes": null,
+                "rows": 89806,
+                "slug": "btc-updown-15m-1774006200",
+                "tapeBytes": 538340,
+                "v1Bytes": 1292462
+              },
+              {
+                "levels": 223244,
+                "m19Bytes": null,
+                "rows": 93333,
+                "slug": "btc-updown-15m-1772964000",
+                "tapeBytes": 540215,
+                "v1Bytes": 1330530
+              },
+              {
+                "levels": 228960,
+                "m19Bytes": null,
+                "rows": 95430,
+                "slug": "btc-updown-15m-1771650900",
+                "tapeBytes": 552937,
+                "v1Bytes": 1346651
+              },
+              {
+                "levels": 235462,
+                "m19Bytes": null,
+                "rows": 98423,
+                "slug": "btc-updown-15m-1782333000",
+                "tapeBytes": 601198,
+                "v1Bytes": 1418702
+              },
+              {
+                "levels": 248416,
+                "m19Bytes": null,
+                "rows": 103539,
+                "slug": "btc-updown-15m-1774863900",
+                "tapeBytes": 596373,
+                "v1Bytes": 1480621
+              },
+              {
+                "levels": 259397,
+                "m19Bytes": null,
+                "rows": 107466,
+                "slug": "btc-updown-15m-1782297900",
+                "tapeBytes": 593204,
+                "v1Bytes": 1466440
+              },
+              {
+                "levels": 260160,
+                "m19Bytes": null,
+                "rows": 108811,
+                "slug": "btc-updown-15m-1776412800",
+                "tapeBytes": 667780,
+                "v1Bytes": 1559997
+              },
+              {
+                "levels": 270096,
+                "m19Bytes": null,
+                "rows": 113408,
+                "slug": "btc-updown-15m-1785007800",
+                "tapeBytes": 580266,
+                "v1Bytes": 1491368
+              },
+              {
+                "levels": 278708,
+                "m19Bytes": null,
+                "rows": 116193,
+                "slug": "btc-updown-15m-1774527300",
+                "tapeBytes": 699711,
+                "v1Bytes": 1691378
+              },
+              {
+                "levels": 287016,
+                "m19Bytes": null,
+                "rows": 119239,
+                "slug": "btc-updown-15m-1771892100",
+                "tapeBytes": 701658,
+                "v1Bytes": 1734922
+              },
+              {
+                "levels": 291366,
+                "m19Bytes": null,
+                "rows": 121734,
+                "slug": "btc-updown-15m-1769572800",
+                "tapeBytes": 710056,
+                "v1Bytes": 1796630
+              },
+              {
+                "levels": 298558,
+                "m19Bytes": null,
+                "rows": 124580,
+                "slug": "btc-updown-15m-1776906000",
+                "tapeBytes": 653999,
+                "v1Bytes": 1701661
+              },
+              {
+                "levels": 310494,
+                "m19Bytes": null,
+                "rows": 128908,
+                "slug": "btc-updown-15m-1768162500",
+                "tapeBytes": 768637,
+                "v1Bytes": 1918441
+              },
+              {
+                "levels": 313808,
+                "m19Bytes": null,
+                "rows": 130682,
+                "slug": "btc-updown-15m-1778064300",
+                "tapeBytes": 773311,
+                "v1Bytes": 1879802
+              },
+              {
+                "levels": 326398,
+                "m19Bytes": null,
+                "rows": 136427,
+                "slug": "btc-updown-15m-1782405000",
+                "tapeBytes": 727403,
+                "v1Bytes": 1867533
+              },
+              {
+                "levels": 333750,
+                "m19Bytes": null,
+                "rows": 138284,
+                "slug": "btc-updown-15m-1771065000",
+                "tapeBytes": 792514,
+                "v1Bytes": 2039549
+              },
+              {
+                "levels": 344944,
+                "m19Bytes": null,
+                "rows": 143757,
+                "slug": "btc-updown-15m-1772748900",
+                "tapeBytes": 876494,
+                "v1Bytes": 2158302
+              },
+              {
+                "levels": 352052,
+                "m19Bytes": null,
+                "rows": 146447,
+                "slug": "btc-updown-15m-1769913000",
+                "tapeBytes": 856620,
+                "v1Bytes": 2219000
+              },
+              {
+                "levels": 360786,
+                "m19Bytes": null,
+                "rows": 150867,
+                "slug": "btc-updown-15m-1782285300",
+                "tapeBytes": 815608,
+                "v1Bytes": 2084457
+              },
+              {
+                "levels": 369158,
+                "m19Bytes": null,
+                "rows": 152605,
+                "slug": "btc-updown-15m-1780456500",
+                "tapeBytes": 835775,
+                "v1Bytes": 2072192
+              },
+              {
+                "levels": 376338,
+                "m19Bytes": null,
+                "rows": 157207,
+                "slug": "btc-updown-15m-1779174900",
+                "tapeBytes": 923085,
+                "v1Bytes": 2267422
+              },
+              {
+                "levels": 396536,
+                "m19Bytes": null,
+                "rows": 164196,
+                "slug": "btc-updown-15m-1787125500",
+                "tapeBytes": 849606,
+                "v1Bytes": 2199829
+              },
+              {
+                "levels": 390936,
+                "m19Bytes": null,
+                "rows": 165137,
+                "slug": "btc-updown-15m-1789429500",
+                "tapeBytes": 902775,
+                "v1Bytes": 2275604
+              },
+              {
+                "levels": 417594,
+                "m19Bytes": null,
+                "rows": 173387,
+                "slug": "btc-updown-15m-1770286500",
+                "tapeBytes": 1028374,
+                "v1Bytes": 2681909
+              },
+              {
+                "levels": 428244,
+                "m19Bytes": null,
+                "rows": 178755,
+                "slug": "btc-updown-15m-1772767800",
+                "tapeBytes": 1009991,
+                "v1Bytes": 2597698
+              },
+              {
+                "levels": 430674,
+                "m19Bytes": null,
+                "rows": 179876,
+                "slug": "btc-updown-15m-1781775900",
+                "tapeBytes": 951563,
+                "v1Bytes": 2452094
+              },
+              {
+                "levels": 455256,
+                "m19Bytes": null,
+                "rows": 189690,
+                "slug": "btc-updown-15m-1769003100",
+                "tapeBytes": 1093268,
+                "v1Bytes": 2797681
+              },
+              {
+                "levels": 465650,
+                "m19Bytes": null,
+                "rows": 195189,
+                "slug": "btc-updown-15m-1773100800",
+                "tapeBytes": 1143929,
+                "v1Bytes": 2859306
+              },
+              {
+                "levels": 492502,
+                "m19Bytes": null,
+                "rows": 204298,
+                "slug": "btc-updown-15m-1773046800",
+                "tapeBytes": 1162101,
+                "v1Bytes": 2995257
+              },
+              {
+                "levels": 507552,
+                "m19Bytes": null,
+                "rows": 212282,
+                "slug": "btc-updown-15m-1787409900",
+                "tapeBytes": 1180764,
+                "v1Bytes": 3032783
+              },
+              {
+                "levels": 514764,
+                "m19Bytes": null,
+                "rows": 213251,
+                "slug": "btc-updown-15m-1770645600",
+                "tapeBytes": 1285543,
+                "v1Bytes": 3296327
+              },
+              {
+                "levels": 547150,
+                "m19Bytes": null,
+                "rows": 227717,
+                "slug": "btc-updown-15m-1770870600",
+                "tapeBytes": 1302935,
+                "v1Bytes": 3425275
+              },
+              {
+                "levels": 573968,
+                "m19Bytes": null,
+                "rows": 239932,
+                "slug": "btc-updown-15m-1780744500",
+                "tapeBytes": 1262593,
+                "v1Bytes": 3218704
+              },
+              {
+                "levels": 602178,
+                "m19Bytes": null,
+                "rows": 249271,
+                "slug": "btc-updown-15m-1770912900",
+                "tapeBytes": 1452190,
+                "v1Bytes": 3865841
+              },
+              {
+                "levels": 620012,
+                "m19Bytes": null,
+                "rows": 259846,
+                "slug": "btc-updown-15m-1784361600",
+                "tapeBytes": 1141965,
+                "v1Bytes": 3133474
+              },
+              {
+                "levels": 682366,
+                "m19Bytes": null,
+                "rows": 283719,
+                "slug": "btc-updown-15m-1784813400",
+                "tapeBytes": 1566690,
+                "v1Bytes": 4051613
+              },
+              {
+                "levels": 916620,
+                "m19Bytes": null,
+                "rows": 378134,
+                "slug": "btc-updown-15m-1789136100",
+                "tapeBytes": 2020728,
+                "v1Bytes": 5337737
+              }
+            ],
+            "psEnd": [
+              "PID  %CPU %MEM COMM",
+              "17544  99.9  0.6 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "28929  99.3  2.3 native/target/prefix/bin/pmb-tape-27d8518f",
+              "29332  20.8  0.5 npm exec prettier --write src/strategy/artifacts/native/e2e.test.ts",
+              "  168   8.8  0.4 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow",
+              "76658   6.6  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "  137   4.4  0.1 /System/Library/CoreServices/launchservicesd",
+              "29330   2.4  0.0 /bin/zsh",
+              "  172   1.6  0.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer",
+              "  160   0.6  0.0 /usr/sbin/notifyd",
+              "  134   0.5  0.1 /usr/libexec/opendirectoryd",
+              "  159   0.5  0.2 /usr/sbin/bluetoothd",
+              "42643   0.5  0.1 /usr/libexec/trustd",
+              "   94   0.3  0.2 /usr/libexec/logd",
+              "67036   0.3  0.1 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService",
+              "    1   0.3  0.1 /sbin/launchd"
+            ],
+            "psStart": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.5 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "  206  55.7  0.2 /usr/libexec/airportd",
+              "  306   3.6  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+              "  468   2.6  0.1 /usr/libexec/wifip2pd",
+              "  142   1.9  0.1 /usr/libexec/locationd",
+              "76658   1.5  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "95063   1.0  2.4 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "   94   0.5  0.2 /usr/libexec/logd",
+              "    1   0.2  0.1 /sbin/launchd",
+              "51159   0.1  0.2 /usr/libexec/PerfPowerServices",
+              "28665   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28664   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28660   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28662   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28661   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd"
+            ],
+            "ratios": {
+              "pqFullOverTapeFull": null,
+              "pqRowsOverTapeRows": null,
+              "tapeRowsOverTapeFull": null
+            },
+            "reps": 3,
+            "results": {
+              "tape": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 6.481334,
+                "perMarketMs": [
+                  0.097625, 2.019209, 2.356625, 3.2775, 3.034916, 3.3050829999999998, 3.820208,
+                  3.6626250000000002, 3.687834, 3.7915, 4.553542, 4.302834, 4.393707999999999,
+                  4.6152500000000005, 4.8475, 4.842167, 5.129584, 5.323375, 5.3967920000000005,
+                  5.535583, 5.606042, 5.882833, 6.060208, 6.352709, 6.264292, 6.609959,
+                  7.2638750000000005, 7.988583, 7.142334, 7.703708, 7.984916999999999, 7.415167,
+                  7.594208, 7.95525, 8.436208, 8.272459, 8.891542000000001, 9.045666, 9.329875,
+                  9.712541, 10.679625, 10.532042, 10.83025, 11.121417, 12.013708,
+                  12.216166000000001, 13.182875000000001, 12.308875, 15.35225, 19.188541999999998
+                ],
+                "totalMs": {
+                  "max": 359.35183400000005,
+                  "median": 358.277582,
+                  "min": 353.060459,
+                  "reps": [358.277582, 353.060459, 359.35183400000005]
+                }
+              },
+              "tape-full": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 6.5897085,
+                "perMarketMs": [
+                  0.085042, 2.0379579999999997, 2.311875, 2.716417, 2.929916, 3.285541, 3.509583,
+                  3.7, 3.6830000000000003, 3.816375, 4.570209, 4.393249999999999, 4.474583,
+                  4.832459, 4.894333, 4.9975000000000005, 5.221958, 5.745542, 5.434708, 5.555625,
+                  5.6645, 6.122208, 6.1315420000000005, 6.341916, 6.424417, 6.755, 6.787584,
+                  6.91625, 7.116916, 7.544167, 7.907124999999999, 7.631041, 7.888375,
+                  7.950041999999999, 8.441458, 8.404917, 9.431333, 9.410292, 9.386000000000001,
+                  10.112375, 10.573875, 10.769834000000001, 11.039708000000001, 11.128834000000001,
+                  12.0215, 12.285208, 13.259208, 12.539208, 14.484834000000001, 19.608125
+                ],
+                "totalMs": {
+                  "max": 365.841085,
+                  "median": 357.75033399999995,
+                  "min": 357.34316400000006,
+                  "reps": [357.75033399999995, 357.34316400000006, 365.841085]
+                }
+              },
+              "v1": {
+                "inputPath": "v1 (telonex-delta Parquet)",
+                "perMarketMedianMs": 55.224229,
+                "perMarketMs": [
+                  0.453667, 16.270958, 18.479791, 21.419084, 24.824417, 26.230333, 27.890584,
+                  30.495333, 30.824875000000002, 32.385958, 35.585458, 36.402125, 37.0545,
+                  39.873833, 40.977624999999996, 41.317209, 42.804458, 45.031, 46.473667000000006,
+                  47.570417, 47.978958, 50.79825, 52.061917, 53.139584, 53.519458, 56.929,
+                  57.207833, 58.436042, 60.871500000000005, 63.929083, 64.97283399999999, 65.064166,
+                  66.174584, 68.733208, 70.215875, 71.064458, 78.524833, 78.701916, 76.950209,
+                  84.11141699999999, 85.29025, 90.142208, 92.98604200000001, 95.699875, 100.0935,
+                  103.08070799999999, 111.37162500000001, 106.301958, 122.99825, 162.092458
+                ],
+                "totalMs": {
+                  "max": 3309.299707000001,
+                  "median": 2987.532125,
+                  "min": 2980.443959,
+                  "reps": [3309.299707000001, 2980.443959, 2987.532125]
+                }
+              }
+            },
+            "set": "smoke-50",
+            "speedupMedianTotal": 8.33859631496564
+          }
+        },
+        {
+          "seq": 4,
+          "set": "smoke-50",
+          "commit": "e621c2f6",
+          "bench": {
+            "binarySha256": "1c2ee5c34c330bd7ab0e29f7d61f6d97d6e391883cb11f4dd651eb16d3e2c6d2",
+            "bytes": {
+              "tape": 38774002,
+              "tapeFrames": 38732040,
+              "tapeOverV1": 0.39557487082962045,
+              "tapeRawColumns": 257891851,
+              "v1": 98019376
+            },
+            "loadAvgAfterPass": [
+              "{ 3.93 3.89 3.92 }",
+              "{ 3.93 3.89 3.92 }",
+              "{ 3.93 3.89 3.92 }",
+              "{ 3.93 3.89 3.92 }",
+              "{ 3.93 3.89 3.92 }",
+              "{ 3.86 3.88 3.91 }",
+              "{ 3.86 3.88 3.91 }",
+              "{ 3.86 3.88 3.91 }",
+              "{ 3.86 3.88 3.91 }"
+            ],
+            "loadAvgEnd": "{ 3.86 3.88 3.91 }",
+            "loadAvgStart": "{ 4.01 3.91 3.92 }",
+            "markets": 50,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1430,
+                "rows": 588,
+                "slug": "btc-updown-15m-1765406700",
+                "tapeBytes": 6092,
+                "v1Bytes": 16329
+              },
+              {
+                "levels": 87580,
+                "rows": 36456,
+                "slug": "btc-updown-15m-1765319400",
+                "tapeBytes": 232547,
+                "v1Bytes": 529695
+              },
+              {
+                "levels": 105386,
+                "rows": 44127,
+                "slug": "btc-updown-15m-1765041300",
+                "tapeBytes": 257823,
+                "v1Bytes": 600210
+              },
+              {
+                "levels": 120906,
+                "rows": 50452,
+                "slug": "btc-updown-15m-1765268100",
+                "tapeBytes": 301896,
+                "v1Bytes": 714745
+              },
+              {
+                "levels": 138610,
+                "rows": 57471,
+                "slug": "btc-updown-15m-1771805700",
+                "tapeBytes": 343771,
+                "v1Bytes": 817583
+              },
+              {
+                "levels": 146320,
+                "rows": 60787,
+                "slug": "btc-updown-15m-1766237400",
+                "tapeBytes": 373475,
+                "v1Bytes": 883019
+              },
+              {
+                "levels": 155822,
+                "rows": 64674,
+                "slug": "btc-updown-15m-1771828200",
+                "tapeBytes": 389516,
+                "v1Bytes": 929486
+              },
+              {
+                "levels": 168736,
+                "rows": 70233,
+                "slug": "btc-updown-15m-1771644600",
+                "tapeBytes": 421812,
+                "v1Bytes": 1016266
+              },
+              {
+                "levels": 174346,
+                "rows": 72846,
+                "slug": "btc-updown-15m-1786606200",
+                "tapeBytes": 361696,
+                "v1Bytes": 909426
+              },
+              {
+                "levels": 178308,
+                "rows": 74544,
+                "slug": "btc-updown-15m-1780234200",
+                "tapeBytes": 431884,
+                "v1Bytes": 1012149
+              },
+              {
+                "levels": 191798,
+                "rows": 79791,
+                "slug": "btc-updown-15m-1771590600",
+                "tapeBytes": 490739,
+                "v1Bytes": 1174313
+              },
+              {
+                "levels": 196478,
+                "rows": 82030,
+                "slug": "btc-updown-15m-1775716200",
+                "tapeBytes": 495175,
+                "v1Bytes": 1164060
+              },
+              {
+                "levels": 202778,
+                "rows": 84631,
+                "slug": "btc-updown-15m-1775455200",
+                "tapeBytes": 507377,
+                "v1Bytes": 1212903
+              },
+              {
+                "levels": 216896,
+                "rows": 89806,
+                "slug": "btc-updown-15m-1774006200",
+                "tapeBytes": 538340,
+                "v1Bytes": 1292462
+              },
+              {
+                "levels": 223244,
+                "rows": 93333,
+                "slug": "btc-updown-15m-1772964000",
+                "tapeBytes": 540215,
+                "v1Bytes": 1330530
+              },
+              {
+                "levels": 228960,
+                "rows": 95430,
+                "slug": "btc-updown-15m-1771650900",
+                "tapeBytes": 552937,
+                "v1Bytes": 1346651
+              },
+              {
+                "levels": 235462,
+                "rows": 98423,
+                "slug": "btc-updown-15m-1782333000",
+                "tapeBytes": 601198,
+                "v1Bytes": 1418702
+              },
+              {
+                "levels": 248416,
+                "rows": 103539,
+                "slug": "btc-updown-15m-1774863900",
+                "tapeBytes": 596373,
+                "v1Bytes": 1480621
+              },
+              {
+                "levels": 259397,
+                "rows": 107466,
+                "slug": "btc-updown-15m-1782297900",
+                "tapeBytes": 593204,
+                "v1Bytes": 1466440
+              },
+              {
+                "levels": 260160,
+                "rows": 108811,
+                "slug": "btc-updown-15m-1776412800",
+                "tapeBytes": 667780,
+                "v1Bytes": 1559997
+              },
+              {
+                "levels": 270096,
+                "rows": 113408,
+                "slug": "btc-updown-15m-1785007800",
+                "tapeBytes": 580266,
+                "v1Bytes": 1491368
+              },
+              {
+                "levels": 278708,
+                "rows": 116193,
+                "slug": "btc-updown-15m-1774527300",
+                "tapeBytes": 699711,
+                "v1Bytes": 1691378
+              },
+              {
+                "levels": 287016,
+                "rows": 119239,
+                "slug": "btc-updown-15m-1771892100",
+                "tapeBytes": 701658,
+                "v1Bytes": 1734922
+              },
+              {
+                "levels": 291366,
+                "rows": 121734,
+                "slug": "btc-updown-15m-1769572800",
+                "tapeBytes": 710056,
+                "v1Bytes": 1796630
+              },
+              {
+                "levels": 298558,
+                "rows": 124580,
+                "slug": "btc-updown-15m-1776906000",
+                "tapeBytes": 653999,
+                "v1Bytes": 1701661
+              },
+              {
+                "levels": 310494,
+                "rows": 128908,
+                "slug": "btc-updown-15m-1768162500",
+                "tapeBytes": 768637,
+                "v1Bytes": 1918441
+              },
+              {
+                "levels": 313808,
+                "rows": 130682,
+                "slug": "btc-updown-15m-1778064300",
+                "tapeBytes": 773311,
+                "v1Bytes": 1879802
+              },
+              {
+                "levels": 326398,
+                "rows": 136427,
+                "slug": "btc-updown-15m-1782405000",
+                "tapeBytes": 727403,
+                "v1Bytes": 1867533
+              },
+              {
+                "levels": 333750,
+                "rows": 138284,
+                "slug": "btc-updown-15m-1771065000",
+                "tapeBytes": 792514,
+                "v1Bytes": 2039549
+              },
+              {
+                "levels": 344944,
+                "rows": 143757,
+                "slug": "btc-updown-15m-1772748900",
+                "tapeBytes": 876494,
+                "v1Bytes": 2158302
+              },
+              {
+                "levels": 352052,
+                "rows": 146447,
+                "slug": "btc-updown-15m-1769913000",
+                "tapeBytes": 856620,
+                "v1Bytes": 2219000
+              },
+              {
+                "levels": 360786,
+                "rows": 150867,
+                "slug": "btc-updown-15m-1782285300",
+                "tapeBytes": 815608,
+                "v1Bytes": 2084457
+              },
+              {
+                "levels": 369158,
+                "rows": 152605,
+                "slug": "btc-updown-15m-1780456500",
+                "tapeBytes": 835775,
+                "v1Bytes": 2072192
+              },
+              {
+                "levels": 376338,
+                "rows": 157207,
+                "slug": "btc-updown-15m-1779174900",
+                "tapeBytes": 923085,
+                "v1Bytes": 2267422
+              },
+              {
+                "levels": 396536,
+                "rows": 164196,
+                "slug": "btc-updown-15m-1787125500",
+                "tapeBytes": 849606,
+                "v1Bytes": 2199829
+              },
+              {
+                "levels": 390936,
+                "rows": 165137,
+                "slug": "btc-updown-15m-1789429500",
+                "tapeBytes": 902775,
+                "v1Bytes": 2275604
+              },
+              {
+                "levels": 417594,
+                "rows": 173387,
+                "slug": "btc-updown-15m-1770286500",
+                "tapeBytes": 1028374,
+                "v1Bytes": 2681909
+              },
+              {
+                "levels": 428244,
+                "rows": 178755,
+                "slug": "btc-updown-15m-1772767800",
+                "tapeBytes": 1009991,
+                "v1Bytes": 2597698
+              },
+              {
+                "levels": 430674,
+                "rows": 179876,
+                "slug": "btc-updown-15m-1781775900",
+                "tapeBytes": 951563,
+                "v1Bytes": 2452094
+              },
+              {
+                "levels": 455256,
+                "rows": 189690,
+                "slug": "btc-updown-15m-1769003100",
+                "tapeBytes": 1093268,
+                "v1Bytes": 2797681
+              },
+              {
+                "levels": 465650,
+                "rows": 195189,
+                "slug": "btc-updown-15m-1773100800",
+                "tapeBytes": 1143929,
+                "v1Bytes": 2859306
+              },
+              {
+                "levels": 492502,
+                "rows": 204298,
+                "slug": "btc-updown-15m-1773046800",
+                "tapeBytes": 1162101,
+                "v1Bytes": 2995257
+              },
+              {
+                "levels": 507552,
+                "rows": 212282,
+                "slug": "btc-updown-15m-1787409900",
+                "tapeBytes": 1180764,
+                "v1Bytes": 3032783
+              },
+              {
+                "levels": 514764,
+                "rows": 213251,
+                "slug": "btc-updown-15m-1770645600",
+                "tapeBytes": 1285543,
+                "v1Bytes": 3296327
+              },
+              {
+                "levels": 547150,
+                "rows": 227717,
+                "slug": "btc-updown-15m-1770870600",
+                "tapeBytes": 1302935,
+                "v1Bytes": 3425275
+              },
+              {
+                "levels": 573968,
+                "rows": 239932,
+                "slug": "btc-updown-15m-1780744500",
+                "tapeBytes": 1262593,
+                "v1Bytes": 3218704
+              },
+              {
+                "levels": 602178,
+                "rows": 249271,
+                "slug": "btc-updown-15m-1770912900",
+                "tapeBytes": 1452190,
+                "v1Bytes": 3865841
+              },
+              {
+                "levels": 620012,
+                "rows": 259846,
+                "slug": "btc-updown-15m-1784361600",
+                "tapeBytes": 1141965,
+                "v1Bytes": 3133474
+              },
+              {
+                "levels": 682366,
+                "rows": 283719,
+                "slug": "btc-updown-15m-1784813400",
+                "tapeBytes": 1566690,
+                "v1Bytes": 4051613
+              },
+              {
+                "levels": 916620,
+                "rows": 378134,
+                "slug": "btc-updown-15m-1789136100",
+                "tapeBytes": 2020728,
+                "v1Bytes": 5337737
+              }
+            ],
+            "reps": 3,
+            "results": {
+              "tape": {
+                "perMarketMedianMs": 6.6654585,
+                "perMarketMs": [
+                  0.1005, 1.952208, 2.561417, 2.6622500000000002, 2.97075, 3.2927500000000003,
+                  3.808625, 3.6996249999999997, 3.663042, 3.754042, 4.147083, 4.28425, 4.396917,
+                  4.6607080000000005, 4.883333, 4.884584, 5.119125, 5.393333, 5.554291, 5.576583,
+                  5.719958, 6.023208, 6.183916, 6.377458, 6.490583, 6.840334, 7.40775, 8.343375,
+                  7.195625, 7.926832999999999, 7.679791, 7.610542, 7.899750000000001,
+                  8.075584000000001, 8.453541, 8.445958, 8.997916, 9.408332999999999,
+                  9.086583000000001, 10.366083, 10.130500000000001, 10.90625, 11.114625, 11.209,
+                  12.142584, 12.389707999999999, 13.222249999999999, 12.718874999999999, 16.586875,
+                  19.721125
+                ],
+                "totalMs": {
+                  "max": 362.040373,
+                  "median": 361.38650199999995,
+                  "min": 359.96966299999997,
+                  "reps": [361.38650199999995, 359.96966299999997, 362.040373]
+                }
+              },
+              "tape-full": {
+                "perMarketMedianMs": 6.6291665,
+                "perMarketMs": [
+                  0.081, 2.048833, 2.330584, 2.632584, 2.9034999999999997, 3.359833, 3.439792,
+                  3.6138749999999997, 3.666084, 3.7775830000000004, 4.136375, 4.296041, 4.427959,
+                  4.694083, 4.887542, 4.930333999999999, 5.210959, 5.4337919999999995, 5.449542,
+                  5.649375, 5.701625, 6.062375, 6.1979169999999995, 6.560708, 6.469667,
+                  6.6976249999999995, 6.879625000000001, 7.088667, 7.197334, 7.572708,
+                  7.7601249999999995, 7.693959, 7.74625, 8.063417, 8.262625, 8.337625,
+                  9.110541999999999, 9.336, 9.219084, 9.916625, 10.235916, 10.623459,
+                  10.975375000000001, 10.998458, 11.674, 12.367583, 13.334875, 12.950625,
+                  15.033332999999999, 19.685333999999997
+                ],
+                "totalMs": {
+                  "max": 358.97687299999996,
+                  "median": 357.09933500000005,
+                  "min": 355.493254,
+                  "reps": [358.97687299999996, 355.493254, 357.09933500000005]
+                }
+              },
+              "v1": {
+                "perMarketMedianMs": 55.150437,
+                "perMarketMs": [
+                  0.475875, 15.786791000000001, 18.115166, 21.207416, 24.468500000000002,
+                  26.094167000000002, 27.624208, 30.431791999999998, 30.586125, 32.457542,
+                  35.219083, 36.475958000000006, 36.686749999999996, 39.442, 40.603542, 40.841958,
+                  42.530667, 45.224291, 46.082584000000004, 47.331667, 47.82575, 51.430499999999995,
+                  51.575416, 52.734, 53.771291, 56.806459, 56.529583, 57.912375000000004, 61.190417,
+                  63.204042, 64.679125, 65.111709, 65.68845800000001, 68.44749999999999, 69.29525,
+                  70.1835, 77.80125, 77.699292, 77.117875, 82.887083, 84.657708, 88.745583,
+                  92.064167, 94.88225, 99.674541, 101.654708, 110.866333, 105.494417, 122.0635,
+                  161.79025
+                ],
+                "totalMs": {
+                  "max": 2987.2811260000003,
+                  "median": 2978.676663,
+                  "min": 2960.9668299999994,
+                  "reps": [2960.9668299999994, 2987.2811260000003, 2978.676663]
+                }
+              }
+            },
+            "set": "smoke-50",
+            "speedupMedianTotal": 8.242357272657628
+          }
+        },
+        {
+          "seq": 5,
+          "set": "heavy-1",
+          "commit": "e621c2f6",
+          "bench": {
+            "binarySha256": "1c2ee5c34c330bd7ab0e29f7d61f6d97d6e391883cb11f4dd651eb16d3e2c6d2",
+            "bytes": {
+              "tape": 2519035,
+              "tapeFrames": 2517441,
+              "tapeOverV1": 0.39086723996168654,
+              "tapeRawColumns": 16195661,
+              "v1": 6444733
+            },
+            "loadAvgAfterPass": [
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }"
+            ],
+            "loadAvgEnd": "{ 3.79 3.86 3.91 }",
+            "loadAvgStart": "{ 3.86 3.88 3.91 }",
+            "markets": 1,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1075793,
+                "rows": 449314,
+                "slug": "btc-updown-15m-1780925400",
+                "tapeBytes": 2519035,
+                "v1Bytes": 6444733
+              }
+            ],
+            "reps": 3,
+            "results": {
+              "tape": {
+                "perMarketMedianMs": 25.391707999999998,
+                "perMarketMs": [25.391707999999998],
+                "totalMs": {
+                  "max": 25.399625,
+                  "median": 25.391707999999998,
+                  "min": 23.079666,
+                  "reps": [25.399625, 23.079666, 25.391707999999998]
+                }
+              },
+              "tape-full": {
+                "perMarketMedianMs": 25.050708,
+                "perMarketMs": [25.050708],
+                "totalMs": {
+                  "max": 25.930834,
+                  "median": 25.050708,
+                  "min": 23.412125,
+                  "reps": [25.930834, 23.412125, 25.050708]
+                }
+              },
+              "v1": {
+                "perMarketMedianMs": 194.43754099999998,
+                "perMarketMs": [194.43754099999998],
+                "totalMs": {
+                  "max": 195.22775000000001,
+                  "median": 194.43754099999998,
+                  "min": 194.194791,
+                  "reps": [194.43754099999998, 194.194791, 195.22775000000001]
+                }
+              }
+            },
+            "set": "heavy-1",
+            "speedupMedianTotal": 7.657521148242568
+          }
+        },
+        {
+          "seq": 6,
+          "set": "heavy-1",
+          "commit": "27d8518f",
+          "bench": {
+            "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+            "bytes": {
+              "m19": null,
+              "tape": 2519035,
+              "tapeFrames": 2517441,
+              "tapeOverV1": 0.39086723996168654,
+              "tapeRawColumns": 16195661,
+              "v1": 6444733
+            },
+            "conditions": {
+              "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+              "cacheBudget": "none: no in-process cache; OS page cache warmed by one discarded pass per configuration",
+              "canonicalBuild": false,
+              "chip": "Apple M4",
+              "dataRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data",
+              "effCores": "6",
+              "host": "Worker-1s-Mac-mini",
+              "label": "non-idle",
+              "lowPowerMode": "0",
+              "macos": "26.2 (25C56)",
+              "memBytes": "17179869184",
+              "modelConfig": {
+                "path": "native/contract/model-configs/ts-compat-default.json",
+                "sha256": "c4b1c5f98785746010139fb73a229068ab87f8c47cf647e5aedf64b03a0df797",
+                "usedByDecode": false
+              },
+              "perfCores": "4",
+              "power": "Now drawing from 'AC Power'",
+              "profile": "release (opt-level 3, debug false)",
+              "qos": {
+                "effective": "utility",
+                "effectivePri": 20,
+                "requested": "utility"
+              },
+              "rustc": "rustc 1.89.0 (29483883e 2025-08-04)",
+              "setManifest": {
+                "path": "native/bench/sets/heavy-1.json",
+                "sha256": "671aea469636de670c94d8763375ff83610502764f476e2f3929966833c8052c"
+              },
+              "tapeRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data/native-tapes",
+              "threads": 1
+            },
+            "firstRead": {
+              "bytes": 8963768,
+              "ms": 0.866708,
+              "note": "v1 + tape file reads of the source check, the first reads of the sitting; page cache not purged"
+            },
+            "loadAvgAfterPass": [
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }"
+            ],
+            "loadAvgEnd": "{ 3.79 3.86 3.91 }",
+            "loadAvgStart": "{ 3.79 3.86 3.91 }",
+            "markets": 1,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1075793,
+                "m19Bytes": null,
+                "rows": 449314,
+                "slug": "btc-updown-15m-1780925400",
+                "tapeBytes": 2519035,
+                "v1Bytes": 6444733
+              }
+            ],
+            "psEnd": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.3 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "30205  95.7  1.1 native/target/prefix/bin/pmb-tape-27d8518f",
+              "  650   1.3  0.4 /Library/SystemExtensions/1DEC5DE6-3689-4BED-8BB0-479E7F574C73/io.tailscale.ipn.macsys.network-extension.systemextension/Contents/MacOS/io.tailscale.ipn.macsys.network-extension",
+              "  299   1.0  0.1 /usr/libexec/searchpartyd",
+              "76658   0.5  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "51159   0.3  0.2 /usr/libexec/PerfPowerServices",
+              "  173   0.2  0.1 /usr/libexec/runningboardd",
+              "36989   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "36994   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  468   0.1  0.1 /usr/libexec/wifip2pd",
+              "  313   0.1  0.1 /opt/homebrew/opt/redis/bin/redis-server 0.0.0.0:6379",
+              "36956   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  187   0.1  0.1 /usr/sbin/mDNSResponder",
+              "  159   0.1  0.2 /usr/sbin/bluetoothd",
+              "  306   0.1  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+            ],
+            "psStart": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.3 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "76658   1.4  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "  306   0.8  0.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+              "  206   0.6  0.2 /usr/libexec/airportd",
+              "  650   0.1  0.4 /Library/SystemExtensions/1DEC5DE6-3689-4BED-8BB0-479E7F574C73/io.tailscale.ipn.macsys.network-extension.systemextension/Contents/MacOS/io.tailscale.ipn.macsys.network-extension",
+              "  313   0.1  0.1 /opt/homebrew/opt/redis/bin/redis-server 0.0.0.0:6379",
+              "  468   0.1  0.1 /usr/libexec/wifip2pd",
+              "29836   0.0  0.0 sleep",
+              "28663   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28668   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28667   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28666   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28665   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28664   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd",
+              "28660   0.0  0.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd"
+            ],
+            "ratios": {
+              "pqFullOverTapeFull": null,
+              "pqRowsOverTapeRows": null,
+              "tapeRowsOverTapeFull": null
+            },
+            "reps": 3,
+            "results": {
+              "tape": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 24.72575,
+                "perMarketMs": [24.72575],
+                "totalMs": {
+                  "max": 25.730875,
+                  "median": 24.72575,
+                  "min": 22.856042,
+                  "reps": [24.72575, 22.856042, 25.730875]
+                }
+              },
+              "tape-full": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 25.694666,
+                "perMarketMs": [25.694666],
+                "totalMs": {
+                  "max": 26.633125,
+                  "median": 25.694666,
+                  "min": 23.237875000000003,
+                  "reps": [25.694666, 23.237875000000003, 26.633125]
+                }
+              },
+              "v1": {
+                "inputPath": "v1 (telonex-delta Parquet)",
+                "perMarketMedianMs": 193.764375,
+                "perMarketMs": [193.764375],
+                "totalMs": {
+                  "max": 193.81495900000002,
+                  "median": 193.764375,
+                  "min": 193.659667,
+                  "reps": [193.81495900000002, 193.659667, 193.764375]
+                }
+              }
+            },
+            "set": "heavy-1",
+            "speedupMedianTotal": 7.836541864250831
+          }
+        },
+        {
+          "seq": 7,
+          "set": "heavy-1",
+          "commit": "27d8518f",
+          "bench": {
+            "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+            "bytes": {
+              "m19": null,
+              "tape": 2519035,
+              "tapeFrames": 2517441,
+              "tapeOverV1": 0.39086723996168654,
+              "tapeRawColumns": 16195661,
+              "v1": 6444733
+            },
+            "conditions": {
+              "binarySha256": "429cb1a6793875c31352495948a622f5ee4f11075aa12cda30f94d6d8a64a6a5",
+              "cacheBudget": "none: no in-process cache; OS page cache warmed by one discarded pass per configuration",
+              "canonicalBuild": false,
+              "chip": "Apple M4",
+              "dataRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data",
+              "effCores": "6",
+              "host": "Worker-1s-Mac-mini",
+              "label": "non-idle",
+              "lowPowerMode": "0",
+              "macos": "26.2 (25C56)",
+              "memBytes": "17179869184",
+              "modelConfig": {
+                "path": "native/contract/model-configs/ts-compat-default.json",
+                "sha256": "c4b1c5f98785746010139fb73a229068ab87f8c47cf647e5aedf64b03a0df797",
+                "usedByDecode": false
+              },
+              "perfCores": "4",
+              "power": "Now drawing from 'AC Power'",
+              "profile": "release (opt-level 3, debug false)",
+              "qos": {
+                "effective": "utility",
+                "effectivePri": 20,
+                "requested": "utility"
+              },
+              "rustc": "rustc 1.89.0 (29483883e 2025-08-04)",
+              "setManifest": {
+                "path": "native/bench/sets/heavy-1.json",
+                "sha256": "671aea469636de670c94d8763375ff83610502764f476e2f3929966833c8052c"
+              },
+              "tapeRoot": "/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-tape/data/native-tapes",
+              "threads": 1
+            },
+            "firstRead": {
+              "bytes": 8963768,
+              "ms": 0.8662080000000001,
+              "note": "v1 + tape file reads of the source check, the first reads of the sitting; page cache not purged"
+            },
+            "loadAvgAfterPass": [
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }"
+            ],
+            "loadAvgEnd": "{ 3.79 3.86 3.91 }",
+            "loadAvgStart": "{ 3.79 3.86 3.91 }",
+            "markets": 1,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1075793,
+                "m19Bytes": null,
+                "rows": 449314,
+                "slug": "btc-updown-15m-1780925400",
+                "tapeBytes": 2519035,
+                "v1Bytes": 6444733
+              }
+            ],
+            "psEnd": [
+              "PID  %CPU %MEM COMM",
+              "17544  98.9  0.3 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "30411  96.0  1.1 native/target/prefix/bin/pmb-tape-27d8518f",
+              "30601  30.7  0.5 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "30571  14.7  0.4 npm exec tsx --test --test-name-pattern syncLock src/strategy/artifacts/native/e2e.test.ts",
+              "30591   5.8  0.3 node",
+              "30600   5.7  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  137   3.0  0.1 /System/Library/CoreServices/launchservicesd",
+              "30729   2.5  0.1 (cargo)",
+              "  240   1.7  0.2 /usr/libexec/syspolicyd",
+              "76658   1.4  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "  160   1.3  0.0 /usr/sbin/notifyd",
+              "   94   1.0  0.2 /usr/libexec/logd",
+              "   98   0.9  0.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd",
+              "  462   0.9  0.0 /usr/sbin/cfprefsd",
+              "30602   0.8  0.1 /Users/worker-1/Sites/polymarket-bot/node_modules/tsx/node_modules/@esbuild/darwin-arm64/bin/esbuild"
+            ],
+            "psStart": [
+              "PID  %CPU %MEM COMM",
+              "17544 100.0  0.3 /Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/ws-bench/native/target/release/deps/decode-8da0987496b03264",
+              "  650   1.3  0.4 /Library/SystemExtensions/1DEC5DE6-3689-4BED-8BB0-479E7F574C73/io.tailscale.ipn.macsys.network-extension.systemextension/Contents/MacOS/io.tailscale.ipn.macsys.network-extension",
+              "  299   1.0  0.1 /usr/libexec/searchpartyd",
+              "76658   0.5  4.0 /Users/worker-1/.claude/remote/ccd-cli/2.1.293",
+              "51159   0.3  0.2 /usr/libexec/PerfPowerServices",
+              "  173   0.2  0.1 /usr/libexec/runningboardd",
+              "60216   0.1  0.0 sshd-session: worker-1@notty",
+              "  187   0.1  0.1 /usr/sbin/mDNSResponder",
+              "36994   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  159   0.1  0.2 /usr/sbin/bluetoothd",
+              "36956   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  468   0.1  0.1 /usr/libexec/wifip2pd",
+              "36990   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node",
+              "  313   0.1  0.1 /opt/homebrew/opt/redis/bin/redis-server 0.0.0.0:6379",
+              "36989   0.1  0.3 /Users/worker-1/.nvm/versions/node/v20.20.2/bin/node"
+            ],
+            "ratios": {
+              "pqFullOverTapeFull": null,
+              "pqRowsOverTapeRows": null,
+              "tapeRowsOverTapeFull": null
+            },
+            "reps": 3,
+            "results": {
+              "tape": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 27.127583,
+                "perMarketMs": [27.127583],
+                "totalMs": {
+                  "max": 29.347833,
+                  "median": 27.127583,
+                  "min": 25.516542,
+                  "reps": [25.516542, 29.347833, 27.127583]
+                }
+              },
+              "tape-full": {
+                "inputPath": "tape (pmb-tape v1)",
+                "perMarketMedianMs": 25.821375,
+                "perMarketMs": [25.821375],
+                "totalMs": {
+                  "max": 27.708125,
+                  "median": 25.821375,
+                  "min": 23.983667,
+                  "reps": [25.821375, 23.983667, 27.708125]
+                }
+              },
+              "v1": {
+                "inputPath": "v1 (telonex-delta Parquet)",
+                "perMarketMedianMs": 207.962791,
+                "perMarketMs": [207.962791],
+                "totalMs": {
+                  "max": 208.055959,
+                  "median": 207.962791,
+                  "min": 202.50758299999998,
+                  "reps": [202.50758299999998, 208.055959, 207.962791]
+                }
+              }
+            },
+            "set": "heavy-1",
+            "speedupMedianTotal": 7.666100993958806
+          }
+        },
+        {
+          "seq": 8,
+          "set": "heavy-1",
+          "commit": "e621c2f6",
+          "bench": {
+            "binarySha256": "1c2ee5c34c330bd7ab0e29f7d61f6d97d6e391883cb11f4dd651eb16d3e2c6d2",
+            "bytes": {
+              "tape": 2519035,
+              "tapeFrames": 2517441,
+              "tapeOverV1": 0.39086723996168654,
+              "tapeRawColumns": 16195661,
+              "v1": 6444733
+            },
+            "loadAvgAfterPass": [
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }",
+              "{ 3.79 3.86 3.91 }"
+            ],
+            "loadAvgEnd": "{ 3.79 3.86 3.91 }",
+            "loadAvgStart": "{ 3.79 3.86 3.91 }",
+            "markets": 1,
+            "order": [
+              "v1",
+              "tape",
+              "tape-full",
+              "tape-full",
+              "tape",
+              "v1",
+              "v1",
+              "tape",
+              "tape-full"
+            ],
+            "perMarket": [
+              {
+                "levels": 1075793,
+                "rows": 449314,
+                "slug": "btc-updown-15m-1780925400",
+                "tapeBytes": 2519035,
+                "v1Bytes": 6444733
+              }
+            ],
+            "reps": 3,
+            "results": {
+              "tape": {
+                "perMarketMedianMs": 25.87175,
+                "perMarketMs": [25.87175],
+                "totalMs": {
+                  "max": 26.41425,
+                  "median": 25.87175,
+                  "min": 23.173167000000003,
+                  "reps": [25.87175, 23.173167000000003, 26.41425]
+                }
+              },
+              "tape-full": {
+                "perMarketMedianMs": 25.620458,
+                "perMarketMs": [25.620458],
+                "totalMs": {
+                  "max": 27.1695,
+                  "median": 25.620458,
+                  "min": 23.652791,
+                  "reps": [27.1695, 23.652791, 25.620458]
+                }
+              },
+              "v1": {
+                "perMarketMedianMs": 193.49225,
+                "perMarketMs": [193.49225],
+                "totalMs": {
+                  "max": 196.602583,
+                  "median": 193.49225,
+                  "min": 193.480417,
+                  "reps": [193.49225, 193.480417, 196.602583]
+                }
+              }
+            },
+            "set": "heavy-1",
+            "speedupMedianTotal": 7.478900731492845
+          }
+        }
+      ]
     }
   },
   "conversion": {
