@@ -4,9 +4,10 @@
 //! pmb_sdk::prelude::*;` brings in the curated surface (§3); nothing of the
 //! engine core is glob re-exported. This revision holds the parts that do
 //! not depend on the engine: values and their compile-time macros (§6),
-//! intent meta (§7.2) and params (§9). The strategy trait, context,
-//! intents, events, requirements and the runtime entry point are added with
-//! the engine.
+//! intent meta (§7.2), params (§9), deterministic [`collections`] and
+//! [`math`] (§11), and the pure [`toolkit`] helpers (§14). The strategy
+//! trait, context, intents, events, requirements, logging and the runtime
+//! entry point are added with the engine.
 //!
 //! ```
 //! use pmb_sdk::prelude::*;
