@@ -23,7 +23,7 @@ use pmb_tape::codec::{Decoder, EncodeOptions};
 use pmb_tape::compare::{digest, first_difference};
 use pmb_tape::manifest::{Manifest, Market};
 use pmb_tape::store::{
-    self, hex, sha256, Budget, ConvertOptions, ConvertOutcome, DEFAULT_CAP_BYTES,
+    self, hex, sha256, Budget, ConvertOptions, ConvertOutcome, MarketKey, DEFAULT_CAP_BYTES,
     DEFAULT_MIN_FREE_BYTES,
 };
 use pmb_tape::{
@@ -103,7 +103,14 @@ fn tool_sha() -> Result<[u8; 32]> {
 }
 
 fn market_tape(m: &Manifest, mk: &Market, tape_root: &Path) -> Result<PathBuf> {
-    tape_path(tape_root, &m.symbol, &m.timeframe, &mk.slug).map_err(anyhow::Error::msg)
+    let key = MarketKey {
+        format: &m.format.name,
+        format_version: m.format.version,
+        symbol: &m.symbol,
+        timeframe: &m.timeframe,
+        slug: &mk.slug,
+    };
+    tape_path(tape_root, &key).map_err(anyhow::Error::msg)
 }
 
 fn input<'a>(mk: &'a Market) -> TelonexInput<'a> {
@@ -224,6 +231,13 @@ fn convert(a: &Args) -> Result<()> {
             ConvertOutcome::Unconvertible(u) => {
                 other += 1;
                 println!("  v1-only {} ({}): {u}", mk.slug, u.label());
+            }
+            ConvertOutcome::NewerFormat(v) => {
+                other += 1;
+                println!(
+                    "  newer   {}: tape format v{v} at the path is newer than this tool's; left alone",
+                    mk.slug
+                );
             }
             ConvertOutcome::Raced => {
                 other += 1;

@@ -15,8 +15,6 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-/// Directory under the tape root for telonex-delta-typed v1 inputs.
-pub const TAPE_DIR: &str = "telonex-delta-typed-v1";
 /// Tape file extension.
 pub const TAPE_EXT: &str = "pmbtape";
 /// Per-host cap on worker-1 (NT-7, gate 1).
@@ -24,15 +22,28 @@ pub const DEFAULT_CAP_BYTES: u64 = 40_000_000_000;
 /// Free-disk floor kept for fleet data sync and builds (NT-7).
 pub const DEFAULT_MIN_FREE_BYTES: u64 = 10_000_000_000;
 
-/// Tape path of a market input (format, symbol, timeframe, slug) under a tape
-/// root (NT-5). Every component must be a plain name.
-pub fn tape_path(
-    tape_root: &Path,
-    symbol: &str,
-    timeframe: &str,
-    slug: &str,
-) -> Result<PathBuf, String> {
-    for (what, v) in [("symbol", symbol), ("timeframe", timeframe), ("slug", slug)] {
+/// The job input a tape is derived from (NT-5): the input format named by
+/// the job (15 I-13) and the market's symbol, timeframe and slug.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MarketKey<'a> {
+    pub format: &'a str,
+    pub format_version: u32,
+    pub symbol: &'a str,
+    pub timeframe: &'a str,
+    pub slug: &'a str,
+}
+
+/// Tape path of a market input under a tape root (NT-1, NT-5):
+/// `<root>/<format>-v<format_version>/tape-v<tape format>/<symbol>/<timeframe>/<slug>.pmbtape`.
+/// Tapes of different tape format versions, or of different input formats,
+/// never share a path. Every component must be a plain name.
+pub fn tape_path(tape_root: &Path, key: &MarketKey<'_>) -> Result<PathBuf, String> {
+    for (what, v) in [
+        ("format", key.format),
+        ("symbol", key.symbol),
+        ("timeframe", key.timeframe),
+        ("slug", key.slug),
+    ] {
         let plain = !v.is_empty()
             && v != "."
             && v != ".."
@@ -43,10 +54,11 @@ pub fn tape_path(
         }
     }
     Ok(tape_root
-        .join(TAPE_DIR)
-        .join(symbol)
-        .join(timeframe)
-        .join(format!("{slug}.{TAPE_EXT}")))
+        .join(format!("{}-v{}", key.format, key.format_version))
+        .join(format!("tape-v{}", codec::FORMAT_VERSION))
+        .join(key.symbol)
+        .join(key.timeframe)
+        .join(format!("{}.{TAPE_EXT}", key.slug)))
 }
 
 /// `(bytes, mtime_ns)` of a file, from `stat`.
@@ -471,6 +483,9 @@ pub enum ConvertOutcome {
     SkippedValid {
         tape_bytes: u64,
     },
+    /// The file at the tape path has a newer tape format than this tool
+    /// writes; it is left alone.
+    NewerFormat(u32),
     /// The file stays on the v1 path (NT-2).
     Unconvertible(Unconvertible),
     /// The v1 file changed while it was converted; nothing written.
@@ -498,10 +513,18 @@ pub fn convert_one(
 ) -> anyhow::Result<ConvertOutcome> {
     use anyhow::{bail, Context};
     let existing = fs::metadata(tape).map(|m| m.len()).unwrap_or(0);
-    if existing > 0 && load_tape(decoder, tape, v1, None).is_ok() {
-        return Ok(ConvertOutcome::SkippedValid {
-            tape_bytes: existing,
-        });
+    if existing > 0 {
+        match load_tape(decoder, tape, v1, None) {
+            Ok(_) => {
+                return Ok(ConvertOutcome::SkippedValid {
+                    tape_bytes: existing,
+                })
+            }
+            Err(Fallback::Invalid(TapeError::Version(v))) if v > codec::FORMAT_VERSION => {
+                return Ok(ConvertOutcome::NewerFormat(v))
+            }
+            Err(_) => {}
+        }
     }
     let before = stat_identity(v1).with_context(|| format!("stat {}", v1.display()))?;
     let data = fs::read(v1).with_context(|| format!("read {}", v1.display()))?;

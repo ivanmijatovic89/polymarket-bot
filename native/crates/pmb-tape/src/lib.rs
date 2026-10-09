@@ -23,6 +23,7 @@ pub use codec::{Decoder, EncodeOptions, TapeError, TapeHeader, V1Identity};
 pub use replay::{replay, ReplayStream, Replayer};
 pub use store::{
     convert_one, load_tape, read_tape_stream, tape_path, ConvertOptions, ConvertOutcome, Fallback,
+    MarketKey,
 };
 pub use typed::{TypedRows, Unconvertible};
 

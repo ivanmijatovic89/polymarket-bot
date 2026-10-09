@@ -32,7 +32,14 @@ fn fixture_tape_stream_equals_v1_stream() {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(format!("pmb-tape-fixture-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    let tape = store::tape_path(&root, "btc", "15m", "telonex-mini").unwrap();
+    let key = store::MarketKey {
+        format: "telonex-delta-typed",
+        format_version: 1,
+        symbol: "btc",
+        timeframe: "15m",
+        slug: "telonex-mini",
+    };
+    let tape = store::tape_path(&root, &key).unwrap();
     let mut budget = Budget::new(&root, u64::MAX, 0).unwrap();
     let mut decoder = Decoder::new().unwrap();
     let opts = ConvertOptions {

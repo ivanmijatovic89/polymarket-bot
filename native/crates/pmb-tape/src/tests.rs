@@ -289,6 +289,21 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
+fn key(slug: &str) -> store::MarketKey<'_> {
+    store::MarketKey {
+        format: "telonex-delta-typed",
+        format_version: 1,
+        symbol: "btc",
+        timeframe: "15m",
+        slug,
+    }
+}
+
+/// The tape root of a tape at its derived path.
+fn root_of(tape: &Path) -> PathBuf {
+    tape.ancestors().nth(5).unwrap().to_path_buf()
+}
+
 fn input() -> TelonexInput<'static> {
     TelonexInput {
         format_version: 1,
@@ -641,7 +656,7 @@ fn converted(name: &str) -> (PathBuf, PathBuf, Decoder) {
     let dir = scratch(name);
     let v1 = dir.join("m.parquet");
     write_v1(&v1, &synthetic_rows(), 5);
-    let tape = store::tape_path(&dir.join("tapes"), "btc", "15m", "m").unwrap();
+    let tape = store::tape_path(&dir.join("tapes"), &key("m")).unwrap();
     let mut dec = Decoder::new().unwrap();
     let out = convert_one(
         &v1,
@@ -673,16 +688,7 @@ fn valid_tape_is_used_and_skipped_on_reconvert() {
     let sha = identity(&v1).sha256;
     let (_, path) = read_market(&v1, Some(&tape), Some(&sha), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
-    let root = tape
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut budget(root), &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, &opts(), &mut budget(&root_of(&tape)), &mut dec).unwrap();
     assert!(
         matches!(out, ConvertOutcome::SkippedValid { .. }),
         "{out:?}"
@@ -751,7 +757,7 @@ fn stale_tape_falls_back_and_is_rebuilt() {
         .unwrap();
     drop(f);
     assert_fallback(&v1, &tape, &mut dec, "stale");
-    let root = tape.ancestors().nth(4).unwrap().to_path_buf();
+    let root = root_of(&tape);
     let out = convert_one(&v1, &tape, &opts(), &mut budget(&root), &mut dec).unwrap();
     assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
     let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
@@ -811,7 +817,7 @@ fn cap_and_free_disk_floor_stop_conversion() {
     let v1 = dir.join("m.parquet");
     write_v1(&v1, &synthetic_rows(), 5);
     let root = dir.join("tapes");
-    let tape = store::tape_path(&root, "btc", "15m", "m").unwrap();
+    let tape = store::tape_path(&root, &key("m")).unwrap();
     let mut dec = Decoder::new().unwrap();
     let mut cap = Budget::new(&root, 10, 0).unwrap();
     let out = convert_one(&v1, &tape, &opts(), &mut cap, &mut dec).unwrap();
@@ -831,18 +837,41 @@ fn cap_and_free_disk_floor_stop_conversion() {
 }
 
 #[test]
-fn tape_paths_are_plain() {
+fn tape_paths_are_plain_and_versioned() {
     let root = Path::new("/tapes");
     assert_eq!(
-        store::tape_path(root, "btc", "15m", "btc-updown-15m-1").unwrap(),
-        Path::new("/tapes/telonex-delta-typed-v1/btc/15m/btc-updown-15m-1.pmbtape")
+        store::tape_path(root, &key("btc-updown-15m-1")).unwrap(),
+        Path::new("/tapes/telonex-delta-typed-v1/tape-v1/btc/15m/btc-updown-15m-1.pmbtape")
+    );
+    // The input format comes from the job, not a constant.
+    let v2 = store::MarketKey {
+        format_version: 2,
+        ..key("m")
+    };
+    assert_eq!(
+        store::tape_path(root, &v2).unwrap(),
+        Path::new("/tapes/telonex-delta-typed-v2/tape-v1/btc/15m/m.pmbtape")
     );
     for bad in ["", "..", "a/b", "x y"] {
-        assert!(
-            store::tape_path(root, "btc", "15m", bad).is_err(),
-            "{bad:?}"
-        );
+        assert!(store::tape_path(root, &key(bad)).is_err(), "{bad:?}");
+        let k = store::MarketKey {
+            format: bad,
+            ..key("m")
+        };
+        assert!(store::tape_path(root, &k).is_err(), "format {bad:?}");
     }
+}
+
+#[test]
+fn newer_tape_format_is_not_overwritten() {
+    let (v1, tape, mut dec) = converted("newer");
+    let mut newer = std::fs::read(&tape).unwrap();
+    newer[8..12].copy_from_slice(&(codec::FORMAT_VERSION + 1).to_le_bytes());
+    std::fs::write(&tape, &newer).unwrap();
+    let out = convert_one(&v1, &tape, &opts(), &mut budget(&root_of(&tape)), &mut dec).unwrap();
+    assert_eq!(out, ConvertOutcome::NewerFormat(codec::FORMAT_VERSION + 1));
+    assert_eq!(std::fs::read(&tape).unwrap(), newer, "left alone");
+    assert_fallback(&v1, &tape, &mut dec, "version");
 }
 
 /// Committed CI fixture: a slice of a real market plus crafted anomaly rows.
@@ -1077,7 +1106,7 @@ fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
         // Executor path: block-streamed read falls back to v1.
         assert_fallback(&v1, &tape, &mut dec, "invalid");
         // The converter rewrites it instead of panicking.
-        let root = tape.ancestors().nth(4).unwrap().to_path_buf();
+        let root = root_of(&tape);
         let out = convert_one(&v1, &tape, &opts(), &mut budget(&root), &mut dec).unwrap();
         assert!(
             matches!(out, ConvertOutcome::Written { .. }),
