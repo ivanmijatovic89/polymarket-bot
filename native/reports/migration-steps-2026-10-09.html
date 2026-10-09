@@ -1,0 +1,246 @@
+<title>Rust Migration, Step by Step</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a step scrubber at the top drives one system picture; everything else explains the selected step. */
+:root{--bg:#f7f5f1;--fg:#1c1a17;--muted:#6d675e;--line:#dcd6cb;--card:#fffdf9;
+ --rust:#b7410e;--rust-soft:#f3d6c6;--ts:#2f5f8f;--ts-soft:#d6e4f1;--gold:#2e7d5b;--gold-soft:#cfe8da;--gone:#8a847a;--gone-soft:#e6e1d8;--glow:rgba(183,65,14,.28);
+ --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--fg:#ebe6de;--muted:#a49d91;--line:#39352f;--card:#1f1d1a;--rust:#ea7a40;--rust-soft:#4b2a17;--ts:#83b3e2;--ts-soft:#1f3346;--gold:#6fc69c;--gold-soft:#1c3a2c;--gone:#9a9389;--gone-soft:#2d2a26;--glow:rgba(234,122,64,.35);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161513;--fg:#ebe6de;--muted:#a49d91;--line:#39352f;--card:#1f1d1a;--rust:#ea7a40;--rust-soft:#4b2a17;--ts:#83b3e2;--ts-soft:#1f3346;--gold:#6fc69c;--gold-soft:#1c3a2c;--gone:#9a9389;--gone-soft:#2d2a26;--glow:rgba(234,122,64,.35);color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.5;margin:0;padding-block:28px 80px;padding-inline:clamp(16px,4vw,48px)}
+main{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.5vw,42px);font-weight:600}
+h2{font-size:22px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+p{margin:0;max-width:70ch}
+.lede{color:var(--muted)}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13.5px;color:var(--muted);align-items:center}
+.key{display:inline-block;width:26px;height:16px;border-radius:3px;vertical-align:-3px;margin-right:7px;border:1.5px solid transparent}
+.key.now{background:var(--rust);box-shadow:0 0 0 3px var(--glow)}
+.key.done{background:var(--rust)}
+.key.later{background:transparent;border:1.5px dashed var(--rust)}
+.key.ts{background:var(--ts-soft);border-color:var(--ts)}
+.key.gone{background:var(--gone-soft);border-color:var(--gone);position:relative}
+.key.gone::after{content:"";position:absolute;left:3px;right:3px;top:50%;border-top:1.5px solid var(--gone);transform:rotate(-20deg)}
+/* scrubber */
+.scrub{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--bg);padding-block:10px 12px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.steps{display:grid;grid-template-columns:repeat(10,1fr);gap:6px}
+.steps button{font:inherit;font-family:var(--font-mono);font-size:13px;padding:10px 4px;border:1.5px solid var(--line);border-radius:4px;background:var(--card);color:var(--fg);cursor:pointer;display:grid;gap:2px;justify-items:center}
+.steps button .nm{font-family:var(--font-body);font-size:11px;color:var(--muted);line-height:1.2;text-align:center}
+.steps button.done{border-color:var(--gold)}
+.steps button.sel{border-color:var(--rust);background:var(--rust);color:#fff}
+.steps button.sel .nm{color:#fff}
+.steps button.rm{border-style:dashed}
+.steps button:focus-visible{outline:2px solid var(--rust);outline-offset:2px}
+.nav{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.nav .btns{display:flex;gap:8px}
+.nav button{font:inherit;padding:6px 14px;border:1.5px solid var(--line);border-radius:4px;background:var(--card);color:var(--fg);cursor:pointer}
+.nav .title{font-weight:600;font-size:17px}
+.nav .state{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.05em;padding:3px 8px;border-radius:3px;border:1px solid var(--line)}
+.nav .state.defined{color:var(--rust);border-color:var(--rust)}.nav .state.done{color:var(--gold);border-color:var(--gold)}.nav .state.after{color:var(--rust)}.nav .state.rm{color:var(--muted)}
+/* picture */
+.pic{border:1px solid var(--line);border-radius:6px;background:var(--card);padding:14px;overflow-x:auto}
+svg.sys{display:block;min-width:920px;width:100%;height:auto;font-family:var(--font-body)}
+svg.sys text{fill:var(--fg)}
+.lane-h{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;fill:var(--muted)}
+.lane-bg{fill:none;stroke:var(--line);stroke-dasharray:3 4}
+.bx{transition:fill .25s,stroke .25s,opacity .25s}
+.bx.now{fill:var(--rust);stroke:var(--rust);stroke-width:2;filter:drop-shadow(0 0 6px var(--glow))}
+.bx.done{fill:var(--rust);stroke:var(--rust)}
+.bx.later{fill:var(--card);stroke:var(--rust);stroke-dasharray:4 3;stroke-width:1.5}
+.bx.ts{fill:var(--ts-soft);stroke:var(--ts);stroke-width:1.5}
+.bx.gone{fill:var(--gone-soft);stroke:var(--gone);stroke-width:1.5}
+.bx.ghost{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+text.lb{font-size:13px;font-weight:500}
+text.sb{font-size:11px;font-family:var(--font-mono)}
+.on-fill text.lb,.on-fill text.sb{fill:#fff}
+.on-fill text.sb{fill:rgba(255,255,255,.85)}
+.muted-t text.lb,.muted-t text.sb{fill:var(--muted)}
+line.strike{stroke:var(--gone);stroke-width:2}
+.arrow{stroke:var(--muted);stroke-width:1.5;fill:none;marker-end:url(#ah)}
+.seam{stroke:var(--ts);stroke-width:2;stroke-dasharray:6 4;fill:none}
+text.seam-t{font-family:var(--font-mono);font-size:11px;fill:var(--ts)}
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--card);padding:16px;display:grid;gap:10px;min-width:0}
+.card h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14.5px}
+.card .you{font-size:15px;border-left:3px solid var(--rust);padding-left:10px}
+.card .gate{font-family:var(--font-mono);font-size:12px;color:var(--rust);border-top:1px dashed var(--line);padding-top:8px}
+.card .none{color:var(--muted);font-size:14px}
+.prog{display:grid;gap:8px}
+.prog .track{height:22px;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--card);display:flex}
+.prog .fill{background:var(--rust);height:100%;transition:width .3s}
+.prog .fill.this{background:var(--rust);opacity:.45}
+.prog .lab{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mods{font-family:var(--font-mono);font-size:12px;color:var(--muted);display:grid;gap:3px}
+.mods span b{color:var(--fg);font-weight:500}
+/* end state */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.steps{grid-template-columns:repeat(5,1fr)}.steps button .nm{display:none}}
+.remember{border-left:3px solid var(--rust);padding:12px 16px;background:var(--card);display:grid;gap:8px;max-width:80ch;font-size:15px}
+.remember b{font-weight:600}
+a{color:var(--ts)}
+@media (prefers-reduced-motion:reduce){.bx,.prog .fill{transition:none}}
+</style>
+<main>
+<header style="display:grid;gap:10px">
+  <div class="eyebrow">polymarket-bot · the Rust engine goal · one picture per step</div>
+  <h1>Rust Migration, Step by Step</h1>
+  <p class="lede">Press a step and the system picture shows what is Rust by then, what still waits, what stays TypeScript, and what is gone. Under it: what you will see with your own eyes at the end of that step, and what you decide.</p>
+  <div class="legend">
+    <span><span class="key now"></span>built in this step</span>
+    <span><span class="key done"></span>Rust, already built</span>
+    <span><span class="key later"></span>Rust, later step</span>
+    <span><span class="key ts"></span>stays TypeScript</span>
+    <span><span class="key gone"></span>retired</span>
+  </div>
+</header>
+
+<div class="scrub">
+  <div class="steps" id="steps"></div>
+  <div class="nav">
+    <div><span class="title" id="ttl"></span> <span class="state" id="st"></span></div>
+    <div class="btns"><button id="prev" type="button">← previous</button><button id="next" type="button">next →</button></div>
+  </div>
+</div>
+
+<section class="pic"><svg class="sys" id="sys" viewBox="0 0 1120 560" role="img" aria-label="System picture for the selected step"></svg></section>
+
+<section class="cards">
+  <div class="card"><h3>What gets built <span class="eyebrow" id="cnt"></span></h3><ul id="builds"></ul></div>
+  <div class="card"><h3>What you see at the end</h3><div class="you" id="you"></div><div class="gate" id="gate"></div></div>
+  <div class="card"><h3>Rust so far</h3><div class="prog"><div class="track"><div class="fill" id="pf"></div><div class="fill this" id="pt"></div></div><div class="lab"><span id="pl"></span><span>of 21,914 engine lines</span></div></div><div class="mods" id="mods"></div></div>
+</section>
+
+<section style="display:grid;gap:14px">
+  <h2>At the end</h2>
+  <p class="lede">The finished system. Rust owns everything that happens inside one market. TypeScript keeps everything around it and talks to the engine through one job contract: a market job in, a result out.</p>
+  <div class="two">
+    <div class="card"><h3 style="color:var(--rust)">Rust owns</h3><ul>
+      <li>Reading recorded markets (V4 packages, later Telonex history) and live market data</li>
+      <li>Order books, the event loop, order state, cash and positions</li>
+      <li>The strategy SDK, plugins, and the strategies written for it</li>
+      <li>The simulator, built from measurements of the real exchange</li>
+      <li>The exchange adapter: signing, placing, cancelling, the user feed, the journal</li>
+      <li>Paper mode and, last, the live runtime with its guards</li>
+      <li>Per-market statistics, traces and reports</li>
+    </ul></div>
+    <div class="card"><h3 style="color:var(--ts)">TypeScript keeps</h3><ul>
+      <li>The CLI and the producer: which markets, which params, enqueue</li>
+      <li>Market selection and every MySQL write; the dashboard; the fleet queue and worker shim</li>
+      <li>Recorder V4 and the dataset pipelines (Telonex, Binance, Chainlink)</li>
+      <li>On-chain work: split, merge, redeem, approvals, pUSD</li>
+      <li>The rules capture, the WebUI server, Global Runtime, research tools</li>
+      <li>Today's TypeScript strategies, on the TypeScript engine, until protocols write Rust ones</li>
+    </ul></div>
+  </div>
+  <div class="remember">
+    <div><b>Three things to hold on to.</b></div>
+    <div>1. Only N1 and N2 are defined. N3 is written from your probe results. N4 to N9 are a roadmap and get written one at a time.</div>
+    <div>2. You never approve a plan. You look at a finished step: a replayed market, an order in the journal, a simulator-versus-probes table.</div>
+    <div>3. Nothing from the old TypeScript simulator is copied. Every fill, fee and delay in the Rust simulator comes from a measurement or is marked as unmeasured.</div>
+  </div>
+  <p class="lede">The module-by-module detail is on the companion page <a href="https://claude.ai/artifact/Hc1LRRPKwfrXAvdZRedqT6">Rust Migration Map</a>.</p>
+</section>
+</main>
+<script id="prog" type="application/json">{"totR": 21914, "totK": 30190, "per": {"0": {"done": 0, "this": [], "count": 0}, "1": {"done": 11459, "this": [["src/strategies/testing/ (absent) \u2192 src/strategies/*.ts top-level", 1707, "interface/sdk"], ["src/trading/Portfolio.ts", 1014, "core/domain"], ["src/trading/cancellation.test.ts", 1000, "core/execution"], ["src/trading/OrderManager.ts", 781, "core/engine"], ["src/trading/StrategyRunner.ts", 721, "core/engine"], ["src/trading/StrategyRunner.ts (outside slice, types only)", 721, "core/engine"], ["src/market/orderbook/* (types, utils, OrderBookEngine, MarketOrderBookEngine, index)", 645, "core/orderbook"], ["src/trading/capital.test.ts", 596, "core/domain"]], "count": 31}, "2": {"done": 13785, "this": [["src/trading/execution/LiveExecution.ts", 832, "exchange/exchange-clob"], ["src/polymarket/ws/userWsAccountSource.ts", 589, "exchange/exchange-clob"], ["src/trading/execution/LiveExecution.postOnly.test.ts", 308, "exchange/exchange-clob"], ["src/trading/riskLimits.ts", 219, "core/engine"], ["src/trading/restPollCapital.test.ts", 183, "exchange/exchange-clob"], ["src/trading/fees.ts (+test)", 98, "core/domain"], ["src/polymarket/config.ts", 97, "exchange/exchange-clob"]], "count": 7}, "3": {"done": 13785, "this": [], "count": 0}, "4": {"done": 17604, "this": [["src/trading/feeds/liveCapturedFeeds.test.ts", 512, "inputs/feeds"], ["src/trading/feeds/liveCapturedFeeds.ts", 395, "inputs/feeds"], ["src/polymarket/gamma.ts", 274, "inputs/feeds"], ["src/trading/feeds/rtdsCryptoPricesClient.ts", 272, "inputs/feeds"], ["src/trading/feeds/rtdsCryptoPricesClient.ts", 272, "inputs/feeds"], ["src/polymarket/liveMarketEventSource.ts", 217, "inputs/feeds"], ["src/recorder-v4/feeds/polybolt.ts", 210, "inputs/feeds"], ["src/polymarket/{upDownSlugWindow,upDown15mWindowGuard,upDown15m,symbols,resolveUpDown15mAssets}.ts", 205, "core/domain"]], "count": 17}, "5": {"done": 18242, "this": [["src/strategy/plugins/DeribitVolatilityIndexPlugin.ts", 233, "core/plugins"], ["src/trading/feeds/binanceKlines.ts + deribitVolatilityIndex.ts", 180, "inputs/feeds"], ["src/recorder-v4/replay/provenance.ts", 123, "interface/job-contract"], ["src/strategy/plugins/PluginSet.ts", 102, "core/plugins"]], "count": 4}, "6": {"done": 18242, "this": [], "count": 0}, "7": {"done": 20697, "this": [["src/backtest/feeds/{binanceAggTradesSource, chainlinkCryptoPricesSource, backtestExternalFeedsProvider, wireBacktestExternalFeeds}", 946, "inputs/feeds"], ["src/backtest/feeds/{backtestExternalFeedsProvider,binanceAggTradesSource,chainlinkCryptoPricesSource,syntheticTickSchedule}.ts", 676, "inputs/feeds"], ["src/backtest/feeds/wireBacktestExternalFeeds.ts", 373, "inputs/feeds"], ["src/trading/StrategyRunner.syntheticTicks.test.ts", 215, "core/engine"], ["src/backtest/feeds/syntheticTickSchedule.ts", 103, "core/engine"], ["src/market/syntheticTick.ts", 72, "core/engine"], ["src/parquet/io/eventSchema.ts", 70, "inputs/telonex-replay"]], "count": 7}, "8": {"done": 20697, "this": [], "count": 0}, "9": {"done": 21479, "this": [["src/cli/helpers/strategyArgs.ts + capitalArgs.ts", 335, "interface/job-contract"], ["src/polymarket/restPollAccountSource.ts", 255, "exchange/exchange-clob"], ["src/blockchain/balanceTracker.ts", 192, "interface/runtime"]], "count": 3}}}</script>
+<script>
+(function(){
+const prog = JSON.parse(document.getElementById('prog').textContent);
+const fmt = n => n.toLocaleString('en-US');
+// lanes and boxes: fate R (step = when built), K stays TS, X retired (step = when it disappears), note
+const lanes = [
+ {name:'Data in', x:20},
+ {name:'Engine', x:300},
+ {name:'Execution', x:580},
+ {name:'Out', x:860}];
+const W=240,H=50,GAP=14,TOP=56;
+const boxes = [
+ {l:0,r:0,lb:'Recorder V4 (recording)',sb:'stays TypeScript',f:'K'},
+ {l:0,r:1,lb:'V4 package reader',sb:'inputs/v4-replay',f:'R',s:1},
+ {l:0,r:2,lb:'Live market data',sb:'market WS, Binance, Chainlink, PTB',f:'R',s:4},
+ {l:0,r:3,lb:'Telonex history reader',sb:'inputs/telonex-replay',f:'R',s:7},
+ {l:0,r:4,lb:'Rules capture',sb:'stays TypeScript',f:'K'},
+ {l:0,r:5,lb:'Dataset pipelines',sb:'Telonex, Binance, Chainlink sync',f:'K'},
+ {l:1,r:0,lb:'Order books',sb:'core/orderbook',f:'R',s:1},
+ {l:1,r:1,lb:'Event loop, orders, ledger',sb:'core/engine, core/domain',f:'R',s:1},
+ {l:1,r:2,lb:'Strategy SDK',sb:'interface/sdk · minimal N1, full N5',f:'R',s:1},
+ {l:1,r:3,lb:'Plugins',sb:'core/plugins',f:'R',s:5},
+ {l:1,r:4,lb:'Rust strategies',sb:'test strategy N1 · lagsnipe N5 · protocols N8',f:'R',s:1},
+ {l:1,r:5,lb:'TypeScript strategies (73)',sb:'on the TS engine until protocols move',f:'K'},
+ {l:2,r:0,lb:'Placeholder adapter',sb:'core/execution · replaced in N3',f:'R',s:1,retireAt:3},
+ {l:2,r:1,lb:'Measured simulator',sb:'core/execution · from probes',f:'R',s:3},
+ {l:2,r:2,lb:'CLOB V2 adapter + probe',sb:'exchange/exchange-clob',f:'R',s:2},
+ {l:2,r:3,lb:'Paper mode',sb:'live data, no orders',f:'R',s:4},
+ {l:2,r:4,lb:'TS simulator (BacktestExecution)',sb:'not ported · retires with the TS engine',f:'X',s:9},
+ {l:2,r:5,lb:'Split / merge / redeem',sb:'TS relayer sidecar',f:'K'},
+ {l:3,r:0,lb:'Market result → MySQL',sb:'job contract seam · N5',f:'R',s:5},
+ {l:3,r:1,lb:'Journal + trace',sb:'exchange-clob, engine',f:'R',s:2},
+ {l:3,r:2,lb:'Probe and simulator reports',sb:'native/reports',f:'R',s:2},
+ {l:3,r:3,lb:'Dashboard, fleet queue, shim',sb:'stays TypeScript · native queue N8',f:'K'},
+ {l:3,r:4,lb:'Live runtime, guards, alerts',sb:'interface/runtime',f:'R',s:9},
+ {l:3,r:5,lb:'TS live bot',sb:'broken on V2 · replaced in N9',f:'X',s:9}];
+const steps = [
+ {n:0,name:'Bootstrap',state:'done',st:'DONE',you:'A clean branch, the spec, four tested crates, a green CI run.',gate:'',builds:['Branch and clone with read-only data links','Four leaf crates: money math, rules tables, order book, job contract','CI job, local gates, docs page']},
+ {n:1,name:'Replay one market',state:'defined',st:'DEFINED · NEXT',you:'One recorded market replayed through the Rust engine: a result file and a trace, identical bytes on two runs. A golden check against the TypeScript reader passes.',gate:'',builds:['V4 package reader with manifest and sha checks','Event loop, order state machine, ledger, cascades, stats','A placeholder execution adapter, clearly marked unmeasured','The binary: describe, run, selftest','A minimal SDK and a test strategy that drives every intent','TypeScript goldens for decode; property tests']},
+ {n:2,name:'Exchange adapter + probe',state:'defined',st:'DEFINED',you:'Your own order placed and cancelled from Rust, visible on Polymarket and in the journal. Then a table of measured facts: fees, delays, expiry, rejections, latencies.',gate:'Gate A: you read the P0 report and decide the next probe budget.',builds:['Auth and EIP-712 v2 signing, checked against the official client','REST place, cancel, batch; user feed with every status','Journal of every request, response and frame with receive times','Probe runner with a $20 cap and a kill switch; you run it on your Mac','Analysis: journal joined with worker-2\'s recording of the same market']},
+ {n:3,name:'Simulator from measurements',state:'after',st:'WRITTEN AFTER P0',you:'A report, one row per probe: did the simulator accept, fill, charge and time the order the way the exchange did.',gate:'Gate B: you accept the simulator or ask for a second probe session.',builds:['Fees, taker delay, expiry and validation as measured','Latency distributions fitted to P0','Fills with depletion and queue position from recorded trades','Each model with a calibration record; unmeasured ones flagged']},
+ {n:4,name:'Paper mode',state:'rm',st:'ROADMAP',you:'A paper session on live data next to a backtest of worker-2\'s recording of the same market, differences attributed.',gate:'',builds:['Live market feed through the same loop','The N3 simulator fills, no orders sent','Journal replay gives identical decisions']},
+ {n:5,name:'Backtest path + persistence',state:'rm',st:'ROADMAP',you:'Native runs in the dashboard, labeled with the engine. The lagsnipe port on every recorded 15m market, with a difference report against its TypeScript twin.',gate:'Gate C: merge to main.',builds:['TypeScript seam: job in, result out','Additive migrations on a dev schema first','Canonical reproducible build and publish','Plugins; the lagsnipe v15 port']},
+ {n:6,name:'Speed',state:'rm',st:'ROADMAP',you:'Benchmark numbers against the TypeScript engine on the same markets, and the same output at every thread count.',gate:'',builds:['Long-lived executor with a work-stealing pool','Shared caches of decoded packages','Per-phase timers']},
+ {n:7,name:'Telonex history',state:'rm',st:'ROADMAP',you:'History backtests over months of Telonex markets, and a Telonex-versus-V4 report on the markets both cover.',gate:'',builds:['Telonex reader wired into the engine','Feed timing models with numbers from our own measurements','Synthetic feed ticks as an opt-in']},
+ {n:8,name:'Fleet + protocols',state:'rm',st:'ROADMAP',you:'A fleet run on native artifacts with byte-identical output on every host, and a protocol session that writes, checks and backtests a Rust strategy.',gate:'',builds:['Native queue and worker shim','Candidate groups','Out-of-sandbox build daemon; strategy:new for Rust']},
+ {n:9,name:'Live runtime',state:'rm',st:'ROADMAP',you:'24 hours of paper trading whose replay gives identical decisions, a safety checklist, a shadow-mode log.',gate:'Gate D: you approve, build real-orders on your Mac and launch the first real strategy run.',builds:['Discovery and rotation, session guards, kill switch','Reconciliation after restart, alerts, launchd','The real-orders trust chain']}];
+let cur = 1;
+try { const h=(location.hash||'').replace('#',''); if(/^n[0-9]$/.test(h)) cur=+h[1]; } catch(e){}
+const stepsEl=document.getElementById('steps');
+steps.forEach(s=>{ const b=document.createElement('button'); b.type='button'; b.dataset.n=s.n; b.className=(s.state==='done'?'done ':'')+(s.state==='rm'?'rm':''); b.innerHTML='<span>N'+s.n+'</span><span class="nm">'+s.name+'</span>'; b.addEventListener('click',()=>{cur=s.n;render();}); stepsEl.appendChild(b); });
+document.getElementById('prev').addEventListener('click',()=>{cur=Math.max(0,cur-1);render();});
+document.getElementById('next').addEventListener('click',()=>{cur=Math.min(9,cur+1);render();});
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'){cur=Math.min(9,cur+1);render();} if(e.key==='ArrowLeft'){cur=Math.max(0,cur-1);render();} });
+const svg=document.getElementById('sys');
+function stateOf(b){
+  if(b.f==='K') return 'ts';
+  if(b.f==='X') return cur>=b.s ? 'gone' : 'ghost';
+  if(b.retireAt && cur>=b.retireAt) return 'gone';
+  if(b.s===cur) return 'now';
+  if(b.s<cur) return 'done';
+  return 'later';
+}
+function draw(){
+  let o='<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>';
+  lanes.forEach((L,i)=>{ o+='<text class="lane-h" x="'+L.x+'" y="30">'+L.name+'</text>'; o+='<rect class="lane-bg" x="'+(L.x-8)+'" y="40" width="'+(W+16)+'" height="'+(6*(H+GAP)+10)+'" rx="6"/>'; if(i<3){ const y=TOP+3*(H+GAP)-GAP/2; o+='<path class="arrow" d="M'+(L.x+W+10)+' '+y+' H'+(lanes[i+1].x-12)+'"/>'; } });
+  boxes.forEach(b=>{ const L=lanes[b.l]; const x=L.x, y=TOP+b.r*(H+GAP); const st=stateOf(b); const onFill = st==='now'||st==='done'; const muted = st==='later'||st==='ghost'||st==='gone';
+    o+='<g class="'+(onFill?'on-fill':'')+(muted?' muted-t':'')+'"><rect class="bx '+st+'" x="'+x+'" y="'+y+'" width="'+W+'" height="'+H+'" rx="5"/>';
+    o+='<text class="lb" x="'+(x+12)+'" y="'+(y+21)+'">'+b.lb+'</text><text class="sb" x="'+(x+12)+'" y="'+(y+38)+'">'+(b.f==='R'?'N'+b.s+' · ':'')+b.sb+'</text>';
+    if(st==='gone') o+='<line class="strike" x1="'+(x+8)+'" y1="'+(y+H-8)+'" x2="'+(x+W-8)+'" y2="'+(y+8)+'"/>';
+    o+='</g>'; });
+  // seam between engine world and TS persistence
+  const sx=lanes[3].x-6; o+='<path class="seam" d="M'+sx+' 46 V'+(TOP+6*(H+GAP))+'"/><text class="seam-t" x="'+(sx-4)+'" y="'+(TOP+6*(H+GAP)+16)+'" text-anchor="end">job contract: market job in, result out</text>';
+  svg.innerHTML=o;
+}
+function render(){
+  const s=steps[cur];
+  try{ history.replaceState(null,'','#n'+cur); }catch(e){}
+  Array.from(stepsEl.children).forEach(b=>b.classList.toggle('sel',+b.dataset.n===cur));
+  document.getElementById('ttl').textContent='N'+s.n+' · '+s.name;
+  const st=document.getElementById('st'); st.textContent=s.st; st.className='state '+s.state;
+  document.getElementById('builds').innerHTML=s.builds.map(x=>'<li>'+x+'</li>').join('');
+  document.getElementById('you').textContent=s.you;
+  const g=document.getElementById('gate'); g.textContent=s.gate; g.style.display=s.gate?'block':'none';
+  const p=prog.per[String(cur)], prev=prog.per[String(Math.max(0,cur-1))];
+  const done=p.done, before=cur>0?prev.done:0;
+  document.getElementById('pf').style.width=(100*before/prog.totR)+'%';
+  document.getElementById('pt').style.width=(100*(done-before)/prog.totR)+'%';
+  document.getElementById('pl').textContent=fmt(done)+' lines ('+Math.round(100*done/prog.totR)+'%)';
+  document.getElementById('cnt').textContent=p.count?p.count+' TypeScript modules replaced':'';
+  document.getElementById('mods').innerHTML=p.this.length?'<span>Moving in this step:</span>'+p.this.map(m=>'<span><b>'+m[0]+'</b> · '+fmt(m[1])+' → '+m[2]+'</span>').join(''):'<span>No TypeScript module is replaced in this step; it is about measurements, speed or infrastructure.</span>';
+  draw();
+}
+render();
+})();
+</script>

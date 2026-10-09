@@ -26,3 +26,7 @@ native/**/target/
 # Generated goldens and fixtures must stay byte-exact (native/spec/01 N1 item 6)
 native/fixtures/
 native/contract/fixtures/
+
+# Generated report pages (artifact HTML, published on claude.ai)
+native/reports/*.html
+native/reports/*.json
