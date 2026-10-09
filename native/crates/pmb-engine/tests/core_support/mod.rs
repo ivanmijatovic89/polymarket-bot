@@ -34,7 +34,7 @@ use pmb_engine::strategy::{AccountEvent as AuthorEvent, CancelRef, Interests, Re
 use pmb_engine::trace::{TraceEvent, TraceSink};
 use pmb_engine::{
     CoreRules, Ctx, EngineConfig, Envelope, EventQueue, ExecCommand, ExecCtx, Execution, Payload,
-    Session, SharedMarket, Strategy, StrategyResult,
+    Session, SharedMarket, Simulator, Strategy, StrategyResult,
 };
 
 pub const SLUG: &str = "btc-updown-15m-1780272000";
@@ -754,11 +754,13 @@ pub fn config(rules: CoreRules) -> EngineConfig {
     }
 }
 
-pub type S = Session<ScriptStrategy, MockExec, Rec>;
+pub type S<E = MockExec> = Session<ScriptStrategy, E, Rec>;
 
-pub struct H {
+/// One-market harness over an execution adapter: the compat-like mock by
+/// default, or the real ts-compat `Simulator` (M1 step 4 integration).
+pub struct H<E: Execution = MockExec> {
     pub market: SharedMarket,
-    pub s: S,
+    pub s: S<E>,
     pub script: Arc<Script>,
     seq: u64,
     /// Last book per outcome, re-sent by [`H::send`].
@@ -775,8 +777,47 @@ pub fn lv(levels: &[(f64, f64)]) -> Vec<PriceSize> {
         .collect()
 }
 
-impl H {
+/// Mock internals for the converted suites; `None` on the real simulator,
+/// whose observable behavior the suites assert instead.
+pub trait MockView {
+    fn mock(&self) -> Option<&MockExec>;
+}
+
+impl MockView for MockExec {
+    fn mock(&self) -> Option<&MockExec> {
+        Some(self)
+    }
+}
+
+impl MockView for Simulator {
+    fn mock(&self) -> Option<&MockExec> {
+        None
+    }
+}
+
+impl H<MockExec> {
     pub fn new(cfg: EngineConfig, exec: MockExec, script: Script) -> H {
+        H::with_exec(cfg, exec, script)
+    }
+
+    pub fn ts_compat(exec: MockExec) -> H {
+        H::new(config(CoreRules::TsCompat), exec, Script::default())
+    }
+}
+
+impl H<Simulator> {
+    /// A harness on the real ts-compat simulator with the mock's compat
+    /// delay (`MockExec::sync` = 0 ms, `delayed(ms)`), jitter 0 (13 §5.1).
+    pub fn sim(mut cfg: EngineConfig, mock: MockExec, script: Script) -> H<Simulator> {
+        cfg.compat_latency.delay_ms = u32::try_from(mock.delay).expect("delay");
+        cfg.compat_latency.jitter_ms = 0;
+        let sim = Simulator::new(&cfg).expect("ts-compat simulator");
+        H::with_exec(cfg, sim, script)
+    }
+}
+
+impl<E: Execution> H<E> {
+    pub fn with_exec(cfg: EngineConfig, exec: E, script: Script) -> H<E> {
         let market = market();
         let script = Arc::new(script);
         let s = S::new(&script, &market, cfg, exec, Rec::default()).expect("session");
@@ -787,10 +828,6 @@ impl H {
             seq: 0,
             books: PerOutcome::default(),
         }
-    }
-
-    pub fn ts_compat(exec: MockExec) -> H {
-        H::new(config(CoreRules::TsCompat), exec, Script::default())
     }
 
     pub fn env_step(

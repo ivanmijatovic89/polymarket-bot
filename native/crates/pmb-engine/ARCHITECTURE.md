@@ -168,9 +168,14 @@ Contract notes for the simulator (no change to `exec/mod.rs`):
 ## Integration status (M1 steps 3–4)
 
 `ws/exec` is merged into `ws/core`: a ts-compat backtest session runs end
-to end on the real `Simulator`; no mock is left in non-test code (the
-compat-like `MockExec` stays in `tests/core_support/` for the converted core
-suites, which test core rules in isolation).
+to end on the real `Simulator`; no mock is left in non-test code. The
+converted ts-compat suites (`tests/core_{cancellation,capital,portfolio,runner}.rs`,
+bodies in `tests/suites/`) run twice: `mock::` on the compat-like `MockExec`
+of `tests/core_support/` and `sim::` on the real `Simulator`; assertions on
+mock internals run only on the mock, and tests that script adapter events
+or run the realistic rules are `mock_only!`. `core_session`, `core_realistic`
+and `core_props` stay on the mock (realistic rules, scripted adapter
+events).
 
 - `backtest::BacktestMarket` takes telonex-delta rows (`TimedMarketEvent`
   from the pmb-replay reader) as envelopes with `at = exchange_ts` (12 §4.1
