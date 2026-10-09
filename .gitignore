@@ -74,3 +74,6 @@ src/strategies/research/**/logs/
 
 # claude account tokens for llm-usage
 /src/llm-usage/accounts.json
+
+# Rust build output anywhere in the repository (31 §2.2: strategy packages)
+target/
