@@ -4,11 +4,11 @@
  * directories.
  */
 
+import { randomBytes } from 'node:crypto'
 import {
-  closeSync,
   existsSync,
+  linkSync,
   mkdirSync,
-  openSync,
   readFileSync,
   rmSync,
   statSync,
@@ -108,54 +108,129 @@ function processAlive(pid: number): boolean {
   }
 }
 
+export type BuilderLockOptions = {
+  /**
+   * An empty or unparsable lock file is treated as held until it is older
+   * than this. The builder itself never leaves one (the pid is published
+   * atomically), so only a foreign writer or a crashed filesystem can.
+   */
+  graceMs?: number
+  pollMs?: number
+}
+
+const DEFAULT_LOCK_GRACE_MS = 30_000
+const DEFAULT_LOCK_POLL_MS = 500
+
+/**
+ * Publish `${pid}\n` at `lockPath` atomically: write a private temp file,
+ * then link(2) it into place, which fails with EEXIST while a lock exists.
+ * The lock therefore never exists without its pid (31 §4.5).
+ */
+function tryAcquire(lockPath: string): boolean {
+  const tmp = `${lockPath}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`
+  writeFileSync(tmp, `${process.pid}\n`, { flag: 'wx' })
+  try {
+    linkSync(tmp, lockPath)
+    return true
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false
+    throw err
+  } finally {
+    unlinkSync(tmp)
+  }
+}
+
+/** Current lock holder: pid (null when the content is not a pid) and age; null when no lock exists. */
+function readLock(lockPath: string): { pid: number | null; ageMs: number; ino: number } | null {
+  try {
+    const st = statSync(lockPath)
+    const text = readFileSync(lockPath, 'utf8').trim()
+    const pid = /^[1-9][0-9]*$/.test(text) ? Number.parseInt(text, 10) : null
+    return { pid, ageMs: Date.now() - st.mtimeMs, ino: st.ino }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw err
+  }
+}
+
+/**
+ * Remove a stale lock. Removal is serialized by a takeover directory
+ * (mkdir is atomic), and the lock is re-read under it, so two waiters that
+ * both saw the same dead holder cannot both remove a lock: the second one
+ * sees the first one's live lock and keeps waiting.
+ */
+function removeStaleLock(
+  lockPath: string,
+  seen: { pid: number | null; ino: number },
+  graceMs: number,
+  log: (msg: string) => void,
+): void {
+  const takeover = `${lockPath}.takeover`
+  try {
+    mkdirSync(takeover)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    // A takeover directory older than the grace period was left by a crash.
+    try {
+      if (Date.now() - statSync(takeover).mtimeMs > graceMs) rmSync(takeover, { recursive: true })
+    } catch {
+      /* removed concurrently */
+    }
+    return
+  }
+  try {
+    const now = readLock(lockPath)
+    if (now === null || now.ino !== seen.ino || now.pid !== seen.pid) return
+    log(`[native-build] removing a stale builder lock (pid ${seen.pid ?? 'unreadable'})`)
+    unlinkSync(lockPath)
+  } finally {
+    rmSync(takeover, { recursive: true, force: true })
+  }
+}
+
 /**
  * Run `fn` while holding the host-wide builder lock. Builds share one target
  * directory and cargo uplifts every bin to `<target>/<triple>/<profile>/<bin>`,
- * so two builders must not interleave a build and the copy of its output.
- * A lock left by a dead process is taken over.
+ * so two builders must not interleave a build and the copy of its output, and
+ * budget eviction must not delete a profile directory another cargo uses
+ * (31 §4.5: "the builder runs one build at a time per host"). A lock whose
+ * holder is dead is taken over; an empty or unparsable lock counts as held
+ * until it is older than the grace period.
  */
-export function withBuilderLock<T>(lockPath: string, log: (msg: string) => void, fn: () => T): T {
+export function withBuilderLock<T>(
+  lockPath: string,
+  log: (msg: string) => void,
+  fn: () => T,
+  opts: BuilderLockOptions = {},
+): T {
+  const graceMs = opts.graceMs ?? DEFAULT_LOCK_GRACE_MS
+  const pollMs = opts.pollMs ?? DEFAULT_LOCK_POLL_MS
   mkdirSync(path.dirname(lockPath), { recursive: true })
   let announced = false
   for (;;) {
-    try {
-      const fd = openSync(lockPath, 'wx')
-      writeFileSync(fd, `${process.pid}\n`)
-      closeSync(fd)
-      break
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-      let holder = Number.NaN
-      try {
-        holder = Number.parseInt(readFileSync(lockPath, 'utf8').trim(), 10)
-      } catch {
-        continue // released between our open and read
-      }
-      if (!Number.isInteger(holder) || !processAlive(holder)) {
-        log(
-          `[native-build] removing a stale builder lock (pid ${Number.isNaN(holder) ? '?' : holder})`,
-        )
-        try {
-          unlinkSync(lockPath)
-        } catch {
-          /* another builder took it over first */
-        }
-        continue
-      }
-      if (!announced) {
-        log(`[native-build] waiting for the builder lock held by pid ${holder} (${lockPath})`)
-        announced = true
-      }
-      sleepMs(500)
+    if (tryAcquire(lockPath)) break
+    const held = readLock(lockPath)
+    if (held === null) continue // released between our link and read
+    const stale =
+      held.pid === null ? held.ageMs > graceMs : held.pid !== process.pid && !processAlive(held.pid)
+    if (held.pid === process.pid)
+      throw new Error(`${lockPath} is already held by this process (nested builder lock)`)
+    if (stale) {
+      removeStaleLock(lockPath, held, graceMs, log)
+      continue
     }
+    if (!announced) {
+      log(
+        `[native-build] waiting for the builder lock held by ${held.pid === null ? 'an unreadable holder' : `pid ${held.pid}`} (${lockPath})`,
+      )
+      announced = true
+    }
+    sleepMs(pollMs)
   }
   try {
     return fn()
   } finally {
-    try {
-      if (readFileSync(lockPath, 'utf8').trim() === String(process.pid)) unlinkSync(lockPath)
-    } catch {
-      /* already gone */
-    }
+    const held = readLock(lockPath)
+    if (held !== null && held.pid === process.pid) unlinkSync(lockPath)
   }
 }
