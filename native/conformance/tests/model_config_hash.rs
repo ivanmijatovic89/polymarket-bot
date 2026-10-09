@@ -60,7 +60,7 @@ fn is_decimal_string(t: &str) -> bool {
     if b.first() == Some(&b'-') {
         i = 1;
     }
-    if i >= b.len() {
+    if i >= b.len() || t == "-0" {
         return false;
     }
     if b[i] == b'0' {
@@ -189,8 +189,8 @@ fn decimal_string_grammar() {
             c["why"]
         );
     }
-    // "-0" matches the regex (PLAN A-03)
-    assert!(is_decimal_string("-0"));
+    // D69 (A-03): "-0" is rejected under the tightened regex
+    assert!(!is_decimal_string("-0"));
 }
 
 // spec: 21 §6.1 (values: strings, booleans, safe integers, objects, arrays; no floats, no null)

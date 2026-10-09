@@ -47,7 +47,10 @@ fn rules_view_constants() {
     assert_eq!(rv["gtd_min_lead_ms"], 60000);
     assert_eq!(rv["gtd_early_expiry_ms"], 0);
     assert_eq!(rv["max_cancel_ids"], 3000);
-    assert!(rv["max_place_batch"].is_null(), "unbounded (PLAN A-04)");
+    assert!(
+        rv["max_place_batch"].is_null(),
+        "unbounded: batch_cap() is None in ts-compat (D59)"
+    );
     assert_eq!(rv["taker_delay_enabled"], false);
     assert!(rv["min_size_resting"].is_null() && rv["min_notional_market"].is_null());
     assert_eq!(rv["validate"], false);
@@ -170,7 +173,7 @@ skeleton!(tc_no_batch_cap, "tc-no-batch-cap", "C2: 16 accepted");
 skeleton!(
     tc_cancel_id_cap_3000,
     "tc-cancel-id-cap-3000",
-    "C2: 3000 ok, 3001 CancelFailed (PLAN A-15 on the reason)"
+    "C2: 3000 ok, 3001 CancelFailed(TooManyIds) = invalid_cancel_batch_size (D62)"
 );
 // spec: 11 §4 row 8 (post-only at execution; equality crosses; empty side accepts)
 skeleton!(

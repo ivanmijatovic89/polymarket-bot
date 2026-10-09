@@ -4,7 +4,7 @@
   "notes": [
     "Every enum is a Rust enum with exhaustive serde; an unknown value is a schema violation, never a string passed through (21 §17).",
     "`ts_string` columns are the exact serializations the trace renderer MUST reproduce (10 §10.2); parameters inside parentheses print numbers as exact decimals with trailing zeros trimmed.",
-    "Reason codes without a TS string have none in 10 §10.2; the parity diff compares the code before the first `(` and reports reason_code_unmapped if either side's code is unknown (22 §3.4) — see PLAN.md A-15 for the cancel-failure strings TS uses that 10 §10.2 does not list."
+    "Reason codes without a TS string have none in 10 §10.2; the parity diff compares the code before the first `(` and reports reason_code_unmapped if either side's code is unknown (22 §3.4) — D62 fixes the cancel-failure strings (TooManyIds = invalid_cancel_batch_size, ConflictingRefs = conflicting_order_reference; TS invalid_order_reference is unreachable from typed intents and has no Rust variant)."
   ],
   "vectors": [
     { "id": "voc-input-mode", "spec": "21 §17 row 1, 20 §5.6", "name": "inputMode", "values": ["telonex-delta", "recorder-v4", "journal"], "rejected": ["recorded", "telonex-paired"] },
@@ -63,11 +63,11 @@
     { "id": "voc-cancel-cause", "spec": "10 §10.2", "name": "CancelCause", "values": ["Strategy(CancelOp)", "Rotation", "WindowEnd", "MarketClosed", "HeartbeatLoss", "KillSwitch", "StrategyPanic", "Operator", "Exchange"] },
     { "id": "voc-cancel-fail-reason", "spec": "10 §10.2", "name": "CancelFailReason", "values": [
       { "variant": "UnknownClientOrder", "ts_string": "unknown_client_order" },
-      { "variant": "ConflictingRefs", "ts_string": null, "ts_string_in_cancellation_ts": "conflicting_order_reference" },
+      { "variant": "ConflictingRefs", "ts_string": "conflicting_order_reference", "decision": "D62" },
       { "variant": "MissingExchangeOrderId", "ts_string": "missing_exchange_order_id" },
       { "variant": "NotCancelableDuringDelay", "ts_string": null },
       { "variant": "ExchangeNotCanceled(code)", "ts_string": null },
-      { "variant": "TooManyIds", "ts_string": null, "ts_string_in_cancellation_ts": "invalid_cancel_batch_size" },
+      { "variant": "TooManyIds", "ts_string": "invalid_cancel_batch_size", "decision": "D62" },
       { "variant": "Ambiguous", "ts_string": null }
     ] },
     { "id": "voc-split-merge-fail-reason", "spec": "10 §10.2", "name": "SplitFailReason / MergeFailReason", "values": ["InvalidSize", "InsufficientCollateral", "InsufficientPairs", "TxFailed", "Ambiguous"] },

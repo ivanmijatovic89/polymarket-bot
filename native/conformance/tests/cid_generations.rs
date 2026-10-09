@@ -62,7 +62,7 @@ macro_rules! skeleton {
 skeleton!(
     cg01_dense_keys,
     "cg-01-dense-keys",
-    "C2: a -> 0, b rejected without key, c -> 1 (via ledger or sim-{{key}}, PLAN A-14)"
+    "C2: a -> 0, b rejected without key, c -> 1, read from the ledger (D61: never from sim-N ids)"
 );
 // spec: 10 S4, 12 §7.1; cancellation.test.ts 'backtest client ID reuse creates distinct exchange identities …'
 skeleton!(

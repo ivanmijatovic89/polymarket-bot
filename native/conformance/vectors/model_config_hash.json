@@ -3,7 +3,7 @@
   "source": "native-spec-g1:native/spec/21-job-and-output-contract.md §6; 13-execution-models.md §7.3–§7.4; 12-engine-core.md §4.5, §8; 14-feeds-and-plugins.md §9",
   "notes": [
     "Canonical JSON (21 §6.1): keys sorted bytewise at every level, array order kept, no whitespace; modelConfigSha256 = sha256 of the canonical UTF-8 bytes. Values are only strings, booleans, safe integers, objects and arrays; money, sizes and ratios are decimal strings matching ^-?(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$ with at most 6 fractional digits; other strings printable ASCII without `\"` or `\\`; keys ASCII; no floats.",
-    "The `ts_compat_default_*` vectors build the ts-compat default ModelConfig from the spec text alone. Every result-affecting field is pinned by the spec, but three UNUSED fields that still enter the hash are not fully fixed by the spec text: execution.latency.components (the values of the uncalibrated-2026-10 set are only shown as an example in 13 §7.3), execution.makerQueue (example values) and compatLatency.jitterMs (13 §7.4 says 0/0, 21 §6.3 says the built-in default is 0 / 20). The committed defaults file native/contract/defaults/model-config-v1.json is authoritative (21 §6.3); these vectors therefore test the CANONICALIZATION AND HASH FUNCTION on a spec-shaped object, and pin the sha only under the stated assumptions. See PLAN.md A-01 and A-02.",
+    "The `ts_compat_default_*` vectors build the ts-compat default ModelConfig from the spec text alone. Every result-affecting field is pinned by the spec, but three UNUSED fields that still enter the hash are not fully fixed by the spec text: execution.latency.components (the values of the uncalibrated-2026-10 set are only shown as an example in 13 §7.3), execution.makerQueue (example values) and compatLatency.jitterMs (13 §7.4 says 0/0, 21 §6.3 says the built-in default is 0 / 20). The committed defaults file native/contract/defaults/model-config-v1.json is authoritative (21 §6.3); these vectors therefore test the CANONICALIZATION AND HASH FUNCTION on a spec-shaped object, and pin the sha only under the stated assumptions. D58 (A-01): the committed ts-compat default keeps compatLatency 0/0 (vector ts-compat-default-jitter0 is the spec-shaped candidate; CI item 6 pins the committed file, D57), the producer fallback of 21 §6.3 stays 0/20 for fresh submissions, the binary accepts any jitterMs >= 0 in ts-compat and zero jitter is enforced by the parity harness only.",
     "Both hashes were computed with two independent implementations (Python hashlib and src/sha256.rs)."
   ],
   "regex": "^-?(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$",
@@ -48,12 +48,12 @@
       "patch": { "execution": { "compatLatency": { "delayMs": 0, "jitterMs": 20 } } },
       "canonical_length": 1470,
       "sha256": "45fcfb3764c939ca6a0cd3a54f60e3b0fe8bb9eedce96655e38ac243180c0365",
-      "note": "only one of the two defaults can be the committed one; PLAN.md A-01"
+      "note": "D58: the committed default is the jitter-0 variant; this one is the producer fallback shape of 21 §6.3 and only documents that the unused field changes the hash"
     },
     { "id": "effective-config-candidate-execution", "spec": "21 §1.1, 21 §8 C4, 21 §10", "statement": "each candidate's modelConfigSha256 is the hash of run.modelConfig with execution replaced by the candidate's complete execution object when non-null; echo.modelConfigSha256 is the run-level hash; with execution: null both are equal" },
     { "id": "valid-decimal-strings", "spec": "21 §6.1 regex and 6-dp limit", "valid": ["0", "5", "500", "2000", "-0.5", "0.07", "0.000001", "123456789012", "1.5", "-12.345678"], "invalid": [
       { "text": "0.50", "why": "trailing zero" }, { "text": "0.0", "why": "trailing zero" }, { "text": "05", "why": "leading zero" }, { "text": "+5", "why": "sign" }, { "text": "5.", "why": "empty fraction" }, { "text": ".5", "why": "no integer part" }, { "text": "1e-7", "why": "exponent" }, { "text": "1E7", "why": "exponent" }, { "text": "1_000", "why": "separator" }, { "text": " 5", "why": "whitespace" }, { "text": "0.1234567", "why": "7 fractional digits (regex matches, 6-dp rule rejects)" }, { "text": "", "why": "empty" }, { "text": "NaN", "why": "not a decimal" }, { "text": "Infinity", "why": "not a decimal" }
-    ], "regex_matches_but_questionable": [ { "text": "-0", "why": "matches the regex; 21 §18 N1 forbids -0 anywhere (PLAN.md A-03)" } ] },
+    ], "regex_matches_but_rejected": [ { "text": "-0", "why": "D69 (A-03): rejected; the regex is tightened to ^(0|-?(0\\.[0-9]*[1-9]|[1-9][0-9]*(\\.[0-9]*[1-9])?))$" } ] },
     { "id": "invalid-values", "spec": "21 §6.1 (no floats; strings printable ASCII without quote or backslash; keys ASCII)", "invalid_documents": [
       { "doc": { "capital": { "startingCapitalUsdc": 500 } }, "why": "money as a JSON number (must be a decimal string)" },
       { "doc": { "capital": { "startingCapitalUsdc": 500.0 } }, "why": "float" },
@@ -65,7 +65,6 @@
       { "doc": { "profile": "ts-compat", "execution": { "models": { "latency": "exact" } } }, "why": "ts-compat requires the compat axis values (13 §7.3) -> invalid_input" },
       { "doc": { "profile": "realistic", "execution": { "models": { "reports": "compat" }, "sellGate": "Mined" } }, "why": "realistic with reports: compat requires sellGate: Matched (13 §7.3)" },
       { "doc": { "profile": "ts-compat", "clock": { "marketData": { "delay": { "kind": "constant", "ms": 5 } } } }, "why": "ts-compat clock delay must be constant 0 (12 §4.5)" },
-      { "doc": { "profile": "ts-compat", "execution": { "compatLatency": { "delayMs": 140, "jitterMs": 20 } } }, "why": "parity runs MUST use zero jitter (21 §6.1); whether the binary rejects or only the harness forbids it is PLAN.md A-01" },
       { "doc": { "feeds": { "chainlink": { "maxGapMs": 500 } } }, "why": "maxGapMs must be 0 or >= 1000 (14 §9)" },
       { "doc": { "rules": { "rulesTableVersion": "rules-table-v99" } }, "why": "unknown table version -> invalid_input: rules_table_version (20 §3)" },
       { "doc": { "rules": { "missingSnapshot": "error" } }, "why": "only dated_fallback in v1" },
