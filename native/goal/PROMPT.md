@@ -42,11 +42,13 @@ launcher resumes you with `--continue`; pick up from `native/STATUS.md`.
    the pause procedure: baselines in M1 run alongside the fleet and are labeled
    "non-idle"; the idle M5a measurement waits for the user.
 4. Database: read-only. No migrations before gate 2.
-5. GitHub: `git push` works over HTTPS (keychain); the `gh` CLI is NOT available
-   on worker-1. The lead opens PRs from the MacBook. Push the D37 capture script
-   on its own branch `rules-capture` (based on `origin/main`) and record in
-   STATUS.md that it is ready for a PR; do not try to merge anything. The draft
-   PR for `native-engine` is opened by the lead.
+5. GitHub: worker-1 can fetch but NOT push, and has no `gh` CLI. Commit
+   locally only; the lead copies branches to GitHub from the MacBook and opens
+   PRs. Wherever the spec says "push", commit instead. Put the D37 capture
+   script on its own local branch `rules-capture` (based on `origin/main`,
+   created with `git worktree add` so `native-engine` stays checked out) and
+   record in STATUS.md that it is ready for a PR; do not try to merge anything.
+   The draft PR for `native-engine` is opened by the lead.
 6. Never emulate JavaScript semantics; never transliterate TS internals. When
    the spec is silent or contradictory on a non-user topic, add a lead-level
    decision entry (D57, D58, …) to `native/spec/02-decisions.md` with the
