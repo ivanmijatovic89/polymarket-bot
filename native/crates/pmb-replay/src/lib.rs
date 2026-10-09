@@ -5,4 +5,7 @@ mod pq;
 pub mod telonex;
 
 pub use error::{ErrorClass, InputError};
-pub use telonex::{read_telonex_delta, TelonexDiagnostics, TelonexInput, TelonexTape};
+pub use telonex::{
+    read_telonex_delta, read_telonex_delta_with, InputCheck, TelonexDiagnostics, TelonexInput,
+    TelonexTape,
+};

@@ -1,18 +1,30 @@
 //! Column-wise Parquet reading helpers (no row API, no per-row allocation).
 //!
-//! A row group is read one column at a time with `read_records`; each column
-//! keeps its values plus per-row value ranges, so optional, required and
-//! repeated (top-level `repeated <primitive>`) columns are accessed uniformly.
+//! A file is read with one whole-file `read` into an owned buffer and parsed
+//! from it, so page buffers are slices of that buffer (16 DC-1). A row group
+//! is read one column at a time with `read_records`; each column keeps its
+//! values plus per-row value ranges, so optional, required and repeated
+//! (top-level `repeated <primitive>`) columns are accessed uniformly.
 
 use anyhow::{bail, ensure, Context, Result};
 use parquet::data_type::DataType;
-use parquet::file::reader::{RowGroupReader, SerializedFileReader};
+use parquet::file::reader::{ChunkReader, FileReader, RowGroupReader, SerializedFileReader};
 use std::fs::File;
 use std::path::Path;
 
-pub(crate) fn open(path: &Path) -> Result<SerializedFileReader<File>> {
+/// The whole file as one owned buffer (16 DC-1): `len` bytes from offset 0.
+pub(crate) fn whole_file(file: &File, len: u64) -> parquet::errors::Result<impl ChunkReader> {
+    let len = usize::try_from(len)
+        .map_err(|_| parquet::errors::ParquetError::General("file too large".into()))?;
+    file.get_bytes(0, len)
+}
+
+/// Opens a Parquet file for tooling and tests (whole-file read, DC-1).
+pub(crate) fn open(path: &Path) -> Result<impl FileReader> {
     let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-    SerializedFileReader::new(file)
+    let len = file.metadata()?.len();
+    let buf = whole_file(&file, len).with_context(|| format!("read {}", path.display()))?;
+    SerializedFileReader::new(buf)
         .with_context(|| format!("read parquet footer of {}", path.display()))
 }
 
