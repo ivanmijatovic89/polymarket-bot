@@ -1,0 +1,170 @@
+{
+  "spec": "10 §4 (Q1, Q2, Q3), 10 §3.1 R-1, 10 §3.3 R14/R15, 21 §11, 21 §18 N1/N5",
+  "source": "native-spec-g1:native/spec/10-domain-model.md §4; 21-job-and-output-contract.md §11, §18",
+  "notes": [
+    "Output quantization is one HalfAwayFromZero rounding of the exact fixed-point value at the MarketStats boundary (10 §4, R-3). The dp per field is in `fields`.",
+    "The Q3 rows are the spec's own table (measured with Node 20). `ts` is what TS emits, `rust` is the required native output; the difference is an intended model change (D08, 60 CL-4) recorded once in PARITY.md, never a conformance failure.",
+    "`scenario` gives one way to produce the exact unrounded pnl in a ts-compat session: a post-only GTC BUY that rests and is filled as MAKER (fee 0, 11 §4) on a later tick whose best ask is strictly below the limit (13 §5.1 WorstQueueCompat: BUY fills when best ask < limit). pnl = cash_end - starting + qty x payout (10 C4). ts-compat validates neither tick nor size precision (11 §4), so 1.5-share sizes and 0.535 prices are accepted.",
+    "Rows with id prefix `extra-` are the author's additional cases derived from the same rule; they are not in the spec table."
+  ],
+  "fields": [
+    { "field": "pnl", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(14,4)", "nullable": false, "spec": "10 §4" },
+    { "field": "feesPaid", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(14,4)", "nullable": false, "spec": "10 §4" },
+    { "field": "cost", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(14,4)", "nullable": false, "spec": "10 §4" },
+    { "field": "splitCost", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(14,4)", "nullable": false, "spec": "10 §4" },
+    { "field": "upShares", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(18,6)", "nullable": false, "spec": "10 §4" },
+    { "field": "downShares", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(18,6)", "nullable": false, "spec": "10 §4" },
+    { "field": "mergableShares", "dp": 2, "mode": "HalfAwayFromZero", "column": "decimal(18,6)", "nullable": false, "spec": "10 §4; 21 §11: min(up, down) computed on micros before rounding" },
+    { "field": "avgEntryPriceUp", "dp": 4, "mode": "HalfAwayFromZero", "column": "decimal(10,6)", "nullable": true, "spec": "10 §4, R14: one rounding from the exact rational; null iff no BUY fill of that outcome" },
+    { "field": "avgEntryPriceDown", "dp": 4, "mode": "HalfAwayFromZero", "column": "decimal(10,6)", "nullable": true, "spec": "10 §4, R14" },
+    { "field": "tradeCount", "dp": 0, "mode": "integer", "column": "int", "nullable": false, "spec": "10 §4" },
+    { "field": "tradeAsMaker", "dp": 0, "mode": "integer", "column": "int", "nullable": false, "spec": "10 §4" },
+    { "field": "tradeAsTaker", "dp": 0, "mode": "integer", "column": "int", "nullable": false, "spec": "10 §4" }
+  ],
+  "vectors": [
+    {
+      "id": "q3-neg-1.005",
+      "spec": "10 §4 Q3 row 1",
+      "field": "pnl",
+      "exact": "-1.005",
+      "dp": 2,
+      "ts": "-1.00",
+      "rust": "-1.01",
+      "cause": "JS ties go toward +inf",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 1.5 @ 0.67 (post-only GTC rests, filled when best ask < 0.67)", "outcome": "DOWN", "derivation": "cash_end - starting = -(0.67 x 1.5) = -1.005; UP pays 0; pnl = -1.005" }
+    },
+    {
+      "id": "q3-neg-0.125",
+      "spec": "10 §4 Q3 row 2",
+      "field": "pnl",
+      "exact": "-0.125",
+      "dp": 2,
+      "ts": "-0.12",
+      "rust": "-0.13",
+      "cause": "JS ties go toward +inf",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 0.25 @ 0.5", "outcome": "DOWN", "derivation": "-(0.5 x 0.25) = -0.125" }
+    },
+    {
+      "id": "q3-pos-1.005",
+      "spec": "10 §4 Q3 row 3",
+      "field": "pnl",
+      "exact": "1.005",
+      "dp": 2,
+      "ts": "1.00",
+      "rust": "1.01",
+      "cause": "1.005*100 = 100.49999... in binary",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 1.5 @ 0.33", "outcome": "UP", "derivation": "-(0.33 x 1.5) + 1.5 x 1 = -0.495 + 1.5 = 1.005" }
+    },
+    {
+      "id": "q3-pos-1.015",
+      "spec": "10 §4 Q3 row 4",
+      "field": "pnl",
+      "exact": "1.015",
+      "dp": 2,
+      "ts": "1.01",
+      "rust": "1.02",
+      "cause": "binary representation",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 1.75 @ 0.42", "outcome": "UP", "derivation": "1.75 x (1 - 0.42) = 1.75 x 0.58 = 1.015" }
+    },
+    {
+      "id": "q3-pos-0.285",
+      "spec": "10 §4 Q3 row 5",
+      "field": "pnl",
+      "exact": "0.285",
+      "dp": 2,
+      "ts": "0.28",
+      "rust": "0.29",
+      "cause": "binary representation",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 0.5 @ 0.43", "outcome": "UP", "derivation": "0.5 x 0.57 = 0.285" }
+    },
+    {
+      "id": "q3-neg-2.675",
+      "spec": "10 §4 Q3 row 6",
+      "field": "pnl",
+      "exact": "-2.675",
+      "dp": 2,
+      "ts": "-2.67",
+      "rust": "-2.68",
+      "cause": "both causes",
+      "scenario": { "profile": "ts-compat", "fill": "MAKER BUY UP 5 @ 0.535", "outcome": "DOWN", "derivation": "-(0.535 x 5) = -2.675" }
+    },
+    {
+      "id": "extra-pos-tie-0.125",
+      "spec": "10 §4 (HalfAwayFromZero), 10 §3.2 item 3",
+      "field": "upShares",
+      "exact": "0.125",
+      "dp": 2,
+      "ts": "0.13",
+      "rust": "0.13",
+      "cause": "positive tie: both round away from zero; no difference",
+      "note": "Author's case: shows the tie rule only differs for negative ties."
+    },
+    {
+      "id": "extra-neg-below-tie",
+      "spec": "10 §4 (HalfAwayFromZero)",
+      "field": "pnl",
+      "exact": "-1.004999",
+      "dp": 2,
+      "rust": "-1.00",
+      "cause": "below the half: magnitude rounds down",
+      "note": "Author's case. 10 §4 third cause: a TS value with accumulated float error may arrive as x.xx4999..; in Rust the exact micros value decides, there is no accumulated error."
+    },
+    {
+      "id": "extra-exact-unchanged",
+      "spec": "10 §4, 10 R-3 (a value already on the grid is not re-rounded)",
+      "field": "pnl",
+      "exact": "12.34",
+      "dp": 2,
+      "rust": "12.34",
+      "note": "Author's case."
+    },
+    {
+      "id": "extra-no-negative-zero",
+      "spec": "10 §4 Q2, 21 §18 N1",
+      "field": "pnl",
+      "exact": "-0.004",
+      "dp": 2,
+      "rust": "0.00",
+      "forbidden_renderings": ["-0.00", "-0", "-0.0"],
+      "note": "Author's case: a negative value that rounds to zero is emitted as 0, never -0."
+    },
+    {
+      "id": "extra-avg-entry-4dp-tie",
+      "spec": "10 §4 (avgEntryPrice 4 dp), 10 R14",
+      "field": "avgEntryPriceUp",
+      "exact": "0.53125",
+      "dp": 4,
+      "rust": "0.5313",
+      "note": "Author's case: BUY fills 1 @ 0.5 and 1 @ 0.5625 give sum(p x q)/sum(q) = 1.0625/2 = 0.53125 exactly; one HalfAwayFromZero step to 4 dp."
+    },
+    {
+      "id": "extra-avg-entry-exact-rational",
+      "spec": "10 R14 (one rounding from the exact rational, no double rounding)",
+      "field": "avgEntryPriceUp",
+      "exact": "0.5333333333",
+      "exact_rational": "1.6/3",
+      "dp": 4,
+      "rust": "0.5333",
+      "note": "Author's case: BUY fills 1 @ 0.5, 1 @ 0.5 and 1 @ 0.6: sum(p x q) = 1.6, sum(q) = 3. The exact rational 1.6/3 = 0.5333... rounds to 0.5333; rounding the micros intermediate 0.533333 again gives the same here, but R-3 forbids the second step in general."
+    },
+    {
+      "id": "extra-no-exponent",
+      "spec": "10 §4 Q2, 21 §18 N5",
+      "field": "pnl",
+      "exact": "0.000001",
+      "dp": 2,
+      "rust": "0.00",
+      "forbidden_renderings": ["1e-6", "1E-6"],
+      "note": "Author's case: JSON emission is plain decimal digits; no exponent, no f64 round trip."
+    },
+    {
+      "id": "extra-at-or-below-column-scale",
+      "spec": "10 §4 Q1 (D08)",
+      "field": "pnl",
+      "exact": "123.456789",
+      "dp": 2,
+      "rust": "123.46",
+      "note": "Author's case: the emitted value has at most 2 fractional digits, below the decimal(14,4) column scale, so a fresh run and an --extend recomputed from DB decimals agree (Q1)."
+    }
+  ]
+}
