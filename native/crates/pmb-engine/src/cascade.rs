@@ -19,7 +19,8 @@ use crate::strategy::{EventFlags, Strategy};
 use crate::trace::{TraceEvent, TraceSink};
 
 /// Deliveries with callbacks in one drain, bounded by
-/// `runner.maxEventsPerDrain` (12 §6.3).
+/// `runner.maxEventsPerDrain` (12 §6.3). Interest-skipped deliveries count
+/// (D69 A-08); deliveries with no callback by rule do not.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CascadeBudget {
     /// Maximum deliveries with callbacks per drain.
@@ -87,14 +88,16 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     .record(&TraceEvent::AccountEvent { seq, event: &ev });
             }
             self.delivered_since_tick = true;
-            // 4. Strategy callback if enabled, interested and allowed (12 §5.4).
-            let wanted = self.strategy.is_some()
-                && self.state.callbacks_enabled()
-                && !effect.suppress_callback
-                && self.interests.events.contains(EventFlags::of(&ev.kind));
-            if !wanted {
+            // 4. Strategy callback if enabled and allowed by rule (12 §5.4,
+            // §10, §11); deliveries with no callback by rule do not count.
+            let by_rule =
+                self.strategy.is_some() && self.callbacks_allowed() && !effect.suppress_callback;
+            if !by_rule {
                 continue;
             }
+            // D69 A-08: an interest-skipped delivery counts against the
+            // budget, otherwise the declared interests would change outputs
+            // (30 §4.1, 16 TF-3).
             if !budget.take() {
                 // 12 §6.3 (backtest): the candidate stops at once.
                 let cause = StrategyFaultCause::CascadeLimit {
@@ -103,6 +106,11 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     deliveries: budget.used - 1,
                 };
                 return Err(self.strategy_fault(cause, "onAccountEvent"));
+            }
+            // 12 §6.1: a skipped callback is equivalent to one that returned
+            // no intents.
+            if !self.interests.events.contains(EventFlags::of(&ev.kind)) {
+                continue;
             }
             self.call_event(&ev, market)?;
         }

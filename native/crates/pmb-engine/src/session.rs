@@ -323,6 +323,14 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         }
     }
 
+    /// Whether strategy callbacks may run by rule (12 §5.4, §10): the session
+    /// is `Active`. Deliveries with no callback by rule do not count against
+    /// the cascade budget (D69 A-08).
+    #[inline]
+    pub(crate) fn callbacks_allowed(&self) -> bool {
+        self.state.callbacks_enabled()
+    }
+
     #[inline]
     fn tick_seq(&self) -> u64 {
         self.last_tick.map_or(0, |t| t.seq)
