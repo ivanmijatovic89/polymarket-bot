@@ -546,3 +546,81 @@ fn spent_budget_times_out_through_the_real_deadline_check() {
     );
     assert_error(&o, ErrorClass::EngineFault, "panic");
 }
+
+/// Params whose schema export panics (a broken derive).
+struct BrokenParams;
+
+impl pmb_runtime::StrategyParams for BrokenParams {
+    fn from_json(
+        _obj: &serde_json::Map<String, Value>,
+    ) -> Result<Self, Vec<pmb_runtime::ParamError>> {
+        Ok(BrokenParams)
+    }
+    fn to_normalized(&self) -> serde_json::Map<String, Value> {
+        serde_json::Map::new()
+    }
+    fn json_schema() -> Value {
+        panic!("schema export is broken")
+    }
+}
+
+struct BrokenSchema;
+
+impl Strategy for BrokenSchema {
+    type Params = BrokenParams;
+    const ID: &'static str = "runtime-test-broken-schema.v1";
+
+    fn requirements(_p: &BrokenParams) -> pmb_engine::strategy::Requirements {
+        pmb_engine::strategy::Requirements::new()
+    }
+    fn new(_p: &BrokenParams, _m: &pmb_core::MarketInfo) -> Self {
+        BrokenSchema
+    }
+    fn on_tick(
+        &mut self,
+        _c: &pmb_engine::strategy::Ctx,
+        _o: &mut pmb_engine::strategy::Intents,
+    ) -> pmb_engine::strategy::StrategyResult {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_panic_outside_the_job_thread_is_one_document_and_exit_8() {
+    // spec: 20 G1 (one document on failure), G7, §4 (engine_fault exit 8,
+    // last stderr line is the reason; 101 only when every boundary failed)
+    for sub in ["schema", "describe"] {
+        let o = pmb_runtime::cli::dispatch_caught::<BrokenSchema, FakeBackend>(
+            &[sub.to_string()],
+            &mut std::io::empty(),
+            &IDLE,
+            "0.0.0",
+        );
+        assert_eq!(o.exit_code, 8, "{sub}");
+        let d: Value = serde_json::from_str(&o.document).unwrap();
+        assert_eq!(d["type"], "error");
+        assert_eq!(d["error"]["class"], "engine_fault");
+        assert_eq!(d["error"]["cause"], "panic");
+        assert!(d["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("schema export is broken"));
+        assert!(d["error"]["detail"]["location"]
+            .as_str()
+            .unwrap()
+            .contains("run_pipeline.rs"));
+        assert!(o
+            .reason
+            .as_deref()
+            .unwrap()
+            .starts_with("engine_fault: panic: schema export is broken"));
+    }
+    // No panic: the same as `dispatch`.
+    let o = pmb_runtime::cli::dispatch_caught::<Idle, FakeBackend>(
+        &["schema".to_string()],
+        &mut std::io::empty(),
+        &IDLE,
+        "0.0.0",
+    );
+    assert_eq!(o.exit_code, 0);
+}

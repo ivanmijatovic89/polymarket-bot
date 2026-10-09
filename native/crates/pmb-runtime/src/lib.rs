@@ -114,7 +114,7 @@ where
                 let backend = EngineBackend::new(UnwiredSimulator);
                 let stdin = std::io::stdin();
                 let mut lock = stdin.lock();
-                cli::dispatch::<T, _>(&args, &mut lock, &backend, opts.sdk_version)
+                cli::dispatch_caught::<T, _>(&args, &mut lock, &backend, opts.sdk_version)
             }
         },
     };

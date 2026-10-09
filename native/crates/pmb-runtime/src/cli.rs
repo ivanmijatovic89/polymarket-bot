@@ -5,6 +5,7 @@
 use std::io::Read;
 use std::path::PathBuf;
 
+use pmb_contract::result::ErrorDetail;
 use pmb_contract::vocab::TraceLevel;
 use pmb_engine::Strategy;
 use serde_json::{json, Map, Value};
@@ -377,6 +378,34 @@ where
         document: describe_doc::<T>(sdk_version, results).to_string(),
         exit_code: 0,
         reason: None,
+    }
+}
+
+/// [`dispatch`] inside a catch boundary (20 G1, G7, §4): a panic outside
+/// the job thread (`describe`, `schema`, the selftest goldens, params code,
+/// reading the job) still prints exactly one document (an `EngineResult`
+/// for `run`), exits 8 with `engine_fault: panic` and ends stderr with the
+/// one-line reason, instead of exit 101 with a backtrace as the last line.
+pub fn dispatch_caught<T, B>(
+    args: &[String],
+    stdin: &mut dyn Read,
+    backend: &B,
+    sdk_version: &str,
+) -> Outcome
+where
+    T: Strategy,
+    T::Params: StrategyParams,
+    B: Backend<T>,
+{
+    match crate::panic::catch(|| dispatch::<T, B>(args, stdin, backend, sdk_version)) {
+        Ok(o) => o,
+        Err(p) => error_for(
+            args,
+            EngineError::engine_fault("panic", p.message).with_detail(ErrorDetail {
+                location: p.location,
+                ..ErrorDetail::default()
+            }),
+        ),
     }
 }
 
