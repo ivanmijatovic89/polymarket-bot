@@ -206,7 +206,13 @@ export function seededShuffle<T>(items: readonly T[], seed: number): T[] {
   return out
 }
 
-export type StratifiedCandidate = { slug: string; marketStartMs: number; localPath: string }
+export type StratifiedCandidate = {
+  slug: string
+  marketStartMs: number
+  localPath: string
+  /** Outcome token ids (catalog asset ids), for the MS-3 edge scan. */
+  assets?: string[]
+}
 
 /**
  * MS-2 / MS-5: seeded random selection stratified by calendar month (UTC).
@@ -281,5 +287,8 @@ export async function listParityCandidates(args: {
       slug: r.slug,
       marketStartMs: r.marketStartMs,
       localPath: resolveDatasetPath(r.dataset!, args.dataRoot),
+      assets: [r.assetId0, r.assetId1].filter(
+        (a): a is string => typeof a === 'string' && a !== '',
+      ),
     }))
 }

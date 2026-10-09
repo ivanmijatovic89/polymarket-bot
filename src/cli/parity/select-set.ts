@@ -6,8 +6,14 @@ import { utcDatesCovering } from '../../binance/paths.js'
 import { DEFAULT_DATA_ROOT, REPO_ROOT } from '../../backtest/parity/cell.js'
 import { dateMsArg, intArg, one, paramArgs, parseArgv } from '../../backtest/parity/cliArgs.js'
 import {
+  pickEdgeMarkets,
+  scanMarketEdges,
+  type EdgeCounters,
+} from '../../backtest/parity/edgeScan.js'
+import {
   listParityCandidates,
   resolveParityStrategy,
+  seededShuffle,
   stratifiedByMonth,
   type StratifiedCandidate,
 } from '../../backtest/parity/marketJob.js'
@@ -20,15 +26,17 @@ import {
 const USAGE = `Usage (from the repository root):
   npx tsx scripts/parity/select-set.ts --set <name> --strategy <id> [--param k=v ...]
       --from <ISO date> [--to <ISO date>] --per-month <n> --seed <n> [--edge <n>]
-      [--data-root <repo>/data] [--dry-run]
+      [--edge-scan <sample size> [--edge-per-criterion 2]] [--data-root <repo>/data] [--dry-run]
 
 Selects a committed parity market set native/parity/sets/<name>.txt
 (native/spec/60-verification.md §4.2): seeded random through
 listEligibleTelonexMarkets with the strategy's required feeds (MS-2, read-only
 on MySQL), stratified by calendar month, local inputs only (MS-5: a market
 whose telonex-delta or feed day files are missing is replaced by the next
-seeded market and recorded), plus --edge markets with the largest and
-smallest input files (MS-3 proxy for most/fewest events).`
+seeded market and recorded), plus MS-3 edge markets: with --edge-scan N a
+seeded sample of N candidates is replayed and --edge-per-criterion markets are
+taken per criterion; otherwise --edge markets with the largest and smallest
+input files (proxy for most/fewest events).`
 
 // 11 §5.3 dated fee eras (market start), used only to report era coverage (MS-2).
 const FEE_ERAS: Array<{ id: string; fromMs: number }> = [
@@ -79,7 +87,19 @@ function localInputs(
 
 async function main(): Promise<number> {
   const p = parseArgv(process.argv.slice(2), {
-    values: ['set', 'strategy', 'param', 'from', 'to', 'per-month', 'seed', 'edge', 'data-root'],
+    values: [
+      'set',
+      'strategy',
+      'param',
+      'from',
+      'to',
+      'per-month',
+      'seed',
+      'edge',
+      'edge-scan',
+      'edge-per-criterion',
+      'data-root',
+    ],
     switches: ['dry-run', 'help'],
   })
   if (p.switches.has('help')) {
@@ -119,16 +139,52 @@ async function main(): Promise<number> {
   const hasLocal = (c: StratifiedCandidate) => localInputs(c, requiredFeeds, dataRoot)
   const { selected, replaced, months } = stratifiedByMonth(candidates, perMonth, seed, hasLocal)
   const chosen = new Set(selected.map((c) => c.slug))
-  // MS-3 proxy: largest and smallest input files among the remaining local candidates.
-  const rest = candidates
-    .filter((c) => !chosen.has(c.slug) && hasLocal(c))
-    .map((c) => ({ c, bytes: statSync(c.localPath).size }))
-    .sort((a, b) => a.bytes - b.bytes || a.c.slug.localeCompare(b.c.slug))
-  const half = Math.floor(edge / 2)
-  const edges = [
-    ...rest.slice(-(edge - half)).map((x) => ({ ...x, why: 'largest input file' })),
-    ...rest.slice(0, half).map((x) => ({ ...x, why: 'smallest input file' })),
-  ].slice(0, edge)
+  // MS-3 edge markets. With --edge-scan N: replay a seeded sample of N
+  // remaining local candidates and take --edge-per-criterion markets per
+  // criterion (most/fewest events, crossed books, clocks backwards, deltas
+  // before the first book, missing best price at start). Without it: the
+  // largest and smallest input files (proxy for most/fewest events).
+  const rest = candidates.filter((c) => !chosen.has(c.slug) && hasLocal(c))
+  let edges: Array<{ c: StratifiedCandidate; why: string }>
+  const scanN = one(p, 'edge-scan') !== undefined ? intArg(p, 'edge-scan', 0) : 0
+  if (scanN > 0) {
+    // The seeded sample plus the 5 largest and 5 smallest input files, so the
+    // most/fewest-events criteria see the extremes of the whole range.
+    const bySize = rest
+      .map((c) => ({ c, bytes: statSync(c.localPath).size }))
+      .sort((a, b) => a.bytes - b.bytes || a.c.slug.localeCompare(b.c.slug))
+    const extremes = [...bySize.slice(0, 5), ...bySize.slice(-5)].map((x) => x.c)
+    const seeded = seededShuffle(rest, seed + 1000).slice(0, scanN)
+    const sample = [...new Map([...seeded, ...extremes].map((c) => [c.slug, c] as const)).values()]
+    const scanned: Array<{ slug: string; counters: EdgeCounters }> = []
+    let i = 0
+    for (const c of sample) {
+      if (!c.assets || c.assets.length !== 2)
+        throw new Error(`${c.slug}: catalog has no outcome token ids`)
+      scanned.push({
+        slug: c.slug,
+        counters: await scanMarketEdges(c.localPath, c.marketStartMs, c.assets),
+      })
+      if (++i % 25 === 0) console.error(`[select-set] edge scan ${i}/${sample.length}`)
+    }
+    const per = intArg(p, 'edge-per-criterion', 2)
+    const bySlug = new Map(rest.map((c) => [c.slug, c] as const))
+    edges = pickEdgeMarkets(scanned, per, chosen).map((e) => ({
+      c: bySlug.get(e.slug)!,
+      why: `${e.criterion}: ${JSON.stringify(e.counters)}`,
+    }))
+  } else {
+    const sized = rest
+      .map((c) => ({ c, bytes: statSync(c.localPath).size }))
+      .sort((a, b) => a.bytes - b.bytes || a.c.slug.localeCompare(b.c.slug))
+    const half = Math.floor(edge / 2)
+    edges = [
+      ...sized
+        .slice(-(edge - half))
+        .map((x) => ({ c: x.c, why: `largest input file, ${x.bytes} B` })),
+      ...sized.slice(0, half).map((x) => ({ c: x.c, why: `smallest input file, ${x.bytes} B` })),
+    ].slice(0, edge)
+  }
   const all = [...selected, ...edges.map((e) => e.c)].sort(
     (a, b) => a.marketStartMs - b.marketStartMs,
   )
@@ -150,7 +206,8 @@ async function main(): Promise<number> {
       .sort()
       .map(([e, n]) => `${e}=${n}`)
       .join(' ')}`,
-    `# MS-3 edge markets (proxy: input file size; the other MS-3 scan criteria are pending): ${edges.map((e) => `${e.c.slug} (${e.why}, ${e.bytes} B)`).join(', ') || 'none'}`,
+    `# MS-3 edge markets (${scanN > 0 ? `replay scan of ${scanN} seeded candidates plus the 5 largest and 5 smallest input files` : 'proxy: input file size'}): ${edges.length}`,
+    ...edges.map((e) => `#   ${e.c.slug} -- ${e.why}`),
     `# MS-5 replaced (missing local input or feed day file): ${replaced.length}${replaced.length > 0 ? ` -- ${replaced.join(', ')}` : ''}`,
     `# Oracle pin: ${pin}`,
     `# Date: ${new Date().toISOString().slice(0, 10)}`,
