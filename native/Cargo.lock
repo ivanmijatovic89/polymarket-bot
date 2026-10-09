@@ -569,6 +569,7 @@ dependencies = [
 name = "pmb-sdk"
 version = "0.1.0"
 dependencies = [
+ "libm",
  "pmb-core",
  "pmb-sdk-macros",
  "proptest",

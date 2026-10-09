@@ -168,8 +168,11 @@
 // this crate's own unit tests too.
 extern crate self as pmb_sdk;
 
+pub mod collections;
+pub mod math;
 mod meta;
 pub mod params;
+pub mod toolkit;
 
 pub use meta::Meta;
 pub use params::{ParamEnum, ParamError, Params};
