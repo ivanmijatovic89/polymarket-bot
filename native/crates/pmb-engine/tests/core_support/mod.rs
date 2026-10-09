@@ -458,6 +458,8 @@ pub struct Ord {
     pub ty: OrderType,
     pub post_only: bool,
     pub expire: Option<TsMs>,
+    /// One string meta entry `{"leg": <text>}` (30 §7.2).
+    pub meta: Option<String>,
 }
 
 impl Ord {
@@ -471,7 +473,12 @@ impl Ord {
             ty: OrderType::Gtc,
             post_only: false,
             expire: None,
+            meta: None,
         }
+    }
+    pub fn meta(mut self, leg: &str) -> Ord {
+        self.meta = Some(leg.into());
+        self
     }
     pub fn sell(cid: &str, size: f64, price: f64) -> Ord {
         Ord {
@@ -497,7 +504,15 @@ impl Ord {
         self
     }
     fn write(&self, out: &mut pmb_engine::Intents) {
-        out.place_request(&ClientOrderId::new(&self.cid).unwrap(), self.req(), None);
+        let meta = self.meta.as_ref().map(|leg| {
+            let mut m = pmb_engine::strategy::Meta::new();
+            m.push(
+                "leg",
+                pmb_engine::strategy::MetaValue::Str(leg.as_str().into()),
+            );
+            m
+        });
+        out.place_request(&ClientOrderId::new(&self.cid).unwrap(), self.req(), meta);
     }
     pub fn req(&self) -> OrderRequest {
         OrderRequest {
@@ -587,6 +602,8 @@ pub struct Script {
     pub interests: Option<Interests>,
     /// Panics in `on_tick` at this tick seq.
     pub panic_at_tick: Option<u64>,
+    /// Returns `Err(StrategyError)` from `on_tick` at this tick seq.
+    pub error_at_tick: Option<u64>,
 }
 
 pub struct ScriptStrategy {
@@ -610,6 +627,9 @@ impl Strategy for ScriptStrategy {
         let s = &self.script;
         if s.panic_at_tick == Some(ctx.tick().seq) {
             panic!("boom at tick {}", ctx.tick().seq);
+        }
+        if s.error_at_tick == Some(ctx.tick().seq) {
+            return Err(pmb_engine::StrategyError::new("bad state"));
         }
         s.log.lock().unwrap().push(format!(
             "tick seq={} now={} ec={} cause={}",

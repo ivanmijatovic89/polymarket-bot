@@ -227,3 +227,171 @@ impl SharedMarket {
         self.stale[o]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::envelope::{Control, Source};
+    use pmb_core::ids::{ConditionId, Hash32, TokenId};
+    use pmb_core::market::MarketVersion;
+    use pmb_core::rules::{RulesChange, RulesProvenance, RulesTableVersion, TickOrigin};
+    use pmb_core::{LevelUpdate, Price, PriceSize, Qty};
+
+    fn market(changes: Vec<(TsMs, RulesChange)>) -> SharedMarket {
+        let info = MarketInfo::new(
+            "btc-updown-15m-1780272000",
+            ConditionId(Hash32([7; 32])),
+            PerOutcome::new(TokenId([1; 32]), TokenId([2; 32])),
+            MarketVersion::V2,
+            false,
+        )
+        .unwrap();
+        let start = info.window.start_ms;
+        let initial = ExchangeRules::realistic_fallback(RulesTableVersion::V1, start, start);
+        let tl = RulesTimeline::new(
+            initial,
+            changes,
+            RulesProvenance::all_fallback(RulesTableVersion::V1),
+            RulesTableVersion::V1,
+            pmb_core::rules::fee_era(RulesTableVersion::V1, start).id,
+        );
+        SharedMarket::new(Arc::new(info), Arc::new(tl), RulesSource::Fallback)
+    }
+
+    fn env(at: i64, ex: Option<i64>, payload: Payload<'_>) -> Envelope<'_> {
+        Envelope {
+            seq: 0,
+            at: TsMs(at),
+            exchange_ts: ex.map(TsMs),
+            recv_wall: None,
+            recv_mono: None,
+            source: Source::MarketWs,
+            payload,
+        }
+    }
+
+    fn ps(p: i64, s: i64) -> PriceSize {
+        PriceSize {
+            price: Price::from_micros(p),
+            size: Qty::from_micros(s),
+        }
+    }
+
+    #[test]
+    fn skew_is_the_causal_lower_envelope() {
+        // spec: 12 §4.4 XT1 (skew = min(at − exchange_ts) over market envelopes)
+        let mut m = market(vec![]);
+        assert_eq!(m.exchange_time(TsMs(1_000)), TsMs(1_000));
+        let b = [ps(400_000, 1_000_000)];
+        let book = |at, ex| {
+            env(
+                at,
+                Some(ex),
+                Payload::Market(MarketEvent::Book {
+                    outcome: Outcome::Up,
+                    bids: &b,
+                    asks: &[],
+                }),
+            )
+        };
+        m.apply(&book(1_050, 1_000));
+        assert_eq!(m.skew_ms, Some(50));
+        m.apply(&book(2_020, 2_000));
+        m.apply(&book(3_100, 3_000));
+        assert_eq!(m.skew_ms, Some(20));
+        assert_eq!(m.exchange_time(TsMs(5_000)), TsMs(4_980));
+        assert_eq!(m.loop_time_of(TsMs(5_000), TsMs(6_000)), TsMs(6_020));
+        assert!(m.first_counted_tick_seen);
+        assert_eq!(m.book_updated_at[Outcome::Up], Some(TsMs(3_100)));
+    }
+
+    #[test]
+    fn tick_size_change_and_timeline_update_the_rules_in_force() {
+        // spec: 12 §5.2 (TickSizeChange updates the rules; never a tick),
+        // 11 §7.5, X1 (timeline applied at exchange time)
+        let start = 1_780_272_000_000;
+        let mut m = market(vec![(
+            TsMs(start + 500),
+            RulesChange::Tick {
+                outcome: Outcome::Down,
+                tick: Price::from_micros(1_000),
+                origin: TickOrigin::Event,
+            },
+        )]);
+        m.apply(&env(
+            start + 10,
+            Some(start),
+            Payload::Market(MarketEvent::TickSizeChange {
+                outcome: Outcome::Up,
+                tick: Price::from_micros(1_000),
+            }),
+        ));
+        assert_eq!(m.rules.tick[Outcome::Up], Price::from_micros(1_000));
+        assert_eq!(m.rules.tick[Outcome::Down], Price::from_micros(10_000));
+        // Exchange time = at − skew(10) = start + 500 reaches the change.
+        m.apply(&env(
+            start + 510,
+            Some(start + 600),
+            Payload::Market(MarketEvent::LastTrade {
+                outcome: Outcome::Down,
+                price: Price::from_micros(500_000),
+                size: Qty::from_micros(1_000_000),
+                side: None,
+            }),
+        ));
+        assert_eq!(m.rules.tick[Outcome::Down], Price::from_micros(1_000));
+    }
+
+    #[test]
+    fn top_change_bit_and_stale_flags() {
+        // spec: 16 BK-7 (top-change bit per applied event), 12 §5.2 stale books
+        let mut m = market(vec![]);
+        let b = [ps(400_000, 1_000_000)];
+        let a = [ps(600_000, 1_000_000)];
+        m.apply(&env(
+            1,
+            Some(1),
+            Payload::Market(MarketEvent::Book {
+                outcome: Outcome::Up,
+                bids: &b,
+                asks: &a,
+            }),
+        ));
+        assert!(m.last_apply.top.price);
+        let size_only = [LevelUpdate {
+            outcome: Outcome::Up,
+            side: QuoteSide::Bid,
+            price: Price::from_micros(400_000),
+            size: Qty::from_micros(2_000_000),
+        }];
+        m.apply(&env(
+            2,
+            Some(2),
+            Payload::Market(MarketEvent::PriceChange {
+                changes: &size_only,
+            }),
+        ));
+        assert!(!m.last_apply.top.price && m.last_apply.top.size);
+        m.apply(&env(3, None, Payload::Control(Control::DataGap(None))));
+        assert!(m.is_stale(Outcome::Up) && m.is_stale(Outcome::Down));
+        m.apply(&env(
+            4,
+            Some(4),
+            Payload::Market(MarketEvent::PriceChange {
+                changes: &size_only,
+            }),
+        ));
+        assert!(m.last_apply.stale_book);
+        m.apply(&env(
+            5,
+            Some(5),
+            Payload::Market(MarketEvent::Book {
+                outcome: Outcome::Up,
+                bids: &b,
+                asks: &a,
+            }),
+        ));
+        assert!(!m.is_stale(Outcome::Up));
+        assert!(m.is_stale(Outcome::Down));
+    }
+}
