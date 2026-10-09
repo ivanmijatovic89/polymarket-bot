@@ -133,6 +133,25 @@ export function canonicalJson(value: unknown): string {
   throw new Error(`canonical JSON: unsupported value ${String(value)}`)
 }
 
+/**
+ * Sorted-key JSON for hashing tooling data that may hold floats (cache keys,
+ * oracleEnv): like `canonicalJson` but numbers use JS shortest round-trip
+ * formatting. Not the 21 §6.1 ModelConfig form.
+ */
+export function canonicalJsonLoose(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'number' && !Number.isFinite(value))
+      throw new Error(`canonical JSON: non-finite ${value}`)
+    return JSON.stringify(value) ?? 'null'
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJsonLoose).join(',')}]`
+  const obj = value as Record<string, unknown>
+  const keys = Object.keys(obj)
+    .filter((k) => obj[k] !== undefined)
+    .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJsonLoose(obj[k])}`).join(',')}}`
+}
+
 export function sha256Hex(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex')
 }

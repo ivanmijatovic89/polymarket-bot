@@ -71,13 +71,19 @@ import {
   readTrace,
   readTraceText,
 } from '../../backtest/parity/trace.js'
+import {
+  cacheTreeHashes,
+  restoreFromCache,
+  storeInCache,
+  traceCacheKey,
+} from '../../backtest/parity/traceCache.js'
 import { externalFeedsRequest } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { EXERCISER_SCHEDULE_VERSION } from '../../strategies/testing/engine-exerciser.js'
 
 const USAGE = `Usage (from the repository root):
   npx tsx scripts/parity/run-parity.ts --cell native/parity/cells/<cell>.json --out-dir <dir outside the repo>
       [--data-root <repo>/data] [--concurrency 4] [--slugs a,b | --limit N]
-      [--pin <sha>] [--repeat-ts [--repeat-seed 1]] [--plain]
+      [--pin <sha>] [--repeat-ts [--repeat-seed 1]] [--trace-cache <dir>] [--plain]
       [--rust-bin <canonical artifact binary> [--rust-only]] [--tolerance <x>]
 
 Runs one parity cell (native/spec/60-verification.md §4): builds each market's
@@ -90,7 +96,8 @@ Writes <dir>/manifest.json (HR-7) and <dir>/summary.md.
 
 --slugs/--limit/--tolerance and a dirty oracle tree (OR-3) make the run non-gating.
 --repeat-ts re-runs TS on a seeded 10% sample (at least 20 markets) and requires
-byte-identical traces (OR-9). --rust-only reuses <dir>/jobs and the TS traces.
+byte-identical traces (OR-9). --trace-cache reuses TS traces whose key (engine
+trees, job, input identities, oracle env, patch set) is unchanged (OR-12). --rust-only reuses <dir>/jobs and the TS traces.
 Exit 0 only with zero TS failures, zero unclassified and zero markets matched
 by an open Rust-bug entry (HR-8).`
 
@@ -210,6 +217,7 @@ async function main(): Promise<number> {
       'repeat-seed',
       'rust-bin',
       'tolerance',
+      'trace-cache',
     ],
     switches: ['repeat-ts', 'rust-only', 'plain', 'help'],
   })
@@ -345,6 +353,17 @@ async function main(): Promise<number> {
   }
   const tsTraceEntry = path.join(REPO_ROOT, 'src', 'cli', 'parity', 'ts-trace.ts')
 
+  // OR-12 trace cache (HR-4): only on a clean working tree, whose tree hashes describe the code.
+  const cacheArg = one(p, 'trace-cache')
+  const cacheDir = cacheArg ? path.resolve(cacheArg) : null
+  if (cacheDir && (cacheDir === REPO_ROOT || cacheDir.startsWith(REPO_ROOT + path.sep)))
+    throw new Error('--trace-cache must be outside the repository')
+  const cacheTrees = cacheDir && tree.workingTreeClean ? cacheTreeHashes(enginePaths) : null
+  if (cacheDir && !cacheTrees)
+    console.error(
+      '[run-parity] --trace-cache disabled: the working tree is dirty (OR-12 keys on git trees)',
+    )
+
   const runTs = async (job: MarketJobData, out: string, logName: string): Promise<Child> =>
     runChild(
       process.execPath,
@@ -364,7 +383,6 @@ async function main(): Promise<number> {
     )
 
   const entries = new Map<string, MarketEntry>()
-  const tsRecordsBySlug = new Map<string, ReturnType<typeof readTrace>>()
   let done = 0
   await pool(jobs, concurrency, async (job) => {
     const slug = job.slug!
@@ -376,20 +394,43 @@ async function main(): Promise<number> {
       verdict: null,
     }
     entries.set(slug, entry)
-    if (!rustOnly) {
+    const cacheKey =
+      cacheDir && cacheTrees
+        ? traceCacheKey({
+            trees: cacheTrees,
+            job,
+            inputs: entry.inputs,
+            oracleEnv,
+            traceLevel: cell.traceLevel,
+            patchSetSha256: null,
+          })
+        : null
+    if (
+      !rustOnly &&
+      cacheDir &&
+      cacheKey &&
+      restoreFromCache(cacheDir, cacheKey, traceExt, tsTrace)
+    ) {
+      entry.ts = { ok: true, durationMs: 0, cache: 'hit', cacheKey }
+    } else if (!rustOnly) {
       const t0 = Date.now()
       const r = await runTs(job, tsTrace, `${slug}.ts.log`)
       entry.ts = { ok: r.code === 0 && existsSync(tsTrace), durationMs: Date.now() - t0 }
       if (!entry.ts.ok) entry.ts.error = lastLines(r.tail)
+      else if (cacheDir && cacheKey) {
+        storeInCache(cacheDir, cacheKey, traceExt, tsTrace)
+        entry.ts.cache = 'miss'
+        entry.ts.cacheKey = cacheKey
+      }
     } else {
       entry.ts = { ok: existsSync(tsTrace), durationMs: 0 }
       if (!entry.ts.ok) entry.ts.error = `missing ${tsTrace}`
     }
+    let recs: ReturnType<typeof readTrace> | null = null
     if (entry.ts.ok) {
       entry.ts.trace = tsTrace
       entry.ts.traceSha256 = sha256Hex(readTraceText(tsTrace))
-      const recs = readTrace(tsTrace)
-      tsRecordsBySlug.set(slug, recs)
+      recs = readTrace(tsTrace)
       entry.coverage = {
         generic: genericCoverage(recs),
         ...(cell.traceLevel === 'feeds' ? { feeds: feedCoverage(recs) } : {}),
@@ -399,7 +440,7 @@ async function main(): Promise<number> {
       entry.verdict = { verdict: 'excluded', reason: `ts_failed: ${entry.ts.error ?? ''}` }
     }
 
-    if (rustBin && buildEngineJob && entry.ts.ok) {
+    if (rustBin && buildEngineJob && recs) {
       const engineJob = await buildEngineJob(nativeJobFor(job, cell), { dataRoot })
       assertEngineJobStrategy(engineJob, cell)
       const engineJobFile = path.join(rustDir, `${slug}.engine-job.json`)
@@ -416,7 +457,7 @@ async function main(): Promise<number> {
         entry.verdict = { verdict: 'unclassified', reason: `rust_failed: ${entry.rust.error}` }
       } else {
         entry.rust.trace = rustTrace
-        const tsRecs = tsRecordsBySlug.get(slug)!
+        const tsRecs = recs
         const d = diffTraces(
           tsRecs,
           readTrace(rustTrace),

@@ -27,7 +27,16 @@ export type FileIdentity = { path: string; bytes: number; sha256: string }
 export type MarketEntry = {
   slug: string
   inputs: { market: FileIdentity | null; feedFiles: FileIdentity[]; missing: string[] }
-  ts: { ok: boolean; durationMs: number; error?: string; traceSha256?: string; trace?: string }
+  ts: {
+    ok: boolean
+    durationMs: number
+    error?: string
+    traceSha256?: string
+    trace?: string
+    /** OR-12 trace cache outcome, when a cache is used. */
+    cache?: 'hit' | 'miss'
+    cacheKey?: string
+  }
   /** OR-9 re-run: byte-identical decompressed TS traces. */
   repeat?: { identical: boolean }
   rust?: { ok: boolean; durationMs: number; error?: string; trace?: string }
