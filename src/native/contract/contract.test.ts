@@ -17,6 +17,8 @@ import {
 import { candidateModelConfigSha256, checkEcho, effectiveModelConfig } from './echo.js'
 import { GENERATED_PATH, REPO_ROOT, generate, readBundle } from './gen.js'
 import { candidateDurationMs, toRunSingleMarketOutput } from './mapping.js'
+import { checkMarketStatsRow, invalidMarketStatsReason } from './marketStatsRow.js'
+import type { MarketStats } from '../../backtest/stats/marketStats.js'
 import type { EngineJob, EngineResult } from './generated.js'
 import { createContractValidators, hasDecimalScale } from './validate.js'
 
@@ -353,5 +355,57 @@ describe('mapping to RunSingleMarketOutput (21 §11, §12)', () => {
     assert.equal(candidateDurationMs(1000, 1210, { weight: 2, candidates: 3 }), 140)
     assert.equal(candidateDurationMs(1000, 1001, { weight: 1, candidates: 3 }), 0)
     assert.throws(() => candidateDurationMs(1210, 1000))
+  })
+})
+
+describe('MarketStats DB-contract check (21 §19 TS aggregator)', () => {
+  const result = readJson(
+    path.join(CONTRACT_DIR, 'fixtures/results/valid/ok-ts-compat.json'),
+  ) as EngineResult
+  const stamps = {
+    machineId: 'a1b2c3d4e5f6',
+    workerChildId: 101,
+    startedAtMs: 0,
+    finishedAtMs: 1,
+    durationMs: 1,
+    commitSha: 'deadbeef',
+  }
+  const row = () => toRunSingleMarketOutput(result.candidates[0]!.output!, 0, stamps).marketStats!
+
+  it('accepts the rows of the valid fixture', () => {
+    // spec: 21 §19, §11
+    for (const c of result.candidates) {
+      const stats = c.output && toRunSingleMarketOutput(c.output, 0, stamps).marketStats
+      if (stats) assert.equal(checkMarketStatsRow(stats), null)
+    }
+  })
+
+  it('names the field and reason of every violation', () => {
+    // spec: 21 §11 ranges and quantization, §17, §18 N1/N6, §14 reason text
+    const cases: Array<[string, unknown]> = [
+      ['marketId', ''],
+      ['finalOutcome', 'Up'],
+      ['pnl', 1e10],
+      ['pnl', -12.345],
+      ['pnl', Number.NaN],
+      ['tradeCount', -1],
+      ['tradeAsTaker', 2 ** 31],
+      ['feesPaid', -0.01],
+      ['avgEntryPriceUp', 1],
+      ['avgEntryPriceDown', 0.51234],
+      ['upShares', 1e12],
+      ['downShares', -1],
+      ['cost', Number.POSITIVE_INFINITY],
+      ['splitCost', -1],
+      ['intentMeta', null],
+      ['skipReason', 'no_trades'],
+      ['rules', { source: 'captured' }],
+    ]
+    for (const [field, value] of cases) {
+      const bad = { ...row(), [field]: value } as MarketStats
+      const v = checkMarketStatsRow(bad)
+      assert.equal(v?.field, field, `${field}=${String(value)}`)
+      assert.ok(invalidMarketStatsReason(v).startsWith(`invalid_market_stats: ${field}: `))
+    }
   })
 })
