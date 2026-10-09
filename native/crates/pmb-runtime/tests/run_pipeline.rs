@@ -209,6 +209,29 @@ fn pipeline_raises_each_class_with_its_exit_code() {
         ErrorClass::InvalidInput,
         "version",
     );
+    // 21 §5.1 causes: a foreign modelConfigVersion is model_config; a TS
+    // input mode that is not native (or any unknown mode) is input_mode.
+    let mut j = base.clone();
+    j["run"]["modelConfig"]["modelConfigVersion"] = Value::from(2);
+    assert_error(
+        &run_value::<Idle>(&j, &IDLE, &ov),
+        ErrorClass::InvalidInput,
+        "model_config",
+    );
+    for mode in ["recorded", "telonex-paired", "parquet"] {
+        let mut j = base.clone();
+        j["run"]["inputMode"] = Value::from(mode);
+        let o = run_value::<Idle>(&j, &IDLE, &ov);
+        assert_error(&o, ErrorClass::InvalidInput, "input_mode");
+        assert!(o.result.error.as_ref().unwrap().message.contains(mode));
+    }
+    let mut j = base.clone();
+    j["run"]["inputMode"] = Value::from(7);
+    assert_error(
+        &run_value::<Idle>(&j, &IDLE, &ov),
+        ErrorClass::InvalidInput,
+        "schema",
+    );
     let mut j = base.clone();
     j["run"]["strategyId"] = Value::from("someone-else.v1");
     let o = run_value::<Idle>(&j, &IDLE, &ov);

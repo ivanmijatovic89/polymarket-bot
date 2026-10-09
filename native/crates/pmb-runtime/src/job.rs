@@ -91,8 +91,11 @@ impl From<EngineError> for JobError {
 }
 
 /// Parses a job document strictly (21 §3: unknown fields are rejected).
-/// A foreign `jobSchemaVersion` or `modelConfigVersion` is
-/// `invalid_input: version`; any other mismatch is `invalid_input: schema`.
+/// The causes follow 21 §5.1: a foreign `jobSchemaVersion` is
+/// `invalid_input: version`, a foreign `modelConfigVersion` is
+/// `invalid_input: model_config`, an input mode that is not native
+/// (`recorded`, `telonex-paired`, or any other string) is
+/// `invalid_input: input_mode`; any other mismatch is `invalid_input: schema`.
 pub fn parse_job(bytes: &[u8]) -> Result<EngineJob, EngineError> {
     let v: Value = serde_json::from_slice(bytes)
         .map_err(|e| EngineError::invalid_input("schema", format!("job is not JSON: {e}")))?;
@@ -122,9 +125,24 @@ pub fn parse_job(bytes: &[u8]) -> Result<EngineJob, EngineError> {
     if let Some(mcv) = v.pointer("/run/modelConfig/modelConfigVersion") {
         if mcv.as_u64() != Some(u64::from(MODEL_CONFIG_VERSION)) {
             return Err(EngineError::invalid_input(
-                "version",
+                "model_config",
                 format!(
                     "modelConfigVersion {mcv} is not supported (this binary accepts [{MODEL_CONFIG_VERSION}])"
+                ),
+            ));
+        }
+    }
+    if let Some(Value::String(mode)) = v.pointer("/run/inputMode") {
+        if !InputMode::ALL.iter().any(|m| m.as_str() == mode) {
+            return Err(EngineError::invalid_input(
+                "input_mode",
+                format!(
+                    "input mode {mode:?} is not a native input mode (20 §5.6; native modes: {})",
+                    InputMode::ALL
+                        .iter()
+                        .map(|m| m.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ),
             ));
         }
