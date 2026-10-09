@@ -201,7 +201,7 @@ macro_rules! int_param {
     )*};
 }
 
-int_param!(i8, i16, i32, i64, u8, u16, u32, u64);
+int_param!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
 impl ParamValue for f64 {
     fn parse(input: &Input, path: &str, errs: &mut ParamError) -> Option<Self> {

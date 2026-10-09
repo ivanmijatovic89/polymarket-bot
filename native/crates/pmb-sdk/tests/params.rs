@@ -561,3 +561,57 @@ fn schema_snapshot() {
     assert_eq!(nested["properties"]["mode"]["anyOf"][0]["enum"][1], "taker");
     assert_eq!(nested["required"], serde_json::json!(["window", "windows"]));
 }
+
+#[derive(Params, Debug, PartialEq)]
+pub struct IntParams {
+    #[param(default = -1)]
+    pub small: i8,
+    #[param(default = 0)]
+    pub big: u64,
+    #[param(default = 7, max = 9)]
+    pub n: usize,
+    pub signed: Option<i64>,
+}
+
+// spec: 30 §9 table (integers: Rust FromStr for CLI, integral numbers for typed JSON), 21 §18 N2
+#[test]
+fn integer_fields() {
+    let p =
+        IntParams::from_cli(["big=18446744073709551615", "signed=-9223372036854775808"]).unwrap();
+    assert_eq!(p.big, u64::MAX);
+    assert_eq!(p.signed, Some(i64::MIN));
+    assert_eq!(
+        p.normalized_json(),
+        r#"{"big":18446744073709551615,"n":7,"signed":-9223372036854775808,"small":-1}"#
+    );
+    assert_eq!(IntParams::from_json_str(&p.normalized_json()).unwrap(), p);
+    for arg in ["small=200", "big=-1", "n=1.0", "signed=9223372036854775808"] {
+        let e = IntParams::from_cli([arg]).unwrap_err();
+        assert_eq!(one_issue(&e).1, ParamErrorKind::InvalidValue, "{arg}");
+    }
+    assert_eq!(
+        one_issue(&IntParams::from_json_str(r#"{"n":10}"#).unwrap_err()).2,
+        "expected a number <= 9, got 10"
+    );
+    // Schema type bounds only within ±(2^53 - 1).
+    let s = IntParams::params_schema();
+    assert_eq!(s["properties"]["small"]["minimum"], -128);
+    assert_eq!(s["properties"]["small"]["maximum"], 127);
+    assert_eq!(s["properties"]["big"]["minimum"], 0);
+    assert!(s["properties"]["big"].get("maximum").is_none());
+    assert!(s["properties"]["signed"]["anyOf"][0]
+        .get("minimum")
+        .is_none());
+    assert_eq!(s["required"], serde_json::json!([]));
+}
+
+// spec: 30 §9 rules 6, 9, 10: normalized output compares equal to an equivalent TS-style rendering
+#[test]
+fn normalized_compares_by_value() {
+    let p = LagParams::from_cli(["maxTrades=20", "sigma=0.0001"]).unwrap();
+    let ts_style = r#"{"stakeUsd":30.0,"size":5,"sigma":1e-4,"maxTrades":20,"maxPrice":0.60,
+        "leg":"Maker","label":"lag","ids":[],"fee_rate":0.07,"dry":false,"depthFrac":1,
+        "cooldown":5000}"#;
+    assert!(pmb_sdk::params::normalized_eq(&p.normalized_json(), ts_style).unwrap());
+    assert!(!pmb_sdk::params::normalized_eq(&p.normalized_json(), "{}").unwrap());
+}

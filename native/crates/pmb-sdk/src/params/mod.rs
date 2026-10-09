@@ -11,12 +11,14 @@
 //! (§9 rule 6) is canonical JSON text: keys sorted bytewise, defaults
 //! applied, `None` omitted, exact decimals for fixed-point values.
 
+mod compare;
 pub(crate) mod input;
 pub(crate) mod support;
 pub(crate) mod text;
 pub(crate) mod value;
 
 use crate::json;
+pub use compare::{normalized_eq, normalized_eq_value};
 use input::Input;
 use std::fmt;
 use support::ParamsFields;
