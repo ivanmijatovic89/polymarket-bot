@@ -2,7 +2,6 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import * as z from 'zod'
 import type { FieldMismatch, TraceDiffResult } from './diff.js'
-import type { TraceRecord } from './trace.js'
 
 /**
  * PARITY.md matchers (native/spec/60-verification.md §3.2) and the per-market
@@ -80,7 +79,8 @@ export type MarketVerdict =
  */
 export function classifyMarket(
   diff: TraceDiffResult,
-  tsRecords: readonly TraceRecord[],
+  /** Event kinds present in the market's TS trace (matcher preconditions). */
+  eventKinds: ReadonlySet<string>,
   matchers: readonly Matcher[],
 ): { verdict: MarketVerdict; openRustBug: boolean } {
   if (diff.failures.length === 0 && diff.equal)
@@ -90,7 +90,14 @@ export function classifyMarket(
       verdict: { verdict: 'unclassified', reason: diff.notes.join('; ') || 'incomplete trace' },
       openRustBug: false,
     }
-  const eventKinds = new Set(tsRecords.filter((r) => r.t === 'event').map((r) => String(r.kind)))
+  if (diff.failureTotal > diff.failures.length)
+    return {
+      verdict: {
+        verdict: 'unclassified',
+        reason: `${diff.failureTotal} mismatches (over the stored cap)`,
+      },
+      openRustBug: false,
+    }
   const entries = new Set<string>()
   let openRustBug = false
   for (const f of diff.failures) {

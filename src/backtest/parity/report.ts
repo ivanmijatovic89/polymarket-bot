@@ -1,11 +1,17 @@
-import { compareRecords, type TraceDiffResult, type TraceSummary } from './diff.js'
+import type { TraceDiffResult, TraceSummary } from './diff.js'
 import type { TraceRecord } from './trace.js'
 
 /**
- * Human-readable diff report: the first divergence with ±context records,
- * every field mismatch, auto-class counts and per-side summaries
- * (22 §3.4: first divergence with ±5 records of context plus the summaries).
+ * Human-readable diff report (22 §3.4): the first divergence with ±context
+ * records, every stored field mismatch, auto-class counts and per-side
+ * summaries.
  */
+
+export type RecordPair = { index: number; a: TraceRecord | undefined; b: TraceRecord | undefined }
+
+/** Records around the first failing record, collected while streaming. */
+export type DivergenceContext = { before: RecordPair[]; at: RecordPair; after: RecordPair[] }
+
 function fmt(r: TraceRecord | undefined): string {
   return r ? JSON.stringify(r) : '<EOF>'
 }
@@ -21,50 +27,42 @@ function summaryLine(label: string, s: TraceSummary): string {
 }
 
 export function formatDiff(
-  a: readonly TraceRecord[],
-  b: readonly TraceRecord[],
   res: TraceDiffResult,
   labels: { a: string; b: string },
-  context = 5,
+  context: DivergenceContext | null,
   tolerance?: number,
 ): string {
   const lines: string[] = [`A = ${labels.a}`, `B = ${labels.b}`]
   if (!res.gating) lines.push(`NON-GATING: --tolerance ${String(tolerance)} overrides the v2 rules`)
-  if (res.equal) {
-    lines.push(`EQUAL (${a.length} records)`)
-  } else {
-    const first = res.failures[0]
-    if (first) {
-      lines.push(
-        '',
-        `FIRST DIVERGENCE at record #${first.index + 1} (${first.recordType}${first.recordKind ? `:${first.recordKind}` : ''})`,
-      )
-      const from = Math.max(0, first.index - context)
+  if (res.equal) lines.push(`EQUAL (${res.summaryA.records} records)`)
+  const first = res.failures[0]
+  if (!res.equal && first) {
+    lines.push(
+      '',
+      `FIRST DIVERGENCE at record #${first.index + 1} (${first.recordType}${first.recordKind ? `:${first.recordKind}` : ''})`,
+    )
+    if (context) {
       lines.push('  context (A | B):')
-      for (let i = from; i < first.index; i++) {
-        const same =
-          a[i] &&
-          b[i] &&
-          compareRecords(a[i]!, b[i]!, tolerance !== undefined ? { tolerance } : {}).length === 0
-        lines.push(`    ${same ? '=' : '!'} #${i + 1} A ${fmt(a[i])}`)
-        if (!same) lines.push(`      #${i + 1} B ${fmt(b[i])}`)
+      for (const p of context.before) {
+        lines.push(`    #${p.index + 1} A ${fmt(p.a)}`)
+        if (JSON.stringify(p.a) !== JSON.stringify(p.b))
+          lines.push(`    #${p.index + 1} B ${fmt(p.b)}`)
       }
-      lines.push(`  > #${first.index + 1} A ${fmt(a[first.index])}`)
-      lines.push(`  > #${first.index + 1} B ${fmt(b[first.index])}`)
-      for (let i = first.index + 1; i <= first.index + context; i++) {
-        if (!a[i] && !b[i]) break
-        lines.push(`    #${i + 1} A ${fmt(a[i])}`)
-        lines.push(`    #${i + 1} B ${fmt(b[i])}`)
+      lines.push(`  > #${context.at.index + 1} A ${fmt(context.at.a)}`)
+      lines.push(`  > #${context.at.index + 1} B ${fmt(context.at.b)}`)
+      for (const p of context.after) {
+        lines.push(`    #${p.index + 1} A ${fmt(p.a)}`)
+        lines.push(`    #${p.index + 1} B ${fmt(p.b)}`)
       }
     }
   }
   if (res.mismatches.length > 0) {
-    lines.push('', `mismatches (${res.mismatches.length}, failing ${res.failures.length}):`)
+    lines.push('', `mismatches (failing ${res.failureTotal}; ${res.mismatches.length} stored):`)
     for (const m of res.mismatches.slice(0, 40))
       lines.push(
         `  #${m.index + 1} [${m.kind}] ${m.path}: A=${JSON.stringify(m.a)} B=${JSON.stringify(m.b)}`,
       )
-    if (res.mismatches.length > 40) lines.push(`  … ${res.mismatches.length - 40} more`)
+    if (res.mismatches.length > 40) lines.push(`  … ${res.mismatches.length - 40} more stored`)
   }
   const auto = Object.entries(res.autoClasses)
   if (auto.length > 0) lines.push(`auto-classes: ${auto.map(([k, n]) => `${k}=${n}`).join(' ')}`)

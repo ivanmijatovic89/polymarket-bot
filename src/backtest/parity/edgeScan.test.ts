@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { MarketOrderBooksSnapshot } from '../../market/orderbook/index.js'
-import { EdgeCounter, pickEdgeMarkets, type EdgeCounters } from './edgeScan.js'
+import { EdgeCounter, pickEdgeMarkets, unmatchedCriteria, type EdgeCounters } from './edgeScan.js'
 
 const UP = 'u'
 const DOWN = 'd'
@@ -85,5 +85,30 @@ describe('MS-3 edge scan (60 §4.2, 15 §8 counters)', () => {
       ],
     )
     assert.equal(pickEdgeMarkets(scanned, 1, new Set(['a', 'b', 'c', 'd'])).length, 0)
+  })
+
+  it('fills up to the MS-3 minimum round-robin and reports criteria without a market', () => {
+    const base: EdgeCounters = {
+      events: 10,
+      crossedBookTicks: 0,
+      localClockBackwards: 0,
+      exchangeClockBackwards: 0,
+      deltaBeforeBook: 0,
+      missingBestAtStart: false,
+    }
+    const scanned = Array.from({ length: 12 }, (_, i) => ({
+      slug: `m${String(i).padStart(2, '0')}`,
+      counters: { ...base, events: 100 + i },
+    }))
+    const picked = pickEdgeMarkets(scanned, 1, new Set(), 10)
+    assert.equal(picked.length, 10)
+    assert.equal(new Set(picked.map((p) => p.slug)).size, 10)
+    assert.deepEqual(unmatchedCriteria(scanned), [
+      'crossed-book ticks',
+      'local clock backwards',
+      'exchange clock backwards',
+      'deltas before the first book',
+      'missing best bid or ask at window start',
+    ])
   })
 })

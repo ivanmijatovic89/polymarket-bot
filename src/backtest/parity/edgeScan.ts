@@ -119,28 +119,52 @@ export const EDGE_CRITERIA: readonly EdgeCriterion[] = [
 
 /**
  * Pick `perCriterion` distinct markets per criterion (highest score first,
- * slug as tie-break), skipping markets already chosen.
+ * slug as tie-break), skipping markets already chosen; then, while fewer
+ * than `minTotal` are picked (MS-3: at least 10), take further markets
+ * round-robin over the criteria that still have candidates.
  */
 export function pickEdgeMarkets(
   scanned: ReadonlyArray<{ slug: string; counters: EdgeCounters }>,
   perCriterion: number,
   exclude: ReadonlySet<string>,
+  minTotal = 0,
 ): Array<{ slug: string; criterion: string; counters: EdgeCounters }> {
   const taken = new Set(exclude)
   const out: Array<{ slug: string; criterion: string; counters: EdgeCounters }> = []
-  for (const crit of EDGE_CRITERIA) {
-    const ranked = scanned
+  const rankings = EDGE_CRITERIA.map((crit) => ({
+    crit,
+    ranked: scanned
       .map((s) => ({ s, score: crit.score(s.counters) }))
       .filter((x): x is { s: (typeof scanned)[number]; score: number } => x.score !== null)
       .sort((a, b) => b.score - a.score || a.s.slug.localeCompare(b.s.slug))
-    let n = 0
-    for (const { s } of ranked) {
-      if (n >= perCriterion) break
+      .map((x) => x.s),
+    next: 0,
+  }))
+  const takeOne = (r: (typeof rankings)[number]): boolean => {
+    while (r.next < r.ranked.length) {
+      const s = r.ranked[r.next++]!
       if (taken.has(s.slug)) continue
       taken.add(s.slug)
-      out.push({ slug: s.slug, criterion: crit.id, counters: s.counters })
-      n++
+      out.push({ slug: s.slug, criterion: r.crit.id, counters: s.counters })
+      return true
+    }
+    return false
+  }
+  for (const r of rankings) for (let n = 0; n < perCriterion; n++) if (!takeOne(r)) break
+  let progress = true
+  while (out.length < minTotal && progress) {
+    progress = false
+    for (const r of rankings) {
+      if (out.length >= minTotal) break
+      if (takeOne(r)) progress = true
     }
   }
   return out
+}
+
+/** Criteria with no qualifying market among the scanned ones. */
+export function unmatchedCriteria(scanned: ReadonlyArray<{ counters: EdgeCounters }>): string[] {
+  return EDGE_CRITERIA.filter((c) => !scanned.some((s) => c.score(s.counters) !== null)).map(
+    (c) => c.id,
+  )
 }

@@ -1,6 +1,17 @@
-import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  closeSync,
+  createReadStream,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeSync,
+} from 'node:fs'
 import path from 'node:path'
-import { gunzipSync, gzipSync } from 'node:zlib'
+import readline from 'node:readline'
+import { createGunzip, gunzipSync, gzipSync } from 'node:zlib'
 import type {
   AccountEvent,
   Fill,
@@ -130,8 +141,12 @@ type ResolutionView = {
   outcome: 'UP' | 'DOWN' | null
 } | null
 
+export type TraceEmit = (record: TraceRecord) => void
+
 export class ParityTraceRecorder {
+  /** Collected records when no `emit` sink is given (tests, small traces). */
   readonly records: TraceRecord[] = []
+  private readonly emit: TraceEmit
   private ticks = 0
   private seq = -1
   private readonly cidByOrderId = new Map<string, string>()
@@ -141,15 +156,22 @@ export class ParityTraceRecorder {
   private readonly splits: PositionsSplit[] = []
   private lastPortfolio: PortfolioSnapshot | undefined
 
+  /**
+   * `emit` receives every record in trace order (a streaming file writer in
+   * the harness, so traces of any size never sit in memory, 22 §3.6);
+   * without it records are collected in `records`.
+   */
   constructor(
     private readonly header: TraceHeaderFields,
     private readonly resolution: ResolutionView,
+    emit?: TraceEmit,
   ) {
+    this.emit = emit ?? ((r) => void this.records.push(r))
     this.tokens = {
       UP: resolution?.tokenMap['UP'] ?? '',
       DOWN: resolution?.tokenMap['DOWN'] ?? '',
     }
-    this.records.push({
+    this.emit({
       t: 'header',
       format: TRACE_FORMAT,
       version: TRACE_VERSION,
@@ -173,7 +195,7 @@ export class ParityTraceRecorder {
   }
 
   private push(rec: TraceRecord): void {
-    this.records.push(rec)
+    this.emit(rec)
   }
 
   private order(o: PlaceBatchIntent['orders'][number]): Record<string, unknown> {
@@ -485,20 +507,113 @@ export function serializeTrace(records: readonly TraceRecord[]): string {
   return records.map((r) => JSON.stringify(r)).join('\n') + '\n'
 }
 
-/** Write records as JSONL; `.gz` suffix → gzip level 6 (22 §3.6). Atomic (tmp → rename, 22 §3.1). */
-export function writeTrace(file: string, records: readonly TraceRecord[]): void {
-  mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
-  const body = serializeTrace(records)
-  const tmp = `${file}.tmp-${process.pid}`
-  writeFileSync(tmp, file.endsWith('.gz') ? gzipSync(body, { level: 6 }) : body)
-  renameSync(tmp, file)
+/** Text buffered before a gzip member or plain write (bounds memory for traces of any size). */
+const WRITE_CHUNK_CHARS = 8 * 1024 * 1024
+
+/**
+ * Streaming JSONL trace writer (22 §3.1, §3.6): `.gz` → gzip level 6, written
+ * as a sequence of gzip members of at most 8 MiB of text each (one stream
+ * when it fits; `gzip -dc` and zlib read the concatenation as one file), so
+ * memory stays bounded. Written to a temp file and renamed on `close()`.
+ */
+export class TraceFileWriter {
+  private readonly tmp: string
+  private readonly fd: number
+  private readonly gz: boolean
+  private buf: string[] = []
+  private bufChars = 0
+  private closed = false
+
+  constructor(
+    private readonly file: string,
+    private readonly chunkChars = WRITE_CHUNK_CHARS,
+  ) {
+    mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
+    this.tmp = `${file}.tmp-${process.pid}`
+    this.fd = openSync(this.tmp, 'w')
+    this.gz = file.endsWith('.gz')
+  }
+
+  readonly write = (record: TraceRecord): void => {
+    if (this.closed) throw new Error(`trace writer for ${this.file} is closed`)
+    const line = JSON.stringify(record) + '\n'
+    this.buf.push(line)
+    this.bufChars += line.length
+    if (this.bufChars >= this.chunkChars) this.flush()
+  }
+
+  private flush(): void {
+    if (this.buf.length === 0) return
+    const text = this.buf.join('')
+    this.buf = []
+    this.bufChars = 0
+    writeSync(this.fd, this.gz ? gzipSync(text, { level: 6 }) : Buffer.from(text, 'utf8'))
+  }
+
+  close(): void {
+    if (this.closed) return
+    this.flush()
+    this.closed = true
+    closeSync(this.fd)
+    renameSync(this.tmp, this.file)
+  }
+
+  /** Drop the partial trace (the destination is never written). */
+  abort(): void {
+    if (this.closed) return
+    this.closed = true
+    closeSync(this.fd)
+    rmSync(this.tmp, { force: true })
+  }
 }
 
-/** Read a JSONL trace (plain or `.gz`). Throws with the line number on malformed input. */
+/** Write records as JSONL; `.gz` suffix → gzip level 6 (22 §3.6). Atomic (tmp → rename, 22 §3.1). */
+export function writeTrace(file: string, records: readonly TraceRecord[]): void {
+  const w = new TraceFileWriter(file)
+  for (const r of records) w.write(r)
+  w.close()
+}
+
+function lineStream(file: string): readline.Interface {
+  const raw = createReadStream(file)
+  const input = file.endsWith('.gz') ? raw.pipe(createGunzip()) : raw
+  return readline.createInterface({ input, crlfDelay: Infinity })
+}
+
+/**
+ * Stream a JSONL trace (plain or `.gz`, multi-member gzip included) record by
+ * record with its exact line text. Throws with the line number on malformed
+ * input. Memory stays bounded for traces of any size.
+ */
+export async function* streamTrace(
+  file: string,
+): AsyncGenerator<{ record: TraceRecord; line: string }> {
+  let n = 0
+  for await (const line of lineStream(file)) {
+    n++
+    if (!line.trim()) continue
+    let record: TraceRecord
+    try {
+      record = JSON.parse(line) as TraceRecord
+    } catch (err) {
+      throw new Error(`${file}:${n}: invalid JSON (${(err as Error).message})`)
+    }
+    yield { record, line }
+  }
+}
+
+/** sha256 of the decompressed trace bytes (byte-identity checks, 60 OR-9, OR-17), streamed. */
+export async function traceSha256(file: string): Promise<string> {
+  const hash = createHash('sha256')
+  const raw = createReadStream(file)
+  const input = file.endsWith('.gz') ? raw.pipe(createGunzip()) : raw
+  for await (const chunk of input) hash.update(chunk as Buffer)
+  return hash.digest('hex')
+}
+
+/** Read a whole JSONL trace (plain or `.gz`) into memory; small traces and tests only. */
 export function readTrace(file: string): TraceRecord[] {
-  const raw = readFileSync(file)
-  const text = (file.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')
-  return parseTrace(text, file)
+  return parseTrace(readTraceText(file), file)
 }
 
 /** Parse JSONL trace text. Throws with the line number on malformed input. */
@@ -517,7 +632,7 @@ export function parseTrace(text: string, label = '<trace>'): TraceRecord[] {
   return out
 }
 
-/** Decompressed trace bytes (for byte-identity checks, 60 OR-9). */
+/** Decompressed trace text; small traces and tests only (V8 strings are capped near 512 MiB). */
 export function readTraceText(file: string): string {
   const raw = readFileSync(file)
   return (file.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')

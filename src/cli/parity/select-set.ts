@@ -1,5 +1,5 @@
 import '../../config/env.js'
-import { existsSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { closeDb } from '../../db/index.js'
 import { utcDatesCovering } from '../../binance/paths.js'
@@ -8,6 +8,7 @@ import { dateMsArg, intArg, one, paramArgs, parseArgv } from '../../backtest/par
 import {
   pickEdgeMarkets,
   scanMarketEdges,
+  unmatchedCriteria,
   type EdgeCounters,
 } from '../../backtest/parity/edgeScan.js'
 import {
@@ -25,8 +26,9 @@ import {
 
 const USAGE = `Usage (from the repository root):
   npx tsx scripts/parity/select-set.ts --set <name> --strategy <id> [--param k=v ...]
-      --from <ISO date> [--to <ISO date>] --per-month <n> --seed <n> [--edge <n>]
-      [--edge-scan <sample size> [--edge-per-criterion 2]] [--data-root <repo>/data] [--dry-run]
+      --from <ISO date> [--to <ISO date>] --per-month <n> --seed <n>
+      [--edge <minimum edge markets, MS-3: 10>] [--edge-scan <sample size> [--edge-per-criterion 2]
+      [--edge-scan-cache <file>]] [--data-root <repo>/data] [--dry-run]
 
 Selects a committed parity market set native/parity/sets/<name>.txt
 (native/spec/60-verification.md §4.2): seeded random through
@@ -98,6 +100,7 @@ async function main(): Promise<number> {
       'edge',
       'edge-scan',
       'edge-per-criterion',
+      'edge-scan-cache',
       'data-root',
     ],
     switches: ['dry-run', 'help'],
@@ -146,6 +149,7 @@ async function main(): Promise<number> {
   // largest and smallest input files (proxy for most/fewest events).
   const rest = candidates.filter((c) => !chosen.has(c.slug) && hasLocal(c))
   let edges: Array<{ c: StratifiedCandidate; why: string }>
+  let missingCriteria: string[] = []
   const scanN = one(p, 'edge-scan') !== undefined ? intArg(p, 'edge-scan', 0) : 0
   if (scanN > 0) {
     // The seeded sample plus the 5 largest and 5 smallest input files, so the
@@ -156,20 +160,32 @@ async function main(): Promise<number> {
     const extremes = [...bySize.slice(0, 5), ...bySize.slice(-5)].map((x) => x.c)
     const seeded = seededShuffle(rest, seed + 1000).slice(0, scanN)
     const sample = [...new Map([...seeded, ...extremes].map((c) => [c.slug, c] as const)).values()]
+    // --edge-scan-cache <file> (outside the repo) keeps the counters per slug,
+    // so a re-selection does not replay the sample again.
+    const cacheFile = one(p, 'edge-scan-cache')
+    const cached = new Map<string, EdgeCounters>(
+      cacheFile && existsSync(cacheFile)
+        ? Object.entries(
+            JSON.parse(readFileSync(cacheFile, 'utf8')) as Record<string, EdgeCounters>,
+          )
+        : [],
+    )
     const scanned: Array<{ slug: string; counters: EdgeCounters }> = []
     let i = 0
     for (const c of sample) {
       if (!c.assets || c.assets.length !== 2)
         throw new Error(`${c.slug}: catalog has no outcome token ids`)
-      scanned.push({
-        slug: c.slug,
-        counters: await scanMarketEdges(c.localPath, c.marketStartMs, c.assets),
-      })
+      const counters =
+        cached.get(c.slug) ?? (await scanMarketEdges(c.localPath, c.marketStartMs, c.assets))
+      cached.set(c.slug, counters)
+      scanned.push({ slug: c.slug, counters })
       if (++i % 25 === 0) console.error(`[select-set] edge scan ${i}/${sample.length}`)
     }
+    if (cacheFile) writeFileSync(cacheFile, JSON.stringify(Object.fromEntries(cached)))
     const per = intArg(p, 'edge-per-criterion', 2)
+    missingCriteria = unmatchedCriteria(scanned)
     const bySlug = new Map(rest.map((c) => [c.slug, c] as const))
-    edges = pickEdgeMarkets(scanned, per, chosen).map((e) => ({
+    edges = pickEdgeMarkets(scanned, per, chosen, edge).map((e) => ({
       c: bySlug.get(e.slug)!,
       why: `${e.criterion}: ${JSON.stringify(e.counters)}`,
     }))
@@ -196,7 +212,7 @@ async function main(): Promise<number> {
   const header = [
     `# Parity market set ${set} (native/spec/60-verification.md §4.2 MS-0..MS-5)`,
     `# Selection command: npx tsx scripts/parity/select-set.ts ${process.argv.slice(2).join(' ')}`,
-    `# Seed: ${seed}; per month: ${perMonth}; edge markets: ${edge}`,
+    `# Seed: ${seed}; per month: ${perMonth}; minimum edge markets: ${edge}`,
     `# Eligibility (MS-2): listEligibleTelonexMarkets ${JSON.stringify({ symbol: 'btc', timeframe: '15m', converter: 'delta-typed', readFrom: 'local', requiredFeeds, fromMs, toMs: toMs ?? null })}`,
     `# Eligible candidates: ${candidates.length}, market starts ${first} .. ${last} (the range ends where the local Telonex catalog ends, D38)`,
     `# Stratification (calendar month, UTC): ${Object.entries(months)
@@ -208,6 +224,9 @@ async function main(): Promise<number> {
       .join(' ')}`,
     `# MS-3 edge markets (${scanN > 0 ? `replay scan of ${scanN} seeded candidates plus the 5 largest and 5 smallest input files` : 'proxy: input file size'}): ${edges.length}`,
     ...edges.map((e) => `#   ${e.c.slug} -- ${e.why}`),
+    ...(missingCriteria.length > 0
+      ? [`# MS-3 criteria with no market in the scan: ${missingCriteria.join('; ')}`]
+      : []),
     `# MS-5 replaced (missing local input or feed day file): ${replaced.length}${replaced.length > 0 ? ` -- ${replaced.join(', ')}` : ''}`,
     `# Oracle pin: ${pin}`,
     `# Date: ${new Date().toISOString().slice(0, 10)}`,

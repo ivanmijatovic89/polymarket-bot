@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs'
 import type { MarketJobData } from '../../backtest/jobTypes.js'
 import { one, parseArgv } from '../../backtest/parity/cliArgs.js'
-import { summarizeTrace } from '../../backtest/parity/diff.js'
-import { runJobWithTrace } from '../../backtest/parity/runJob.js'
-import { writeTrace, type TraceLevel } from '../../backtest/parity/trace.js'
+import { runJobToTraceFile } from '../../backtest/parity/runJob.js'
+import type { TraceLevel } from '../../backtest/parity/trace.js'
 
 const USAGE = `Usage:
   npx tsx scripts/parity/ts-trace.ts --job <MarketJobData.json> --out <trace.jsonl[.gz]> --level decisions|feeds [--quiet]
@@ -30,13 +29,11 @@ async function main(): Promise<number> {
   if (p.positionals.length > 0) throw new Error(`unexpected arguments: ${p.positionals.join(' ')}`)
   const job = JSON.parse(readFileSync(jobFile, 'utf8')) as MarketJobData
   const startedAt = Date.now()
-  const { output, recorder } = await runJobWithTrace(job, {
+  const { output, summary: s } = await runJobToTraceFile(job, out, {
     level: level as TraceLevel,
     profile: 'ts-compat',
     quiet: p.switches.has('quiet'),
   })
-  writeTrace(out, recorder.records)
-  const s = summarizeTrace(recorder.records)
   console.error(
     `[ts-trace] ${job.slug} strategy=${job.strategyId} ticks=${s.ticks} synthetic=${s.syntheticTicks} ` +
       `intents=${JSON.stringify(s.intents)} events=${JSON.stringify(s.events)} ` +

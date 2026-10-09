@@ -26,13 +26,14 @@ import {
 } from '../../backtest/parity/cell.js'
 import { intArg, one, parseArgv } from '../../backtest/parity/cliArgs.js'
 import {
+  ExerciserCoverageAcc,
+  FeedCoverageAcc,
+  GenericCoverageAcc,
   coverageVerdict,
-  exerciserCoverage,
   exerciserFeatures,
-  feedCoverage,
-  genericCoverage,
 } from '../../backtest/parity/coverage.js'
-import { DIFF_RULES_VERSION, diffTraces } from '../../backtest/parity/diff.js'
+import { DIFF_RULES_VERSION } from '../../backtest/parity/diff.js'
+import { diffTraceFiles, scanTrace } from '../../backtest/parity/stream.js'
 import {
   MANIFEST_FORMAT,
   MANIFEST_VERSION,
@@ -67,12 +68,7 @@ import {
   nativeJobFor,
   rustRunArgs,
 } from '../../backtest/parity/rustJob.js'
-import {
-  TRACE_FORMAT,
-  TRACE_VERSION,
-  readTrace,
-  readTraceText,
-} from '../../backtest/parity/trace.js'
+import { TRACE_FORMAT, TRACE_VERSION } from '../../backtest/parity/trace.js'
 import { prepareOracleTree } from '../../backtest/parity/oracleTree.js'
 import {
   cacheTreeHashes,
@@ -483,21 +479,27 @@ async function main(): Promise<number> {
       entry.ts = { ok: existsSync(tsTrace), durationMs: 0 }
       if (!entry.ts.ok) entry.ts.error = `missing ${tsTrace}`
     }
-    let recs: ReturnType<typeof readTrace> | null = null
     if (entry.ts.ok) {
       entry.ts.trace = tsTrace
-      entry.ts.traceSha256 = sha256Hex(readTraceText(tsTrace))
-      recs = readTrace(tsTrace)
+      // One streamed pass: coverage and the sha256 of the decompressed bytes.
+      const gen = new GenericCoverageAcc()
+      const fc = cell.traceLevel === 'feeds' ? new FeedCoverageAcc() : null
+      const ex = schedule !== null ? new ExerciserCoverageAcc() : null
+      entry.ts.traceSha256 = await scanTrace(tsTrace, (r) => {
+        gen.add(r)
+        fc?.add(r)
+        ex?.add(r)
+      })
       entry.coverage = {
-        generic: genericCoverage(recs),
-        ...(cell.traceLevel === 'feeds' ? { feeds: feedCoverage(recs) } : {}),
-        ...(schedule !== null ? { exerciser: [...exerciserCoverage(recs)].sort() } : {}),
+        generic: gen.c,
+        ...(fc ? { feeds: fc.c } : {}),
+        ...(ex ? { exerciser: [...ex.result()].sort() } : {}),
       }
     } else {
       entry.verdict = { verdict: 'excluded', reason: `ts_failed: ${entry.ts.error ?? ''}` }
     }
 
-    if (rustBin && buildEngineJob && recs) {
+    if (rustBin && buildEngineJob && entry.ts.ok) {
       const engineJob = await buildEngineJob(nativeJobFor(job, cell), { dataRoot })
       assertEngineJobStrategy(engineJob, cell)
       const engineJobFile = path.join(rustDir, `${slug}.engine-job.json`)
@@ -514,24 +516,23 @@ async function main(): Promise<number> {
         entry.verdict = { verdict: 'unclassified', reason: `rust_failed: ${entry.rust.error}` }
       } else {
         entry.rust.trace = rustTrace
-        const tsRecs = recs
-        const d = diffTraces(
-          tsRecs,
-          readTrace(rustTrace),
+        const { diff: d, eventKinds } = await diffTraceFiles(
+          tsTrace,
+          rustTrace,
           tolerance !== undefined ? { tolerance } : {},
         )
         const first = d.failures[0]
         entry.diff = {
           equal: d.equal,
           gating: d.gating,
-          failures: d.failures.length,
+          failures: d.failureTotal,
           autoClasses: d.autoClasses as Record<string, number>,
           sequenceDivergence: d.sequenceDivergence,
           firstFailure: first
             ? `#${first.index + 1} ${first.path}: ${JSON.stringify(first.a)} vs ${JSON.stringify(first.b)}`
             : null,
         }
-        const c = classifyMarket(d, tsRecs, matchers)
+        const c = classifyMarket(d, eventKinds, matchers)
         // 60 HR-6: Rust equal to the patched oracle is `identical-patched` (PM-2).
         entry.verdict =
           c.verdict.verdict === 'identical' && patchFiles.length > 0
@@ -566,7 +567,7 @@ async function main(): Promise<number> {
       const r = await runTs(job, out, `${slug}.ts-repeat.log`)
       const entry = entries.get(slug)!
       const identical =
-        r.code === 0 && existsSync(out) && sha256Hex(readTraceText(out)) === entry.ts.traceSha256
+        r.code === 0 && existsSync(out) && (await scanTrace(out)) === entry.ts.traceSha256
       entry.repeat = { identical }
       if (!identical)
         entry.verdict = { verdict: 'excluded', reason: 'nondeterministic-oracle (OR-9)' }

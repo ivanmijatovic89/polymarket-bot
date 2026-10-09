@@ -38,6 +38,9 @@ const done = (filledSize: number): TraceRecord => ({
   filledSize,
 })
 
+const kinds = (recs: TraceRecord[]) =>
+  new Set(recs.filter((r) => r.t === 'event').map((r) => String(r.kind)))
+
 const matcher = (over: Partial<Matcher>): Matcher =>
   MatcherSchema.parse({
     id: 'PE-0001',
@@ -58,22 +61,24 @@ describe('matchers and verdicts (60 §3.2, HR-6)', () => {
 
   it('identical traces are identical; matched field-only divergences are classified; others unclassified', () => {
     const a = [header, done(5), fin]
-    assert.deepEqual(classifyMarket(diffTraces(a, a), a, []).verdict, { verdict: 'identical' })
+    assert.deepEqual(classifyMarket(diffTraces(a, a), kinds(a), []).verdict, {
+      verdict: 'identical',
+    })
     const b = [header, done(4), fin]
     const d = diffTraces(a, b)
-    assert.deepEqual(classifyMarket(d, a, [matcher({})]).verdict, {
+    assert.deepEqual(classifyMarket(d, kinds(a), [matcher({})]).verdict, {
       verdict: 'classified',
       entries: ['PE-0001'],
     })
-    assert.equal(classifyMarket(d, a, []).verdict.verdict, 'unclassified')
+    assert.equal(classifyMarket(d, kinds(a), []).verdict.verdict, 'unclassified')
     // CL-1: exactly one matcher per divergence
     assert.equal(
-      classifyMarket(d, a, [matcher({}), matcher({ id: 'PE-0002' })]).verdict.verdict,
+      classifyMarket(d, kinds(a), [matcher({}), matcher({ id: 'PE-0002' })]).verdict.verdict,
       'unclassified',
     )
     // required event kinds must be present in the market
     assert.equal(
-      classifyMarket(d, a, [matcher({ requiredEventKinds: ['fill'] })]).verdict.verdict,
+      classifyMarket(d, kinds(a), [matcher({ requiredEventKinds: ['fill'] })]).verdict.verdict,
       'unclassified',
     )
   })
@@ -81,7 +86,7 @@ describe('matchers and verdicts (60 §3.2, HR-6)', () => {
   it('an open Rust-bug entry is reported for HR-8', () => {
     const a = [header, rej('invalid_price'), fin]
     const b = [header, rej('invalid_size'), fin]
-    const c = classifyMarket(diffTraces(a, b), a, [
+    const c = classifyMarket(diffTraces(a, b), kinds(a), [
       matcher({ class: 'Rust bug', status: 'open', kind: 'order_rejected', pathGlob: '$.reason' }),
     ])
     assert.equal(c.verdict.verdict, 'classified')

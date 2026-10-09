@@ -96,8 +96,9 @@ export function exerciserFeatures(version: number): Record<string, FeatureClass>
   throw new Error(`unknown exerciser schedule version ${version}`)
 }
 
-export function genericCoverage(records: readonly TraceRecord[]): GenericCoverage {
-  const c: GenericCoverage = {
+/** Incremental generic coverage (one pass over a streamed trace). */
+export class GenericCoverageAcc {
+  readonly c: GenericCoverage = {
     ticks: 0,
     syntheticTicks: 0,
     intents: 0,
@@ -114,7 +115,9 @@ export function genericCoverage(records: readonly TraceRecord[]): GenericCoverag
     settlementUpdates: 0,
     pnl: null,
   }
-  for (const r of records) {
+
+  add(r: TraceRecord): void {
+    const c = this.c
     if (r.t === 'tick') {
       c.ticks++
       if (r.cause !== 'book' && r.cause !== 'price_change') c.syntheticTicks++
@@ -140,34 +143,48 @@ export function genericCoverage(records: readonly TraceRecord[]): GenericCoverag
       c.pnl = typeof stats?.pnl === 'number' ? stats.pnl : null
     }
   }
-  return c
 }
 
-/** Exerciser checklist of one trace (60 §5.6). */
-export function exerciserCoverage(records: readonly TraceRecord[]): Set<ExerciserFeature> {
-  const hit = new Set<ExerciserFeature>()
+export function genericCoverage(records: readonly TraceRecord[]): GenericCoverage {
+  const acc = new GenericCoverageAcc()
+  for (const r of records) acc.add(r)
+  return acc.c
+}
+
+const isPeriodic = (cid: unknown) => typeof cid === 'string' && /^r\d+$/.test(cid)
+
+const placedCids = (x: TraceRecord): string[] =>
+  x.kind === 'place_limit'
+    ? [String(x.cid)]
+    : x.kind === 'place_batch' && Array.isArray(x.orders)
+      ? (x.orders as Array<{ cid?: unknown }>).map((o) => String(o.cid))
+      : []
+
+/** Incremental exerciser checklist (60 §5.6), one pass over a streamed trace. */
+export class ExerciserCoverageAcc {
+  private readonly hit = new Set<ExerciserFeature>()
   // Which intent (by kind) a cancellation belongs to: the most recent cancel intent of the tick.
-  let lastCancel: string | null = null
-  const isPeriodic = (cid: unknown) => typeof cid === 'string' && /^r\d+$/.test(cid)
-  const placedCids = (r: TraceRecord): string[] =>
-    r.kind === 'place_limit'
-      ? [String(r.cid)]
-      : r.kind === 'place_batch' && Array.isArray(r.orders)
-        ? (r.orders as Array<{ cid?: unknown }>).map((o) => String(o.cid))
-        : []
-  const count = new Map<string, number>()
-  const bump = (k: string) => count.set(k, (count.get(k) ?? 0) + 1)
-  const x12Seqs = { place: new Set<unknown>(), cancel: new Set<unknown>() }
-  let merge100k = false
-  for (const r of records) {
+  private lastCancel: string | null = null
+  private readonly count = new Map<string, number>()
+  private readonly x12Seqs = { place: new Set<unknown>(), cancel: new Set<unknown>() }
+  private merge100k = false
+
+  private bump(k: string): void {
+    this.count.set(k, (this.count.get(k) ?? 0) + 1)
+  }
+
+  add(r: TraceRecord): void {
+    const hit = this.hit
+    const x12Seqs = this.x12Seqs
+    const bump = (k: string) => this.bump(k)
     if (r.t === 'tick') {
-      lastCancel = null
-      continue
+      this.lastCancel = null
+      return
     }
     if (r.t === 'final') {
       const meta = (r.stats as { intentMeta?: unknown } | null)?.intentMeta
       if (Array.isArray(meta) && meta.length > 0) hit.add('intentMeta populated')
-      continue
+      return
     }
     if (r.t === 'intent') {
       const cids = placedCids(r)
@@ -178,7 +195,7 @@ export function exerciserCoverage(records: readonly TraceRecord[]): Set<Exercise
         if (cids.includes('x13-retry')) hit.add('x13-retry cascade')
         if (r.kind === 'cancel_order' && r.cid === 'x11') hit.add('x11-sib cascade cancel')
       }
-      if (String(r.kind).startsWith('cancel_')) lastCancel = String(r.kind)
+      if (String(r.kind).startsWith('cancel_')) this.lastCancel = String(r.kind)
       if (cids.some(isPeriodic)) hit.add('periodic placed')
       if (cids.includes('x9s')) hit.add('x9s status-gated')
       if (cids.includes('x12')) x12Seqs.place.add(r.seq)
@@ -193,11 +210,11 @@ export function exerciserCoverage(records: readonly TraceRecord[]): Set<Exercise
           hit.add('cancel_batch mixed')
       }
       if (r.kind === 'merge_positions' && r.size === 0) hit.add('merge zero')
-      if (r.kind === 'merge_positions' && r.size === 100000) merge100k = true
+      if (r.kind === 'merge_positions' && r.size === 100000) this.merge100k = true
       if (r.kind === 'cancel_market' && r.market !== undefined) hit.add('cancel_market by market')
-      continue
+      return
     }
-    if (r.t !== 'event') continue
+    if (r.t !== 'event') return
     const cid = r.cid
     switch (r.kind) {
       case 'order_submitted':
@@ -225,11 +242,11 @@ export function exerciserCoverage(records: readonly TraceRecord[]): Set<Exercise
         if (r.reason === 'killed' && cid === 'x6') hit.add('x6 FOK killed')
         if (r.reason === 'expired') hit.add('GTD expired')
         if (r.reason === 'canceled') {
-          if (cid === 'x1' && lastCancel === 'cancel_order') hit.add('cancel_order x1')
-          if (lastCancel === 'cancel_batch') hit.add('cancel_batch cancels')
-          if (lastCancel === 'cancel_market') hit.add('cancel_market cancels')
-          if (lastCancel === 'cancel_all') hit.add('cancel_all cancels')
-          if (isPeriodic(cid) && lastCancel === 'cancel_order') hit.add('periodic canceled')
+          if (cid === 'x1' && this.lastCancel === 'cancel_order') hit.add('cancel_order x1')
+          if (this.lastCancel === 'cancel_batch') hit.add('cancel_batch cancels')
+          if (this.lastCancel === 'cancel_market') hit.add('cancel_market cancels')
+          if (this.lastCancel === 'cancel_all') hit.add('cancel_all cancels')
+          if (isPeriodic(cid) && this.lastCancel === 'cancel_order') hit.add('periodic canceled')
           if (cid === 'x10') hit.add('x10 old generation canceled')
         }
         break
@@ -257,20 +274,34 @@ export function exerciserCoverage(records: readonly TraceRecord[]): Set<Exercise
         break
       case 'positions_merged':
         hit.add('merge')
-        if (merge100k && typeof r.size === 'number' && r.size < 100000) hit.add('merge clamp')
+        if (this.merge100k && typeof r.size === 'number' && r.size < 100000) hit.add('merge clamp')
         break
     }
   }
-  if ((count.get('open:x10') ?? 0) >= 2) hit.add('x10 replacement rests')
-  const x10Intents = count.get('intent:x10') ?? 0
-  if (x10Intents >= 3 && (count.get('submitted:x10') ?? 0) < x10Intents)
-    hit.add('x10 re-place dropped')
-  if ([...x12Seqs.place].some((s) => x12Seqs.cancel.has(s))) hit.add('x12 place-then-cancel')
-  if ((count.get('accepted:b15') ?? 0) >= 15) hit.add('b15 accepted')
-  // 60 §5.5 x16b: rejected without order_submitted while x16a proceeds.
-  if ((count.get('submitted:x16a') ?? 0) === 0 || (count.get('submitted:x16b') ?? 0) > 0)
-    hit.delete('x16 partial batch')
-  return hit
+
+  /** The features hit by the whole trace. */
+  result(): Set<ExerciserFeature> {
+    const hit = new Set(this.hit)
+    const count = this.count
+    const x12Seqs = this.x12Seqs
+    if ((count.get('open:x10') ?? 0) >= 2) hit.add('x10 replacement rests')
+    const x10Intents = count.get('intent:x10') ?? 0
+    if (x10Intents >= 3 && (count.get('submitted:x10') ?? 0) < x10Intents)
+      hit.add('x10 re-place dropped')
+    if ([...x12Seqs.place].some((s) => x12Seqs.cancel.has(s))) hit.add('x12 place-then-cancel')
+    if ((count.get('accepted:b15') ?? 0) >= 15) hit.add('b15 accepted')
+    // 60 §5.5 x16b: rejected without order_submitted while x16a proceeds.
+    if ((count.get('submitted:x16a') ?? 0) === 0 || (count.get('submitted:x16b') ?? 0) > 0)
+      hit.delete('x16 partial batch')
+    return hit
+  }
+}
+
+/** Exerciser checklist of one trace (60 §5.6). */
+export function exerciserCoverage(records: readonly TraceRecord[]): Set<ExerciserFeature> {
+  const acc = new ExerciserCoverageAcc()
+  for (const r of records) acc.add(r)
+  return acc.result()
 }
 
 export type FeatureCoverageRow = {
@@ -313,8 +344,9 @@ export type FeedCoverage = {
   plugins: Record<string, number>
 }
 
-export function feedCoverage(records: readonly TraceRecord[]): FeedCoverage {
-  const c: FeedCoverage = {
+/** Incremental feed coverage, one pass over a streamed trace. */
+export class FeedCoverageAcc {
+  readonly c: FeedCoverage = {
     ticks: 0,
     binanceTicks: 0,
     chainlinkTicks: 0,
@@ -323,7 +355,9 @@ export function feedCoverage(records: readonly TraceRecord[]): FeedCoverage {
     syntheticChainlink: 0,
     plugins: {},
   }
-  for (const r of records) {
+
+  add(r: TraceRecord): void {
+    const c = this.c
     if (r.t === 'tick') {
       c.ticks++
       if (r.cause === 'binance_agg_trade') c.syntheticBinance++
@@ -336,5 +370,10 @@ export function feedCoverage(records: readonly TraceRecord[]): FeedCoverage {
       for (const id of Object.keys(plugins ?? {})) c.plugins[id] = (c.plugins[id] ?? 0) + 1
     }
   }
-  return c
+}
+
+export function feedCoverage(records: readonly TraceRecord[]): FeedCoverage {
+  const acc = new FeedCoverageAcc()
+  for (const r of records) acc.add(r)
+  return acc.c
 }

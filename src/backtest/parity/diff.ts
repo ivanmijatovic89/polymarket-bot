@@ -77,8 +77,10 @@ export type TraceDiffResult = {
   sequenceDivergence: number | null
   /** Every difference found, in record order (auto-classes included). */
   mismatches: FieldMismatch[]
-  /** Mismatches that are not auto-classified. */
+  /** Mismatches that are not auto-classified (the first `MAX_STORED_MISMATCHES` kept). */
   failures: FieldMismatch[]
+  /** Total number of failing mismatches, including those not stored. */
+  failureTotal: number
   /** Count per auto-class kind. */
   autoClasses: Partial<Record<DiffKind, number>>
   summaryA: TraceSummary
@@ -512,9 +514,10 @@ export function compareRecords(
   return ctx.out
 }
 
-export function summarizeTrace(records: readonly TraceRecord[]): TraceSummary {
-  const s: TraceSummary = {
-    records: records.length,
+/** Incremental trace summary (counts per record type and kind). */
+export class TraceSummaryAcc {
+  readonly s: TraceSummary = {
+    records: 0,
     ticks: 0,
     syntheticTicks: 0,
     intents: {},
@@ -524,7 +527,10 @@ export function summarizeTrace(records: readonly TraceRecord[]): TraceSummary {
     orderDone: {},
     final: undefined,
   }
-  for (const r of records) {
+
+  add(r: TraceRecord): void {
+    const s = this.s
+    s.records++
     if (r.t === 'tick') {
       s.ticks++
       if (r.cause !== 'book' && r.cause !== 'price_change') s.syntheticTicks++
@@ -545,32 +551,85 @@ export function summarizeTrace(records: readonly TraceRecord[]): TraceSummary {
       }
     } else if (r.t === 'final') s.final = r
   }
-  return s
 }
 
-/** Diff two complete traces under the v2 rules (22 §3.4). */
-export function diffTraces(
-  a: readonly TraceRecord[],
-  b: readonly TraceRecord[],
-  opts: DiffOptions = {},
-): TraceDiffResult {
-  const out: FieldMismatch[] = []
-  const notes: string[] = []
-  const feeTies: FeeTie[] = []
-  const mk = (index: number, r: TraceRecord | undefined): Ctx => ({
-    index,
-    recordType: r?.t ?? 'EOF',
-    recordKind: r ? recordKind(r) : null,
-    out,
-    tolerance: opts.tolerance,
-  })
-  compareHeaders(mk(0, a[0]), a[0], b[0])
-  let sequenceDivergence: number | null = null
-  const len = Math.max(a.length, b.length)
-  for (let i = 1; i < len; i++) {
-    const ra = a[i]
-    const rb = b[i]
-    const ctx = mk(i, ra ?? rb)
+export function summarizeTrace(records: readonly TraceRecord[]): TraceSummary {
+  const acc = new TraceSummaryAcc()
+  for (const r of records) acc.add(r)
+  return acc.s
+}
+
+/**
+ * Incremental v2 diff (22 §3.4) over two traces fed in lockstep, so traces of
+ * any size are compared without holding them in memory. Feed every index
+ * with `next(a, b)` (undefined once a side has ended) until both end, then
+ * call `finish()`. Comparison stops at the first sequence divergence; the
+ * summaries keep counting.
+ */
+/** Mismatches kept per market; later ones are only counted (bounded memory). */
+export const MAX_STORED_MISMATCHES = 1000
+
+export class TraceDiffer {
+  private out: FieldMismatch[] = []
+  private failureTotal = 0
+  private readonly autoCounts: Partial<Record<DiffKind, number>> = {}
+  private readonly feeTies: FeeTie[] = []
+  private readonly sumA = new TraceSummaryAcc()
+  private readonly sumB = new TraceSummaryAcc()
+  private index = 0
+  private lastA: TraceRecord | undefined
+  private lastB: TraceRecord | undefined
+  sequenceDivergence: number | null = null
+
+  constructor(private readonly opts: DiffOptions = {}) {}
+
+  private ctx(index: number, r: TraceRecord | undefined): Ctx {
+    return {
+      index,
+      recordType: r?.t ?? 'EOF',
+      recordKind: r ? recordKind(r) : null,
+      out: this.out,
+      tolerance: this.opts.tolerance,
+    }
+  }
+
+  /** Count the mismatches pushed since `from` and drop the ones over the storage cap. */
+  private settle(from: number): void {
+    for (let k = from; k < this.out.length; k++) {
+      const m = this.out[k]!
+      if (AUTO_CLASS_KINDS.has(m.kind)) this.autoCounts[m.kind] = (this.autoCounts[m.kind] ?? 0) + 1
+      else this.failureTotal++
+    }
+    if (this.out.length > MAX_STORED_MISMATCHES) this.out = this.out.slice(0, MAX_STORED_MISMATCHES)
+  }
+
+  /** Failing mismatches found so far. */
+  get failingSoFar(): number {
+    return this.failureTotal
+  }
+
+  next(ra: TraceRecord | undefined, rb: TraceRecord | undefined): void {
+    const before = this.out.length
+    this.compareNext(ra, rb)
+    this.settle(before)
+  }
+
+  private compareNext(ra: TraceRecord | undefined, rb: TraceRecord | undefined): void {
+    const i = this.index++
+    if (ra) {
+      this.sumA.add(ra)
+      this.lastA = ra
+    }
+    if (rb) {
+      this.sumB.add(rb)
+      this.lastB = rb
+    }
+    if (this.sequenceDivergence !== null || (!ra && !rb)) return
+    const ctx = this.ctx(i, ra ?? rb)
+    if (i === 0) {
+      compareHeaders(ctx, ra, rb)
+      return
+    }
     if (!ra || !rb || ra.t !== rb.t || recordKind(ra) !== recordKind(rb)) {
       push(
         ctx,
@@ -579,31 +638,49 @@ export function diffTraces(
         rb ? `${rb.t}:${recordKind(rb) ?? ''}` : 'EOF',
         'sequence',
       )
-      sequenceDivergence = i
-      break
+      this.sequenceDivergence = i
+      return
     }
-    if (ra.t === 'final') compareFinal(ctx, ra, rb, feeTies)
+    if (ra.t === 'final') compareFinal(ctx, ra, rb, this.feeTies)
     else if (ra.t === 'feeds') compareFeedsRecord(ctx, ra, rb)
     else if (ra.t === 'header') push(ctx, '$.t', 'header', 'header', 'sequence')
-    else compareEngineRecord(ctx, ra, rb, feeTies)
+    else compareEngineRecord(ctx, ra, rb, this.feeTies)
   }
-  const fa = a.at(-1)
-  const fb = b.at(-1)
-  if (fa?.t !== 'final') notes.push('A has no final record')
-  if (fb?.t !== 'final') notes.push('B has no final record')
-  const failures = out.filter((m) => !AUTO_CLASS_KINDS.has(m.kind))
-  const autoClasses: Partial<Record<DiffKind, number>> = {}
-  for (const m of out)
-    if (AUTO_CLASS_KINDS.has(m.kind)) autoClasses[m.kind] = (autoClasses[m.kind] ?? 0) + 1
-  return {
-    equal: failures.length === 0 && fa?.t === 'final' && fb?.t === 'final',
-    gating: opts.tolerance === undefined,
-    sequenceDivergence,
-    mismatches: out,
-    failures,
-    autoClasses,
-    summaryA: summarizeTrace(a),
-    summaryB: summarizeTrace(b),
-    notes,
+
+  finish(): TraceDiffResult {
+    const notes: string[] = []
+    const fa = this.lastA
+    const fb = this.lastB
+    if (fa?.t !== 'final') notes.push('A has no final record')
+    if (fb?.t !== 'final') notes.push('B has no final record')
+    const failures = this.out.filter((m) => !AUTO_CLASS_KINDS.has(m.kind))
+    if (this.failureTotal > failures.length)
+      notes.push(
+        `${this.failureTotal} failing mismatches; the first ${MAX_STORED_MISMATCHES} records of mismatches are kept`,
+      )
+    return {
+      equal: this.failureTotal === 0 && fa?.t === 'final' && fb?.t === 'final',
+      gating: this.opts.tolerance === undefined,
+      sequenceDivergence: this.sequenceDivergence,
+      mismatches: this.out,
+      failures,
+      failureTotal: this.failureTotal,
+      autoClasses: { ...this.autoCounts },
+      summaryA: this.sumA.s,
+      summaryB: this.sumB.s,
+      notes,
+    }
   }
+}
+
+/** Diff two complete in-memory traces under the v2 rules (22 §3.4). */
+export function diffTraces(
+  a: readonly TraceRecord[],
+  b: readonly TraceRecord[],
+  opts: DiffOptions = {},
+): TraceDiffResult {
+  const d = new TraceDiffer(opts)
+  const len = Math.max(a.length, b.length)
+  for (let i = 0; i < len; i++) d.next(a[i], b[i])
+  return d.finish()
 }
