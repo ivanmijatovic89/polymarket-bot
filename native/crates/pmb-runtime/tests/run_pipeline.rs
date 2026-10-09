@@ -6,6 +6,7 @@
 mod common;
 
 use std::io::Read;
+use std::time::{Duration, Instant};
 
 use common::{fixture_market, synthetic_job, FakeBackend, Idle, Mode, PanicsInNew};
 use pmb_contract::result::EngineResult;
@@ -16,7 +17,7 @@ use pmb_runtime::cli::dispatch;
 use pmb_runtime::inputs::build_inputs;
 use pmb_runtime::job::{parse_job, plan_job, OutputOverrides, TraceRequest};
 use pmb_runtime::run::{deterministic_json, execute_plan, run_job_bytes, JobClock, RunOutcome};
-use pmb_runtime::EngineError;
+use pmb_runtime::{EngineBackend, EngineError, UnwiredSimulator};
 use serde_json::Value;
 
 const IDLE: FakeBackend = FakeBackend::new(Mode::Idle);
@@ -458,4 +459,54 @@ fn run_through_the_dispatcher_reads_stdin() {
     assert_eq!(o.document.lines().count(), 1);
     let r: EngineResult = serde_json::from_str(&o.document).unwrap();
     r.validate().unwrap();
+}
+
+#[test]
+fn production_backend_refuses_before_engine_code_until_integration() {
+    // spec: 20 §4 (a missing capability is invalid_input, never an alerting
+    // engine_fault), R14. Drives EngineBackend::run_candidate end to end on
+    // the embedded selftest market: the refusal comes before EngineConfig
+    // resolution and session construction (both todo!() before integration).
+    let backend = EngineBackend::new(UnwiredSimulator);
+    let o = pmb_runtime::selftest::run_embedded::<Idle, EngineBackend<UnwiredSimulator>>(
+        &backend,
+        8 << 20,
+    )
+    .unwrap();
+    assert_error(&o, ErrorClass::InvalidInput, "profile");
+    assert!(
+        o.result.market.is_some(),
+        "refused after the market was read"
+    );
+}
+
+#[test]
+fn spent_budget_times_out_through_the_real_deadline_check() {
+    // spec: 20 §6.3 S4 (the budget counts from job start, decoding included),
+    // §4 (timeout: deadline, exit 5). The backend would panic if it ran.
+    let (path, slug, tokens, bytes) = fixture_market();
+    let job = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
+    let budget_ms = job["budget"]["wallMs"].as_u64().unwrap();
+    let ago = Duration::from_millis(budget_ms + 1_000);
+    let clock = JobClock::started_at(
+        Instant::now().checked_sub(ago).unwrap(),
+        pmb_runtime::log::wall_ms() - (budget_ms + 1_000),
+    );
+    let never = FakeBackend::new(Mode::EnginePanic);
+    let o = run_job_bytes::<Idle, FakeBackend>(
+        &serde_json::to_vec(&job).unwrap(),
+        &OutputOverrides::default(),
+        &never,
+        &clock,
+    );
+    assert_error(&o, ErrorClass::Timeout, "deadline");
+    assert!(o.result.market.is_some());
+    // The same job with a fresh clock reaches the backend.
+    let o = run_job_bytes::<Idle, FakeBackend>(
+        &serde_json::to_vec(&job).unwrap(),
+        &OutputOverrides::default(),
+        &never,
+        &JobClock::start(),
+    );
+    assert_error(&o, ErrorClass::EngineFault, "panic");
 }

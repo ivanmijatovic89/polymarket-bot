@@ -9,7 +9,8 @@
 
 use std::time::{Duration, Instant};
 
-use pmb_contract::vocab::InputMode;
+use pmb_contract::vocab::{InputMode, Profile};
+use pmb_core::ids::MetaId;
 use pmb_core::seed::{market_seed, RunSeed};
 use pmb_core::{MarketEvent, TsMs};
 use pmb_engine::config::EngineConfig;
@@ -177,6 +178,12 @@ pub trait Backend<T: Strategy>: Sync {
 pub trait ExecFactory: Sync {
     /// The adapter type.
     type Exec: Execution;
+    /// Refuses a profile this factory cannot serve, before the session is
+    /// configured. A missing capability is a refusal, never an engine fault
+    /// (20 §4: `engine_fault` means an engine bug and raises an alert).
+    fn check(&self, _profile: Profile) -> Result<(), EngineError> {
+        Ok(())
+    }
     /// An adapter for one session.
     fn create(&self, cfg: &EngineConfig) -> Result<Self::Exec, EngineError>;
 }
@@ -213,18 +220,40 @@ impl Execution for NoExecution {
     }
 }
 
-/// The factory of the production binary before integration: fails loud.
+/// The factory of the production binary before integration: refuses every
+/// profile loudly, as `invalid_input: profile` (exit 2, never retried, no
+/// alert), before any engine code runs.
+// D-PENDING: `capabilities.profiles` still lists ts-compat for such a
+// binary; it fails selftest (`run_path`), which the worker gate runs before
+// any job (20 §5.3), so it is never given work.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UnwiredSimulator;
 
+impl UnwiredSimulator {
+    fn refusal(profile: Profile) -> EngineError {
+        EngineError::invalid_input(
+            "profile",
+            format!(
+                "profile {profile} needs the execution simulator (pmb-engine exec::sim), \
+                 which is not wired into this pre-integration binary"
+            ),
+        )
+    }
+}
+
 impl ExecFactory for UnwiredSimulator {
     type Exec = NoExecution;
-    fn create(&self, _cfg: &EngineConfig) -> Result<NoExecution, EngineError> {
+    fn check(&self, profile: Profile) -> Result<(), EngineError> {
+        Err(UnwiredSimulator::refusal(profile))
+    }
+    fn create(&self, cfg: &EngineConfig) -> Result<NoExecution, EngineError> {
         // TODO(integration): `pmb_engine::exec::sim::simulator::Simulator::new(cfg)`.
-        Err(EngineError::engine_fault(
-            "invariant",
-            "the execution simulator (pmb-engine exec::sim) is not wired before integration",
-        ))
+        let profile = if cfg.core_rules.is_ts_compat() {
+            Profile::TsCompat
+        } else {
+            Profile::Realistic
+        };
+        Err(UnwiredSimulator::refusal(profile))
     }
 }
 
@@ -248,6 +277,7 @@ impl<T: Strategy, F: ExecFactory> Backend<T> for EngineBackend<F> {
         cand: &CandidatePlan<T::Params>,
         sink: K,
     ) -> Result<CandidateRun, RunFailure> {
+        self.factory.check(cand.model_config.profile)?;
         let seed = RunSeed::new(cx.run_seed)
             .map_err(|e| EngineError::invalid_input("model_config", format!("seed: {e:?}")))?;
         let ms = market_seed(seed, &cx.inputs.info.slug);
@@ -317,26 +347,42 @@ where
     let counted_tick_seen = market.first_counted_tick_seen;
     let skew_ms = market.skew_ms;
     let out = session.finalize(&market, inputs.outcome)?;
-    if !out.stats.intent_meta.is_empty() {
-        // D-PENDING: SessionOutput carries meta ids only; the session's meta
-        // store is dropped by finalize (crossStreamNeeds).
-        return Err(RunFailure::Group(EngineError::engine_fault(
-            "invariant",
-            "intentMeta ids cannot be resolved outside pmb-engine (SessionOutput needs resolved meta)",
-        )));
-    }
+    let intent_meta = resolve_intent_meta(&out.stats.intent_meta)?;
     Ok(CandidateRun {
         stats: out.stats,
         acc: out.acc,
-        intent_meta: Vec::new(),
+        intent_meta,
         counted_tick_seen,
         skew_ms,
     })
 }
 
+/// The `intentMeta` objects of a finished session in fill order (21 §16;
+/// the caps are checked by the run pipeline).
+///
+/// D-PENDING: `SessionOutput` carries meta ids only and `finalize` drops
+/// the session's meta store, so ids cannot be resolved here
+/// (crossStreamNeeds). A strategy whose filled orders carry meta is refused
+/// as `invalid_input: flag` (a missing capability, not an engine bug, 20 §4),
+/// never emitted without its meta.
+pub fn resolve_intent_meta(ids: &[MetaId]) -> Result<Vec<Map<String, Value>>, EngineError> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    Err(EngineError::invalid_input(
+        "flag",
+        format!(
+            "intentMeta output ({} entries) is not available before integration: \
+             pmb-engine does not hand the resolved meta objects to the runtime",
+            ids.len()
+        ),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pmb_contract::vocab::ErrorClass;
 
     #[test]
     fn session_faults_map_to_classes() {
@@ -365,11 +411,41 @@ mod tests {
     }
 
     #[test]
-    fn unwired_simulator_fails_loud() {
-        // spec: R14 (no silent substitution before integration)
+    fn unwired_simulator_refuses_without_alerting() {
+        // spec: R14 (no silent substitution), 20 §4 (a missing capability is
+        // invalid_input, exit 2; engine_fault is reserved for engine bugs)
+        for p in Profile::ALL {
+            let e = UnwiredSimulator.check(*p).unwrap_err();
+            assert_eq!(
+                (e.class, e.cause, e.exit_code()),
+                (ErrorClass::InvalidInput, "profile", 2)
+            );
+            assert!(e.message.contains(p.as_str()), "{}", e.message);
+        }
+    }
+
+    #[test]
+    fn intent_meta_is_refused_until_it_can_be_resolved() {
+        // spec: 21 §16 (meta in fill order), R14 (never emitted without it)
+        assert!(resolve_intent_meta(&[]).unwrap().is_empty());
+        let e = resolve_intent_meta(&[MetaId::new(0), MetaId::new(3)]).unwrap_err();
+        assert_eq!(
+            (e.class, e.cause, e.exit_code()),
+            (ErrorClass::InvalidInput, "flag", 2)
+        );
+        assert!(e.message.contains("2 entries"), "{}", e.message);
+    }
+
+    #[test]
+    fn deadline_expires_after_its_budget() {
+        // spec: 20 §6.3 S4 (cooperative deadline), §4 (timeout exit 5)
         let d = Deadline::after_ms(60_000);
         assert!(!d.expired());
         assert!(Deadline::after_ms(0).expired());
-        assert_eq!(Deadline::after_ms(0).error().exit_code(), 5);
+        let past = Instant::now() - Duration::from_secs(2);
+        assert!(Deadline::from_start(past, 1_000).expired());
+        assert!(!Deadline::from_start(past, 60_000).expired());
+        let e = Deadline::after_ms(0).error();
+        assert_eq!((e.cause, e.exit_code()), ("deadline", 5));
     }
 }

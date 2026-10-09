@@ -43,9 +43,15 @@ pub struct JobClock {
 impl JobClock {
     /// Starts measuring now.
     pub fn start() -> JobClock {
+        JobClock::started_at(Instant::now(), crate::log::wall_ms())
+    }
+
+    /// A clock whose job started at `started` (wall time `started_wall_ms`):
+    /// the injection point that lets tests drive the real deadline checks.
+    pub fn started_at(started: Instant, started_wall_ms: u64) -> JobClock {
         JobClock {
-            started_wall_ms: crate::log::wall_ms(),
-            started: Instant::now(),
+            started_wall_ms,
+            started,
         }
     }
 

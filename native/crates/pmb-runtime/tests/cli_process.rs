@@ -266,21 +266,23 @@ fn run_exit_classes_from_the_real_binary() {
     assert_eq!(code(&o), 4);
     assert!(reason(&o).starts_with("data_defect: integrity_mismatch: "));
 
-    // A valid job reaches the engine. Until the pmb-engine core and the
-    // simulator are wired (integration), that is an engine_fault (8),
-    // reported as a valid EngineResult with the market echo.
+    // A valid job reaches the engine backend. Until the simulator is wired
+    // (integration), the production backend refuses the profile before any
+    // engine code runs: invalid_input: profile (2), never an alerting
+    // engine_fault, reported as a valid EngineResult with the market echo.
     j["market"]["input"]["bytes"] = Value::from(bytes);
     let dir = std::env::temp_dir().join(format!("pmb-runtime-job-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let job_path = dir.join("job.json");
     std::fs::write(&job_path, serde_json::to_vec(&j).unwrap()).unwrap();
     let o = run(&["run", "--job", job_path.to_str().unwrap()], None);
-    assert_eq!(code(&o), 8, "{}", String::from_utf8_lossy(&o.stdout));
+    assert_eq!(code(&o), 2, "{}", String::from_utf8_lossy(&o.stdout));
     let r: EngineResult = serde_json::from_value(document(&o)).unwrap();
     r.validate().unwrap();
-    assert_eq!(r.error.as_ref().unwrap().class.as_str(), "engine_fault");
+    assert_eq!(r.error.as_ref().unwrap().class.as_str(), "invalid_input");
+    assert_eq!(r.error.as_ref().unwrap().cause, "profile");
     assert!(r.market.is_some());
-    assert!(reason(&o).starts_with("engine_fault: "));
+    assert!(reason(&o).starts_with("invalid_input: profile: "));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
