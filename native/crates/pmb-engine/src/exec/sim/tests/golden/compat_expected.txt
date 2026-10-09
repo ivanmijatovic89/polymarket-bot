@@ -46,6 +46,18 @@
 > book up bids=0.4:3 asks=0.59:1
 > tick 1002
 > tick 1003
+== free_remainder_same_tick_when_delayed
+> delay 100
+> book up bids=0.4:3 asks=0.55:3,0.6:4,0.65:9
+> place 1000 g1 up BUY 0.6 10 GTC
+> tick 1100
+1100 accepted g1
+1100 status g1 MATCHED 0
+1100 fill g1#1 TAKER 0.55 3 fee=0.052
+1100 fill g1#2 TAKER 0.6 4 fee=0.0672
+1100 open g1
+1100 fill g1#3 MAKER 0.6 3 fee=0
+1100 done g1 filled 10
 == gtc_full_fill_on_placement
 > book up bids=0.4:2 asks=0.6:2
 > place 1000 c1 up BUY 0.7 2 GTC

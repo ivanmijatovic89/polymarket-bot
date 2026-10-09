@@ -33,6 +33,12 @@ book up bids=0.4:3 asks=0.59:1
 tick 1002
 tick 1003
 
+scenario free_remainder_same_tick_when_delayed
+delay 100
+book up bids=0.4:3 asks=0.55:3,0.6:4,0.65:9
+place 1000 g1 up BUY 0.6 10 GTC
+tick 1100
+
 scenario gtc_full_fill_on_placement
 book up bids=0.4:2 asks=0.6:2
 place 1000 c1 up BUY 0.7 2 GTC
