@@ -1,0 +1,15 @@
+[package]
+name = "pmb-engine"
+description = "Deterministic engine core: serial loop, order manager, ledger, execution trait, simulator and ts-compat models (12, 13)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+pmb-book.workspace = true
+pmb-feeds.workspace = true
+
+[lints]
+workspace = true

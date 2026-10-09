@@ -1,0 +1,15 @@
+[package]
+name = "pmb-replay"
+description = "Historical inputs: telonex-delta reader, slug parsing, merged replay timeline (15-inputs.md)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+pmb-book.workspace = true
+parquet.workspace = true
+
+[lints]
+workspace = true

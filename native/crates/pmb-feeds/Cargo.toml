@@ -1,0 +1,13 @@
+[package]
+name = "pmb-feeds"
+description = "External feeds (Binance, Chainlink two-clock, price to beat), synthetic tick schedule, feed view and plugins (14-feeds-and-plugins.md)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+
+[lints]
+workspace = true

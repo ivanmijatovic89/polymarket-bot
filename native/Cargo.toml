@@ -1,0 +1,38 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+publish = false
+rust-version = "1.89"
+
+# Every third-party dependency is pinned exactly here; crates reference them
+# with `<name>.workspace = true`. Shipped binaries use the `iterate` and
+# `artifact` profiles of native/build/artifact-build.toml (31 §4.2, D18);
+# this workspace keeps Cargo's default release/bench profiles for tests and
+# L0 micro benchmarks only.
+[workspace.dependencies]
+anyhow = "=1.0.98"
+flate2 = "=1.1.2"
+libm = "0.2"
+parquet = { version = "=56.2.0", default-features = false, features = ["snap", "flate2-rust_backened", "zstd", "lz4"] }
+proptest = { version = "1", default-features = false, features = ["std"] }
+schemars = "1"
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.141"
+sha2 = "=0.10.9"
+thiserror = "2"
+pmb-book = { path = "crates/pmb-book" }
+pmb-contract = { path = "crates/pmb-contract" }
+pmb-core = { path = "crates/pmb-core" }
+pmb-engine = { path = "crates/pmb-engine" }
+pmb-feeds = { path = "crates/pmb-feeds" }
+pmb-replay = { path = "crates/pmb-replay" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"

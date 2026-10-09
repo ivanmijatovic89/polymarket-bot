@@ -552,3 +552,14 @@ Decision: Accepted as recommended (lead, 2026-10-08; confirmed at G1, D56). Prop
 | 60 OQ1 and OQ4 (CI), OQ2 (conformance author), OQ3 (nightly runs) | D48, D45, D47 |
 
 Questions not listed here stay with their owning documents and block only the steps that depend on them (00 §3.2).
+
+## D57. Content of the ts-compat `ModelConfig` before M3b
+
+**Decision (lead, 2026-10-09, first implementation run):** until M3b the
+ts-compat `ModelConfig` carries only the TypeScript latency parameters of the
+job (delay, jitter and the next-tick semantics of 13 §5.1). The model configs
+`uncalibrated-2026-10` and `realistic-default` land with the realistic profile
+in M3b; until then CI item 6 of 21 §3 checks only
+`native/contract/model-configs/ts-compat-default.json`. Rationale: the
+realistic sections cannot be validated before their models exist, and a
+placeholder would be hashed into run provenance.
