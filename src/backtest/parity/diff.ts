@@ -1,3 +1,4 @@
+import type { CandidateCounters } from '../../native/contract/generated.js'
 import type { TraceRecord } from './trace.js'
 
 /**
@@ -97,52 +98,85 @@ export type DiffOptions = {
 }
 
 /**
- * Reason codes of the closed `RejectReason`/`CancelFailReason`/split/merge
- * vocabulary (21 §17, 10 §10.2): the TS strings where they exist, else the
- * snake_case variant name.
+ * Reject reason codes of the engine (10 §10.2 `RejectReason`), keyed exactly
+ * by the contract's `ordersRejected` vocabulary (21 §17): the object literal
+ * is type-checked against the generated contract type, so a code added to or
+ * removed from the Rust enum fails `code:typecheck` here until the list
+ * follows. `unmapped` is excluded: it is the code of an unmapped exchange
+ * reason, never a known code.
  */
-// D-PENDING: 10 §10.2 gives TS strings only for some variants; chose snake_case of the variant name for the others (e.g. insufficient_inventory, self_cross).
-export const KNOWN_REASON_CODES: ReadonlySet<string> = new Set([
-  'invalid_price',
-  'invalid_size',
-  'missing_assetId',
-  'post_only_requires_gtc_or_gtd',
-  'gtd_requires_expireAtMs',
-  'gtd_expireAtMs_too_soon',
-  'insufficient_capital',
-  'insufficient_inventory',
-  'risk_max_open_orders',
-  'risk_max_order_size',
-  'risk_max_abs_position',
-  'risk_loss_stop',
-  'batch_too_large',
-  'self_cross',
-  'meta_too_large',
-  'strategy_halted',
-  'kill_switch',
-  'invalid_tick',
-  'price_out_of_bounds',
-  'size_below_minimum',
-  'notional_below_minimum',
-  'size_precision',
-  'amount_precision',
-  'post_only_would_cross',
-  'gtd_lead_too_short',
-  'market_closed',
-  'trading_restricted',
-  'rate_limited',
-  'insufficient_exchange_balance',
-  'not_found_after_ambiguous',
+const REJECT_REASON_CODES: Record<
+  Exclude<keyof CandidateCounters['ordersRejected'], 'unmapped'>,
+  true
+> = {
+  amount_precision: true,
+  batch_too_large: true,
+  gtd_expireAtMs_too_soon: true,
+  gtd_lead_too_short: true,
+  gtd_requires_expireAtMs: true,
+  insufficient_capital: true,
+  insufficient_exchange_balance: true,
+  insufficient_inventory: true,
+  invalid_price: true,
+  invalid_size: true,
+  invalid_tick: true,
+  kill_switch: true,
+  market_closed: true,
+  meta_too_large: true,
+  missing_assetId: true,
+  not_found_after_ambiguous: true,
+  notional_below_minimum: true,
+  post_only_requires_gtc_or_gtd: true,
+  post_only_would_cross: true,
+  price_out_of_bounds: true,
+  rate_limited: true,
+  risk_loss_stop: true,
+  risk_max_abs_position: true,
+  risk_max_open_orders: true,
+  risk_max_order_size: true,
+  self_cross: true,
+  size_below_minimum: true,
+  size_precision: true,
+  strategy_halted: true,
+  trading_restricted: true,
+}
+
+/**
+ * Cancel-fail codes (10 §10.2 `CancelFailReason`, strings of 02 D62:
+ * `ConflictingRefs` = `conflicting_order_reference`, `TooManyIds` =
+ * `invalid_cancel_batch_size`, as `src/trading/cancellation.ts:70,90` emits).
+ */
+export const CANCEL_FAIL_REASON_CODES: readonly string[] = [
   'unknown_client_order',
-  'conflicting_refs',
+  'conflicting_order_reference',
   'missing_exchange_order_id',
   'not_cancelable_during_delay',
   'exchange_not_canceled',
-  'too_many_ids',
+  'invalid_cancel_batch_size',
   'ambiguous',
+]
+
+/**
+ * Split/merge-fail codes (10 §10.2 `SplitFailReason`/`MergeFailReason`);
+ * `InsufficientPairs` is the TS string `insufficient_uncommitted_positions`
+ * (`src/trading/OrderManager.ts:429`, as pmb-core renders it).
+ */
+export const SPLIT_MERGE_FAIL_REASON_CODES: readonly string[] = [
+  'invalid_size',
   'insufficient_collateral',
-  'insufficient_pairs',
+  'insufficient_uncommitted_positions',
   'tx_failed',
+  'ambiguous',
+]
+
+/**
+ * The "known code" of 22 §3.4 and 60 CL-8: a code from any 10 §10.2 reason
+ * enum (reject, cancel-fail, split-fail, merge-fail; 02 D62).
+ */
+export const KNOWN_REASON_CODES: ReadonlySet<string> = new Set([
+  ...Object.keys(REJECT_REASON_CODES),
+  ...CANCEL_FAIL_REASON_CODES,
+  ...SPLIT_MERGE_FAIL_REASON_CODES,
 ])
 
 const REASON_KINDS = new Set(['order_rejected', 'cancel_failed', 'split_failed', 'merge_failed'])
@@ -442,8 +476,8 @@ function compareStats(
       // Rounding boundary auto-class (22 §3.4): the quantized stat differs
       // while its unrounded counterpart agrees within 1e-4.
       const ukey = STATS_UNROUNDED[k]
-      const unA = unroundedOf(k, ukey, ua)
-      const unB = unroundedOf(k, ukey, ub)
+      const unA = unroundedOf(ukey, ua)
+      const unB = unroundedOf(ukey, ub)
       if (
         ctx.tolerance === undefined &&
         unA !== null &&
@@ -458,22 +492,13 @@ function compareStats(
   }
 }
 
-function unroundedOf(
-  statKey: string,
-  ukey: string | undefined,
-  u: Record<string, unknown> | null,
-): number | null {
-  if (!u) return null
-  if (ukey) {
-    const v = u[ukey]
-    return typeof v === 'number' ? v : null
-  }
-  if (statKey === 'mergableShares') {
-    const up = u.upShares
-    const down = u.downShares
-    return typeof up === 'number' && typeof down === 'number' ? Math.min(up, down) : null
-  }
-  return null
+function unroundedOf(ukey: string | undefined, u: Record<string, unknown> | null): number | null {
+  // 02 D69: PE-R1 applies only to stats with a counterpart in
+  // `final.unrounded` (22 §3.4); `mergableShares` and `avgEntryPrice*` have
+  // none, so a difference there is always a failing mismatch (CL-1, CL-9).
+  if (!u || !ukey) return null
+  const v = u[ukey]
+  return typeof v === 'number' ? v : null
 }
 
 /** Compare the two header records (22 §3.4 Alignment). */
