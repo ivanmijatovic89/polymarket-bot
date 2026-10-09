@@ -50,6 +50,7 @@ import {
   type CheckedJob,
 } from '../../native/bench/harness/jobs.js'
 import { parseBenchSet, type BenchSet } from '../../native/bench/harness/manifest.js'
+import { checkArms, parseArm, type ArmSpec, type Qos } from '../../native/bench/harness/arms.js'
 import {
   effectiveQos,
   psCheck,
@@ -70,7 +71,7 @@ import {
   type RunRecord,
   type ServiceCpu,
 } from '../../native/bench/harness/report.js'
-import { appendRow, reportBase } from '../../native/bench/harness/reportFile.js'
+import { appendRow, prettierFormatter, reportBase } from '../../native/bench/harness/reportFile.js'
 import { parseTimeL } from '../../native/bench/harness/rusage.js'
 import {
   abbaSchedule,
@@ -83,21 +84,11 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const CANONICAL_DIR = path.join(REPO_ROOT, 'data/strategy-artifacts/native')
 const TIME = '/usr/bin/time'
 const TASKPOLICY = '/usr/sbin/taskpolicy'
-const QOS_CLAMPS = ['default', 'utility', 'background'] as const
-type Qos = (typeof QOS_CLAMPS)[number]
 const LOAD_SAMPLE_MS = 5000
 const PS_EVERY_SAMPLES = 6 // a `ps` check every 30 s during the row
 
 class UsageError extends Error {
   override name = 'UsageError'
-}
-
-interface ArmSpec {
-  label: string
-  bin: string
-  concurrency: number
-  qos: Qos
-  tapeDir: string | null
 }
 
 interface Options {
@@ -130,42 +121,6 @@ function positiveInt(name: string, v: string | undefined): number {
   return Number(v)
 }
 
-/** `bin=<path>,T=<n>[,qos=…][,tape-dir=<dir>][,label=X]` (R14: unknown keys are errors). */
-function parseArm(spec: string, index: number): ArmSpec {
-  const kv = new Map<string, string>()
-  for (const part of spec.split(',')) {
-    const i = part.indexOf('=')
-    if (i <= 0) throw new UsageError(`--arm ${spec}: expected key=value pairs, got ${part}`)
-    const k = part.slice(0, i)
-    if (kv.has(k)) throw new UsageError(`--arm ${spec}: duplicate key ${k}`)
-    kv.set(k, part.slice(i + 1))
-  }
-  const unknown = [...kv.keys()].filter(
-    (k) => !['bin', 'T', 'qos', 'tape-dir', 'label'].includes(k),
-  )
-  if (unknown.length > 0)
-    throw new UsageError(`--arm ${spec}: unknown key(s) ${unknown.join(', ')}`)
-  const bin = kv.get('bin')
-  if (bin === undefined || bin === '') throw new UsageError(`--arm ${spec}: bin= is required`)
-  const qos = (kv.get('qos') ?? 'utility') as Qos
-  if (!QOS_CLAMPS.includes(qos)) {
-    throw new UsageError(
-      `--arm ${spec}: qos must be one of ${QOS_CLAMPS.join(', ')} (taskpolicy -c can only lower QoS)`,
-    )
-  }
-  const label = kv.get('label') ?? String.fromCharCode(65 + index)
-  if (!/^[A-Za-z0-9_-]{1,16}$/.test(label))
-    throw new UsageError(`--arm ${spec}: bad label ${label}`)
-  const tapeDir = kv.get('tape-dir')
-  return {
-    label,
-    bin: path.resolve(bin),
-    concurrency: positiveInt(`--arm ${spec}: T`, kv.get('T')),
-    qos,
-    tapeDir: tapeDir === undefined ? null : path.resolve(tapeDir),
-  }
-}
-
 function parseOptions(argv: string[]): Options {
   const { values, positionals } = parseArgs({
     args: argv,
@@ -189,12 +144,7 @@ function parseOptions(argv: string[]): Options {
   if (values.set === undefined) throw new UsageError('--set <manifest.json> is required')
   if (values.milestone === undefined) throw new UsageError('--milestone (M1, M5a, …) is required')
   const arms = (values.arm ?? []).map(parseArm)
-  if (arms.length === 0) throw new UsageError('give at least one --arm bin=<path>,T=<n>')
-  if (new Set(arms.map((a) => a.label)).size !== arms.length)
-    throw new UsageError('arm labels must differ')
-  const key = (a: ArmSpec): string => JSON.stringify([a.bin, a.concurrency, a.qos, a.tapeDir])
-  if (new Set(arms.map(key)).size !== arms.length)
-    throw new UsageError('two arms have the same configuration')
+  checkArms(arms)
   if (values['jobs-dir'] === undefined) {
     // D-PENDING: render jobs through src/native (buildEngineJob, M1 step 6)
     // once it exists on this branch.
@@ -711,7 +661,7 @@ async function main(): Promise<number> {
     failed: failureReasons.length > 0,
     failureReasons,
   }
-  const file = appendRow(base, meta, row)
+  const file = appendRow(base, meta, row, prettierFormatter(REPO_ROOT))
   console.log(
     `appended row ${file.rows.length} to ${base}.md and .json (${verdict.label}${row.failed ? ', FAILED' : ''})`,
   )

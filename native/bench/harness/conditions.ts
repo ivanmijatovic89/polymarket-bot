@@ -364,3 +364,24 @@ export function servicePids(rows: readonly PsRow[]): Array<{ pid: number; name: 
   }
   return out
 }
+
+/** Readable summary of a row's `ps` checks: counts per kind of distinct processes. */
+export function summarizePsChecks(checks: readonly PsCheck[]): string[] {
+  const during = checks.filter((c) => c.phase === 'during').length
+  const withWork = checks.filter((c) => c.work.length > 0).length
+  const byKind = new Map<WorkKind, Set<number>>()
+  for (const c of checks) {
+    for (const w of c.work) {
+      const s = byKind.get(w.kind) ?? new Set<number>()
+      s.add(w.pid)
+      byKind.set(w.kind, s)
+    }
+  }
+  const lines = [
+    `- ps checks: ${checks.length} (start, ${during} during, end); other work seen in ${withWork}`,
+  ]
+  for (const [kind, pids] of [...byKind.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    lines.push(`  - ${kind}: ${pids.size} distinct process(es)`)
+  }
+  return lines
+}

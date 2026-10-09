@@ -336,6 +336,10 @@ describe('report file (16 §13.8)', () => {
       assert.match(md, /\*\*FAILED\*\*: these numbers are not valid evidence/)
       assert.match(md, /\*\*`non-idle`\*\*/)
       assert.match(md, /pid 7 fleet-worker \(cwd \/fleet\)/)
+      assert.match(
+        md,
+        /- ps checks: 1 \(start, 0 during, end\); other work seen in 1\n {2}- fleet-worker: 1 distinct/,
+      )
       assert.match(md, /redis-server \(pid 313\): 1\.500 s CPU/)
       assert.match(md, /no: not data\/strategy-artifacts/)
       assert.match(md, /\| A \| 2\.000 \(1\.000–4\.000\) \| 1\.00 \(0\.50–2\.00\) \|/)

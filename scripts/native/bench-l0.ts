@@ -35,7 +35,7 @@ import {
   type L0Run,
 } from '../../native/bench/harness/l0.js'
 import { effectiveQos, psCheck } from '../../native/bench/harness/probes.js'
-import { appendRow, reportBase } from '../../native/bench/harness/reportFile.js'
+import { appendRow, prettierFormatter, reportBase } from '../../native/bench/harness/reportFile.js'
 import { loadSummary, type LoadSample } from '../../native/bench/harness/stats.js'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -242,7 +242,7 @@ async function main(): Promise<number> {
     summary: summarizeL0(runs),
     notes: [...new Set(markets)].slice(0, 40),
   }
-  const file = appendRow(base, meta, row)
+  const file = appendRow(base, meta, row, prettierFormatter(REPO_ROOT))
   fs.rmSync(tmp, { recursive: true, force: true })
   console.log(`appended row ${file.rows.length} to ${base}.md and .json (${verdict.label})`)
   return 0

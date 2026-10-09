@@ -4,7 +4,12 @@
 // (reportFile.ts) holds every row with its conditions and raw repetitions.
 
 import { nodeAt, readLiteral, readValue, type JsonNode } from './canonicalJson.js'
-import type { ConditionLabel, OtherWork, PsCheck } from './conditions.js'
+import {
+  summarizePsChecks,
+  type ConditionLabel,
+  type OtherWork,
+  type PsCheck,
+} from './conditions.js'
 import type { HostFacts } from './hostFacts.js'
 import { coreSummary, formatBytes } from './hostFacts.js'
 import type { ChildUsage } from './rusage.js'
@@ -480,11 +485,10 @@ export function renderL1Row(r: L1Row, rowNumber: number): string {
     `- macOS ${r.host.macos.productVersion} (${r.host.macos.build}); host ${r.host.rustc}; Node ${r.host.node}`,
   )
   lines.push(`- Quiet host confirmed: ${c.quietHostConfirmed ? 'yes' : 'no'}`)
-  for (const check of c.psChecks) {
-    lines.push(
-      `- ps check (${check.phase}, ${s3(check.tMs)} s): ${check.work.length === 0 ? 'no other work' : `${check.work.length} other process(es)`}`,
-    )
-    if (check.phase !== 'during') lines.push(...workLines(check.work))
+  lines.push(...summarizePsChecks(c.psChecks))
+  for (const check of c.psChecks.filter((x) => x.phase !== 'during' && x.work.length > 0)) {
+    lines.push(`- ps check at the ${check.phase} (${s3(check.tMs)} s):`)
+    lines.push(...workLines(check.work))
   }
   lines.push(
     `- Load average (1 min) during the row: ${c.loadDuring === null ? 'not sampled' : range(c.loadDuring, f2)}` +

@@ -9,7 +9,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import type { ConditionLabel, PsCheck } from './conditions.js'
+import { summarizePsChecks, type ConditionLabel, type PsCheck } from './conditions.js'
 import type { HostFacts } from './hostFacts.js'
 import type { LoadSample, Summary } from './stats.js'
 import { summarize } from './stats.js'
@@ -245,11 +245,7 @@ export function renderL0Row(r: L0Row, rowNumber: number): string {
   lines.push(
     `- Load average (1 min) during the row: ${c.loadDuring === null ? 'not sampled' : `${f2(c.loadDuring.median)} (${f2(c.loadDuring.min)}–${f2(c.loadDuring.max)})`}`,
   )
-  for (const check of c.psChecks) {
-    lines.push(
-      `- ps check (${check.phase}): ${check.work.length === 0 ? 'no other work' : check.work.map((w) => `${w.kind} ${w.pid}`).join(', ')}`,
-    )
-  }
+  lines.push(...summarizePsChecks(c.psChecks))
   for (const n of r.notes) lines.push(`- ${n}`)
   lines.push('')
   lines.push(
