@@ -49,6 +49,12 @@ const TOOL_ENV_PASSTHROUGH = [
   'DEVELOPER_DIR',
 ] as const
 
+/**
+ * Fixed values for every tool run. RUSTUP_AUTO_INSTALL=0: a missing pinned
+ * toolchain is an error, never a download (31 §3 items 1-2, 00 R14).
+ */
+const FIXED_TOOL_ENV = { LANG: 'C', TZ: 'UTC', RUSTUP_AUTO_INSTALL: '0' } as const
+
 export function makeHostContext(opts: {
   targetDir?: string
   backgroundQos?: boolean
@@ -61,8 +67,7 @@ export function makeHostContext(opts: {
     opts.targetDir ?? path.join(home, '.cache', 'pmb', 'target', opts.rustcRelease),
   )
   const toolEnv: NodeJS.ProcessEnv = {
-    LANG: 'C',
-    TZ: 'UTC',
+    ...FIXED_TOOL_ENV,
     CARGO_HOME: cargoHome,
     RUSTUP_HOME: rustupHome,
   }
@@ -85,7 +90,7 @@ export function makeHostContext(opts: {
 
 /** Minimal environment before the host context exists (rustc release lookup). */
 export function bootstrapToolEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { LANG: 'C', TZ: 'UTC' }
+  const env: NodeJS.ProcessEnv = { ...FIXED_TOOL_ENV }
   for (const k of [...TOOL_ENV_PASSTHROUGH, 'CARGO_HOME', 'RUSTUP_HOME']) {
     const v = process.env[k]
     if (v !== undefined) env[k] = v

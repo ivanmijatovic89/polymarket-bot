@@ -27,7 +27,14 @@ import {
   parseSingleJsonDocument,
   pathLeakNeedles,
 } from './gates.js'
-import { cargoConfigViolations, realpathOr, run, runOk, type HostContext } from './host.js'
+import {
+  cargoConfigViolations,
+  ENGINE_ROOT,
+  realpathOr,
+  run,
+  runOk,
+  type HostContext,
+} from './host.js'
 import {
   checkPackageRules,
   gitignoreHasTargetRule,
@@ -60,7 +67,7 @@ import {
   type SourceHashInput,
 } from './sourceHash.js'
 import { enforceTargetBudget, withBuilderLock } from './targetDir.js'
-import { parseCargoLock } from './toml.js'
+import { parseCargoLock, scanToml, tomlStringValue } from './toml.js'
 
 export class NativeBuildError extends Error {
   constructor(message: string) {
@@ -77,11 +84,29 @@ export type Toolchain = {
 }
 
 /** `rustc -vV` as selected by the package's rust-toolchain.toml (31 §3 item 1). */
-export function readToolchain(packageRoot: string, env: NodeJS.ProcessEnv): Toolchain {
+export function readToolchain(
+  packageRoot: string,
+  env: NodeJS.ProcessEnv,
+  engineRoot: string = ENGINE_ROOT,
+): Toolchain {
   const out = runOk('rustc', ['-vV'], { cwd: packageRoot, env })
   const release = /^release: (.+)$/m.exec(out)?.[1]?.trim()
   if (!release) throw new NativeBuildError(`cannot read the rustc release from:\n${out}`)
+  const pinned = pinnedChannel(readFileSync(path.join(engineRoot, ENGINE_TOOLCHAIN_REL), 'utf8'))
+  if (release !== pinned) {
+    throw new NativeBuildError(
+      `rustc in ${packageRoot} is ${release}, but native/rust-toolchain.toml pins ${pinned} (31 §3 item 1)`,
+    )
+  }
   return { rustcVerbose: out.trimEnd(), rustcRelease: release }
+}
+
+/** `toolchain.channel` of a rust-toolchain.toml. */
+export function pinnedChannel(toolchainToml: string): string {
+  const e = scanToml(toolchainToml).entries.find((x) => x.path === 'toolchain.channel')
+  const v = e ? tomlStringValue(e.value) : null
+  if (!v) throw new NativeBuildError('native/rust-toolchain.toml has no toolchain.channel')
+  return v
 }
 
 export type LoadedPackage = {
