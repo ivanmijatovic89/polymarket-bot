@@ -761,7 +761,12 @@ name = "pmb-sdk"
 version = "0.1.0"
 dependencies = [
  "libm",
+ "pmb-contract",
  "pmb-core",
+ "pmb-engine",
+ "pmb-feeds",
+ "pmb-plugins",
+ "pmb-runtime",
  "pmb-sdk-macros",
  "proptest",
  "serde",

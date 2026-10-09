@@ -2,13 +2,57 @@
 //!
 //! It is the only crate a strategy depends on (30 §1 P1). `use
 //! pmb_sdk::prelude::*;` brings in the curated surface (§3); nothing of the
-//! engine core is glob re-exported. This revision holds the parts that do
-//! not depend on the engine: values, their §6 methods and compile-time
-//! macros (§6), the SDK version (§2),
-//! intent meta (§7.2), params (§9), deterministic [`collections`] and
-//! [`math`] (§11), and the pure [`toolkit`] helpers (§14). The strategy
-//! trait, context, intents, events, requirements, logging and the runtime
-//! entry point are added with the engine.
+//! engine core is glob re-exported. It holds: the strategy definition and
+//! context re-exported from `pmb-engine` by name (§4, §5, §8), values, their
+//! §6 methods and compile-time macros (§6), the SDK version (§2), the author
+//! order builders (§7) and intent meta (§7.2), params (§9) with the bridge to
+//! the runtime, requirements (§10), deterministic [`collections`] and
+//! [`math`] (§11), logging (§13), the pure [`toolkit`] helpers (§14), the
+//! testkit (feature `testkit`, §15) and [`strategy_main!`] (§4 rule 1).
+//!
+//! The example strategy of 30 §4:
+//!
+//! ```
+//! use pmb_sdk::prelude::*;
+//!
+//! #[derive(Params, Clone, Debug)]
+//! pub struct LagParams {
+//!     /// Shares per entry order.
+//!     #[param(default = 5)]
+//!     pub size: Qty,
+//!     /// Highest entry price.
+//!     #[param(default = 0.60, min = 0.01, max = 0.99)]
+//!     pub max_price: Price,
+//! }
+//!
+//! pub struct Lag { p: LagParams, entered: bool }
+//!
+//! impl Strategy for Lag {
+//!     type Params = LagParams;
+//!     const ID: &'static str = "example-lag.v1";
+//!
+//!     fn requirements(_p: &LagParams) -> Requirements {
+//!         Requirements::new()
+//!     }
+//!
+//!     fn new(p: &LagParams, _market: &MarketInfo) -> Self {
+//!         Lag { p: p.clone(), entered: false }
+//!     }
+//!
+//!     fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) -> StrategyResult {
+//!         if self.entered { return Ok(()); }
+//!         let Some(ask) = ctx.book(Outcome::Up).best_ask() else { return Ok(()) };
+//!         if ask.price <= self.p.max_price {
+//!             out.place(Order::buy(Outcome::Up, ask.price, self.p.size).fok().cid(cid!("entry")));
+//!             self.entered = true;
+//!         }
+//!         Ok(())
+//!     }
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! Params alone:
 //!
 //! ```
 //! use pmb_sdk::prelude::*;
@@ -211,9 +255,14 @@
 extern crate self as pmb_sdk;
 
 pub mod collections;
+mod log;
 pub mod math;
 mod meta;
+mod order;
 pub mod params;
+mod requirements;
+#[cfg(feature = "testkit")]
+pub mod testkit;
 pub mod toolkit;
 mod values;
 
@@ -226,6 +275,10 @@ pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 // `pmb_sdk::MetaValue` (not in the prelude), the value type of the public
 // `Meta::set` / `Meta::get` signatures.
 pub use meta::{Meta, MetaValue};
+// D-PENDING: 30 §3 names no type for the value between `buy_spend` and
+// `.fok()`/`.fak()`, nor the bound of `Intents::place`; chose to expose
+// `SpendOrder` and the sealed `PlaceableOrder` here, outside the prelude.
+pub use order::{PlaceableOrder, SpendOrder};
 pub use params::{ParamEnum, ParamError, Params};
 pub use pmb_sdk_macros::{cid, meta, price, qty, usdc, ParamEnum, Params};
 
@@ -235,26 +288,92 @@ pub mod json {
     pub use serde_json::Value;
 }
 
-/// `use pmb_sdk::prelude::*;` (30 §3). Value types are those of
-/// 10-domain-model.md, re-exported by name (P1: never a glob of the core).
+/// The entry point of a strategy binary (30 §4 rule 1): expands to the
+/// `main` running every subcommand of 20 for the strategy type, through the
+/// runtime monomorphized over it (never boxed), and reports this SDK's
+/// version as `sdkVersion` (20 §3). One call per bin.
+///
+/// ```ignore
+/// pmb_sdk::strategy_main!(Lag);
+/// ```
+///
+/// In a `cargo test` build of the bin the generated `main` is not called;
+/// it does not warn.
+#[macro_export]
+macro_rules! strategy_main {
+    ($strategy:ty $(,)?) => {
+        #[cfg_attr(test, allow(dead_code))]
+        fn main() {
+            $crate::__private::runtime_main::<$strategy>($crate::__private::MainOptions {
+                sdk_version: $crate::SDK_VERSION,
+            })
+        }
+    };
+}
+
+/// `use pmb_sdk::prelude::*;` (30 §3). Types are those of
+/// 10-domain-model.md and of the engine, re-exported by name (P1: never a
+/// glob of the core).
 pub mod prelude {
-    pub use crate::meta::Meta;
-    pub use crate::params::{ParamEnum, ParamError, Params};
+    // Definition (30 §4).
+    pub use crate::strategy_main;
+    pub use pmb_engine::strategy::{
+        EventFlags, Interests, Strategy, StrategyError, StrategyResult, TickInterest,
+    };
+    // Context (30 §5).
+    pub use pmb_core::fill::{Capital, Position, SettlementStatus};
+    pub use pmb_core::state::OrderState;
+    pub use pmb_core::{MarketInfo, Symbol, Timeframe};
+    pub use pmb_engine::strategy::{
+        BookView, Ctx, Level, OrderView, PortfolioView, RulesView, TickCause, TickInfo,
+    };
+    // Values (30 §6).
     pub use pmb_core::{
         ClientOrderId, DurMs, ExchangeOrderId, OrderType, Outcome, Price, Qty, Rate, Rounding,
         Side, TsMs, Usdc,
     };
-    pub use pmb_sdk_macros::{cid, meta, price, qty, usdc, ParamEnum, Params};
+    pub use pmb_sdk_macros::{cid, meta, price, qty, usdc};
     // The 30 §6 methods the core types lack, in scope without a name.
     pub use crate::values::{ClientOrderIdExt as _, OutcomeExt as _, PriceExt as _, TsMsExt as _};
+    // Intents (30 §7).
+    pub use crate::meta::Meta;
+    pub use crate::order::{IntentsExt as _, LimitOrder, MarketableOrder, Order};
+    // D-PENDING: `CancelRef` is not in the 30 §3 list; it is the item type
+    // of the engine buffer's `cancel_batch` until the 30 §7 signature
+    // lands (see `order.rs`).
+    pub use pmb_engine::strategy::{CancelRef, Intents};
+    // Events (30 §8).
+    pub use pmb_core::event::{
+        CancelCause, CancelFailReason, DoneReason, MergeFailReason, RejectReason, SplitFailReason,
+    };
+    pub use pmb_core::fill::Liquidity;
+    pub use pmb_engine::strategy::{AccountEvent, FillView};
+    // Params (30 §9).
+    pub use crate::params::{ParamEnum, ParamError, Params};
+    pub use pmb_sdk_macros::{ParamEnum, Params};
+    // Requirements (30 §10). TODO(feeds-merge): see `requirements.rs`.
+    pub use crate::requirements::{
+        BidOrAsk, DwellGateConfig, FeedOptions, Requirements, TechnicalIndicatorsConfig,
+        TimeWindowGateConfig, TimeWindowVolatilityConfig, VolPrice,
+    };
+    pub use crate::requirements::{FeedOptionsExt as _, RequirementsExt as _};
+    // Feeds / plugins (30 §5, 14). TODO(feeds-merge): `PricePoint`,
+    // `PriceToBeat` and the plugin snapshot types come with the merged
+    // feed wiring; these two are the engine's current stand-ins.
+    pub use pmb_engine::feeds_view::FeedsView;
+    pub use pmb_engine::plugins_view::PluginsView;
+    // Logging (30 §13).
+    pub use crate::{debug, error, info, trace, warn};
 }
 
 /// Targets of the macro expansions. Not part of the SDK API: no stability
 /// guarantee, never used by hand.
 #[doc(hidden)]
 pub mod __private {
+    pub use crate::log::{log_enabled, log_line, LogLevel};
     pub use crate::meta::{Meta, MetaValue};
     pub use crate::params::input::Input;
+    pub use crate::params::runtime::{runtime_from_json, runtime_normalized};
     pub use crate::params::support::{
         check_bound, enum_default, enum_expected, enum_schema, field, has_name, key_collision,
         merge_validate, parse_enum, parse_struct, schema_default, schema_describe, struct_expected,
@@ -263,7 +382,12 @@ pub mod __private {
     pub use crate::params::text::write_json_str;
     pub use crate::params::value::{BoundView, ParamValue};
     pub use pmb_core::{ClientOrderId, DurMs, Price, Qty, Rate, Usdc};
+    pub use pmb_runtime::params::ParamError as RuntimeParamError;
+    pub use pmb_runtime::{main_with as runtime_main, MainOptions, StrategyParams};
     pub use serde_json::Value;
+
+    /// The JSON object type of the runtime's params seam.
+    pub type JsonMap = serde_json::Map<String, Value>;
 
     /// A `DurMs` of `ms` milliseconds. The one place the SDK builds a
     /// `DurMs` from its integer, used by the params derive with values it

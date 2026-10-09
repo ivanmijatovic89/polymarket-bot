@@ -13,6 +13,7 @@
 
 mod compare;
 pub(crate) mod input;
+pub(crate) mod runtime;
 pub(crate) mod support;
 pub(crate) mod text;
 pub(crate) mod value;

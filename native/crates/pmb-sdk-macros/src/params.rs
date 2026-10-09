@@ -336,6 +336,22 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 
             #params_impl
 
+            // The runtime's params seam (30 §9, 20 §5.1), so the type can be
+            // `Strategy::Params` of a binary (`strategy_main!`).
+            impl #p::StrategyParams for #name {
+                fn from_json(
+                    __pmb_obj: &#p::JsonMap,
+                ) -> ::core::result::Result<Self, ::std::vec::Vec<#p::RuntimeParamError>> {
+                    #p::runtime_from_json::<Self>(__pmb_obj)
+                }
+                fn to_normalized(&self) -> #p::JsonMap {
+                    #p::runtime_normalized(self)
+                }
+                fn json_schema() -> #p::Value {
+                    <Self as ::pmb_sdk::Params>::params_schema()
+                }
+            }
+
             impl #p::ParamValue for #name {
                 fn parse(
                     __pmb_in: &#p::Input,
