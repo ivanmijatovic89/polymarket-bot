@@ -1,0 +1,18 @@
+[package]
+name = "pmb-sdk"
+description = "Strategy SDK (30-strategy-sdk.md): the curated prelude, params runtime (Params, ParamEnum, ParamError), intent meta and the value macros. The only crate a strategy depends on (P1)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+pmb-sdk-macros.workspace = true
+serde.workspace = true
+# `raw_value` keeps the exact text of JSON numbers so fixed-point params are
+# parsed from decimal text, never through f64 (30 §9, 10 §2 T6).
+serde_json = { workspace = true, features = ["raw_value"] }
+
+[lints]
+workspace = true

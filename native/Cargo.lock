@@ -566,6 +566,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pmb-sdk"
+version = "0.1.0"
+dependencies = [
+ "pmb-core",
+ "pmb-sdk-macros",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pmb-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"

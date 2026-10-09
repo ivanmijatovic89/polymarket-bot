@@ -18,11 +18,16 @@ anyhow = "=1.0.98"
 flate2 = "=1.1.2"
 libm = "0.2"
 parquet = { version = "=56.2.0", default-features = false, features = ["snap", "flate2-rust_backened", "zstd", "lz4"] }
+proc-macro2 = "=1.0.107"
 proptest = { version = "1", default-features = false, features = ["std"] }
+quote = "=1.0.47"
 schemars = "1"
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.141"
 sha2 = "=0.10.9"
+# `full` parses arbitrary expressions in `#[param(default = ..)]` and `meta!`
+# values (pmb-sdk-macros only; already in Cargo.lock through serde_derive).
+syn = { version = "=2.0.119", features = ["full"] }
 thiserror = "2"
 pmb-book = { path = "crates/pmb-book" }
 pmb-contract = { path = "crates/pmb-contract" }
@@ -30,6 +35,8 @@ pmb-core = { path = "crates/pmb-core" }
 pmb-engine = { path = "crates/pmb-engine" }
 pmb-feeds = { path = "crates/pmb-feeds" }
 pmb-replay = { path = "crates/pmb-replay" }
+pmb-sdk = { path = "crates/pmb-sdk" }
+pmb-sdk-macros = { path = "crates/pmb-sdk-macros" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

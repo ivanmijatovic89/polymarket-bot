@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Example lag strategy params.",
+  "properties": {
+    "cooldown": {
+      "default": 5000,
+      "description": "Pause after an entry.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "depthFrac": {
+      "default": 1,
+      "description": "Fraction of visible ask depth an order may take; 0 disables the cap.",
+      "maximum": 5,
+      "minimum": 0,
+      "type": "number"
+    },
+    "dry": {
+      "default": false,
+      "type": "boolean"
+    },
+    "fee_rate": {
+      "decimalScale": 6,
+      "default": 0.07,
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "ids": {
+      "default": [],
+      "description": "Extra asset ids.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "label": {
+      "default": "lag",
+      "type": "string"
+    },
+    "leg": {
+      "default": "Maker",
+      "description": "Entry style.",
+      "enum": [
+        "Maker",
+        "taker"
+      ],
+      "type": "string"
+    },
+    "maxPrice": {
+      "decimalScale": 6,
+      "default": 0.6,
+      "description": "Highest entry price.",
+      "maximum": 0.99,
+      "minimum": 0.01,
+      "type": "number"
+    },
+    "maxTrades": {
+      "default": 3,
+      "description": "Entries per market.",
+      "maximum": 4294967295,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "sigma": {
+      "default": 0.0001,
+      "description": "Per-sqrt-second log volatility.",
+      "exclusiveMinimum": 0,
+      "type": "number"
+    },
+    "size": {
+      "decimalScale": 6,
+      "default": 5,
+      "description": "Shares per entry order.",
+      "type": "number"
+    },
+    "stakeMinUsd": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Smaller stake at the minimum edge; defaults to stakeUsd."
+    },
+    "stakeUsd": {
+      "decimalScale": 6,
+      "default": 30,
+      "description": "Stake per entry in USDC.",
+      "exclusiveMinimum": 0,
+      "type": "number"
+    }
+  },
+  "required": [],
+  "title": "LagParams",
+  "type": "object"
+}
