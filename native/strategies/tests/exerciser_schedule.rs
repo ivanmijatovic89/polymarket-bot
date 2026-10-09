@@ -21,7 +21,7 @@ const DOWN_BIDS: [(Price, Qty); 2] = [(price!(0.47), qty!(100)), (price!(0.46), 
 const DOWN_ASKS: [(Price, Qty); 2] = [(price!(0.53), qty!(100)), (price!(0.54), qty!(100))];
 
 fn at(seq: u64) -> TsMs {
-    TsMs(T0_MS + 100 * seq as i64)
+    TsMs::from_ms(T0_MS + 100 * seq as i64)
 }
 
 /// The scripted inputs, one strategy tick each.
@@ -37,7 +37,7 @@ enum Input {
 /// A BTC 15m ts-compat market whose strategy tick `seq` is `inputs(seq)`,
 /// for `seq` in `0..=last`.
 fn market(capital: Usdc, last: u64, inputs: impl Fn(u64) -> Input) -> TestMarket {
-    let mut m = TestMarket::btc_15m(TsMs(START_MS))
+    let mut m = TestMarket::btc_15m(TsMs::from_ms(START_MS))
         .profile(Profile::TsCompat)
         .starting_capital(capital);
     for seq in 0..=last {

@@ -53,10 +53,7 @@ fn requirements_follow_the_params() {
         .time_window_gate(time_window_gate_config());
     assert_eq!(req(&base), expected);
 
-    let ticking = FeedOptions {
-        tick_on_update: true,
-        ..FeedOptions::default()
-    };
+    let ticking = FeedOptions::default().tick_on_update(true);
     let expected_ticking = Requirements::new()
         .binance_spot(ticking.clone())
         .chainlink(ticking)

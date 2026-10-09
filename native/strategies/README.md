@@ -55,7 +55,9 @@ cargo test --locked          # unit tests + tests/exerciser_schedule.rs + tests/
 
 Every `pmb-sdk` item the two strategies and their tests use. Names follow
 30 §3–§10 and §15; where 30 does not fix a name or signature, the choice is
-marked _(choice)_.
+marked _(choice)_. Every struct is used only through constructors,
+builders, accessors and field reads, so the code compiles whether the SDK
+types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 
 ### Definition (30 §4)
 
@@ -89,8 +91,10 @@ marked _(choice)_.
 - `Price::snap(self, tick: Price, mode: Rounding) -> Price` _(choice:
   infallible; pmb-core today has `to_tick(..) -> Result<Price, Overflow>`)_.
 - `Qty: Copy + Ord` (`min`, `<`, `<=`).
-- `TsMs + DurMs -> TsMs`; `DurMs(i64)` and `TsMs(i64)` tuple constructors,
-  usable in `const` _(choice: 30 names no constructor)_.
+- `TsMs + DurMs -> TsMs`; `const fn TsMs::from_ms(i64) -> TsMs` and
+  `const fn DurMs::from_ms(i64) -> DurMs` (panics on a negative value, so a
+  bad constant fails compilation; 10 §2 `DurMs >= 0`) _(choice: 30 names no
+  constructor; pmb-core today has public tuple fields, which P7 rules out)_.
 - `ClientOrderId::indexed(prefix: &str, n: u64) -> ClientOrderId` _(choice:
   return and integer types)_; `ClientOrderId::as_str() -> &str`.
 - `price!`, `qty!`, `usdc!` (const-evaluable, as on `ws/sdk`), `cid!`.
@@ -136,14 +140,20 @@ marked _(choice)_.
   `dwell_gate(DwellGateConfig)`, `time_window_gate(TimeWindowGateConfig)`,
   `technical_indicators(TechnicalIndicatorsConfig)`;
   `Requirements: Clone + PartialEq + Debug` (tests compare values).
-- `FeedOptions { symbol, tick_on_update }` with public fields, `Default` and
-  `Clone` (struct-update syntax, so not `#[non_exhaustive]`).
-- Plugin configs _(choice: the `ws/plugins` shapes; 30 names the types only)_:
-  `TimeWindowVolatilityConfig::new(impl IntoIterator<Item = (impl Into<String>, i64)>, VolPrice)`
-  with `VolPrice::Mid` (missing from the 30 §3 prelude list, which has only
-  `BidOrAsk`); `DwellGateConfig { from: Price, to: Price, required_ms: i64, track_price: BidOrAsk }`;
-  `BidOrAsk::Bid`; `TimeWindowGateConfig { allow_after_ms: i64, disable_after_ms: i64 }`;
-  `TechnicalIndicatorsConfig::default()`.
+- `FeedOptions: Default + Clone + PartialEq + Debug` with the by-value
+  builder `tick_on_update(bool) -> FeedOptions` _(choice: 30 §10 describes
+  the fields `symbol`, `tick_on_update`, not how they are set)_.
+- Plugin configs, each `Clone + PartialEq + Debug` (tests compare values;
+  not required to be `Copy`, so a later non-`Copy` field stays a minor bump,
+  30 §2) _(choice: 30 names the types only)_:
+  - `TimeWindowVolatilityConfig::new(impl IntoIterator<Item = (impl Into<String>, DurMs)>)`,
+    tracking the mid, the TS default `trackPrice` (so no `VolPrice` type
+    outside the 30 §3 prelude is needed; bid or ask tracking would be a
+    by-value builder taking `BidOrAsk`, unused here);
+  - `DwellGateConfig::new(from: Price, to: Price, required: DurMs, track: BidOrAsk)`;
+  - `TimeWindowGateConfig::new(allow_after: DurMs, disable_after: DurMs)`;
+  - `TechnicalIndicatorsConfig::default()`;
+  - `BidOrAsk::{Bid, Ask}`.
 
 ### Testkit (30 §15, feature `testkit`) _(choice: 30 lists capabilities only)_
 

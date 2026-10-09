@@ -52,7 +52,7 @@ const PERIODIC_EVERY: u64 = 100;
 const PERIODIC_CANCEL_AFTER: u64 = 40;
 
 /// `x3` lifetime: `expireAtMs = tick ts + 120000` (60 §5.2).
-const X3_LIFETIME: DurMs = DurMs(120_000);
+const X3_LIFETIME: DurMs = DurMs::from_ms(120_000);
 
 /// A BUY price: snapped down to [`TICK`], clamped to
 /// [[`MIN_PRICE`], [`MAX_PRICE`]] (60 §5.1).

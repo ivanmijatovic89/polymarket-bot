@@ -52,31 +52,32 @@ impl Params for FeedExerciserParams {
 
 /// TimeWindowVolatility config, identical in both twins (TS
 /// `FEED_EXERCISER_PLUGIN_CONFIG.timeWindowVolatility`): windows 10 s and
-/// 60 s on the mid.
+/// 60 s on the mid (the constructor's default track price, as TS
+/// `trackPrice: 'mid'`).
 // D-PENDING: 60 §5.8 names the plugins but not their configs; the TS twin
 // fixed them (volatility 10 s and 60 s on mid, dwell band [0.40, 0.60] for
 // 5 s on the bid, gate open 60 s to 840 s after start). Mirrored here.
 pub fn time_window_volatility_config() -> TimeWindowVolatilityConfig {
-    TimeWindowVolatilityConfig::new([("10s", 10_000), ("60s", 60_000)], VolPrice::Mid)
+    TimeWindowVolatilityConfig::new([
+        ("10s", DurMs::from_ms(10_000)),
+        ("60s", DurMs::from_ms(60_000)),
+    ])
 }
 
 /// DwellGate config, identical in both twins: band [0.40, 0.60], 5 s, bid.
 pub fn dwell_gate_config() -> DwellGateConfig {
-    DwellGateConfig {
-        from: price!(0.40),
-        to: price!(0.60),
-        required_ms: 5_000,
-        track_price: BidOrAsk::Bid,
-    }
+    DwellGateConfig::new(
+        price!(0.40),
+        price!(0.60),
+        DurMs::from_ms(5_000),
+        BidOrAsk::Bid,
+    )
 }
 
 /// TimeWindowGate config, identical in both twins: open from 60 s to 840 s
 /// after the market start.
 pub fn time_window_gate_config() -> TimeWindowGateConfig {
-    TimeWindowGateConfig {
-        allow_after_ms: 60_000,
-        disable_after_ms: 840_000,
-    }
+    TimeWindowGateConfig::new(DurMs::from_ms(60_000), DurMs::from_ms(840_000))
 }
 
 /// The feed exerciser (60 §5.8). With `trade: false` it keeps no state.
@@ -89,10 +90,7 @@ impl Strategy for FeedExerciser {
 
     fn requirements(p: &FeedExerciserParams) -> Requirements {
         // Symbols follow the traded market (14 F-49).
-        let feed = FeedOptions {
-            tick_on_update: p.tick_on_update,
-            ..FeedOptions::default()
-        };
+        let feed = FeedOptions::default().tick_on_update(p.tick_on_update);
         let mut r = Requirements::new().binance_spot(feed.clone());
         if p.chainlink {
             r = r.chainlink(feed);
