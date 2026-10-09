@@ -17,12 +17,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
-# C2 (60 §10.0): the test skeletons bind to the real SDK and testkit once
-# M1 step 5 delivers them. Nothing else is allowed here (30 P1, D16).
-# pmb-sdk = { path = "../crates/pmb-sdk", features = ["testkit"] }
+# C2 (60 §10.0): the tests bind to the real SDK and its testkit (30 §15)
+# through the public API only. Nothing else is allowed here (30 P1, D16).
+pmb-sdk = { path = "../crates/pmb-sdk", features = ["testkit"] }
 
-# Standalone until C2. This empty table keeps the crate out of any parent
-# workspace so that `cargo test --manifest-path native/conformance/Cargo.toml`
-# works with no engine sources present. C2 removes it when the crate joins the
-# engine workspace (60 §10.0: "cargo test -p pmb-conformance").
+# This crate stays OUT of the engine workspace: its own `[workspace]` table
+# makes it a root, `.cargo/config.toml` keeps its build under
+# native/conformance/target, and Cargo.lock is the engine lock pruned offline
+# (no crate that is not in native/Cargo.lock). Run with
+# `cargo test --manifest-path native/conformance/Cargo.toml` (CF-2).
 [workspace]

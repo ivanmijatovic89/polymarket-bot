@@ -1,0 +1,5 @@
+# Keep the conformance build out of the engine's target dir (CF-2): paths in
+# `build.target-dir` are relative to the directory holding `.cargo/`.
+[build]
+target-dir = "target"
+jobs = 2
