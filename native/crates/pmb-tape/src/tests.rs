@@ -1087,3 +1087,88 @@ fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
         assert_eq!(path, InputPath::Tape, "{what}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn tape_root_never_resolves_into_inputs_or_the_fleet_copy() {
+    use std::os::unix::fs::symlink;
+    let dir = scratch("root-check");
+    // A fleet working copy holding the inputs, and the checkout whose data
+    // links point into it (worker-1's layout, 01 §8.1).
+    let fleet = dir.join("fleet");
+    std::fs::create_dir_all(fleet.join(".git")).unwrap();
+    std::fs::create_dir_all(fleet.join("data/events/telonex")).unwrap();
+    std::fs::create_dir_all(fleet.join("data/binance")).unwrap();
+    let main = dir.join("main");
+    std::fs::create_dir_all(main.join(".git")).unwrap();
+    std::fs::create_dir_all(main.join("data/native-tapes")).unwrap();
+    let co = dir.join("checkout");
+    std::fs::create_dir_all(co.join("data")).unwrap();
+    std::fs::write(co.join(".git"), "gitdir: elsewhere\n").unwrap();
+    symlink(fleet.join("data/events"), co.join("data/events")).unwrap();
+    symlink(fleet.join("data/binance"), co.join("data/binance")).unwrap();
+    symlink(main.join("data/native-tapes"), co.join("data/native-tapes")).unwrap();
+    let data = co.join("data");
+    let inputs = vec![data.join("events/telonex/m.parquet")];
+    let check = |root: &Path| store::check_tape_root(root, &data, &inputs);
+
+    // The documented roots: a real directory, or a link to the main
+    // checkout's real directory, also when it does not exist yet.
+    let ok = check(&co.join("data/native-tapes")).unwrap();
+    assert_eq!(ok, main.join("data/native-tapes").canonicalize().unwrap());
+    assert!(check(&co.join("data/native-tapes/sub/dir")).is_ok());
+    assert!(check(&co.join("tapes")).is_ok());
+
+    // Through the read-only links, into the fleet copy, or around them.
+    for bad in [
+        co.join("data/events/native-tapes"),
+        co.join("data/events"),
+        co.join("data/binance/tapes"),
+        fleet.join("native-tapes"),
+        fleet.clone(),
+        dir.clone(),
+    ] {
+        let e = check(&bad).unwrap_err();
+        assert!(e.contains("16 NT-8"), "{}: {e}", bad.display());
+    }
+    // `..` in a part that does not exist yet is not resolved silently.
+    assert!(check(&co.join("data/nope/../../x")).is_err());
+}
+
+#[test]
+fn stale_temporary_files_are_swept_and_not_counted() {
+    let dir = scratch("tmp-sweep");
+    let root = dir.join("tapes");
+    let sub = root.join("a/b");
+    std::fs::create_dir_all(&sub).unwrap();
+    let mut child = std::process::Command::new("true").spawn().unwrap();
+    let dead = child.id();
+    child.wait().unwrap();
+    std::fs::write(sub.join(format!("m.pmbtape.tmp.{dead}")), [0u8; 100]).unwrap();
+    let mine = sub.join(format!("n.pmbtape.tmp.{}", std::process::id()));
+    std::fs::write(&mine, [0u8; 10]).unwrap();
+    std::fs::write(sub.join("m.pmbtape"), [0u8; 7]).unwrap();
+    assert_eq!(
+        store::dir_bytes(&root).unwrap(),
+        7,
+        "tmp files are not tapes"
+    );
+    assert_eq!(store::sweep_stale_tmp(&root).unwrap(), (1, 100));
+    assert!(mine.exists(), "a live converter's file is kept");
+    assert!(sub.join("m.pmbtape").exists());
+    assert_eq!(store::sweep_stale_tmp(&root).unwrap(), (0, 0));
+}
+
+#[test]
+#[ignore = "checks the real worker-1 layout (read-only); needs the data links"]
+fn real_layout_tape_roots() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let data = repo.join("data");
+    let inputs = vec![data.join("events/telonex/delta-typed/btc/15m/x.parquet")];
+    let ok = store::check_tape_root(&data.join("native-tapes"), &data, &inputs).unwrap();
+    eprintln!("data/native-tapes resolves to {}", ok.display());
+    for bad in ["events/native-tapes", "telonex/x", "binance/x"] {
+        let e = store::check_tape_root(&data.join(bad), &data, &inputs).unwrap_err();
+        eprintln!("refused data/{bad}: {e}");
+    }
+}

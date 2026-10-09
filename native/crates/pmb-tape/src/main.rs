@@ -134,8 +134,13 @@ fn load_avg() -> String {
 fn convert(a: &Args) -> Result<()> {
     let m = Manifest::load(&a.set)?;
     let gb = 1_000_000_000u64;
-    let cap = flag(a, "cap-gb", DEFAULT_CAP_BYTES / gb)? * gb;
-    let min_free = flag(a, "min-free-gb", DEFAULT_MIN_FREE_BYTES / gb)? * gb;
+    let gb_flag = |k: &str, default: u64| -> Result<u64> {
+        flag(a, k, default / gb)?
+            .checked_mul(gb)
+            .with_context(|| format!("--{k} is too large"))
+    };
+    let cap = gb_flag("cap-gb", DEFAULT_CAP_BYTES)?;
+    let min_free = gb_flag("min-free-gb", DEFAULT_MIN_FREE_BYTES)?;
     let level = flag(a, "zstd-level", pmb_tape::codec::DEFAULT_ZSTD_LEVEL)?;
     let opts = ConvertOptions {
         encode: EncodeOptions {
@@ -144,12 +149,29 @@ fn convert(a: &Args) -> Result<()> {
         },
         tool_sha256: tool_sha()?,
     };
+    // NT-8: never write through the read-only data links or into the fleet
+    // copy; checked before anything is created.
+    let inputs = m
+        .markets
+        .iter()
+        .map(|mk| mk.v1_path(&a.data_root))
+        .collect::<Result<Vec<_>>>()?;
+    let resolved =
+        store::check_tape_root(&a.tape_root, &a.data_root, &inputs).map_err(anyhow::Error::msg)?;
+    let (stale, stale_bytes) = store::sweep_stale_tmp(&a.tape_root)
+        .with_context(|| format!("sweep {}", a.tape_root.display()))?;
+    if stale > 0 {
+        println!(
+            "  removed {stale} stale temporary files ({stale_bytes} bytes) of dead converters"
+        );
+    }
     let mut budget = Budget::new(&a.tape_root, cap, min_free)?;
     println!(
-        "pmb-tape convert: set {} ({} markets), tape root {} ({} bytes used, cap {cap}), free {} (floor {min_free}), tool {}",
+        "pmb-tape convert: set {} ({} markets), tape root {} -> {} ({} bytes used, cap {cap}), free {} (floor {min_free}), tool {}",
         m.name,
         m.markets.len(),
         a.tape_root.display(),
+        resolved.display(),
         budget.used_bytes,
         budget.free_bytes,
         hex(&opts.tool_sha256)

@@ -228,7 +228,136 @@ pub fn read_tape_stream(
     })
 }
 
-/// Bytes of every regular file under `dir` (0 when it does not exist).
+/// Resolves `p` through symlinks: its nearest existing ancestor is
+/// canonicalized and the remaining components, which must be plain names,
+/// are appended.
+pub fn resolve_lenient(p: &Path) -> Result<PathBuf, String> {
+    let mut existing = p;
+    let mut rest = Vec::new();
+    loop {
+        match fs::canonicalize(existing) {
+            Ok(mut out) => {
+                out.extend(rest.iter().rev());
+                return Ok(out);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let name = match existing.components().next_back() {
+                    Some(std::path::Component::Normal(n)) => n,
+                    _ => return Err(format!("{} is not a plain path", p.display())),
+                };
+                rest.push(name);
+                existing = existing
+                    .parent()
+                    .ok_or_else(|| format!("{} has no existing ancestor", p.display()))?;
+            }
+            Err(e) => return Err(format!("resolve {}: {e}", existing.display())),
+        }
+    }
+}
+
+/// The git working copy holding `p` (the nearest ancestor with a `.git`).
+fn working_copy(p: &Path) -> Option<PathBuf> {
+    p.ancestors()
+        .find(|a| a.join(".git").exists())
+        .map(Path::to_path_buf)
+}
+
+/// Checks that a tape root is safe to write (NT-8, 01 §8.1 H2) and returns
+/// it resolved. The root must not lie inside (or contain) the resolved
+/// data-root subtree of any input file, which on worker-1 is a read-only
+/// link into the fleet copy, nor inside (or contain) another git working
+/// copy that holds inputs (the fleet copy itself).
+pub fn check_tape_root(
+    tape_root: &Path,
+    data_root: &Path,
+    inputs: &[PathBuf],
+) -> Result<PathBuf, String> {
+    let root = resolve_lenient(tape_root)?;
+    let data = fs::canonicalize(data_root)
+        .map_err(|e| format!("data root {}: {e}", data_root.display()))?;
+    let own = working_copy(&data);
+    let mut protected: Vec<(PathBuf, String)> = Vec::new();
+    for input in inputs {
+        let first = input
+            .strip_prefix(data_root)
+            .ok()
+            .and_then(|r| r.components().next())
+            .ok_or_else(|| {
+                format!(
+                    "input {} is not under the data root {}",
+                    input.display(),
+                    data_root.display()
+                )
+            })?;
+        let child = data_root.join(first);
+        let subtree =
+            fs::canonicalize(&child).map_err(|e| format!("input root {}: {e}", child.display()))?;
+        if let Some(wc) = working_copy(&subtree).filter(|wc| Some(wc) != own.as_ref()) {
+            let why = format!("working copy {} that holds the inputs", wc.display());
+            protected.push((wc, why));
+        }
+        let why = format!("input tree {} (via {})", subtree.display(), child.display());
+        protected.push((subtree, why));
+    }
+    for (p, why) in &protected {
+        if root.starts_with(p) || p.starts_with(&root) {
+            return Err(format!(
+                "tape root {} (resolved {}) overlaps the {why}; tapes are written only under the checkout's own tape root (16 NT-8)",
+                tape_root.display(),
+                root.display()
+            ));
+        }
+    }
+    Ok(root)
+}
+
+/// Whether `name` is a converter's temporary file (`<slug>.pmbtape.tmp.<pid>`);
+/// returns the pid.
+fn tmp_pid(name: &str) -> Option<u32> {
+    let (_, pid) = name.split_once(&format!(".{TAPE_EXT}.tmp."))?;
+    pid.parse().ok()
+}
+
+fn pid_alive(pid: u32) -> bool {
+    pid == std::process::id()
+        || std::process::Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "pid="])
+            .output()
+            .is_ok_and(|o| o.status.success())
+}
+
+/// Removes temporary files left under `root` by converters that died
+/// between create and rename (their pid is gone). Returns (removed, bytes).
+pub fn sweep_stale_tmp(root: &Path) -> std::io::Result<(u32, u64)> {
+    let rd = match fs::read_dir(root) {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok((0, 0)),
+        Err(e) => return Err(e),
+    };
+    let (mut n, mut bytes) = (0, 0);
+    for e in rd {
+        let e = e?;
+        let ft = e.file_type()?;
+        if ft.is_dir() {
+            let (dn, db) = sweep_stale_tmp(&e.path())?;
+            n += dn;
+            bytes += db;
+        } else if ft.is_file() {
+            let name = e.file_name();
+            if let Some(pid) = name.to_str().and_then(tmp_pid) {
+                if !pid_alive(pid) {
+                    bytes += e.metadata()?.len();
+                    fs::remove_file(e.path())?;
+                    n += 1;
+                }
+            }
+        }
+    }
+    Ok((n, bytes))
+}
+
+/// Bytes of every tape file under `dir` (0 when it does not exist);
+/// in-flight temporary files are not tapes and are not counted.
 pub fn dir_bytes(dir: &Path) -> std::io::Result<u64> {
     let rd = match fs::read_dir(dir) {
         Ok(rd) => rd,
@@ -241,7 +370,7 @@ pub fn dir_bytes(dir: &Path) -> std::io::Result<u64> {
         let ft = e.file_type()?;
         if ft.is_dir() {
             total += dir_bytes(&e.path())?;
-        } else if ft.is_file() {
+        } else if ft.is_file() && e.file_name().to_str().and_then(tmp_pid).is_none() {
             total += e.metadata()?.len();
         }
     }
