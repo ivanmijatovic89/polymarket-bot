@@ -31,6 +31,22 @@ Open a draft PR from `native-engine` titled "DO NOT MERGE before gate 2".
 Do not end your turn while work remains. If your turn ends anyway, the
 launcher resumes you with `--continue`; pick up from `native/STATUS.md`.
 
+## First, on this resume (2026-10-09)
+
+The previous run used the wrong Claude account ($20 plan) and was cut off
+twice by its session limit after ~14 minutes each. You now run on the $200
+plan. Before new work:
+
+1. Tidy the leftovers: the uncommitted `native/crates/pmb-engine/src/ledger.rs`,
+   and the subagent worktrees under `.claude/worktrees/agent-*` (one has ~13
+   uncommitted changes, `worktree-agent-ab3cec00…` has commits that may already
+   be in `native-engine`). Commit what is correct and matches the spec; discard
+   the rest; remove the stale worktrees and branches.
+2. The "Fable requires usage credits" error came from the exhausted $20 plan.
+   Retry the Fable conformance author (D45) and remove the item from "Waiting
+   on user" if it works.
+3. Correct STATUS.md "Current state" to the real position.
+
 ## Hard rules (in addition to the spec's R1–R15)
 
 1. Never run `src/cli/trading-bot.ts` or any live/paper runtime with
