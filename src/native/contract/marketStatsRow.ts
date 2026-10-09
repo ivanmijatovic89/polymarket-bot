@@ -38,8 +38,12 @@ const count: Check = (_f, v) =>
     ? null
     : 'not an int in 0..2^31-1'
 
-const text255: Check = (_f, v) =>
-  typeof v === 'string' && v.length > 0 && v.length <= 255 ? null : 'not a 1..255 string'
+/** 1..255 characters as MySQL varchar(255) (utf8mb4) and Rust count them: code points. */
+const text255: Check = (_f, v) => {
+  if (typeof v !== 'string') return 'not a 1..255 string'
+  const chars = [...v].length
+  return chars > 0 && chars <= 255 ? null : 'not a 1..255 string'
+}
 
 /**
  * Returns the first violation, or null for a valid row. Field order follows

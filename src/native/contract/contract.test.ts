@@ -428,6 +428,9 @@ describe('MarketStats DB-contract check (21 §19 TS aggregator)', () => {
       ['skipReason', 'no_trades'],
       ['rules', { source: 'captured' }],
     ]
+    // 255 astral characters are 510 UTF-16 units but 255 varchar characters.
+    assert.equal(checkMarketStatsRow({ ...row(), marketId: '\u{1F600}'.repeat(255) }), null)
+    cases.push(['marketId', '\u{1F600}'.repeat(256)])
     for (const [field, value] of cases) {
       const bad = { ...row(), [field]: value } as MarketStats
       const v = checkMarketStatsRow(bad)
