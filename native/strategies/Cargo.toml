@@ -1,0 +1,19 @@
+[package]
+name = "native-strategies"
+edition = "2021"
+version = "0.0.0"
+publish = false
+
+[workspace]            # standalone: never captured by a parent workspace
+
+[package.metadata.pmb]
+format = 1
+
+[dependencies]
+pmb-sdk = { path = "../crates/pmb-sdk" }
+
+[dev-dependencies]
+pmb-sdk = { path = "../crates/pmb-sdk", features = ["testkit"] }
+
+[lints.rust]
+unsafe_code = "forbid"
