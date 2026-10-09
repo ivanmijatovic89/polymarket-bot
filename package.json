@@ -153,7 +153,9 @@
     "research:update": "tsx src/cli/research-data.ts update",
     "research:status": "tsx src/cli/research-data.ts status",
     "research:schedule": "tsx scripts/install-research-update.mts",
-    "record:v4:catalog": "tsx src/cli/recorder-v4-catalog.ts"
+    "record:v4:catalog": "tsx src/cli/recorder-v4-catalog.ts",
+    "native:ci:local": "scripts/native/ci-local.sh",
+    "native:verify:local": "scripts/native/verify-local.sh"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",

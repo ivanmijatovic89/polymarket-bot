@@ -1,0 +1,1503 @@
+{
+  "base": "../valid/telonex-delta-ts-compat.json",
+  "description": "Each case patches the base job (RFC 6901 pointers; 'set' then 'remove') and names the rule it covers (21 §19 Rust ingress), the expected error (class and cause, 20 §4) from EngineJob::parse, and whether the JSON Schema bundle (Ajv 2020-12, TS shim) rejects it ('reject') or leaves it to the semantic checks ('accept').",
+  "cases": [
+    {
+      "name": "unknown top-level field",
+      "rule": "21 §3 closed objects",
+      "set": {
+        "/extra": 1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown market field",
+      "rule": "21 §3 closed objects",
+      "set": {
+        "/market/extra": 1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown field inside modelConfig",
+      "rule": "21 §3 closed objects, 14 F-46",
+      "set": {
+        "/run/modelConfig/feeds/extra": true
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing modelConfig section",
+      "rule": "21 §6 no defaults",
+      "remove": ["/run/modelConfig/runner"],
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing required nullable key",
+      "rule": "21 §3 closed objects (null is explicit)",
+      "remove": ["/market/journal"],
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null for an optional key (clock)",
+      "rule": "21 §3 closed objects (optional keys are absent, not null)",
+      "set": {
+        "/run/modelConfig/clock": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null for a captured field",
+      "rule": "21 §7.1 (captured holds only captured fields)",
+      "set": {
+        "/market/rules/captured/negRisk": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null availability message",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/feedAvailability/priceToBeat/message": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing conditionId key",
+      "rule": "21 §5.1 market.conditionId",
+      "remove": ["/market/conditionId"],
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing outputs.tracePath key",
+      "rule": "21 §5 outputs",
+      "remove": ["/outputs/tracePath"],
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "inputMode recorded",
+      "rule": "21 §5.1 run.inputMode, §17",
+      "set": {
+        "/run/inputMode": "recorded"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "input_mode"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "inputMode telonex-paired",
+      "rule": "21 §5.1 run.inputMode, 20 §5.6",
+      "set": {
+        "/run/inputMode": "telonex-paired"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "input_mode"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "profile in wrong case",
+      "rule": "21 §17 profile",
+      "set": {
+        "/run/modelConfig/profile": "Realistic"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown outcome",
+      "rule": "21 §5.1 market.outcome, §17",
+      "set": {
+        "/market/outcome": "MAYBE"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown tokenIds key",
+      "rule": "21 §17 tokenIds keys",
+      "set": {
+        "/market/tokenIds/MAYBE": "3"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown traceLevel",
+      "rule": "22 §3.2, 20 §5.4",
+      "set": {
+        "/outputs/traceLevel": "all"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown feed id",
+      "rule": "21 §17 feed ids",
+      "set": {
+        "/market/feedFiles/0/feed": "deribit_dvol"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown distribution kind",
+      "rule": "13 §7.3 distribution kinds",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": {
+          "kind": "pareto",
+          "ms": 1
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown field in distribution",
+      "rule": "13 §7.3, 21 §3 closed objects",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": {
+          "kind": "constant",
+          "ms": 1,
+          "jitter": 2
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unsupported jobSchemaVersion",
+      "rule": "20 §3, 21 §5",
+      "set": {
+        "/jobSchemaVersion": 2
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "version"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unsupported modelConfigVersion",
+      "rule": "21 §5.1 run.modelConfig",
+      "set": {
+        "/run/modelConfig/modelConfigVersion": 2
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "money as JSON number",
+      "rule": "21 §6.1, §18 N4",
+      "set": {
+        "/run/modelConfig/capital/startingCapitalUsdc": 500
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "money as float",
+      "rule": "21 §6.1 no floats",
+      "set": {
+        "/run/modelConfig/risk/maxOrderSize": 2000.5
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "decimal with trailing zero",
+      "rule": "21 §6.1 canonical decimal",
+      "set": {
+        "/run/modelConfig/capital/startingCapitalUsdc": "500.0"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "decimal with 7 fractional digits",
+      "rule": "21 §6.1, §18 N4",
+      "set": {
+        "/run/modelConfig/risk/maxLossStopUsdc": "0.0000001"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "decimal negative zero",
+      "rule": "21 §18 N1",
+      "set": {
+        "/run/modelConfig/risk/maxLossStopUsdc": "-0"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "decimal with exponent",
+      "rule": "21 §6.1 no exponent",
+      "set": {
+        "/run/modelConfig/risk/maxLossStopUsdc": "5e2"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "decimal with 13 integer digits",
+      "rule": "21 §6.1 (D-PENDING 12-digit bound)",
+      "set": {
+        "/run/modelConfig/risk/maxOrderSize": "1000000000000"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "seed above 2^53-1",
+      "rule": "21 §6.2, §18 N2, 10 RNG-1",
+      "set": {
+        "/run/modelConfig/seed": 9007199254740992
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "seed negative",
+      "rule": "21 §6.2",
+      "set": {
+        "/run/modelConfig/seed": -1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "window start above 2^53-1",
+      "rule": "21 §18 N2",
+      "set": {
+        "/market/window/startMs": 9007199254740992
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "integer ms as float",
+      "rule": "21 §18 N3",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency/ms": 110.5
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "priceToBeat negative zero",
+      "rule": "21 §18 N1",
+      "set": {
+        "/market/gammaPriceToBeat/priceToBeat": -0.0
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "priceToBeat as string",
+      "rule": "21 §5.1 market.gammaPriceToBeat",
+      "set": {
+        "/market/gammaPriceToBeat/priceToBeat": "117234.51"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "realistic section in ts-compat (clock)",
+      "rule": "D57, 21 §6",
+      "set": {
+        "/run/modelConfig/clock": {
+          "marketData": {
+            "calibrationId": "uncalibrated-2026-10",
+            "delay": {
+              "kind": "constant",
+              "ms": 0
+            }
+          }
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "realistic section in ts-compat (sellGate)",
+      "rule": "D57, 13 §7.3",
+      "set": {
+        "/run/modelConfig/execution/sellGate": "Matched"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "ts-compat with a non-compat fee model",
+      "rule": "13 §7.3",
+      "set": {
+        "/run/modelConfig/execution/models/fee": "schedule"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "ts-compat with a non-constant feed latency",
+      "rule": "14 F-50",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": {
+          "kind": "uniform",
+          "loMs": 1,
+          "hiMs": 2
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "realistic without its sections",
+      "rule": "D57, 13 §7.3",
+      "set": {
+        "/run/modelConfig/profile": "realistic"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "binance latency above 10000 ms",
+      "rule": "14 §9",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency/ms": 10001
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "priceToBeat latency above 60000 ms",
+      "rule": "14 §9",
+      "set": {
+        "/run/modelConfig/feeds/priceToBeat/latency/ms": 60001
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "chainlink maxGapMs between 1 and 999",
+      "rule": "14 §9",
+      "set": {
+        "/run/modelConfig/feeds/chainlink/maxGapMs": 500
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "empty feeds calibrationId",
+      "rule": "14 §9",
+      "set": {
+        "/run/modelConfig/feeds/calibrationId": ""
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "calibrationId with a path separator",
+      "rule": "21 §6.1 strings, §6.3 (D-PENDING id pattern)",
+      "set": {
+        "/run/modelConfig/feeds/calibrationId": "../x"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "empirical with 100 quantiles",
+      "rule": "13 §7.3",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": {
+          "kind": "empirical",
+          "quantilesMs": [
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+          ]
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "compat delay above bound",
+      "rule": "13 §5.1 (D-PENDING bound)",
+      "set": {
+        "/run/modelConfig/execution/compatLatency/delayMs": 600001
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "zero starting capital",
+      "rule": "12 §9.4",
+      "set": {
+        "/run/modelConfig/capital/startingCapitalUsdc": "0"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "negative starting capital",
+      "rule": "12 §9.4",
+      "set": {
+        "/run/modelConfig/capital/startingCapitalUsdc": "-5"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "maxEventsPerDrain zero",
+      "rule": "12 §6.3",
+      "set": {
+        "/run/modelConfig/runner/maxEventsPerDrain": 0
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "maxOpenOrders zero",
+      "rule": "12 §8",
+      "set": {
+        "/run/modelConfig/risk/maxOpenOrders": 0
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "maxOrderSize zero",
+      "rule": "12 §8",
+      "set": {
+        "/run/modelConfig/risk/maxOrderSize": "0"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "rulesTableVersion outside rules-table-v<N>",
+      "rule": "11 §13.5",
+      "set": {
+        "/run/modelConfig/rules/rulesTableVersion": "v1"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown missingSnapshot",
+      "rule": "11 §13.4, 21 §17",
+      "set": {
+        "/run/modelConfig/rules/missingSnapshot": "error"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "empty strategyId",
+      "rule": "21 §5.1 run.strategyId",
+      "set": {
+        "/run/strategyId": ""
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "strategy_id"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "slug outside v1 universe",
+      "rule": "21 §5.1 market.slug, D06",
+      "set": {
+        "/market/slug": "eth-updown-15m-1780272000"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "slug epoch not on the timeframe grid",
+      "rule": "21 §5.1, 10 §5",
+      "set": {
+        "/market/slug": "btc-updown-15m-1780272001"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "empty conditionId",
+      "rule": "21 §5.1 market.conditionId",
+      "set": {
+        "/market/conditionId": ""
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "window differs from slug",
+      "rule": "21 §5.1 market.window",
+      "set": {
+        "/market/window/endMs": 1780272300000
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "null window outside recorder-v4",
+      "rule": "21 §5.1, §5.2",
+      "set": {
+        "/market/window": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "window as string",
+      "rule": "21 §5.1 market.window",
+      "set": {
+        "/market/window/startMs": "1780272000000"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "identical token ids",
+      "rule": "21 §5.1 market.tokenIds",
+      "set": {
+        "/market/tokenIds/DOWN": "1111"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "empty token id",
+      "rule": "21 §5.1 market.tokenIds",
+      "set": {
+        "/market/tokenIds/UP": ""
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "market"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "fed without a resolved strike",
+      "rule": "21 §5.1, 14 §6.2",
+      "set": {
+        "/market/gammaPriceToBeat": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "fed with a null strike",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/gammaPriceToBeat/priceToBeat": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "unavailable without a message",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "ptb requested but availability null",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/feedAvailability/priceToBeat": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "availability set but ptb not requested",
+      "rule": "14 §6.2 (tri-state absent)",
+      "remove": ["/market/gammaPriceToBeat"],
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "unknown availability status",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "maybe"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "r2 input path",
+      "rule": "21 §5.1 paths, 20 G3",
+      "set": {
+        "/market/input/path": "r2://bucket/x.parquet"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "path"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "relative feed file path",
+      "rule": "21 §5.1 paths",
+      "set": {
+        "/market/feedFiles/0/path": "data/x.parquet"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "path"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "relative trace path",
+      "rule": "21 §5.1 outputs.tracePath",
+      "set": {
+        "/outputs/tracePath": "trace.jsonl"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "path"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "negative input bytes",
+      "rule": "21 §5.1 market.input.bytes",
+      "set": {
+        "/market/input/bytes": -1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "uppercase sha256",
+      "rule": "21 §5.1 market.input.sha256",
+      "set": {
+        "/market/input/sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "format version 0",
+      "rule": "21 §5.1 market.input.format",
+      "set": {
+        "/market/input/format/version": 0
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "feed day not a calendar date",
+      "rule": "14 §4.1 day files",
+      "set": {
+        "/market/feedFiles/0/day": "2026-02-30"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "recorderV4 on a telonex job",
+      "rule": "15 §5",
+      "set": {
+        "/market/recorderV4": {
+          "manifest": {},
+          "allowGaps": false
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "journal on a telonex job",
+      "rule": "15 §9",
+      "set": {
+        "/market/journal": {
+          "replay": "determinism",
+          "allowEngineMismatch": false
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "budget threads 0",
+      "rule": "21 §5.1 budget.threads",
+      "set": {
+        "/budget/threads": 0
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "budget threads 257",
+      "rule": "21 §5.1 budget.threads",
+      "set": {
+        "/budget/threads": 257
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "budget wallMs too small",
+      "rule": "21 §5.1 budget.wallMs",
+      "set": {
+        "/budget/wallMs": 999
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown captured rules field",
+      "rule": "21 §7.1, 11 §13.4",
+      "set": {
+        "/market/rules/captured/takerBaseFee": {
+          "value": "0",
+          "origin": "gamma",
+          "phase": "pre_start",
+          "snapshotId": 5
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "captured value of wrong type",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "feesEnabled": {
+              "value": "true",
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown captured origin",
+      "rule": "21 §7.1, 11 §13.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "negRisk": {
+              "value": false,
+              "origin": "website",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "zero snapshotId",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "negRisk": {
+              "value": false,
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 0
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "negRisk captured true",
+      "rule": "21 §7.1, 11 V4",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "negRisk": {
+              "value": true,
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "tick outside 11 §7.1",
+      "rule": "21 §7.1, 11 §7.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "tick": {
+              "value": "0.02",
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "tick captured post_start",
+      "rule": "21 §7.1, 11 RS2",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "tick": {
+              "value": "0.01",
+              "origin": "gamma",
+              "phase": "post_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "parser version without captured values",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules/snapshotParserVersion": 1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "captured values without parser version",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules/captured/negRisk": {
+          "value": false,
+          "origin": "gamma",
+          "phase": "pre_start",
+          "snapshotId": 5
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "fee exponent above 4",
+      "rule": "21 §7.1, 11 FE3",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "feeSchedule": {
+              "value": {
+                "rate": "0.07",
+                "exponent": 5,
+                "takerOnly": true
+              },
+              "origin": "clob",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown market version",
+      "rule": "21 §7.1, 11 V1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "version": {
+              "value": "v3",
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "feeType outside pattern",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "feeType": {
+              "value": "Crypto Fees",
+              "origin": "gamma",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "negative disagreements",
+      "rule": "21 §7.1",
+      "set": {
+        "/market/rules/disagreements": -1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "no candidates",
+      "rule": "21 §5.1 run.candidates",
+      "set": {
+        "/run/candidates": []
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "candidate index out of order",
+      "rule": "21 §8 C1",
+      "set": {
+        "/run/candidates/0/index": 1
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "candidate key outside pattern",
+      "rule": "21 §8 C1, 20 §5.5",
+      "set": {
+        "/run/candidates/0/key": "a/b"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "duplicate candidate keys",
+      "rule": "21 §8 C1",
+      "set": {
+        "/run/candidates/1": {
+          "key": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+          "index": 1,
+          "params": {
+            "size": 6
+          },
+          "execution": null
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "duplicate candidate params",
+      "rule": "21 §8 C2",
+      "set": {
+        "/run/candidates/1": {
+          "key": "second",
+          "index": 1,
+          "params": {
+            "size": 5,
+            "label": "x"
+          },
+          "execution": null
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "ts-compat candidate varies execution",
+      "rule": "21 §8 C4",
+      "set": {
+        "/run/candidates/0/execution": {
+          "models": {
+            "latency": "compat",
+            "fee": "flat_700bps_4dp",
+            "takerDelay": "off",
+            "depletion": "none",
+            "maker": "worst_queue",
+            "reports": "compat"
+          },
+          "compatLatency": {
+            "delayMs": 0,
+            "jitterMs": 0
+          }
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "params not an object",
+      "rule": "21 §3 opaque params",
+      "set": {
+        "/run/candidates/0/params": [1]
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "params"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "strike present but absent_pre_series_epoch",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "absent_pre_series_epoch"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but absent_fresh_market_grace",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "absent_fresh_market_grace"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but unavailable_upstream_hole",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but unavailable_pipeline_incomplete",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_pipeline_incomplete",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "upstream hole on a catalog miss",
+      "rule": "14 §6.2 (upstream_hole = synced row, empty strike)",
+      "set": {
+        "/market/gammaPriceToBeat": null,
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "upstream hole on a never-synced row",
+      "rule": "14 §6.2 (upstream_hole = synced row, empty strike)",
+      "set": {
+        "/market/gammaPriceToBeat": {
+          "priceToBeat": null,
+          "syncedAtMs": null
+        },
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "pipeline incomplete on a synced row",
+      "rule": "14 §6.2 (pipeline_incomplete = catalog miss or never synced)",
+      "set": {
+        "/market/gammaPriceToBeat": {
+          "priceToBeat": null,
+          "syncedAtMs": 1780280000000
+        },
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_pipeline_incomplete",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "window on a ts-compat recorder-v4 job",
+      "rule": "21 §5.2 (ts-compat, recorder-v4: window is null)",
+      "set": {
+        "/run/inputMode": "recorder-v4",
+        "/market/recorderV4": {
+          "manifest": {},
+          "allowGaps": false
+        },
+        "/market/input/sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "accept"
+    }
+  ]
+}

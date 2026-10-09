@@ -1,0 +1,48 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "data_missing",
+    "cause": "day_file_missing",
+    "message": "binance_agg_trades BTCUSDT 2026-06-01 is not on this host",
+    "detail": {
+      "path": "/data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-06-01.parquet",
+      "fixCommand": "npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT"
+    }
+  },
+  "echo": {
+    "engineVersion": "0.1.0",
+    "engineCommit": "da5d150e00000000000000000000000000000000",
+    "strategyId": "engine-exerciser.v2.rs",
+    "jobSchemaVersion": 1,
+    "profile": "ts-compat",
+    "seed": 0,
+    "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "rulesTableVersion": "rules-table-v1",
+    "snapshotParserVersion": null
+  },
+  "market": {
+    "slug": "btc-updown-15m-1780272000",
+    "conditionId": null,
+    "rulesSource": "fallback"
+  },
+  "candidates": [],
+  "resultDigest": "0049d9293a1ae467ca448f423e9e9d62d8184091e298bddda3beb571b95c5d90",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 1
+    },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

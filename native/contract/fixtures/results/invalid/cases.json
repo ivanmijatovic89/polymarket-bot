@@ -1,0 +1,924 @@
+{
+  "base": "../valid/ok-ts-compat.json",
+  "description": "Each case patches the base result (RFC 6901 pointers; 'set' then 'remove') and names the rule it covers (21 §19 Rust egress and TS shim), the expected error (class and cause, 20 §4) from EngineResult::parse, and whether the JSON Schema bundle (Ajv 2020-12 plus decimalScale, TS shim) rejects it ('reject') or not ('accept').",
+  "cases": [
+    {
+      "name": "unknown top-level field",
+      "rule": "21 §3 closed objects",
+      "set": {
+        "/extra": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown marketStats field (TS-stamped execution)",
+      "rule": "21 §11",
+      "set": {
+        "/candidates/0/output/marketStats/execution": {}
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing nullable key",
+      "rule": "21 §3 closed objects",
+      "remove": ["/candidates/0/output/marketStats/avgEntryPriceDown"],
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null top-level skipReason",
+      "rule": "21 §13 (absent, not null)",
+      "set": {
+        "/candidates/0/output/skipReason": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null stats skipReason",
+      "rule": "21 §11, MarketStats.skipReason?",
+      "set": {
+        "/candidates/0/output/marketStats/skipReason": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "missing stats rules key",
+      "rule": "11 §13.8",
+      "remove": ["/candidates/0/output/marketStats/rules"],
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unsupported outputSchemaVersion",
+      "rule": "20 §3",
+      "set": {
+        "/outputSchemaVersion": 2
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown eventsByType key",
+      "rule": "21 §15, §17",
+      "set": {
+        "/candidates/0/output/eventsByType/last_trade_price": 3
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown top-level skipReason",
+      "rule": "21 §13, §17",
+      "set": {
+        "/candidates/0/output/skipReason": "no_trades"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown stats skipReason",
+      "rule": "21 §17",
+      "set": {
+        "/candidates/1/output/marketStats/skipReason": "no_trades"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown error class (superseded name)",
+      "rule": "20 §4, §4.4",
+      "set": {
+        "/candidates/2/error/class": "strategy_panic"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown rulesSource",
+      "rule": "11 RS4, 21 §17",
+      "set": {
+        "/market/rulesSource": "captured"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "unknown finalOutcome",
+      "rule": "21 §17",
+      "set": {
+        "/candidates/0/output/marketStats/finalOutcome": "Up"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "bad digest",
+      "rule": "21 §10 resultDigest",
+      "set": {
+        "/resultDigest": "ABC"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "resultDigest does not match",
+      "rule": "21 §10 resultDigest, 20 G5",
+      "set": {
+        "/resultDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "diagnostics change is not a digest change, but a deterministic one is",
+      "rule": "21 §10 deterministic section",
+      "set": {
+        "/market/conditionId": "0x8f3c1a2c",
+        "/candidates/0/output/marketStats/marketId": "0x8f3c1a2c",
+        "/candidates/1/output/marketStats/marketId": "0x8f3c1a2c"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "money as string",
+      "rule": "21 §18 N5",
+      "set": {
+        "/candidates/0/output/marketStats/pnl": "-12.35"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "pnl with 3 decimal places",
+      "rule": "21 §11 (2 dp), §18 N6",
+      "set": {
+        "/candidates/0/output/marketStats/pnl": -12.345
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "avg price with 5 decimal places",
+      "rule": "21 §11 (4 dp)",
+      "set": {
+        "/candidates/0/output/marketStats/avgEntryPriceUp": 0.51234
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "shares with 3 decimal places",
+      "rule": "21 §11 (2 dp)",
+      "set": {
+        "/candidates/0/output/marketStats/upShares": 10.001
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "number with exponent",
+      "rule": "21 §18 N5 (no exponent)",
+      "set": {
+        "/candidates/0/output/marketStats/upShares": 1e21
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "eventsProcessed above 2^53-1",
+      "rule": "21 §18 N2",
+      "set": {
+        "/candidates/0/output/eventsProcessed": 9007199254740992
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "pnl at 1e10",
+      "rule": "21 §11 |pnl| < 1e10",
+      "set": {
+        "/candidates/0/output/marketStats/pnl": 10000000000
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "cost at -1e10",
+      "rule": "21 §11 |cost| < 1e10",
+      "set": {
+        "/candidates/0/output/marketStats/cost": -10000000000
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "negative fees",
+      "rule": "21 §11 feesPaid >= 0",
+      "set": {
+        "/candidates/0/output/marketStats/feesPaid": -0.01
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "negative splitCost",
+      "rule": "21 §11 splitCost >= 0",
+      "set": {
+        "/candidates/0/output/marketStats/splitCost": -1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "negative shares",
+      "rule": "21 §11, 12 §9.5",
+      "set": {
+        "/candidates/0/output/marketStats/downShares": -1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "shares at 1e12",
+      "rule": "21 §11 shares < 1e12",
+      "set": {
+        "/candidates/0/output/marketStats/upShares": 1000000000000
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "avg price 1",
+      "rule": "21 §11 avgEntryPrice in (0, 1)",
+      "set": {
+        "/candidates/0/output/marketStats/avgEntryPriceUp": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "avg price 0",
+      "rule": "21 §11 avgEntryPrice in (0, 1)",
+      "set": {
+        "/candidates/0/output/marketStats/avgEntryPriceUp": 0
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "tradeCount above 2^31-1",
+      "rule": "21 §11 int column",
+      "set": {
+        "/candidates/0/output/marketStats/tradeCount": 2147483648
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "empty marketId",
+      "rule": "21 §11 marketId non-empty",
+      "set": {
+        "/candidates/0/output/marketStats/marketId": ""
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "maker + taker != tradeCount",
+      "rule": "21 §19, §11",
+      "set": {
+        "/candidates/0/output/marketStats/tradeAsMaker": 2
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "eventsByType does not sum",
+      "rule": "21 §15, §19",
+      "set": {
+        "/candidates/0/output/eventsProcessed": 4825
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "mergable is not min(up, down)",
+      "rule": "21 §11 mergableShares",
+      "set": {
+        "/candidates/0/output/marketStats/mergableShares": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "unverifiedRules not sorted",
+      "rule": "21 §11 rules",
+      "set": {
+        "/candidates/0/output/marketStats/rules": {
+          "source": "fallback",
+          "rulesTableVersion": "rules-table-v1",
+          "snapshotParserVersion": null,
+          "feeEra": "e",
+          "feeCurve": "c",
+          "feeSource": "s",
+          "unverifiedRules": ["b", "a"]
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "zero row without stats skipReason",
+      "rule": "21 §13",
+      "remove": ["/candidates/1/output/marketStats/skipReason"],
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "activity row with stats skipReason",
+      "rule": "21 §13",
+      "set": {
+        "/candidates/0/output/marketStats/skipReason": "no_in_window_activity"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "zero row with fills",
+      "rule": "21 §13",
+      "set": {
+        "/candidates/1/output/marketStats/tradeCount": 1,
+        "/candidates/1/output/marketStats/tradeAsTaker": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "TS-only skip reason from the engine",
+      "rule": "21 §13 (no_slug is a shim short-circuit)",
+      "set": {
+        "/candidates/0/output/marketStats": null,
+        "/candidates/0/output/skipReason": "no_slug"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "null stats with counted ticks",
+      "rule": "21 §13",
+      "set": {
+        "/candidates/0/output/marketStats": null,
+        "/candidates/0/output/skipReason": "no_activity"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "incomplete_capture without coverageReasons",
+      "rule": "21 §13",
+      "set": {
+        "/candidates/0/output/marketStats": null,
+        "/candidates/0/output/skipReason": "incomplete_capture"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "coverageReasons without incomplete_capture",
+      "rule": "21 §13",
+      "set": {
+        "/candidates/0/output/coverageReasons": ["gap"]
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "empty coverage reason",
+      "rule": "21 §13 coverageReasons",
+      "set": {
+        "/candidates/0/output/marketStats": null,
+        "/candidates/0/output/skipReason": "incomplete_capture",
+        "/candidates/0/output/coverageReasons": [""]
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "ok candidate without output",
+      "rule": "21 §10",
+      "remove": ["/candidates/0/output"],
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "status ok with error",
+      "rule": "21 §10",
+      "set": {
+        "/error": {
+          "class": "runtime",
+          "cause": "io",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "status ok without echo",
+      "rule": "21 §10 (D-PENDING)",
+      "set": {
+        "/echo": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "candidate indices out of order",
+      "rule": "21 §10, §12",
+      "set": {
+        "/candidates/0/index": 5
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "ts-compat output with rules provenance",
+      "rule": "11 §13.8",
+      "set": {
+        "/candidates/0/output/marketStats/rules": {
+          "source": "fallback",
+          "rulesTableVersion": "rules-table-v1",
+          "snapshotParserVersion": null,
+          "feeEra": "e",
+          "feeCurve": "c",
+          "feeSource": "s",
+          "unverifiedRules": []
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "marketId differs from market.conditionId",
+      "rule": "21 §10, §11",
+      "set": {
+        "/candidates/0/output/marketStats/marketId": "0xother"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "output slug differs from market slug",
+      "rule": "21 §11",
+      "set": {
+        "/candidates/0/output/slug": "btc-updown-15m-1780272900",
+        "/candidates/0/output/marketStats/slug": "btc-updown-15m-1780272900"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "engineCommit not 40 hex",
+      "rule": "20 §3",
+      "set": {
+        "/echo/engineCommit": "abc"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "engineVersion not semver",
+      "rule": "20 §3",
+      "set": {
+        "/echo/engineVersion": "v1"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "cause outside pattern",
+      "rule": "20 §4.1",
+      "set": {
+        "/candidates/2/error/cause": "Panic"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "multi-line message",
+      "rule": "21 §10 ErrorInfo.message",
+      "set": {
+        "/candidates/2/error/message": "a\nb"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "message above 1000 characters",
+      "rule": "21 §10 ErrorInfo.message",
+      "set": {
+        "/candidates/2/error/message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "null-stats output with another market slug",
+      "rule": "21 §11 slug equals market.slug (every output)",
+      "set": {
+        "/candidates/1/output/marketStats": null,
+        "/candidates/1/output/eventsProcessed": 0,
+        "/candidates/1/output/eventsByType": {},
+        "/candidates/1/output/slug": "btc-updown-5m-1780272300"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "candidate error of a job-level class",
+      "rule": "21 §13, §14 (only strategy_fault fails one candidate)",
+      "set": {
+        "/candidates/2/error/class": "data_defect",
+        "/candidates/2/error/cause": "upstream_hole"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "candidate error result_too_large",
+      "rule": "21 §14, 41 §6.2 (result_too_large fails the job)",
+      "set": {
+        "/candidates/2/error/cause": "result_too_large"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "group-level error with ok candidates",
+      "rule": "21 §14 (a group-level error fails every candidate)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "data_defect",
+          "cause": "upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "no echo in an error raised after the job was read",
+      "rule": "21 §10 (echo null only before the job is read)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "data_defect",
+          "cause": "upstream_hole",
+          "message": "x"
+        },
+        "/echo": null,
+        "/market": null,
+        "/candidates": []
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "echo without market",
+      "rule": "21 §10 (echo and market null together)",
+      "set": {
+        "/market": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "stats with a null conditionId",
+      "rule": "21 §10, §11 (stats imply a counted tick)",
+      "set": {
+        "/market/conditionId": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "activity row without counted ticks",
+      "rule": "21 §13 (no counted tick is the null-stats row)",
+      "set": {
+        "/candidates/0/output/eventsProcessed": 0,
+        "/candidates/0/output/eventsByType": {}
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "intentMeta -0",
+      "rule": "21 §18 N1",
+      "set": {
+        "/candidates/0/output/marketStats/intentMeta/0/edge": -0.0
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "intentMeta integer beyond 2^53-1",
+      "rule": "21 §18 N2",
+      "set": {
+        "/candidates/0/output/marketStats/intentMeta/0/big": 9007199254740993
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "unknown reject reason code",
+      "rule": "21 §17 reject reason codes (10 §10.2)",
+      "set": {
+        "/diagnostics/counters/0/ordersRejected/rejected_for_fun": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "reject reason with its arguments as key",
+      "rule": "21 §17 (keys are codes, the text before \"(\")",
+      "set": {
+        "/diagnostics/counters/0/ordersRejected/risk_max_open_orders(max=100)": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "error candidate with an output",
+      "rule": "21 §10 (output iff ok, error iff error)",
+      "set": {
+        "/candidates/2/output": {
+          "slug": "btc-updown-15m-1780272000",
+          "marketStats": null,
+          "eventsProcessed": 0,
+          "eventsByType": {},
+          "skipReason": "no_activity"
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "group-level error without error object",
+      "rule": "21 §10 (error iff status = error)",
+      "set": {
+        "/status": "error",
+        "/candidates": []
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "pre-read error with candidates",
+      "rule": "21 §10 (no echo means the job was not read: no candidates)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "invalid_input",
+          "cause": "schema",
+          "message": "x"
+        },
+        "/echo": null,
+        "/market": null,
+        "/candidates": [
+          {
+            "key": "cand-c",
+            "index": 0,
+            "status": "error",
+            "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "error": {
+              "class": "strategy_fault",
+              "cause": "panic",
+              "message": "x"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    }
+  ]
+}

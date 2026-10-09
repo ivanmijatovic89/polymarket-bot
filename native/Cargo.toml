@@ -1,0 +1,46 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+publish = false
+rust-version = "1.89"
+
+# Every third-party dependency is pinned exactly here; crates reference them
+# with `<name>.workspace = true`. Shipped binaries use the `iterate` and
+# `artifact` profiles of native/build/artifact-build.toml (31 §4.2, D18);
+# this workspace keeps Cargo's default release/bench profiles for tests and
+# L0 micro benchmarks only.
+[workspace.dependencies]
+anyhow = "=1.0.98"
+# L0 micro benchmarks only (16 §11.1 BP-5, §13.2); no plotters/rayon.
+bytes = "=1.12.1"
+criterion = { version = "=0.8.2", default-features = false, features = ["cargo_bench_support"] }
+flate2 = "=1.1.2"
+libm = "0.2"
+parquet = { version = "=56.2.0", default-features = false, features = ["snap", "flate2-rust_backened", "zstd", "lz4"] }
+proc-macro2 = "=1.0.107"
+proptest = { version = "1", default-features = false, features = ["std"] }
+quote = "=1.0.47"
+schemars = "=1.2.2"
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.141"
+sha2 = "=0.10.9"
+# `full` parses arbitrary expressions in `#[param(default = ..)]` and `meta!`
+# values (pmb-sdk-macros only; already in Cargo.lock through serde_derive).
+syn = { version = "=2.0.119", features = ["full"] }
+thiserror = "2"
+# Already in the lock through parquet's `zstd` feature (16 NT-3).
+zstd = { version = "=0.13.3", default-features = false }
+pmb-book = { path = "crates/pmb-book" }
+pmb-contract = { path = "crates/pmb-contract" }
+pmb-core = { path = "crates/pmb-core" }
+pmb-replay = { path = "crates/pmb-replay" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"

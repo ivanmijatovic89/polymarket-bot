@@ -1,0 +1,117 @@
+{
+  "jobSchemaVersion": 1,
+  "run": {
+    "strategyId": "engine-exerciser.v2.rs",
+    "inputMode": "telonex-delta",
+    "modelConfig": {
+      "modelConfigVersion": 1,
+      "profile": "ts-compat",
+      "seed": 9007199254740991,
+      "capital": { "startingCapitalUsdc": "123.456789" },
+      "execution": {
+        "models": {
+          "latency": "compat",
+          "fee": "flat_700bps_4dp",
+          "takerDelay": "off",
+          "depletion": "none",
+          "maker": "worst_queue",
+          "reports": "compat"
+        },
+        "compatLatency": { "delayMs": 0, "jitterMs": 0 }
+      },
+      "feeds": {
+        "calibrationId": "feeds-2026-07-21",
+        "binance": { "latency": { "kind": "constant", "ms": 110 } },
+        "chainlink": { "latency": { "kind": "constant", "ms": 320 }, "maxGapMs": 0 },
+        "priceToBeat": { "latency": { "kind": "constant", "ms": 2700 } }
+      },
+      "runner": { "maxEventsPerDrain": 4200 },
+      "risk": {
+        "maxOpenOrders": 100,
+        "maxOrderSize": "2000",
+        "maxAbsPosition": "2000",
+        "maxLossStopUsdc": "500"
+      },
+      "rules": { "rulesTableVersion": "rules-table-v1", "missingSnapshot": "dated_fallback" }
+    },
+    "candidates": [
+      { "key": "cand-a", "index": 0, "params": {}, "execution": null },
+      { "key": "cand-b", "index": 1, "params": { "size": 2 }, "execution": null }
+    ]
+  },
+  "market": {
+    "slug": "btc-updown-5m-1780272000",
+    "conditionId": null,
+    "window": { "startMs": 1780272000000, "endMs": 1780272300000 },
+    "tokenIds": { "UP": "1111", "DOWN": "2222" },
+    "outcome": "DOWN",
+    "rules": {
+      "snapshotParserVersion": 1,
+      "captured": {
+        "tick": {
+          "value": "0.01",
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "minSizeResting": {
+          "value": "5",
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "feesEnabled": {
+          "value": true,
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "feeType": {
+          "value": "crypto_fees_v2",
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "feeSchedule": {
+          "value": { "rate": "0.07", "exponent": 1, "takerOnly": true },
+          "origin": "clob",
+          "phase": "post_start",
+          "snapshotId": 813
+        },
+        "negRisk": {
+          "value": false,
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "version": {
+          "value": "v1",
+          "origin": "v4_bootstrap",
+          "phase": "pre_start",
+          "snapshotId": 812
+        },
+        "secondsDelay": { "value": 0, "origin": "gamma", "phase": "post_start", "snapshotId": 900 },
+        "acceptingOrdersTimestampMs": {
+          "value": 1780180000000,
+          "origin": "gamma",
+          "phase": "post_start",
+          "snapshotId": 900
+        }
+      },
+      "disagreements": 1
+    },
+    "feedAvailability": { "priceToBeat": null },
+    "input": {
+      "path": "/data/events/telonex/btc/btc-updown-5m-1780272000.parquet",
+      "bytes": 4242,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "format": { "name": "telonex-delta-typed", "version": 1 }
+    },
+    "recorderV4": null,
+    "journal": null,
+    "ownActivity": null,
+    "feedFiles": []
+  },
+  "outputs": { "tracePath": "/tmp/work/trace.jsonl.gz", "traceLevel": "feeds", "ledgerPath": null },
+  "budget": { "wallMs": 1000, "threads": 256 }
+}
