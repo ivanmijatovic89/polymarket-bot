@@ -153,6 +153,24 @@ describe('describe (20 §5.1, §1, §3)', () => {
     assert.match(info.message, /\/size: expected a number >= 1/)
   })
 
+  it('labels only an exit-2 params rejection as params; other exits keep their class; a hung describe is killed', async () => {
+    // spec: 20 §5.1 (describe), §4 (exit code → class), §4.1 (documented causes); 40 §8.2 backstop
+    const fault = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeExit: 8 }), { params: {} }),
+    )
+    assert.deepEqual([fault.class, fault.cause], ['engine_fault', 'panic'])
+    const io = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeExit: 1 }), { params: {} }),
+    )
+    assert.deepEqual([io.class, io.cause], ['runtime', 'io'])
+    const hung = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeHangMs: 30_000 }), {
+        killAfterMs: 300,
+      }),
+    )
+    assert.deepEqual([hung.class, hung.cause], ['killed', 'backstop_timeout'])
+  })
+
   it('caches describe per binary and params for the process', async () => {
     // spec: 31 §8 step 5 (cache describe results per (sha, canonical raw params))
     const record = path.join(scratchDir('rec'), 'call.json')
@@ -242,7 +260,8 @@ describe('run (20 §5.4, §4; 21 §12, §19)', () => {
     const missing = await failure(
       runNativeJob(fakeBin({ runExit: 3 }), job, { engineVersion: '0.1.0' }),
     )
-    assert.equal(missing.class, 'data_missing')
+    // A documented 20 §4.1 cause, never a made-up one.
+    assert.deepEqual([missing.class, missing.cause], ['data_missing', 'input_missing'])
     const killed = await failure(
       runNativeJob(fakeBin({ selfKill: true }), job, { engineVersion: '0.1.0' }),
     )

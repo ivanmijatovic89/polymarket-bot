@@ -181,6 +181,8 @@ export interface FakeConfig {
   record?: string
   selfKill?: boolean
   bigMiB?: number
+  /** `describe` sleeps this long before answering (backstop tests). */
+  describeHangMs?: number
 }
 
 /** A scripted executable standing in for a native artifact. */
@@ -196,8 +198,12 @@ const args = process.argv.slice(2)
 if (cfg.record) fs.writeFileSync(cfg.record, JSON.stringify({ args, env: process.env, cwd: process.cwd(), job: args[0] === 'run' ? JSON.parse(fs.readFileSync(args[2], 'utf8')) : null }))
 if (cfg.stderr) process.stderr.write(cfg.stderr)
 if (args[0] === 'describe') {
-  process.stdout.write(JSON.stringify(cfg.describe))
-  process.exitCode = cfg.describeExit || 0
+  const answer = () => {
+    process.stdout.write(JSON.stringify(cfg.describe))
+    process.exitCode = cfg.describeExit || 0
+  }
+  if (cfg.describeHangMs) setTimeout(answer, cfg.describeHangMs)
+  else answer()
 } else if (args[0] === 'run') {
   if (cfg.selfKill) process.kill(process.pid, 'SIGKILL')
   if (cfg.bigMiB) { const chunk = 'x'.repeat(1 << 20); for (let i = 0; i < cfg.bigMiB; i++) process.stdout.write(chunk) }

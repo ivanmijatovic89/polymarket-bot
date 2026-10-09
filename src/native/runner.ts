@@ -250,9 +250,32 @@ function lastStderrLine(tail: string): string {
 }
 
 /**
+ * The cause of an exit that names its class only through the exit code (no
+ * stdout document, 20 §4 "the last stderr line … is a fallback only"): one
+ * documented 20 §4.1 cause per class.
+ */
+// D-PENDING: 20 §4.1 has no cause for "exit code without a result document"; chose the most generic documented cause of each class (the stderr reason carries the detail).
+const FALLBACK_CAUSE: Readonly<Record<ErrorClass, string>> = {
+  runtime: 'io',
+  invalid_input: 'args',
+  data_missing: 'input_missing',
+  data_defect: 'corrupt',
+  timeout: 'deadline',
+  invalid_output: 'schema',
+  strategy_fault: 'error',
+  engine_fault: 'panic',
+  canceled: 'signal',
+  killed: 'signal',
+}
+
+/** Backstop for `describe` (20 §5.1), so a hung binary cannot block the producer. */
+// D-PENDING: 20 §5.1 gives `describe` no deadline; chose 60 s, far above its expected sub-second run.
+export const DESCRIBE_BACKSTOP_MS = 60_000
+
+/**
  * Classifies an exit that produced no usable stdout document (20 §4): a
- * signal is `killed: signal`, a known exit code its class, anything else
- * `engine_fault: panic`.
+ * signal is `killed: signal`, a known exit code its class with the
+ * class's fallback cause, anything else `engine_fault: panic`.
  */
 function exitFailure(r: ExecResult, what: string): NativeError {
   if (r.timedOut) {
@@ -277,11 +300,9 @@ function exitFailure(r: ExecResult, what: string): NativeError {
     )
   }
   const cls: ErrorClass = (r.code !== null ? classOfExitCode(r.code) : null) ?? 'engine_fault'
-  const cause =
-    cls === 'engine_fault' ? 'panic' : cls === 'invalid_output' ? 'schema' : 'unclassified'
   return new NativeError(
     cls,
-    cause,
+    FALLBACK_CAUSE[cls],
     `${what}: exit ${String(r.code)} without a result document: ${lastStderrLine(r.stderrTail)}`,
   )
 }
@@ -455,6 +476,8 @@ export interface DescribeOptions {
   buildProfile?: string
   /** Checked-in contract sha; default the v1 bundle of this checkout. */
   contractSha256?: string
+  /** Backstop kill (tests); default `DESCRIBE_BACKSTOP_MS`. */
+  killAfterMs?: number
 }
 
 /**
@@ -480,7 +503,7 @@ export async function describeNative(
   }
   let r: ExecResult
   try {
-    r = await execBinary(binPath, args, {})
+    r = await execBinary(binPath, args, { killAfterMs: opts.killAfterMs ?? DESCRIBE_BACKSTOP_MS })
   } finally {
     if (paramsFile !== null) await fs.rm(path.dirname(paramsFile), { recursive: true, force: true })
   }
@@ -504,14 +527,15 @@ export async function describeNative(
     const first = doc.strategy.results.find(
       (x): x is Extract<DescribeParamsResult, { ok: false }> => !x.ok,
     )
-    const detail = first
-      ? first.errors.map((e) => `${e.path}: ${e.message}`).join('; ')
-      : lastStderrLine(r.stderrTail)
-    throw new NativeError(
-      classOfExitCode(r.code ?? 1) ?? 'invalid_input',
-      'params',
-      `describe rejected the params: ${detail}`,
-    )
+    // `params` only for exit 2 with a rejected params result (20 §5.1);
+    // any other non-zero exit keeps the class of its exit code.
+    if (r.code === 2 && first)
+      throw new NativeError(
+        'invalid_input',
+        'params',
+        `describe rejected the params: ${first.errors.map((e) => `${e.path}: ${e.message}`).join('; ')}`,
+      )
+    throw exitFailure(r, 'describe')
   }
   return doc
 }
@@ -623,7 +647,11 @@ export async function runNativeJob(
   const jobFile = path.join(dir, `${base}.engine-job.json`)
   await fs.writeFile(`${jobFile}.tmp`, JSON.stringify(job))
   await fs.rename(`${jobFile}.tmp`, jobFile)
+  // 21 §12 shim stamps: the start is wall clock; the end is the start plus a
+  // monotonic duration, so a host clock step between spawn and exit can never
+  // give finishedAtMs < startedAtMs.
   const startedAtMs = Date.now()
+  const t0 = performance.now()
   let r: ExecResult
   try {
     r = await execBinary(binPath, runArgs(jobFile, opts), {
@@ -634,7 +662,7 @@ export async function runNativeJob(
   } finally {
     await fs.rm(jobFile, { force: true })
   }
-  const finishedAtMs = Date.now()
+  const finishedAtMs = startedAtMs + Math.max(0, Math.round(performance.now() - t0))
   if (r.signal !== null || r.stdoutOverflow || r.timedOut)
     throw exitFailure(r, `run ${job.market.slug}`)
   let raw: unknown

@@ -46,6 +46,22 @@ describe('executeNativeMarketJob (21 §11-§13; 20 §5.4)', () => {
     assert.equal(out.durationMs, exec.durationMs)
   })
 
+  it('refuses a bad slot with a classified error', async () => {
+    // spec: 20 §4 (one closed class vocabulary for shim-side failures), 21 §12 (slot)
+    await assert.rejects(
+      executeNativeMarketJob(nativeJob(), {
+        binPath: '/nonexistent/binary',
+        dataRoots: { dataRoot: makeDataRoot() },
+        engineVersion: '0.1.0',
+        host: { ...host, slot: -1 },
+      }),
+      (err: unknown) =>
+        err instanceof NativeError &&
+        err.info.class === 'invalid_input' &&
+        err.info.cause === 'args',
+    )
+  })
+
   it('short-circuits without spawning the binary', async () => {
     // spec: 21 §13 (no spawn, eventsProcessed 0)
     const out = await executeNativeMarketJob(nativeJob({ marketResolution: null }), {

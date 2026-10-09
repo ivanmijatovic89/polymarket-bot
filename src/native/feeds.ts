@@ -17,6 +17,7 @@ import type {
   PriceToBeatAvailability,
   Window,
 } from './contract/generated.js'
+import { NativeError } from './errors.js'
 
 /**
  * Engine feed constants of 14 F-47 (also exported by `describe` as
@@ -50,27 +51,42 @@ export function binancePairFor(slug: string, req: ExternalFeedsRequestConfig): s
   const symbol = explicit ?? `${symbolFromSlug(slug) ?? ''}usdt`
   const pair = symbol.trim().toUpperCase()
   if (!/^[A-Z0-9]+$/.test(pair) || pair === 'USDT') {
-    throw new Error(`cannot derive the Binance pair of ${slug} (symbol ${JSON.stringify(symbol)})`)
+    throw new NativeError(
+      'invalid_input',
+      'symbol',
+      `cannot derive the Binance pair of ${slug} (symbol ${JSON.stringify(symbol)}, 14 §11.1)`,
+    )
   }
   return pair
 }
 
 /**
  * Chainlink asset id of a job (14 §11.1): the first `chainlinkSymbols`
- * entry (`btc/usd` → `btcusd`) when set, else `<slug symbol>usd`.
+ * entry when set, else `<slug symbol>usd`. An explicit entry is read as TS
+ * reads it (`wireBacktestExternalFeeds.ts:248-257`): `btc/usd` → `btcusd`,
+ * else the bare form `btc` or `btcusd` → `btcusd`
+ * (`src/telonex/cryptoPrices/paths.ts` `assetIdForSymbol`).
  */
 export function chainlinkAssetFor(slug: string, req: ExternalFeedsRequestConfig): string {
   const explicit = req.rtdsCryptoPrices?.chainlinkSymbols?.[0]
   if (explicit !== undefined) {
-    const m = explicit
-      .trim()
-      .toLowerCase()
-      .match(/^([a-z0-9]+)\/usd$/)
-    if (!m) throw new Error(`unparsable Chainlink symbol ${JSON.stringify(explicit)}`)
-    return `${m[1]}usd`
+    const s = explicit.trim().toLowerCase()
+    const m = s.match(/^([a-z0-9]+)\/usd$/)
+    if (m) return `${m[1]}usd`
+    if (/^[a-z0-9]+$/.test(s)) return s.endsWith('usd') ? s : `${s}usd`
+    throw new NativeError(
+      'invalid_input',
+      'symbol',
+      `unparsable Chainlink symbol ${JSON.stringify(explicit)} (14 §11.1)`,
+    )
   }
   const sym = symbolFromSlug(slug)
-  if (!sym) throw new Error(`cannot derive the Chainlink asset of ${slug}`)
+  if (!sym)
+    throw new NativeError(
+      'invalid_input',
+      'symbol',
+      `cannot derive the Chainlink asset of ${slug} (14 §11.1)`,
+    )
   return `${sym}usd`
 }
 
@@ -153,15 +169,21 @@ export function resolvePriceToBeatAvailability(args: {
   const g = args.gamma
   if (g && g.priceToBeat !== null) {
     if (!Number.isFinite(g.priceToBeat)) {
-      throw new Error(`price-to-beat of ${args.slug} is not finite (21 §18 N1)`)
+      throw new NativeError(
+        'invalid_input',
+        'feed_availability',
+        `price-to-beat of ${args.slug} is not finite (21 §18 N1)`,
+      )
     }
     return status({ status: 'fed' })
   }
   const epochMs = gammaPriceToBeatEpochMs(symbolFromSlug(args.slug), timeframeFromSlug(args.slug))
   if (args.window.startMs < epochMs) return status({ status: 'absent_pre_series_epoch' })
   if (g === undefined) {
-    throw new Error(
-      `internal: price-to-beat is requested but the producer did not resolve Gamma metadata for ${args.slug}`,
+    throw new NativeError(
+      'invalid_input',
+      'feed_availability',
+      `price-to-beat is requested but the producer did not resolve Gamma metadata for ${args.slug} (14 §6.2)`,
     )
   }
   if (args.window.endMs > args.asOfMs - PRICE_TO_BEAT_FRESH_GRACE_MS) {

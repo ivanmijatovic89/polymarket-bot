@@ -5,6 +5,8 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 
+import { NativeError } from './errors.js'
+
 import {
   FEED_ENGINE_CONSTANTS,
   PRICE_TO_BEAT_FRESH_GRACE_MS,
@@ -93,9 +95,27 @@ describe('feed day files (14 F-12, F-20; 21 §9 step 3)', () => {
       chainlinkAssetFor(SLUG, { rtdsCryptoPrices: { chainlinkSymbols: ['eth/usd'] } }),
       'ethusd',
     )
-    assert.throws(() =>
+    // The bare forms TS accepts (assetIdForSymbol), 14 §11.1.
+    assert.equal(
       chainlinkAssetFor(SLUG, { rtdsCryptoPrices: { chainlinkSymbols: ['eth'] } }),
+      'ethusd',
     )
+    assert.equal(
+      chainlinkAssetFor(SLUG, { rtdsCryptoPrices: { chainlinkSymbols: ['ETHUSD'] } }),
+      'ethusd',
+    )
+    // Unparsable symbols are classified, never plain errors (20 §4).
+    for (const fn of [
+      () => chainlinkAssetFor(SLUG, { rtdsCryptoPrices: { chainlinkSymbols: ['eth/eur'] } }),
+      () => binancePairFor(SLUG, { binanceWsSpotPrice: { symbol: 'eth-usdt' } }),
+    ])
+      assert.throws(
+        fn,
+        (err: unknown) =>
+          err instanceof NativeError &&
+          err.info.class === 'invalid_input' &&
+          err.info.cause === 'symbol',
+      )
     assert.match(
       dayFileFixCommand({ feed: 'binance_agg_trades', symbol: 'BTCUSDT' }),
       /binance:download-aggtrades-r2-to-local -- --pair BTCUSDT/,
@@ -163,6 +183,16 @@ describe('price-to-beat availability (14 §6.2; 21 §5.3)', () => {
     const hole = resolve({ priceToBeat: null, syncedAtMs: 5 })
     assert.equal(hole?.status, 'unavailable_upstream_hole')
     assert.ok(hole?.message)
-    assert.throws(() => resolve(undefined), /did not resolve Gamma metadata/)
+    assert.throws(
+      () => resolve(undefined),
+      (err: unknown) =>
+        err instanceof NativeError &&
+        err.info.cause === 'feed_availability' &&
+        /did not resolve Gamma metadata/.test(err.message),
+    )
+    assert.throws(
+      () => resolve({ priceToBeat: Number.NaN, syncedAtMs: 5 }),
+      (err: unknown) => err instanceof NativeError && err.info.cause === 'feed_availability',
+    )
   })
 })

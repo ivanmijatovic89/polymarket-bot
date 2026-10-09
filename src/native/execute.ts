@@ -55,7 +55,11 @@ export async function executeNativeMarketJob(
   opts: ExecuteNativeMarketOptions,
 ): Promise<RunSingleMarketOutput> {
   if (!Number.isSafeInteger(opts.host.slot) || opts.host.slot < 0) {
-    throw new Error(`native shim: bad slot ${opts.host.slot}`)
+    throw new NativeError(
+      'invalid_input',
+      'args',
+      `native shim: bad slot ${opts.host.slot} (a non-negative integer, 21 §12)`,
+    )
   }
   if (job.candidates !== undefined && job.candidates.length !== 1) {
     throw new NativeError(
