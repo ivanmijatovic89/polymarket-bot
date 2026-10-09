@@ -43,7 +43,7 @@ Milestones N0–N9 of 01 pass their proofs on the final revision, the branch is
 merged to main through PRs with CI green (gate C and later PRs), every model
 parameter in `native/calibration/` carries its measurement provenance, and
 the reports of N2, N3, N4, N6 and N7 exist. The first real-money strategy run
-is gate D (01 §11) and needs the owner; if the owner has not run it, the goal is
+is gate D (01 §6) and needs the owner; if the owner has not run it, the goal is
 paused there, not failed.
 
 ## 2. Principles (cited as P1–P12)
@@ -96,7 +96,7 @@ Simulator beyond replaying native runs (N5 adds a guard, a sink comes later).
   STATUS.md says so under "Waiting on user".
 - Probe sessions: about one to two hours each, the first within days of N2
   (E04), budget cap $20 for P0, later sessions as 01 lists them.
-- Decisions at the gates of 01 §11, and answers to questions parked under
+- Decisions at the gates of 01 §6, and answers to questions parked under
   "Waiting on user" in STATUS.md.
 
 ## 5. Host rules (worker-1)

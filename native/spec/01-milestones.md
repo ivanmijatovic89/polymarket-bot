@@ -1,33 +1,24 @@
-# 01 — Milestones, proofs and gates
+# 01 — Milestones: what is defined, what is not
 
-Order of work: **N0 bootstrap → N1 V4 replay end to end → N2 exchange adapter
-and probe session P0 → N3 simulator from measurements → N4 paper mode → N5
-native backtest path and persistence (merge to main) → N6 speed → N7 Telonex
-input with measured feed timings → N8 fleet and protocols in Rust → N9 live
-runtime and real-order gate.** Numbers are stable; the "Depends on" column is
-binding. While waiting at a gate, work that does not depend on the gate's
-outcome MAY continue on the branch.
+Only the next steps are defined in detail. Everything after them is a roadmap
+and is written properly when the step before it has passed, from what that
+step measured. This is deliberate: the plan assumes it is wrong in places we
+cannot see yet, and a wrong assumption may cost one step, never the project.
 
-Every milestone: a step plan in STATUS.md at the start, green commits (P10),
-the proof commands recorded with their result, a STATUS.md entry at the end.
-Proofs run from the worktree root; `SCRATCH` is a directory outside the
-repository. Binary subcommand names below are the lead's to define in N1; once
-defined they are recorded in 02 and used unchanged.
-
-| # | Milestone | Depends on | Owner sees | Gate after |
+| Step | What it is | Defined | Owner sees at the end | Gate |
 |---|---|---|---|---|
-| N0 | Bootstrap | — | Branch, worktree, green leaf crates, V4 inventory, draft PR | — |
-| N1 | V4 replay end to end | N0 | One V4 market replayed twice with identical output; TS decode goldens pass | — |
-| N2 | Exchange adapter + probe P0 | N1 (reader, result types) | An order placed and cancelled from Rust; the P0 facts table and latency numbers | **A** |
-| N3 | Simulator from measurements | N2 | Report: simulator vs P0 outcomes per probe | **B** |
-| N4 | Paper mode | N3 | Paper session next to a backtest of the same market; journal replay identity | — |
-| N5 | Native backtest path, persistence, first real strategy | N3 | `backtest --strategy-artifact <sha> --input-mode recorder-v4` rows in the dashboard | **C** (merge) |
-| N6 | Speed | N5 | Benchmark report, determinism across thread counts | — |
-| N7 | Telonex input | N5, measurements from N2/N4 | Telonex replay of history; Telonex-vs-V4 report | — |
-| N8 | Fleet, protocols in Rust | N5, N6 | Fleet run on native artifacts; a protocol authors a Rust strategy end to end | — |
-| N9 | Live runtime, real-order gate | N4, N5 | 24 h paper with replay identity; safety checklist; first real strategy run launched by the owner | **D** |
+| N0 | Bootstrap | done | green tree, draft PR | — |
+| N1 | Replay one Recorder V4 market through the engine | **in full (§2)** | one market's result and trace, identical on two runs | — |
+| N2 | Place and cancel real orders from Rust; probe session P0 | **in full (§3)** | an order on Polymarket and in the journal; a table of measured facts | **A** |
+| N3 | Simulator from the measurements | after P0 (§4) | report: simulator vs probes | **B** |
+| N4–N9 | paper mode, persistence and merge, speed, Telonex, fleet, live | roadmap only (§5) | — | C, D |
 
-## 1. N0 — Bootstrap
+Every defined step: a step plan in STATUS.md at the start, green commits (P10),
+the proof command recorded with its result, a STATUS.md entry at the end.
+Proofs run from the clone root. Binary subcommand names are the lead's to
+define in N1 and are recorded in 02 (E08) once defined.
+
+## 1. N0 — Bootstrap (done)
 
 Done by the owner's review session on 2026-10-09 unless marked open:
 
@@ -173,185 +164,56 @@ answer, each with the probe that will.
 **Gate A** (owner): reads the P0 report, approves the next probe budget, and
 confirms or changes the facts that 10 marked as hypotheses.
 
-## 4. N3 — Simulator from measurements
+## 4. N3 — Simulator from the measurements (defined after P0)
 
-Deliverables, one model at a time, each with a measurement record:
+Not defined in detail on purpose. After gate A the lead writes this section
+from the P0 report: which models the probes settled (fees, taker delay,
+expiry, validation, fill timing, latency distributions), which are still
+hypotheses, and in which order they are built. Each model gets a record in
+`native/calibration/` (P2) and is checked by replaying the P0 actions inside
+a backtest of the same recorded markets, with our own orders removed from the
+books first (carried D24). Pass marks are proposed in that section and
+confirmed by the owner at gate B. Candidate models and the old pass marks are
+listed in `03-reuse.md` §3 (13 and 51 of the previous attempt) for reading,
+not for copying.
 
-1. Validation at decision and at exchange arrival from `ExchangeRules`: tick,
-   min size, price bounds, GTD lead, post-only crossing, batch caps (P0 rows).
-2. Fee from the market's `feeSchedule`, verified against the fees P0 was
-   charged (carried D22: charged amounts win).
-3. Taker delay (hold on marketable orders) as measured. The dated table for
-   history (10) matters only for Telonex replay and is wired in N7, flagged
-   `hypothesis` for dates before our measurements.
-4. GTD early expiry and lead time as measured.
-5. Latency model: separate seeded distributions for place, cancel, ack and
-   fill report, fitted to P0; exact-time scheduler.
-6. Fill model: taker walks the book with depletion by our own orders; maker
-   queue position from V4 trade prints at our price level; partial fills;
-   FOK/FAK semantics incl. BUY sized in collateral (carried D42, hypothesis
-   until P0 confirms).
-7. Report model: MATCHED → MINED timing from P0; FAILED reversal rate if
-   observed.
-8. Async split and merge with latency (carried D25: on-chain via the TS
-   sidecar in live; modeled as async operations here).
-9. Window gate (carried D23, hypothesis until probe R15 confirms): strategy
-   called only inside the window, orders keep matching until the window end,
-   then everything expires.
+## 5. Roadmap, not defined yet (N4–N9)
 
-Proof: the recorded books are first decontaminated of our own P0 orders
-(matched by price, size and time from the journal; carried D24), then a
-**probe strategy** re-issues the P0 actions at the journaled times inside a
-backtest of the same V4 packages; the comparison
-`native/reports/sim-vs-P0-<date>.md` shows per probe: accept/reject
-agreement, fill price and size, fee, timing. Pass marks (adapted from the
-previous attempt's D35, reference): accept/reject ≥ 99%, fee exact at 1e-6,
-taker VWAP identical on ≥ 90%, timing medians within ±30%, maker filled-share
-ratio within [0.8, 1.25] where n allows. Property tests of N1 still pass; no
-oversell; liquidity conserved.
+Each line becomes a defined section only when the step before it has passed.
+Until then nothing here is a commitment, and the lead does not start it.
 
-**Gate B** (owner): accepts the simulator or asks for a second probe session
-P1 on the failing rows.
+- **N4 paper mode:** live market data through the same engine with the N3
+  simulator, no orders; the journal replays to the identical decisions; a
+  paper market compared with the backtest of worker-2's recording of it.
+- **N5 native backtest path and persistence:** `backtest --strategy-artifact
+  <sha> --input-mode recorder-v4` writes rows with engine provenance; dev
+  schema first, production after the merge; the lagsnipe v15 port as the
+  first real strategy (artifact `304eceb3…`, carried D40); **gate C** merges to
+  main.
+- **N6 speed:** long-lived executor, shared caches, benchmark sets on V4,
+  byte-identical output across thread counts.
+- **N7 Telonex input:** the history dataset through the same engine, feed
+  timings from our own measurements, a Telonex-vs-V4 report.
+- **N8 fleet and protocols in Rust:** native queue, worker shim, candidate
+  groups, the build daemon so protocol sessions author Rust strategies.
+- **N9 live runtime:** discovery and rotation, session guards, alerts,
+  launchd, the `real-orders` trust chain; **gate D**, the first real strategy
+  run, launched by the owner.
 
-## 5. N4 — Paper mode
-
-Deliverables: live inputs (market WS incl. `custom_feature_enabled` and text
-PING, Binance, Chainlink, price-to-beat poller, rules fetch at market start)
-through the N1 loop with the N3 simulator; no orders sent; the journal of N2
-for every input; rotation to the next BTC 5m / 15m market; per-market result
-written as a local file (DB rows come in N5). Agent-run sessions load no
-secrets; if the Chainlink feed needs credentials, the owner runs those
-sessions or they run with `chainlink: false` (recorded in STATUS.md).
-
-Proof: paper sessions totaling ≥ 6 hours over both timeframes; every market's
-journal replayed through `run` gives a byte-identical deterministic result
-section; `native/reports/paper-vs-backtest-<date>.md` compares each paper
-market with the backtest of worker-2's V4 package for the same slug and
-attributes every difference (input clocks, feed gaps, nothing else).
-
-## 6. N5 — Native backtest path, persistence, first real strategy
-
-Deliverables:
-
-1. Canonical reproducible build and publish (reference 03: builder), binary
-   identity = sha256, `describe` capabilities, `strategy_artifacts` row,
-   `data/strategy-artifacts/native/<sha>`.
-2. TS side: `src/native/` builds `EngineJob` from `MarketJobData` for
-   `--input-mode recorder-v4`, validates `EngineResult`, maps to
-   `RunSingleMarketOutput` (contract: `job-contract`, in tree). `--sequential`
-   first; the fleet worker path in N8.
-3. Additive migrations: `engine`, `engine_version`, `model_config` (incl.
-   the calibration id), seed, rules provenance; dashboard engine badge and
-   cross-engine comparison guard; Market Simulator guard for native runs
-   (carried D09, D10, D50).
-4. Rules capture import (the LaunchAgent's JSONL files) into a rules snapshot
-   table; `rulesSource = snapshot | partial | fallback` in every result.
-5. Plugins from reference as strategies need them, candles from local data,
-   no network.
-6. **First real strategy**: `overnight-opus55-lagsnipe.v15.rs` ported from the
-   built TS artifact `304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8`
-   (bundle in `data/fleet-strategy-artifacts/`, read-only; carried D40), run
-   on every complete V4 15m package available; its TS twin run by the TS
-   engine `--sequential` on the same packages. The difference report is
-   information for the owner: it attributes divergences to models (fees,
-   fills, latency) where it can; an unexplained divergence is listed, it does
-   not block gate C (E02).
-
-Proof:
-
-```bash
-npm run strategy:publish -- --repo native/strategies --bin overnight-opus55-lagsnipe.v15
-npm run backtest -- --strategy-artifact <sha256> --sequential --input-mode recorder-v4 --symbol btc --timeframe 15m --limit 50
-#   → one backtest_runs row with engine='native', model_config incl. calibration id; rows visible in the dashboard
-```
-
-plus refusal tests that exit 2 before anything is enqueued: `--symbol eth`,
-a 1h timeframe, `--input-mode telonex-delta` before N7, an unknown param.
-The proof runs against the dev schema of 00 §5, never production.
-
-**Gate C** (owner): merge to main (one PR; CI green; no behavior change for
-TS strategies, proven by running one TS strategy before and after).
-
-## 7. N6 — Speed
-
-Deliverables: long-lived executor (`serve`) with a work-stealing pool across
-markets; shared immutable caches of decoded packages; benchmark harness with
-frozen sets on V4 (`smoke-50`, `heavy-1`, and `recent-N` with as many complete
-15m packages as exist on the day the set is frozen); per-phase timers
-(decode, book, strategy, simulator, stats); thread count and QoS measured per
-machine type; build-profile measurement. Optimizations are A/B measured and
-MUST keep outputs byte-identical across thread counts, `run` vs `serve`, and
-build profiles.
-
-Proof: `native/reports/bench-N6-<date>-worker-1.md` with wall time, markets/s,
-CPU, peak RSS and phase profile per set, TS engine on the same packages as the
-baseline row; determinism checks pass. Non-idle label until the owner confirms
-a pause procedure.
-
-## 8. N7 — Telonex input with measured feed timings
-
-Deliverables: `telonex-delta` reader (in tree, `telonex-replay`, golden-tested
-against TS decode); feed visibility models for Binance, Chainlink (two-clock)
-and price-to-beat whose bot-leg timings come from N2/N4 measurements
-(`native/calibration/`), never from the previous attempt's constants unless
-re-measured; synthetic feed ticks as an opt-in; Telonex eligibility through
-`src/db/telonexMarkets.ts` only; the derived fast tape from reference MAY be
-added if the N7 phase timers on Telonex replay show decode above 40% of job
-time.
-
-Proof: TS decode goldens pass; `backtest --input-mode telonex-delta` persists
-rows labeled with the input mode; `native/reports/telonex-vs-v4-<date>.md`
-runs the lagsnipe port on every market both datasets cover and attributes the
-differences (missing trade prints, modeled vs recorded feed times).
-
-## 9. N8 — Fleet and protocols in Rust
-
-Deliverables (reference 03: fleet, groups, artifacts): native queue with
-version and target gate, worker shim supervising the executor, execution
-stamping, artifact cache, kill switch and engine-version blocklist, candidate
-groups (`--candidates`, one row per candidate, group result equals standalone),
-the out-of-sandbox build daemon and `strategy:new -- --lang rust` so protocol
-sessions author Rust strategies, docs pages and CLAUDE.md updates.
-
-Proof: a V4 run of the lagsnipe port over every complete 15m package on the
-fleet hosts (deployment with the normal fleet commands, owner's go-ahead
-recorded in STATUS.md) with
-byte-identical outputs on every host; a sandboxed session creates, checks,
-publishes and backtests a Rust strategy end to end; kill-switch drill
-recorded.
-
-## 10. N9 — Live runtime and the real-order gate
-
-Deliverables (reference 03: live runtime): market discovery and pre-subscribed
-rotation, session guards that survive rotation (session loss, exposure,
-order-rate cap, kill switch; carried D31, D32), restart behavior (carried
-D29: cancel, adopt positions read-only), reconciliation, alerts (carried D33;
-channel is an owner question), launchd service, the TS sidecar for split,
-merge and redeem and pUSD handling, the `real-orders` trust chain (clean
-commit, reproducible rebuild to the same sha, source hash linking it to the
-backtested `standard` binary).
-
-Proof: ≥ 24 hours of paper on both timeframes with replay identity; safety
-checklist; a test proving a `standard` binary cannot send; shadow mode during
-a paper session (orders built and signed with a throwaway key, never sent).
-
-**Gate D** (owner): answers the live questions (wallet, host, alert channel,
-auto-restart policy, budget), approves, builds `real-orders`, launches the
-first real strategy session. The agent never does.
-
-## 11. Gates
+## 6. Gates
 
 | Gate | After | Owner sees | Owner decides |
 |---|---|---|---|
-| A | N2 | P0 report, calibration file, open facts | Next probe budget; confirm or change hypotheses |
-| B | N3 | Simulator vs P0 report, pass marks | Accept the simulator or order probe P1 |
+| A | N2 | P0 report, calibration file, open facts | Next probe budget; confirm or change the hypotheses; approve the N3 section the lead then writes |
+| B | N3 | Simulator vs P0 report, pass marks | Accept the simulator or order probe P1; approve the N4 and N5 sections |
 | C | N5 | Native rows in the dashboard, lagsnipe difference report, merge content | Merge to main |
 | D | N9 | Paper identity, safety checklist, shadow-mode log | First real strategy run |
 
-## 12. Resuming
+## 7. Resuming
 
 A new session reads 00, 01, 02, 03 in full (under 1,000 lines), then 10 and
-11 when its milestone cites them, then STATUS.md "Current state" and the
-current milestone's step plan. It verifies the tree is green (N0 proof) before
-changing anything, and continues with "Next action". A proof is never redone
-unless a change invalidated it.
+11 when its step cites them, then STATUS.md "Current state" and the current
+step plan. It verifies the tree is green (N0 proof) before changing anything,
+and continues with "Next action". A proof is never redone unless a change
+invalidated it. A step that is "roadmap only" is never started; the lead
+writes its section first and the owner approves it at the preceding gate.
