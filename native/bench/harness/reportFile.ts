@@ -3,6 +3,7 @@
 // raw repetitions. A second sitting on the same milestone, day and host
 // appends its row; nothing earlier is overwritten.
 
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderL0Row, type L0Row } from './l0.js'
@@ -82,16 +83,31 @@ function writeAtomic(file: string, text: string): void {
   fs.renameSync(tmp, file)
 }
 
+/**
+ * Formats the written files with the repository's Prettier, so committed
+ * reports pass `prettier --check` (CI) unchanged.
+ */
+export function prettierFormatter(repoRoot: string): (files: readonly string[]) => void {
+  return (files) => {
+    execFileSync(path.join(repoRoot, 'node_modules/.bin/prettier'), ['--write', ...files], {
+      cwd: repoRoot,
+      stdio: ['ignore', 'ignore', 'inherit'],
+    })
+  }
+}
+
 /** Appends `row` to the report at `base` and rewrites both files atomically. */
 export function appendRow(
   base: string,
   meta: { milestone: string; date: string; host: string },
   row: ReportRow,
+  format?: (files: readonly string[]) => void,
 ): ReportFile {
   const f = loadReport(base, meta)
   f.rows.push(row)
   fs.mkdirSync(path.dirname(base), { recursive: true })
   writeAtomic(`${base}.json`, `${JSON.stringify(f, null, 2)}\n`)
   writeAtomic(`${base}.md`, renderReport(f))
+  format?.([`${base}.json`, `${base}.md`])
   return f
 }
