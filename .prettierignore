@@ -25,3 +25,8 @@ native/**/target/
 # Independent conformance tests (60 §10.1 CF-3/CF-4): written only by the
 # conformance author; the implementation session never reformats them.
 native/conformance/
+# Golden fixtures are generator output (60 §7.1 GF-2: byte-deterministic,
+# compared byte for byte by native:goldens:check); never reformatted.
+native/fixtures/golden/
+# Test snapshots compared byte for byte by cargo tests.
+native/crates/*/tests/snapshots/
