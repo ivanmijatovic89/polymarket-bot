@@ -4,10 +4,17 @@
 //! Each side is a ladder of 10,001 slots indexed by `price / 100` micros
 //! (0.0001 units, BK-1) with a two-level occupancy bitset, plus an ordered
 //! overflow map for prices off that grid or outside `[0, 1]` (anomalies are
-//! replayed as recorded, 15 I-6). Applies report whether the top of book
-//! changed (BK-7).
+//! replayed as recorded, 15 I-6). The best price of each side is cached, so
+//! `best()` is O(1) (30 §5.1) and every apply reports whether the top of book
+//! changed at no extra scan (BK-7).
+//!
+//! [`MarketBooks::apply`] is the message-level entry point: it applies one
+//! recorded market event with the rules I-6a–I-6e, keeps the snapshot time
+//! (I-6d) and the anomaly counters of 15 §8 that belong to books
+//! (`deltaBeforeBook`, `crossedBookTicks`, `staleBookEvents`).
 
-use pmb_core::{Outcome, PerOutcome, Price, Qty};
+use pmb_core::{LevelUpdate, MarketEvent, Outcome, PerOutcome, Price, PriceSize, Qty, TsMs};
+use std::collections::btree_map;
 use std::collections::BTreeMap;
 
 /// Ladder resolution in micros (0.0001 USDC).
@@ -17,21 +24,11 @@ pub const LADDER_SLOTS: usize = 10_001;
 const WORDS: usize = LADDER_SLOTS.div_ceil(64);
 const SUMMARY_WORDS: usize = WORDS.div_ceil(64);
 
-/// Book side.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Side {
-    /// Bids: best is the highest price.
-    Bid,
-    /// Asks: best is the lowest price.
-    Ask,
-}
+/// Book side: the domain quote side (`Bid` = BUY, `Ask` = SELL).
+pub type Side = pmb_core::QuoteSide;
 
-/// One price level.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Level {
-    pub price: Price,
-    pub size: Qty,
-}
+/// One price level (the domain `PriceSize`).
+pub type Level = PriceSize;
 
 /// Best price and size of one side, used for the top-change bit (BK-7).
 type Top = Option<Level>;
@@ -45,6 +42,8 @@ pub struct BookSide {
     summary: [u64; SUMMARY_WORDS],
     overflow: BTreeMap<i64, i64>,
     len: usize,
+    /// Cached best price in micros (highest bid, lowest ask).
+    best: Option<i64>,
 }
 
 impl std::fmt::Debug for BookSide {
@@ -57,18 +56,25 @@ impl std::fmt::Debug for BookSide {
 }
 
 #[inline]
-fn slot_of(price: Price) -> Option<usize> {
-    let m = price.micros();
-    if (0..=1_000_000).contains(&m) && m % LADDER_STEP == 0 {
-        Some((m / LADDER_STEP) as usize)
+fn slot_of(micros: i64) -> Option<usize> {
+    if (0..=1_000_000).contains(&micros) && micros % LADDER_STEP == 0 {
+        Some((micros / LADDER_STEP) as usize)
     } else {
         None
     }
 }
 
 #[inline]
-fn price_of(slot: usize) -> Price {
-    Price::from_micros(slot as i64 * LADDER_STEP)
+fn price_of(slot: usize) -> i64 {
+    slot as i64 * LADDER_STEP
+}
+
+#[inline]
+fn level(price: i64, size: i64) -> Level {
+    Level {
+        price: Price::from_micros(price),
+        size: Qty::from_micros(size),
+    }
 }
 
 impl BookSide {
@@ -84,6 +90,7 @@ impl BookSide {
             summary: [0; SUMMARY_WORDS],
             overflow: BTreeMap::new(),
             len: 0,
+            best: None,
         }
     }
 
@@ -119,11 +126,20 @@ impl BookSide {
         }
     }
 
+    /// `a` is strictly better than `b` on this side.
+    #[inline]
+    fn better(&self, a: i64, b: i64) -> bool {
+        match self.side {
+            Side::Bid => a > b,
+            Side::Ask => a < b,
+        }
+    }
+
     /// Sets the aggregate size at `price`; `size <= 0` removes the level (I-6b).
     #[inline]
     pub fn set(&mut self, price: Price, size: Qty) {
-        let s = size.micros();
-        match slot_of(price) {
+        let (m, s) = (price.micros(), size.micros());
+        let removed = match slot_of(m) {
             Some(slot) => {
                 let old = self.sizes[slot];
                 if s > 0 {
@@ -132,21 +148,36 @@ impl BookSide {
                         self.set_bit(slot);
                         self.len += 1;
                     }
+                    false
                 } else if old != 0 {
                     self.sizes[slot] = 0;
                     self.clear_bit(slot);
                     self.len -= 1;
+                    true
+                } else {
+                    false
                 }
             }
             None => {
                 if s > 0 {
-                    if self.overflow.insert(price.micros(), s).is_none() {
+                    if self.overflow.insert(m, s).is_none() {
                         self.len += 1;
                     }
-                } else if self.overflow.remove(&price.micros()).is_some() {
+                    false
+                } else if self.overflow.remove(&m).is_some() {
                     self.len -= 1;
+                    true
+                } else {
+                    false
                 }
             }
+        };
+        if s > 0 {
+            if self.best.is_none_or(|b| self.better(m, b)) {
+                self.best = Some(m);
+            }
+        } else if removed && self.best == Some(m) {
+            self.best = self.scan_best();
         }
     }
 
@@ -169,15 +200,21 @@ impl BookSide {
         }
         self.overflow.clear();
         self.len = 0;
+        self.best = None;
+    }
+
+    #[inline]
+    fn size_micros(&self, m: i64) -> i64 {
+        match slot_of(m) {
+            Some(slot) => self.sizes[slot],
+            None => self.overflow.get(&m).copied().unwrap_or(0),
+        }
     }
 
     /// Size at an exact price (0 when absent).
     #[inline]
     pub fn size_at(&self, price: Price) -> Qty {
-        match slot_of(price) {
-            Some(slot) => Qty::from_micros(self.sizes[slot]),
-            None => Qty::from_micros(self.overflow.get(&price.micros()).copied().unwrap_or(0)),
-        }
+        Qty::from_micros(self.size_micros(price.micros()))
     }
 
     fn ladder_max(&self) -> Option<usize> {
@@ -202,6 +239,24 @@ impl BookSide {
             }
         }
         None
+    }
+
+    /// Best price found by scanning the bitset and the overflow map.
+    fn scan_best(&self) -> Option<i64> {
+        let ladder = match self.side {
+            Side::Bid => self.ladder_max(),
+            Side::Ask => self.ladder_min(),
+        }
+        .map(price_of);
+        let over = match self.side {
+            Side::Bid => self.overflow.keys().next_back(),
+            Side::Ask => self.overflow.keys().next(),
+        }
+        .copied();
+        match (ladder, over) {
+            (Some(a), Some(b)) => Some(if self.better(b, a) { b } else { a }),
+            (a, b) => a.or(b),
+        }
     }
 
     /// Next occupied ladder slot strictly above `slot`.
@@ -245,42 +300,26 @@ impl BookSide {
         }
     }
 
-    /// Best level: highest bid or lowest ask.
+    /// Best level: highest bid or lowest ask (O(1), 30 §5.1).
     #[inline]
     pub fn best(&self) -> Option<Level> {
-        let ladder = match self.side {
-            Side::Bid => self.ladder_max(),
-            Side::Ask => self.ladder_min(),
-        }
-        .map(|slot| Level {
-            price: price_of(slot),
-            size: Qty::from_micros(self.sizes[slot]),
-        });
-        let over = match self.side {
-            Side::Bid => self.overflow.iter().next_back(),
-            Side::Ask => self.overflow.iter().next(),
-        }
-        .map(|(&p, &s)| Level {
-            price: Price::from_micros(p),
-            size: Qty::from_micros(s),
-        });
-        match (ladder, over) {
-            (Some(a), Some(b)) => Some(if self.better(b.price, a.price) { b } else { a }),
-            (a, b) => a.or(b),
-        }
+        self.best.map(|p| level(p, self.size_micros(p)))
     }
 
-    #[inline]
-    fn better(&self, a: Price, b: Price) -> bool {
-        match self.side {
-            Side::Bid => a > b,
-            Side::Ask => a < b,
-        }
-    }
-
-    /// Levels best-first (bids descending, asks ascending).
+    /// Levels best-first (bids descending, asks ascending). Allocation-free.
     pub fn levels(&self) -> impl Iterator<Item = Level> + '_ {
         LevelIter::new(self)
+    }
+
+    /// Cumulative size of the best `n` levels (16 BK-4 "depth to N").
+    /// Sizes are bounded at decode (15 I-20), so the checked sum cannot
+    /// overflow for real books (10 T3).
+    pub fn depth_levels(&self, n: usize) -> Qty {
+        let mut total = Qty::ZERO;
+        for l in self.levels().take(n) {
+            total += l.size;
+        }
+        total
     }
 
     /// Sum of sizes of levels at or better than `limit` (BUY walks asks
@@ -305,8 +344,8 @@ impl BookSide {
 struct LevelIter<'a> {
     book: &'a BookSide,
     next_slot: Option<usize>,
-    over: Vec<(i64, i64)>,
-    over_pos: usize,
+    over: btree_map::Iter<'a, i64, i64>,
+    over_next: Option<(i64, i64)>,
 }
 
 impl<'a> LevelIter<'a> {
@@ -315,61 +354,55 @@ impl<'a> LevelIter<'a> {
             Side::Bid => book.ladder_max(),
             Side::Ask => book.ladder_min(),
         };
-        let mut over: Vec<(i64, i64)> = book.overflow.iter().map(|(&p, &s)| (p, s)).collect();
-        if book.side == Side::Bid {
-            over.reverse();
-        }
-        LevelIter {
+        let mut it = LevelIter {
             book,
             next_slot,
-            over,
-            over_pos: 0,
-        }
+            over: book.overflow.iter(),
+            over_next: None,
+        };
+        it.over_next = it.pull_over();
+        it
     }
 
-    fn advance_slot(&mut self, slot: usize) {
+    #[inline]
+    fn pull_over(&mut self) -> Option<(i64, i64)> {
+        match self.book.side {
+            Side::Ask => self.over.next(),
+            Side::Bid => self.over.next_back(),
+        }
+        .map(|(&p, &s)| (p, s))
+    }
+
+    #[inline]
+    fn take_slot(&mut self, slot: usize) -> Level {
         let b = self.book;
         self.next_slot = match b.side {
             Side::Ask => b.next_above(slot),
             Side::Bid => b.next_below(slot),
         };
+        level(price_of(slot), b.sizes[slot])
+    }
+
+    #[inline]
+    fn take_over(&mut self, p: i64, s: i64) -> Level {
+        self.over_next = self.pull_over();
+        level(p, s)
     }
 }
 
 impl Iterator for LevelIter<'_> {
     type Item = Level;
+    #[inline]
     fn next(&mut self) -> Option<Level> {
-        let ladder = self.next_slot.map(|s| (price_of(s), s));
-        let over = self.over.get(self.over_pos).copied();
-        match (ladder, over) {
+        match (self.next_slot, self.over_next) {
             (None, None) => None,
-            (Some((p, s)), None) => {
-                self.advance_slot(s);
-                Some(Level {
-                    price: p,
-                    size: Qty::from_micros(self.book.sizes[s]),
-                })
-            }
-            (None, Some((p, sz))) => {
-                self.over_pos += 1;
-                Some(Level {
-                    price: Price::from_micros(p),
-                    size: Qty::from_micros(sz),
-                })
-            }
-            (Some((lp, s)), Some((op, sz))) => {
-                if self.book.better(Price::from_micros(op), lp) {
-                    self.over_pos += 1;
-                    Some(Level {
-                        price: Price::from_micros(op),
-                        size: Qty::from_micros(sz),
-                    })
+            (Some(slot), None) => Some(self.take_slot(slot)),
+            (None, Some((p, s))) => Some(self.take_over(p, s)),
+            (Some(slot), Some((p, s))) => {
+                if self.book.better(p, price_of(slot)) {
+                    Some(self.take_over(p, s))
                 } else {
-                    self.advance_slot(s);
-                    Some(Level {
-                        price: lp,
-                        size: Qty::from_micros(self.book.sizes[s]),
-                    })
+                    Some(self.take_slot(slot))
                 }
             }
         }
@@ -413,23 +446,41 @@ impl OutcomeBook {
     fn tops(&self) -> (Top, Top) {
         (self.bids.best(), self.asks.best())
     }
+
+    /// Best bid at or above best ask (15 §8 `crossedBookTicks`).
+    #[inline]
+    pub fn is_crossed_or_locked(&self) -> bool {
+        match (self.bids.best, self.asks.best) {
+            (Some(b), Some(a)) => b >= a,
+            _ => false,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.bids.clear();
+        self.asks.clear();
+    }
 }
 
-/// What an apply changed at the top of book (BK-7).
+/// What an apply changed at the top of book of either outcome (BK-7).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TopChange {
-    /// The best bid or best ask price changed.
+    /// A best bid or best ask price changed (a side appearing or emptying
+    /// counts as a price change).
     pub price: bool,
-    /// The size at a best level changed (price unchanged).
+    /// The size at a best level changed while no best price changed.
     pub size: bool,
 }
 
 impl TopChange {
     #[inline]
-    fn between(before: (Top, Top), after: (Top, Top)) -> TopChange {
+    fn between(before: &[(Top, Top); 2], after: &[(Top, Top); 2]) -> TopChange {
         let p = |t: Top| t.map(|l| l.price);
-        let price = p(before.0) != p(after.0) || p(before.1) != p(after.1);
-        let size = !price && (before != after);
+        let price = before
+            .iter()
+            .zip(after)
+            .any(|(b, a)| p(b.0) != p(a.0) || p(b.1) != p(a.1));
+        let size = !price && before != after;
         TopChange { price, size }
     }
 
@@ -442,15 +493,42 @@ impl TopChange {
 /// Diagnostic counters of book reconstruction (15 §8).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct BookCounters {
-    /// A delta arrived for an outcome without a book (I-6c).
+    /// `deltaBeforeBook`: a `price_change`, `last_trade_price` or
+    /// `tick_size_change` message touched an outcome that has not had a
+    /// `book` message yet (since the start or its last reset); counted once
+    /// per message and outcome (I-6c; the TS `delta_before_book` warning of
+    /// `MarketOrderBookEngine.ts:94-151`).
     pub delta_before_book: u64,
+    /// `crossedBookTicks`: a `book` or `price_change` message after which
+    /// some outcome book has best bid >= best ask (replayed unchanged).
+    pub crossed_book_ticks: u64,
+    /// `staleBookEvents`: a message applied to an outcome whose book is
+    /// stale (reset and not yet re-booked, I-6f); counted once per message.
+    /// The `book` message that ends staleness is not counted.
+    /// Kept in both profiles; only realistic reports it and skips the
+    /// strategy tick (12 §5.2).
+    pub stale_book_events: u64,
 }
 
 /// Recorded books of both outcomes of one market (15 §2.1). Outcomes not
-/// seen yet have no book (I-6e).
+/// seen yet, or reset since, have no book (I-6e, I-6f).
 #[derive(Clone, Debug, Default)]
 pub struct MarketBooks {
+    /// Ladder allocations, kept across resets.
     books: PerOutcome<Option<Box<OutcomeBook>>>,
+    /// The outcome is listed in the snapshot (seen since start or reset).
+    present: PerOutcome<bool>,
+    /// A `book` message was applied for the outcome since start or reset.
+    saw_book: PerOutcome<bool>,
+    /// The outcome's book was cleared by a `BookReset` and has had no `book`
+    /// message since (I-6f): distinguishes "reset, not yet re-booked" from
+    /// "never had a book".
+    stale: PerOutcome<bool>,
+    /// Timestamp of the last message applied to each outcome (TS
+    /// `byAssetId[id].timestamp`).
+    outcome_ts: PerOutcome<Option<TsMs>>,
+    /// Market snapshot time (I-6d): timestamp of the last applied message.
+    snapshot_ts: Option<TsMs>,
     pub counters: BookCounters,
 }
 
@@ -459,67 +537,215 @@ impl MarketBooks {
         Self::default()
     }
 
-    /// The outcome's book, if one was seen.
+    /// The outcome's book, if the outcome was seen (I-6e).
     #[inline]
     pub fn get(&self, o: Outcome) -> Option<&OutcomeBook> {
-        self.books[o].as_deref()
-    }
-
-    fn get_or_create(&mut self, o: Outcome, count_delta: bool) -> &mut OutcomeBook {
-        if self.books[o].is_none() {
-            if count_delta {
-                self.counters.delta_before_book += 1;
-            }
-            self.books[o] = Some(Box::default());
+        if self.present[o] {
+            self.books[o].as_deref()
+        } else {
+            None
         }
-        self.books[o].as_deref_mut().expect("created")
     }
 
-    /// `book` message: replaces both sides; levels with size `<= 0` are
-    /// dropped (I-6a).
+    /// Market snapshot time (I-6d): the timestamp of the last applied
+    /// message of any kind and outcome; it can move backwards. `None` before
+    /// the first timestamped message and after a market-wide reset.
+    #[inline]
+    pub fn snapshot_ts(&self) -> Option<TsMs> {
+        self.snapshot_ts
+    }
+
+    /// Timestamp of the last message applied to the outcome's book.
+    #[inline]
+    pub fn outcome_ts(&self, o: Outcome) -> Option<TsMs> {
+        self.outcome_ts[o]
+    }
+
+    /// A `book` message was applied for the outcome since start or reset.
+    #[inline]
+    pub fn saw_book(&self, o: Outcome) -> bool {
+        self.saw_book[o]
+    }
+
+    /// The outcome's book is stale: cleared by a `BookReset` and not yet
+    /// replaced by a `book` message (I-6f; the strategy's `is_stale()`,
+    /// 30 §5.1). Never true for an outcome that simply had no book yet.
+    #[inline]
+    pub fn is_stale(&self, o: Outcome) -> bool {
+        self.stale[o]
+    }
+
+    #[inline]
+    fn book_mut(&mut self, o: Outcome) -> &mut OutcomeBook {
+        if !self.present[o] {
+            self.present[o] = true;
+        }
+        self.books[o].get_or_insert_with(Box::default)
+    }
+
+    #[inline]
+    fn tops(&self) -> [(Top, Top); 2] {
+        Outcome::ALL.map(|o| self.get(o).map_or((None, None), OutcomeBook::tops))
+    }
+
+    /// A non-`book` message touches outcome `o` (I-6c): creates its book
+    /// entry and counts `deltaBeforeBook` before the outcome's first book.
+    #[inline]
+    fn touch_outcome(&mut self, o: Outcome, ts: Option<TsMs>) -> &mut OutcomeBook {
+        if !self.saw_book[o] {
+            self.counters.delta_before_book += 1;
+        }
+        if ts.is_some() {
+            self.outcome_ts[o] = ts;
+        }
+        self.book_mut(o)
+    }
+
+    /// Counts `staleBookEvents` once per message (I-6f).
+    #[inline]
+    fn count_stale(&mut self, stale: bool) {
+        if stale {
+            self.counters.stale_book_events += 1;
+        }
+    }
+
+    #[inline]
+    fn count_crossed(&mut self) {
+        if Outcome::ALL
+            .iter()
+            .any(|&o| self.get(o).is_some_and(OutcomeBook::is_crossed_or_locked))
+        {
+            self.counters.crossed_book_ticks += 1;
+        }
+    }
+
+    /// Applies one recorded market message with exchange timestamp `ts`
+    /// (15 §2.1) and reports the top-of-book change (BK-7).
+    ///
+    /// - `Book` replaces both sides of its outcome; levels with size `<= 0`
+    ///   are dropped (I-6a).
+    /// - `PriceChange` sets the aggregate size per `(outcome, side, price)`
+    ///   in message order; size `<= 0` deletes the level (I-6b).
+    /// - `PriceChange`, `LastTrade` and `TickSizeChange` for an outcome
+    ///   without a book create an empty book first (I-6c). Trade prints and
+    ///   tick-size changes never change levels.
+    /// - Every message with a timestamp sets the snapshot time (I-6d).
+    pub fn apply(&mut self, ts: Option<TsMs>, event: &MarketEvent<'_>) -> TopChange {
+        if ts.is_some() {
+            self.snapshot_ts = ts;
+        }
+        match *event {
+            MarketEvent::Book {
+                outcome,
+                bids,
+                asks,
+            } => {
+                if ts.is_some() {
+                    self.outcome_ts[outcome] = ts;
+                }
+                self.apply_snapshot(outcome, bids.iter().copied(), asks.iter().copied())
+            }
+            MarketEvent::PriceChange { changes } => self.apply_changes(ts, changes),
+            MarketEvent::LastTrade { outcome, .. }
+            | MarketEvent::TickSizeChange { outcome, .. } => {
+                self.count_stale(self.stale[outcome]);
+                self.touch_outcome(outcome, ts);
+                TopChange::default()
+            }
+        }
+    }
+
+    /// `book` message without a timestamp: replaces both sides; levels with
+    /// size `<= 0` are dropped before the replace, so a non-positive
+    /// duplicate never deletes an earlier positive level (I-6a, TS
+    /// `toSortedLevelsFromBookSide`). Duplicate prices: the last one wins.
     pub fn apply_snapshot(
         &mut self,
         o: Outcome,
         bids: impl IntoIterator<Item = Level>,
         asks: impl IntoIterator<Item = Level>,
     ) -> TopChange {
-        let book = self.get_or_create(o, false);
-        let before = book.tops();
-        book.bids.clear();
-        book.asks.clear();
+        let before = self.tops();
+        let book = self.book_mut(o);
+        book.clear();
         for l in bids {
-            book.bids.set(l.price, l.size);
+            if l.size.micros() > 0 {
+                book.bids.set(l.price, l.size);
+            }
         }
         for l in asks {
-            book.asks.set(l.price, l.size);
+            if l.size.micros() > 0 {
+                book.asks.set(l.price, l.size);
+            }
         }
-        TopChange::between(before, book.tops())
+        self.saw_book[o] = true;
+        self.stale[o] = false;
+        self.count_crossed();
+        TopChange::between(&before, &self.tops())
     }
 
-    /// One `price_change` entry: sets the aggregate size; `<= 0` deletes (I-6b, I-6c).
+    /// `price_change` message: its changes in message order (I-6b, I-6c).
+    fn apply_changes(&mut self, ts: Option<TsMs>, changes: &[LevelUpdate]) -> TopChange {
+        self.count_stale(changes.iter().any(|c| self.stale[c.outcome]));
+        let before = self.tops();
+        let mut touched = [false; 2];
+        for c in changes {
+            let book = if touched[c.outcome.index()] {
+                self.book_mut(c.outcome)
+            } else {
+                touched[c.outcome.index()] = true;
+                self.touch_outcome(c.outcome, ts)
+            };
+            book.side_mut(c.side).set(c.price, c.size);
+        }
+        self.count_crossed();
+        TopChange::between(&before, &self.tops())
+    }
+
+    /// A `price_change` message with one change and no timestamp (I-6b, I-6c).
     pub fn apply_level(&mut self, o: Outcome, side: Side, price: Price, size: Qty) -> TopChange {
-        let book = self.get_or_create(o, true);
-        let before = book.tops();
-        book.side_mut(side).set(price, size);
-        TopChange::between(before, book.tops())
+        self.apply_changes(
+            None,
+            &[LevelUpdate {
+                outcome: o,
+                side,
+                price,
+                size,
+            }],
+        )
     }
 
-    /// `last_trade_price` / `tick_size_change` for an outcome without a book
-    /// creates an empty entry (I-6c).
+    /// A `last_trade_price` or `tick_size_change` message without a
+    /// timestamp: creates an empty book for an unseen outcome (I-6c).
     pub fn touch(&mut self, o: Outcome) {
-        self.get_or_create(o, true);
+        self.count_stale(self.stale[o]);
+        self.touch_outcome(o, None);
     }
 
-    /// `BookReset` for one outcome or the whole market (I-6f).
+    /// `BookReset` (I-6f) for one outcome or, with `None`, the whole market:
+    /// the books in scope are cleared and unlisted until later messages
+    /// rebuild them (I-6a–I-6c), as TS does with a fresh
+    /// `MarketOrderBookEngine` (`dispatcher.ts:179-189`), and marked stale
+    /// until their next `book` message ([`is_stale`](Self::is_stale),
+    /// `staleBookEvents`; used by the realistic profile). A market-wide
+    /// reset also clears the snapshot time. Counters are kept.
     pub fn reset(&mut self, scope: Option<Outcome>) {
         for o in Outcome::ALL {
             if scope.is_none() || scope == Some(o) {
                 if let Some(b) = self.books[o].as_deref_mut() {
-                    b.bids.clear();
-                    b.asks.clear();
+                    b.clear();
                 }
+                self.present[o] = false;
+                self.saw_book[o] = false;
+                self.stale[o] = true;
+                self.outcome_ts[o] = None;
             }
         }
+        if scope.is_none() {
+            self.snapshot_ts = None;
+        }
+        // D-PENDING: an outcome-scoped reset (no TS counterpart; TS resets
+        // only whole markets) keeps the market snapshot time.
     }
 
     #[inline]
@@ -534,130 +760,4 @@ impl MarketBooks {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    fn p(m: i64) -> Price {
-        Price::from_micros(m)
-    }
-    fn q(m: i64) -> Qty {
-        Qty::from_micros(m)
-    }
-
-    #[test]
-    fn snapshot_and_deltas() {
-        let mut m = MarketBooks::new();
-        assert!(m.get(Outcome::Up).is_none());
-        let ch = m.apply_snapshot(
-            Outcome::Up,
-            [
-                Level {
-                    price: p(480_000),
-                    size: q(10_000_000),
-                },
-                Level {
-                    price: p(470_000),
-                    size: q(0),
-                },
-            ],
-            [
-                Level {
-                    price: p(520_000),
-                    size: q(5_000_000),
-                },
-                Level {
-                    price: p(530_000),
-                    size: q(7_000_000),
-                },
-            ],
-        );
-        assert!(ch.price);
-        assert_eq!(m.best_bid(Outcome::Up).unwrap().price, p(480_000));
-        assert_eq!(
-            m.get(Outcome::Up).unwrap().bids.len(),
-            1,
-            "size 0 dropped (I-6a)"
-        );
-        assert_eq!(m.best_ask(Outcome::Up).unwrap().price, p(520_000));
-        // size change at the best ask
-        let ch = m.apply_level(Outcome::Up, Side::Ask, p(520_000), q(1_000_000));
-        assert_eq!(
-            ch,
-            TopChange {
-                price: false,
-                size: true
-            }
-        );
-        // remove the best ask
-        let ch = m.apply_level(Outcome::Up, Side::Ask, p(520_000), q(0));
-        assert!(ch.price);
-        assert_eq!(m.best_ask(Outcome::Up).unwrap().price, p(530_000));
-        // deep change: no top change
-        let ch = m.apply_level(Outcome::Up, Side::Bid, p(100_000), q(1));
-        assert!(!ch.any());
-        // delta before book (I-6c)
-        m.apply_level(Outcome::Down, Side::Bid, p(500_000), q(1));
-        assert_eq!(m.counters.delta_before_book, 1);
-        let asks: Vec<_> = m
-            .get(Outcome::Up)
-            .unwrap()
-            .asks
-            .levels()
-            .map(|l| l.price.micros())
-            .collect();
-        assert_eq!(asks, vec![530_000]);
-        let bids: Vec<_> = m
-            .get(Outcome::Up)
-            .unwrap()
-            .bids
-            .levels()
-            .map(|l| l.price.micros())
-            .collect();
-        assert_eq!(bids, vec![480_000, 100_000]);
-    }
-
-    #[test]
-    fn off_grid_prices_use_overflow() {
-        let mut s = BookSide::new(Side::Ask);
-        s.set(p(500_050), q(1)); // off the 0.0001 grid
-        s.set(p(500_100), q(2));
-        s.set(p(500_000), q(3));
-        let v: Vec<_> = s
-            .levels()
-            .map(|l| (l.price.micros(), l.size.micros()))
-            .collect();
-        assert_eq!(v, vec![(500_000, 3), (500_050, 1), (500_100, 2)]);
-        assert_eq!(s.depth_through(p(500_050)), q(4));
-        s.clear();
-        assert!(s.is_empty());
-        assert!(s.best().is_none());
-    }
-
-    proptest! {
-        // spec: 16 BK-4 (ladder == BTreeMap reference on random streams)
-        #[test]
-        fn ladder_equals_btreemap(ops in prop::collection::vec((0i64..=1_000_100, 0i64..5, any::<bool>(), any::<bool>()), 0..400)) {
-            for side in [Side::Bid, Side::Ask] {
-                let mut s = BookSide::new(side);
-                let mut r: BTreeMap<i64, i64> = BTreeMap::new();
-                for &(price, size, coarse, clear) in &ops {
-                    if clear && size == 0 && price % 97 == 0 {
-                        s.clear();
-                        r.clear();
-                        continue;
-                    }
-                    let price = if coarse { price - price % 10_000 } else { price };
-                    s.set(p(price), q(size));
-                    if size > 0 { r.insert(price, size); } else { r.remove(&price); }
-                    let got: Vec<(i64, i64)> = s.levels().map(|l| (l.price.micros(), l.size.micros())).collect();
-                    let mut want: Vec<(i64, i64)> = r.iter().map(|(&a, &b)| (a, b)).collect();
-                    if side == Side::Bid { want.reverse(); }
-                    prop_assert_eq!(&got, &want);
-                    prop_assert_eq!(s.len(), want.len());
-                    prop_assert_eq!(s.best().map(|l| (l.price.micros(), l.size.micros())), want.first().copied());
-                }
-            }
-        }
-    }
-}
+mod tests;
