@@ -3,7 +3,7 @@
   "header": {
     "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
     "generator": "native/fixtures/gen/plugins_gen.ts",
-    "generatorSha256": "ce2748d785c27850951aafd508ab3e342e1780abd381e709a69102948d990e15"
+    "generatorSha256": "025adb0df6f235df3246d093e5cac13c5b1b017283d9906c8c35b2277b0bc7b8"
   },
   "scenarios": [
     {

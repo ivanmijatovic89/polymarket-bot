@@ -3,7 +3,7 @@
   "header": {
     "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
     "generator": "native/fixtures/gen/plugins_wip_gen.ts",
-    "generatorSha256": "cc188f8aa6407368b4150ddaf3706a8026ba350c20dcf6aded4c02165af4376e"
+    "generatorSha256": "dfed48e2ba0912b34c9662251fba41c0fb2348514df64bf577c5b586d4b3ecf6"
   },
   "scenarios": [
     {

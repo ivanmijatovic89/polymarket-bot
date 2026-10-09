@@ -2,7 +2,7 @@
   "header": {
     "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
     "generator": "native/fixtures/gen/plugins_klines_gen.ts",
-    "generatorSha256": "bd7413407fbbad622d4e2498e725f14040fabd041fe5dfb2cf995ca2e9cfff8f"
+    "generatorSha256": "0e4b83aeb0896b0531fd9b3315be1207b947869dc38a0679b600681ca905a9b4"
   },
   "klineRow": "[openTime, open, high, low, close, volume, closeTime, trades]",
   "klines15m": [

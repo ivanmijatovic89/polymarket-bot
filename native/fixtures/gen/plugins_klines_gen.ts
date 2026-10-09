@@ -23,6 +23,7 @@
  * exact); each sample names the open-time range TS received.
  *
  * Usage (repo root): npx tsx native/fixtures/gen/plugins_klines_gen.ts
+ *   (`--check`: regenerate in memory and exit 1 on any difference, 60 GF-4)
  */
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -132,6 +133,35 @@ function render(v: unknown, indent = ''): string {
   return JSON.stringify(v)
 }
 
+// `--check` (60 GF-4): regenerate in memory and fail on any content
+// difference from the committed golden or a stale generatorSha256
+// (contentPin is ignored); writes nothing. `native:goldens:check` runs this.
+const CHECK = process.argv.includes('--check')
+const extraArgs = process.argv.slice(2).filter((a) => a !== '--check')
+if (extraArgs.length > 0) throw new Error(`unknown arguments: ${extraArgs.join(' ')}`)
+let checkFailures = 0
+
+/** In check mode: compare with the committed file instead of writing it. */
+function checkGolden(target: string, bodyText: string, generatorSha256: string): void {
+  const name = path.basename(target)
+  if (!existsSync(target)) {
+    console.error(`${name}: missing; regenerate`)
+    checkFailures += 1
+    return
+  }
+  const prev = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>
+  const { header, ...prevBody } = prev
+  if (render(sortKeys(prevBody)) !== bodyText) {
+    console.error(`${name}: content differs from the TS oracle; regenerate`)
+    checkFailures += 1
+  } else if ((header as { generatorSha256?: string }).generatorSha256 !== generatorSha256) {
+    console.error(`${name}: generatorSha256 is stale; regenerate`)
+    checkFailures += 1
+  } else {
+    console.log(`${name}: up to date`)
+  }
+}
+
 /**
  * `contentPin` is kept when the content is unchanged (60 GF-2); only new
  * content asks git for the oracle pin, so a checkout without `origin/main`
@@ -159,10 +189,11 @@ function contentPinFor(target: string, bodyText: string): string {
 function writeGolden(file: string, content: Record<string, unknown>): void {
   const target = path.join(outDir, file)
   const body = sortKeys(content) as Record<string, unknown>
-  const contentPin = contentPinFor(target, render(body))
   const generatorSha256 = createHash('sha256')
     .update(readFileSync(path.join(repoRoot, GENERATOR)))
     .digest('hex')
+  if (CHECK) return checkGolden(target, render(body), generatorSha256)
+  const contentPin = contentPinFor(target, render(body))
   const out = sortKeys({ ...body, header: { contentPin, generator: GENERATOR, generatorSha256 } })
   writeFileSync(target, render(out) + '\n')
 }
@@ -223,3 +254,4 @@ async function main() {
 }
 
 await main()
+if (checkFailures > 0) process.exit(1)
