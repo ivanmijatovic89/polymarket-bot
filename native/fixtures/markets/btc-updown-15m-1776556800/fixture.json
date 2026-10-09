@@ -1,0 +1,164 @@
+{
+  "manifestVersion": 1,
+  "generator": "scripts/native/fixtures-build.ts",
+  "slug": "btc-updown-15m-1776556800",
+  "timeframe": "15m",
+  "window": {
+    "startMs": 1776556800000,
+    "endMs": 1776557700000
+  },
+  "feeEra": "F2",
+  "chainlinkCoverage": true,
+  "catalogFeedChecks": {
+    "binance": "usable",
+    "chainlink": "usable"
+  },
+  "roles": ["fee-era:F2", "chainlink", "midnight-start"],
+  "selection": "F2 inside Chainlink coverage; window starts at 00:00 UTC, so the lookback crosses midnight: two Binance and two Chainlink day files, seeds in the previous day (14 F-12, F-14, F-20, F-22).",
+  "conditionId": "0x5cb1f98b5c8ca390a3918705d6100daa7adefa93b89ecc69d7aa6079358a5875",
+  "tokenIds": {
+    "UP": "51592877597697332373433049588589005203563192479788923966531835023708199450302",
+    "DOWN": "103136824054974678330843209337159641234240347679618088909835161229845392740290"
+  },
+  "outcome": "UP",
+  "priceToBeat": {
+    "value": 75717.41,
+    "syncedAtMs": 1784575374000,
+    "status": "fed"
+  },
+  "feeds": {
+    "lookbackMs": 300000,
+    "binance": {
+      "pair": "BTCUSDT",
+      "tailMs": 2000,
+      "seedAggTradeId": 3939336989
+    },
+    "chainlink": {
+      "assetId": "btcusd",
+      "tailMs": 5000,
+      "seedRoundUs": 1776556499000000,
+      "seedBroadcastUs": 1776556499855757
+    }
+  },
+  "anomalies": {
+    "rows": 40836,
+    "inWindowRows": 36424,
+    "localClockBackwards": 0,
+    "exchangeClockBackwards": 0,
+    "crossedBookTicks": 3,
+    "lockedBookTicks": 24
+  },
+  "files": [
+    {
+      "role": "telonex_delta",
+      "path": "telonex-delta/btc-updown-15m-1776556800.parquet",
+      "bytes": 583331,
+      "sha256": "a9fe52f780f14b3ccbbb2a1ccbad8a7d3dcf81cc72f3e8d42e8374e4f25f53c5",
+      "rows": 40836,
+      "day": null,
+      "source": {
+        "path": "data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1776556800.parquet",
+        "bytes": 583331,
+        "sha256": "a9fe52f780f14b3ccbbb2a1ccbad8a7d3dcf81cc72f3e8d42e8374e4f25f53c5",
+        "rows": 40836
+      },
+      "trim": null
+    },
+    {
+      "role": "binance_agg_trades",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-18.parquet",
+      "bytes": 8554,
+      "sha256": "b8f22737997d25ce6ea840cda81324f9883debf9bd8348945a66897904d3f031",
+      "rows": 791,
+      "day": "2026-04-18",
+      "source": {
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-18.parquet",
+        "bytes": 4282853,
+        "sha256": "470742f81a5a7bfb36971b471e7b6cb4a4d15f4ac4a7beacc7045a23673dd281",
+        "rows": 555611
+      },
+      "trim": {
+        "membershipRows": 790,
+        "holdsSeed": true
+      }
+    },
+    {
+      "role": "binance_agg_trades",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-19.parquet",
+      "bytes": 33067,
+      "sha256": "8b067e2c2e205d99ff7d8c58ddb93df7a49f58e1dd2ff5da36202d3ac2a41c6a",
+      "rows": 3580,
+      "day": "2026-04-19",
+      "source": {
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-19.parquet",
+        "bytes": 6213297,
+        "sha256": "f7cda83c10592c97aadd964fdf0e6d911983257b64678a70345b73538301b9b3",
+        "rows": 790284
+      },
+      "trim": {
+        "membershipRows": 3580,
+        "holdsSeed": false
+      }
+    },
+    {
+      "role": "chainlink_crypto_prices",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-04-18.parquet",
+      "bytes": 9194,
+      "sha256": "0ecaa738f4fbb7f4401437b1b0f050875c99e185238e33cb9ae1325b2138a724",
+      "rows": 300,
+      "day": "2026-04-18",
+      "source": {
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-04-18.parquet",
+        "bytes": 2900562,
+        "sha256": "20a56a45fa6d6addc1fb6d5aa2cb834d60cdf1780cfcd65119ca695b90244e4d",
+        "rows": 84962
+      },
+      "trim": {
+        "membershipRows": 299,
+        "holdsSeed": true
+      }
+    },
+    {
+      "role": "chainlink_crypto_prices",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-04-19.parquet",
+      "bytes": 23951,
+      "sha256": "6b33c226ae24a69f45b064611ac5d3239a8396391160ec13fa28faa92bedb9da",
+      "rows": 887,
+      "day": "2026-04-19",
+      "source": {
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-04-19.parquet",
+        "bytes": 2972799,
+        "sha256": "66c1fe702bd7a84b6f007353f79aa4aeb1e9c2a3ee7547b98f1b29d332e1b4e0",
+        "rows": 85311
+      },
+      "trim": {
+        "membershipRows": 887,
+        "holdsSeed": false
+      }
+    }
+  ],
+  "proof": [
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": false
+      },
+      "traceSha256": "a0cd87c2bff597696de43c571b41287704504b0cc3c0f4fd8310af4a4a8f5e2f",
+      "traceLines": 72848,
+      "ticks": 36424,
+      "syntheticTicks": 0,
+      "outputSha256": "1086103a1c1aee56601dcf1c2c4f80307d997d0bbe503409037d5307cde60dbf"
+    },
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": true
+      },
+      "traceSha256": "d13fac82a464b3d8caa4bcb7302528d067699ffae13fbc30eee5b88467174253",
+      "traceLines": 81770,
+      "ticks": 40885,
+      "syntheticTicks": 4461,
+      "outputSha256": "799bd83872bb028b19b3fb1bece663e45e0166d9306ea1722c35111183030ac5"
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "manifestVersion": 1,
+  "generator": "scripts/native/fixtures-build.ts",
+  "slug": "btc-updown-15m-1777152600",
+  "timeframe": "15m",
+  "window": {
+    "startMs": 1777152600000,
+    "endMs": 1777153500000
+  },
+  "feeEra": "F2",
+  "chainlinkCoverage": true,
+  "catalogFeedChecks": {
+    "binance": "usable",
+    "chainlink": "usable"
+  },
+  "roles": ["edge:crossed-book", "edge:local-clock-backwards", "fee-era:F2", "chainlink"],
+  "selection": "Edge market: the most crossed-book ticks (574) among the scanned F2/F3 files up to 600 KB with local time stepping backwards (8 steps); 15 §8 crossedBookTicks, localClockBackwards. Found by `scan --max-bytes 600000`.",
+  "conditionId": "0x42d66bd6ca521361406d2deb53845a2bdd443045a51d0d2bebd48fb7d40a9367",
+  "tokenIds": {
+    "UP": "90221826854314476782381349239044815010491270640485330164351363280069521112983",
+    "DOWN": "6256230951480142045981180933992984104166237795368336951784101303604330069348"
+  },
+  "outcome": "DOWN",
+  "priceToBeat": {
+    "value": 77536.86120891862,
+    "syncedAtMs": 1784575676000,
+    "status": "fed"
+  },
+  "feeds": {
+    "lookbackMs": 300000,
+    "binance": {
+      "pair": "BTCUSDT",
+      "tailMs": 2000,
+      "seedAggTradeId": 3944771531
+    },
+    "chainlink": {
+      "assetId": "btcusd",
+      "tailMs": 5000,
+      "seedRoundUs": 1777152299000000,
+      "seedBroadcastUs": 1777152299844119
+    }
+  },
+  "anomalies": {
+    "rows": 23354,
+    "inWindowRows": 19565,
+    "localClockBackwards": 8,
+    "exchangeClockBackwards": 0,
+    "crossedBookTicks": 574,
+    "lockedBookTicks": 13
+  },
+  "files": [
+    {
+      "role": "telonex_delta",
+      "path": "telonex-delta/btc-updown-15m-1777152600.parquet",
+      "bytes": 329947,
+      "sha256": "4e442871827374e4288c4b0c48e4abdb2efe7fa265e1452797be27e04e2b1741",
+      "rows": 23354,
+      "day": null,
+      "source": {
+        "path": "data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1777152600.parquet",
+        "bytes": 329947,
+        "sha256": "4e442871827374e4288c4b0c48e4abdb2efe7fa265e1452797be27e04e2b1741",
+        "rows": 23354
+      },
+      "trim": null
+    },
+    {
+      "role": "binance_agg_trades",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-25.parquet",
+      "bytes": 31112,
+      "sha256": "4e9a1bfee260f1e69c47efec4487a1f18f6fadf16b7c6aca448f2fbbbf1c3c58",
+      "rows": 3333,
+      "day": "2026-04-25",
+      "source": {
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-04-25.parquet",
+        "bytes": 2391366,
+        "sha256": "9f4bf318ff44fe7b57476901eb105b3729673b9b7ef84dd6d761229c1cdf6807",
+        "rows": 286524
+      },
+      "trim": {
+        "membershipRows": 3332,
+        "holdsSeed": true
+      }
+    },
+    {
+      "role": "chainlink_crypto_prices",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-04-25.parquet",
+      "bytes": 33609,
+      "sha256": "e3898df1f93bb41fa86feb87837d2d8ef8ba8ebf4a90212fbe585d457b6794b5",
+      "rows": 1197,
+      "day": "2026-04-25",
+      "source": {
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-04-25.parquet",
+        "bytes": 2900231,
+        "sha256": "e9e6d42e4caaaf03e35ff57efb324c4d678bc00fbbb8940ac887768a67323ec2",
+        "rows": 85415
+      },
+      "trim": {
+        "membershipRows": 1196,
+        "holdsSeed": true
+      }
+    }
+  ],
+  "proof": [
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": false
+      },
+      "traceSha256": "867c449e47b887fa739c20290e3602c757fe74d7cf3dfd76dca7b04917559a15",
+      "traceLines": 39130,
+      "ticks": 19565,
+      "syntheticTicks": 0,
+      "outputSha256": "a190fc5baab33c605ad3eba1f425c5ca63efdd2bad965fba20d6fdec4c031f9b"
+    },
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": true
+      },
+      "traceSha256": "449f44d15c3233eff33779d42d5c5b58b52fb9ce186fb2fa19632ed52897d2e8",
+      "traceLines": 45882,
+      "ticks": 22941,
+      "syntheticTicks": 3376,
+      "outputSha256": "01fa6c0e5d79d6f1f8ffa192839057734e201c5ec9ef4da200d6ecb46ecabaf9"
+    }
+  ]
+}

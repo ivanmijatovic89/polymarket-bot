@@ -1,0 +1,128 @@
+{
+  "jobSchemaVersion": 1,
+  "run": {
+    "strategyId": "engine-exerciser.rs",
+    "inputMode": "telonex-delta",
+    "modelConfig": {
+      "modelConfigVersion": 1,
+      "profile": "ts-compat",
+      "seed": 0,
+      "capital": {
+        "startingCapitalUsdc": "500"
+      },
+      "execution": {
+        "models": {
+          "latency": "compat",
+          "fee": "flat_700bps_4dp",
+          "takerDelay": "off",
+          "depletion": "none",
+          "maker": "worst_queue",
+          "reports": "compat"
+        },
+        "compatLatency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        }
+      },
+      "feeds": {
+        "calibrationId": "feeds-2026-07-21",
+        "binance": {
+          "latency": {
+            "kind": "constant",
+            "ms": 110
+          }
+        },
+        "chainlink": {
+          "latency": {
+            "kind": "constant",
+            "ms": 320
+          },
+          "maxGapMs": 300000
+        },
+        "priceToBeat": {
+          "latency": {
+            "kind": "constant",
+            "ms": 2700
+          }
+        }
+      },
+      "runner": {
+        "maxEventsPerDrain": 4200
+      },
+      "risk": {
+        "maxOpenOrders": 100,
+        "maxOrderSize": "2000",
+        "maxAbsPosition": "2000",
+        "maxLossStopUsdc": "500"
+      },
+      "rules": {
+        "rulesTableVersion": "rules-table-v1",
+        "missingSnapshot": "dated_fallback"
+      }
+    },
+    "candidates": [
+      {
+        "key": "fixture",
+        "index": 0,
+        "params": {},
+        "execution": null
+      }
+    ]
+  },
+  "market": {
+    "slug": "btc-updown-5m-1770870900",
+    "conditionId": "0x8d91a5536e6b7ee56a5436fcd005dd1d571db51079070d4583c26c0542246ce3",
+    "window": {
+      "startMs": 1770870900000,
+      "endMs": 1770871200000
+    },
+    "tokenIds": {
+      "UP": "69777535833084290158383529445960069214422493270389746524315962345065414831982",
+      "DOWN": "108909577816286299018022137309075419776467539973279137537373424407909413810771"
+    },
+    "outcome": "UP",
+    "rules": {
+      "snapshotParserVersion": null,
+      "captured": {},
+      "disagreements": 0
+    },
+    "gammaPriceToBeat": {
+      "priceToBeat": null,
+      "syncedAtMs": null
+    },
+    "feedAvailability": {
+      "priceToBeat": {
+        "status": "absent_pre_series_epoch"
+      }
+    },
+    "input": {
+      "path": "telonex-delta/btc-updown-5m-1770870900.parquet",
+      "bytes": 54194,
+      "sha256": "bce0c1adcc003fea91de7762844da738f57b1464f9028402b99eccb82be8ca27",
+      "format": {
+        "name": "telonex-delta-typed",
+        "version": 1
+      }
+    },
+    "recorderV4": null,
+    "ownActivity": null,
+    "feedFiles": [
+      {
+        "feed": "binance_agg_trades",
+        "symbol": "BTCUSDT",
+        "day": "2026-02-12",
+        "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+        "bytes": 94486
+      }
+    ]
+  },
+  "outputs": {
+    "tracePath": null,
+    "traceLevel": "decisions",
+    "ledgerPath": null
+  },
+  "budget": {
+    "wallMs": 120000,
+    "threads": 1
+  }
+}

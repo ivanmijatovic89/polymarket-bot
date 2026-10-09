@@ -1,0 +1,128 @@
+{
+  "manifestVersion": 1,
+  "generator": "scripts/native/fixtures-build.ts",
+  "slug": "btc-updown-15m-1787730300",
+  "timeframe": "15m",
+  "window": {
+    "startMs": 1787730300000,
+    "endMs": 1787731200000
+  },
+  "feeEra": "F3",
+  "chainlinkCoverage": true,
+  "catalogFeedChecks": {
+    "binance": "usable",
+    "chainlink": "usable"
+  },
+  "roles": ["fee-era:F3", "chainlink"],
+  "selection": "F3 inside Chainlink coverage; a small eligible file (185 KB, 15,503 rows) with rows across the whole window.",
+  "conditionId": "0x1849e08d4c8885bbf6248cbbc23d97c25e2fb061bb60ab1b8c368a5b44d0c9f6",
+  "tokenIds": {
+    "UP": "43021036332944417566896734627055330569473723022444730690706249535882830167110",
+    "DOWN": "102961113969352019426929700998191030097637259391525391596329250977644419942793"
+  },
+  "outcome": "DOWN",
+  "priceToBeat": {
+    "value": 78977.88537231006,
+    "syncedAtMs": 1789215878000,
+    "status": "fed"
+  },
+  "feeds": {
+    "lookbackMs": 300000,
+    "binance": {
+      "pair": "BTCUSDT",
+      "tailMs": 2000,
+      "seedAggTradeId": 4045575170
+    },
+    "chainlink": {
+      "assetId": "btcusd",
+      "tailMs": 5000,
+      "seedRoundUs": 1787729998000000,
+      "seedBroadcastUs": 1787729999009000
+    }
+  },
+  "anomalies": {
+    "rows": 15503,
+    "inWindowRows": 14453,
+    "localClockBackwards": 4,
+    "exchangeClockBackwards": 0,
+    "crossedBookTicks": 3,
+    "lockedBookTicks": 5
+  },
+  "files": [
+    {
+      "role": "telonex_delta",
+      "path": "telonex-delta/btc-updown-15m-1787730300.parquet",
+      "bytes": 185305,
+      "sha256": "9e1876579b3e92542226fe6b8b8abadad334affbcb213dd073d4fe29df716f13",
+      "rows": 15503,
+      "day": null,
+      "source": {
+        "path": "data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1787730300.parquet",
+        "bytes": 185305,
+        "sha256": "9e1876579b3e92542226fe6b8b8abadad334affbcb213dd073d4fe29df716f13",
+        "rows": 15503
+      },
+      "trim": null
+    },
+    {
+      "role": "binance_agg_trades",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-08-26.parquet",
+      "bytes": 93062,
+      "sha256": "a6b0debeb27c52609d5e1429f37c47256c3aedb7acce57ed220d760f41c3d4c8",
+      "rows": 10772,
+      "day": "2026-08-26",
+      "source": {
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-08-26.parquet",
+        "bytes": 8458537,
+        "sha256": "d7b15a76c94b1fa1e9e575e83158dd5f1069f4baad1459e416c40dd57bb8fc28",
+        "rows": 1112271
+      },
+      "trim": {
+        "membershipRows": 10771,
+        "holdsSeed": true
+      }
+    },
+    {
+      "role": "chainlink_crypto_prices",
+      "path": "chainlink/btcusd/btcusd-crypto-prices-2026-08-26.parquet",
+      "bytes": 37575,
+      "sha256": "046e9211fa290329b3112b94e9418e95f68ff036b924ea4704ec643b02aab9ce",
+      "rows": 1141,
+      "day": "2026-08-26",
+      "source": {
+        "path": "data/telonex/crypto_prices/btcusd/btcusd-crypto-prices-2026-08-26.parquet",
+        "bytes": 3186121,
+        "sha256": "4f41d48b715d9ff89f5c073279f16e5f3d0eeac331739430a36f7bf007150775",
+        "rows": 82087
+      },
+      "trim": {
+        "membershipRows": 1140,
+        "holdsSeed": true
+      }
+    }
+  ],
+  "proof": [
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": false
+      },
+      "traceSha256": "cb61050a5348d527e5b520963adea1ee24ff1182bdded9dec20afc00ce6557d9",
+      "traceLines": 28906,
+      "ticks": 14453,
+      "syntheticTicks": 0,
+      "outputSha256": "a86ab7ad852bfbacaa58cbb61e31dde854434c71e4da1cec56134a5a8d85a44b"
+    },
+    {
+      "strategyId": "feedsParityProbe.v1",
+      "params": {
+        "tickOnUpdate": true
+      },
+      "traceSha256": "cf6c1952c209dbd612f897a6539f2b0074839d82a9d03af8c55eed361532a004",
+      "traceLines": 46262,
+      "ticks": 23131,
+      "syntheticTicks": 8678,
+      "outputSha256": "44d49915767de8d063f3eecf620cf8e2418b303c3010e47fca9e967c19368e76"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "manifestVersion": 1,
+  "generator": "scripts/native/fixtures-build.ts",
+  "slug": "btc-updown-5m-1770875700",
+  "timeframe": "5m",
+  "window": {
+    "startMs": 1770875700000,
+    "endMs": 1770876000000
+  },
+  "feeEra": "F1",
+  "chainlinkCoverage": false,
+  "catalogFeedChecks": {
+    "binance": "unverified",
+    "chainlink": "not_required"
+  },
+  "roles": ["5m", "fee-era:F1", "edge:local-clock-backwards"],
+  "selection": "Second BTC 5m market: the next smallest active 5m file, with crossed books and a backward local-clock step.",
+  "conditionId": "0xc9cad23e85087f9fc9408fdf5e769b8b3bcfe90a1cf14bd18847803a374ba9c1",
+  "tokenIds": {
+    "UP": "61697100620860689102586394528070582226345600528811893652511767381696928190008",
+    "DOWN": "87256806828995973386749355790682230232397354076596019275292632185810124893341"
+  },
+  "outcome": "UP",
+  "priceToBeat": {
+    "value": null,
+    "syncedAtMs": null,
+    "status": "absent_pre_series_epoch"
+  },
+  "feeds": {
+    "lookbackMs": 300000,
+    "binance": {
+      "pair": "BTCUSDT",
+      "tailMs": 2000,
+      "seedAggTradeId": 3859081203
+    },
+    "chainlink": null
+  },
+  "anomalies": {
+    "rows": 5309,
+    "inWindowRows": 3847,
+    "localClockBackwards": 1,
+    "exchangeClockBackwards": 0,
+    "crossedBookTicks": 6,
+    "lockedBookTicks": 8
+  },
+  "files": [
+    {
+      "role": "telonex_delta",
+      "path": "telonex-delta/btc-updown-5m-1770875700.parquet",
+      "bytes": 80069,
+      "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1",
+      "rows": 5309,
+      "day": null,
+      "source": {
+        "path": "data/events/telonex/delta-typed/btc/5m/btc-updown-5m-1770875700.parquet",
+        "bytes": 80069,
+        "sha256": "ccfab919b603ca7085a07ab078222c91457116c9f02156ec04c01da97aea48d1",
+        "rows": 5309
+      },
+      "trim": null
+    },
+    {
+      "role": "binance_agg_trades",
+      "path": "binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+      "bytes": 60828,
+      "sha256": "37ac6e510cf7d844e1f10367876431a886ec4ec94f44b3dedf0600dd665fd6d1",
+      "rows": 6899,
+      "day": "2026-02-12",
+      "source": {
+        "path": "data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-02-12.parquet",
+        "bytes": 14249716,
+        "sha256": "42e196d802213d59fda87999639e8652e8bdac8d715219bbdd423d9421882c8f",
+        "rows": 1859454
+      },
+      "trim": {
+        "membershipRows": 6898,
+        "holdsSeed": true
+      }
+    }
+  ],
+  "proof": [
+    {
+      "strategyId": "fixtures-feed-probe.binance-ptb",
+      "params": {
+        "tickOnUpdate": false
+      },
+      "traceSha256": "aed216984f5ad1cee540adb7499cf99cf85d4b9c6223e0955beb1088fc5e9ff4",
+      "traceLines": 7694,
+      "ticks": 3847,
+      "syntheticTicks": 0,
+      "outputSha256": "9715313cffbe652eeced1d2cebef663d9a73006f1f99a93a2a76cff69554edc3"
+    },
+    {
+      "strategyId": "fixtures-feed-probe.binance-ptb",
+      "params": {
+        "tickOnUpdate": true
+      },
+      "traceSha256": "86dea78b56fe57a3edf2cef06e633fbe355dbd923cd069b9c1ca889eabb6bdca",
+      "traceLines": 14988,
+      "ticks": 7494,
+      "syntheticTicks": 3647,
+      "outputSha256": "63105bc0117670d1e10081666d733503bbbd7f8f2fd3342f69c4cf74eec39ee5"
+    }
+  ]
+}
