@@ -3,10 +3,11 @@
 //! (artifact 304eceb3…ab8, `data/strategy-artifacts/304eceb3…ab8.mjs:5-52`)
 //! normalizes to values equal (rule 10) to the TS Zod-normalized params.
 //!
-//! The TS strings below were produced once on 2026-10-09 with zod 4.4.3 by
-//! `JSON.stringify(ConfigSchema.parse(input))` on the bundle's schema. The
-//! real PG-1 golden (stored `backtest_runs.params` of the 60 §6.3 run) is a
-//! test of the `native/strategies` port (31 §7.1 gate 4).
+//! The TS strings come from `fixtures/lagsnipe_params_golden.json`, written
+//! by `fixtures/lagsnipe_params_gen.ts` with
+//! `JSON.stringify(definition.schema.parse(input))` on the bundle (60 §7.1
+//! GF-1/GF-2). The real PG-1 golden (stored `backtest_runs.params` of the
+//! 60 §6.3 run) is a test of the `native/strategies` port (31 §7.1 gate 4).
 
 use pmb_sdk::params::normalized_eq;
 use pmb_sdk::prelude::*;
@@ -83,10 +84,13 @@ pub struct LagsnipeV15Params {
     pub min_imb: f64,
 }
 
-const TS_DEFAULTS: &str = r#"{"lookbackMs":2000,"moveUsd":20,"minEdge":0.04,"sigma":0.0001,"maxRemainingSec":840,"minRemainingSec":10,"stakeUsd":30,"fullEdge":0.12,"maxTrades":3,"cooldownMs":5000,"minPrice":0.1,"maxPrice":0.9,"slippage":0.01,"maxSpread":0.04,"depthFrac":1,"moveK":0,"moveMinUsd":20,"minVolSec":60,"sigmaAdapt":0,"sigmaMin":0.00003,"maxRv":0,"absEdge":-1,"absHi":-1,"absLoFrac":1,"fillEdge":-1,"depthSlip":-1,"revEdge":-1,"addEdge":-1,"trendMs":15000,"trendMin":-1,"imbCents":0.03,"minImb":-1}"#;
+const GOLDEN: &str = include_str!("fixtures/lagsnipe_params_golden.json");
 
-/// `ConfigSchema.parse(..)` of both the CLI-string and the typed input below.
-const TS_SET: &str = r#"{"lookbackMs":1500,"moveUsd":20,"minEdge":0.04,"sigma":0.0002,"maxRemainingSec":840,"minRemainingSec":10,"stakeUsd":30,"stakeMinUsd":12,"fullEdge":0.12,"maxTrades":5,"cooldownMs":5000,"minPrice":0.15,"maxPrice":0.9,"slippage":0.01,"maxSpread":0.04,"depthFrac":1,"moveK":0,"moveMinUsd":20,"minVolSec":60,"sigmaAdapt":0,"sigmaMin":0.00003,"maxRv":0,"absEdge":-0.5,"absHi":-1,"absLoFrac":1,"fillEdge":-1,"depthSlip":-1,"revEdge":-1,"addEdge":-1,"trendMs":15000,"trendMin":-1,"imbCents":0.03,"minImb":-1}"#;
+/// `definition.schema.parse(..)` of the bundle for `case`.
+fn ts(case: &str) -> String {
+    let golden: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+    golden["normalized"][case].as_str().unwrap().to_owned()
+}
 
 fn check(p: &LagsnipeV15Params, ts: &str) {
     let n = p.normalized_json();
@@ -100,7 +104,7 @@ fn check(p: &LagsnipeV15Params, ts: &str) {
 // spec: 30 §9 rule 9 (a)-like: defaults normalize to the TS defaults
 #[test]
 fn defaults_match_ts() {
-    check(&LagsnipeV15Params::from_cli([]).unwrap(), TS_DEFAULTS);
+    check(&LagsnipeV15Params::from_cli([]).unwrap(), &ts("defaults"));
 }
 
 // spec: 30 §9 rule 9 (b): an input with stakeMinUsd set, as CLI strings and as typed JSON
@@ -115,12 +119,12 @@ fn set_values_match_ts() {
         "lookbackMs=1500",
     ])
     .unwrap();
-    check(&cli, TS_SET);
+    check(&cli, &ts("setCli"));
     let typed = LagsnipeV15Params::from_json_str(
         r#"{"stakeMinUsd":12,"maxTrades":5,"sigma":2e-4,"minPrice":0.15,"absEdge":-0.5,"lookbackMs":1500}"#,
     )
     .unwrap();
-    check(&typed, TS_SET);
+    check(&typed, &ts("setTyped"));
 }
 
 // spec: 30 §9 rule 9 (c): typed null and the CLI string "null" normalize to absent.
@@ -130,8 +134,8 @@ fn set_values_match_ts() {
 fn null_is_absent() {
     let typed = LagsnipeV15Params::from_json_str(r#"{"stakeMinUsd":null}"#).unwrap();
     let cli = LagsnipeV15Params::from_cli(["stakeMinUsd=null"]).unwrap();
-    check(&typed, TS_DEFAULTS);
-    check(&cli, TS_DEFAULTS);
+    check(&typed, &ts("defaults"));
+    check(&cli, &ts("defaults"));
 }
 
 // spec: 30 §9 rule 2: the Zod bounds hold (maxTrades .min(1), sigma .positive())
