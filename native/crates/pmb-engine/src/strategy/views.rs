@@ -177,6 +177,12 @@ pub struct PortfolioView<'a> {
 }
 
 impl<'a> PortfolioView<'a> {
+    /// A view of a ledger (the engine builds one per callback; tools and
+    /// tests may build one over a finished session's ledger).
+    pub fn new(ledger: &'a Ledger, cids: &'a CidInterner) -> PortfolioView<'a> {
+        PortfolioView { ledger, cids }
+    }
+
     /// Position of an outcome (30 §5.2; `avg_entry` via
     /// [`PortfolioView::avg_entry`]).
     #[inline]

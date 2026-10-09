@@ -16,3 +16,7 @@ pmb-contract.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde_json.workspace = true

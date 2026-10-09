@@ -545,6 +545,8 @@ dependencies = [
  "pmb-contract",
  "pmb-core",
  "pmb-feeds",
+ "proptest",
+ "serde_json",
 ]
 
 [[package]]
