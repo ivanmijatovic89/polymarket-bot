@@ -35,6 +35,9 @@ test('checkRustcVerbose requires the pinned release and the aarch64-apple-darwin
     () => checkRustcVerbose(RUSTC_VV.replace('host: aarch64', 'host: x86_64'), '1.89.0'),
     /rustc host is "x86_64-apple-darwin"/,
   )
+  // spec: 31 §7.6 — the CI mode accepts any host (it builds no artifact).
+  const linux = RUSTC_VV.replace('host: aarch64-apple-darwin', 'host: x86_64-unknown-linux-gnu')
+  assert.equal(checkRustcVerbose(linux, '1.89.0', null).host, 'x86_64-unknown-linux-gnu')
 })
 
 // spec: 31 §5.2 — deploymentTarget is the value of 31 §4.2, read from the template.

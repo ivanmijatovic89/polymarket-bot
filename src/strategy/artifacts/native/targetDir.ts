@@ -9,6 +9,7 @@ import {
   existsSync,
   linkSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -233,4 +234,37 @@ export function withBuilderLock<T>(
     const held = readLock(lockPath)
     if (held !== null && held.pid === process.pid) unlinkSync(lockPath)
   }
+}
+
+/**
+ * Delete cargo's fingerprints of one package in one profile directory, so
+ * the next cargo run recompiles (or re-lints) that package's own crates.
+ *
+ * The shared target directory (31 §4.5) serves every checkout of a package:
+ * cargo keys a workspace member's units by name and paths relative to the
+ * package root, and decides freshness by mtime. A second checkout of the
+ * same package whose files are older than the first one's outputs would
+ * otherwise be served the first checkout's binary (and its clippy result),
+ * while the source hash is computed from the second checkout's files.
+ * Dependencies are not affected: registry crates are pinned by checksum, and
+ * engine crates are keyed by the engine root in the rendered rustflags.
+ * Call under the builder lock.
+ */
+export function forgetPackageFingerprints(
+  targetDir: string,
+  triple: string,
+  profile: string,
+  packageName: string,
+): number {
+  const dir = path.join(targetDir, triple, profile, '.fingerprint')
+  if (!existsSync(dir)) return 0
+  const prefix = `${packageName}-`
+  let n = 0
+  for (const name of readdirSync(dir)) {
+    if (name.startsWith(prefix) && /^[0-9a-f]{16}$/.test(name.slice(prefix.length))) {
+      rmSync(path.join(dir, name), { recursive: true, force: true })
+      n++
+    }
+  }
+  return n
 }

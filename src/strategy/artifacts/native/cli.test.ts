@@ -9,6 +9,7 @@ import {
   isRustStrategyPackage,
   parseNativeCheckArgs,
   parseNativePublishArgs,
+  resolveNativeStrategyFile,
 } from './cli.js'
 
 function tempPackage(manifest: string | null): string {
@@ -117,4 +118,45 @@ test('parseNativeCheckArgs accepts --repo and refuses unknown flags', () => {
   assert.equal(parseNativeCheckArgs(['--repo', 'p']).repo, path.resolve('p'))
   assert.throws(() => parseNativeCheckArgs(['--repo', 'p', '--fix']), /unknown argument/)
   assert.throws(() => parseNativeCheckArgs([]), /usage/)
+})
+
+// spec: 31 §7.6 — the CI mode of strategy:check.
+test('parseNativeCheckArgs accepts --ci, which runs unthrottled', () => {
+  assert.equal(parseNativeCheckArgs(['--repo', 'p']).ci, false)
+  assert.equal(parseNativeCheckArgs(['--repo', 'p', '--ci']).ci, true)
+  assert.throws(
+    () => parseNativeCheckArgs(['--repo', 'p', '--ci', '--qos', 'background']),
+    /--qos does not apply/,
+  )
+})
+
+// spec: 31 §7.2 — `--strategy-file <pkg>/src/bin/<name>.rs` names a package and a bin.
+test('resolveNativeStrategyFile maps a bin source to its package and bin', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'pmb-native-file-'))
+  try {
+    const pkg = path.join(root, 'strategies')
+    mkdirSync(path.join(pkg, 'src', 'bin'), { recursive: true })
+    writeFileSync(
+      path.join(pkg, 'Cargo.toml'),
+      '[package]\nname = "x"\n\n[package.metadata.pmb]\nformat = 1\n',
+    )
+    writeFileSync(path.join(pkg, 'src', 'bin', 'lag-v15.rs'), '')
+    writeFileSync(path.join(pkg, 'src', 'lib.rs'), '')
+    assert.deepEqual(resolveNativeStrategyFile(path.join(pkg, 'src', 'bin', 'lag-v15.rs')), {
+      packageDir: pkg,
+      bin: 'lag-v15',
+    })
+    assert.throws(() => resolveNativeStrategyFile(path.join(pkg, 'src', 'lib.rs')), /src\/bin/)
+    assert.throws(
+      () => resolveNativeStrategyFile(path.join(pkg, 'src', 'bin', 'missing.rs')),
+      /not found/,
+    )
+    writeFileSync(path.join(pkg, 'Cargo.toml'), '[package]\nname = "x"\n')
+    assert.throws(
+      () => resolveNativeStrategyFile(path.join(pkg, 'src', 'bin', 'lag-v15.rs')),
+      /not a Rust strategy package/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

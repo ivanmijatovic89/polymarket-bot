@@ -9,7 +9,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { NativeBuildError } from './builder.js'
 import type { BuildQos } from './host.js'
-import { publishNativeLocalOnly, runNativeCheck } from './pipeline.js'
+import {
+  publishNativeLocalOnly,
+  runNativeCheck,
+  type LocalPublishResult,
+  type NativeRunOptions,
+} from './pipeline.js'
 import { definedPaths, scanToml } from './toml.js'
 
 /** True when `dir` holds a Cargo.toml with `[package.metadata.pmb]` (31 §7). */
@@ -136,16 +141,18 @@ export function parseNativePublishArgs(argv: string[]): NativePublishArgs {
 }
 
 const CHECK_USAGE =
-  'usage: npm run strategy:check -- --repo <package dir> [--target-dir <dir>] [--qos background|default]'
+  'usage: npm run strategy:check -- --repo <package dir> [--target-dir <dir>] [--qos background|default] [--ci]'
 
 export function parseNativeCheckArgs(argv: string[]): {
   repo: string
   targetDir: string | null
   qos: BuildQos
+  ci: boolean
 } {
   let repo: string | null = null
   let targetDir: string | null = null
   let qos: string | null = null
+  let ci = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
     const eq = a.indexOf('=')
@@ -158,15 +165,18 @@ export function parseNativeCheckArgs(argv: string[]): {
     if (name === '--repo') repo = takeValue()
     else if (name === '--target-dir') targetDir = takeValue()
     else if (name === '--qos') qos = takeValue()
+    else if (a === '--ci') ci = true
     else throw new UsageError(`unknown argument: ${a}\n${CHECK_USAGE}`)
   }
   if (!repo) throw new UsageError(CHECK_USAGE)
   if (qos !== null && qos !== 'background' && qos !== 'default')
     throw new UsageError(`--qos must be background or default (got ${qos})`)
+  if (ci && qos !== null) throw new UsageError('--ci runs unthrottled; --qos does not apply')
   return {
     repo: path.resolve(repo),
     targetDir: targetDir === null ? null : path.resolve(targetDir),
     qos: qosOf(qos),
+    ci,
   }
 }
 
@@ -238,6 +248,7 @@ export function runNativeCheckCli(argv: string[]): number {
       packageDir: args.repo,
       ...(args.targetDir !== null ? { targetDir: args.targetDir } : {}),
       qos: args.qos,
+      ci: args.ci,
     })
     return ok ? 0 : 1
   } catch (err) {
@@ -250,4 +261,63 @@ export function runNativeCheckCli(argv: string[]): number {
     )
     return 1
   }
+}
+
+/**
+ * `--strategy-file <pkg>/src/bin/<name>.rs` (31 §7.2): the strategy package
+ * and bin of a Rust source file. The file must be a bin source of a Rust
+ * strategy package (Cargo.toml with `[package.metadata.pmb]`); anything else
+ * is an error (00 R14).
+ */
+export function resolveNativeStrategyFile(file: string): { packageDir: string; bin: string } {
+  const abs = path.resolve(file)
+  const m = /^([A-Za-z0-9_-]+)\.rs$/.exec(path.basename(abs))
+  const binDir = path.dirname(abs)
+  const srcDir = path.dirname(binDir)
+  if (!m || path.basename(binDir) !== 'bin' || path.basename(srcDir) !== 'src') {
+    throw new UsageError(
+      `--strategy-file ${file}: a Rust strategy file is <package>/src/bin/<name>.rs`,
+    )
+  }
+  if (!existsSync(abs)) throw new UsageError(`--strategy-file not found: ${abs}`)
+  const packageDir = path.dirname(srcDir)
+  if (!isRustStrategyPackage(packageDir)) {
+    throw new UsageError(
+      `--strategy-file ${file}: ${packageDir} is not a Rust strategy package (Cargo.toml with [package.metadata.pmb])`,
+    )
+  }
+  return { packageDir, bin: m[1]! }
+}
+
+/**
+ * Auto-publish for `--strategy-file <pkg>/src/bin/<name>.rs` (31 §7.2,
+ * §7.5): local-only until M3a, with the skip-checks semantics of the TS
+ * `--strategy-file` flow (gates 2 and 4 skipped; 1, 3, 5, 6, 7 run) and
+ * `--allow-dirty` (recorded in the manifest). Returns the artifact
+ * (31 §7.5: workers never receive a local-only binary; a backtest of it
+ * needs `--sequential`, 20 §5.6).
+ * D-PENDING: 31 §7.2 does not say whether the auto-publish allows a dirty
+ * tree; chose the TS flow's --allow-dirty semantics
+ * (docs/strategy/external-artifacts.md).
+ */
+export async function autoPublishNativeStrategyFile(
+  file: string,
+  opts: Pick<NativeRunOptions, 'targetDir' | 'qos' | 'log'> & { cacheDir?: string } = {},
+): Promise<LocalPublishResult> {
+  const { packageDir, bin } = resolveNativeStrategyFile(file)
+  const { strategyRegistry } = await import('../../strategyRegistry.js')
+  const [result] = publishNativeLocalOnly({
+    ...opts,
+    packageDir,
+    bin,
+    allowDirty: true,
+    skipChecks: true,
+    parityCheck: false,
+    idCollision: (id) =>
+      Object.prototype.hasOwnProperty.call(strategyRegistry, id)
+        ? `strategy id ${JSON.stringify(id)} collides with a TS registry strategy (31 §7.2 step 5, 30 §4 rule 2)`
+        : null,
+  })
+  if (!result) throw new NativeBuildError('auto-publish produced no artifact')
+  return result
 }
