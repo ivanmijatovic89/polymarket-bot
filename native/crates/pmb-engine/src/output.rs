@@ -248,8 +248,11 @@ pub fn market_output(
     let up = s.shares[Outcome::Up];
     let down = s.shares[Outcome::Down];
     let stats = EngineMarketStats {
-        // 21 §11: the condition id of the first counted tick (the job's
-        // market id; the reader checks the file against it, 15 I-18).
+        // D-PENDING: 21 §11 takes `marketId` from the first counted tick's
+        // book event, but engine market events carry no market id (the
+        // telonex tape has one `market` column per file, checked against the
+        // job by 15 I-18); chose the job's condition id, which is that value
+        // whenever a counted tick exists.
         market_id: cx.info.condition_id.to_string(),
         slug: slug.to_owned(),
         final_outcome: contract_outcome(cx.outcome.winner()),

@@ -820,9 +820,10 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             });
         }
         let stats = self.stats.finalize(&self.ledger, outcome);
-        // 21 §16: bytes of the compact `intentMeta` array (brackets and
-        // commas included); `output::market_output` re-checks the
-        // materialized array with the contract's cap function.
+        // D-PENDING: 21 §16 caps `intentMeta` at 1 MiB without naming the
+        // byte measure; chose the compact JSON array (brackets and commas
+        // included). `output::market_output` re-checks the materialized
+        // array with the contract's `check_intent_meta_caps`.
         let bytes: usize = stats
             .intent_meta
             .iter()
