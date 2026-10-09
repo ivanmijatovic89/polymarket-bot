@@ -142,6 +142,10 @@ test('checkDescribe rejects a wrong profile, target, protocol, real-order capabi
     [{ ...DESCRIBE, protocolVersion: 1 }, /protocolVersion/],
     [{ ...DESCRIBE, capabilities: { realOrders: true } }, /realOrders/],
     [{ ...DESCRIBE, capabilities: {} }, /realOrders/],
+    [
+      { ...DESCRIBE, capabilities: { realOrders: false, subcommands: ['describe', 'live'] } },
+      /no live subcommand/,
+    ],
     [{ ...DESCRIBE, strategy: { id: '.bad' } }, /strategy\.id/],
     [{ ...DESCRIBE, strategy: { id: 'a'.repeat(129) } }, /strategy\.id/],
     [{ ...DESCRIBE, type: 'schema' }, /type/],

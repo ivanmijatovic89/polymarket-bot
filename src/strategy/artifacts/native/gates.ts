@@ -154,10 +154,17 @@ export function checkDescribe(
     }
   }
   if (!isRecord(caps)) errors.push('capabilities is missing')
-  else if (caps['realOrders'] !== false) {
-    errors.push(
-      `capabilities.realOrders is ${JSON.stringify(caps['realOrders'])}; a standard build MUST report false`,
-    )
+  else {
+    if (caps['realOrders'] !== false) {
+      errors.push(
+        `capabilities.realOrders is ${JSON.stringify(caps['realOrders'])}; a standard build MUST report false`,
+      )
+    }
+    // 31 §5.5: the standard variant has no `live` subcommand.
+    const subs = caps['subcommands']
+    if (Array.isArray(subs) && subs.includes('live')) {
+      errors.push('capabilities.subcommands lists "live"; a standard build has no live subcommand')
+    }
   }
   let id = ''
   if (!isRecord(strategy)) errors.push('strategy is missing')
