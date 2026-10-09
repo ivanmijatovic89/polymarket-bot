@@ -69,16 +69,16 @@ Raw data (every repetition, per-market rows, conditions, `ps` snapshots):
 
 ## Conditions
 
-| Item               | Sittings D–I                                                                                                                                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Host               | worker-1 (`Worker-1s-Mac-mini`), Apple M4 (4 P + 6 E cores), 16 GB, macOS 26.2 (25C56), AC power, Low Power Mode 0                                                                                                           |
-| Toolchain, profile | rustc 1.89.0 (29483883e 2025-08-04); the workspace `release` profile (opt-level 3, debug false), not the canonical artifact build (31 §4)                                                                                    |
-| Binaries           | E–H: `7b83dd87…6086` @ `137e99be`. D: `6d929afb…501e` @ `2970b02b` and `b2fcc646…5511` @ `089b6357`. I: `1c2ee5c3…c6d2` @ `e621c2f6` and `429cb1a6…a6a5` @ `27d8518f`. Conversion: `e79e76b8…68e7` @ `2cabe764` (same codec) |
-| Sets               | `smoke-50.json` sha256 `a48228ee…dbc`, `heavy-1.json` sha256 `671aea46…052c`; every source re-checked against the manifest (bytes, sha256) and every tape against its source before timing                                   |
-| QoS, threads       | E–I: `taskpolicy -c utility`, declared `--qos utility`, effective priority 20 (utility) recorded by the tool. D: `taskpolicy -c utility` (those binaries record no QoS). One thread                                          |
-| ModelConfig, cache | not used by decode; no in-process cache, warm OS page cache (the first read of each sitting is in the JSON; the page cache was not purged, so it is not a cold read)                                                         |
-| Concurrent load    | `ps` at the start and end of every run (JSON): another worktree's decode benchmark (`ws-bench`) at ~100% CPU throughout E–H, `node` at ~200% CPU during E, other agents' `rustc` builds at 40–100% during E–G                |
-| 1-min load average | D 3.40 → 2.50; E 3.87 → 4.12; F 4.12 → 4.11; G 3.94 → 3.93; H 3.78 → 3.58; I 4.94 → 3.79 (after every pass in the JSON)                                                                                                      |
+| Item               | Sittings D–I                                                                                                                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host               | worker-1 (`Worker-1s-Mac-mini`), Apple M4 (4 P + 6 E cores), 16 GB, macOS 26.2 (25C56), AC power, Low Power Mode 0                                                                                                                            |
+| Toolchain, profile | rustc 1.89.0 (29483883e 2025-08-04); the workspace `release` profile (opt-level 3, debug false), not the canonical artifact build (31 §4)                                                                                                     |
+| Binaries           | E–H: `7b83dd87…6086` @ `137e99be`. D: `6d929afb…501e` @ `2970b02b` and `b2fcc646…5511` @ `089b6357`. I: `1c2ee5c3…c6d2` @ `e621c2f6` and `429cb1a6…a6a5` @ `27d8518f`. Conversion: `e79e76b8…68e7` @ `2cabe764` (same codec)                  |
+| Sets               | `smoke-50.json` sha256 `a48228ee…dbc`, `heavy-1.json` sha256 `671aea46…052c`; every source re-checked against the manifest (bytes, sha256) and every tape against its source before timing                                                    |
+| QoS, threads       | E–H and the `27d8518f` runs of I: `taskpolicy -c utility`, declared `--qos utility`, effective priority 20 (utility) recorded by the tool. D and the `e621c2f6` runs of I: `taskpolicy -c utility` (those binaries record no QoS). One thread |
+| ModelConfig, cache | not used by decode; no in-process cache, warm OS page cache (the first read of each sitting is in the JSON; the page cache was not purged, so it is not a cold read)                                                                          |
+| Concurrent load    | `ps` at the start and end of every run (JSON): another worktree's decode benchmark (`ws-bench`) at ~100% CPU throughout E–H, `node` at ~200% CPU during E, other agents' `rustc` builds at 40–100% during E–G                                 |
+| 1-min load average | D 3.40 → 2.50; E 3.87 → 4.12; F 4.12 → 4.11; G 3.94 → 3.93; H 3.78 → 3.58; I 4.94 → 3.79 (after every pass in the JSON)                                                                                                                       |
 
 Sittings A–C (first version) used binaries `c55f9a61` (A, @ `089b6357`) and
 `229aad62` (B, C, @ `6c1bdebc`), the same host and QoS, at load 6.2–8.8;
