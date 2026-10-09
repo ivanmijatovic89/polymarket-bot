@@ -14,6 +14,8 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { buildNative, engineIdentity, loadPackage, readToolchain } from './builder.js'
+import { autoPublishNativeStrategyFile } from './cli.js'
+import { syncLock } from './syncLock.js'
 import { ENGINE_ROOT, makeHostContext } from './host.js'
 import type { BuildManifest } from './manifest.js'
 import { publishNativeLocalOnly, runNativeCheck } from './pipeline.js'
@@ -400,6 +402,49 @@ test("the shared target directory never serves another checkout's outputs", { sk
     const b = buildProbe(path.join(h1, 'engine'), pkg2, t)
     assert.equal(a.id, 'stage-probe.v1')
     assert.equal(b.id, 'stage-probe.v2', 'stale outputs from the other checkout')
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
+// spec: 31 §7.2, §7.5 — `--strategy-file <pkg>/src/bin/<name>.rs` auto-publishes
+// local-only with skip-checks semantics (gate 2 skipped) and allow-dirty.
+test('a .rs strategy file auto-publishes local-only, dirty and unformatted', { skip }, async () => {
+  const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
+  try {
+    const pkg = proofPackage(path.join(work, 'p'))
+    // Unformatted (gate 2 would fail) and uncommitted (dirty).
+    writeFileSync(path.join(pkg, 'src', 'lib.rs'), 'pub const ID: &str="builder-proof.v1";\n')
+    const r = await autoPublishNativeStrategyFile(path.join(pkg, 'src/bin/builder-proof.rs'), {
+      targetDir: path.join(work, 't'),
+      cacheDir: path.join(work, 'cache'),
+      log: quiet,
+    })
+    assert.equal(r.strategyId, 'builder-proof.v1')
+    assert.equal(r.profile, 'artifact')
+    const m = JSON.parse(readFileSync(r.manifestPath, 'utf8')) as BuildManifest
+    assert.equal(m.git.strategy.dirty, true)
+    assert.equal(m.git.strategy.allowDirty, true)
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
+// spec: 31 §3 item 3 — strategy:sync-lock regenerates the package lock from the
+// engine lock (copy, then prune offline); the result is a subset of it.
+test('syncLock rebuilds a package lock from the engine lock', { skip }, () => {
+  const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
+  try {
+    const pkg = proofPackage(path.join(work, 'p'))
+    const lock = path.join(pkg, 'Cargo.lock')
+    const before = readFileSync(lock, 'utf8')
+    rmSync(lock)
+    const r = syncLock(pkg)
+    assert.equal(r.changed, true)
+    assert.equal(r.packages, 1, 'a dependency-free package keeps only itself')
+    assert.equal(readFileSync(lock, 'utf8'), before)
+    assert.equal(syncLock(pkg).changed, false)
+    assert.throws(() => syncLock(work), /not a Rust strategy package/)
   } finally {
     rmSync(work, { recursive: true, force: true })
   }
