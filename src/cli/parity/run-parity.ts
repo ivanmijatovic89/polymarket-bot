@@ -1,11 +1,12 @@
 import '../../config/env.js'
-import { execFileSync, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import {
   createWriteStream,
   existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
@@ -63,11 +64,17 @@ import {
 import {
   assertEngineJobStrategy,
   checkDescribe,
-  describeArgs,
+  engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
-  rustRunArgs,
 } from '../../backtest/parity/rustJob.js'
+import {
+  NativeError,
+  describeNative,
+  runNativeJob,
+  type NativeDescribe,
+  type NativeMarketJobData,
+} from '../../native/index.js'
 import { TRACE_FORMAT, TRACE_VERSION } from '../../backtest/parity/trace.js'
 import { prepareOracleTree } from '../../backtest/parity/oracleTree.js'
 import {
@@ -90,8 +97,10 @@ Runs one parity cell (native/spec/60-verification.md §4): builds each market's
 MarketJobData (read-only catalog lookups through src/db/telonexMarkets.ts),
 writes <dir>/jobs/<slug>.json and the TS trace <dir>/ts/<slug>.ts.jsonl.gz
 under the pinned oracle environment (OR-7), and with --rust-bin also the
-EngineJob (src/native buildEngineJob), the Rust trace
-(\`<bin> run --job … --trace … --trace-level …\`) and the v2 diff (22 §3.4).
+native MarketJobData <dir>/jobs/<slug>.native.json (21 §4), the EngineJob
+(src/native buildEngineJob), the Rust trace through the src/native runner
+(\`<bin> run --job … --trace … --trace-level …\`, result validated per 21 §19)
+and the v2 diff (22 §3.4).
 Writes <dir>/manifest.json (HR-7) and <dir>/summary.md.
 
 --slugs/--limit/--tolerance and a dirty oracle tree (OR-3) make the run non-gating.
@@ -352,6 +361,28 @@ async function main(): Promise<number> {
     jobs = res.jobs
     missingCatalog.push(...res.missing)
     for (const job of jobs) writeJsonAtomic(path.join(jobsDir, `${job.slug}.json`), job)
+    // The native MarketJobData of each market (21 §4, HR-2), written even
+    // without --rust-bin so a later --rust-only run reuses it. Feed
+    // availability is resolved once at asOfMs (14 §6.2, OR-8).
+    const asOfMs = Date.now()
+    for (const job of jobs) {
+      const facts = res.catalog.get(job.slug!)
+      let bytes = facts?.conversionSizeBytes ?? null
+      if (bytes === null) {
+        // D-PENDING: 21 §4 input.bytes comes from the catalog; for a conversion without a recorded size the harness uses the local file size and says so (MS-5 still records the input's size and sha256).
+        bytes = statSync(job.filePath).size
+        console.error(
+          `[run-parity] ${job.slug}: the catalog has no conversion size; native job uses the local size ${bytes}`,
+        )
+      }
+      const native = nativeJobFor(job, cell, {
+        conditionId: facts?.conditionId ?? null,
+        bytes,
+        requiredFeeds: feeds,
+        asOfMs,
+      })
+      writeJsonAtomic(path.join(jobsDir, `${job.slug}.native.json`), native)
+    }
   }
   // The pin tree has no git history of this branch: its jobs carry an empty
   // commitSha (provenance only, D12), which the worker commit gate accepts.
@@ -372,20 +403,14 @@ async function main(): Promise<number> {
   if (builderOverride) nonGating.push(`--engine-job-builder ${builderOverride} (harness self-test)`)
   const buildEngineJob = rustBin ? await loadEngineJobBuilder(builderOverride) : null
   const rustSha = rustBin ? await fileSha256(rustBin) : null
-  const childEnvRust: Record<string, string> = {
-    TZ: 'UTC',
-    ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-  }
-  // 20 §5.1 pre-flight: same strategy id, params, feeds, trace format (fail loud, R14).
-  let rustBinary: unknown = null
+  // 20 §5.1 pre-flight through the src/native runner (G6 env; protocol 2,
+  // standard build, checked-in contract), then the cell checks: same strategy
+  // id, params, feeds, trace format (fail loud, R14).
+  let rustBinary: NativeDescribe['binary'] | null = null
   if (rustBin) {
-    const doc = JSON.parse(
-      execFileSync(rustBin, describeArgs(built.params as Record<string, unknown>), {
-        env: childEnvRust,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024,
-      }),
-    ) as { binary?: unknown }
+    const doc = await describeNative(path.resolve(rustBin), {
+      params: built.params as Record<string, unknown>,
+    })
     const problems = checkDescribe(doc, cell, {
       params: built.params as Record<string, unknown>,
       requiredFeeds: feeds,
@@ -394,7 +419,7 @@ async function main(): Promise<number> {
       throw new Error(
         `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
       )
-    rustBinary = doc.binary ?? null
+    rustBinary = doc.binary
   }
   const rustDir = path.join(outDir, 'rust')
   if (rustBin) mkdirSync(rustDir, { recursive: true })
@@ -498,20 +523,41 @@ async function main(): Promise<number> {
       entry.verdict = { verdict: 'excluded', reason: `ts_failed: ${entry.ts.error ?? ''}` }
     }
 
-    if (rustBin && buildEngineJob && entry.ts.ok) {
-      const engineJob = await buildEngineJob(nativeJobFor(job, cell), { dataRoot })
-      assertEngineJobStrategy(engineJob, cell)
-      const engineJobFile = path.join(rustDir, `${slug}.engine-job.json`)
-      writeJsonAtomic(engineJobFile, engineJob)
+    if (rustBin && buildEngineJob && rustBinary && entry.ts.ok) {
       const rustTrace = path.join(rustDir, `${slug}.rust${traceExt}`)
+      const rustLog = path.join(logsDir, `${slug}.rust.log`)
       const t0 = Date.now()
-      const r = await runChild(rustBin, rustRunArgs(engineJobFile, rustTrace, cell.traceLevel), {
-        env: childEnvRust,
-        logFile: path.join(logsDir, `${slug}.rust.log`),
-      })
-      entry.rust = { ok: r.code === 0 && existsSync(rustTrace), durationMs: Date.now() - t0 }
-      if (!entry.rust.ok) {
-        entry.rust.error = lastLines(r.tail)
+      let rustError: string | null = null
+      try {
+        const native = JSON.parse(
+          readFileSync(path.join(jobsDir, `${slug}.native.json`), 'utf8'),
+        ) as NativeMarketJobData
+        const engineJob = await engineJobFor(buildEngineJob, native, dataRoot, {
+          tracePath: rustTrace,
+          traceLevel: cell.traceLevel,
+        })
+        assertEngineJobStrategy(engineJob, cell)
+        writeJsonAtomic(path.join(rustDir, `${slug}.engine-job.json`), engineJob)
+        const log = createWriteStream(rustLog)
+        try {
+          const out = await runNativeJob(path.resolve(rustBin), engineJob, {
+            engineVersion: rustBinary.engineVersion,
+            tracePath: rustTrace,
+            traceLevel: cell.traceLevel,
+            log: (line) => log.write(`${line}\n`),
+          })
+          if (out.result.status !== 'ok' || out.exitCode !== 0)
+            rustError = `result ${out.result.status} exit ${out.exitCode}: ${JSON.stringify(out.result.error ?? out.result.candidates[0]?.error ?? null)}`
+          else if (!existsSync(rustTrace)) rustError = `no trace at ${rustTrace}`
+        } finally {
+          log.end()
+        }
+      } catch (err) {
+        rustError = err instanceof NativeError ? err.message : String(err)
+      }
+      entry.rust = { ok: rustError === null, durationMs: Date.now() - t0 }
+      if (rustError !== null) {
+        entry.rust.error = lastLines(rustError)
         entry.verdict = { verdict: 'unclassified', reason: `rust_failed: ${entry.rust.error}` }
       } else {
         entry.rust.trace = rustTrace
