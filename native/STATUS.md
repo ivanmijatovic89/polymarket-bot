@@ -3,22 +3,18 @@
 ## Current state
 
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
-- Branch: native-engine (local commits only: worker-1 cannot push, the lead copies the branch to GitHub and opens the draft PR "DO NOT MERGE before gate 2")
+- Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
 - Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57)
-- Milestone / step: M1 / step 1 (bootstrap)
+- Milestone / step: M1 / steps 2–5 in parallel (step 0 PR open, step 1 bootstrap done)
 - Oracle pin: main@9463830d (branch base; synced 2026-10-09)
 - Binaries: none yet
 - Data roots: symlinks data/{events,binance,telonex} → fleet copy (read-only); data/native-tapes, data/strategy-artifacts local
-- Rules capture: not deployed yet (branch `rules-capture` in progress, M1 step 0)
+- Rules capture: PR https://github.com/ivanmijatovic89/polymarket-bot/pull/308 open (branch `rules-capture`, PC8 items 1–2 proven 2026-10-09 05:24Z); not deployed yet
 - Paused: none. Benchmarks that need a paused fleet are deferred for this run by the user's rule (no pause/stop of the fleet worker or Global Runtime until the user confirms the pause procedure); M1 baselines run alongside the fleet and are labeled `non-idle`
-- Last proof: M0 link check (01 §6 M0 proof 1) → no dead links
+- Last proof: workspace gates after the leftover tidy (2026-10-09 11:55): `cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked` → green (pmb-core 41, pmb-book 3, pmb-contract 8+6, pmb-replay golden 1)
 - Benchmark (fixed set): none yet
-- Waiting on user: see below
-- Next action: M1 step 1 bootstrap commit, then steps 2–4 in parallel crates
-
-### Waiting on user
-
-- **Fable unavailable (D45, 60 §10.0 C0).** Spawning the conformance author with `model: "fable"` fails with "Fable 5.1 requires usage credits" (HTTP 429, 2026-10-09 03:35 and 03:41). The conformance checkout `/Users/worker-1/Sites/polymarket-bot-conformance` (branch `native-conformance` from origin/main, `.claude/settings.local.json` read-denies per CF-2) is ready. Needed: usage credits for Fable at claude.ai/settings/usage, or a decision to use another model as the independent author. C1 has not started; nothing else is blocked until M2 step 3.
+- Waiting on user: none
+- Next action: M1 steps 2–5 in parallel workstreams (feeds, plugins, core+execution, contract, builder, TS side), then binary/SDK/strategies
 
 ## Milestone plans
 
@@ -29,8 +25,8 @@
 
 ### M1 (started 2026-10-09)
 
-- [ ] 1.0 Rules capture PR (D37) on local branch `rules-capture`
-- [ ] 1.1 Bootstrap: workspace, STATUS.md, native CI job, `native:ci:local`, conformance checkout
+- [ ] 1.0 Rules capture PR (D37): branch `rules-capture` pushed, PR #308 open; merge after CI, then deploy (PC7)
+- [x] 1.1 Bootstrap: workspace, STATUS.md, native CI job, `native:ci:local`, conformance checkout — eb32c9dd; draft PR #309
 - [ ] 1.2 Contract, inputs, books, feeds
 - [ ] 1.3 Core
 - [ ] 1.4 Execution
@@ -39,6 +35,13 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 11:55 — resume on the $200 plan; leftovers tidied
+
+- Carried from the first run's subagent worktrees after build/test: pmb-core `market.rs` (10 §5) and `rules.rs` (11), pmb-contract types and contract fixtures (21) — commit ce013502. The untracked pmb-engine `ledger.rs` draft referenced a missing `crate::rules::CoreRules` and was set aside (kept as input for the core step, not committed).
+- Removed the six stale `.claude/worktrees/agent-*` worktrees and their `worktree-agent-*` branches; `worktree-agent-ab3cec00…` commits (ids, seeds, orders) were already in `native-engine` (c7325f73), its market identity commit and uncommitted rules were carried above.
+- Pushed branches already existed on origin; opened PR #308 (rules capture, D37) and draft PR #309 (`native-engine`, D48).
+- Fable retry (D45): conformance author C1 started with `model: fable` in `/Users/worker-1/Sites/polymarket-bot-conformance` (branch `native-conformance`); the "usage credits" error came from the exhausted $20 plan. Removed from "Waiting on user".
 
 ### 2026-10-09 07:25 — session limit pause (03:42–07:20)
 
