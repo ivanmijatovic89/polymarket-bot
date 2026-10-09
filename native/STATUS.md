@@ -5,14 +5,14 @@
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
 - Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
 - Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D70)
-- Milestone / step: M1 / steps 2–6 in parallel (workflow wave 1); steps 0 and 1 done
+- Milestone / step: M1 / wave 1 merged (steps 2–4 largely, 5–7 partly); wave 2 = runtime↔engine wiring, feeds/plugins wiring, SDK facade + strategies, TS integration
 - Oracle pin: main@ad2f11b8 (merged 2026-10-09 11:50; the only change since 9463830d is the rules capture, outside the OR-2 engine paths)
 - Binaries: none yet
 - Data roots: symlinks data/{events,binance,telonex} → fleet copy (read-only); data/native-tapes, data/strategy-artifacts local
 - Rules capture: running since 2026-10-09 09:48Z (LaunchAgent `com.pmb.rules-capture`, pinned checkout /Users/worker-1/pmb-rules-capture/app @ ad2f11b8, output /Users/worker-1/pmb-rules-capture/prestart); PC8 item 3 (`--report --days 1` ≥ 99%) due after 2026-10-10 09:48Z
 - Paused: none. Benchmarks that need a paused fleet are deferred for this run by the user's rule (no pause/stop of the fleet worker or Global Runtime until the user confirms the pause procedure); M1 baselines run alongside the fleet and are labeled `non-idle`
 - Last proof: workspace gates after the leftover tidy (2026-10-09 11:55): `cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked` → green (pmb-core 41, pmb-book 3, pmb-contract 8+6, pmb-replay golden 1)
-- Benchmark (fixed set): none yet
+- Benchmark (fixed set): no engine numbers yet; decode only (pmb-tape, non-idle, load 6–9): smoke-50 v1 ≈ 3.0 s vs tape ≈ 0.35 s total (8.5×), tape bytes 0.40 of v1 (native/bench/results/m1-tape-20261009-worker-1.md)
 - Waiting on user: none (spec questions collected for D entries after wave 1)
 - Next action: M1 steps 2–5 in parallel workstreams (feeds, plugins, core+execution, contract, builder, TS side), then binary/SDK/strategies
 
@@ -27,14 +27,21 @@
 
 - [x] 1.0 Rules capture (D37): PR #308 squash-merged as ad2f11b8 (CI green), deployed per PC7 2026-10-09 09:48Z; PC8 item 3 pending (24 h)
 - [x] 1.1 Bootstrap: workspace, STATUS.md, native CI job, `native:ci:local`, conformance checkout — eb32c9dd; draft PR #309
-- [ ] 1.2 Contract, inputs, books, feeds
-- [ ] 1.3 Core
-- [ ] 1.4 Execution
-- [ ] 1.5 Binary, SDK, canonical builder, Rust test strategies
+- [ ] 1.2 Contract, inputs, books, feeds — crates merged (pmb-contract reviewed, pmb-book/pmb-replay reviewed, pmb-feeds with V-1/V-2 goldens); feeds not yet wired into the engine
+- [ ] 1.3 Core — pmb-engine loop/OM/ledger/cascades/window/stats merged with converted TS suites on mock and simulator; pmb-plugins merged (not wired); core review fixes in progress
+- [x] 1.4 Execution — ts-compat simulator (13 §2–§5) merged; realistic seams only (M3b)
+- [ ] 1.5 Binary, SDK, canonical builder, Rust test strategies — pmb-runtime shell, pmb-sdk params/macros, builder (local-only), fixture markets, native/strategies sources merged; runtime not yet driving the engine; SDK facade pending
 - [ ] 1.6 TS side and T15 cells
-- [ ] 1.7 Benchmark baseline (non-idle this run)
+- [ ] 1.7 Benchmark baseline (non-idle this run) — bench sets smoke-50/heavy-1, pmb-tape prototype with NT-6 (b) 50/50 + 1/1 identical, L0 benches, L1 driver (no binary yet), host facts
 
 ## Log (newest first)
+
+### 2026-10-09 14:05 — wave 1 integrated into native-engine
+
+- Merged the wave-1 workstreams through `ws/int` (13 branches: core+simulator, replay, contract, feeds, plugins, sdk, runtime, builder, tape, bench, fixtures, ts, strategies) and fixed the API drift in one green commit (dd718660; pmb-tape format bumped to 2 for the reviewed reader). Duplicate oracle env audits: the harness one (`src/cli/parity/oracle-env-audit.ts`) is kept, the quick-task duplicate removed. Duplicate bench manifests: the pmb-tape ones are kept (the L1 parser is adapted in wave 2). Generated goldens and test snapshots are excluded from Prettier (GF-2 byte determinism).
+- Proof (ws/int @ 1b5a382f, same tree as native-engine): `cd native && cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked` → 621 passed, 0 failed, 8 ignored (pmb-book 11, pmb-contract 45, pmb-core 43, pmb-engine 225, pmb-feeds 47, pmb-plugins 55, pmb-replay 16, pmb-runtime 57, pmb-sdk 88, pmb-sdk-macros 3, pmb-tape 31); `npm run -s code:typecheck`, `npm run -s code:eslint`, `npm run -s code:prettier:check` → clean.
+- pmb-tape (M1 step 7, non-idle, load 6–9, cargo release build, not canonical): NT-6 (b) event streams identical on smoke-50 (50/50, 6.87 M rows) and heavy-1; decode v1 ≈ 55–57 ms/market vs tape ≈ 6.4 ms/market (8.5×), tape bytes 0.40 of v1. Old format-1 tapes under data/native-tapes are stale after the format bump (re-convert in wave 2/3).
+- Data: `btc-updown-15m-1765684800.parquet` has no PAR1 footer locally (unreadable) and differs in size from its catalog row (D64); excluded from sets.
 
 ### 2026-10-09 13:00 — D70 (user): M9, M10 and gates 3/4 move to a separate goal
 
