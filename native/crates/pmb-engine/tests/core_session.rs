@@ -509,3 +509,49 @@ fn rejected_placements_never_store_their_meta() {
         r#"{"leg":"small"}"#
     );
 }
+
+#[test]
+fn naked_sell_excess_reaches_the_output_diagnostics() {
+    // spec: 12 §9.5 TC-C4 (counts the excess in the diagnostic
+    // oversold_qty), 21 §10 diagnostics.anomalies, R14 (recorded in the
+    // output)
+    let mut h = H::new(
+        config(CoreRules::TsCompat),
+        MockExec::sync(),
+        Script::default(),
+    );
+    h.send(
+        vec![Cmd::Place(
+            Ord::sell("naked", 5.0, 0.4).ty(pmb_core::OrderType::Fok),
+        )],
+        0,
+        BIDS,
+        ASKS,
+    )
+    .unwrap();
+    assert_eq!(h.ledger().position(Outcome::Up).qty, q(0.0));
+    let m = h.market.clone();
+    let out = h.s.finalize(&m, FinalOutcome::new(Outcome::Up)).unwrap();
+    assert_eq!(out.diagnostics.ledger.oversold_qty, 5_000_000);
+    let a = pmb_engine::output::engine_anomalies(&out.diagnostics).unwrap();
+    assert!(a.contains_key("oversold_qty"), "{a:?}");
+}
+
+#[test]
+fn ts_compat_end_of_stream_counts_discarded_actions() {
+    // spec: 13 §5.1 TC-C13 (undue actions are discarded at end of stream),
+    // 12 §14 P12 (scheduled-action counters always on)
+    let mut h = H::sim(
+        config(CoreRules::TsCompat),
+        MockExec::delayed(500),
+        Script::default(),
+    );
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    let m = h.market.clone();
+    h.s.end_of_stream(&m).unwrap();
+    let out = h.s.finalize(&m, FinalOutcome::new(Outcome::Up)).unwrap();
+    assert_eq!(out.diagnostics.exec.actions_discarded, 1);
+    let a = pmb_engine::output::engine_anomalies(&out.diagnostics).unwrap();
+    assert!(a.contains_key("actions_discarded"), "{a:?}");
+}

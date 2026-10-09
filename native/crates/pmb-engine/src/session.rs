@@ -89,6 +89,25 @@ pub struct SessionOutput {
     pub acc: MarketStatsAcc,
     /// The session meta store; `stats.intent_meta` ids index it (21 §16).
     pub metas: MetaStore,
+    /// Engine and adapter diagnostics for `diagnostics.anomalies` (21 §10;
+    /// 12 §14 P12); never part of the deterministic section.
+    pub diagnostics: SessionDiagnostics,
+}
+
+/// The always-on engine counters of one session that 21 §10 places under
+/// `diagnostics.anomalies` (12 §7.6, §9.3–§9.5, §14 P12; 13 §2.2), plus the
+/// final exchange-time skew (21 §10 `skewMs`, 12 §4.4 XT4).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SessionDiagnostics {
+    /// Ledger counters (`oversold_qty`, `reservation_dust`,
+    /// `reversal_deficit`).
+    pub ledger: crate::ledger::LedgerCounters,
+    /// Placements dropped as duplicates of an active cid (12 §7.6).
+    pub duplicate_active_cid: u64,
+    /// The execution adapter's diagnostics.
+    pub exec: crate::exec::ExecDiagnostics,
+    /// Final exchange-time skew (12 §4.4), if one was observed.
+    pub skew_ms: Option<i64>,
 }
 
 /// Per-market `intentMeta` caps (21 §16): 10,000 entries, 1 MiB.
@@ -827,11 +846,12 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         if let Some(f) = &self.fault {
             return Err(f.clone());
         }
-        // TC-C13: ts-compat discards undue actions.
+        self.exec.on_end_of_input();
+        // TC-C13: ts-compat discards undue actions (the adapter counts them,
+        // 12 §14 P12); there is nothing left to drain.
         if self.config.core_rules == CoreRules::TsCompat {
             return Ok(());
         }
-        self.exec.on_end_of_input();
         self.state = SessionState::Closing;
         while let Some(t) = self.exec.next_due() {
             self.run_due(t, market)?;
@@ -843,7 +863,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     /// Checks the PnL identity; a violation is an `engine_fault` (12 §9.6).
     pub fn finalize(
         mut self,
-        _market: &SharedMarket,
+        market: &SharedMarket,
         outcome: FinalOutcome,
     ) -> Result<SessionOutput, SessionFault> {
         if let Some(f) = self.fault.take() {
@@ -878,10 +898,17 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             self.trace.record(&TraceEvent::Final(&stats));
         }
         self.state = SessionState::Done;
+        let diagnostics = SessionDiagnostics {
+            ledger: self.ledger.counters(),
+            duplicate_active_cid: self.om.counters().duplicate_active_cid,
+            exec: *self.exec.diagnostics(),
+            skew_ms: market.skew_ms,
+        };
         Ok(SessionOutput {
             stats,
             acc: self.stats,
             metas: self.metas,
+            diagnostics,
         })
     }
 
