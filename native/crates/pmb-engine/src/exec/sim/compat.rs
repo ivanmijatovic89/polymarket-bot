@@ -162,6 +162,12 @@ fn place_one(
     let req = *rec.request();
     let books = &cx.market.books;
     let (outcome, side, limit) = (req.outcome, req.side, req.price);
+    // D-PENDING: 13 §4.3 stamps OrderLifecycle with the action's due time,
+    // but under NextRealTick a queued action takes effect at the releasing
+    // tick's ts (later than its `execute_at`); chose the due time
+    // (`execute_at`) for Scheduled/ExchangeVisible/Resting/CancelEffective
+    // and the tick ts for scan-driven transitions (Expired), whose due time
+    // is the tick itself.
     lifecycle(out, k, LifecycleTransition::ExchangeVisible, s.due);
 
     // Step 1: post-only crossing the best opposite price is rejected whole;
@@ -415,13 +421,14 @@ fn scan_is_noop(ex: &mut ExchangeTruth, books: &MarketBooks, now: TsMs) -> bool 
         return false;
     }
     for o in Outcome::ALL {
-        if let (Some(lim), Some(ask)) = (b.max_buy[o], books.best_ask(o)) {
-            if ask.price < lim {
+        // Book lookups only for sides with own orders.
+        if let Some(lim) = b.max_buy[o] {
+            if books.best_ask(o).is_some_and(|a| a.price < lim) {
                 return false;
             }
         }
-        if let (Some(lim), Some(bid)) = (b.min_sell[o], books.best_bid(o)) {
-            if bid.price > lim {
+        if let Some(lim) = b.min_sell[o] {
+            if books.best_bid(o).is_some_and(|x| x.price > lim) {
                 return false;
             }
         }

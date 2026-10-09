@@ -1054,3 +1054,165 @@ fn early_exit_matches_the_full_maker_scan() {
         assert_eq!(a.resting.as_slice(), b.resting.as_slice());
     }
 }
+
+#[test]
+fn no_exchange_validation_taker_delay_or_market_close() {
+    // spec: 13 TC-E10 (no taker delay, no arrival re-validation, no market-closed
+    // rejection), 11 §4 (tick, bounds, minimum size and precision not validated)
+    let mut h = Harness::compat(0);
+    let end = h.market.window().end_ms.0;
+    h.book(Outcome::Up, &[(P40, Q2)], &[(P60, Q2)]);
+    // Off-tick price, sub-minimum size, after the window end, marketable.
+    let k = h.record(
+        "k",
+        req(Outcome::Up, Side::Buy, 605_500, 1_234, OrderType::Gtc),
+        end + 5_000,
+    );
+    h.place(end + 5_000, &[k]);
+    assert_eq!(
+        h.take_rendered(),
+        [
+            "1780272905000 accepted k",
+            "1780272905000 status k MATCHED 0",
+            "1780272905000 fill k#1 TAKER 0.6 0.001234 fee=0",
+            "1780272905000 done k filled 0.001234",
+        ]
+    );
+}
+
+#[test]
+fn batches_have_no_cap_in_the_simulator() {
+    // spec: 13 TC-C12, 11 §4 (no batch cap in the simulator; the OM owns caps)
+    let mut h = Harness::compat(0);
+    h.book(Outcome::Up, &[(P40, Q2)], &[(P60, Q2)]);
+    let keys: Vec<_> = (0..40)
+        .map(|i| {
+            h.record(
+                "b",
+                req(
+                    Outcome::Up,
+                    Side::Buy,
+                    100_000 + i * 1_000,
+                    1_000_000,
+                    OrderType::Gtc,
+                ),
+                START,
+            )
+        })
+        .collect();
+    h.place(START, &keys);
+    assert_eq!(h.sim.resting().len(), 40);
+    let opens = h
+        .events()
+        .iter()
+        .filter(|e| matches!(e.kind, AccountEventKind::OrderOpen { .. }))
+        .count();
+    assert_eq!(opens, 40);
+}
+
+#[test]
+fn own_orders_never_match_each_other() {
+    // spec: 13 TC-C14 (no self-cross check: own orders are never in the TS book, the walk
+    // and the maker rule see recorded levels only), 13 §4.2
+    let mut h = Harness::compat(0);
+    h.book(Outcome::Up, &[(300_000, Q2)], &[(700_000, Q2)]);
+    let sell = h.record(
+        "s",
+        req(Outcome::Up, Side::Sell, P50, Q2, OrderType::Gtc),
+        START,
+    );
+    let buy = h.record(
+        "b",
+        req(Outcome::Up, Side::Buy, P60, Q2, OrderType::Gtc),
+        START,
+    );
+    h.place(START, &[sell, buy]);
+    h.tick(START + 1);
+    let evs = h.events();
+    assert!(!evs
+        .iter()
+        .any(|e| matches!(e.kind, AccountEventKind::Fill(_))));
+    assert_eq!(h.sim.resting().len(), 2);
+}
+
+#[test]
+fn compat_never_reports_due_times_or_timer_work() {
+    // spec: 13 §5.1 (next_due() returns None; queued actions only at market events),
+    // 13 §2.3 (Journaled timers are not a ts-compat mode, D28)
+    let mut h = Harness::compat(50);
+    h.book(Outcome::Up, &[(P40, Q2)], &[(P60, Q2)]);
+    let k = h.record(
+        "k",
+        req(Outcome::Up, Side::Buy, P50, Q2, OrderType::Gtc),
+        START,
+    );
+    h.place(START, &[k]);
+    assert_eq!(h.sim.next_due(), None);
+    let cx = ExecCtx {
+        market: &h.market,
+        ledger: &h.ledger,
+        config: &h.cfg,
+    };
+    h.sim.run_next_due(&cx, &mut h.queue);
+    assert!(h.queue.is_empty());
+    assert_eq!(h.sim.pending_actions(), 1);
+    assert_eq!(
+        h.sim.mode(),
+        super::super::scheduler::SchedulerMode::SelfTimed
+    );
+}
+
+/// Measures the maker scan with and without the early exit on a quiet
+/// book (13 §10: the early exit is measured; 13 §5.1: identical events,
+/// checked by `early_exit_matches_the_full_maker_scan`). Run with
+/// `cargo test --release -p pmb-engine -- --ignored maker_scan_early_exit_speed --nocapture`.
+#[test]
+#[ignore = "timing measurement, run on demand"]
+fn maker_scan_early_exit_speed() {
+    let cfg = ts_compat_config(0, 0);
+    let models = Models::ts_compat(&cfg);
+    let mut h = Harness::compat(0);
+    h.book(Outcome::Up, &[(P40, Q2)], &[(P60, Q2)]);
+    h.book(Outcome::Down, &[(P40, Q2)], &[(P60, Q2)]);
+    let mut truth = ExchangeTruth::default();
+    for k in 0..4u32 {
+        let size = Qty::from_micros(Q10);
+        truth.resting.push(RestingOrder {
+            key: OrderKey::new(k),
+            outcome: if k % 2 == 0 {
+                Outcome::Up
+            } else {
+                Outcome::Down
+            },
+            side: if k < 2 { Side::Buy } else { Side::Sell },
+            price: Price::from_micros(if k < 2 { 450_000 } else { 650_000 }),
+            size,
+            remaining: size,
+            expire_at: None,
+            fill_seq: 0,
+        });
+    }
+    let cx = ExecCtx {
+        market: &h.market,
+        ledger: &h.ledger,
+        config: &cfg,
+    };
+    let mut q = EventQueue::new(false);
+    let n = 2_000_000;
+    let t0 = std::time::Instant::now();
+    for i in 0..n {
+        compat::maker_scan(&models, &mut truth, &cx, TsMs(START + i), &mut q);
+    }
+    let fast = t0.elapsed();
+    let t1 = std::time::Instant::now();
+    for i in 0..n {
+        compat::maker_scan_full(&models, &mut truth, &cx, TsMs(START + i), &mut q);
+    }
+    let full = t1.elapsed();
+    assert!(q.is_empty());
+    println!(
+        "maker scan, 4 resting orders, quiet book: early exit {:.1} ns/tick, full scan {:.1} ns/tick",
+        fast.as_nanos() as f64 / n as f64,
+        full.as_nanos() as f64 / n as f64
+    );
+}
