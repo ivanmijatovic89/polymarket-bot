@@ -644,35 +644,25 @@ impl Decoder {
             for (id, base, out) in [
                 (col::INGEST_SEQ, b.bases[0], &mut t.ingest_seq),
                 (col::TS_LOCAL, b.bases[1], &mut t.ts_local_ms),
+                (col::TS_EXCHANGE, b.bases[2], &mut t.ts_exchange_ms),
             ] {
                 let c = &b.cols[id];
                 let raw = self.frame(frame(c)?, c.raw_len as usize)?;
                 let mut acc = base;
-                let count = ints(raw, c.width, |d| {
+                let count = extend_ints(raw, c.width, out, |d| {
                     acc = acc.wrapping_add(d);
-                    out.push(acc);
+                    acc
                 })?;
                 if count != rows {
                     return Err(layout(format!("column {id}: {count} of {rows} rows")));
                 }
             }
-            {
-                let c = &b.cols[col::TS_EXCHANGE];
-                let raw = self.frame(frame(c)?, c.raw_len as usize)?;
-                let flags = &t.flags[flags_start..];
-                let mut acc = b.bases[2];
-                let mut r = 0usize;
-                let out = &mut t.ts_exchange_ms;
-                let count = ints(raw, c.width, |d| {
-                    acc = acc.wrapping_add(d);
-                    let null = flags
-                        .get(r)
-                        .is_some_and(|f| f & row_flags::TS_EXCHANGE_NULL != 0);
-                    out.push(if null { 0 } else { acc });
-                    r += 1;
-                })?;
-                if count != rows {
-                    return Err(layout("ts_exchange_ms: row count"));
+            // Null exchange times carry the previous value (delta 0); their slot is 0.
+            let flags = &t.flags[flags_start..];
+            let ts = &mut t.ts_exchange_ms[flags_start..];
+            for (v, &f) in ts.iter_mut().zip(flags) {
+                if f & row_flags::TS_EXCHANGE_NULL != 0 {
+                    *v = 0;
                 }
             }
             {
@@ -681,8 +671,7 @@ impl Decoder {
                 if c.width > 4 {
                     return Err(layout("asset_index wider than i32"));
                 }
-                let out = &mut t.asset_index;
-                let count = ints(raw, c.width, |v| out.push(v as i32))?;
+                let count = extend_ints(raw, c.width, &mut t.asset_index, |v| v as i32)?;
                 if count != rows {
                     return Err(layout("asset_index: row count"));
                 }
@@ -697,51 +686,46 @@ impl Decoder {
                 } else {
                     &mut t.ints[l - dec::COUNT].offsets
                 };
-                let start = *offsets.last().expect("offsets start with 0");
-                let mut acc = start as u64;
-                let mut bad = false;
-                let count = ints(raw, c.width, |len| {
-                    if len < 0 {
-                        bad = true;
-                    }
-                    acc += len as u64;
-                    offsets.push(acc as u32);
+                let start = *offsets.last().expect("offsets start with 0") as i64;
+                // Negative lengths make offsets decrease, which validate() rejects.
+                let mut acc = start;
+                let count = extend_ints(raw, c.width, offsets, |len| {
+                    acc = acc.wrapping_add(len);
+                    acc as u32
                 })?;
-                if bad || count != rows || acc > u32::MAX as u64 {
+                if count != rows || acc < start || acc > u32::MAX as i64 {
                     return Err(layout(format!("list {l}: bad lengths")));
                 }
-                *slot = (acc - start as u64) as usize;
+                *slot = (acc - start) as usize;
             }
             for (d, &expected) in block_values[..dec::COUNT].iter().enumerate() {
                 let c = &b.cols[col::DEC_VALUES + d];
                 let raw = self.frame(frame(c)?, c.raw_len as usize)?;
                 let list = &mut t.decimals[d];
                 let v0 = list.values.len();
-                let values = &mut list.values;
                 if c.scale > MAX_SCALE {
                     return Err(layout(format!("{}: scale {}", dec::NAMES[d], c.scale)));
                 }
                 let count = if c.scale == 0 {
-                    ints(raw, c.width, |v| values.push(v))?
+                    extend_ints(raw, c.width, &mut list.values, |v| v)?
                 } else {
                     let m = POW10[c.scale as usize];
-                    ints(raw, c.width, |v| values.push(v.wrapping_mul(m)))?
+                    extend_ints(raw, c.width, &mut list.values, |v| v.wrapping_mul(m))?
                 };
                 if count != expected {
                     return Err(layout(format!("{}: value count", dec::NAMES[d])));
                 }
                 let c = &b.cols[col::INEXACT + d];
                 let raw = self.frame(frame(c)?, c.raw_len as usize)?;
-                let inexact = &mut list.inexact;
-                let mut bad = false;
-                ints(raw, c.width, |i| {
-                    if i < 0 || i as usize >= count {
-                        bad = true;
-                    } else {
-                        inexact.push((v0 + i as usize) as u32);
-                    }
+                let i0 = list.inexact.len();
+                extend_ints(raw, c.width, &mut list.inexact, |i| {
+                    (v0 as i64).wrapping_add(i) as u32
                 })?;
-                if bad {
+                let (lo, hi) = (v0 as u64, (v0 + count) as u64);
+                if list.inexact[i0..]
+                    .iter()
+                    .any(|&x| (x as u64) < lo || (x as u64) >= hi)
+                {
                     return Err(layout(format!("{}: inexact index", dec::NAMES[d])));
                 }
             }
@@ -751,8 +735,7 @@ impl Decoder {
                     return Err(layout("int list wider than i32"));
                 }
                 let raw = self.frame(frame(c)?, c.raw_len as usize)?;
-                let values = &mut t.ints[i].values;
-                let count = ints(raw, c.width, |v| values.push(v as i32))?;
+                let count = extend_ints(raw, c.width, &mut t.ints[i].values, |v| v as i32)?;
                 if count != block_values[dec::COUNT + i] {
                     return Err(layout(format!("{}: value count", int::NAMES[i])));
                 }
@@ -781,24 +764,33 @@ impl Decoder {
     }
 }
 
-/// Calls `f` for every value of a width-coded frame; returns the count.
+/// Appends `f(value)` for every value of a width-coded frame; returns the count.
 #[inline]
-fn ints(raw: &[u8], width: u8, mut f: impl FnMut(i64)) -> Result<usize, TapeError> {
+fn extend_ints<T>(
+    raw: &[u8],
+    width: u8,
+    out: &mut Vec<T>,
+    mut f: impl FnMut(i64) -> T,
+) -> Result<usize, TapeError> {
     let w = width as usize;
     if !matches!(w, 1 | 2 | 4 | 8) || raw.len() % w != 0 {
         return Err(layout(format!("width {w} for {} bytes", raw.len())));
     }
     match w {
-        1 => raw.iter().for_each(|&b| f(b as i8 as i64)),
-        2 => raw
-            .chunks_exact(2)
-            .for_each(|c| f(i16::from_le_bytes([c[0], c[1]]) as i64)),
-        4 => raw
-            .chunks_exact(4)
-            .for_each(|c| f(i32::from_le_bytes([c[0], c[1], c[2], c[3]]) as i64)),
-        _ => raw.chunks_exact(8).for_each(|c| {
-            f(i64::from_le_bytes(c.try_into().expect("chunk of 8")));
-        }),
+        1 => out.extend(raw.iter().map(|&b| f(b as i8 as i64))),
+        2 => out.extend(
+            raw.chunks_exact(2)
+                .map(|c| f(i16::from_le_bytes([c[0], c[1]]) as i64)),
+        ),
+        4 => out.extend(
+            raw.chunks_exact(4)
+                .map(|c| f(i32::from_le_bytes([c[0], c[1], c[2], c[3]]) as i64)),
+        ),
+        _ => out.extend(raw.chunks_exact(8).map(|c| {
+            f(i64::from_le_bytes([
+                c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7],
+            ]))
+        })),
     }
     Ok(raw.len() / w)
 }

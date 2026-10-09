@@ -182,21 +182,31 @@ impl TypedRows {
             return Err(format!("dictionary has {} entries", self.dict.len()));
         }
         let dict_len = self.dict.len();
-        for r in 0..n {
-            if self.flags[r] & !row_flags::ALL != 0 {
-                return Err(format!("row {r}: unknown flag bits {:#x}", self.flags[r]));
-            }
-            if self.event_type[r] > event_type::PRICE_CHANGE {
-                return Err(format!("row {r}: event type code {}", self.event_type[r]));
-            }
-            if self.market[r] as usize >= dict_len {
-                return Err(format!("row {r}: market id {}", self.market[r]));
-            }
-            for id in [self.asset0[r], self.asset1[r]] {
-                if id != NULL_ID && id as usize >= dict_len {
-                    return Err(format!("row {r}: asset id {id}"));
-                }
-            }
+        // Column-wise scans (they vectorize); the first offending row is reported.
+        let bad = |what: &str, r: Option<usize>| match r {
+            Some(r) => Err(format!("row {r}: bad {what}")),
+            None => Ok(()),
+        };
+        bad(
+            "flags",
+            self.flags.iter().position(|&f| f & !row_flags::ALL != 0),
+        )?;
+        bad(
+            "event type",
+            self.event_type
+                .iter()
+                .position(|&e| e > event_type::PRICE_CHANGE),
+        )?;
+        bad(
+            "market id",
+            self.market.iter().position(|&m| m as usize >= dict_len),
+        )?;
+        for ids in [&self.asset0, &self.asset1] {
+            bad(
+                "asset id",
+                ids.iter()
+                    .position(|&a| a != NULL_ID && a as usize >= dict_len),
+            )?;
         }
         let check_offsets = |name: &str, offsets: &[u32], values: usize| {
             if offsets.len() != n + 1 || offsets[0] != 0 {

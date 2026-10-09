@@ -119,9 +119,11 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
         t.dict.iter().map(|e| resolve(e, input.tokens)).collect();
     let asset = |id: u8| -> Result<Option<Outcome>, InputError> {
         if id == NULL_ID {
-            Ok(None)
-        } else {
-            asset_of[id as usize].clone()
+            return Ok(None);
+        }
+        match &asset_of[id as usize] {
+            Ok(o) => Ok(*o),
+            Err(e) => Err(e.clone()),
         }
     };
 
@@ -136,7 +138,10 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
     let mut last_local: Option<i64> = None;
     let mut last_seq: Option<i64> = None;
     let d = &t.decimals;
-    let inexact = |list: usize, i: usize| d[list].is_inexact(i) as u64;
+    let any_inexact: [bool; dec::COUNT] = std::array::from_fn(|k| !d[k].inexact.is_empty());
+    let inexact = |list: usize, i: usize| (any_inexact[list] && d[list].is_inexact(i)) as u64;
+    // Dictionary id of the market once set; other ids compare by string.
+    let mut market_id: Option<u8> = None;
 
     for r in 0..t.len() {
         let diag = &mut s.diagnostics;
@@ -147,12 +152,15 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
         }
         last_seq = Some(seq);
 
-        let market = market_of[t.market[r] as usize];
+        let mid = t.market[r];
+        let market = market_of[mid as usize];
         if market.is_empty() {
             diag.skipped.blank_market += 1;
             continue;
         }
-        if s.market.is_empty() {
+        if market_id == Some(mid) {
+            // Same dictionary entry as the market already set: equal.
+        } else if s.market.is_empty() {
             if let Some(cid) = input.condition_id {
                 if !cid.eq_ignore_ascii_case(market) {
                     return Err(defect(
@@ -162,6 +170,7 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
                 }
             }
             s.market = market.to_string();
+            market_id = Some(mid);
         } else if s.market != market {
             return Err(defect(
                 "foreign_file",
