@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pmb_contract::{EngineJob, EngineResult, ModelConfig};
+use pmb_contract::{ContractError, EngineJob, EngineResult, ModelConfig};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
@@ -33,7 +33,7 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
 fn round_trip<T, F>(text: &str, validate: F) -> T
 where
     T: DeserializeOwned + Serialize,
-    F: Fn(&T) -> Result<(), pmb_contract::ContractError>,
+    F: Fn(&T) -> Result<(), ContractError>,
 {
     let parsed: T = serde_json::from_str(text).expect("valid fixture deserializes");
     validate(&parsed).expect("valid fixture validates");
@@ -59,7 +59,14 @@ fn set_pointer(doc: &mut Value, pointer: &str, value: Value) {
         Value::Object(m) => {
             m.insert(key.to_owned(), value);
         }
-        Value::Array(a) => a[key.parse::<usize>().unwrap()] = value,
+        Value::Array(a) => {
+            let i = key.parse::<usize>().unwrap();
+            if i == a.len() {
+                a.push(value);
+            } else {
+                a[i] = value;
+            }
+        }
         _ => panic!("pointer {pointer} parent is not a container"),
     }
 }
@@ -74,18 +81,26 @@ fn remove_pointer(doc: &mut Value, pointer: &str) {
         .expect("removed");
 }
 
-fn run_invalid_cases<T, F>(dir: &Path, validate: F)
-where
-    T: DeserializeOwned,
-    F: Fn(&T) -> Result<(), pmb_contract::ContractError>,
-{
+/// Applies every invalid case of `dir/cases.json` to its base document and
+/// checks the class and cause that `parse` reports (21 §19, 20 §4).
+fn run_invalid_cases<T>(dir: &Path, parse: fn(&str) -> Result<T, ContractError>) {
     let cases: Value = serde_json::from_str(&read(&dir.join("cases.json"))).unwrap();
     let base: Value =
         serde_json::from_str(&read(&dir.join(cases["base"].as_str().unwrap()))).unwrap();
     let list = cases["cases"].as_array().unwrap();
     assert!(list.len() >= 10);
+    let mut names = std::collections::BTreeSet::new();
     for case in list {
         let name = case["name"].as_str().unwrap();
+        assert!(names.insert(name), "duplicate case name {name:?}");
+        assert!(
+            case["rule"].as_str().is_some_and(|r| !r.is_empty()),
+            "{name}: rule"
+        );
+        assert!(
+            matches!(case["jsonSchema"].as_str(), Some("reject" | "accept")),
+            "{name}: jsonSchema"
+        );
         let mut doc = base.clone();
         if let Some(set) = case.get("set").and_then(Value::as_object) {
             for (ptr, v) in set {
@@ -98,59 +113,57 @@ where
             }
         }
         let text = serde_json::to_string(&doc).unwrap();
-        let expect = case["expect"].as_str().unwrap();
-        let parsed = serde_json::from_str::<T>(&text);
-        match expect {
-            "schema" => assert!(
-                parsed.is_err(),
-                "case {name:?}: expected a schema rejection"
-            ),
-            other => {
-                let cause = other.strip_prefix("validate:").expect("expect form");
-                let parsed =
-                    parsed.unwrap_or_else(|e| panic!("case {name:?}: unexpected schema error {e}"));
-                let err = validate(&parsed).expect_err(name);
-                assert_eq!(err.cause, cause, "case {name:?}: wrong cause ({err})");
-            }
-        }
+        let err = match parse(&text) {
+            Ok(_) => panic!("case {name:?}: accepted"),
+            Err(e) => e,
+        };
+        let class = case["expect"]["class"].as_str().unwrap();
+        let cause = case["expect"]["cause"].as_str().unwrap();
+        assert_eq!(
+            (err.class.as_str(), err.cause),
+            (class, cause),
+            "case {name:?}: got {err}"
+        );
     }
 }
 
 #[test]
 fn valid_jobs_round_trip() {
+    // spec: 21 §3 CI item 4
     for path in json_files(&contract_dir().join("fixtures/jobs/valid")) {
-        let job: EngineJob = round_trip(&read(&path), EngineJob::validate);
+        let text = read(&path);
+        let job: EngineJob = round_trip(&text, EngineJob::validate);
         assert!(!job.run.candidates.is_empty());
+        EngineJob::parse(&text).expect("parse");
     }
 }
 
 #[test]
-fn invalid_jobs_are_rejected() {
-    run_invalid_cases::<EngineJob, _>(&contract_dir().join("fixtures/jobs/invalid"), |j| {
-        let r = j.validate();
-        if let Err(e) = &r {
-            assert_eq!(e.class, pmb_contract::vocab::ErrorClass::InvalidInput);
-        }
-        r
-    });
+fn invalid_jobs_are_rejected_with_their_cause() {
+    // spec: 21 §19 (Rust ingress), §5.1 causes, 20 §4.1
+    run_invalid_cases(
+        &contract_dir().join("fixtures/jobs/invalid"),
+        EngineJob::parse,
+    );
 }
 
 #[test]
 fn valid_results_round_trip() {
+    // spec: 21 §3 CI item 4
     for path in json_files(&contract_dir().join("fixtures/results/valid")) {
-        round_trip::<EngineResult, _>(&read(&path), EngineResult::validate);
+        let text = read(&path);
+        round_trip::<EngineResult, _>(&text, EngineResult::validate);
+        EngineResult::parse(&text).expect("parse");
     }
 }
 
 #[test]
-fn invalid_results_are_rejected() {
-    run_invalid_cases::<EngineResult, _>(&contract_dir().join("fixtures/results/invalid"), |r| {
-        let res = r.validate();
-        if let Err(e) = &res {
-            assert_eq!(e.class, pmb_contract::vocab::ErrorClass::InvalidOutput);
-        }
-        res
-    });
+fn invalid_results_are_rejected_with_their_cause() {
+    // spec: 21 §19 (Rust egress self-check), 20 §4.1
+    run_invalid_cases(
+        &contract_dir().join("fixtures/results/invalid"),
+        EngineResult::parse,
+    );
 }
 
 #[test]
@@ -195,5 +208,212 @@ fn ts_compat_default_model_config_and_sha() {
     assert_ne!(job.run.model_config.sha256().unwrap(), mc.sha256().unwrap());
 }
 
+// D58: the committed ts-compat default (and so the defaults file) keeps
+// compatLatency 0/0 (13 §5.5 "pinned ts-compat default", CI item 6). The
+// producer's built-in fallback of 21 §6.3 stays 0/20 for a fresh submission
+// with no flag and no env; that is the resolver's per-field rule (TS parity,
+// `backtest.ts:745-750`), not this file's content: `--latency-delay-ms 140`
+// alone resolves to jitter 20 there.
+/// 21 §6.3: the defaults file holds one complete ModelConfig per profile
+/// without `seed`; with the default seed 0 (10 RNG-1) each one is the
+/// committed `<profile>-default.json` that CI item 6 pins (D57: ts-compat
+/// only until M3b).
+#[test]
+fn defaults_file_resolves_to_the_committed_default_configs() {
+    // spec: 21 §6.3, §3 CI item 6, D57
+    let defaults: Value =
+        serde_json::from_str(&read(&contract_dir().join("defaults/model-config-v1.json"))).unwrap();
+    let profiles = defaults.as_object().expect("one object per profile");
+    assert_eq!(
+        profiles.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["ts-compat"],
+        "D57: realistic lands in M3b"
+    );
+    for (profile, config) in profiles {
+        let mut config = config.clone();
+        let obj = config.as_object_mut().unwrap();
+        assert_eq!(obj["profile"], Value::String(profile.clone()));
+        assert!(
+            !obj.contains_key("seed"),
+            "{profile}: defaults carry no seed"
+        );
+        obj.insert("seed".into(), Value::from(0));
+        let resolved: ModelConfig = serde_json::from_value(config).unwrap();
+        resolved.validate().unwrap();
+        let committed: ModelConfig = serde_json::from_str(&read(
+            &contract_dir().join(format!("model-configs/{profile}-default.json")),
+        ))
+        .unwrap();
+        assert_eq!(resolved, committed, "{profile}");
+    }
+}
+
+/// 21 §3 CI item 1: the committed schema bundle and hash fixture equal the
+/// generated ones (`cargo run -p pmb-contract --bin export-schema -- --check`).
+#[test]
+fn committed_schema_bundle_is_current() {
+    // spec: 21 §3 (Schema files, CI item 1), 20 §5.2
+    if let Err(problems) = pmb_contract::schema::check(&contract_dir()) {
+        panic!("{problems}");
+    }
+}
+
 const TS_COMPAT_DEFAULT_SHA256: &str =
     "bbfed555689b864250b628498d5679e74b3e7fcbba7f775b206ff7669413af7e";
+
+/// 21 §19 Rust egress against the job (the §12 facts): a result built for
+/// the job passes; each echoed fact that differs fails `self_check`.
+#[test]
+fn result_validates_against_its_job() {
+    // spec: 21 §19 (Rust egress), §12, §11 finalOutcome
+    let job = EngineJob::parse(&read(
+        &contract_dir().join("fixtures/jobs/valid/telonex-delta-ts-compat.json"),
+    ))
+    .unwrap();
+    let base: EngineResult = serde_json::from_str(&read(
+        &contract_dir().join("fixtures/results/valid/ok-ts-compat.json"),
+    ))
+    .unwrap();
+    let sha = job.run.model_config.sha256().unwrap();
+    let matching = |mutate: &dyn Fn(&mut EngineResult)| {
+        let mut r = base.clone();
+        r.candidates.truncate(1);
+        r.candidates[0].key = job.run.candidates[0].key.clone();
+        r.candidates[0].model_config_sha256 = sha.clone();
+        let echo = r.echo.as_mut().unwrap();
+        echo.model_config_sha256 = sha.clone();
+        mutate(&mut r);
+        r.result_digest = r.compute_digest().unwrap();
+        r.validate_against(&job)
+    };
+    matching(&|_| {}).unwrap();
+    type Mutation<'a> = (&'a str, &'a dyn Fn(&mut EngineResult));
+    // spec: 21 §12, one mutation per asserted fact; 11 RS4; 21 §5.1 conditionId
+    let mutations: [Mutation; 14] = [
+        ("echo.profile", &|r| {
+            // Realistic stats carry rules provenance, so validate() passes
+            // and the echo check is what fails.
+            r.echo.as_mut().unwrap().profile = pmb_contract::vocab::Profile::Realistic;
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().rules = Some(
+                serde_json::from_value(serde_json::json!({
+                    "source": "fallback", "rulesTableVersion": "rules-table-v1",
+                    "snapshotParserVersion": null, "feeEra": "f0", "feeCurve": "c",
+                    "feeSource": "s", "unverifiedRules": []
+                }))
+                .unwrap(),
+            );
+        }),
+        ("echo.seed", &|r| {
+            r.echo.as_mut().unwrap().seed = pmb_contract::SafeU64::new(1).unwrap()
+        }),
+        ("echo.rulesTableVersion", &|r| {
+            r.echo.as_mut().unwrap().rules_table_version = "rules-table-v2".into()
+        }),
+        ("echo.snapshotParserVersion", &|r| {
+            r.echo.as_mut().unwrap().snapshot_parser_version = Some(1)
+        }),
+        ("echo.modelConfigSha256", &|r| {
+            r.echo.as_mut().unwrap().model_config_sha256 =
+                pmb_contract::Sha256Hex::parse(&"2".repeat(64)).unwrap()
+        }),
+        ("echo.strategyId", &|r| {
+            r.echo.as_mut().unwrap().strategy_id = "other".into()
+        }),
+        ("market.slug", &|r| {
+            let slug = "btc-updown-15m-1780272900".to_owned();
+            r.market.as_mut().unwrap().slug = slug.clone();
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.slug = slug.clone();
+            o.market_stats.as_mut().unwrap().slug = slug;
+        }),
+        ("candidates[]", &|r| r.candidates[0].key = "other".into()),
+        ("candidates:", &|r| {
+            let mut extra = r.candidates[0].clone();
+            extra.index = 1;
+            extra.key = "extra".into();
+            r.candidates.push(extra);
+        }),
+        ("candidates[]", &|r| {
+            r.candidates[0].model_config_sha256 =
+                pmb_contract::Sha256Hex::parse(&"3".repeat(64)).unwrap()
+        }),
+        ("marketStats.finalOutcome", &|r| {
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().final_outcome = pmb_contract::vocab::Outcome::Down;
+        }),
+        ("market.rulesSource", &|r| {
+            r.market.as_mut().unwrap().rules_source = pmb_contract::vocab::RulesSource::Snapshot
+        }),
+        ("market.rulesSource", &|r| {
+            r.market.as_mut().unwrap().rules_source = pmb_contract::vocab::RulesSource::Partial
+        }),
+        ("market.conditionId", &|r| {
+            let cid = "0xother".to_owned();
+            r.market.as_mut().unwrap().condition_id = Some(cid.clone());
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().market_id = cid;
+        }),
+    ];
+    for (name, mutate) in mutations {
+        let e = matching(mutate).expect_err(name);
+        assert_eq!(
+            (e.class.as_str(), e.cause),
+            ("invalid_output", "self_check"),
+            "{name}"
+        );
+        assert!(e.message.starts_with(name), "{name}: {e}");
+    }
+}
+
+/// 20 §5.2: the `schema` document holds the bundle and its contractSha256.
+#[test]
+fn schema_subcommand_document() {
+    // spec: 20 §5.2, 21 §3
+    let doc = pmb_contract::schema::schema_document().unwrap();
+    assert_eq!(doc["type"], "schema");
+    let hashes: Value =
+        serde_json::from_str(&read(&contract_dir().join("fixtures/hashes.json"))).unwrap();
+    assert_eq!(doc["contractSha256"], hashes["contractSha256"]);
+    let stems: Vec<&str> = doc["schemas"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        stems,
+        [
+            "engineJob",
+            "engineResult",
+            "modelConfig",
+            "serveIn",
+            "serveOut"
+        ]
+    );
+}
+
+/// 20 §6.2 serve messages: `in` lines parse and reserialize unchanged,
+/// `invalidIn` lines are fatal `invalid_input: schema` errors.
+#[test]
+fn serve_message_fixtures() {
+    // spec: 20 §6.2, 21 §3 CI item 4
+    let doc: Value =
+        serde_json::from_str(&read(&contract_dir().join("fixtures/serve/messages.json"))).unwrap();
+    for msg in doc["in"].as_array().unwrap() {
+        let line = serde_json::to_string(msg).unwrap();
+        let parsed = pmb_contract::serve::ServeIn::parse_line(&line)
+            .unwrap_or_else(|e| panic!("{line}: {e}"));
+        let again: Value = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(&again, msg, "reserialization changed {line}");
+    }
+    for case in doc["invalidIn"].as_array().unwrap() {
+        let line = serde_json::to_string(&case["message"]).unwrap();
+        let e = pmb_contract::serve::ServeIn::parse_line(&line).expect_err(&line);
+        assert_eq!(
+            (e.class.as_str(), e.cause),
+            ("invalid_input", "schema"),
+            "{line}"
+        );
+    }
+}

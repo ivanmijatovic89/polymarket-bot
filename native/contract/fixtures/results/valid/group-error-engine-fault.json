@@ -2,11 +2,11 @@
   "outputSchemaVersion": 1,
   "status": "error",
   "error": {
-    "class": "data_defect",
-    "cause": "upstream_hole",
-    "message": "Chainlink hole 2026-06-01T10:00:00Z for 412 s (set maxGapMs 0 to replay stale)",
+    "class": "engine_fault",
+    "cause": "invariant",
+    "message": "pnl identity violated: cashEnd - cashStart + winningShares != pnl",
     "detail": {
-      "fixCommand": "npm run telonex:crypto-prices:download -- --sync"
+      "location": "crates/pmb-engine/src/stats.rs:120"
     }
   },
   "echo": {
@@ -22,11 +22,11 @@
   },
   "market": {
     "slug": "btc-updown-15m-1780272000",
-    "conditionId": null,
+    "conditionId": "0x8f3c1a2b",
     "rulesSource": "fallback"
   },
   "candidates": [],
-  "resultDigest": "17ae2a0546b7949b3742a58bc97c803d14731686680f9fe5ac03bbf3f4e21552",
+  "resultDigest": "a8f3bc12ee5f227cb18f282c4560df862584fdba59f453121bd2a117f56a572d",
   "diagnostics": {
     "startedAtMs": 1791500000000,
     "finishedAtMs": 1791500000010,
