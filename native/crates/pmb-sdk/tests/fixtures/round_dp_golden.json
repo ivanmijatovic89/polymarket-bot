@@ -1,0 +1,26 @@
+{
+  "header": {
+    "contentPin": "96b6c922948885565b68eaa1c887f40e62e18819",
+    "generator": "native/crates/pmb-sdk/tests/fixtures/round_dp_gen.ts",
+    "generatorSha256": "2ff499c45535ab0340dca9056ad1bc8cbe9655ca206f0a9ca4eb7681bc63259e"
+  },
+  "cases": 51200,
+  "digests": {
+    "decimal": "273e4933eea21fe65cfde05e1c6d31a91db4f990f2e5d580c44594316d59a11e",
+    "random": "bce4368368f0a70b2e16a77173fa7c30f9f75cf2563901dd8a844b1aae5e1378",
+    "ties": "f02f2a04d354567f092dd4a96edea3c7831fb3b98f4a602aa15748dce58814b7"
+  },
+  "inputs": 12800,
+  "named": [
+    "3fd0000000000000 1 3fd3333333333333",
+    "3fd0000000000001 1 3fd3333333333333",
+    "3fcfffffffffffff 1 3fc999999999999a",
+    "3fc0000000000000 2 3fc0a3d70a3d70a4",
+    "3fc0000000000001 2 3fc0a3d70a3d70a4",
+    "3fbfffffffffffff 2 3fbeb851eb851eb8",
+    "bfc0000000000000 2 bfc0a3d70a3d70a4",
+    "bfc0000000000001 2 bfc0a3d70a3d70a4",
+    "bfbfffffffffffff 2 bfbeb851eb851eb8"
+  ],
+  "spec": "native-spec-g1 60 §6.4 LS-1(a); 30 §14"
+}
