@@ -4,8 +4,12 @@
 // vectors/capital.json with the exact decimal helper so that a wrong
 // derivation is caught before C2 binds the scenarios to the testkit.
 
+mod common;
+
+use common::*;
 use pmb_conformance::decimal::{Dec, Rounding};
 use pmb_conformance::vectors::{self, rows, s};
+use pmb_sdk::prelude::*;
 use serde_json::Value;
 
 fn file() -> Value {
@@ -360,116 +364,887 @@ fn turnover_vector_arithmetic() {
     assert!(available.cmp_num(&cost) != std::cmp::Ordering::Less);
 }
 
-macro_rules! skeleton {
-    ($name:ident, $id:literal, $todo:literal) => {
-        #[test]
-        #[ignore = "C2: needs pmb-sdk testkit"]
-        fn $name() {
-            let r = row($id);
-            let _ = &r;
-            todo!($todo);
-        }
-    };
+// ---------------------------------------------------------------------------
+// Sessions (ts-compat, delay 0) through the testkit.
+// ---------------------------------------------------------------------------
+
+type TickFn = Box<dyn FnMut(&Ctx, &mut Intents, &mut Recorder) + Send>;
+
+struct Cap {
+    rec: Recorder,
+    tick: TickFn,
+    /// Σ cost of delivered PositionsSplit (for the identity).
+    split_cost: i64,
+    /// Running cash recomputed from delivered movements (INV-1).
+    expected_cash: i64,
+    starting: i64,
+    identity_checks: usize,
 }
 
-// spec: 10 C1, 12 §7.5 — reserved after OrderSubmitted equals the vector (read capital().reserved in the callback)
-skeleton!(
-    c1_ts_compat_reservation_in_session,
-    "c1-ts-compat-reservation",
-    "C2: capital().reserved == 5.4744 inside the OrderSubmitted callback"
-);
-skeleton!(
-    c1_ts_compat_post_only_in_session,
-    "c1-ts-compat-post-only",
-    "C2: reserved == 5.3"
-);
-skeleton!(
-    c1_realistic_share_sized_in_session,
-    "c1-realistic-share-sized",
-    "C2/G3: reserved == 5.47437 on the F3 fixture market"
-);
-skeleton!(
-    c1_realistic_collateral_in_session,
-    "c1-realistic-collateral-sized",
-    "C2/G3: Order::buy_spend(Up, 0.53, usdc!(10)).fok() reserves 10.693"
-);
-// spec: 10 C1 exception — reservation_dust never rejects an accepted order
-skeleton!(
-    c1_reservation_dust_counted_not_rejected,
-    "c1-reservation-dust",
-    "C2/G3: multi-level fill; diagnostics.anomalies.reservation_dust > 0, order completes"
-);
-// spec: 12 §7.5 (exact compare, no 1e-8 tolerance)
-skeleton!(
-    funding_exact_boundary,
-    "funding-exact-boundary-accept",
-    "C2: starting 5.4744 accepts; 5.474399 rejects with the exact reject string"
-);
-skeleton!(
-    funding_cascade_visibility,
-    "funding-second-order-sees-first-reservation",
-    "C2: second order in the same list sees the first reservation"
-);
+impl Cap {
+    fn new(
+        starting: Usdc,
+        tick: impl FnMut(&Ctx, &mut Intents, &mut Recorder) + Send + 'static,
+    ) -> Cap {
+        Cap {
+            rec: Recorder::default(),
+            tick: Box::new(tick),
+            split_cost: 0,
+            expected_cash: starting.micros(),
+            starting: starting.micros(),
+            identity_checks: 0,
+        }
+    }
+}
+
+impl Script for Cap {
+    fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) {
+        self.rec.tick(ctx);
+        (self.tick)(ctx, out, &mut self.rec);
+    }
+    fn on_event(&mut self, ctx: &Ctx, ev: &AccountEvent, _out: &mut Intents) {
+        self.rec.event(ctx, ev);
+        // INV-1: cash == starting + Σ delivered movements.
+        match ev {
+            AccountEvent::Fill { fill, .. } => {
+                let notional = fill
+                    .price
+                    .notional(fill.qty, pmb_sdk::prelude::Rounding::HalfAwayFromZero)
+                    .unwrap()
+                    .micros();
+                match fill.side {
+                    Side::Buy => self.expected_cash -= notional + fill.fee.micros(),
+                    Side::Sell => self.expected_cash += notional - fill.fee.micros(),
+                }
+            }
+            AccountEvent::PositionsSplit { cost, .. } => {
+                self.expected_cash -= cost.micros();
+                self.split_cost += cost.micros();
+            }
+            AccountEvent::PositionsMerged { size, .. } => self.expected_cash += size.micros(),
+            _ => {}
+        }
+        let p = ctx.portfolio();
+        assert_eq!(
+            p.capital().cash.micros(),
+            self.expected_cash,
+            "INV-1 after {}",
+            ev.ts_kind()
+        );
+        assert_eq!(p.capital().starting.micros(), self.starting);
+        // C4 / INV-7 without the payout term: cash − starting == realized − Σ basis − split_cost.
+        let basis = p.position(Outcome::Up).cost_basis.micros()
+            + p.position(Outcome::Down).cost_basis.micros();
+        assert_eq!(
+            p.capital().cash.micros() - self.starting,
+            p.realized_pnl().micros() - basis - self.split_cost,
+            "PnL identity after {} (12 §9.6)",
+            ev.ts_kind()
+        );
+        self.identity_checks += 1;
+    }
+}
+
+fn standard_market() -> pmb_sdk::testkit::TestMarket {
+    let mut m = market();
+    books(&mut m, t(1000), price!(0.48), price!(0.52), qty!(50));
+    m
+}
+
+fn at_tick(
+    seq: u64,
+    mut f: impl FnMut(&mut Intents) + Send + 'static,
+) -> impl FnMut(&Ctx, &mut Intents, &mut Recorder) + Send + 'static {
+    move |ctx, out, _| {
+        if ctx.tick().seq == seq {
+            f(out)
+        }
+    }
+}
+
+fn reserved_in(rec: &Recorder, kind: &str, cid: &str) -> i64 {
+    rec.of(cid)
+        .iter()
+        .find(|e| e.kind == kind)
+        .unwrap()
+        .reserved
+}
+
+// spec: 10 C1 (ts-compat R9), 12 §7.5 — reserved after OrderSubmitted equals the vector
+#[test]
+fn c1_ts_compat_reservation_in_session() {
+    let r1 = row("c1-ts-compat-reservation");
+    let r2 = row("c1-ts-compat-resting-still-fee");
+    let mut m = market();
+    books(&mut m, t(1000), price!(0.30), price!(0.60), qty!(50));
+    books(&mut m, t(2000), price!(0.30), price!(0.60), qty!(50));
+    // Both intents of one list are applied at emission before the first callback runs
+    // (12 §9.1), so `b` goes on a later tick to read each reservation on its own.
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.place(Order::buy(Outcome::Up, price!(0.53), qty!(10)).cid(cid!("a"))),
+            3 => out.place(Order::buy(Outcome::Up, price!(0.40), qty!(10)).cid(cid!("b"))),
+            _ => {}
+        }),
+    );
+    let a = reserved_in(&sc.rec, "order_submitted", "a");
+    let b = reserved_in(&sc.rec, "order_submitted", "b");
+    assert_eq!(
+        a,
+        micros(s(&r1, "expected_reservation")),
+        "5.4744 in the OrderSubmitted callback"
+    );
+    assert_eq!(
+        b - a,
+        micros(s(&r2, "expected_reservation")),
+        "4.168 even though the order rests"
+    );
+    assert_eq!(
+        a,
+        ts_compat_reservation(price!(0.53), qty!(10), false).micros()
+    );
+}
+
+// spec: 10 R9 (0 fee if post-only), 10 R5 (HalfAwayFromZero notional)
+#[test]
+fn c1_ts_compat_post_only_in_session() {
+    let r = row("c1-ts-compat-post-only");
+    let r0 = row("c1-ts-compat-notional-half-away");
+    let mut m = market();
+    books(&mut m, t(1000), price!(0.30), price!(0.60), qty!(50));
+    let (_run, sc) = run(
+        &m,
+        Cap::new(
+            usdc!(500),
+            at_tick(1, |out| {
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.53), qty!(10))
+                        .post_only()
+                        .cid(cid!("po")),
+                );
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.333333), qty!(0.000001))
+                        .post_only()
+                        .cid(cid!("dust")),
+                );
+            }),
+        ),
+    );
+    assert_eq!(
+        reserved_in(&sc.rec, "order_submitted", "po"),
+        micros(s(&r, "expected_reservation"))
+    );
+    let dust = reserved_in(&sc.rec, "order_submitted", "dust");
+    assert_eq!(
+        dust - micros(s(&r, "expected_reservation")),
+        micros(s(&r0, "expected_reservation")),
+        "notional 3.3e-7 rounds to 0; accepted (no precision check)"
+    );
+}
+
+// spec: 10 C1 (realistic share-sized), G3
+#[test]
+#[ignore = "C4 (G3): realistic profile refused by the engine until M3b (D57)"]
+fn c1_realistic_share_sized_in_session() {
+    let _ = row("c1-realistic-share-sized");
+    todo!("G3");
+}
+#[test]
+#[ignore = "C4 (G3): realistic profile refused by the engine until M3b (D57)"]
+fn c1_realistic_collateral_in_session() {
+    let _ = row("c1-realistic-collateral-sized");
+    todo!("G3");
+}
+// spec: 10 C1 exception — reservation_dust
+#[test]
+#[ignore = "C4 (G3): realistic fee curves; the engine refuses Profile::Realistic until M3b (D57)"]
+fn c1_reservation_dust_counted_not_rejected() {
+    let _ = row("c1-reservation-dust");
+    todo!("G3");
+}
+
+// spec: 12 §7.5 (exact compare, no 1e-8 tolerance), 10 §10.2 reject string
+#[test]
+fn funding_exact_boundary() {
+    let acc = row("funding-exact-boundary-accept");
+    let rej = row("funding-one-micro-short-reject");
+    let order = |out: &mut Intents| {
+        out.place(Order::buy(Outcome::Up, price!(0.53), qty!(10)).cid(cid!("a")))
+    };
+    let mut m = market();
+    books(&mut m, t(1000), price!(0.30), price!(0.60), qty!(50));
+    let m_acc = m.clone().starting_capital(usdc!(5.4744));
+    let (_r, s1) = run(&m_acc, Cap::new(usdc!(5.4744), at_tick(1, order)));
+    assert_eq!(
+        s1.rec.kinds_of("a")[0],
+        "order_submitted",
+        "{}",
+        s(&acc, "expected")
+    );
+    let m_rej = m.starting_capital(usdc!(5.474399));
+    let (run2, s2) = run(&m_rej, Cap::new(usdc!(5.474399), at_tick(1, order)));
+    let e = &s2.rec.seen[0];
+    assert_eq!(e.kind, "order_rejected");
+    assert!(
+        e.debug
+            .contains("InsufficientCapital { required: Usdc(5.4744), available: Usdc(5.474399) }"),
+        "{}",
+        e.debug
+    );
+    assert_eq!(
+        events_of(&run2, "order_rejected")[0]["reason"],
+        "insufficient_capital",
+        "reason code in the trace (22 §3.4)"
+    );
+    assert_eq!(
+        RejectReason::InsufficientCapital {
+            required: usdc!(5.4744),
+            available: usdc!(5.474399)
+        }
+        .code(),
+        "insufficient_capital"
+    );
+    let _ = s(&rej, "reject_ts_string");
+}
+
+// spec: 10 §10.2 ("The trace renderer MUST reproduce those exact formats"), 21 §17 reject string
+#[test]
+#[ignore = "C2-fail: 10 §10.2 reject string in the trace, InsufficientCapital: observed reason \"insufficient_capital\"; expected \"insufficient_capital(required=5.4744,available=5.474399)\" (see PLAN A-21: 22 §3.4 compares the code only)"]
+fn funding_reject_string_in_trace() {
+    let rej = row("funding-one-micro-short-reject");
+    let mut m = market().starting_capital(usdc!(5.474399));
+    books(&mut m, t(1000), price!(0.30), price!(0.60), qty!(50));
+    let (run2, _sc) = run(
+        &m,
+        Cap::new(
+            usdc!(5.474399),
+            at_tick(1, |out| {
+                out.place(Order::buy(Outcome::Up, price!(0.53), qty!(10)).cid(cid!("a")))
+            }),
+        ),
+    );
+    assert_eq!(
+        events_of(&run2, "order_rejected")[0]["reason"],
+        s(&rej, "reject_ts_string")
+    );
+}
+
+// spec: 12 §9.1 (commands applied at emission), 12 §7.5 — the second order sees the first reservation
+#[test]
+fn funding_cascade_visibility() {
+    let r = row("funding-second-order-sees-first-reservation");
+    let mut m = market().starting_capital(usdc!(10));
+    books(&mut m, t(1000), price!(0.30), price!(0.60), qty!(50));
+    let (_run, sc) = run(
+        &m,
+        Cap::new(
+            usdc!(10),
+            at_tick(1, |out| {
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.50), qty!(10))
+                        .post_only()
+                        .cid(cid!("first")),
+                );
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.50), qty!(10.000001))
+                        .post_only()
+                        .cid(cid!("second")),
+                );
+            }),
+        ),
+    );
+    assert_eq!(reserved_in(&sc.rec, "order_submitted", "first"), 5_000_000);
+    let rej = sc
+        .rec
+        .seen
+        .iter()
+        .find(|e| e.kind == "order_rejected")
+        .expect(s(&r, "expected"));
+    assert!(
+        rej.debug
+            .contains("InsufficientCapital { required: Usdc(5.000001), available: Usdc(5) }"),
+        "{}",
+        rej.debug
+    );
+}
+
 // spec: 10 C2 (realistic SELL reserves shares)
-skeleton!(
-    c2_sell_reserves_shares,
-    "c2-realistic-sell-reserves-shares",
-    "C2/G3: sellable drops while the SELL rests; InsufficientInventory on over-sell"
-);
-// spec: 13 TC-C4 (ts-compat naked sells; oversold_qty)
-skeleton!(
-    c2_ts_compat_naked_sell,
-    "c2-ts-compat-no-inventory-check",
-    "C2: position clamps at 0, proceeds credited, oversold_qty == 5"
-);
-// spec: 10 C3 (release on authoritative final quantity)
-skeleton!(
-    c3_partial_then_cancel,
-    "c3-release-partial-then-terminal",
-    "C2: reserved 5.4744 -> 3.2846 -> 0 across the steps"
-);
-skeleton!(
-    c3_killed_releases,
-    "c3-killed-releases",
-    "C2: reserved back to 0 in the OrderDone(Killed) callback"
-);
-skeleton!(
-    c3_rejected_releases,
-    "c3-rejected-releases",
-    "C2: exchange-origin reject releases; engine-origin never reserved"
-);
-skeleton!(
-    c3_zero_reserved_at_end,
-    "c3-session-end-zero-reserved",
-    "C2: final capital().reserved == 0"
-);
-// spec: 10 C4, 12 §9.6 — identity on real sessions, incl. the TS merge-PnL bug not copied
-skeleton!(
-    c4_identity_sessions,
-    "c4-pnl-identity-taker-buy-win",
-    "C2: run win/lose/sell/split/merge vectors; assert MarketStats and trace final.unrounded"
-);
-skeleton!(
-    c4_merge_realizes_not_ts_bug,
-    "c4-merge-realizes",
-    "C2: split 5 + merge 5 -> pnl 0.00 (TS would give -5.00)"
-);
-// spec: 12 §7.3 (merge clamp, pending merges), 10 N4
-skeleton!(merge_clamp_and_zero, "merge-clamp-pending", "C2: merge 100000 -> PositionsMerged{{7}}; second in list -> InsufficientPairs (realistic) / no event (ts-compat)");
-skeleton!(
-    split_insufficient_and_zero,
-    "split-insufficient",
-    "C2: split 100000 -> SplitFailed(InsufficientCollateral); split 0 -> SplitFailed(InvalidSize)"
-);
-// spec: 12 §9.4 (per-market allowance isolation)
-skeleton!(
-    per_market_allowance_isolated,
-    "per-market-allowance",
-    "C2: two markets; capital().starting == 500 in both"
-);
-// spec: 60 INV-1 (cash conservation after every delivered event)
-skeleton!(
-    inv1_cash_conservation,
-    "inv1-cash-conservation",
-    "C2: replay a mixed scenario; recompute cash from delivered movements in every callback"
-);
+#[test]
+#[ignore = "C4 (G3): realistic profile refused by the engine until M3b (D57)"]
+fn c2_sell_reserves_shares() {
+    let _ = row("c2-realistic-sell-reserves-shares");
+    todo!("G3");
+}
+
+// spec: 13 TC-C4 (ts-compat naked sells; quantity clamped at 0; full proceeds credited)
+#[test]
+fn c2_ts_compat_naked_sell() {
+    let _ = row("c2-ts-compat-no-inventory-check");
+    let m = standard_market();
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.place(
+                Order::buy(Outcome::Up, price!(0.52), qty!(3))
+                    .fok()
+                    .cid(cid!("buy3")),
+            ),
+            2 => {}
+            _ => {}
+        }),
+    );
+    assert_eq!(sc.rec.seen.last().unwrap().pos_up, 3_000_000);
+    let mut m = standard_market();
+    books(&mut m, t(2000), price!(0.48), price!(0.52), qty!(50));
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.place(
+                Order::buy(Outcome::Up, price!(0.52), qty!(3))
+                    .fok()
+                    .cid(cid!("buy3")),
+            ),
+            3 => out.place(
+                Order::sell(Outcome::Up, price!(0.48), qty!(8))
+                    .fok()
+                    .cid(cid!("sell8")),
+            ),
+            _ => {}
+        }),
+    );
+    let sell = sc.rec.of("sell8");
+    let fill = sell
+        .iter()
+        .find(|e| e.kind == "fill")
+        .expect("naked sell fills");
+    assert!(
+        fill.debug.contains("qty: Qty(8)") && fill.debug.contains("liquidity: Taker"),
+        "{}",
+        fill.debug
+    );
+    assert_eq!(fill.pos_up, 0, "clamped at 0, never negative");
+    let fee = ts_compat_fee(price!(0.48), qty!(8)).micros();
+    let buy_fee = ts_compat_fee(price!(0.52), qty!(3)).micros();
+    assert_eq!(
+        fill.cash,
+        500_000_000 - 1_560_000 - buy_fee + 3_840_000 - fee,
+        "full proceeds credited"
+    );
+    assert!(sc.identity_checks > 0);
+}
+
+// spec: 10 C3, 12 §9.4 — reserved 5.4744 → 3.2846 (outstanding 6 at the limit) → 0 on the terminal
+#[test]
+fn c3_partial_then_cancel() {
+    let r = row("c3-release-partial-then-terminal");
+    let steps = r["steps"].as_array().unwrap();
+    let mut m = market();
+    up_book(
+        &mut m,
+        t(1000),
+        &[(price!(0.48), qty!(50))],
+        &[(price!(0.52), qty!(4)), (price!(0.54), qty!(10))],
+    );
+    // The next real tick must move the UP ask above the limit (0.54 > 0.53) *before* the
+    // maker scan, or WorstQueueCompat fills the remainder against the undepleted 0.52 level
+    // (the free remainder fill, 13 §5.3). So: one UP book event, and the cancel on that tick.
+    m.book(
+        t(2000),
+        Outcome::Up,
+        &[(price!(0.48), qty!(50))],
+        &[(price!(0.54), qty!(50))],
+    );
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.place(Order::buy(Outcome::Up, price!(0.53), qty!(10)).cid(cid!("a"))),
+            2 => out.cancel(&cid!("a")),
+            _ => {}
+        }),
+    );
+    let a = sc.rec.of("a");
+    let sub = a.iter().find(|e| e.kind == "order_submitted").unwrap();
+    assert_eq!(
+        (sub.reserved, sub.cash),
+        (
+            micros(s(&steps[0], "reserved")),
+            micros(s(&steps[0], "cash"))
+        )
+    );
+    let fill = a.iter().find(|e| e.kind == "fill").unwrap();
+    assert!(
+        fill.debug
+            .contains("price: Price(0.52), qty: Qty(4), fee: Usdc(0.0699)"),
+        "{}",
+        fill.debug
+    );
+    assert_eq!(
+        (fill.cash, fill.reserved),
+        (
+            micros(s(&steps[1], "cash")),
+            micros(s(&steps[1], "reserved"))
+        ),
+        "A-11 (D69): fee of the outstanding 6 at the limit"
+    );
+    let done = a.last().unwrap();
+    assert!(
+        done.debug.contains("reason: Canceled") && done.debug.contains("filled: Some(Qty(4))"),
+        "{}",
+        done.debug
+    );
+    assert_eq!(done.reserved, 0);
+    assert_eq!(done.cash, micros(s(&steps[1], "cash")));
+}
+
+// spec: 10 C3, 60 INV-3 — a killed FOK releases in its OrderDone callback, cash unchanged
+#[test]
+fn c3_killed_releases() {
+    let _ = row("c3-killed-releases");
+    let m = standard_market();
+    let (_run, sc) = run(
+        &m,
+        Cap::new(
+            usdc!(500),
+            at_tick(1, |out| {
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.52), qty!(60))
+                        .fok()
+                        .cid(cid!("k")),
+                );
+            }),
+        ),
+    );
+    let k = sc.rec.of("k");
+    assert!(k[0].reserved > 0);
+    let done = k.last().unwrap();
+    assert!(done.debug.contains("reason: Killed"));
+    assert_eq!((done.reserved, done.cash), (0, 500_000_000));
+}
+
+// spec: 10 C3, 12 §9.4 (OrderRejected → final 0); engine-origin rejections never reserve
+#[test]
+fn c3_rejected_releases() {
+    let _ = row("c3-rejected-releases");
+    let m = standard_market();
+    let (_run, sc) = run(
+        &m,
+        Cap::new(
+            usdc!(500),
+            at_tick(1, |out| {
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.52), qty!(10))
+                        .post_only()
+                        .cid(cid!("po")),
+                );
+                out.place(Order::buy(Outcome::Up, price!(0.50), Qty::ZERO).cid(cid!("bad")));
+            }),
+        ),
+    );
+    let po = sc.rec.of("po");
+    assert_eq!(po[0].reserved, 5_200_000, "post-only reserves the notional");
+    assert_eq!(po[1].kind, "order_rejected");
+    assert_eq!(
+        po[1].reserved, 0,
+        "released on delivery of the keyed rejection"
+    );
+    let bad = sc
+        .rec
+        .seen
+        .iter()
+        .find(|e| e.kind == "order_rejected" && e.cid.is_none())
+        .unwrap();
+    assert_eq!(bad.reserved, 0);
+}
+
+// spec: 60 INV-3 — with every order terminal, reserved == 0 at the end
+#[test]
+fn c3_zero_reserved_at_end() {
+    let _ = row("c3-session-end-zero-reserved");
+    let mut m = standard_market();
+    books(&mut m, t(2000), price!(0.48), price!(0.52), qty!(50));
+    books(&mut m, t(3000), price!(0.48), price!(0.52), qty!(50));
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, rec| match ctx.tick().seq {
+            1 => {
+                out.place(Order::buy(Outcome::Up, price!(0.50), qty!(5)).cid(cid!("rest")));
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.52), qty!(5))
+                        .fok()
+                        .cid(cid!("fok")),
+                );
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.52), qty!(60))
+                        .fok()
+                        .cid(cid!("kill")),
+                );
+            }
+            3 => out.cancel(&cid!("rest")),
+            5 => rec.ticks.push((
+                90,
+                ctx.portfolio().capital().reserved.micros(),
+                "reserved".into(),
+            )),
+            _ => {}
+        }),
+    );
+    let end = sc.rec.ticks.iter().find(|(k, _, _)| *k == 90).unwrap();
+    assert_eq!(end.1, 0);
+}
+
+// spec: 10 C4, 12 §9.5, 12 §9.6 — the identity on real sessions (taker buy, sell)
+#[test]
+fn c4_identity_sessions() {
+    let win = row("c4-pnl-identity-taker-buy-win");
+    let sell = row("c4-sell-realized");
+    let mut m = market();
+    up_book(
+        &mut m,
+        t(1000),
+        &[(price!(0.48), qty!(50))],
+        &[(price!(0.50), qty!(50))],
+    );
+    up_book(
+        &mut m,
+        t(2000),
+        &[(price!(0.60), qty!(50))],
+        &[(price!(0.70), qty!(50))],
+    );
+    let (run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.place(
+                Order::buy(Outcome::Up, price!(0.50), qty!(10))
+                    .fok()
+                    .cid(cid!("buy")),
+            ),
+            3 => out.place(
+                Order::sell(Outcome::Up, price!(0.60), qty!(4))
+                    .fok()
+                    .cid(cid!("sell")),
+            ),
+            _ => {}
+        }),
+    );
+    let bf = sc
+        .rec
+        .of("buy")
+        .into_iter()
+        .find(|e| e.kind == "fill")
+        .unwrap();
+    assert!(
+        bf.debug
+            .contains(&format!("fee: Usdc({})", s(&win["expected"], "fee"))),
+        "{}",
+        bf.debug
+    );
+    assert_eq!(bf.cash, micros(s(&win["expected"], "cash_end")));
+    let sf = sc
+        .rec
+        .of("sell")
+        .into_iter()
+        .find(|e| e.kind == "fill")
+        .unwrap();
+    assert!(
+        sf.debug
+            .contains(&format!("fee: Usdc({})", s(&sell["expected"], "sell_fee"))),
+        "{}",
+        sf.debug
+    );
+    assert_eq!(sf.cash, micros(s(&sell["expected"], "cash_end")));
+    assert_eq!(sf.pos_up, 6_000_000);
+    assert!(sc.identity_checks >= 10);
+    // Final totals (unrounded) from the testkit's final record.
+    assert_eq!(
+        micros(&final_field(&run, "cash_end").unwrap()),
+        micros(s(&sell["expected"], "cash_end"))
+    );
+}
+
+// spec: 10 C4, 12 §9.5 (merge realizes size − removed basis; TS bug not copied), 13 §5.4
+#[test]
+fn c4_merge_realizes_not_ts_bug() {
+    let r = row("c4-merge-realizes");
+    let avg = row("c4-merge-average-cost");
+    let mut m = standard_market();
+    books(&mut m, t(2000), price!(0.48), price!(0.52), qty!(50));
+    // The split's shares exist for the OM only once PositionsSplit is delivered (12 §9.1),
+    // so the merge goes on the next tick (a merge in the same list fails InsufficientPairs).
+    let (run1, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => out.split(qty!(5)),
+            3 => out.merge(qty!(5)),
+            _ => {}
+        }),
+    );
+    let merged = sc
+        .rec
+        .seen
+        .iter()
+        .find(|e| e.kind == "positions_merged")
+        .unwrap();
+    assert_eq!(
+        (merged.cash, merged.pos_up, merged.pos_down),
+        (500_000_000, 0, 0)
+    );
+    assert_eq!(
+        micros(&final_field(&run1, "cash_end").unwrap()),
+        micros(s(&r["expected"], "cash_end"))
+    );
+    assert_eq!(
+        micros(&final_field(&run1, "pnl").unwrap()),
+        micros(s(&r["expected"], "pnl")),
+        "TS would give -5 (classified TS bug)"
+    );
+    assert_eq!(
+        micros(&final_field(&run1, "split_cost").unwrap()),
+        micros(s(&r["expected"], "split_cost"))
+    );
+    // Average-cost removal: BUY UP 10 @ 0.50, BUY DOWN 10 @ 0.40, merge 4.
+    let mut m = market();
+    m.book(
+        t(1000),
+        Outcome::Up,
+        &[(price!(0.45), qty!(50))],
+        &[(price!(0.50), qty!(50))],
+    );
+    m.book(
+        t(1000),
+        Outcome::Down,
+        &[(price!(0.35), qty!(50))],
+        &[(price!(0.40), qty!(50))],
+    );
+    m.price_change(t(2000), Outcome::Up, Side::Buy, price!(0.45), qty!(40));
+    let (run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => {
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.50), qty!(10))
+                        .fok()
+                        .cid(cid!("up")),
+                );
+                out.place(
+                    Order::buy(Outcome::Down, price!(0.40), qty!(10))
+                        .fok()
+                        .cid(cid!("down")),
+                );
+            }
+            2 => out.merge(qty!(4)),
+            _ => {}
+        }),
+    );
+    let merged = sc
+        .rec
+        .seen
+        .iter()
+        .find(|e| e.kind == "positions_merged")
+        .unwrap();
+    assert_eq!(merged.cash, micros(s(&avg["expected"], "cash_after_merge")));
+    assert_eq!(
+        micros(&final_field(&run, "cash_end").unwrap()),
+        micros(s(&avg["expected"], "cash_after_merge"))
+    );
+    assert_eq!(
+        micros(&final_field(&run, "pnl").unwrap()),
+        micros(s(&avg["expected"], "pnl")),
+        "resolves UP: realized 0.2628 + 6 − basis 5.6058"
+    );
+}
+
+// spec: 12 §7.3 (merge clamp; clamped result ≤ 0 → MergeFailed(InsufficientPairs)), 10 N4, 13 TC-C7
+#[test]
+fn merge_clamp_and_zero() {
+    let r = row("merge-clamp-pending");
+    assert!(s(&r, "expected").contains("PositionsMerged{size: 7}"));
+    let mut m = standard_market();
+    books(&mut m, t(2000), price!(0.48), price!(0.52), qty!(50));
+    let (run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => {
+                out.split(qty!(7));
+                out.place(
+                    Order::buy(Outcome::Up, price!(0.52), qty!(3))
+                        .fok()
+                        .cid(cid!("up3")),
+                );
+            }
+            2 => {
+                out.merge(qty!(100000));
+                out.merge(qty!(100000));
+            }
+            _ => {}
+        }),
+    );
+    let merges: Vec<&Seen> = sc
+        .rec
+        .seen
+        .iter()
+        .filter(|e| e.kind == "positions_merged" || e.kind == "merge_failed")
+        .collect();
+    assert_eq!(
+        merges.len(),
+        2,
+        "12 §7.3: the clamped second merge (≤ 0 pairs) fails InsufficientPairs; observed {:?}",
+        sc.rec.tags()
+    );
+    assert!(
+        merges[0].debug.contains("PositionsMerged { at: TsMs(")
+            && merges[0].debug.contains("size: Qty(7)"),
+        "{}",
+        merges[0].debug
+    );
+    assert_eq!((merges[0].pos_up, merges[0].pos_down), (3_000_000, 0));
+    assert!(
+        merges[1].debug.contains("MergeFailed") && merges[1].debug.contains("InsufficientPairs"),
+        "{}",
+        merges[1].debug
+    );
+    assert_eq!(events_of(&run, "positions_merged").len(), 1);
+}
+
+// spec: 12 §7.3 (split funding), 10 N4, 13 TC-C7 (ts-compat merge 0 → no event)
+#[test]
+fn split_insufficient_and_zero() {
+    let _ = row("split-insufficient");
+    let _ = row("split-zero");
+    let _ = row("merge-zero");
+    let m = standard_market();
+    let (run, sc) = run(
+        &m,
+        Cap::new(
+            usdc!(500),
+            at_tick(1, |out| {
+                out.split(qty!(100000));
+                out.split(Qty::ZERO);
+                out.merge(Qty::ZERO);
+            }),
+        ),
+    );
+    let kinds: Vec<String> = sc
+        .rec
+        .seen
+        .iter()
+        .map(|e| {
+            format!(
+                "{}:{}",
+                e.kind,
+                e.debug
+                    .split("reason: ")
+                    .nth(1)
+                    .unwrap_or("")
+                    .trim_end_matches(" }")
+            )
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "split_failed:InsufficientCollateral",
+            "split_failed:InvalidSize"
+        ],
+        "merge 0 → no event in ts-compat (TC-C7)"
+    );
+    assert_eq!(run.records("intent").count(), 3);
+    assert_eq!(run.records("event").count(), 2);
+}
+
+// spec: 12 §9.4 (isolated per-market allowance), 21 §6.3
+#[test]
+fn per_market_allowance_isolated() {
+    let _ = row("per-market-allowance");
+    let spend = |ctx: &Ctx, out: &mut Intents, rec: &mut Recorder| {
+        rec.ticks.push((
+            90,
+            ctx.portfolio().capital().starting.micros(),
+            format!("cash={}", ctx.portfolio().capital().cash.micros()),
+        ));
+        if ctx.tick().seq == 0 {
+            out.place(
+                Order::buy(Outcome::Up, price!(0.6), qty!(100))
+                    .fok()
+                    .cid(cid!("spend")),
+            );
+        }
+    };
+    let mut m1 = market();
+    m1.book(
+        t(1000),
+        Outcome::Up,
+        &[(price!(0.4), qty!(100))],
+        &[(price!(0.6), qty!(100))],
+    );
+    let mut m2 = pmb_sdk::testkit::TestMarket::btc_15m(TsMs(START.0 + 900_000))
+        .profile(pmb_sdk::testkit::Profile::TsCompat);
+    m2.book(
+        TsMs(START.0 + 900_000 + 1000),
+        Outcome::Up,
+        &[(price!(0.4), qty!(100))],
+        &[(price!(0.6), qty!(100))],
+    );
+    let (_r1, s1) = run(&m1, Cap::new(usdc!(500), spend));
+    assert_eq!(
+        s1.rec.seen.last().unwrap().cash,
+        500_000_000 - 60_000_000 - ts_compat_fee(price!(0.6), qty!(100)).micros()
+    );
+    let (_r2, s2) = run(&m2, Cap::new(usdc!(500), spend));
+    let first = s2.rec.ticks.iter().find(|(k, _, _)| *k == 90).unwrap();
+    assert_eq!(
+        (first.1, first.2.as_str()),
+        (500_000_000, "cash=500000000"),
+        "market 2 starts from its own allowance"
+    );
+}
+
+// spec: 60 INV-1 (cash conservation after every delivered event) — a mixed scenario; `Cap` recomputes cash in every callback
+#[test]
+fn inv1_cash_conservation() {
+    let _ = row("inv1-cash-conservation");
+    let mut m = market();
+    up_book(
+        &mut m,
+        t(1000),
+        &[(price!(0.48), qty!(50))],
+        &[(price!(0.52), qty!(4)), (price!(0.54), qty!(10))],
+    );
+    m.price_change(t(2000), Outcome::Up, Side::Sell, price!(0.49), qty!(10));
+    up_book(
+        &mut m,
+        t(3000),
+        &[(price!(0.60), qty!(50))],
+        &[(price!(0.70), qty!(50))],
+    );
+    let (_run, sc) = run(
+        &m,
+        Cap::new(usdc!(500), |ctx, out, _| match ctx.tick().seq {
+            1 => {
+                out.place(Order::buy(Outcome::Up, price!(0.53), qty!(10)).cid(cid!("partial")));
+                out.place(Order::buy(Outcome::Up, price!(0.50), qty!(5)).cid(cid!("maker")));
+                out.split(qty!(3));
+            }
+            // seq 4 is the UP book of t(3000) (bid 0.60); the price_change at t(2000) already
+            // filled both resting orders (free remainder fill, 13 §5.3), so the cancel is a no-op.
+            4 => {
+                out.cancel(&cid!("partial"));
+                out.place(
+                    Order::sell(Outcome::Up, price!(0.60), qty!(7))
+                        .fok()
+                        .cid(cid!("sell")),
+                );
+                out.merge(qty!(2));
+            }
+            _ => {}
+        }),
+    );
+    assert!(sc.identity_checks >= 15, "{}", sc.identity_checks);
+    assert!(sc
+        .rec
+        .seen
+        .iter()
+        .any(|e| e.kind == "fill" && e.debug.contains("liquidity: Maker")));
+    assert!(sc.rec.seen.iter().any(|e| e.kind == "positions_merged"));
+    assert!(sc.rec.of("sell").iter().any(|e| e.kind == "fill"));
+}

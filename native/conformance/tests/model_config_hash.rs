@@ -209,14 +209,54 @@ fn representation_rejects_floats_and_null() {
     }
 }
 
-// spec: 21 §3 CI item 6 — the committed default fixtures and their sha agree with Rust
-// C2: read native/contract/fixtures/model-config/{ts-compat,realistic}-default.json
-// (merged from native-engine), canonicalize with this crate and compare with
-// the recorded modelConfigSha256 and with the binary's echo.modelConfigSha256.
+// spec: 21 §3 CI item 6, D57/D58 — the committed default ModelConfig and its recorded sha agree
+// with this crate's canonicalization (21 §6.1). Inputs: native/contract/model-configs/
+// ts-compat-default.json and native/contract/fixtures/hashes.json (committed on
+// native-engine; test-only inputs under native/contract/** are allowed, CF-2).
+// The binary's echo.modelConfigSha256 is still a bin check (C2-gap).
 #[test]
-#[ignore = "C2: needs native/contract fixtures and the artifact binary"]
 fn ci_item6_default_fixture_hashes() {
-    todo!("C2: hash the committed default fixtures and compare with their recorded sha");
+    let contract = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../contract");
+    let read = |p: &str| -> Value {
+        let text = std::fs::read_to_string(contract.join(p)).unwrap_or_else(|e| panic!("{p}: {e}"));
+        serde_json::from_str(&text).unwrap()
+    };
+    let hashes = read("fixtures/hashes.json");
+    let recorded = hashes["modelConfigSha256"]["ts-compat-default.json"]
+        .as_str()
+        .expect("hashes.json records ts-compat-default.json");
+    let default = read("model-configs/ts-compat-default.json");
+    assert_eq!(
+        hex(&sha256(canonical(&default).as_bytes())),
+        recorded,
+        "canonical JSON sha256 of the committed default"
+    );
+    // D58: the committed ts-compat default pins compatLatency 0/0 and the 13 §7.3 compat models.
+    assert_eq!(default["profile"], "ts-compat");
+    assert_eq!(default["execution"]["compatLatency"]["delayMs"], 0);
+    assert_eq!(default["execution"]["compatLatency"]["jitterMs"], 0);
+    let models = &default["execution"]["models"];
+    assert_eq!(models["latency"], "compat");
+    assert_eq!(models["fee"], "flat_700bps_4dp");
+    assert_eq!(models["takerDelay"], "off");
+    assert_eq!(models["depletion"], "none");
+    assert_eq!(models["maker"], "worst_queue");
+    assert_eq!(models["reports"], "compat");
+    assert_eq!(default["runner"]["maxEventsPerDrain"], 4200);
+    assert_eq!(default["capital"]["startingCapitalUsdc"], "500");
+    // The decimal strings of the default obey the 21 §6.1 grammar.
+    for (k, v) in default["risk"].as_object().unwrap() {
+        if let Some(t) = v.as_str() {
+            assert!(is_decimal_string(t), "risk.{k} = {t:?}");
+        }
+    }
+    // The spec-shaped candidate of this crate (ts-compat-default-jitter0) must hash the same
+    // once its unused fields equal the committed file; record the comparison either way.
+    let spec_shaped = row("ts-compat-default-jitter0");
+    let spec_sha = s(&spec_shaped, "sha256");
+    if spec_sha != recorded {
+        eprintln!("note: spec-shaped candidate {spec_sha} != committed default {recorded} (A-02/D57: CI item 6 pins the committed file)");
+    }
 }
 
 // spec: 21 §1.1, 21 §8 C4, 21 §10 — effective ModelConfig per candidate
