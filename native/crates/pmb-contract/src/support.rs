@@ -101,6 +101,11 @@ impl ContractError {
         }
     }
 
+    /// True for `invalid_input: schema`.
+    pub fn is_invalid_input_schema(&self) -> bool {
+        self.class == ErrorClass::InvalidInput && self.cause == "schema"
+    }
+
     pub fn invalid_output(cause: &'static str, message: impl Into<String>) -> Self {
         ContractError {
             class: ErrorClass::InvalidOutput,

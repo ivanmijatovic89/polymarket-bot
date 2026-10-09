@@ -453,3 +453,122 @@ impl ModelConfig {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    fn ts_compat() -> Value {
+        serde_json::from_str(include_str!(
+            "../../../contract/model-configs/ts-compat-default.json"
+        ))
+        .unwrap()
+    }
+
+    /// A realistic config with every M3b section (13 §7.3 example values).
+    fn realistic() -> Value {
+        let c = |ms: u32| json!({"kind": "constant", "ms": ms});
+        let mut v = ts_compat();
+        v["profile"] = json!("realistic");
+        v["execution"] = json!({
+            "models": {"latency": "exact", "fee": "schedule", "takerDelay": "on",
+                       "depletion": "persistent_deficit", "maker": "queue", "reports": "settlement"},
+            "compatLatency": {"delayMs": 0, "jitterMs": 0},
+            "latency": {"calibrationId": "uncalibrated-2026-10", "components": {
+                "place": c(58), "cancel": c(45), "ack": c(58), "cancelAck": c(45),
+                "fillReport": c(58), "mined": c(2000), "confirmed": c(10000), "failed": c(2000),
+                "chainSplit": c(4000), "chainMerge": c(4000)}},
+            "cancelBeforeAck": "defer_until_ack",
+            "makerQueue": {"cancelAheadShare": "0.5", "printMatchWindowMs": 1000, "prints": "auto"},
+            "sellGate": "Mined",
+            "failureRates": {"settlement": "0", "chain": "0"}
+        });
+        v["clock"] = json!({"marketData": {"calibrationId": "uncalibrated-2026-10",
+                                           "delay": {"kind": "uniform", "loMs": 5, "hiMs": 40}}});
+        v
+    }
+
+    fn parse(v: Value) -> ModelConfig {
+        serde_json::from_value(v).unwrap()
+    }
+
+    fn cause(v: Value) -> &'static str {
+        parse(v).validate().unwrap_err().cause
+    }
+
+    #[test]
+    fn realistic_requires_its_sections_and_accepts_any_axis_combination() {
+        // spec: 13 §7.3, D57, 12 §4.5
+        parse(realistic()).validate().unwrap();
+        let mut v = realistic();
+        v["execution"]["models"]["maker"] = json!("worst_queue");
+        v["execution"]["models"]["fee"] = json!("flat_700bps_4dp");
+        parse(v).validate().unwrap();
+        let mut v = realistic();
+        v.as_object_mut().unwrap().remove("clock");
+        assert_eq!(cause(v), "model_config");
+    }
+
+    #[test]
+    fn realistic_with_compat_reports_needs_sell_gate_matched() {
+        // spec: 13 §7.3 (compat statuses never reach Mined)
+        let mut v = realistic();
+        v["execution"]["models"]["reports"] = json!("compat");
+        assert_eq!(cause(v.clone()), "model_config");
+        v["execution"]["sellGate"] = json!("Matched");
+        parse(v).validate().unwrap();
+    }
+
+    #[test]
+    fn distribution_rules() {
+        // spec: 13 §7.3 distribution kinds, 14 §9 ranges
+        let mut v = realistic();
+        v["clock"]["marketData"]["delay"] = json!({"kind": "uniform", "loMs": 9, "hiMs": 8});
+        assert_eq!(cause(v), "model_config");
+        let mut v = realistic();
+        v["execution"]["latency"]["components"]["place"] =
+            json!({"kind": "lognormal", "mu": "3.2", "sigma": "-0.1"});
+        assert_eq!(cause(v), "model_config");
+        let mut v = realistic();
+        let mut q: Vec<u32> = (0..101).collect();
+        q.swap(3, 4);
+        v["feeds"]["binance"]["latency"] = json!({"kind": "empirical", "quantilesMs": q});
+        assert_eq!(cause(v), "model_config");
+        let mut v = realistic();
+        v["feeds"]["binance"]["latency"] =
+            json!({"kind": "empirical", "quantilesMs": (0..101).collect::<Vec<u32>>()});
+        parse(v).validate().unwrap();
+    }
+
+    #[test]
+    fn compat_latency_bound() {
+        // spec: 13 §5.1 (D-PENDING bound COMPAT_LATENCY_MAX_MS)
+        let mut v = ts_compat();
+        v["execution"]["compatLatency"]["jitterMs"] = json!(COMPAT_LATENCY_MAX_MS + 1);
+        assert_eq!(cause(v), "model_config");
+    }
+
+    #[test]
+    fn effective_config_replaces_only_execution_and_changes_the_hash() {
+        // spec: 21 §1.1 effective ModelConfig, §8 C4, §10 candidate sha
+        let run = parse(realistic());
+        let mut variant = run.execution.clone();
+        variant.sell_gate = Some(SellGate::Confirmed);
+        let eff = run.effective(Some(&variant));
+        assert_eq!(eff.execution, variant);
+        assert_eq!(eff.feeds, run.feeds);
+        assert_ne!(eff.sha256().unwrap(), run.sha256().unwrap());
+        assert_eq!(run.effective(None).sha256().unwrap(), run.sha256().unwrap());
+    }
+
+    #[test]
+    fn canonical_json_is_independent_of_input_key_order() {
+        // spec: 21 §6.1 canonical JSON
+        let a = parse(ts_compat());
+        let text = serde_json::to_string(&ts_compat()).unwrap();
+        let reversed: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(a.sha256().unwrap(), parse(reversed).sha256().unwrap());
+        assert!(!a.canonical_json().unwrap().contains(' '));
+    }
+}

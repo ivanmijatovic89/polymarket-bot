@@ -14,7 +14,9 @@ import {
   contractSha256,
   modelConfigSha256,
 } from './canonicalJson.js'
+import { candidateModelConfigSha256, checkEcho, effectiveModelConfig } from './echo.js'
 import { GENERATED_PATH, REPO_ROOT, generate, readBundle } from './gen.js'
+import type { EngineJob, EngineResult } from './generated.js'
 import { createContractValidators, hasDecimalScale } from './validate.js'
 
 const CONTRACT_DIR = path.join(REPO_ROOT, 'native/contract')
@@ -74,6 +76,22 @@ describe('cross-language hashes (21 §3 CI item 6, 60 §7.2)', () => {
         modelConfigSha256(readJson(file)),
         hashes.modelConfigSha256[path.basename(file)],
         path.basename(file),
+      )
+    }
+  })
+
+  it('the defaults file plus seed 0 gives the committed default configs', () => {
+    // spec: 21 §6.3 (defaults without seed), 10 RNG-1 (default seed 0), D57
+    const defaults = readJson(path.join(CONTRACT_DIR, 'defaults/model-config-v1.json')) as Record<
+      string,
+      Record<string, unknown>
+    >
+    assert.deepEqual(Object.keys(defaults), ['ts-compat'])
+    for (const [profile, config] of Object.entries(defaults)) {
+      assert.equal(config.profile, profile)
+      assert.equal(
+        modelConfigSha256({ ...config, seed: 0 }),
+        hashes.modelConfigSha256[`${profile}-default.json`],
       )
     }
   })
@@ -185,5 +203,75 @@ describe('fixtures validate against the JSON Schema bundle (21 §3 CI item 4, §
     assert.ok(hasDecimalScale(4, 0.5123))
     assert.ok(!hasDecimalScale(2, -12.345))
     assert.ok(!hasDecimalScale(4, 0.51234))
+  })
+})
+
+describe('echo assertions (21 §12)', () => {
+  const job = readJson(
+    path.join(CONTRACT_DIR, 'fixtures/jobs/valid/telonex-delta-ts-compat.json'),
+  ) as EngineJob
+  const engineVersion = '0.1.0'
+
+  function matchingResult(): EngineResult {
+    const r = readJson(
+      path.join(CONTRACT_DIR, 'fixtures/results/valid/ok-ts-compat.json'),
+    ) as EngineResult
+    assert.ok(r.echo && r.market)
+    r.echo.modelConfigSha256 = modelConfigSha256(job.run.modelConfig)
+    r.echo.strategyId = job.run.strategyId
+    r.market.slug = job.market.slug
+    const shas = candidateModelConfigSha256(job)
+    r.candidates = r.candidates.slice(0, job.run.candidates.length).map((c, i) => ({
+      ...c,
+      key: job.run.candidates[i]!.key,
+      index: i,
+      modelConfigSha256: shas[i]!,
+    }))
+    return r
+  }
+
+  it('accepts a result that echoes the request', () => {
+    // spec: 21 §12
+    assert.equal(checkEcho(job, matchingResult(), { engineVersion }), null)
+  })
+
+  it('fails every echoed field that differs as invalid_output: echo_mismatch', () => {
+    // spec: 21 §12, §19 TS shim, 20 §4.1 echo_mismatch
+    const mutations: Array<[string, (r: EngineResult) => void]> = [
+      ['echo.profile', (r) => (r.echo!.profile = 'realistic')],
+      ['echo.seed', (r) => (r.echo!.seed = 1)],
+      ['echo.rulesTableVersion', (r) => (r.echo!.rulesTableVersion = 'rules-table-v2')],
+      ['echo.snapshotParserVersion', (r) => (r.echo!.snapshotParserVersion = 1)],
+      ['echo.modelConfigSha256', (r) => (r.echo!.modelConfigSha256 = '0'.repeat(64))],
+      ['echo.engineVersion', (r) => (r.echo!.engineVersion = '0.1.1')],
+      ['market.slug', (r) => (r.market!.slug = 'btc-updown-15m-1780272900')],
+      ['candidates.length', (r) => r.candidates.push({ ...r.candidates[0]!, index: 1 })],
+      ['candidates[0].key', (r) => (r.candidates[0]!.key = 'other')],
+      [
+        'candidates[0].modelConfigSha256',
+        (r) => (r.candidates[0]!.modelConfigSha256 = 'f'.repeat(64)),
+      ],
+    ]
+    for (const [what, mutate] of mutations) {
+      const r = matchingResult()
+      mutate(r)
+      const failure = checkEcho(job, r, { engineVersion })
+      assert.ok(failure, what)
+      assert.equal(failure.class, 'invalid_output')
+      assert.equal(failure.cause, 'echo_mismatch')
+      assert.ok(failure.message.startsWith(`${what}:`), failure.message)
+    }
+  })
+
+  it('hashes a candidate execution variant as its effective ModelConfig', () => {
+    // spec: 21 §1.1 effective ModelConfig, §8 C4
+    const run = job.run.modelConfig
+    const variant = {
+      ...run.execution,
+      compatLatency: { delayMs: 0, jitterMs: 0 },
+    }
+    assert.equal(effectiveModelConfig(run, null), run)
+    assert.notEqual(modelConfigSha256(effectiveModelConfig(run, variant)), modelConfigSha256(run))
+    assert.deepEqual(effectiveModelConfig(run, variant).feeds, run.feeds)
   })
 })

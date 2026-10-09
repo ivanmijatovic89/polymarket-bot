@@ -609,8 +609,8 @@ impl EngineResult {
     }
 
     /// Egress self-check of 21 §19 for the whole result: §10 structure,
-    /// echo and rules-provenance consistency (11 §13.8), and every
-    /// candidate's §11-§16 checks. A failure is `invalid_output: self_check`
+    /// echo and rules-provenance consistency (11 §13.8), every candidate's
+    /// §11-§16 checks, and `resultDigest` (§10, 20 G5). A failure is `invalid_output: self_check`
     /// (an `ErrorInfo` outside its pattern is `invalid_output: schema`).
     pub fn validate(&self) -> Result<(), ContractError> {
         match (self.status, &self.error) {
@@ -687,6 +687,14 @@ impl EngineResult {
                 }
             }
         }
+        // Last, so a specific violation above is reported first.
+        let digest = self.compute_digest().map_err(|e| bad("resultDigest", e))?;
+        if digest != self.result_digest {
+            return Err(bad(
+                "resultDigest",
+                format!("does not match the deterministic section ({digest})"),
+            ));
+        }
         Ok(())
     }
 }
@@ -762,5 +770,88 @@ impl EngineResult {
         let bytes = serde_json::to_vec(&DeterministicView(self))?;
         let d: [u8; 32] = Sha256::digest(&bytes).into();
         Ok(Sha256Hex::from_digest(&d))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn intent_meta_caps() {
+        // spec: 21 §16 caps (10,000 entries, 1 MiB per market; 16 KiB per order)
+        let small: Map<String, Value> = json!({"k": 1}).as_object().unwrap().clone();
+        assert!(check_intent_meta_caps(&vec![small.clone(); INTENT_META_MAX_ENTRIES]).is_ok());
+        assert_eq!(
+            check_intent_meta_caps(&vec![small.clone(); INTENT_META_MAX_ENTRIES + 1]),
+            Err("intent_meta_limit")
+        );
+        let big: Map<String, Value> = json!({"k": "x".repeat(ORDER_META_MAX_BYTES)})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(!order_meta_within_cap(&big));
+        assert!(order_meta_within_cap(&small));
+        assert_eq!(
+            check_intent_meta_caps(&vec![big; 70]),
+            Err("intent_meta_limit"),
+            "70 x 16 KiB > 1 MiB"
+        );
+    }
+
+    #[test]
+    fn events_by_type_canonical_form() {
+        // spec: 21 §15 (fixed array by cause, unseen causes omitted)
+        let e = EventsByType::from_counts([1, 4823, 0, 0]).unwrap();
+        assert_eq!(
+            serde_json::to_string(&e).unwrap(),
+            r#"{"book":1,"price_change":4823}"#
+        );
+        assert_eq!(e.total(), 4824);
+        assert!(EventsByType::from_counts([1 << 53, 0, 0, 0]).is_none());
+    }
+
+    #[test]
+    fn failure_rows_carry_class_and_cause() {
+        // spec: 21 §14 failure_class / failure_detail, 20 §4.2 reason text
+        let e = ErrorInfo {
+            class: ErrorClass::DataDefect,
+            cause: "upstream_hole".into(),
+            message: "Chainlink hole".into(),
+            detail: None,
+        };
+        let row = FailureRow::from_error(&e).unwrap();
+        assert_eq!(row.failure_class, FailureClass::DataDefect);
+        assert_eq!(row.failure_detail, "upstream_hole");
+        assert_eq!(row.reason, "data_defect: upstream_hole: Chainlink hole");
+        let canceled = ErrorInfo {
+            class: ErrorClass::Canceled,
+            ..e
+        };
+        assert!(FailureRow::from_error(&canceled).is_none());
+        let skip = FailureRow::market_skip(SkipReason::NoActivity, &[]);
+        assert_eq!(skip.failure_class, FailureClass::MarketSkip);
+        assert_eq!(skip.reason, "no_market_stats: no_activity");
+    }
+
+    #[test]
+    fn output_money_is_an_exact_token() {
+        // spec: 21 §18 N5, 10 §4 Q2 (no exponent, no -0, no f64 round trip)
+        #[derive(Serialize)]
+        struct S {
+            a: OutDec2,
+            b: OutDec4,
+        }
+        let s = S {
+            a: OutDec2::from_micros_half_away(-1_005_000),
+            b: OutDec4::from_micros_half_away(512_350),
+        };
+        assert_eq!(
+            serde_json::to_string(&s).unwrap(),
+            r#"{"a":-1.01,"b":0.5124}"#
+        );
+        let tiny = OutDec2::from_micros_half_away(-4_999);
+        assert_eq!(serde_json::to_string(&tiny).unwrap(), "0");
     }
 }

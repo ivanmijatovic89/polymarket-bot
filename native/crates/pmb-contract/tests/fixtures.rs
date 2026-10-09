@@ -208,6 +208,40 @@ fn ts_compat_default_model_config_and_sha() {
     assert_ne!(job.run.model_config.sha256().unwrap(), mc.sha256().unwrap());
 }
 
+/// 21 §6.3: the defaults file holds one complete ModelConfig per profile
+/// without `seed`; with the default seed 0 (10 RNG-1) each one is the
+/// committed `<profile>-default.json` that CI item 6 pins (D57: ts-compat
+/// only until M3b).
+#[test]
+fn defaults_file_resolves_to_the_committed_default_configs() {
+    // spec: 21 §6.3, §3 CI item 6, D57
+    let defaults: Value =
+        serde_json::from_str(&read(&contract_dir().join("defaults/model-config-v1.json"))).unwrap();
+    let profiles = defaults.as_object().expect("one object per profile");
+    assert_eq!(
+        profiles.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["ts-compat"],
+        "D57: realistic lands in M3b"
+    );
+    for (profile, config) in profiles {
+        let mut config = config.clone();
+        let obj = config.as_object_mut().unwrap();
+        assert_eq!(obj["profile"], Value::String(profile.clone()));
+        assert!(
+            !obj.contains_key("seed"),
+            "{profile}: defaults carry no seed"
+        );
+        obj.insert("seed".into(), Value::from(0));
+        let resolved: ModelConfig = serde_json::from_value(config).unwrap();
+        resolved.validate().unwrap();
+        let committed: ModelConfig = serde_json::from_str(&read(
+            &contract_dir().join(format!("model-configs/{profile}-default.json")),
+        ))
+        .unwrap();
+        assert_eq!(resolved, committed, "{profile}");
+    }
+}
+
 /// 21 §3 CI item 1: the committed schema bundle and hash fixture equal the
 /// generated ones (`cargo run -p pmb-contract --bin export-schema -- --check`).
 #[test]

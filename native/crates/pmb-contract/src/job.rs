@@ -595,3 +595,57 @@ impl EngineJob {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slug_window_parses_the_v1_universe() {
+        // spec: 21 §5.1 market.slug (D06), 10 §5
+        assert_eq!(
+            slug_window("btc-updown-15m-1780272000"),
+            Some((900_000, 1_780_272_000_000))
+        );
+        assert_eq!(
+            slug_window("btc-updown-5m-1780272300"),
+            Some((300_000, 1_780_272_300_000))
+        );
+        for bad in [
+            "btc-updown-15m-1780272300",
+            "btc-updown-1h-1780272000",
+            "eth-updown-15m-1780272000",
+            "btc-updown-15m-178027200",
+            "btc-updown-15m-+780272000",
+        ] {
+            assert_eq!(slug_window(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn feed_days_are_calendar_dates() {
+        // spec: 14 §4.1 day files
+        assert!(is_day("2026-06-01"));
+        assert!(is_day("2028-02-29"));
+        for bad in [
+            "2026-02-29",
+            "2026-13-01",
+            "2026-6-01",
+            "2026-06-00",
+            "20260601",
+        ] {
+            assert!(!is_day(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn non_json_and_non_object_jobs_are_schema_errors() {
+        // spec: 21 §19 Rust ingress, 20 §4.1 invalid_input causes
+        for text in ["", "[]", "{", "null"] {
+            let e = EngineJob::parse(text).unwrap_err();
+            assert!(e.is_invalid_input_schema(), "{text:?}: {e}");
+        }
+        let e = EngineJob::parse("{}").unwrap_err();
+        assert_eq!(e.cause, "version");
+    }
+}

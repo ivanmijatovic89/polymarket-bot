@@ -143,6 +143,32 @@
       "jsonSchema": "reject"
     },
     {
+      "name": "resultDigest does not match",
+      "rule": "21 §10 resultDigest, 20 G5",
+      "set": {
+        "/resultDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "diagnostics change is not a digest change, but a deterministic one is",
+      "rule": "21 §10 deterministic section",
+      "set": {
+        "/market/conditionId": "0x8f3c1a2c",
+        "/candidates/0/output/marketStats/marketId": "0x8f3c1a2c",
+        "/candidates/1/output/marketStats/marketId": "0x8f3c1a2c"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
       "name": "money as string",
       "rule": "21 §18 N5",
       "set": {
