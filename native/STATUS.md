@@ -36,6 +36,11 @@
 
 ## Log (newest first)
 
+### 2026-10-09 14:55 — SDK facade, testkit and native/strategies merged
+
+- ws/w2sdk: pmb-sdk prelude per 30 §3 (named re-exports, no glob), order builders (30 §7), `#[derive(Params)]` → `pmb_runtime::StrategyParams`, `strategy_main!` with `SDK_VERSION`, testkit running the real Session + Simulator in ts-compat with an in-memory 22 §3.2 trace; `native/strategies` activated (Cargo.lock from `strategy:sync-lock`, subset of the engine lock). Feed builders panic loudly until the feed wiring merges (TODO(feeds-merge)).
+- Proof (native-engine = ws/int): engine gates → 682 passed, 0 failed, 9 ignored; `cd native/strategies && cargo fmt --all --check && cargo clippy --all-targets --locked -- -D warnings && cargo test --locked` → 12 passed (engine-exerciser schedule v1 tests 6/6 on the real engine), 3 ignored (feed exerciser, feeds pending).
+
 ### 2026-10-09 14:30 — wave 1 complete (core review fixes, TS src/native) integrated
 
 - Merged the final ws/core (review fixes: fault semantics, halts, cancel cases, converted cancellation.test.ts cases) and ws/ts (src/native shim: buildEngineJob, resolveModelConfig, validateEngineResult, toRunSingleMarketOutput, protocol-v2 runner, `native:fixture-job`, `native:test:ts`, `native:parity:summary`). Resolved duplicates: `scripts/native/fixture-job.ts` now delegates to `src/native/fixtureJob.ts`; duplicate package.json keys removed. The canonical builder's host env reads (CARGO_HOME, RUSTUP_HOME, CARGO_BUILD_JOBS, tool passthrough) are allowlisted for OR-7 (build time only).
