@@ -409,18 +409,6 @@
       "jsonSchema": "accept"
     },
     {
-      "name": "eventsByType explicit zero",
-      "rule": "21 §15 canonical form",
-      "set": {
-        "/candidates/0/output/eventsByType/chainlink_round": 0
-      },
-      "expect": {
-        "class": "invalid_output",
-        "cause": "self_check"
-      },
-      "jsonSchema": "reject"
-    },
-    {
       "name": "mergable is not min(up, down)",
       "rule": "21 §11 mergableShares",
       "set": {
@@ -700,6 +688,168 @@
       "rule": "21 §10 ErrorInfo.message",
       "set": {
         "/candidates/2/error/message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "null-stats output with another market slug",
+      "rule": "21 §11 slug equals market.slug (every output)",
+      "set": {
+        "/candidates/1/output/marketStats": null,
+        "/candidates/1/output/eventsProcessed": 0,
+        "/candidates/1/output/eventsByType": {},
+        "/candidates/1/output/slug": "btc-updown-5m-1780272300"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "candidate error of a job-level class",
+      "rule": "21 §13, §14 (only strategy_fault fails one candidate)",
+      "set": {
+        "/candidates/2/error/class": "data_defect",
+        "/candidates/2/error/cause": "upstream_hole"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "candidate error result_too_large",
+      "rule": "21 §14, 41 §6.2 (result_too_large fails the job)",
+      "set": {
+        "/candidates/2/error/cause": "result_too_large"
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "group-level error with ok candidates",
+      "rule": "21 §14 (a group-level error fails every candidate)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "data_defect",
+          "cause": "upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "no echo in an error raised after the job was read",
+      "rule": "21 §10 (echo null only before the job is read)",
+      "set": {
+        "/status": "error",
+        "/error": {
+          "class": "data_defect",
+          "cause": "upstream_hole",
+          "message": "x"
+        },
+        "/echo": null,
+        "/market": null,
+        "/candidates": []
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "echo without market",
+      "rule": "21 §10 (echo and market null together)",
+      "set": {
+        "/market": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "stats with a null conditionId",
+      "rule": "21 §10, §11 (stats imply a counted tick)",
+      "set": {
+        "/market/conditionId": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "activity row without counted ticks",
+      "rule": "21 §13 (no counted tick is the null-stats row)",
+      "set": {
+        "/candidates/0/output/eventsProcessed": 0,
+        "/candidates/0/output/eventsByType": {}
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "intentMeta -0",
+      "rule": "21 §18 N1",
+      "set": {
+        "/candidates/0/output/marketStats/intentMeta/0/edge": -0.0
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "intentMeta integer beyond 2^53-1",
+      "rule": "21 §18 N2",
+      "set": {
+        "/candidates/0/output/marketStats/intentMeta/0/big": 9007199254740993
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "unknown reject reason code",
+      "rule": "21 §17 reject reason codes (10 §10.2)",
+      "set": {
+        "/diagnostics/counters/0/ordersRejected/rejected_for_fun": 1
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "reject reason with its arguments as key",
+      "rule": "21 §17 (keys are codes, the text before \"(\")",
+      "set": {
+        "/diagnostics/counters/0/ordersRejected/risk_max_open_orders(max=100)": 1
       },
       "expect": {
         "class": "invalid_output",

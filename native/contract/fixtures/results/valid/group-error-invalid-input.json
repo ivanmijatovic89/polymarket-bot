@@ -1,0 +1,30 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "invalid_input",
+    "cause": "window",
+    "message": "/market/window/startMs: invalid type: string \"x\", expected u64"
+  },
+  "echo": null,
+  "market": null,
+  "candidates": [],
+  "resultDigest": "de0bebdb6f601cfa62e9e6abb366b899a7d3f72f8549342dfda7963ddd0da966",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 1
+    },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

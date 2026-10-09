@@ -23,9 +23,42 @@ export interface CandidateCounters {
   ordersCanceled: number
   ordersPlaced: number
   /**
-   * Keyed by reject reason code (the text before `(`, 21 §17).
+   * Keyed by reject reason code (the text before `(`; a closed
+   * vocabulary, 21 §17, 10 §10.2).
    */
-  ordersRejected: { [key: string]: number }
+  ordersRejected: {
+    amount_precision?: number
+    batch_too_large?: number
+    gtd_expireAtMs_too_soon?: number
+    gtd_lead_too_short?: number
+    gtd_requires_expireAtMs?: number
+    insufficient_capital?: number
+    insufficient_exchange_balance?: number
+    insufficient_inventory?: number
+    invalid_price?: number
+    invalid_size?: number
+    invalid_tick?: number
+    kill_switch?: number
+    market_closed?: number
+    meta_too_large?: number
+    missing_assetId?: number
+    not_found_after_ambiguous?: number
+    notional_below_minimum?: number
+    post_only_requires_gtc_or_gtd?: number
+    post_only_would_cross?: number
+    price_out_of_bounds?: number
+    rate_limited?: number
+    risk_loss_stop?: number
+    risk_max_abs_position?: number
+    risk_max_open_orders?: number
+    risk_max_order_size?: number
+    self_cross?: number
+    size_below_minimum?: number
+    size_precision?: number
+    strategy_halted?: number
+    trading_restricted?: number
+    unmapped?: number
+  }
   peakReservedUsdc: string
   sellNotionalUsdc: string
   strategyTicksSkipped: number
@@ -362,7 +395,9 @@ export interface EngineResult {
   candidates: CandidateResult[]
   diagnostics: Diagnostics
   /**
-   * Null only when a group-level error happened before the job was read.
+   * Null only in a group-level error of a class that can be raised
+   * before the job is read ([`ErrorClass::may_precede_job_read`]);
+   * `echo` and `market` are null together.
    */
   echo: Echo | null
   /**
@@ -370,8 +405,7 @@ export interface EngineResult {
    */
   error: ErrorInfo | null
   /**
-   * Null only when a group-level error happened before the market's rules
-   * were classified.
+   * Null together with `echo` (see there).
    */
   market: MarketEcho | null
   outputSchemaVersion: 1
@@ -424,8 +458,10 @@ export interface ErrorInfo {
 }
 
 /**
- * Counted ticks per cause (21 §15). Absent keys are zero; present values
- * are at least 1, so the form is canonical (TS omits unseen types).
+ * Counted ticks per cause (21 §15). Absent keys are zero. Values are
+ * integers >= 0; the engine emits the canonical form, which omits unseen
+ * causes as TS does ([`EventsByType::from_counts`]), and accepts an
+ * explicit 0 on input as 21 §15 allows.
  */
 export interface EventsByType {
   binance_agg_trade?: number

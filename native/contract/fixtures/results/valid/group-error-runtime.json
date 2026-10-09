@@ -1,0 +1,33 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "runtime",
+    "cause": "io",
+    "message": "cannot read job file /work/job.json: permission denied",
+    "detail": {
+      "path": "/work/job.json"
+    }
+  },
+  "echo": null,
+  "market": null,
+  "candidates": [],
+  "resultDigest": "dad744b0807c9ba4f0edc41a04e608ce4d1f93ff737404aea8d8f76cb614a0f7",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 1
+    },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

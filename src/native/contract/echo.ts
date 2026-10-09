@@ -4,7 +4,24 @@
  * for the worker shim and the producer.
  */
 import { modelConfigSha256 } from './canonicalJson.js'
-import type { EngineJob, EngineResult, ExecutionConfig, ModelConfig } from './generated.js'
+import type {
+  EngineJob,
+  EngineResult,
+  ErrorClass,
+  ExecutionConfig,
+  ModelConfig,
+} from './generated.js'
+
+/**
+ * Error classes a group-level error may have when it is raised before the job
+ * is read, so the result carries no echo (21 §10; pmb-contract
+ * `ErrorClass::may_precede_job_read`).
+ */
+const PRE_READ_CLASSES: ReadonlySet<ErrorClass> = new Set<ErrorClass>([
+  'invalid_input',
+  'runtime',
+  'engine_fault',
+])
 
 /** A classified contract failure (20 §4: class and cause). */
 export interface ContractFailure {
@@ -42,6 +59,8 @@ export function candidateModelConfigSha256(job: EngineJob): string[] {
  *
  * A group-level error result emitted before the job was read carries no echo
  * (21 §10); it is reported by its own error, so it is not a mismatch here.
+ * Only the classes that can be raised before the job is read may omit it
+ * (`ErrorClass::may_precede_job_read` in pmb-contract).
  */
 export function checkEcho(
   job: EngineJob,
@@ -54,7 +73,10 @@ export function checkEcho(
     message: `${what}: engine echoed ${JSON.stringify(got)}, request has ${JSON.stringify(want)}`,
   })
   if (result.echo === null || result.market === null) {
-    return result.status === 'error' ? null : mismatch('echo', null, 'present (status ok)')
+    const cls = result.error?.class
+    return result.status === 'error' && cls !== undefined && PRE_READ_CLASSES.has(cls)
+      ? null
+      : mismatch('echo', null, 'present (only a pre-read group error omits it)')
   }
   const mc = job.run.modelConfig
   const echo = result.echo

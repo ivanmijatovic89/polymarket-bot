@@ -11,8 +11,8 @@ use crate::model_config::RULES_TABLE_VERSION_PATTERN;
 use crate::num::{Decimal, OutDec2, OutDec4, SafeI64, SafeU64, Sha256Hex};
 use crate::support::{ContractError, Version};
 use crate::vocab::{
-    ErrorClass, FailureClass, InputPath, Outcome, Profile, ResultStatus, RulesSource, SkipReason,
-    StatsSkipReason, TickCause,
+    ErrorClass, FailureClass, InputPath, Outcome, Profile, RejectReasonCode, ResultStatus,
+    RulesSource, SkipReason, StatsSkipReason, TickCause,
 };
 
 /// Version of the `EngineResult` schema (`outputSchemaVersion`, 20 §3).
@@ -39,14 +39,16 @@ pub struct EngineResult {
     /// Present iff `status` is `error`.
     #[serde(deserialize_with = "crate::support::nullable")]
     pub error: Option<ErrorInfo>,
-    /// Null only when a group-level error happened before the job was read.
+    /// Null only in a group-level error of a class that can be raised
+    /// before the job is read ([`ErrorClass::may_precede_job_read`]);
+    /// `echo` and `market` are null together.
     // D-PENDING: 21 §10 does not say what `echo` and `market` hold in a
     // group-level error raised before the job was parsed; chose null there,
-    // and both are required when `status` is `ok`.
+    // limited to the classes `invalid_input`, `runtime` and `engine_fault`
+    // (every other class needs a read job), and both are required otherwise.
     #[serde(deserialize_with = "crate::support::nullable")]
     pub echo: Option<Echo>,
-    /// Null only when a group-level error happened before the market's rules
-    /// were classified.
+    /// Null together with `echo` (see there).
     #[serde(deserialize_with = "crate::support::nullable")]
     pub market: Option<MarketEcho>,
     pub candidates: Vec<CandidateResult>,
@@ -150,8 +152,10 @@ pub struct EngineMarketOutput {
     pub coverage_reasons: Option<Vec<String>>,
 }
 
-/// Counted ticks per cause (21 §15). Absent keys are zero; present values
-/// are at least 1, so the form is canonical (TS omits unseen types).
+/// Counted ticks per cause (21 §15). Absent keys are zero. Values are
+/// integers >= 0; the engine emits the canonical form, which omits unseen
+/// causes as TS does ([`EventsByType::from_counts`]), and accepts an
+/// explicit 0 on input as 21 §15 allows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EventsByType {
@@ -160,7 +164,6 @@ pub struct EventsByType {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::support::present"
     )]
-    #[schemars(range(min = 1))]
     #[schemars(with = "SafeU64")]
     pub book: Option<SafeU64>,
     #[serde(
@@ -168,7 +171,6 @@ pub struct EventsByType {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::support::present"
     )]
-    #[schemars(range(min = 1))]
     #[schemars(with = "SafeU64")]
     pub price_change: Option<SafeU64>,
     #[serde(
@@ -176,7 +178,6 @@ pub struct EventsByType {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::support::present"
     )]
-    #[schemars(range(min = 1))]
     #[schemars(with = "SafeU64")]
     pub binance_agg_trade: Option<SafeU64>,
     #[serde(
@@ -184,7 +185,6 @@ pub struct EventsByType {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::support::present"
     )]
-    #[schemars(range(min = 1))]
     #[schemars(with = "SafeU64")]
     pub chainlink_round: Option<SafeU64>,
 }
@@ -477,8 +477,9 @@ pub enum AnomalyValue {
 pub struct CandidateCounters {
     pub key: String,
     pub orders_placed: SafeU64,
-    /// Keyed by reject reason code (the text before `(`, 21 §17).
-    pub orders_rejected: BTreeMap<String, SafeU64>,
+    /// Keyed by reject reason code (the text before `(`; a closed
+    /// vocabulary, 21 §17, 10 §10.2).
+    pub orders_rejected: BTreeMap<RejectReasonCode, SafeU64>,
     pub orders_canceled: SafeU64,
     pub buy_notional_usdc: Decimal,
     pub sell_notional_usdc: Decimal,
@@ -490,15 +491,34 @@ fn bad(field: &str, why: impl std::fmt::Display) -> ContractError {
     ContractError::invalid_output("self_check", format!("{field}: {why}"))
 }
 
+/// An `io::Write` that counts bytes and fails as soon as they exceed
+/// `cap`, so a size check never builds the serialized buffer (R8).
+struct CappedCounter {
+    bytes: usize,
+    cap: usize,
+}
+
+impl std::io::Write for CappedCounter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.bytes += buf.len();
+        if self.bytes > self.cap {
+            return Err(std::io::Error::other("cap exceeded"));
+        }
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// True when the compact serialization of `v` is at most `cap` bytes.
+fn serialized_within<T: Serialize + ?Sized>(v: &T, cap: usize) -> bool {
+    serde_json::to_writer(&mut CappedCounter { bytes: 0, cap }, v).is_ok()
+}
+
 /// 21 §16 per-market caps; `Err(cause)` is `intent_meta_limit`.
 pub fn check_intent_meta_caps(meta: &[Map<String, Value>]) -> Result<(), &'static str> {
-    if meta.len() > INTENT_META_MAX_ENTRIES {
-        return Err("intent_meta_limit");
-    }
-    let bytes = serde_json::to_vec(meta)
-        .map_err(|_| "intent_meta_limit")?
-        .len();
-    if bytes > INTENT_META_MAX_BYTES {
+    if meta.len() > INTENT_META_MAX_ENTRIES || !serialized_within(meta, INTENT_META_MAX_BYTES) {
         return Err("intent_meta_limit");
     }
     Ok(())
@@ -506,7 +526,48 @@ pub fn check_intent_meta_caps(meta: &[Map<String, Value>]) -> Result<(), &'stati
 
 /// 21 §16 per-order cap; `false` means reject reason `meta_too_large`.
 pub fn order_meta_within_cap(meta: &Map<String, Value>) -> bool {
-    serde_json::to_vec(meta).is_ok_and(|b| b.len() <= ORDER_META_MAX_BYTES)
+    serialized_within(meta, ORDER_META_MAX_BYTES)
+}
+
+/// 21 §18 N1/N2 inside opaque meta: no `-0` and no integer beyond
+/// ±(2^53 − 1). serde_json values cannot hold NaN or infinities, and a
+/// strategy float `-0.0` would be emitted as `-0.0`. The engine maps `-0.0`
+/// to `0` when it builds meta ([`normalize_negative_zero`], as
+/// `JSON.stringify` does); an unsafe integer is a strategy contract breach.
+pub fn check_meta_numbers(v: &Value) -> Result<(), &'static str> {
+    match v {
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64().filter(|_| n.is_f64()) {
+                if f == 0.0 && f.is_sign_negative() {
+                    return Err("-0 (21 §18 N1)");
+                }
+            } else if n.as_u64().is_some_and(|u| u > crate::num::MAX_SAFE_INTEGER)
+                || n.as_i64()
+                    .is_some_and(|i| i.unsigned_abs() > crate::num::MAX_SAFE_INTEGER)
+            {
+                return Err("integer beyond ±(2^53-1) (21 §18 N2)");
+            }
+            Ok(())
+        }
+        Value::Array(a) => a.iter().try_for_each(check_meta_numbers),
+        Value::Object(m) => m.values().try_for_each(check_meta_numbers),
+        Value::Null | Value::Bool(_) | Value::String(_) => Ok(()),
+    }
+}
+
+/// Maps every `-0.0` inside `v` to `0`, as `JSON.stringify` renders `-0`
+/// (21 §16, §18 N1). For the engine when it builds an order's meta.
+pub fn normalize_negative_zero(v: &mut Value) {
+    match v {
+        Value::Number(n) => {
+            if n.as_f64().is_some_and(|f| f == 0.0 && f.is_sign_negative()) && n.is_f64() {
+                *v = Value::from(0);
+            }
+        }
+        Value::Array(a) => a.iter_mut().for_each(normalize_negative_zero),
+        Value::Object(m) => m.values_mut().for_each(normalize_negative_zero),
+        Value::Null | Value::Bool(_) | Value::String(_) => {}
+    }
 }
 
 impl EngineMarketOutput {
@@ -515,18 +576,6 @@ impl EngineMarketOutput {
     pub fn self_check(&self) -> Result<(), ContractError> {
         if self.events_by_type.total() != self.events_processed.get() {
             return Err(bad("eventsByType", "does not sum to eventsProcessed"));
-        }
-        for c in TickCause::ALL {
-            if self.events_by_type.get(*c) == 0
-                && match c {
-                    TickCause::Book => self.events_by_type.book.is_some(),
-                    TickCause::PriceChange => self.events_by_type.price_change.is_some(),
-                    TickCause::BinanceAggTrade => self.events_by_type.binance_agg_trade.is_some(),
-                    TickCause::ChainlinkRound => self.events_by_type.chainlink_round.is_some(),
-                }
-            {
-                return Err(bad("eventsByType", format!("explicit zero for {c}")));
-            }
         }
         if let Some(r) = &self.coverage_reasons {
             if r.is_empty()
@@ -551,6 +600,11 @@ impl EngineMarketOutput {
             if s.slug != self.slug {
                 return Err(bad("marketStats.slug", "differs from output slug"));
             }
+            // 21 §13: every row with stats had a counted tick (no counted
+            // tick at all is the null-stats `no_activity` case).
+            if self.events_processed.get() == 0 {
+                return Err(bad("marketStats", "stats need at least one counted tick"));
+            }
             s.self_check()?;
         }
         // 21 §13 taxonomy, engine-decided rows only (no_slug, no_resolution
@@ -574,9 +628,6 @@ impl EngineMarketOutput {
                         "marketStats",
                         "a zero row has no fills and no UP/DOWN quantity",
                     ));
-                }
-                if self.events_processed.get() == 0 {
-                    return Err(bad("marketStats", "a zero row needs a counted tick"));
                 }
             }
             (None, Some(SkipReason::NoActivity)) => {
@@ -608,8 +659,8 @@ impl EngineMarketStats {
     pub fn self_check(&self) -> Result<(), ContractError> {
         const E10_2DP: i64 = 1_000_000_000_000; // 1e10 at 2 dp
         const E12_2DP: i64 = 100_000_000_000_000; // 1e12 at 2 dp
-        if self.market_id.is_empty() || self.market_id.len() > 255 {
-            return Err(bad("marketId", "must be 1..255 chars"));
+        if !crate::support::is_char_len_within(&self.market_id, 1, 255) {
+            return Err(bad("marketId", "must be 1..255 characters"));
         }
         if self.trade_count > i32::MAX as u32 {
             return Err(bad("tradeCount", "above 2^31-1"));
@@ -660,6 +711,11 @@ impl EngineMarketStats {
         if check_intent_meta_caps(&self.intent_meta).is_err() {
             return Err(bad("intentMeta", "above the 21 §16 caps"));
         }
+        for m in &self.intent_meta {
+            m.values()
+                .try_for_each(check_meta_numbers)
+                .map_err(|why| bad("intentMeta", why))?;
+        }
         Ok(())
     }
 }
@@ -671,7 +727,19 @@ impl CandidateResult {
         }
         match (self.status, &self.output, &self.error) {
             (ResultStatus::Ok, Some(o), None) => o.self_check(),
-            (ResultStatus::Error, None, Some(e)) => e.validate(),
+            (ResultStatus::Error, None, Some(e)) => {
+                e.validate()?;
+                // 21 §13, §14; 20 §4.3: only a strategy fault fails one
+                // candidate; every other class, and `result_too_large`
+                // (raised by the shim, 41 §6.2), fails the job.
+                if e.class != ErrorClass::StrategyFault || e.cause == "result_too_large" {
+                    return Err(bad(
+                        "candidates[].error",
+                        format!("{}: {} is not a candidate-level error", e.class, e.cause),
+                    ));
+                }
+                Ok(())
+            }
             _ => Err(bad("candidate", "output iff ok, error iff error")),
         }
     }
@@ -694,13 +762,29 @@ impl EngineResult {
     /// (an `ErrorInfo` outside its pattern is `invalid_output: schema`).
     pub fn validate(&self) -> Result<(), ContractError> {
         match (self.status, &self.error) {
-            (ResultStatus::Ok, None) => {
-                if self.echo.is_none() || self.market.is_none() {
-                    return Err(bad("echo/market", "required when status is ok"));
-                }
-            }
+            (ResultStatus::Ok, None) => {}
             (ResultStatus::Error, Some(e)) => e.validate()?,
             _ => return Err(bad("error", "present iff status is error")),
+        }
+        if self.echo.is_some() != self.market.is_some() {
+            return Err(bad("echo/market", "null together or present together"));
+        }
+        if self.echo.is_none()
+            && !self
+                .error
+                .as_ref()
+                .is_some_and(|e| e.class.may_precede_job_read())
+        {
+            return Err(bad(
+                "echo/market",
+                "null only in a group-level error raised before the job is read",
+            ));
+        }
+        // 21 §14: a group-level error fails the market for every candidate.
+        if self.status == ResultStatus::Error
+            && self.candidates.iter().any(|c| c.status == ResultStatus::Ok)
+        {
+            return Err(bad("candidates", "an ok candidate in a group-level error"));
         }
         if let Some(e) = &self.echo {
             e.validate()?;
@@ -711,7 +795,7 @@ impl EngineResult {
             }
             if m.condition_id
                 .as_ref()
-                .is_some_and(|c| c.is_empty() || c.len() > 255)
+                .is_some_and(|c| !crate::support::is_char_len_within(c, 1, 255))
             {
                 return Err(bad("market.conditionId", "must be 1..255 characters"));
             }
@@ -725,19 +809,32 @@ impl EngineResult {
                 return Err(bad("candidates", "duplicate key"));
             }
             c.validate()?;
+            // 21 §11: every output's slug equals market.slug, null-stats
+            // outputs included, so a failure row lands on the right market.
+            if let (Some(o), Some(m)) = (&c.output, &self.market) {
+                if o.slug != m.slug {
+                    return Err(bad("candidates[].output.slug", "differs from market.slug"));
+                }
+            }
             let Some(stats) = c.output.as_ref().and_then(|o| o.market_stats.as_ref()) else {
                 continue;
             };
             if let Some(m) = &self.market {
-                if c.output.as_ref().is_some_and(|o| o.slug != m.slug) {
-                    return Err(bad("candidates[].output.slug", "differs from market.slug"));
-                }
-                if let Some(cid) = &m.condition_id {
-                    if &stats.market_id != cid {
+                // 21 §10, §11: stats imply a counted tick, which set
+                // market.conditionId; marketId is that same id (D69 A-17).
+                match &m.condition_id {
+                    Some(cid) if &stats.market_id == cid => {}
+                    Some(_) => {
                         return Err(bad(
                             "marketStats.marketId",
                             "differs from market.conditionId",
-                        ));
+                        ))
+                    }
+                    None => {
+                        return Err(bad(
+                            "market.conditionId",
+                            "null although a candidate has marketStats",
+                        ))
                     }
                 }
             }
@@ -811,6 +908,21 @@ impl EngineResult {
                 echo.job_schema_version == crate::job::JOB_SCHEMA_VERSION,
             ),
             ("market.slug", market.slug == job.market.slug),
+            // 11 RS4: `fallback` iff no field is captured.
+            (
+                "market.rulesSource",
+                job.market.rules.captured.is_empty()
+                    == (market.rules_source == RulesSource::Fallback),
+            ),
+            // 21 §5.1: a job conditionId equals the observed one (else the
+            // engine fails `data_defect: foreign_file`).
+            (
+                "market.conditionId",
+                match (&job.market.condition_id, &market.condition_id) {
+                    (Some(want), Some(got)) => want == got,
+                    _ => true,
+                },
+            ),
         ];
         for (field, ok) in checks {
             if !ok {
@@ -914,8 +1026,20 @@ impl EngineResult {
     /// deterministic section in Rust field order (21 §10, 20 G5).
     pub fn compute_digest(&self) -> Result<Sha256Hex, serde_json::Error> {
         use sha2::{Digest, Sha256};
-        let bytes = serde_json::to_vec(&DeterministicView(self))?;
-        let d: [u8; 32] = Sha256::digest(&bytes).into();
+        /// Hashes the serialization as it is written, without a buffer (R8).
+        struct HashWriter(Sha256);
+        impl std::io::Write for HashWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.update(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut w = HashWriter(Sha256::new());
+        serde_json::to_writer(&mut w, &DeterministicView(self))?;
+        let d: [u8; 32] = w.0.finalize().into();
         Ok(Sha256Hex::from_digest(&d))
     }
 }
@@ -945,6 +1069,52 @@ mod tests {
             Err("intent_meta_limit"),
             "70 x 16 KiB > 1 MiB"
         );
+    }
+
+    #[test]
+    fn meta_numbers_follow_n1_and_n2() {
+        // spec: 21 §18 N1 (no -0), N2 (|int| <= 2^53-1), §16 (JSON.stringify maps -0 to 0)
+        let ok = json!({"a": [1, -2.5, 9007199254740991_u64, -9007199254740991_i64, null], "b": {"c": 0.0}});
+        assert!(check_meta_numbers(&ok).is_ok());
+        for bad in [
+            json!({"edge": -0.0}),
+            json!([{"x": [9007199254740992_u64]}]),
+            json!(-9007199254740992_i64),
+        ] {
+            assert!(check_meta_numbers(&bad).is_err(), "{bad}");
+        }
+        let mut v = json!({"edge": -0.0, "list": [-0.0, 1.5]});
+        normalize_negative_zero(&mut v);
+        assert_eq!(
+            serde_json::to_string(&v).unwrap(),
+            r#"{"edge":0,"list":[0,1.5]}"#
+        );
+        assert!(check_meta_numbers(&v).is_ok());
+    }
+
+    #[test]
+    fn events_by_type_accepts_explicit_zero() {
+        // spec: 21 §15 (values are integers >= 0); the emitted form omits zeros
+        let e: EventsByType = serde_json::from_str(r#"{"book":0,"price_change":3}"#).unwrap();
+        assert_eq!(e.total(), 3);
+        assert_eq!(
+            serde_json::to_string(&EventsByType::from_counts([0, 3, 0, 0]).unwrap()).unwrap(),
+            r#"{"price_change":3}"#
+        );
+    }
+
+    #[test]
+    fn digest_is_sha256_of_the_compact_deterministic_section() {
+        // spec: 21 §10 resultDigest, 20 G5 (streamed hashing equals hashing the bytes)
+        use sha2::{Digest, Sha256};
+        let r: EngineResult = serde_json::from_str(include_str!(
+            "../../../contract/fixtures/results/valid/ok-ts-compat.json"
+        ))
+        .unwrap();
+        let bytes = serde_json::to_vec(&DeterministicView(&r)).unwrap();
+        let d: [u8; 32] = Sha256::digest(&bytes).into();
+        assert_eq!(r.compute_digest().unwrap(), Sha256Hex::from_digest(&d));
+        assert_eq!(r.compute_digest().unwrap(), r.result_digest);
     }
 
     #[test]

@@ -208,11 +208,12 @@ fn ts_compat_default_model_config_and_sha() {
     assert_ne!(job.run.model_config.sha256().unwrap(), mc.sha256().unwrap());
 }
 
-// D-PENDING: 21 §6.3 lists `0` / `20` as the built-in compatLatency default
-// (the TS env default of BACKTEST_LATENCY_JITTER), while 13 §7.4, which owns
-// the defaults file's execution content, puts compatLatency 0/0 in it; chose
-// 0/0 for the committed default config and its pinned hash (jitter applies
-// only when delay > 0, 13 §5.1, so both resolve to the same behavior).
+// D58: the committed ts-compat default (and so the defaults file) keeps
+// compatLatency 0/0 (13 §5.5 "pinned ts-compat default", CI item 6). The
+// producer's built-in fallback of 21 §6.3 stays 0/20 for a fresh submission
+// with no flag and no env; that is the resolver's per-field rule (TS parity,
+// `backtest.ts:745-750`), not this file's content: `--latency-delay-ms 140`
+// alone resolves to jitter 20 there.
 /// 21 §6.3: the defaults file holds one complete ModelConfig per profile
 /// without `seed`; with the default seed 0 (10 RNG-1) each one is the
 /// committed `<profile>-default.json` that CI item 6 pins (D57: ts-compat
@@ -287,17 +288,71 @@ fn result_validates_against_its_job() {
     };
     matching(&|_| {}).unwrap();
     type Mutation<'a> = (&'a str, &'a dyn Fn(&mut EngineResult));
-    let mutations: [Mutation; 4] = [
-        ("seed", &|r| {
+    // spec: 21 §12, one mutation per asserted fact; 11 RS4; 21 §5.1 conditionId
+    let mutations: [Mutation; 14] = [
+        ("echo.profile", &|r| {
+            // Realistic stats carry rules provenance, so validate() passes
+            // and the echo check is what fails.
+            r.echo.as_mut().unwrap().profile = pmb_contract::vocab::Profile::Realistic;
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().rules = Some(
+                serde_json::from_value(serde_json::json!({
+                    "source": "fallback", "rulesTableVersion": "rules-table-v1",
+                    "snapshotParserVersion": null, "feeEra": "f0", "feeCurve": "c",
+                    "feeSource": "s", "unverifiedRules": []
+                }))
+                .unwrap(),
+            );
+        }),
+        ("echo.seed", &|r| {
             r.echo.as_mut().unwrap().seed = pmb_contract::SafeU64::new(1).unwrap()
         }),
-        ("strategyId", &|r| {
+        ("echo.rulesTableVersion", &|r| {
+            r.echo.as_mut().unwrap().rules_table_version = "rules-table-v2".into()
+        }),
+        ("echo.snapshotParserVersion", &|r| {
+            r.echo.as_mut().unwrap().snapshot_parser_version = Some(1)
+        }),
+        ("echo.modelConfigSha256", &|r| {
+            r.echo.as_mut().unwrap().model_config_sha256 =
+                pmb_contract::Sha256Hex::parse(&"2".repeat(64)).unwrap()
+        }),
+        ("echo.strategyId", &|r| {
             r.echo.as_mut().unwrap().strategy_id = "other".into()
         }),
-        ("candidate key", &|r| r.candidates[0].key = "other".into()),
-        ("finalOutcome", &|r| {
+        ("market.slug", &|r| {
+            let slug = "btc-updown-15m-1780272900".to_owned();
+            r.market.as_mut().unwrap().slug = slug.clone();
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.slug = slug.clone();
+            o.market_stats.as_mut().unwrap().slug = slug;
+        }),
+        ("candidates[]", &|r| r.candidates[0].key = "other".into()),
+        ("candidates:", &|r| {
+            let mut extra = r.candidates[0].clone();
+            extra.index = 1;
+            extra.key = "extra".into();
+            r.candidates.push(extra);
+        }),
+        ("candidates[]", &|r| {
+            r.candidates[0].model_config_sha256 =
+                pmb_contract::Sha256Hex::parse(&"3".repeat(64)).unwrap()
+        }),
+        ("marketStats.finalOutcome", &|r| {
             let o = r.candidates[0].output.as_mut().unwrap();
             o.market_stats.as_mut().unwrap().final_outcome = pmb_contract::vocab::Outcome::Down;
+        }),
+        ("market.rulesSource", &|r| {
+            r.market.as_mut().unwrap().rules_source = pmb_contract::vocab::RulesSource::Snapshot
+        }),
+        ("market.rulesSource", &|r| {
+            r.market.as_mut().unwrap().rules_source = pmb_contract::vocab::RulesSource::Partial
+        }),
+        ("market.conditionId", &|r| {
+            let cid = "0xother".to_owned();
+            r.market.as_mut().unwrap().condition_id = Some(cid.clone());
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().market_id = cid;
         }),
     ];
     for (name, mutate) in mutations {
@@ -307,6 +362,7 @@ fn result_validates_against_its_job() {
             ("invalid_output", "self_check"),
             "{name}"
         );
+        assert!(e.message.starts_with(name), "{name}: {e}");
     }
 }
 

@@ -56,12 +56,165 @@
           "type": "integer"
         },
         "ordersRejected": {
-          "additionalProperties": {
-            "maximum": 9007199254740991,
-            "minimum": 0,
-            "type": "integer"
+          "additionalProperties": false,
+          "description": "Keyed by reject reason code (the text before `(`; a closed\nvocabulary, 21 §17, 10 §10.2).",
+          "properties": {
+            "amount_precision": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "batch_too_large": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_expireAtMs_too_soon": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_lead_too_short": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "gtd_requires_expireAtMs": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_capital": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_exchange_balance": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "insufficient_inventory": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_price": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_size": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "invalid_tick": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kill_switch": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "market_closed": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "meta_too_large": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "missing_assetId": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "not_found_after_ambiguous": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "notional_below_minimum": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "post_only_requires_gtc_or_gtd": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "post_only_would_cross": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "price_out_of_bounds": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "rate_limited": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_loss_stop": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_abs_position": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_open_orders": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "risk_max_order_size": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "self_cross": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "size_below_minimum": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "size_precision": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "strategy_halted": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "trading_restricted": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unmapped": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
           },
-          "description": "Keyed by reject reason code (the text before `(`, 21 §17).",
           "type": "object"
         },
         "peakReservedUsdc": {
@@ -471,7 +624,7 @@
               "type": "null"
             }
           ],
-          "description": "Null only when a group-level error happened before the job was read."
+          "description": "Null only in a group-level error of a class that can be raised\nbefore the job is read ([`ErrorClass::may_precede_job_read`]);\n`echo` and `market` are null together."
         },
         "error": {
           "anyOf": [
@@ -493,7 +646,7 @@
               "type": "null"
             }
           ],
-          "description": "Null only when a group-level error happened before the market's rules\nwere classified."
+          "description": "Null together with `echo` (see there)."
         },
         "outputSchemaVersion": {
           "const": 1,
@@ -599,26 +752,26 @@
     },
     "EventsByType": {
       "additionalProperties": false,
-      "description": "Counted ticks per cause (21 §15). Absent keys are zero; present values\nare at least 1, so the form is canonical (TS omits unseen types).",
+      "description": "Counted ticks per cause (21 §15). Absent keys are zero. Values are\nintegers >= 0; the engine emits the canonical form, which omits unseen\ncauses as TS does ([`EventsByType::from_counts`]), and accepts an\nexplicit 0 on input as 21 §15 allows.",
       "properties": {
         "binance_agg_trade": {
           "maximum": 9007199254740991,
-          "minimum": 1,
+          "minimum": 0,
           "type": "integer"
         },
         "book": {
           "maximum": 9007199254740991,
-          "minimum": 1,
+          "minimum": 0,
           "type": "integer"
         },
         "chainlink_round": {
           "maximum": 9007199254740991,
-          "minimum": 1,
+          "minimum": 0,
           "type": "integer"
         },
         "price_change": {
           "maximum": 9007199254740991,
-          "minimum": 1,
+          "minimum": 0,
           "type": "integer"
         }
       },
