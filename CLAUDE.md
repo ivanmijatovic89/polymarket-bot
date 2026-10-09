@@ -113,6 +113,8 @@ npm run record:v4:test
 # Use docs/datasets/recording/recorder-v4-worker-2.md for the deployed service.
 # V4 is the supported recorder; do not recreate retired capture commands.
 
+npm run rules:capture-prestart -- --out-dir <dir> [--market btc:5m,btc:15m] (--watch | --once | --report [--days N])   # pre-start Gamma+CLOB rules bodies → local JSONL (public endpoints, no .env/DB; docs/datasets/exchange-rules/prestart-capture.md)
+
 # Historical raw-event Parquet utilities (not V4 package commands)
 npm run verify:parquet -- <file.parquet>
 npm run list:backtest-files -- --symbol btc

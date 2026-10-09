@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Pre-start exchange-rules capture (native spec 11 §13.2.1 PC7, D37).
+  User LaunchAgent for worker-1: ~/Library/LaunchAgents/com.pmb.rules-capture.plist
+  Placeholders: __NODE20__ (absolute Node 20 binary), __APP__ (pinned checkout,
+  /Users/worker-1/pmb-rules-capture/app), __OUT_DIR__ (/Users/worker-1/pmb-rules-capture/prestart),
+  __LOG_DIR__ (/Users/worker-1/pmb-rules-capture/logs).
+  See docs/datasets/exchange-rules/prestart-capture.md.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pmb.rules-capture</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE20__</string>
+    <string>__APP__/scripts/recorder-service.mjs</string>
+    <string>--log-file</string>
+    <string>__LOG_DIR__/rules-capture.log</string>
+    <string>--</string>
+    <string>--import</string>
+    <string>tsx</string>
+    <string>__APP__/src/cli/rules-capture-prestart.ts</string>
+    <string>--watch</string>
+    <string>--market</string>
+    <string>btc:5m,btc:15m</string>
+    <string>--out-dir</string>
+    <string>__OUT_DIR__</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>WorkingDirectory</key>
+  <string>__APP__</string>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/launchd.log</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
