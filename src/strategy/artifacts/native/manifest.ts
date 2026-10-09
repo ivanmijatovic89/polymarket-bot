@@ -59,11 +59,15 @@ export type BuildManifest = {
     env: Record<string, string>
     renderedConfig: string
     backgroundQos: boolean
+    /** CARGO_BUILD_JOBS of the build, null when unthrottled (31 §4.5). */
+    buildJobs: number | null
     wallTimeMs: { cargo: number; total: number }
   }
   toolchain: ToolchainProvenance
   git: GitProvenance
   describe: unknown
+  /** Required checks this build did not run, named with their reason (00 R14). */
+  pendingChecks: string[]
   builtAt: string
 }
 
@@ -129,33 +133,60 @@ export function writeToLocalCache(
  * Source-hash dedupe in the local cache (31 §5.6 step 2, §7.2 with
  * --local-only): the sha of a cached manifest with the same source hash,
  * target, variant and profile but different bytes, or null.
+ *
+ * - A cache manifest that cannot be read is an error, never skipped (00 R14).
+ * - The reused binary must still hash to its name; a mismatch is an error.
+ * - A build from a dirty strategy or engine tree is never reused for a clean
+ *   build. D-PENDING: 31 §5.6 keys dedupe on the source hash only, which
+ *   excludes the engine commit and the dirty flags embedded in the binary
+ *   (§5.3); chose to skip dirty cached builds when the new build is clean, so
+ *   a clean publish never returns bytes that report engineDirty = true.
  */
 export function findSameSourceInCache(
   cacheDir: string,
-  key: { sourceHash: string; target: string; variant: string; profile: string; sha256: string },
+  key: {
+    sourceHash: string
+    target: string
+    variant: string
+    profile: string
+    sha256: string
+    /** The new build comes from a dirty strategy or engine tree. */
+    dirty: boolean
+  },
 ): string | null {
   if (!existsSync(cacheDir)) return null
   const names = readdirSync(cacheDir)
     .filter((n) => /^[0-9a-f]{64}\.build\.json$/.test(n))
     .sort()
   for (const name of names) {
+    const file = path.join(cacheDir, name)
     let m: Partial<BuildManifest>
     try {
-      m = JSON.parse(readFileSync(path.join(cacheDir, name), 'utf8')) as Partial<BuildManifest>
-    } catch {
-      continue
+      m = JSON.parse(readFileSync(file, 'utf8')) as Partial<BuildManifest>
+    } catch (err) {
+      throw new Error(
+        `unreadable build manifest in the local cache: ${file} (${err instanceof Error ? err.message : String(err)}); remove it or the cache entry`,
+      )
     }
     const a = m.artifact
     if (
-      m.sourceHash === key.sourceHash &&
-      a?.target === key.target &&
-      a.variant === key.variant &&
-      a.profile === key.profile &&
-      a.sha256 !== key.sha256 &&
-      existsSync(path.join(cacheDir, a.sha256))
-    ) {
-      return a.sha256
-    }
+      m.sourceHash !== key.sourceHash ||
+      a?.target !== key.target ||
+      a.variant !== key.variant ||
+      a.profile !== key.profile ||
+      a.sha256 === key.sha256
+    )
+      continue
+    if (`${a.sha256}.build.json` !== name)
+      throw new Error(`${file} describes ${a.sha256}, not the sha in its name`)
+    const cachedDirty = m.git?.strategy.dirty === true || m.git?.engine.dirty === true
+    if (cachedDirty && !key.dirty) continue
+    const bin = path.join(cacheDir, a.sha256)
+    if (!existsSync(bin)) continue
+    const actual = sha256Hex(readFileSync(bin))
+    if (actual !== a.sha256)
+      throw new Error(`cached binary ${bin} hashes to ${actual}, not its name; remove it`)
+    return a.sha256
   }
   return null
 }

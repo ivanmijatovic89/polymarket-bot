@@ -28,8 +28,10 @@ import {
   pathLeakNeedles,
 } from './gates.js'
 import {
+  cargoCommand,
   cargoConfigViolations,
   ENGINE_ROOT,
+  pinnedChannel,
   realpathOr,
   run,
   runOk,
@@ -37,14 +39,12 @@ import {
 } from './host.js'
 import {
   checkPackageRules,
-  gitignoreHasTargetRule,
   type CargoMetadata,
   type CargoMetadataPackage,
   type RuleReport,
 } from './packageRules.js'
 import {
   BUILD_CONFIG_REL,
-  DEPLOYMENT_TARGET,
   DYLIB_ALLOWLIST_REL,
   ENGINE_LOCK_REL,
   ENGINE_TOOLCHAIN_REL,
@@ -66,8 +66,11 @@ import {
   type SourceFileEntry,
   type SourceHashInput,
 } from './sourceHash.js'
+import { listDir, materializeStage, planStage, removeStage, STAGE_ROOT } from './stage.js'
 import { enforceTargetBudget, withBuilderLock } from './targetDir.js'
-import { parseCargoLock, scanToml, tomlStringValue } from './toml.js'
+import { definedPaths, parseCargoLock, scanToml, tomlStringValue } from './toml.js'
+
+export { pinnedChannel }
 
 export class NativeBuildError extends Error {
   constructor(message: string) {
@@ -83,29 +86,61 @@ export type Toolchain = {
   rustcRelease: string
 }
 
-/** `rustc -vV` as selected by the package's rust-toolchain.toml (31 §3 item 1). */
+/**
+ * `rustc -vV` of the pinned toolchain (31 §3 item 1). `env` carries
+ * RUSTUP_TOOLCHAIN = the engine pin (host.ts), so neither the package's
+ * rust-toolchain.toml nor a directory override selects the compiler; this
+ * checks that the pin is installed as the expected release and host.
+ */
 export function readToolchain(
   packageRoot: string,
   env: NodeJS.ProcessEnv,
   engineRoot: string = ENGINE_ROOT,
 ): Toolchain {
+  const pinned = pinnedChannel(readFileSync(path.join(engineRoot, ENGINE_TOOLCHAIN_REL), 'utf8'))
+  if (env['RUSTUP_TOOLCHAIN'] !== pinned) {
+    throw new NativeBuildError(
+      `the tool environment must pin RUSTUP_TOOLCHAIN=${pinned} (got ${JSON.stringify(env['RUSTUP_TOOLCHAIN'])})`,
+    )
+  }
   const out = runOk('rustc', ['-vV'], { cwd: packageRoot, env })
+  return checkRustcVerbose(out, pinned)
+}
+
+/** Check `rustc -vV` output against the pin: release and host aarch64-apple-darwin (31 §3, 20 §1). */
+export function checkRustcVerbose(out: string, pinned: string): Toolchain {
   const release = /^release: (.+)$/m.exec(out)?.[1]?.trim()
   if (!release) throw new NativeBuildError(`cannot read the rustc release from:\n${out}`)
-  const pinned = pinnedChannel(readFileSync(path.join(engineRoot, ENGINE_TOOLCHAIN_REL), 'utf8'))
   if (release !== pinned) {
     throw new NativeBuildError(
-      `rustc in ${packageRoot} is ${release}, but native/rust-toolchain.toml pins ${pinned} (31 §3 item 1)`,
+      `the pinned toolchain reports rustc ${release}, but native/rust-toolchain.toml pins ${pinned} (31 §3 item 1)`,
+    )
+  }
+  const host = /^host: (.+)$/m.exec(out)?.[1]?.trim()
+  if (host !== NATIVE_TARGET) {
+    throw new NativeBuildError(
+      `rustc host is ${JSON.stringify(host ?? null)}, expected ${NATIVE_TARGET} (the pinned toolchain of the build host, 31 §3 item 4)`,
     )
   }
   return { rustcVerbose: out.trimEnd(), rustcRelease: release }
 }
 
-/** `toolchain.channel` of a rust-toolchain.toml. */
-export function pinnedChannel(toolchainToml: string): string {
-  const e = scanToml(toolchainToml).entries.find((x) => x.path === 'toolchain.channel')
-  const v = e ? tomlStringValue(e.value) : null
-  if (!v) throw new NativeBuildError('native/rust-toolchain.toml has no toolchain.channel')
+/**
+ * `env.MACOSX_DEPLOYMENT_TARGET` of the unrendered template (31 §4.2),
+ * recorded as `deploymentTarget` in the source hash (31 §5.2). Reading it
+ * from the template keeps the recorded value equal to the one the build
+ * uses. Absent or unreadable is an error (00 R14).
+ */
+export function templateDeploymentTarget(template: string): string {
+  const e = scanToml(template).entries.find((x) => x.path === 'env.MACOSX_DEPLOYMENT_TARGET')
+  if (!e) throw new Error('the build config sets no env.MACOSX_DEPLOYMENT_TARGET (31 §4.2)')
+  const v =
+    tomlStringValue(e.value) ??
+    /^\{\s*value\s*=\s*"([0-9][0-9.]*)"\s*[,}]/.exec(e.value)?.[1] ??
+    null
+  if (v === null || !/^[0-9]+(?:\.[0-9]+)*$/.test(v)) {
+    throw new Error(`cannot read env.MACOSX_DEPLOYMENT_TARGET from the build config: ${e.value}`)
+  }
   return v
 }
 
@@ -116,8 +151,16 @@ export type LoadedPackage = {
   pkg: CargoMetadataPackage
   bins: string[]
   rules: RuleReport
-  /** Path packages (no source) of the dependency graph: their manifests join the source hash (31 §5.2). */
+  /**
+   * Manifests of the path packages (no source) of the dependency graph, plus
+   * the workspace-root manifests they inherit from (realpaths): they join the
+   * source hash (31 §5.2).
+   */
   pathManifests: string[]
+  /** The pmb-sdk path dependency relative to the package root (posix), as cargo resolves it; null without one. */
+  sdkRelPath: string | null
+  /** Package-to-engine relative path recorded for rebuilds (31 §2.2, §7.4); null without pmb-sdk. */
+  engineRelPath: string | null
   /** True once `native/crates/pmb-sdk` exists in the engine (pre-SDK phase otherwise). */
   sdkAvailable: boolean
 }
@@ -170,6 +213,22 @@ export function loadPackage(packageDir: string, host: HostContext): LoadedPackag
   }
   const pkgLockText = readIfExists(path.join(packageRoot, 'Cargo.lock'))
   const repoRoot = gitTopLevel(packageRoot, host.toolEnv)
+  const sdkDeps = pkg.dependencies.filter((d) => d.name === 'pmb-sdk' && d.path !== undefined)
+  const sdkNormal = sdkDeps.find((d) => d.kind === null)
+  const sdkRelPath =
+    sdkNormal?.path !== undefined
+      ? path.relative(packageRoot, sdkNormal.path).split(path.sep).join('/')
+      : null
+  const enginePathPackages = new Set(
+    metadata.packages
+      .filter(
+        (p) =>
+          p.source === null &&
+          p.id !== pkg.id &&
+          isUnder(realpathOr(p.manifest_path), path.join(host.engineRoot, 'native', 'crates')),
+      )
+      .map((p) => p.name),
+  )
   const rules = checkPackageRules({
     packageRoot,
     manifestText,
@@ -181,19 +240,28 @@ export function loadPackage(packageDir: string, host: HostContext): LoadedPackag
     engineToolchain: readFileSync(path.join(host.engineRoot, ENGINE_TOOLCHAIN_REL), 'utf8'),
     packageLock: pkgLockText === null ? null : parseCargoLock(pkgLockText),
     engineLock: parseCargoLock(readFileSync(path.join(host.engineRoot, ENGINE_LOCK_REL), 'utf8')),
-    packageGitignoresTarget: gitignoreHasTargetRule(
-      readIfExists(path.join(packageRoot, '.gitignore')) ?? '',
-    ),
-    repoRootIgnoresTarget:
-      repoRoot !== null &&
-      gitignoreHasTargetRule(readIfExists(path.join(repoRoot, '.gitignore')) ?? ''),
+    packageGitignoresTarget: repoRoot !== null && gitIgnores(packageRoot, 'target/', host.toolEnv),
+    repoRootIgnoresTarget: repoRoot !== null && gitIgnores(repoRoot, 'target/', host.toolEnv),
     binSources,
+    sdkDependencyPaths: sdkDeps.map((d) => ({
+      kind: d.kind,
+      relPath: path.relative(packageRoot, d.path!).split(path.sep).join('/'),
+    })),
+    manifestSdkPaths: manifestSdkPathValues(manifestText),
+    lockPathPackages: metadata.packages
+      .filter((p) => p.source === null && p.id !== pkg.id)
+      .map((p) => ({ name: p.name, engine: enginePathPackages.has(p.name) })),
   })
   if (repoRoot === null) rules.violations.push(`${packageRoot} is not inside a git repository`)
   for (const v of cargoConfigViolations(packageRoot, host.cargoHome)) rules.violations.push(v)
-  const pathManifests = metadata.packages
+  const memberManifests = metadata.packages
     .filter((p) => p.source === null)
     .map((p) => realpathOr(p.manifest_path))
+  const workspaceManifests = metadata.packages
+    .filter((p) => p.source === null && p.id !== pkg.id)
+    .map((p) => inheritedWorkspaceManifest(realpathOr(p.manifest_path)))
+    .filter((m): m is string => m !== null)
+  const pathManifests = [...new Set([...memberManifests, ...workspaceManifests])].sort()
   return {
     packageRoot,
     manifestText,
@@ -202,8 +270,74 @@ export function loadPackage(packageDir: string, host: HostContext): LoadedPackag
     bins: bins.sort(),
     rules,
     pathManifests,
+    sdkRelPath,
+    engineRelPath:
+      sdkRelPath === null
+        ? null
+        : path.posix.normalize(path.posix.join(sdkRelPath, '..', '..', '..')),
     sdkAvailable: sdkManifest !== null,
   }
+}
+
+function isUnder(p: string, dir: string): boolean {
+  const rel = path.relative(dir, p)
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
+/**
+ * The workspace-root manifest a path package inherits from (nearest ancestor
+ * Cargo.toml with a `[workspace]` table), or null. Engine crates inherit
+ * edition, version and dependency features from native/Cargo.toml, so it
+ * changes the binary and joins the source hash with them.
+ * D-PENDING: 31 §5.2 lists "every path package's Cargo.toml" only; chose to
+ * add the workspace roots they inherit from, which a virtual manifest is not
+ * listed as a package.
+ */
+export function inheritedWorkspaceManifest(manifestPath: string): string | null {
+  let dir = path.dirname(path.dirname(manifestPath))
+  for (;;) {
+    const candidate = path.join(dir, 'Cargo.toml')
+    if (existsSync(candidate)) {
+      const paths = definedPaths(scanToml(readFileSync(candidate, 'utf8')))
+      if (paths.some((p) => p === 'workspace' || p.startsWith('workspace.'))) return candidate
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+/**
+ * Whether git ignores `rel` (relative to `dir`), with git's own precedence
+ * and negation rules (31 §2.2 "target/ is gitignored").
+ */
+export function gitIgnores(dir: string, rel: string, env: NodeJS.ProcessEnv): boolean {
+  const r = run('git', ['-C', dir, 'check-ignore', '-q', rel], { cwd: dir, env })
+  if (r.status === 0) return true
+  if (r.status === 1) return false
+  throw new NativeBuildError(`git check-ignore ${rel} in ${dir} failed: ${r.stderr.trim()}`)
+}
+
+/** Raw `path` values of every pmb-sdk dependency entry in the manifest text (31 §2.2). */
+export function manifestSdkPathValues(manifestText: string): string[] {
+  const out: string[] = []
+  let scan
+  try {
+    scan = scanToml(manifestText)
+  } catch {
+    return out // the scanner error is reported by the package rules
+  }
+  for (const e of scan.entries) {
+    if (/^(?:dev-)?dependencies\.pmb-sdk\.path$/.test(e.path)) {
+      const v = tomlStringValue(e.value)
+      if (v !== null) out.push(v)
+    } else if (/^(?:dev-)?dependencies\.pmb-sdk$/.test(e.path)) {
+      const m = /(?:^|[{,\s])path\s*=\s*("(?:[^"\\]|\\.)*"|'[^']*')/.exec(e.value)
+      const v = m ? tomlStringValue(m[1]!) : null
+      if (v !== null) out.push(v)
+    }
+  }
+  return out
 }
 
 export function gitTopLevel(dir: string, env: NodeJS.ProcessEnv): string | null {
@@ -224,6 +358,7 @@ export function renderHostBuildConfig(
     ENGINE_ROOT: host.engineRoot,
     ENGINE_ROOT_REALPATH: realpathOr(host.engineRoot),
     TARGET_DIR: host.targetDir,
+    STAGE_ROOT,
     PMB_ENGINE_SOURCE_HASH: engine.sourceHash,
     PMB_ENGINE_COMMIT: engine.commit,
     PMB_ENGINE_DIRTY: engine.dirty ? 'true' : 'false',
@@ -268,6 +403,24 @@ function runBinary(
 
 function codesign(bin: string, identifier: string, env: NodeJS.ProcessEnv, cwd: string): void {
   runOk('codesign', ['--force', '--sign', '-', '--identifier', identifier, bin], { cwd, env })
+}
+
+/**
+ * Extra path-leak needles (31 §4.4 step 4): the staging root and the
+ * effective engine root the package's dependency path reaches (lexical and
+ * realpath), which differ from the builder's checkout when the package goes
+ * through a symlink such as polymarket-protocols' `polymarket-bot`.
+ */
+function stageNeedles(loaded: LoadedPackage): string[] {
+  const out = [
+    STAGE_ROOT,
+    realpathOr(path.dirname(STAGE_ROOT)) + path.sep + path.basename(STAGE_ROOT),
+  ]
+  if (loaded.engineRelPath !== null) {
+    const lexical = path.resolve(loaded.packageRoot, loaded.engineRelPath)
+    if (lexical !== '/') out.push(lexical, realpathOr(lexical))
+  }
+  return out
 }
 
 /**
@@ -320,35 +473,54 @@ export function buildNative(args: {
       PMB_BUILD_PROFILE: profile,
     }
     const env = { ...host.toolEnv, ...buildEnv }
-    const cmd = host.backgroundQos ? 'taskpolicy' : 'cargo'
-    const cmdArgs = host.backgroundQos ? ['-b', 'cargo', ...cargoArgs] : cargoArgs
     log(
-      `[native-build] cargo ${cargoArgs.slice(0, -1).join(' ')} <rendered artifact-build.toml>${host.backgroundQos ? ' (background QoS)' : ''}`,
+      `[native-build] cargo ${cargoArgs.slice(0, -1).join(' ')} <rendered artifact-build.toml>${host.backgroundQos ? ' (background QoS)' : ''}${host.buildJobs !== null ? ` -j ${host.buildJobs}` : ''}`,
     )
     const staged = path.join(work, bin)
     // One build at a time per host (31 §4.5): cargo uplifts every bin to
-    // <target>/<triple>/<profile>/<bin>, so the build and the copy of its
-    // output and dep-info happen under the host-wide builder lock.
-    const { cargoMs, depInfoText } = withBuilderLock(host.lockPath, log, () => {
+    // <target>/<triple>/<profile>/<bin>, and the staging root (stage.ts) is
+    // host-wide, so staging, the build, the copy of its output and the
+    // resolution of its dep-info happen under the host-wide builder lock.
+    const plan = planStage({
+      stageRoot: STAGE_ROOT,
+      realPackageRoot: loaded.packageRoot,
+      sdkRelPath: loaded.sdkRelPath,
+      listDir,
+    })
+    const { cargoMs, depPaths } = withBuilderLock(host.lockPath, log, () => {
       enforceTargetBudget(host.targetDir, profile, host.targetBudgetBytes, log)
-      const tc = Date.now()
-      const r = run(cmd, cmdArgs, { cwd: loaded.packageRoot, env, inheritStderr: true })
-      const ms = Date.now() - tc
-      if (r.status !== 0) {
-        throw new NativeBuildError(`cargo build failed (exit ${r.status ?? r.signal})`)
+      materializeStage(plan)
+      try {
+        const [cmd, cmdArgs] = cargoCommand(host, [
+          ...cargoArgs.slice(0, 1),
+          '--manifest-path',
+          path.join(plan.stagedPackageRoot, 'Cargo.toml'),
+          ...cargoArgs.slice(1),
+        ])
+        const tc = Date.now()
+        // The working directory stays the real package root: cargo reads
+        // .cargo/config.toml from it upwards, which loadPackage checked.
+        const r = run(cmd, cmdArgs, { cwd: loaded.packageRoot, env, inheritStderr: true })
+        const ms = Date.now() - tc
+        if (r.status !== 0) {
+          throw new NativeBuildError(`cargo build failed (exit ${r.status ?? r.signal})`)
+        }
+        const outDir = path.join(host.targetDir, NATIVE_TARGET, profile)
+        const outBin = path.join(outDir, bin)
+        const depInfoPath = path.join(outDir, `${bin}.d`)
+        if (!existsSync(outBin) || !existsSync(depInfoPath)) {
+          throw new NativeBuildError(`cargo produced no ${outBin} (or its dep-info)`)
+        }
+        copyFileSync(outBin, staged)
+        // Dep-info names files under the staging root; resolve them while it exists.
+        const deps = parseDepInfo(readFileSync(depInfoPath, 'utf8')).deps.map((d) => realpathOr(d))
+        return { cargoMs: ms, depPaths: deps }
+      } finally {
+        removeStage(STAGE_ROOT)
       }
-      const outDir = path.join(host.targetDir, NATIVE_TARGET, profile)
-      const outBin = path.join(outDir, bin)
-      const depInfoPath = path.join(outDir, `${bin}.d`)
-      if (!existsSync(outBin) || !existsSync(depInfoPath)) {
-        throw new NativeBuildError(`cargo produced no ${outBin} (or its dep-info)`)
-      }
-      copyFileSync(outBin, staged)
-      return { cargoMs: ms, depInfoText: readFileSync(depInfoPath, 'utf8') }
     })
 
     // --- source hash (31 §5.2) ----------------------------------------------
-    const depInfo = parseDepInfo(depInfoText)
     const roots = {
       engineRoot: host.engineRoot,
       packageRoot: loaded.packageRoot,
@@ -356,10 +528,7 @@ export function buildNative(args: {
         realpathOr(p),
       ),
     }
-    const classified = classifyDepInfo(
-      [...depInfo.deps.map((d) => realpathOr(d)), ...loaded.pathManifests],
-      roots,
-    )
+    const classified = classifyDepInfo([...depPaths, ...loaded.pathManifests], roots)
     if (classified.outside.length > 0) {
       // D-PENDING: generated sources under the target directory (OUT_DIR of a
       // dependency's build script) would land here; 31 §5.2 says fail, so we do.
@@ -376,7 +545,7 @@ export function buildNative(args: {
       target: NATIVE_TARGET,
       profile,
       rustc: toolchain.rustcVerbose,
-      deploymentTarget: DEPLOYMENT_TARGET,
+      deploymentTarget: templateDeploymentTarget(template),
       buildConfig: sha256Hex(template),
       lock: sha256Hex(readFileSync(lockPath)),
       files,
@@ -386,10 +555,42 @@ export function buildNative(args: {
     // --- post-link steps (31 §4.4) ------------------------------------------
     const runDir = path.join(work, 'run')
     mkdirSync(runDir)
+    const allowlist = parseDylibAllowlist(
+      readFileSync(path.join(host.engineRoot, DYLIB_ALLOWLIST_REL), 'utf8'),
+    )
+    const needles = [
+      ...pathLeakNeedles({
+        home: host.home,
+        cargoHome: host.cargoHome,
+        rustupHome: host.rustupHome,
+        engineRoot: host.engineRoot,
+        packageRoot: loaded.packageRoot,
+        targetDir: host.targetDir,
+        realpath: realpathOr,
+      }),
+      ...stageNeedles(loaded),
+    ]
+    const dylibGate = (): void => {
+      const dylibs = parseOtoolL(runOk('otool', ['-L', staged], { cwd: work, env: host.toolEnv }))
+      const dylibErrors = dylibViolations(dylibs, allowlist)
+      if (dylibErrors.length > 0)
+        throw new NativeBuildError(`dynamic library gate failed:\n  ${dylibErrors.join('\n  ')}`)
+    }
+    const leakGate = (bytes: Buffer): void => {
+      const leaks = findPathLeaks(bytes, [...new Set(needles)].sort())
+      if (leaks.length > 0)
+        throw new NativeBuildError(
+          `path-leak gate failed; the binary contains:\n  ${leaks.join('\n  ')}`,
+        )
+    }
     // The canonical identifier needs the strategy id, which comes from code
-    // (30 §4 rule 2) and is read through describe: sign provisionally first,
-    // read the id, then sign canonically; every check below runs on the
-    // canonically signed bytes.
+    // (30 §4 rule 2) and is read through describe, so the binary runs once
+    // before step 1. D-PENDING: 31 §4.4 orders signing (1-2) before any run
+    // (5-6); chose to run the signature-independent gates (3 dylibs, 4 path
+    // leaks) on the linked bytes first, then a provisional ad-hoc signature
+    // and describe for the id, then steps 1-7 in order on the final bytes.
+    dylibGate()
+    leakGate(readFileSync(staged))
     codesign(staged, 'pmb.provisional', host.toolEnv, work)
     const pre = runBinary(staged, ['describe'], runDir)
     if (pre.status !== 0) {
@@ -416,29 +617,10 @@ export function buildNative(args: {
     if (verify.status !== 0)
       throw new NativeBuildError(`codesign --verify --strict failed: ${verify.stderr.trim()}`)
     // Step 3: dynamic libraries.
-    const allowlist = parseDylibAllowlist(
-      readFileSync(path.join(host.engineRoot, DYLIB_ALLOWLIST_REL), 'utf8'),
-    )
-    const dylibs = parseOtoolL(runOk('otool', ['-L', staged], { cwd: work, env: host.toolEnv }))
-    const dylibErrors = dylibViolations(dylibs, allowlist)
-    if (dylibErrors.length > 0)
-      throw new NativeBuildError(`dynamic library gate failed:\n  ${dylibErrors.join('\n  ')}`)
-    // Step 4: path leaks.
+    dylibGate()
+    // Step 4: path leaks, on the final bytes.
     const bytes = readFileSync(staged)
-    const needles = pathLeakNeedles({
-      home: host.home,
-      cargoHome: host.cargoHome,
-      rustupHome: host.rustupHome,
-      engineRoot: host.engineRoot,
-      packageRoot: loaded.packageRoot,
-      targetDir: host.targetDir,
-      realpath: realpathOr,
-    })
-    const leaks = findPathLeaks(bytes, needles)
-    if (leaks.length > 0)
-      throw new NativeBuildError(
-        `path-leak gate failed; the binary contains:\n  ${leaks.join('\n  ')}`,
-      )
+    leakGate(bytes)
     // Step 5: selftest.
     const st = runBinary(staged, ['selftest'], runDir)
     let stDoc: unknown = null

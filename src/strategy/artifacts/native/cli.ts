@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { NativeBuildError } from './builder.js'
+import type { BuildQos } from './host.js'
 import { publishNativeLocalOnly, runNativeCheck } from './pipeline.js'
 import { definedPaths, scanToml } from './toml.js'
 
@@ -65,7 +66,7 @@ export type NativePublishArgs = {
   skipChecks: boolean
   parityCheck: boolean
   targetDir: string | null
-  backgroundQos: boolean
+  qos: BuildQos
 }
 
 export class UsageError extends Error {
@@ -129,7 +130,7 @@ export function parseNativePublishArgs(argv: string[]): NativePublishArgs {
     repo: path.resolve(repo),
     bin,
     targetDir: targetDir === null ? null : path.resolve(targetDir),
-    backgroundQos: qos === 'background',
+    qos: qosOf(qos),
     ...flags,
   }
 }
@@ -140,7 +141,7 @@ const CHECK_USAGE =
 export function parseNativeCheckArgs(argv: string[]): {
   repo: string
   targetDir: string | null
-  backgroundQos: boolean
+  qos: BuildQos
 } {
   let repo: string | null = null
   let targetDir: string | null = null
@@ -165,8 +166,18 @@ export function parseNativeCheckArgs(argv: string[]): {
   return {
     repo: path.resolve(repo),
     targetDir: targetDir === null ? null : path.resolve(targetDir),
-    backgroundQos: qos === 'background',
+    qos: qosOf(qos),
   }
+}
+
+/**
+ * `--qos background` (the default: jobs capped per 40 §17 item 3 and
+ * `taskpolicy -b`, required on hosts that run backtests, 31 §4.5) or
+ * `--qos default` (an interactive build on an author's own machine,
+ * unthrottled).
+ */
+function qosOf(flag: string | null): BuildQos {
+  return flag === 'default' ? 'interactive' : 'background'
 }
 
 /** Exit code: 0 ok, 1 build or gate failure, 2 usage error. */
@@ -197,7 +208,7 @@ export async function runNativePublishCli(argv: string[]): Promise<number> {
       skipChecks: args.skipChecks,
       parityCheck: args.parityCheck,
       ...(args.targetDir !== null ? { targetDir: args.targetDir } : {}),
-      backgroundQos: args.backgroundQos,
+      qos: args.qos,
       idCollision: (id) =>
         Object.prototype.hasOwnProperty.call(strategyRegistry, id)
           ? `strategy id ${JSON.stringify(id)} collides with a TS registry strategy (31 §7.2 step 5, 30 §4 rule 2)`
@@ -226,7 +237,7 @@ export function runNativeCheckCli(argv: string[]): number {
     const { ok } = runNativeCheck({
       packageDir: args.repo,
       ...(args.targetDir !== null ? { targetDir: args.targetDir } : {}),
-      backgroundQos: args.backgroundQos,
+      qos: args.qos,
     })
     return ok ? 0 : 1
   } catch (err) {

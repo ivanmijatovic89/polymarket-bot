@@ -51,6 +51,7 @@ function manifestFor(bytes: Buffer, input: SourceHashInput = INPUT): BuildManife
       env: { PMB_BUILD_PROFILE: 'artifact' },
       renderedConfig: '[build]\n',
       backgroundQos: false,
+      buildJobs: null,
       wallTimeMs: { cargo: 1, total: 2 },
     },
     toolchain: {
@@ -67,6 +68,7 @@ function manifestFor(bytes: Buffer, input: SourceHashInput = INPUT): BuildManife
       engine: { commit: 'e'.repeat(40), dirty: false, sourceHash: 'f'.repeat(64) },
     },
     describe: { type: 'describe' },
+    pendingChecks: [],
     builtAt: '2026-10-09T00:00:00.000Z',
   })
 }
@@ -130,6 +132,7 @@ test('findSameSourceInCache finds an earlier sha with the same source hash', () 
       variant: 'standard',
       profile: 'artifact',
       sha256: sha256Hex('new bytes'),
+      dirty: false,
     }
     assert.equal(findSameSourceInCache(dir, key), sha256Hex(old))
     assert.equal(findSameSourceInCache(dir, { ...key, sha256: sha256Hex(old) }), null)
@@ -139,6 +142,41 @@ test('findSameSourceInCache finds an earlier sha with the same source hash', () 
     assert.equal(findSameSourceInCache(dir, key), null)
     assert.equal(findSameSourceInCache(path.join(dir, 'missing'), key), null)
     assert.equal(existsSync(dir), true)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// spec: 31 §5.6 step 2, 00 R14 — no silent skip of a corrupt manifest, no reuse
+// of a binary that no longer matches its name, no dirty build reused for a clean one.
+test('findSameSourceInCache fails loud on corrupt entries and keeps clean builds clean', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pmb-native-cache-test-'))
+  try {
+    const old = Buffer.from('dirty bytes')
+    const base = manifestFor(old)
+    const m: BuildManifest = {
+      ...base,
+      git: { ...base.git, engine: { ...base.git.engine, dirty: true } },
+    }
+    writeToLocalCache(dir, old, m)
+    const key = {
+      sourceHash: m.sourceHash,
+      target: 'aarch64-apple-darwin',
+      variant: 'standard',
+      profile: 'artifact',
+      sha256: sha256Hex('new bytes'),
+      dirty: false,
+    }
+    assert.equal(
+      findSameSourceInCache(dir, key),
+      null,
+      'a dirty build is not reused for a clean one',
+    )
+    assert.equal(findSameSourceInCache(dir, { ...key, dirty: true }), sha256Hex(old))
+    writeFileSync(path.join(dir, sha256Hex(old)), 'tampered')
+    assert.throws(() => findSameSourceInCache(dir, { ...key, dirty: true }), /hashes to/)
+    writeFileSync(path.join(dir, `${'a'.repeat(64)}.build.json`), '{not json')
+    assert.throws(() => findSameSourceInCache(dir, key), /unreadable build manifest/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

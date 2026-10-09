@@ -38,6 +38,7 @@ export type CargoMetadataTarget = {
 export type CargoMetadataPackage = {
   name: string
   version: string
+  edition: string
   id: string
   source: string | null
   manifest_path: string
@@ -76,6 +77,12 @@ export type PackageRuleInput = {
   repoRootIgnoresTarget: boolean
   /** Source text of every bin target, by bin name. */
   binSources: Map<string, string>
+  /** pmb-sdk dependency paths as cargo resolved them, relative to the package root (posix). */
+  sdkDependencyPaths: Array<{ kind: 'dev' | 'build' | null; relPath: string }>
+  /** Raw `path` values of the pmb-sdk entries in the manifest text. */
+  manifestSdkPaths: string[]
+  /** Path packages of the dependency graph other than the package itself; `engine` = under <engine>/native/crates. */
+  lockPathPackages: Array<{ name: string; engine: boolean }>
 }
 
 export type RuleReport = {
@@ -143,6 +150,17 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
   if (!meta || typeof meta !== 'object' || !meta.pmb || meta.pmb.format !== 1) {
     violations.push('Cargo.toml: `[package.metadata.pmb] format = 1` is required')
   }
+  // 31 §2.2 template: edition 2021, whose resolver 2 keeps dev-dependency
+  // features (testkit) out of the published bin.
+  if (!/^[0-9]{4}$/.test(pkg.edition) || Number(pkg.edition) < 2021)
+    violations.push(`Cargo.toml: edition ${pkg.edition} is too old; use edition = "2021" or later`)
+  for (const key of ['workspace.resolver', 'package.resolver']) {
+    if (!paths.includes(key)) continue
+    const entry = scanSafe(input.manifestText)?.entries.find((e) => e.path === key)
+    const v = entry ? tomlStringValue(entry.value) : null
+    if (v !== '2' && v !== '3')
+      violations.push(`Cargo.toml: \`${key}\` MUST be "2" or "3" (dev-dependency features)`)
+  }
   if (Object.keys(pkg.features).length > 0)
     violations.push('Cargo.toml: a [features] section is forbidden')
   if (pkg.links !== null) violations.push('Cargo.toml: `links` is forbidden')
@@ -206,6 +224,31 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
       'pmb-sdk dependency rule (pending pmb-sdk: native/crates/pmb-sdk does not exist yet)',
     )
   }
+  // The engine is reached by a relative path dependency (31 §2.2); the
+  // builder recreates it under the staging root (stage.ts).
+  for (const raw of input.manifestSdkPaths) {
+    if (path.posix.isAbsolute(raw) || path.win32.isAbsolute(raw))
+      violations.push(`Cargo.toml: pmb-sdk path ${JSON.stringify(raw)} MUST be relative`)
+  }
+  for (const d of input.sdkDependencyPaths) {
+    if (!d.relPath.startsWith('../'))
+      violations.push(
+        `pmb-sdk (${d.relPath}) MUST lie outside the package (a relative path starting with ../)`,
+      )
+  }
+  const sdkPaths = [...new Set(input.sdkDependencyPaths.map((d) => d.relPath))]
+  if (sdkPaths.length > 1)
+    violations.push(
+      `pmb-sdk dependency and dev-dependency MUST use the same path (got ${sdkPaths.join(', ')})`,
+    )
+  // Only pmb-sdk and the engine crates it pulls in may be path packages: any
+  // other one is package-supplied code the lock subset cannot pin (31 §2.2, §3).
+  for (const p of input.lockPathPackages) {
+    if (!p.engine)
+      violations.push(
+        `path package ${p.name} is not an engine crate (only pmb-sdk and the engine crates under native/crates may be path dependencies)`,
+      )
+  }
 
   // --- bins (31 §2.2 row 6) -------------------------------------------------
   const bins = pkg.targets.filter((t) => t.kind.includes('bin'))
@@ -242,9 +285,12 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
   else if (input.packageToolchain !== input.engineToolchain) {
     violations.push("rust-toolchain.toml differs from the engine's native/rust-toolchain.toml")
   }
-  if (!input.packageGitignoresTarget) violations.push('the package .gitignore MUST ignore target/')
+  if (!input.packageGitignoresTarget)
+    violations.push('git MUST ignore target/ in the package (add target/ to its .gitignore)')
   if (!input.repoRootIgnoresTarget)
-    violations.push('the repository root .gitignore MUST ignore target/')
+    violations.push(
+      'git MUST ignore target/ at the repository root (add target/ to the root .gitignore)',
+    )
   if (input.packageLock === null) violations.push('Cargo.lock is missing (run strategy:sync-lock)')
   else {
     for (const v of lockSubsetViolations(input.packageLock, input.engineLock))
@@ -253,18 +299,10 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
   return { violations, pending }
 }
 
-/** True when a `.gitignore` text has a rule ignoring a top-level `target` directory. */
-export function gitignoreHasTargetRule(text: string): boolean {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .some(
-      (l) =>
-        l === 'target' ||
-        l === 'target/' ||
-        l === '/target' ||
-        l === '/target/' ||
-        l === '**/target' ||
-        l === '**/target/',
-    )
+function scanSafe(text: string): ReturnType<typeof scanToml> | null {
+  try {
+    return scanToml(text)
+  } catch {
+    return null
+  }
 }

@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { ENGINE_ROOT } from './host.js'
+import { buildNative, engineIdentity, loadPackage, readToolchain } from './builder.js'
+import { ENGINE_ROOT, makeHostContext } from './host.js'
 import type { BuildManifest } from './manifest.js'
 import { publishNativeLocalOnly, runNativeCheck } from './pipeline.js'
 import { computeSourceHash, sha256Hex } from './sourceHash.js'
@@ -79,7 +88,10 @@ test('local-only publish is reproducible across package and target paths', { ski
   }
 })
 
-// spec: 31 §4.4 step 4 — a binary embedding the package root fails the build.
+// spec: 31 §4.4 step 4 — a binary embedding its package root fails the build.
+// Cargo sees the package under the fixed staging root (stage.ts), so
+// CARGO_MANIFEST_DIR is the staged path, never the host path; the gate
+// catches the unremapped staging root.
 test('the path-leak gate fails a binary that embeds its package root', { skip }, () => {
   const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
   try {
@@ -114,7 +126,7 @@ test('the path-leak gate fails a binary that embeds its package root', { skip },
           targetDir: path.join(work, 't'),
           log: quiet,
         }),
-      /path-leak gate failed[\s\S]*\/private\/tmp\/pmb-native-e2e-/,
+      /path-leak gate failed[\s\S]*\/tmp\/pmb-stage/,
     )
     assert.equal(existsSync(path.join(work, 'cache')), false)
   } finally {
@@ -154,6 +166,165 @@ test('strategy:check passes the proof package with pre-SDK pending gates', { ski
     assert.equal(bad.gates.find((g) => g.gate === 1)?.status, 'fail')
     assert.equal(bad.gates.find((g) => g.gate === 2)?.status, 'fail')
     assert.equal(bad.gates.find((g) => g.gate === 5)?.status, 'skipped')
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
+function sh(cwd: string, cmd: string, args: string[]): void {
+  const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' })
+  assert.equal(r.status, 0, `${cmd} ${args.join(' ')}: ${r.stderr}`)
+}
+
+function put(root: string, rel: string, text: string): void {
+  mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+  writeFileSync(path.join(root, rel), text)
+}
+
+function commitAll(dir: string): void {
+  sh(dir, 'git', ['init', '-q'])
+  sh(dir, 'git', ['add', '-A'])
+  sh(dir, 'git', [
+    '-c',
+    'user.name=e2e',
+    '-c',
+    'user.email=e2e@localhost',
+    'commit',
+    '-q',
+    '-m',
+    'e2e',
+  ])
+}
+
+const PROBE_BIN = '//! Probe strategy.\npmb_sdk::strategy_main!("stage-probe.v1");\n'
+
+// pmb-sdk stand-in: strategy_main! expands to a main that answers describe
+// and selftest; the TypeId and file!() expose the crate's -C metadata and the
+// source path rustc saw.
+const PROBE_SDK = String.raw`pub struct Marker;
+pub fn marker() -> String { format!("{:?}", core::any::TypeId::of::<Marker>()) }
+pub fn file() -> &'static str { file!() }
+pub fn run(id: &str, profile: &str) {
+    match std::env::args().nth(1).as_deref() {
+        Some("describe") => println!(
+            "{{\"type\":\"describe\",\"protocolVersion\":2,\"binary\":{{\"target\":\"aarch64-apple-darwin\",\"buildProfile\":\"{}\"}},\"capabilities\":{{\"subcommands\":[\"describe\",\"selftest\"],\"realOrders\":false}},\"strategy\":{{\"id\":\"{}\"}},\"probe\":{{\"marker\":\"{}\",\"file\":\"{}\"}}}}",
+            profile, id, marker(), file()
+        ),
+        Some("selftest") => println!("{{\"type\":\"selftest\",\"ok\":true,\"checks\":[]}}"),
+        _ => std::process::exit(2),
+    }
+}
+#[macro_export]
+macro_rules! strategy_main {
+    ($id:expr) => {
+        fn main() {
+            $crate::run($id, env!("PMB_BUILD_PROFILE"))
+        }
+    };
+}
+`
+
+function probePackage(dir: string, sdkPath: string): void {
+  put(
+    dir,
+    'Cargo.toml',
+    `[package]\nname = "probe-strategies"\nedition = "2021"\nversion = "0.0.0"\npublish = false\n\n[workspace]\n\n[package.metadata.pmb]\nformat = 1\n\n[dependencies]\npmb-sdk = { path = "${sdkPath}" }\n\n[dev-dependencies]\npmb-sdk = { path = "${sdkPath}", features = ["testkit"] }\n\n[lints.rust]\nunsafe_code = "forbid"\n`,
+  )
+  put(
+    dir,
+    'rust-toolchain.toml',
+    readFileSync(path.join(ENGINE_ROOT, 'native/rust-toolchain.toml'), 'utf8'),
+  )
+  put(dir, '.gitignore', 'target/\n')
+  put(dir, 'src/lib.rs', '//! Probe package.\n')
+  put(dir, 'src/bin/stage-probe.rs', PROBE_BIN)
+  sh(dir, 'cargo', ['generate-lockfile', '--offline', '-q'])
+}
+
+/**
+ * A minimal engine checkout: the real build policy and toolchain pin, and a
+ * pmb-sdk stand-in whose TypeId hash and file!() expose the crate's -C
+ * metadata and the path rustc saw. It inherits edition and version from the
+ * engine workspace, as the engine crates do. The in-repo package sits at
+ * native/strategies (31 §2.3).
+ */
+function fakeEngine(root: string): void {
+  const e = path.join(root, 'engine')
+  put(e, '.gitignore', 'target/\n')
+  put(
+    e,
+    'native/Cargo.toml',
+    '[workspace]\nresolver = "2"\nmembers = ["crates/*"]\nexclude = ["strategies"]\n\n[workspace.package]\nedition = "2021"\nversion = "0.0.0"\n',
+  )
+  for (const rel of [
+    'native/rust-toolchain.toml',
+    'native/build/artifact-build.toml',
+    'native/build/dylib-allowlist.txt',
+    'native/build/clippy/clippy.toml',
+  ])
+    put(e, rel, readFileSync(path.join(ENGINE_ROOT, rel), 'utf8'))
+  put(
+    e,
+    'native/crates/pmb-sdk/Cargo.toml',
+    '[package]\nname = "pmb-sdk"\nedition.workspace = true\nversion.workspace = true\n\n[features]\ntestkit = []\n',
+  )
+  put(e, 'native/crates/pmb-sdk/src/lib.rs', PROBE_SDK)
+  sh(path.join(e, 'native'), 'cargo', ['generate-lockfile', '--offline', '-q'])
+  probePackage(path.join(e, 'native', 'strategies'), '../crates/pmb-sdk')
+  commitAll(e)
+  probePackage(path.join(root, 'pkg'), '../engine/native/crates/pmb-sdk')
+  commitAll(path.join(root, 'pkg'))
+}
+
+function buildProbe(engineRoot: string, packageDir: string, targetDir: string) {
+  const base = makeHostContext({ rustcRelease: 'e2e', targetDir, qos: 'interactive' })
+  const host = { ...base, engineRoot }
+  const toolchain = readToolchain(packageDir, host.toolEnv, engineRoot)
+  const loaded = loadPackage(packageDir, host)
+  assert.deepEqual(loaded.rules.violations, [])
+  const built = buildNative({
+    loaded,
+    bin: 'stage-probe',
+    profile: 'artifact',
+    host,
+    toolchain,
+    engine: engineIdentity(host),
+    log: quiet,
+  })
+  built.cleanup()
+  const probe = (built.describe as { probe: { marker: string; file: string } }).probe
+  return { sha: built.sha256, probe, engineRelPath: loaded.engineRelPath }
+}
+
+// spec: 31 §4.3, §5.1, D17 (60 DET-12) — identical sources give identical
+// bytes when the ENGINE checkout moves, for a sibling package that reaches
+// pmb-sdk through ../engine and for the in-repo package (../crates, with
+// workspace inheritance). Cargo hashes a path dependency's absolute path into
+// its -C metadata; the staging root makes that path host-independent.
+test('canonical bytes do not depend on where the engine checkout lives', { skip }, () => {
+  const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
+  try {
+    const h1 = path.join(work, 'h1')
+    const h2 = path.join(work, 'h2-a-longer-host-path')
+    fakeEngine(h1)
+    cpSync(h1, h2, { recursive: true })
+    const sib1 = buildProbe(path.join(h1, 'engine'), path.join(h1, 'pkg'), path.join(work, 't1'))
+    const sib2 = buildProbe(path.join(h2, 'engine'), path.join(h2, 'pkg'), path.join(work, 't2'))
+    assert.equal(sib1.probe.marker, sib2.probe.marker, 'TypeId depends on the engine path')
+    assert.equal(sib2.sha, sib1.sha)
+    assert.equal(sib1.probe.file, '/pmb/src/engine/native/crates/pmb-sdk/src/lib.rs')
+    assert.equal(sib1.engineRelPath, '../engine', '31 §2.2: the recorded package-to-engine path')
+    const inRepo = (h: string, t: string) =>
+      buildProbe(
+        path.join(h, 'engine'),
+        path.join(h, 'engine/native/strategies'),
+        path.join(work, t),
+      )
+    const in1 = inRepo(h1, 't3')
+    const in2 = inRepo(h2, 't4')
+    assert.equal(in2.sha, in1.sha)
+    assert.equal(in1.probe.file, '/pmb/src/crates/pmb-sdk/src/lib.rs')
+    assert.equal(in1.engineRelPath, '../..')
   } finally {
     rmSync(work, { recursive: true, force: true })
   }

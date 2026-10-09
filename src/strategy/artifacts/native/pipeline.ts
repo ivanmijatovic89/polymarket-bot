@@ -22,7 +22,14 @@ import {
   type Toolchain,
 } from './builder.js'
 import type { EngineIdentity } from './engineIdentity.js'
-import { bootstrapToolEnv, makeHostContext, run, type HostContext } from './host.js'
+import {
+  bootstrapToolEnv,
+  cargoCommand,
+  makeHostContext,
+  run,
+  type BuildQos,
+  type HostContext,
+} from './host.js'
 import {
   cachePaths,
   findSameSourceInCache,
@@ -39,6 +46,7 @@ import {
   NATIVE_TARGET,
   type BuildProfile,
 } from './policy.js'
+import { withBuilderLock } from './targetDir.js'
 
 export type GateStatus = 'pass' | 'fail' | 'pending' | 'skipped'
 export type GateResult = { gate: number; name: string; status: GateStatus; detail: string[] }
@@ -46,7 +54,8 @@ export type GateResult = { gate: number; name: string; status: GateStatus; detai
 export type NativeRunOptions = {
   packageDir: string
   targetDir?: string
-  backgroundQos?: boolean
+  /** 31 §4.5: `background` (default; jobs cap and `taskpolicy -b`) or `interactive`. */
+  qos?: BuildQos
   log?: (msg: string) => void
 }
 
@@ -65,7 +74,7 @@ function openSession(opts: NativeRunOptions): Session {
   const host = makeHostContext({
     rustcRelease: toolchain.rustcRelease,
     ...(opts.targetDir !== undefined ? { targetDir: opts.targetDir } : {}),
-    ...(opts.backgroundQos !== undefined ? { backgroundQos: opts.backgroundQos } : {}),
+    ...(opts.qos !== undefined ? { qos: opts.qos } : {}),
   })
   const loaded = loadPackage(packageRoot, host)
   const engine = engineIdentity(host)
@@ -83,10 +92,8 @@ function gate1(s: Session): GateResult {
 }
 
 function gate2(s: Session): GateResult {
-  const r = run('cargo', ['fmt', '--all', '--check'], {
-    cwd: s.loaded.packageRoot,
-    env: s.host.toolEnv,
-  })
+  const [cmd, args] = cargoCommand(s.host, ['fmt', '--all', '--check'])
+  const r = run(cmd, args, { cwd: s.loaded.packageRoot, env: s.host.toolEnv })
   return {
     gate: 2,
     name: 'cargo fmt --check',
@@ -131,7 +138,12 @@ function gate3(s: Session): GateResult {
       PMB_BUILD_PROFILE: 'iterate',
       CLIPPY_CONF_DIR: path.join(s.host.engineRoot, CLIPPY_CONF_DIR_REL),
     }
-    const r = run('cargo', args, { cwd: s.loaded.packageRoot, env })
+    // Under the builder lock (31 §4.5): budget eviction by another builder
+    // must not delete the profile directory clippy is using.
+    const [cmd, cmdArgs] = cargoCommand(s.host, args)
+    const r = withBuilderLock(s.host.lockPath, s.log, () =>
+      run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env }),
+    )
     const detail = r.status === 0 ? [] : [r.stderr.trim().slice(-6000)]
     if (!s.loaded.sdkAvailable)
       detail.push('pre-SDK phase: determinism lints at deny (-D), not forbid (-F)')
@@ -146,22 +158,51 @@ function gate3(s: Session): GateResult {
   }
 }
 
-function pendingGate(gate: number, name: string, why: string): GateResult {
-  return { gate, name, status: 'pending', detail: [why] }
+/**
+ * A gate this builder does not implement yet. Before pmb-sdk exists no
+ * package can run it, so it is reported as pending; once
+ * native/crates/pmb-sdk exists, an unimplemented required gate fails, so
+ * check and publish never pass without it (31 §7.1, 00 R14).
+ */
+export function unimplementedGate(
+  s: { loaded: { sdkAvailable: boolean } },
+  gate: number,
+  name: string,
+  what: string,
+): GateResult {
+  return s.loaded.sdkAvailable
+    ? { gate, name, status: 'fail', detail: [`not implemented in this builder: ${what}`] }
+    : { gate, name, status: 'pending', detail: [`pending pmb-sdk: ${what}`] }
 }
+
+/** Logged and recorded in the manifest of every local-only publish (31 §7.2 step 5, §7.5). */
+export const JS_ID_CHECK_PENDING =
+  "pending M3a: the id was not checked against artifacts published as kind = 'js' (local-only reads no database)"
 
 const GATE4_NAME = 'cargo test --profile iterate (testkit), deny-network sandbox'
 const GATE7_NAME = 'behavioral smoke: run-group equivalence, interests A/B, ns/callback'
 
-function gate6(built: BuiltArtifact[]): GateResult {
-  const detail: string[] = []
+/** Bins that declare the same strategy id (31 §2.2 row 6). */
+export function duplicateIds(built: Array<{ strategyId: string; bin: string }>): string[] {
   const byId = new Map<string, string[]>()
   for (const b of built) byId.set(b.strategyId, [...(byId.get(b.strategyId) ?? []), b.bin])
-  for (const [id, bins] of byId)
+  const out: string[] = []
+  for (const [id, bins] of [...byId].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)))
     if (bins.length > 1)
-      detail.push(`strategy id ${id} is declared by several bins: ${bins.join(', ')}`)
-  const status: GateStatus = detail.length > 0 ? 'fail' : 'pass'
-  detail.push('pending pmb-sdk: paramsSchema and requirements checks')
+      out.push(`strategy id ${id} is declared by several bins: ${bins.sort().join(', ')}`)
+  return out
+}
+
+export function gate6(
+  s: { loaded: { sdkAvailable: boolean } },
+  built: Array<{ strategyId: string; bin: string }>,
+): GateResult {
+  const detail = duplicateIds(built)
+  let status: GateStatus = detail.length > 0 ? 'fail' : 'pass'
+  if (s.loaded.sdkAvailable) {
+    status = 'fail'
+    detail.push('not implemented in this builder: paramsSchema and requirements checks')
+  } else detail.push('pending pmb-sdk: paramsSchema and requirements checks')
   return { gate: 6, name: 'describe: id grammar and uniqueness', status, detail }
 }
 
@@ -190,7 +231,7 @@ export function runNativeCheck(opts: NativeRunOptions): { ok: boolean; gates: Ga
   if (g1.status === 'fail') {
     push({ gate: 3, name: 'clippy', status: 'skipped', detail: ['gate 1 failed'] })
   } else push(gate3(s))
-  push(pendingGate(4, GATE4_NAME, 'pending pmb-sdk (testkit)'))
+  push(unimplementedGate(s, 4, GATE4_NAME, 'testkit tests under the deny-network sandbox'))
   if (g1.status === 'fail') {
     push({
       gate: 5,
@@ -229,11 +270,11 @@ export function runNativeCheck(opts: NativeRunOptions): { ok: boolean; gates: Ga
     })
     push(
       ok5
-        ? gate6(built)
+        ? gate6(s, built)
         : { gate: 6, name: 'describe', status: 'skipped', detail: ['gate 5 failed'] },
     )
   }
-  push(pendingGate(7, GATE7_NAME, 'pending pmb-sdk (run-group and interests)'))
+  push(unimplementedGate(s, 7, GATE7_NAME, 'run-group equivalence and interests A/B'))
   const ok = gates.every((g) => g.status !== 'fail')
   const pending = gates.filter((g) => g.status === 'pending').length
   s.log(`${prefix} ${ok ? 'OK' : 'FAILED'}${pending ? ` (${pending} gates pending pmb-sdk)` : ''}`)
@@ -364,16 +405,46 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
     printGate(s.log, prefix, g2)
     if (g2.status === 'fail') fail('gate 2 (cargo fmt --check) failed — fix or pass --skip-checks')
   }
+  // Required checks that are pending (pre-SDK phase only): logged, and
+  // recorded in the manifest (00 R14).
+  const pendingNotes: string[] = []
+  const notePending = (g: GateResult): void => {
+    for (const d of g.detail)
+      if (g.status === 'pending' || d.startsWith('pending'))
+        pendingNotes.push(`gate ${g.gate}: ${d}`)
+  }
+  notePending(g1)
   const g3 = gate3(s)
   printGate(s.log, prefix, g3)
   if (g3.status === 'fail') fail('gate 3 (clippy) failed')
-  if (!opts.skipChecks)
-    printGate(s.log, prefix, pendingGate(4, GATE4_NAME, 'pending pmb-sdk (testkit)'))
+  if (!s.loaded.sdkAvailable)
+    pendingNotes.push('gate 3: determinism lints at -D (pre-SDK phase), not -F')
+  if (!opts.skipChecks) {
+    const g4 = unimplementedGate(s, 4, GATE4_NAME, 'testkit tests under the deny-network sandbox')
+    printGate(s.log, prefix, g4)
+    if (g4.status === 'fail') fail('gate 4 failed — or pass --skip-checks')
+    notePending(g4)
+  }
+  // 31 §2.2 row 6: ids are unique within the package, enforced by every
+  // publish. The other bins are described from iterate builds (cached).
+  const otherIds: Array<{ strategyId: string; bin: string }> = []
+  for (const other of s.loaded.bins.filter((b) => b !== opts.bin)) {
+    const b = buildNative({
+      loaded: s.loaded,
+      bin: other,
+      profile: 'iterate',
+      host: s.host,
+      toolchain: s.toolchain,
+      engine: s.engine,
+      log: s.log,
+    })
+    b.cleanup()
+    otherIds.push({ strategyId: b.strategyId, bin: other })
+  }
 
   const profiles: BuildProfile[] = opts.parityCheck ? ['artifact', 'parity-check'] : ['artifact']
   const cacheDir = opts.cacheDir ?? path.join(s.host.engineRoot, NATIVE_LOCAL_CACHE_REL)
   const provenance = toolchainProvenance(s.host, s.toolchain, s.loaded.packageRoot)
-  const sdkDep = s.loaded.pkg.dependencies.some((d) => d.name === 'pmb-sdk' && d.kind === null)
   const results: LocalPublishResult[] = []
   for (const profile of profiles) {
     // Gate 5: the canonical build itself (31 §7.2 step 3).
@@ -395,16 +466,30 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
           `${built.strategyId} sha256=${built.sha256} source_hash=${built.sourceHash} (${built.wallTimeMs.cargo} ms cargo, ${built.wallTimeMs.total} ms total)`,
         ],
       })
-      printGate(s.log, prefix, gate6([built]))
-      printGate(
-        s.log,
-        prefix,
-        pendingGate(7, GATE7_NAME, 'pending pmb-sdk (run-group and interests)'),
-      )
+      const g6 = gate6(s, [...otherIds, { strategyId: built.strategyId, bin: opts.bin }])
+      printGate(s.log, prefix, g6)
+      if (g6.status === 'fail') fail('gate 6 failed')
+      const g7 = unimplementedGate(s, 7, GATE7_NAME, 'run-group equivalence and interests A/B')
+      printGate(s.log, prefix, g7)
+      if (g7.status === 'fail') fail('gate 7 failed')
+      const pendingChecks = [...pendingNotes]
+      for (const g of [g6, g7]) {
+        for (const d of g.detail)
+          if (g.status === 'pending' || d.startsWith('pending'))
+            pendingChecks.push(`gate ${g.gate}: ${d}`)
+      }
+      pendingChecks.push(JS_ID_CHECK_PENDING)
+      if (pendingChecks.length > 1)
+        s.log(
+          `${prefix} pre-SDK proof package: ${pendingChecks.length - 1} required checks pending pmb-sdk (recorded in the build manifest)`,
+        )
 
       // Step 5: id checks.
       const collision = opts.idCollision?.(built.strategyId) ?? null
       if (collision) fail(collision)
+      // The second half of step 5 needs strategy_artifacts (kind = 'js'),
+      // which local-only never reads (31 §7.5).
+      s.log(`${prefix} ${JS_ID_CHECK_PENDING}`)
 
       // Step 4: dedupe against the local cache only (31 §7.2 with --local-only, §5.6).
       const reused = findSameSourceInCache(cacheDir, {
@@ -413,6 +498,7 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
         variant: 'standard',
         profile,
         sha256: built.sha256,
+        dirty: dirty || s.engine.dirty,
       })
       if (reused) {
         const paths = cachePaths(cacheDir, reused)
@@ -450,9 +536,7 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
             .relative(repoRoot, path.join(s.loaded.packageRoot, 'src', 'bin', `${opts.bin}.rs`))
             .split(path.sep)
             .join('/'),
-          engineRelPath: sdkDep
-            ? path.relative(s.loaded.packageRoot, s.host.engineRoot).split(path.sep).join('/')
-            : null,
+          engineRelPath: s.loaded.engineRelPath,
         },
         sourceHash: built.sourceHash,
         sourceHashInput: built.sourceHashInput,
@@ -463,6 +547,7 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
             : built.buildEnv,
           renderedConfig: built.renderedConfigRemapped,
           backgroundQos: s.host.backgroundQos,
+          buildJobs: s.host.buildJobs,
           wallTimeMs: built.wallTimeMs,
         },
         toolchain: provenance,
@@ -475,6 +560,7 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
           },
         },
         describe: built.describe,
+        pendingChecks,
         builtAt: new Date().toISOString(),
       })
       const written = writeToLocalCache(cacheDir, built.bytes, manifest)

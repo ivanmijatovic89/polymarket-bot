@@ -5,7 +5,12 @@
 # require identical sha256s. Writes the artifact into the local cache
 # data/strategy-artifacts/native/ (31 §6.1); touches neither R2 nor any DB.
 #
-#   CARGO_BUILD_JOBS=3 scripts/native/build-repro-proof.sh [work dir under /private/tmp]
+#   scripts/native/build-repro-proof.sh [work dir under /private/tmp]
+#
+# Builds run at background QoS with the host's CARGO_BUILD_JOBS (4 on M4,
+# 2 on M1 Pro, 40 §17 item 3); an explicit CARGO_BUILD_JOBS overrides it.
+# Moving the ENGINE checkout is covered by the e2e test "canonical bytes do
+# not depend on where the engine checkout lives" (stage.ts).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 WORK="${1:-$(mktemp -d /private/tmp/pmb-builder-repro.XXXXXX)}"

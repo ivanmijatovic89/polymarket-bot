@@ -3,7 +3,6 @@ import test from 'node:test'
 import {
   checkPackageRules,
   countStrategyMain,
-  gitignoreHasTargetRule,
   type CargoMetadataDependency,
   type CargoMetadataPackage,
   type PackageRuleInput,
@@ -52,6 +51,7 @@ function pkg(over: Partial<CargoMetadataPackage> = {}): CargoMetadataPackage {
   return {
     name: 'demo-strategies',
     version: '0.0.0',
+    edition: '2021',
     id: 'path+file:///repo/pkg#demo-strategies@0.0.0',
     source: null,
     manifest_path: `${ROOT}/Cargo.toml`,
@@ -82,6 +82,15 @@ function input(over: Partial<PackageRuleInput> = {}): PackageRuleInput {
     packageGitignoresTarget: true,
     repoRootIgnoresTarget: true,
     binSources: new Map([['lag-v1', 'use pmb_sdk::prelude::*;\npmb_sdk::strategy_main!(Lag);\n']]),
+    sdkDependencyPaths: [
+      { kind: null, relPath: '../engine/native/crates/pmb-sdk' },
+      { kind: 'dev', relPath: '../engine/native/crates/pmb-sdk' },
+    ],
+    manifestSdkPaths: ['../engine/native/crates/pmb-sdk', '../engine/native/crates/pmb-sdk'],
+    lockPathPackages: [
+      { name: 'pmb-sdk', engine: true },
+      { name: 'pmb-core', engine: true },
+    ],
     ...over,
   }
 }
@@ -219,8 +228,8 @@ test('toolchain, gitignore, workspace, metadata and lock rules', () => {
     v({ packageToolchain: TOOLCHAIN.replace('1.89.0', '1.90.0') }),
     /differs from the engine/,
   )
-  assert.match(v({ packageGitignoresTarget: false }), /package \.gitignore/)
-  assert.match(v({ repoRootIgnoresTarget: false }), /repository root \.gitignore/)
+  assert.match(v({ packageGitignoresTarget: false }), /ignore target\/ in the package/)
+  assert.match(v({ repoRootIgnoresTarget: false }), /ignore target\/ at the repository root/)
   assert.match(v({ workspaceRoot: '/repo' }), /captured by the workspace/)
   assert.match(v({ pkg: pkg({ metadata: null }) }), /format = 1/)
   assert.match(v({ packageLock: null }), /Cargo\.lock is missing/)
@@ -230,9 +239,37 @@ test('toolchain, gitignore, workspace, metadata and lock rules', () => {
   )
 })
 
-test('gitignoreHasTargetRule recognizes the usual target rules', () => {
-  for (const t of ['target/', '/target', 'target', '**/target/', 'node_modules\n  target/  \n'])
-    assert.equal(gitignoreHasTargetRule(t), true, t)
-  for (const t of ['', 'targets/', '# target/', 'build/'])
-    assert.equal(gitignoreHasTargetRule(t), false, t)
+// spec: 31 §2.2 rows 1-2 — only pmb-sdk and the engine crates it pulls in are
+// path packages; the engine is reached by one relative path that leaves the package.
+test('sdk path, path packages, edition and resolver rules', () => {
+  assert.deepEqual(checkPackageRules(input()).violations, [])
+  const v = (over: Partial<PackageRuleInput>): string =>
+    checkPackageRules(input(over)).violations.join('\n')
+  assert.match(
+    v({ lockPathPackages: [{ name: 'serde', engine: false }] }),
+    /path package serde is not an engine crate/,
+  )
+  assert.match(v({ manifestSdkPaths: ['/abs/engine/native/crates/pmb-sdk'] }), /MUST be relative/)
+  assert.match(
+    v({ sdkDependencyPaths: [{ kind: null, relPath: 'vendor/engine/native/crates/pmb-sdk' }] }),
+    /MUST lie outside the package/,
+  )
+  assert.match(
+    v({
+      sdkDependencyPaths: [
+        { kind: null, relPath: '../a/native/crates/pmb-sdk' },
+        { kind: 'dev', relPath: '../b/native/crates/pmb-sdk' },
+      ],
+    }),
+    /MUST use the same path/,
+  )
+  assert.match(v({ pkg: pkg({ edition: '2018' }) }), /edition 2018 is too old/)
+  assert.match(
+    v({ manifestText: MANIFEST.replace('[workspace]', '[workspace]\nresolver = "1"') }),
+    /workspace\.resolver` MUST be "2" or "3"/,
+  )
+  assert.equal(
+    v({ manifestText: MANIFEST.replace('[workspace]', '[workspace]\nresolver = "2"') }),
+    '',
+  )
 })

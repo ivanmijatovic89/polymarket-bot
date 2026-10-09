@@ -18,6 +18,7 @@ const VALUES: BuildConfigValues = {
   ENGINE_ROOT: '/Users/a/Sites/bot',
   ENGINE_ROOT_REALPATH: '/Users/a/Sites/bot',
   TARGET_DIR: '/Users/a/.cache/pmb/target/1.89.0',
+  STAGE_ROOT: '/tmp/pmb-stage',
   PMB_ENGINE_SOURCE_HASH: 'a'.repeat(64),
   PMB_ENGINE_COMMIT: 'b'.repeat(40),
   PMB_ENGINE_DIRTY: 'false',

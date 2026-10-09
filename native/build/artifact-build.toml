@@ -18,6 +18,8 @@
 #   ENGINE_ROOT                 the engine checkout (repository root holding native/)
 #   ENGINE_ROOT_REALPATH        its realpath
 #   TARGET_DIR                  the host's shared target directory (31 §4.5)
+#   STAGE_ROOT                  the fixed staging root cargo builds through
+#                               (src/strategy/artifacts/native/stage.ts)
 #   PMB_ENGINE_SOURCE_HASH      31 §5.3
 #   PMB_ENGINE_COMMIT           31 §5.3
 #   PMB_ENGINE_DIRTY            true | false (31 §5.3)
@@ -83,6 +85,12 @@ rustflags = [
   # crate that include!s generated code would leak it. Chose: a fifth,
   # host-stable remap of the target directory.
   "--remap-path-prefix={{TARGET_DIR}}=/pmb/target",
+  # D-PENDING: cargo hashes the absolute path of a path dependency outside
+  # the package into its -C metadata (symbols, TypeIds, LC_UUID), so the
+  # builder builds through a fixed staging root whose symlinks lead to the
+  # package and the engine; engine sources are passed to rustc under it.
+  # Chose: remap the staging root too.
+  "--remap-path-prefix={{STAGE_ROOT}}=/pmb/src",
   # D-PENDING: 31 §4.2 does not list linker flags. ld64 computes LC_UUID
   # before the strip, over a debug map whose N_OSO entries name the object
   # files by absolute path in the target directory; the UUID then depends on

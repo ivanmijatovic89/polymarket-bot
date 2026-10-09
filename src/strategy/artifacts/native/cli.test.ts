@@ -64,18 +64,18 @@ test('parseNativePublishArgs reads the M1 proof command', () => {
   assert.equal(a.allowDirty, false)
   assert.equal(a.skipChecks, false)
   assert.equal(a.parityCheck, false)
-  assert.equal(a.backgroundQos, false)
+  assert.equal(a.qos, 'background', '31 §4.5: background QoS is the default')
   assert.equal(a.targetDir, null)
   const b = parseNativePublishArgs([
     '--repo=p',
     '--entrypoint=src/bin/lag-v15.rs',
     '--qos',
-    'background',
+    'default',
     '--target-dir',
     '/t',
   ])
   assert.equal(b.bin, 'lag-v15')
-  assert.equal(b.backgroundQos, true)
+  assert.equal(b.qos, 'interactive')
   assert.equal(b.targetDir, '/t')
 })
 

@@ -8,9 +8,6 @@
 /** v1 targets aarch64-apple-darwin only (20 §1, D12). */
 export const NATIVE_TARGET = 'aarch64-apple-darwin'
 
-/** `MACOSX_DEPLOYMENT_TARGET` of 31 §4.2; recorded as `deploymentTarget` in the source hash (31 §5.2). */
-export const DEPLOYMENT_TARGET = '11.0'
-
 /** Build profiles of 31 §4.1. Only `artifact` is published or accepted downstream. */
 export const BUILD_PROFILES = ['iterate', 'artifact', 'parity-check', 'profiling'] as const
 export type BuildProfile = (typeof BUILD_PROFILES)[number]
@@ -59,6 +56,8 @@ export type BuildConfigValues = {
   ENGINE_ROOT: string
   ENGINE_ROOT_REALPATH: string
   TARGET_DIR: string
+  /** Fixed staging root of stage.ts (host-independent engine paths, 31 §4.3). */
+  STAGE_ROOT: string
   PMB_ENGINE_SOURCE_HASH: string
   PMB_ENGINE_COMMIT: string
   PMB_ENGINE_DIRTY: 'true' | 'false'
@@ -150,5 +149,6 @@ export function remapPairs(values: BuildConfigValues): Array<[string, string]> {
     [values.ENGINE_ROOT, '/pmb/engine'],
     [values.ENGINE_ROOT_REALPATH, '/pmb/engine'],
     [values.TARGET_DIR, '/pmb/target'],
+    [values.STAGE_ROOT, '/pmb/src'],
   ]
 }
