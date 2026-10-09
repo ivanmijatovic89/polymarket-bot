@@ -303,6 +303,8 @@ export type LocalPublishOptions = NativeRunOptions & {
   parityCheck: boolean
   /** Returns an error message when the id collides with a TS strategy id (31 §7.2 step 5). */
   idCollision?: (id: string) => string | null
+  /** Local cache directory; default `<engine>/data/strategy-artifacts/native` (31 §6.1). Tests only. */
+  cacheDir?: string
 }
 
 /**
@@ -369,7 +371,7 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
     printGate(s.log, prefix, pendingGate(4, GATE4_NAME, 'pending pmb-sdk (testkit)'))
 
   const profiles: BuildProfile[] = opts.parityCheck ? ['artifact', 'parity-check'] : ['artifact']
-  const cacheDir = path.join(s.host.engineRoot, NATIVE_LOCAL_CACHE_REL)
+  const cacheDir = opts.cacheDir ?? path.join(s.host.engineRoot, NATIVE_LOCAL_CACHE_REL)
   const provenance = toolchainProvenance(s.host, s.toolchain, s.loaded.packageRoot)
   const sdkDep = s.loaded.pkg.dependencies.some((d) => d.name === 'pmb-sdk' && d.kind === null)
   const results: LocalPublishResult[] = []
