@@ -841,3 +841,43 @@ fn latency_shift_self_test() {
     assert!(a.len() > 1_000, "dense transitions: {}", a.len());
     assert_eq!(a, b, "every transition shifts by +{X} ms");
 }
+
+// spec: 14 §13 V-7 (identical outputs with a cold or warm day cache and with
+// any thread count), PF-1 (one cache shared across threads)
+#[test]
+fn cold_warm_and_threads_agree() {
+    let slug = "btc-updown-15m-1789570800";
+    let job = Job {
+        slug: slug.into(),
+        request: FeedRequest {
+            binance_spot: Some(FeedOptions {
+                symbol: None,
+                tick_on_update: true,
+            }),
+            chainlink: Some(FeedOptions {
+                symbol: None,
+                tick_on_update: true,
+            }),
+            price_to_beat: false,
+        },
+        model: FeedsModel::DEFAULTS_2026_07_21,
+        gamma: GammaStrike::NotResolved,
+        ptb: None,
+        root: fixtures().join("feeds"),
+    };
+    let window = slug_window(slug);
+    let clocks = read_clocks(slug);
+    let run = |cache: &DayCache| drive(&load(&job, cache).unwrap().feeds, window, &clocks).lines;
+    let cache = DayCache::new(1 << 30);
+    let cold = run(&cache);
+    let warm = run(&cache);
+    assert_eq!(cold, warm);
+    let shared = DayCache::new(1 << 30);
+    let parallel: Vec<Vec<String>> = std::thread::scope(|s| {
+        let hs: Vec<_> = (0..4).map(|_| s.spawn(|| run(&shared))).collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    for p in parallel {
+        assert_eq!(p, cold);
+    }
+}
