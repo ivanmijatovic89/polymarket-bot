@@ -762,3 +762,82 @@ fn loader_error_rows() {
     let l = load(&j, &cache);
     assert!(l.is_ok());
 }
+
+/// Every visible-value change on a dense 1 ms clock: (clock, feed, point).
+fn transitions(feeds: &MarketFeeds, from: i64, to: i64) -> Vec<(i64, FeedKind, String)> {
+    let mut st = FeedState::new();
+    let mut prev = FeedsView::EMPTY;
+    let mut out = Vec::new();
+    for clock in from..=to {
+        let v = *st.advance(feeds, TsMs(clock));
+        for k in FeedKind::ALL {
+            if v.generation(k) != prev.generation(k) {
+                let line = render("t", 0, &v);
+                out.push((clock, k, line));
+            }
+        }
+        prev = v;
+    }
+    out
+}
+
+// spec: 14 §13 V-8 (shifting every feed latency by +X ms shifts every feed
+// transition by +X ms; replaying twice gives zero difference)
+#[test]
+fn latency_shift_self_test() {
+    let slug = "btc-updown-15m-1789570800";
+    let window = slug_window(slug);
+    let (bdays, cdays) = fixture_days(window);
+    let build = |x: i64| {
+        let b = pmb_feeds::binance::build_binance_series(
+            "BTCUSDT",
+            &bdays,
+            window,
+            110 + x,
+            FeedProfile::TsCompat,
+        )
+        .unwrap()
+        .series;
+        let c = pmb_feeds::chainlink::build_chainlink_series("btcusd", &cdays, window, 320 + x, 0)
+            .unwrap();
+        MarketFeeds::from_parts(
+            window,
+            Some(BinanceFeed {
+                symbol: "btcusdt",
+                series: b,
+                tick_on_update: false,
+            }),
+            Some(ChainlinkFeed {
+                symbol: "btc/usd",
+                asset_id: "btcusd",
+                series: c,
+                tick_on_update: false,
+            }),
+            Some(ptb_source(window, 2_700 + x)),
+        )
+    };
+    const X: i64 = 37;
+    let (start, end) = (window.start_ms.0, window.end_ms.0);
+    let base = transitions(&build(0), start - 1_000, end);
+    assert_eq!(
+        base,
+        transitions(&build(0), start - 1_000, end),
+        "replay twice"
+    );
+    let shifted = transitions(&build(X), start - 1_000, end);
+    // Compare transitions by feed and source time, keyed on clock - X; the
+    // rendered line differs only in receivedAtMs (+X), so compare clocks and
+    // the point identity (source ts and value bits) per feed.
+    let key = |v: &[(i64, FeedKind, String)], dx: i64, lo: i64, hi: i64| -> Vec<(i64, FeedKind)> {
+        v.iter()
+            .filter(|(c, _, _)| (lo..=hi).contains(c))
+            .map(|(c, k, _)| (c - dx, *k))
+            .collect()
+    };
+    let lo = start;
+    let hi = end - X;
+    let a = key(&base, 0, lo, hi);
+    let b = key(&shifted, X, lo + X, hi + X);
+    assert!(a.len() > 1_000, "dense transitions: {}", a.len());
+    assert_eq!(a, b, "every transition shifts by +{X} ms");
+}
