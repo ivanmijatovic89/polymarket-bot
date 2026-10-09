@@ -199,6 +199,7 @@ fn config(case: &Value) -> EngineConfig {
         market_seed: MarketSeed(0),
         starting_capital: Usdc::from_micros(micros(&case["startingCapital"])),
         max_events_per_drain: 4_200,
+        run_mode: pmb_engine::config::RunMode::Backtest,
         risk: RiskLimits::TS_DEFAULTS,
     }
 }

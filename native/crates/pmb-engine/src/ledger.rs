@@ -68,6 +68,10 @@ pub struct OrderRecord {
     pub(crate) reserved_shares: Qty,
     /// Last `FillKey.seq` used (starts at 1 per order, 10 §6).
     pub(crate) fill_seq: u32,
+    /// Index in the session fills of this order's latest fill; earlier ones
+    /// are linked through `FillEffect::prev` (12 §14 P8: a fill is found
+    /// without scanning the session's fills).
+    pub(crate) last_fill: Option<u32>,
     /// Fee curve of the reservation formula, fixed at emission (10 §9.4 C1).
     pub(crate) res_fee: FeeCurve,
     /// Lowest reachable fill price of the reservation formula: the tick in
@@ -200,6 +204,19 @@ impl OrderRecord {
     pub fn reserved(&self) -> Usdc {
         self.reserved
     }
+    /// Whether this submission's `OrderSubmitted` was delivered (12 §9.2):
+    /// only then is it in the strategy's view (12 §9.7; TS
+    /// `ordersByClientId` holds delivered submissions only).
+    #[inline]
+    pub fn submission_delivered(&self) -> bool {
+        self.submitted_delivered
+    }
+    /// Whether the order's `OrderAccepted` was delivered (12 §7.3): its
+    /// exchange id is known to the strategy.
+    #[inline]
+    pub fn acknowledged(&self) -> bool {
+        self.acknowledged
+    }
     /// Strategy-view open order: `OrderSubmitted` delivered, non-terminal and
     /// not fully filled (12 §9.2, §9.7).
     #[inline]
@@ -266,6 +283,9 @@ pub enum LedgerError {
     Overfill(OrderKey),
     /// A second terminal event for one key (10 S1).
     SecondTerminal(OrderKey),
+    /// A fill whose outcome or side differs from its order's request
+    /// (13 §2.4 X3/X5).
+    FillMismatch(FillKey),
     /// Fixed-point overflow in engine arithmetic (10 T3).
     Overflow,
 }
@@ -281,6 +301,11 @@ impl std::fmt::Display for LedgerError {
         match self {
             LedgerError::UnknownOrder(k) => write!(f, "delivered event for unknown order {k}"),
             LedgerError::UnknownOp(k) => write!(f, "delivered event for unknown op {k}"),
+            LedgerError::FillMismatch(k) => write!(
+                f,
+                "fill {} of order {} disagrees with the order's outcome or side",
+                k.seq, k.order
+            ),
             LedgerError::Transition(t) => write!(f, "{t}"),
             LedgerError::FillSeq(k) => {
                 write!(f, "fill seq {} of order {} not increasing", k.seq, k.order)
@@ -309,6 +334,8 @@ struct FillEffect {
     /// Per-fill settlement status (10 §9.2); a delivered fill starts MATCHED.
     status: SettlementStatus,
     reversed: bool,
+    /// The previous fill of the same order (index into `fills`).
+    prev: Option<u32>,
 }
 
 /// The session ledger (12 §9).
@@ -317,10 +344,19 @@ pub struct Ledger {
     pub(crate) rules: CoreRules,
     /// Order slab indexed by `OrderKey` (10 P2), in submission order.
     pub(crate) orders: Vec<OrderRecord>,
-    /// Non-terminal keys in submission order (12 §13 item 1).
+    /// Keys in submission order that were non-terminal when pushed (12 §13
+    /// item 1). Terminal keys are skipped on iteration and compacted away
+    /// once they are the majority, so a terminal delivery is O(1)
+    /// amortized (12 §14 P8).
     pub(crate) active: Vec<OrderKey>,
+    /// Terminal keys still in `active`.
+    active_dead: usize,
     /// cid → current generation; lookup only, never iterated (12 §7.1).
     pub(crate) current: Vec<Option<OrderKey>>,
+    /// cid → latest generation whose `OrderSubmitted` was delivered (the
+    /// strategy-view generation of 12 §9.7; the TS view of cancel
+    /// resolution, 12 §7.3). Lookup only.
+    pub(crate) delivered: Vec<Option<OrderKey>>,
     pub(crate) positions: PerOutcome<Position>,
     pub(crate) starting: Usdc,
     pub(crate) cash: Usdc,
@@ -351,7 +387,7 @@ pub struct Ledger {
 }
 
 #[inline]
-fn notional_mode(rules: CoreRules, side: Side) -> Rounding {
+pub(crate) fn notional_mode(rules: CoreRules, side: Side) -> Rounding {
     // 10 §3.3 R5, R6: realistic BUY Ceil, SELL Floor; ts-compat HalfAwayFromZero.
     match (rules, side) {
         (CoreRules::TsCompat, _) => Rounding::HalfAwayFromZero,
@@ -367,7 +403,9 @@ impl Ledger {
             rules,
             orders: Vec::new(),
             active: Vec::new(),
+            active_dead: 0,
             current: Vec::new(),
+            delivered: Vec::new(),
             positions: PerOutcome::default(),
             starting,
             cash: starting,
@@ -431,14 +469,26 @@ impl Ledger {
     /// Non-terminal keys in submission order (12 §13 item 1); the simulator's
     /// scope resolution reads its own exchange truth instead (13 §4.1).
     #[inline]
-    pub fn active_keys(&self) -> &[OrderKey] {
-        &self.active
+    pub fn active_keys(&self) -> impl Iterator<Item = OrderKey> + '_ {
+        self.active
+            .iter()
+            .copied()
+            .filter(|k| !self.orders[k.index()].state.is_terminal())
     }
 
     /// Current generation of a cid (12 §7.1).
     #[inline]
     pub fn current(&self, cid: CidKey) -> Option<OrderKey> {
         self.current.get(cid.index()).copied().flatten()
+    }
+
+    /// Latest generation of a cid whose `OrderSubmitted` was delivered
+    /// (12 §9.7 strategy view; 12 §7.3 ts-compat cancel resolution). It
+    /// differs from [`Ledger::current`] while a re-placed generation's
+    /// submission is still queued.
+    #[inline]
+    pub fn delivered_generation(&self, cid: CidKey) -> Option<OrderKey> {
+        self.delivered.get(cid.index()).copied().flatten()
     }
 
     /// A cid is active iff its current key exists and is not `om_terminal`
@@ -508,6 +558,25 @@ impl Ledger {
     #[inline]
     pub fn fill_reversed(&self, i: usize) -> bool {
         self.effects[i].reversed
+    }
+
+    /// Index of a fill in [`Ledger::fills`] (12 §14 P8): walks the fills of
+    /// its own order from the latest, never the session's fills.
+    pub fn fill_index(&self, fk: FillKey) -> Option<usize> {
+        let mut cur = self.orders.get(fk.order.index())?.last_fill;
+        while let Some(i) = cur {
+            let i = i as usize;
+            let f = &self.fills[i];
+            if f.key.seq == fk.seq {
+                return Some(i);
+            }
+            if f.key.seq < fk.seq {
+                // Seqs strictly increase per order (10 §6): not found.
+                return None;
+            }
+            cur = self.effects[i].prev;
+        }
+        None
     }
 
     /// Diagnostics counters.
@@ -621,6 +690,7 @@ impl Ledger {
             reserved,
             reserved_shares,
             fill_seq: 0,
+            last_fill: None,
             res_fee: fee,
             res_lo: lo,
         });
@@ -742,8 +812,14 @@ impl Ledger {
                 return Err(LedgerError::Overfill(k));
             }
         }
-        if let Some(i) = self.active.iter().position(|&a| a == k) {
-            self.active.remove(i);
+        // Lazy removal (12 §14 P8): the key is skipped from now on and
+        // compacted away once terminal keys are the majority.
+        self.active_dead += 1;
+        if self.active_dead > 32 && self.active_dead * 2 > self.active.len() {
+            let orders = &self.orders;
+            self.active
+                .retain(|a| !orders[a.index()].state.is_terminal());
+            self.active_dead = 0;
         }
         self.rereserve(k)?;
         Ok(Delivered {
@@ -760,7 +836,15 @@ impl Ledger {
         use AccountEventKind as K;
         match ev.kind {
             K::OrderSubmitted { order } => {
-                self.record_mut(order)?.submitted_delivered = true;
+                let r = self.record_mut(order)?;
+                r.submitted_delivered = true;
+                let ci = r.req.cid.index();
+                // Submissions are delivered in emission order (12 §6.2), so
+                // the last one delivered is the newest generation seen.
+                if self.delivered.len() <= ci {
+                    self.delivered.resize(ci + 1, None);
+                }
+                self.delivered[ci] = Some(order);
                 Ok(Delivered::default())
             }
             K::OrderRejected {
@@ -917,6 +1001,10 @@ impl Ledger {
         if f.key.seq <= r.fill_seq {
             return Err(LedgerError::FillSeq(f.key));
         }
+        // 13 §2.4 X3/X5: a fill moves the position of its own order only.
+        if f.outcome != r.req.outcome || f.side != r.req.side {
+            return Err(LedgerError::FillMismatch(f.key));
+        }
         r.fill_seq = f.key.seq;
         let mode = notional_mode(rules, f.side);
         let notional = f.price.notional(f.qty, mode)?;
@@ -958,6 +1046,7 @@ impl Ledger {
                     notional,
                     status: SettlementStatus::Matched,
                     reversed: false,
+                    prev: None,
                 }
             }
             Side::Sell => {
@@ -984,6 +1073,7 @@ impl Ledger {
                     notional,
                     status: SettlementStatus::Matched,
                     reversed: false,
+                    prev: None,
                 }
             }
         };
@@ -1001,6 +1091,13 @@ impl Ledger {
         }
         let mut fill = *f;
         fill.late = self.orders[k.index()].state.is_terminal();
+        let ix = u32::try_from(self.fills.len()).map_err(|_| LedgerError::Overflow)?;
+        let r = &mut self.orders[k.index()];
+        let effect = FillEffect {
+            prev: r.last_fill,
+            ..effect
+        };
+        r.last_fill = Some(ix);
         self.fills.push(fill);
         self.effects.push(effect);
         Ok(Delivered {
@@ -1027,7 +1124,7 @@ impl Ledger {
         let Some(fk) = fill else {
             return Ok(Delivered::default());
         };
-        let Some(i) = self.fills.iter().rposition(|x| x.key == fk) else {
+        let Some(i) = self.fill_index(fk) else {
             return Err(LedgerError::UnknownOrder(fk.order));
         };
         if status == SettlementStatus::Failed {
@@ -1161,17 +1258,15 @@ impl Ledger {
         (n, buys, sells)
     }
 
-    /// Non-terminal own records that are not fully filled, and their
-    /// remaining BUY shares per outcome (12 §8.1: undelivered submissions
-    /// count at once).
+    /// Non-terminal own records (`InFlight`, `Delayed`, `Live`, `Unknown`)
+    /// and their remaining BUY shares per outcome (12 §8.1: undelivered
+    /// submissions count at once; a fully filled record counts until its
+    /// terminal event is delivered, its remaining quantity is zero).
     pub(crate) fn nonterminal_exposure(&self) -> (u32, PerOutcome<Qty>) {
         let mut n = 0u32;
         let mut buys = PerOutcome::<Qty>::default();
-        for &k in &self.active {
+        for k in self.active_keys() {
             let r = &self.orders[k.index()];
-            if r.fully_filled() {
-                continue;
-            }
             n += 1;
             if r.req.side == Side::Buy {
                 buys[r.req.outcome] += r.remaining();
@@ -1220,6 +1315,7 @@ mod tests {
             reserved: Usdc::ZERO,
             reserved_shares: Qty::ZERO,
             fill_seq: 0,
+            last_fill: None,
             res_fee: FeeCurve::TS_COMPAT,
             res_lo: Price::from_micros(10_000),
         }
@@ -1356,7 +1452,7 @@ mod tests {
             assert_eq!(l.order(k).final_qty.map(|x| x.micros()), want_final);
             let released = want_final == Some(0);
             assert_eq!(l.capital().reserved.is_zero(), released, "{reason:?}");
-            assert!(l.active_keys().is_empty());
+            assert!(l.active_keys().next().is_none());
         }
     }
 
@@ -1619,5 +1715,83 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(l.sellable(Outcome::Up), q(10_000_000));
+    }
+    #[test]
+    fn fills_are_found_per_order_without_a_session_scan() {
+        // spec: 12 §14 P8 (O(1) per event), 10 §6 (FillKey.seq strictly
+        // increases per order; not necessarily dense)
+        let rules = ExchangeRules::ts_compat();
+        let mut l = Ledger::new(CoreRules::TsCompat, u(100_000_000));
+        let mk = |l: &mut Ledger, c: u32| {
+            l.submit(
+                OrderRequest::gtc(
+                    CidKey::new(c),
+                    Outcome::Up,
+                    Side::Buy,
+                    p(100_000),
+                    q(10_000_000),
+                ),
+                TsMs(0),
+                &rules,
+                None,
+            )
+        };
+        let a = mk(&mut l, 0);
+        let b = mk(&mut l, 1);
+        // Interleaved fills; `a` skips seq 2.
+        for (k, seq) in [(a, 1), (b, 1), (a, 3), (b, 2), (a, 4)] {
+            l.apply_delivered(&fill(k, seq, Side::Buy, 100_000, 1_000_000, 0))
+                .unwrap();
+        }
+        let at = |k, seq| l.fill_index(FillKey { order: k, seq });
+        assert_eq!(at(a, 1), Some(0));
+        assert_eq!(at(b, 1), Some(1));
+        assert_eq!(at(a, 3), Some(2));
+        assert_eq!(at(b, 2), Some(3));
+        assert_eq!(at(a, 4), Some(4));
+        assert_eq!(at(a, 2), None);
+        assert_eq!(at(b, 9), None);
+        assert_eq!(at(OrderKey::new(77), 1), None);
+    }
+
+    #[test]
+    fn active_keys_stay_in_submission_order_across_lazy_removal() {
+        // spec: 12 §13 item 1 (open orders iterate in submission order),
+        // §14 P8 (terminal delivery O(1) amortized)
+        let rules = ExchangeRules::ts_compat();
+        let mut l = Ledger::new(CoreRules::TsCompat, u(1_000_000_000));
+        let keys: Vec<OrderKey> = (0..100)
+            .map(|c| {
+                l.submit(
+                    OrderRequest::gtc(
+                        CidKey::new(c),
+                        Outcome::Up,
+                        Side::Buy,
+                        p(100_000),
+                        q(1_000_000),
+                    ),
+                    TsMs(0),
+                    &rules,
+                    None,
+                )
+            })
+            .collect();
+        // Terminate every key except multiples of 7, crossing the
+        // compaction threshold.
+        for &k in &keys {
+            if k.get() % 7 != 0 {
+                l.apply_delivered(&ev(AccountEventKind::OrderRejected {
+                    order: Some(k),
+                    cid: CidKey::new(k.get()),
+                    reason: RejectReason::MarketClosed,
+                }))
+                .unwrap();
+            }
+        }
+        let live: Vec<u32> = l.active_keys().map(|k| k.get()).collect();
+        let expected: Vec<u32> = (0..100).filter(|k| k % 7 == 0).collect();
+        assert_eq!(live, expected);
+        assert!(l.active.len() < 100, "compacted");
+        assert!(l.reservations_consistent());
     }
 }

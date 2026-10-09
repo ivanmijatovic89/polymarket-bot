@@ -13,8 +13,8 @@ use std::collections::BTreeMap;
 
 use pmb_contract::num::{Decimal, OutDec2, OutDec4, SafeU64};
 use pmb_contract::result::{
-    check_intent_meta_caps, CandidateCounters, EngineMarketOutput, EngineMarketStats, ErrorDetail,
-    ErrorInfo, EventsByType, MarketStatsRules,
+    check_intent_meta_caps, AnomalyValue, CandidateCounters, EngineMarketOutput, EngineMarketStats,
+    ErrorDetail, ErrorInfo, EventsByType, MarketStatsRules,
 };
 use pmb_contract::vocab::{
     ErrorClass, Outcome as ContractOutcome, RejectReasonCode, SkipReason, StatsSkipReason,
@@ -250,11 +250,10 @@ pub fn market_output(
     let up = s.shares[Outcome::Up];
     let down = s.shares[Outcome::Down];
     let stats = EngineMarketStats {
-        // D-PENDING: 21 §11 takes `marketId` from the first counted tick's
-        // book event, but engine market events carry no market id (the
-        // telonex tape has one `market` column per file, checked against the
-        // job by 15 I-18); chose the job's condition id, which is that value
-        // whenever a counted tick exists.
+        // D69 A-17: `marketId` is the market id of the first counted tick
+        // that carries one. Engine market events carry no market id; the
+        // tape holds one market, checked against the job by 15 I-18, so the
+        // job's condition id is that value whenever such a tick exists.
         market_id: cx.info.condition_id.to_string(),
         slug: slug.to_owned(),
         final_outcome: contract_outcome(cx.outcome.winner()),
@@ -321,6 +320,68 @@ pub fn candidate_counters(
         peak_reserved_usdc: Decimal::from_micros(c.peak_reserved.micros()),
         strategy_ticks_skipped: safe("strategyTicksSkipped", acc.ticks.strategy_ticks_skipped)?,
     })
+}
+
+/// The engine counters of one candidate under their 21 §10
+/// `diagnostics.anomalies` names (12 §7.6, §9.3–§9.5; 13 §2.2, TC-C13);
+/// zero counters are omitted. Quantity counters are in 1e-6 units.
+// D-PENDING: 21 §10 `anomalies` is one map per market while these counters
+// are per candidate; chose per-candidate maps that the caller sums with
+// [`add_anomalies`], and integer micros for the quantity counters.
+pub fn engine_anomalies(
+    d: &crate::session::SessionDiagnostics,
+) -> Result<BTreeMap<String, AnomalyValue>, OutputError> {
+    let mut m = BTreeMap::new();
+    let entries: [(&str, i64); 5] = [
+        ("duplicate_active_cid", d.duplicate_active_cid as i64),
+        ("oversold_qty", d.ledger.oversold_qty),
+        ("reservation_dust", d.ledger.reservation_dust),
+        ("reversal_deficit", d.ledger.reversal_deficit),
+        ("actions_discarded", d.exec.actions_discarded as i64),
+    ];
+    for (name, v) in entries {
+        if v == 0 {
+            continue;
+        }
+        let n = u64::try_from(v)
+            .ok()
+            .and_then(SafeU64::new)
+            .ok_or_else(|| OutputError::SelfCheck(format!("{name} out of range: {v}")))?;
+        m.insert(name.to_owned(), AnomalyValue::Count(n));
+    }
+    Ok(m)
+}
+
+/// Adds the counts of `from` into `into` (one market's anomalies over its
+/// candidates); a by-reason map is summed per reason.
+pub fn add_anomalies(
+    into: &mut BTreeMap<String, AnomalyValue>,
+    from: &BTreeMap<String, AnomalyValue>,
+) -> Result<(), OutputError> {
+    let sum = |a: SafeU64, b: SafeU64| {
+        SafeU64::new(a.get() + b.get())
+            .ok_or_else(|| OutputError::SelfCheck("anomaly counter above 2^53-1".into()))
+    };
+    for (k, v) in from {
+        match (into.get_mut(k), v) {
+            (None, _) => {
+                into.insert(k.clone(), v.clone());
+            }
+            (Some(AnomalyValue::Count(a)), AnomalyValue::Count(b)) => *a = sum(*a, *b)?,
+            (Some(AnomalyValue::ByReason(a)), AnomalyValue::ByReason(b)) => {
+                for (r, n) in b {
+                    let cur = a.get(r).copied().unwrap_or(SafeU64::new(0).expect("zero"));
+                    a.insert(r.clone(), sum(cur, *n)?);
+                }
+            }
+            _ => {
+                return Err(OutputError::SelfCheck(format!(
+                    "anomaly {k} mixes a count and a by-reason map"
+                )))
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -458,7 +519,35 @@ mod tests {
             },
             acc,
             metas: MetaStore::new(),
+            diagnostics: Default::default(),
         }
+    }
+
+    #[test]
+    fn engine_anomalies_use_their_names_omit_zeros_and_sum_over_candidates() {
+        // spec: 21 §10 diagnostics.anomalies (engine counters
+        // duplicate_active_cid, reservation_dust, oversold_qty; zero
+        // counters may be omitted), 12 §14 P12
+        let mut d = crate::session::SessionDiagnostics::default();
+        assert!(engine_anomalies(&d).unwrap().is_empty());
+        d.duplicate_active_cid = 3;
+        d.ledger.oversold_qty = 5_000_000;
+        d.exec.actions_discarded = 2;
+        let a = engine_anomalies(&d).unwrap();
+        let keys: Vec<&str> = a.keys().map(String::as_str).collect();
+        assert_eq!(
+            keys,
+            vec!["actions_discarded", "duplicate_active_cid", "oversold_qty"]
+        );
+        let mut market = BTreeMap::new();
+        add_anomalies(&mut market, &a).unwrap();
+        add_anomalies(&mut market, &a).unwrap();
+        assert_eq!(
+            market["oversold_qty"],
+            AnomalyValue::Count(SafeU64::new(10_000_000).unwrap())
+        );
+        d.ledger.reversal_deficit = -1;
+        assert!(engine_anomalies(&d).is_err());
     }
 
     fn cx(info: &MarketInfo) -> OutputContext<'_> {

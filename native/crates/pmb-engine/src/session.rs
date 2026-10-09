@@ -14,9 +14,9 @@ use pmb_core::rules::ExchangeRules;
 use pmb_core::{FinalOutcome, MarketEvent, Outcome, PerOutcome, TsMs};
 
 use crate::clock::{Clocks, DecisionOrigin};
-use crate::config::EngineConfig;
+use crate::config::{EngineConfig, RunMode};
 use crate::core_rules::CoreRules;
-use crate::envelope::{Control, Envelope, OperatorCommand, Payload, SyntheticKind};
+use crate::envelope::{Control, Envelope, GuardTrip, OperatorCommand, Payload, SyntheticKind};
 use crate::exec::{CancelScope, EventQueue, ExecCtx, Execution};
 use crate::feeds_view::FeedsView;
 use crate::ledger::Ledger;
@@ -89,6 +89,25 @@ pub struct SessionOutput {
     pub acc: MarketStatsAcc,
     /// The session meta store; `stats.intent_meta` ids index it (21 §16).
     pub metas: MetaStore,
+    /// Engine and adapter diagnostics for `diagnostics.anomalies` (21 §10;
+    /// 12 §14 P12); never part of the deterministic section.
+    pub diagnostics: SessionDiagnostics,
+}
+
+/// The always-on engine counters of one session that 21 §10 places under
+/// `diagnostics.anomalies` (12 §7.6, §9.3–§9.5, §14 P12; 13 §2.2), plus the
+/// final exchange-time skew (21 §10 `skewMs`, 12 §4.4 XT4).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SessionDiagnostics {
+    /// Ledger counters (`oversold_qty`, `reservation_dust`,
+    /// `reversal_deficit`).
+    pub ledger: crate::ledger::LedgerCounters,
+    /// Placements dropped as duplicates of an active cid (12 §7.6).
+    pub duplicate_active_cid: u64,
+    /// The execution adapter's diagnostics.
+    pub exec: crate::exec::ExecDiagnostics,
+    /// Final exchange-time skew (12 §4.4), if one was observed.
+    pub skew_ms: Option<i64>,
 }
 
 /// Per-market `intentMeta` caps (21 §16): 10,000 entries, 1 MiB.
@@ -135,6 +154,13 @@ pub struct Session<S: Strategy, E: Execution, T: TraceSink> {
     pub(crate) seen_generations: (u64, u64),
     pub(crate) stats: MarketStatsAcc,
     pub(crate) fault: Option<SessionFault>,
+    /// Strategy calls stopped by a kill switch (12 §8.3, 50 §10.4): events
+    /// are still applied, the strategy is never called again.
+    pub(crate) calls_stopped: bool,
+    /// Paper strategy faults (12 §11, D32).
+    pub(crate) strategy_halts: Vec<SessionFault>,
+    /// Feed high-water `H` (14 F-7).
+    pub(crate) feed_hw: Option<TsMs>,
 }
 
 /// Runs strategy code inside `catch_unwind` (12 §11, 30 §12); the panic
@@ -175,12 +201,14 @@ fn make_ctx<'a>(
     plugins: &'a crate::plugins_view::PluginsView,
     rules: &'a RulesView,
 ) -> Ctx<'a> {
+    let ts_compat = rules.ts_compat;
     let book = |o: Outcome| BookView {
         outcome: o,
         recorded: market.books.get(o),
         overlay,
         updated_at: market.book_updated_at[o].unwrap_or(TsMs(0)),
-        stale: market.stale[o],
+        // 12 §5.2: ts-compat follows TS and has no stale state.
+        stale: !ts_compat && market.stale[o],
     };
     Ctx::new(
         now,
@@ -211,9 +239,19 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             tick_seq: 0,
             at: TsMs(0),
         };
+        // 30 §4 rule 3: requirements are evaluated once, before the
+        // instance. STAND-IN: `Requirements` carries nothing until pmb-feeds
+        // and pmb-plugins land; a panic in it fails this candidate only.
+        let _requirements = guarded(|| S::requirements(params)).map_err(fault)?;
         let interests = guarded(|| S::interests(params)).map_err(fault)?;
         let strategy = guarded(|| S::new(params, &market.info)).map_err(fault)?;
         let rules = config.core_rules;
+        if config.run_mode == RunMode::Paper && rules != CoreRules::Realistic {
+            // D28: paper runs the realistic rules (R14: never a silent mix).
+            return Err(SessionFault::Engine {
+                message: "paper run mode with the ts-compat rules (D28)".into(),
+            });
+        }
         let window = WindowGate {
             rule: WindowRule::select(rules, config.input_mode),
             window: market.window(),
@@ -250,6 +288,9 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             seen_generations: (0, 0),
             stats: MarketStatsAcc::default(),
             fault: None,
+            calls_stopped: false,
+            strategy_halts: Vec::new(),
+            feed_hw: None,
         })
     }
 
@@ -291,26 +332,70 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     pub(crate) fn engine_fault(&mut self, message: String) -> SessionFault {
         let f = SessionFault::Engine { message };
         self.fault = Some(f.clone());
-        self.strategy = None;
+        self.drop_strategy();
         f
     }
 
+    /// Drops the strategy instance inside `catch_unwind` (30 §12: the
+    /// instance is poisoned and dropped there), so a panicking `Drop` in
+    /// strategy code fails only this candidate, never the driver.
+    fn drop_strategy(&mut self) {
+        if let Some(s) = self.strategy.take() {
+            // A panic from the drop is ignored: the fault that caused the
+            // drop is already recorded.
+            let _ = guarded(move || drop(s));
+        }
+    }
+
+    /// A strategy fault (12 §6.3, §11). The strategy object is never called
+    /// again and placements are rejected `StrategyHalted`.
+    ///
+    /// - Backtest: the candidate stops; the fault is returned and kept.
+    /// - Paper (D32): an engine-originated `CancelMarket{Market}` with cause
+    ///   `StrategyPanic` goes through the OM, the fault is recorded as an
+    ///   alert ([`Session::strategy_halts`]) and the session keeps stepping:
+    ///   queued and later events are applied without callbacks (10 S5).
     pub(crate) fn strategy_fault(
         &mut self,
         cause: StrategyFaultCause,
         callback: &'static str,
-    ) -> SessionFault {
+        market: &SharedMarket,
+    ) -> Result<(), SessionFault> {
         let f = SessionFault::Strategy {
             cause,
             callback,
             tick_seq: self.last_tick.map_or(0, |t| t.seq),
             at: self.clocks.now,
         };
-        // 12 §11: after a fault the strategy object is never called again.
-        self.fault = Some(f.clone());
-        self.strategy = None;
+        self.drop_strategy();
         self.om.set_halt(Halt::StrategyHalted);
-        f
+        // Intents of the faulted callback are never handled.
+        self.intents.clear();
+        match self.config.run_mode {
+            RunMode::Backtest => {
+                self.fault = Some(f.clone());
+                Err(f)
+            }
+            RunMode::Paper => {
+                // Halted until rotation: no further ticks are dispatched.
+                self.calls_stopped = true;
+                self.strategy_halts.push(f);
+                self.handle_engine(
+                    EngineIntent::CancelMarket {
+                        scope: CancelScope::Market,
+                        cause: pmb_core::event::CancelCause::StrategyPanic,
+                    },
+                    market,
+                );
+                Ok(())
+            }
+        }
+    }
+
+    /// Paper strategy faults recorded as alerts (12 §11 paper column, D32);
+    /// always empty in backtest, where a fault stops the candidate.
+    pub fn strategy_halts(&self) -> &[SessionFault] {
+        &self.strategy_halts
     }
 
     /// Forwards the adapter's lifecycle records to the sink (22 §2, 13 §4.3).
@@ -321,6 +406,15 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                 trace.record(&TraceEvent::Exec(&rec));
             }
         }
+    }
+
+    /// Whether strategy callbacks may run by rule (12 §5.4, §10, §8.3): the
+    /// session is `Active` and no kill switch stopped strategy calls.
+    /// Deliveries with no callback by rule do not count against the cascade
+    /// budget (D69 A-08).
+    #[inline]
+    pub(crate) fn callbacks_allowed(&self) -> bool {
+        self.state.callbacks_enabled() && !self.calls_stopped
     }
 
     #[inline]
@@ -424,8 +518,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             // TC-C9: the TS gate per input mode, on the TS tick time.
             CoreRules::TsCompat => self.window.in_window(tick_ts, self.clocks.now),
             CoreRules::Realistic => {
-                self.state == SessionState::Active
-                    && self.window.in_window(tick_ts, self.clocks.now)
+                self.callbacks_allowed() && self.window.in_window(tick_ts, self.clocks.now)
             }
         }
     }
@@ -451,7 +544,8 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let stale = rules == CoreRules::Realistic && market.last_apply.stale_book;
         let dispatch = cause.is_some() && !stale && self.passes_gate(tick_ts);
         if let (true, Some(c)) = (dispatch, cause) {
-            self.begin_tick(c, false, env.exchange_ts, tick_ts);
+            let vts = self.feed_clock_of(env, false, tick_ts);
+            self.begin_tick(c, false, env.exchange_ts, tick_ts, vts);
         }
         match rules {
             CoreRules::TsCompat => {
@@ -464,7 +558,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     ledger: &self.ledger,
                     config: &self.config,
                 };
-                // ARCHITECTURE.md D-PENDING (time argument): the TS tick ts.
+                // D67: the ts-compat execution clock is the TS tick ts.
                 self.exec.on_market_event(tick_ts, ev, &cx, &mut self.queue);
             }
             CoreRules::Realistic => {
@@ -512,17 +606,47 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         if !self.passes_gate(tick_ts) {
             return Ok(());
         }
-        self.begin_tick(cause, true, env.exchange_ts, tick_ts);
+        let vts = self.feed_clock_of(env, true, tick_ts);
+        self.begin_tick(cause, true, env.exchange_ts, tick_ts, vts);
         self.run_strategy_tick(market)
     }
 
-    /// `begin_tick` (12 §5.3): tick seq, event clock, `TickStart`.
+    /// The feed clock `C(t)` of a dispatched tick (12 §4.1 column "Feed
+    /// clock", K5; 14 §3.1): ts-compat telonex-delta real tick `max(L, E)`
+    /// with the Telonex local time `L > 0`, else `E`; ts-compat synthetic
+    /// tick its stamp `S`; ts-compat recorder-v4 the receipt order (`at`);
+    /// realistic `now`.
+    fn feed_clock_of(&self, env: &Envelope<'_>, synthetic: bool, tick_ts: TsMs) -> TsMs {
+        match self.config.core_rules {
+            CoreRules::Realistic => self.clocks.now,
+            CoreRules::TsCompat if synthetic => tick_ts,
+            CoreRules::TsCompat => match self.config.input_mode {
+                pmb_contract::vocab::InputMode::TelonexDelta => match env.recv_wall {
+                    Some(l) if l.0 > 0 => l.max(tick_ts),
+                    _ => tick_ts,
+                },
+                _ => env.at,
+            },
+        }
+    }
+
+    /// The feed high-water `H` (14 F-7): the max of the feed clocks of every
+    /// dispatched tick so far; `None` before the first. Feed state seen by a
+    /// tick is evaluated at `H` (the pmb-feeds view reads it).
+    pub fn feed_clock(&self) -> Option<TsMs> {
+        self.feed_hw
+    }
+
+    /// `begin_tick` (12 §5.3): tick seq, event clock, feed high-water
+    /// (14 F-7: advanced on every dispatched tick, whether or not the
+    /// strategy reads feeds), `TickStart` with the visibility time `H`.
     fn begin_tick(
         &mut self,
         cause: TickCause,
         synthetic: bool,
         exchange_ts: Option<TsMs>,
         tick_ts: TsMs,
+        feed_clock: TsMs,
     ) {
         let seq = self.next_tick_seq;
         self.next_tick_seq += 1;
@@ -535,15 +659,15 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         });
         self.clocks.tick_ts = tick_ts;
         self.clocks.event_clock.init_if_unset(tick_ts);
+        let hw = self.feed_hw.map_or(feed_clock, |h| h.max(feed_clock));
+        self.feed_hw = Some(hw);
         if T::ENABLED {
-            // D-PENDING: the visibility time is the feed clock (14 F-7),
-            // owned by pmb-feeds; chose `tick.ts` until the integration.
             self.trace.record(&TraceEvent::TickStart {
                 seq,
                 cause,
                 decision_ts: tick_ts,
                 exchange_ts,
-                visibility_ts: tick_ts,
+                visibility_ts: hw,
             });
         }
     }
@@ -574,6 +698,10 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     fn run_strategy_tick(&mut self, market: &SharedMarket) -> Result<(), SessionFault> {
         let tick = self.last_tick.expect("begin_tick ran");
         self.plugins.on_tick(&tick, market);
+        if self.calls_stopped {
+            // 12 §8.3: a kill switch stops strategy calls; plugins observe.
+            return Ok(());
+        }
         if !self.wake(&tick, market) {
             self.stats.ticks.strategy_ticks_skipped += 1;
             if T::ENABLED {
@@ -601,6 +729,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let rules_view = RulesView {
             rules: self.effective_rules(market),
             source: market.rules_source,
+            ts_compat: self.config.core_rules == CoreRules::TsCompat,
         };
         let Some(strategy) = self.strategy.as_mut() else {
             return Ok(());
@@ -635,17 +764,22 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         );
         match res {
             Err(message) => {
-                return Err(
-                    self.strategy_fault(StrategyFaultCause::Panic { message }, "onMarketTick")
-                )
+                self.strategy_fault(
+                    StrategyFaultCause::Panic { message },
+                    "onMarketTick",
+                    market,
+                )?;
+                return self.drain(market);
             }
             Ok(Err(e)) => {
-                return Err(self.strategy_fault(
+                self.strategy_fault(
                     StrategyFaultCause::Error {
                         message: e.message().to_string(),
                     },
                     "onMarketTick",
-                ))
+                    market,
+                )?;
+                return self.drain(market);
             }
             Ok(Ok(())) => {}
         }
@@ -744,14 +878,37 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             Control::CapitalCap(cap) => self.ledger.set_cap(cap),
             // The driver applied rules changes and data gaps to SharedMarket.
             Control::RulesUpdate | Control::DataGap(_) => {}
-            // D-PENDING: adoption of read-only inventory is live-only (50,
-            // M9); chose a no-op in the core until the runtime sends it.
-            Control::AdoptPositions => {}
-            // D-PENDING: 12 §7.2 step 1 rejects with the guard's reason, but
-            // 10 §10.2 defines only `KillSwitch`; chose `KillSwitch` for every
-            // guard trip.
-            Control::Guard(_) | Control::Operator(OperatorCommand::KillSwitch) => {
+            Control::AdoptPositions => {
+                // R14: adopted inventory must be excluded from `sellable` and
+                // from the result (12 §10, D29); the core cannot honor it yet
+                // (the envelope carries no positions before the M8 runtime),
+                // so it is refused, never ignored.
+                return Err(self.engine_fault(
+                    "Control(AdoptPositions) is not supported before the M8 runtime (12 §10, D29; R14)"
+                        .into(),
+                ));
+            }
+            Control::Guard(_) | Control::Operator(OperatorCommand::KillSwitch) if !realistic => {
+                // D28: guards and the kill switch are paper/live; ts-compat
+                // is backtest-only.
+                return Err(self.engine_fault(
+                    "session guard or kill switch delivered to a ts-compat session (D28)".into(),
+                ));
+            }
+            // 50 §10.2: `reject_burst` rejects new placements locally
+            // (`StrategyHalted`) until rotation; the strategy keeps receiving
+            // events and cancels stay allowed.
+            Control::Guard(GuardTrip::RejectBurst) => self.om.set_halt(Halt::StrategyHalted),
+            Control::Guard(GuardTrip::WalletExposure | GuardTrip::OrderRate) => {
+                self.om.set_halt(Halt::Guard)
+            }
+            // 12 §8.3, 50 §10.2 `max_session_loss_usdc`, §10.4: stop strategy
+            // calls, reject placements `KillSwitch`, engine-originated
+            // `CancelAll` with cause `KillSwitch`; events keep being applied.
+            Control::Guard(GuardTrip::SessionLoss)
+            | Control::Operator(OperatorCommand::KillSwitch) => {
                 self.om.set_halt(Halt::KillSwitch);
+                self.calls_stopped = true;
                 self.handle_engine(
                     EngineIntent::CancelAll {
                         cause: pmb_core::event::CancelCause::KillSwitch,
@@ -765,17 +922,13 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                 },
                 market,
             ),
-            Control::Operator(OperatorCommand::CancelOrder { cid }) => {
-                if let Some(k) = self.ledger.current(cid) {
-                    self.handle_engine(
-                        EngineIntent::CancelKeys {
-                            key: k,
-                            cause: pmb_core::event::CancelCause::Operator,
-                        },
-                        market,
-                    );
-                }
-            }
+            Control::Operator(OperatorCommand::CancelOrder { cid }) => self.handle_engine(
+                EngineIntent::CancelCid {
+                    cid,
+                    cause: pmb_core::event::CancelCause::Operator,
+                },
+                market,
+            ),
             Control::Shutdown => {
                 if self.state != SessionState::Done {
                     self.state = SessionState::Closing;
@@ -792,11 +945,12 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         if let Some(f) = &self.fault {
             return Err(f.clone());
         }
-        // TC-C13: ts-compat discards undue actions.
+        self.exec.on_end_of_input();
+        // TC-C13: ts-compat discards undue actions (the adapter counts them,
+        // 12 §14 P12); there is nothing left to drain.
         if self.config.core_rules == CoreRules::TsCompat {
             return Ok(());
         }
-        self.exec.on_end_of_input();
         self.state = SessionState::Closing;
         while let Some(t) = self.exec.next_due() {
             self.run_due(t, market)?;
@@ -808,7 +962,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     /// Checks the PnL identity; a violation is an `engine_fault` (12 §9.6).
     pub fn finalize(
         mut self,
-        _market: &SharedMarket,
+        market: &SharedMarket,
         outcome: FinalOutcome,
     ) -> Result<SessionOutput, SessionFault> {
         if let Some(f) = self.fault.take() {
@@ -843,10 +997,17 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             self.trace.record(&TraceEvent::Final(&stats));
         }
         self.state = SessionState::Done;
+        let diagnostics = SessionDiagnostics {
+            ledger: self.ledger.counters(),
+            duplicate_active_cid: self.om.counters().duplicate_active_cid,
+            exec: *self.exec.diagnostics(),
+            skew_ms: market.skew_ms,
+        };
         Ok(SessionOutput {
             stats,
             acc: self.stats,
             metas: self.metas,
+            diagnostics,
         })
     }
 
@@ -882,6 +1043,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let rules_view = RulesView {
             rules: effective_rules(rules, market),
             source: market.rules_source,
+            ts_compat: rules == CoreRules::TsCompat,
         };
         // 12 §6.5 book(o): ts-compat shows the recorded book only.
         let overlay = match rules {
@@ -908,17 +1070,20 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let res = guarded(|| strategy.on_event(&ctx, &author, out));
         match res {
             Err(message) => {
-                return Err(
-                    self.strategy_fault(StrategyFaultCause::Panic { message }, "onAccountEvent")
+                return self.strategy_fault(
+                    StrategyFaultCause::Panic { message },
+                    "onAccountEvent",
+                    market,
                 )
             }
             Ok(Err(e)) => {
-                return Err(self.strategy_fault(
+                return self.strategy_fault(
                     StrategyFaultCause::Error {
                         message: e.message().to_string(),
                     },
                     "onAccountEvent",
-                ))
+                    market,
+                )
             }
             Ok(Ok(())) => {}
         }

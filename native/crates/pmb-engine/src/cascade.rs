@@ -19,7 +19,8 @@ use crate::strategy::{EventFlags, Strategy};
 use crate::trace::{TraceEvent, TraceSink};
 
 /// Deliveries with callbacks in one drain, bounded by
-/// `runner.maxEventsPerDrain` (12 §6.3).
+/// `runner.maxEventsPerDrain` (12 §6.3). Interest-skipped deliveries count
+/// (D69 A-08); deliveries with no callback by rule do not.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CascadeBudget {
     /// Maximum deliveries with callbacks per drain.
@@ -45,12 +46,14 @@ impl CascadeBudget {
 }
 
 impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
-    /// Drains the cascade queue (12 §6.2, §6.3). Events are never dropped:
-    /// after a fault in paper and live, remaining events are applied to the
-    /// ledger without callbacks (10 S5).
+    /// Drains the cascade queue (12 §6.2, §6.3). Backtest: a strategy fault
+    /// (panic, error, cascade limit) stops the candidate at once. Paper: the
+    /// fault halts the strategy ([`Session::strategy_fault`]) and the drain
+    /// continues, so every remaining event is applied to the ledger without
+    /// callbacks; events are never dropped (10 S5).
     pub(crate) fn drain(&mut self, market: &SharedMarket) -> Result<(), SessionFault> {
         let mut budget = CascadeBudget::new(self.config.max_events_per_drain);
-        while let Some(ev) = self.queue.pop() {
+        while let Some(mut ev) = self.queue.pop() {
             // 12 §4.2: the event clock is the max over delivered events.
             self.clocks.event_clock.on_delivered(ev.at);
             // 1. The ledger applies it (12 §9).
@@ -58,6 +61,12 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                 Ok(e) => e,
                 Err(e) => return Err(self.engine_fault(format!("ledger: {e} (12 §9.8)"))),
             };
+            // 10 §8.2: the ledger flags a fill delivered after its order's
+            // terminal event `late`; the trace and the callback see the
+            // ledger's fill, not the queued one.
+            if let pmb_core::event::AccountEventKind::Fill(f) = &mut ev.kind {
+                f.late = self.ledger.fills().last().is_some_and(|x| x.late);
+            }
             if cfg!(debug_assertions) && !self.ledger_invariants_hold() {
                 return Err(self.engine_fault(format!(
                     "ledger invariant violated after {} (12 §9.6, §9.8)",
@@ -76,7 +85,9 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             };
             self.om.on_delivered(&ev, effect, self.clocks.now, io);
             self.forward_exec_trace();
-            self.stats.counters.on_delivered(&ev);
+            self.stats
+                .counters
+                .on_delivered(&ev, self.config.core_rules);
             self.stats
                 .counters
                 .observe_reserved(self.ledger.capital().reserved);
@@ -87,14 +98,16 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     .record(&TraceEvent::AccountEvent { seq, event: &ev });
             }
             self.delivered_since_tick = true;
-            // 4. Strategy callback if enabled, interested and allowed (12 §5.4).
-            let wanted = self.strategy.is_some()
-                && self.state.callbacks_enabled()
-                && !effect.suppress_callback
-                && self.interests.events.contains(EventFlags::of(&ev.kind));
-            if !wanted {
+            // 4. Strategy callback if enabled and allowed by rule (12 §5.4,
+            // §10, §11); deliveries with no callback by rule do not count.
+            let by_rule =
+                self.strategy.is_some() && self.callbacks_allowed() && !effect.suppress_callback;
+            if !by_rule {
                 continue;
             }
+            // D69 A-08: an interest-skipped delivery counts against the
+            // budget, otherwise the declared interests would change outputs
+            // (30 §4.1, 16 TF-3).
             if !budget.take() {
                 // 12 §6.3 (backtest): the candidate stops at once.
                 let cause = StrategyFaultCause::CascadeLimit {
@@ -102,7 +115,14 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     tick: self.last_tick.map_or(0, |t| t.seq),
                     deliveries: budget.used - 1,
                 };
-                return Err(self.strategy_fault(cause, "onAccountEvent"));
+                // Paper: the strategy is gone; the loop applies the rest.
+                self.strategy_fault(cause, "onAccountEvent", market)?;
+                continue;
+            }
+            // 12 §6.1: a skipped callback is equivalent to one that returned
+            // no intents.
+            if !self.interests.events.contains(EventFlags::of(&ev.kind)) {
+                continue;
             }
             self.call_event(&ev, market)?;
         }

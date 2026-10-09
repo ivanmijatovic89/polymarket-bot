@@ -128,11 +128,9 @@ discarded at end of stream (TC-C13). As a realistic A/B arm the same release
 rule applies to every scheduled action, `next_due()` is `None` while input
 remains and reports pending actions after `on_end_of_input`.
 
-D-PENDING (time argument): 13 §2.2 passes `now` to `on_market_event`; in
-ts-compat on recorder-v4 the loop clock (`receivedAtMs`) differs from the TS
-tick ts the compat models need (TC-C11). Chose: the core passes the TS tick
-ts as `now` in ts-compat and the loop clock in realistic. On telonex-delta the
-two are equal for real ticks.
+Time argument (D67): 13 §2.2 passes `now` to `on_market_event`; it is the
+profile's execution clock, the TS tick ts in ts-compat (TC-C11) and the loop
+clock in realistic. On telonex-delta the two are equal for real ticks.
 
 ### Profile branching
 
@@ -148,7 +146,8 @@ budget (12 §6.2–§6.3), snapshot timing through the stand-in views (12 §6.4)
 single ledger with the PnL identity (12 §9), fault semantics (12 §11), the
 trace emission points (12 §12) and the tick interest filter (16 §9.4).
 Tests: `tests/core_*.rs` (converted TS suites, realistic rules, property
-tests) against the compat-like mock in `tests/core_support/`.
+tests) against the compat-like mock in `tests/core_support/` and, for the
+ts-compat suites and properties, the real `Simulator`.
 
 Contract notes for the simulator (no change to `exec/mod.rs`):
 
@@ -173,9 +172,9 @@ converted ts-compat suites (`tests/core_{cancellation,capital,portfolio,runner}.
 bodies in `tests/suites/`) run twice: `mock::` on the compat-like `MockExec`
 of `tests/core_support/` and `sim::` on the real `Simulator`; assertions on
 mock internals run only on the mock, and tests that script adapter events
-or run the realistic rules are `mock_only!`. `core_session`, `core_realistic`
-and `core_props` stay on the mock (realistic rules, scripted adapter
-events).
+or run the realistic rules are `mock_only!`. `core_session` and
+`core_realistic` stay on the mock (realistic rules, scripted adapter
+events); `core_props` runs ts-compat on both.
 
 - `backtest::BacktestMarket` takes telonex-delta rows (`TimedMarketEvent`
   from the pmb-replay reader) as envelopes with `at = exchange_ts` (12 §4.1
@@ -196,16 +195,51 @@ events).
   driver, the sessions and `market_output` and matches every case (60 §7.2
   stats row), byte-identically across runs and candidate groups (R7).
 
+## Review findings applied (ws/core review, 2026-10-09)
+
+- ts-compat cancel resolution reads the TS portfolio view per cid
+  (`OrderManager::ts_cid_view`): the generation emitted in this call, else
+  the latest delivered generation (`Ledger::delivered_generation`) unless it
+  is terminal or fully filled by delivered fills; `resolveCancelBatch` is
+  followed step by step, including both-reference conflicts.
+- The cascade budget counts interest-skipped deliveries (D69 A-08).
+- Halts: `Halt::{StrategyHalted, Guard, KillSwitch}` gate placements and
+  splits; a kill switch (operator or `max_session_loss_usdc`) also stops
+  strategy calls while events keep being applied; `reject_burst` halts
+  placements only (50 §10.2). Operator `cancel_order` resolves like a
+  realistic `CancelOrder` (terminal skipped, unacknowledged deferred).
+  Guards and the kill switch in ts-compat, and `AdoptPositions`, are
+  engine faults until M8 (D28, R14).
+- `EngineConfig::run_mode` (`Backtest`/`Paper`): in paper a strategy fault
+  issues `CancelMarket{Market, StrategyPanic}`, halts the strategy and the
+  session keeps applying every event without callbacks (12 §11, D32). The
+  faulted instance is dropped inside `catch_unwind` (30 §12).
+- Meta is size-checked in a reused buffer and stored only for accepted
+  orders; strategy-derived overflow rejects the order (10 T3).
+- `SessionOutput::diagnostics` carries the ledger counters, the dedupe
+  count, `ExecDiagnostics` and the final skew; `output::engine_anomalies`
+  and `add_anomalies` build `diagnostics.anomalies` (21 §10).
+- `TickStart.visibility_ts` is the feed high-water `H` of 14 F-7
+  (`Session::feed_clock`); the feed values and plugin snapshot are still
+  stand-ins.
+- Ledger: per-order fill links (`fill_index`) and lazy active-list removal
+  (12 §14 P8); fill/order outcome-side mismatch is an engine fault; the
+  fill seen by the strategy and the trace carries the ledger's `late` flag.
+- `core_props` runs ts-compat on the real `Simulator` with anomaly streams,
+  random compat latencies and a two-candidate group in both orders, and
+  asserts INV-1..8, INV-10, INV-12..14 and DET-1.
+
 ## Deferred
 
 - Realistic models (latency components with `md`, depletion, queue model,
   taker delay, arrival re-validation, settlement reports and reversal,
   async split/merge, market close, overlay merge into `BookView`): M3b
-  (D57; 13 §6). Realistic `ModelConfig` sections are not yet resolved into
-  `EngineConfig`.
+  (D57; 13 §6). A realistic `ModelConfig` is refused by
+  `EngineConfig::from_model_config` until its sections resolve (R14).
 - Live adapters (`Paper`, `ClobV2`, `JournalReplay`, journaled timers,
-  `AccountInput` variants, session guards, `CapitalCap`): M8/M9 (13 §8–§9,
-  50). `AccountInput` is uninhabited until then.
+  `AccountInput` variants, `CapitalCap`, `AdoptPositions` with its
+  payload, the per-minute order-rate window): M8/M9 (13 §8–§9, 50).
+  `AccountInput` is uninhabited until then.
 - Real `FeedsView`/`FeedState` (pmb-feeds) and plugins (pmb-plugins):
   integration replaces `feeds_view` and `plugins_view`; `Requirements` moves
   with them.

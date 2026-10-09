@@ -183,8 +183,9 @@ impl<'a> AccountEvent<'a> {
 
     /// Resolves a delivered core event against the ledger (30 §8, §16 S10):
     /// key lookups only, no allocation.
-    // D-PENDING: the core `OrderAccepted` carries no exchange id before the
-    // live adapter's side table (M9); chose `Sim(key)`, the simulator's id.
+    // D61: in backtests the author view of `OrderAccepted` carries the
+    // simulator id `Sim(key)` (rendered `sim-{order_key}`); the live
+    // adapter's exchange-id side table is goal 2 (D70).
     pub fn resolve(ev: &'a CoreEvent, ledger: &'a Ledger) -> AccountEvent<'a> {
         use pmb_core::event::AccountEventKind as K;
         let at = ev.at;
@@ -227,7 +228,7 @@ impl<'a> AccountEvent<'a> {
             } => AccountEvent::SettlementUpdate {
                 at,
                 order: o(*order),
-                fill: fill.and_then(|k| ledger.fills().iter().rev().find(|x| x.key == k)),
+                fill: fill.and_then(|k| ledger.fill_index(k).map(|i| &ledger.fills()[i])),
                 status: *status,
             },
             K::OrderDone {

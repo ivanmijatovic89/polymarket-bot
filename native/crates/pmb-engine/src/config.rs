@@ -53,9 +53,28 @@ pub struct EngineConfig {
     pub max_events_per_drain: u32,
     /// `risk` (12 §8).
     pub risk: RiskLimits,
-    // D-PENDING: realistic sections (`execution.latency`, `makerQueue`,
-    // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are M3b (D57);
-    // chose to add their resolved forms here when M3b starts.
+    /// Backtest or paper (12 §6.3, §11): selects the fault semantics. Chosen
+    /// by the runtime, never by `ModelConfig` (D28: paper runs the realistic
+    /// rules).
+    pub run_mode: RunMode,
+    // The realistic sections (`execution.latency`, `makerQueue`,
+    // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) get resolved
+    // forms here in M3b (D57); until then `from_model_config` refuses a
+    // realistic ModelConfig (R14).
+}
+
+/// How a session treats strategy faults (12 §6.3, §11).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum RunMode {
+    /// The candidate stops at its first strategy fault (`strategy_fault`,
+    /// no `MarketStats`).
+    #[default]
+    Backtest,
+    /// Live paper mode (M8, D28, D32): a strategy fault issues
+    /// `CancelMarket{Market}` with cause `StrategyPanic`, the strategy is
+    /// halted until rotation, and every event is still applied to the
+    /// ledger without callbacks (10 S5).
+    Paper,
 }
 
 /// A `ModelConfig` that cannot be resolved into an [`EngineConfig`]
@@ -99,9 +118,16 @@ impl EngineConfig {
         if mc.runner.max_events_per_drain == 0 {
             return Err(err("runner.maxEventsPerDrain", "must be positive"));
         }
-        // D-PENDING: realistic sections (`execution.latency`, `makerQueue`,
-        // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are resolved
-        // in M3b (D57); chose to accept and ignore them until then.
+        // R14: the realistic sections (`execution.latency`, `makerQueue`,
+        // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are
+        // resolved in M3b (D57); until then a realistic ModelConfig is
+        // refused instead of running with them silently ignored.
+        if mc.profile == pmb_contract::vocab::Profile::Realistic {
+            return Err(err(
+                "profile",
+                "realistic is not resolvable before M3b (D57); its execution sections cannot be honored yet",
+            ));
+        }
         Ok(EngineConfig {
             core_rules: CoreRules::from_profile(mc.profile),
             input_mode,
@@ -116,7 +142,21 @@ impl EngineConfig {
                 max_abs_position: Qty::from_micros(max_abs_position),
                 max_loss_stop: Usdc::from_micros(max_loss),
             },
+            run_mode: RunMode::Backtest,
         })
+    }
+
+    /// Sets the run mode (12 §11). Paper runs only under the realistic
+    /// rules (D28: ts-compat is backtest-only); anything else is an error
+    /// (R14).
+    pub fn with_run_mode(mut self, mode: RunMode) -> Result<EngineConfig, ConfigError> {
+        if mode == RunMode::Paper && self.core_rules != CoreRules::Realistic {
+            return Err(ConfigError {
+                message: "runMode: paper requires the realistic profile (D28)".into(),
+            });
+        }
+        self.run_mode = mode;
+        Ok(self)
     }
 }
 
@@ -129,4 +169,25 @@ impl RiskLimits {
         max_abs_position: Qty::from_micros(2_000_000_000),
         max_loss_stop: Usdc::from_micros(500_000_000),
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_realistic_model_config_is_refused_until_its_sections_resolve() {
+        // spec: R14 (no silent substitution), 12 §9.3 (sellGate from
+        // ModelConfig), D57 (realistic sections resolved in M3b)
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contract/model-configs/ts-compat-default.json"
+        ))
+        .unwrap();
+        let mut mc: ModelConfig = serde_json::from_str(&text).unwrap();
+        mc.profile = pmb_contract::vocab::Profile::Realistic;
+        let err = EngineConfig::from_model_config(&mc, InputMode::TelonexDelta, MarketSeed(1))
+            .unwrap_err();
+        assert!(err.message.starts_with("profile:"), "{}", err.message);
+    }
 }

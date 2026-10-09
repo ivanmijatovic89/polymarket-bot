@@ -59,23 +59,51 @@ impl Meta {
     /// Rust's shortest round-trip form.
     pub fn to_json(&self) -> String {
         let mut out = String::with_capacity(2 + 16 * self.entries.len());
+        self.write_json(&mut out);
+        out
+    }
+
+    /// Appends the JSON object of [`Meta::to_json`] to `out`, so the OM can
+    /// serialize into a reused buffer (12 §14 P1). The output obeys 21 §18:
+    /// `-0.0` is written as `0.0` (N1), and an integer beyond ±(2^53 − 1) is
+    /// written as a decimal string (N2).
+    // D-PENDING: 21 §18 N2 forbids integers beyond ±(2^53 − 1) in the output
+    // but 30 §7.2 does not say what an `I64` meta value beyond it becomes;
+    // chose an exact decimal string over a rejection or a lossy float.
+    pub fn write_json(&self, out: &mut String) {
+        use std::fmt::Write as _;
+        const MAX_SAFE: i64 = (1 << 53) - 1;
         out.push('{');
         for (i, (k, v)) in self.entries.iter().enumerate() {
             if i > 0 {
                 out.push(',');
             }
-            json_string(&mut out, k);
+            json_string(out, k);
             out.push(':');
-            match v {
-                MetaValue::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-                MetaValue::I64(n) => out.push_str(&n.to_string()),
-                MetaValue::F64(x) if x.is_finite() => out.push_str(&format!("{x:?}")),
-                MetaValue::F64(_) => out.push_str("null"),
-                MetaValue::Str(t) => json_string(&mut out, t),
-            }
+            let _ = match v {
+                MetaValue::Bool(b) => {
+                    out.push_str(if *b { "true" } else { "false" });
+                    Ok(())
+                }
+                MetaValue::I64(n) if (-MAX_SAFE..=MAX_SAFE).contains(n) => write!(out, "{n}"),
+                MetaValue::I64(n) => write!(out, "\"{n}\""),
+                // 21 §18 N1: no `-0`.
+                MetaValue::F64(x) if *x == 0.0 => {
+                    out.push_str("0.0");
+                    Ok(())
+                }
+                MetaValue::F64(x) if x.is_finite() => write!(out, "{x:?}"),
+                MetaValue::F64(_) => {
+                    out.push_str("null");
+                    Ok(())
+                }
+                MetaValue::Str(t) => {
+                    json_string(out, t);
+                    Ok(())
+                }
+            };
         }
         out.push('}');
-        out
     }
 }
 
@@ -200,7 +228,11 @@ impl Intents {
             req.meta = meta.map(|m| self.local_meta(m));
             scratch.push(req);
         }
-        self.core.place_batch(scratch.iter().copied());
+        // D60: an empty batch writes no intent (no event, no trace record,
+        // no dispatch).
+        if !scratch.is_empty() {
+            self.core.place_batch(scratch.iter().copied());
+        }
         self.scratch_orders = scratch;
     }
 
@@ -327,5 +359,32 @@ mod tests {
             r#"{"edge":0.031,"leg":"en\"try","n":3,"ok":true,"bad":null}"#
         );
         assert_eq!(Meta::new().to_json(), "{}");
+    }
+
+    #[test]
+    fn meta_numbers_obey_the_output_number_rules() {
+        // spec: 21 §18 N1 (no -0), N2 (no integer beyond ±(2^53 − 1))
+        let mut m = Meta::new();
+        m.push("z", MetaValue::F64(-0.0));
+        m.push("safe", MetaValue::I64((1 << 53) - 1));
+        m.push("big", MetaValue::I64(1 << 53));
+        m.push("neg", MetaValue::I64(i64::MIN));
+        assert_eq!(
+            m.to_json(),
+            r#"{"z":0.0,"safe":9007199254740991,"big":"9007199254740992","neg":"-9223372036854775808"}"#
+        );
+        // `write_json` appends to a reused buffer.
+        let mut buf = String::from("x");
+        Meta::new().write_json(&mut buf);
+        assert_eq!(buf, "x{}");
+    }
+
+    #[test]
+    fn an_empty_place_batch_writes_no_intent() {
+        // spec: D60 (`out.place_batch(&[])` writes no intent), 10 §7.3
+        let mut b = Intents::new();
+        b.place_batch(std::iter::empty());
+        assert!(b.is_empty());
+        assert_eq!(b.len(), 0);
     }
 }

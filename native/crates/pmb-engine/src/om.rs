@@ -107,7 +107,7 @@ impl SelfCrossIndex {
     /// acknowledged (10 N6); O(open orders), run only on removals.
     fn rebuild(&mut self, ledger: &Ledger) {
         *self = SelfCrossIndex::default();
-        for &k in ledger.active_keys() {
+        for k in ledger.active_keys() {
             let r = ledger.order(k);
             if r.cancel_state() != CancelState::Acked {
                 self.add(r.outcome(), r.side(), r.price(), k);
@@ -132,26 +132,68 @@ pub enum EngineIntent {
         /// Engine cause.
         cause: CancelCause,
     },
-    /// Cancel one order (operator `cancel_order{cid}`, 50 §16).
-    CancelKeys {
-        /// The order.
-        key: OrderKey,
+    /// Cancel the current generation of a cid (operator `cancel_order{cid}`,
+    /// 50 §16), resolved like a realistic `CancelOrder` (12 §7.3): a known
+    /// terminal target is skipped, an unacknowledged one is deferred until
+    /// its `OrderAccepted` is delivered.
+    CancelCid {
+        /// The interned cid (session interner).
+        cid: CidKey,
         /// Engine cause.
         cause: CancelCause,
     },
 }
 
-/// Halt state of the strategy (12 §11, §8.3).
+/// Halt state of the strategy (12 §11, §8.3; 50 §10.2). Checked first for
+/// every placement (12 §7.2 step 1) and split (12 §7.3); cancels and merges
+/// always pass, so a halted session can still clean up.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum Halt {
     /// Placements allowed.
     #[default]
     Running,
-    /// Strategy halted (panic, error, cascade limit): placements rejected
-    /// `StrategyHalted`.
+    /// Strategy halted (paper panic, error or cascade limit; guard
+    /// `reject_burst`): placements rejected `StrategyHalted`.
     StrategyHalted,
-    /// Kill switch tripped: placements rejected `KillSwitch`.
+    /// Session guard `max_wallet_exposure_usdc` or `max_orders_per_minute`
+    /// tripped (50 §10.2): placements rejected.
+    // D-PENDING: 10 §10.2 has no guard reason and the core has no clock for
+    // the per-minute window before M8; chose `KillSwitch` as the reason and
+    // a halt that lasts until rotation.
+    Guard,
+    /// Kill switch tripped (12 §8.3, 50 §10.4): placements rejected
+    /// `KillSwitch`; strategy calls stop.
     KillSwitch,
+}
+
+impl Halt {
+    /// The placement reject reason of a halt (12 §7.2 step 1).
+    pub const fn reject_reason(self) -> Option<RejectReason> {
+        match self {
+            Halt::Running => None,
+            Halt::StrategyHalted => Some(RejectReason::StrategyHalted),
+            Halt::Guard | Halt::KillSwitch => Some(RejectReason::KillSwitch),
+        }
+    }
+
+    /// The split failure reason of a halt (12 §7.3 SplitPositions row).
+    pub const fn split_reason(self) -> Option<SplitFailReason> {
+        match self {
+            Halt::Running => None,
+            Halt::StrategyHalted => Some(SplitFailReason::StrategyHalted),
+            Halt::Guard | Halt::KillSwitch => Some(SplitFailReason::KillSwitch),
+        }
+    }
+
+    /// Severity order: a halt never downgrades (a kill switch stays).
+    const fn rank(self) -> u8 {
+        match self {
+            Halt::Running => 0,
+            Halt::StrategyHalted => 1,
+            Halt::Guard => 2,
+            Halt::KillSwitch => 3,
+        }
+    }
 }
 
 /// Mutable session parts the OM works on, borrowed disjointly from the
@@ -245,6 +287,8 @@ pub struct OrderManager {
     /// Counters.
     pub(crate) counters: OmCounters,
     call: CallScratch,
+    /// Reused meta serialization buffer (12 §14 P1).
+    meta_json: String,
 }
 
 impl Default for OrderManager {
@@ -289,6 +333,7 @@ impl OrderManager {
             halt: Halt::Running,
             counters: OmCounters::default(),
             call: CallScratch::default(),
+            meta_json: String::new(),
         }
     }
 
@@ -322,21 +367,26 @@ impl OrderManager {
         }
     }
 
-    /// Serializes the buffer meta of `local` into the session meta store
-    /// (10 §7.5 E1); `MetaTooLarge` above 16 KiB (21 §16).
-    fn store_meta<E: Execution>(
+    /// Serializes the buffer meta of `local` into the reused `scratch`
+    /// (12 §14 P1) and checks its size: `MetaTooLarge` above 16 KiB
+    /// (12 §7.4, 21 §16). Returns whether the order has meta. Nothing is
+    /// stored here: only an accepted order stores its meta ([`Self::accept`]),
+    /// so rejected placements never grow the session meta store (10 §7.5).
+    fn check_meta(
         intents: &Intents,
         local: &OrderRequest,
-        io: &mut OmIo<'_, E>,
-    ) -> Result<Option<pmb_core::MetaId>, RejectReason> {
+        scratch: &mut String,
+    ) -> Result<bool, RejectReason> {
         match local.meta {
-            None => Ok(None),
+            None => Ok(false),
             Some(id) => {
-                let json = intents.meta(id).to_json();
-                io.metas
-                    .insert(&json)
-                    .map(Some)
-                    .map_err(|_| RejectReason::MetaTooLarge)
+                scratch.clear();
+                intents.meta(id).write_json(scratch);
+                if scratch.len() > pmb_core::order::META_MAX_BYTES {
+                    Err(RejectReason::MetaTooLarge)
+                } else {
+                    Ok(true)
+                }
             }
         }
     }
@@ -484,26 +534,46 @@ impl OrderManager {
         }
         let rules = io.rules();
         let checked = Self::validate_ts_compat(&req, stamp)
-            .and_then(|()| Self::store_meta(intents, local, io))
-            .and_then(|meta| {
-                req.meta = meta;
+            .and_then(|()| Self::check_meta(intents, local, &mut self.meta_json))
+            .and_then(|has_meta| {
                 if req.side == Side::Buy {
+                    // 10 T3: an overflow from strategy-derived values is a
+                    // rejection of this order, never an engine panic.
                     let required = io
                         .ledger
                         .reservation_for(&req, &rules)
-                        .expect("reservation overflow (10 T3)");
+                        .map_err(|_| RejectReason::InvalidSize)?;
                     let available = io.ledger.available();
                     if required > available {
                         return Err(insufficient_capital(required, available));
                     }
                 }
-                Ok(())
+                Ok(has_meta)
             });
-        if let Err(reason) = checked {
-            Self::reject(io, stamp, req.cid, reason);
-            return None;
+        match checked {
+            Err(reason) => {
+                Self::reject(io, stamp, req.cid, reason);
+                None
+            }
+            Ok(has_meta) => {
+                req.meta = self.store_checked_meta(has_meta, io);
+                Some(self.accept(req, stamp, &rules, io))
+            }
         }
-        Some(self.accept(req, stamp, &rules, io))
+    }
+
+    /// Stores the meta checked by [`Self::check_meta`] for an accepted order
+    /// (10 §7.5 E1).
+    fn store_checked_meta<E: Execution>(
+        &self,
+        has_meta: bool,
+        io: &mut OmIo<'_, E>,
+    ) -> Option<pmb_core::MetaId> {
+        has_meta.then(|| {
+            io.metas
+                .insert(&self.meta_json)
+                .expect("meta size checked before acceptance (21 §16)")
+        })
     }
 
     /// Writes the record and emits `OrderSubmitted` (12 §7.2 step 6).
@@ -636,9 +706,17 @@ impl OrderManager {
         io: &mut OmIo<'_, E>,
     ) -> Option<OrderKey> {
         match r {
-            OrderRef::Cid(c) | OrderRef::Both(c, _) => {
+            OrderRef::Cid(c) => {
                 let cid = io.cids.get(intents.cid_text(c))?;
                 io.ledger.current(cid)
+            }
+            // TS keeps the given exchange id and cancels only when it names
+            // the cid's resting order (`BacktestExecution.ts:647-686`): bind
+            // the current key only when the id is that key.
+            OrderRef::Both(c, x) => {
+                let cid = io.cids.get(intents.cid_text(c))?;
+                let k = io.ledger.current(cid)?;
+                (x == ExchangeOrderId::Sim(k)).then_some(k)
             }
             OrderRef::Exchange(ExchangeOrderId::Sim(k)) => io.ledger.get(k).map(|r| r.key()),
             OrderRef::Exchange(ExchangeOrderId::Clob(_)) => None,
@@ -649,34 +727,141 @@ impl OrderManager {
     // Cancels (12 §7.3; `cancellation.ts:61-127`)
     // ------------------------------------------------------------------
 
-    /// Whether a key is visible as an open order to cancel resolution: in
-    /// realistic the ledger record; in ts-compat the TS view — the delivered
-    /// portfolio plus the events of this call (`OrderManager.ts:262-334`).
-    fn visible(&self, k: OrderKey, ledger: &Ledger, rules: CoreRules) -> Visibility {
+    /// What realistic cancel resolution sees of a key (12 §7.3): the ledger
+    /// record itself.
+    fn visible_realistic(k: OrderKey, ledger: &Ledger) -> Visibility {
         let r = ledger.order(k);
-        match rules {
-            CoreRules::Realistic => {
-                if r.state().is_terminal() {
-                    Visibility::Terminal
-                } else if r.acknowledged {
-                    Visibility::Open { acked: true }
-                } else {
-                    Visibility::Open { acked: false }
-                }
+        if r.state().is_terminal() {
+            Visibility::Terminal
+        } else {
+            Visibility::Open {
+                acked: r.acknowledged,
             }
-            CoreRules::TsCompat => {
-                let terminal = r.state().is_terminal() || self.call.terminal.contains(&k);
-                let seen = r.submitted_delivered || self.call.emitted.contains(&k);
-                if terminal {
-                    Visibility::Terminal
-                } else if seen {
-                    Visibility::Open {
-                        acked: r.acknowledged || self.call.accepted.contains(&k),
-                    }
-                } else {
-                    Visibility::Unknown
-                }
+        }
+    }
+
+    /// The TS portfolio view of one cid during this OM call (TC-C2 step 4;
+    /// `OrderManager.ts:262-334`, `Portfolio.ts:593-878`), which ts-compat
+    /// cancel resolution reads (12 §7.3, §15 "Cancel reference resolution";
+    /// R5):
+    ///
+    /// - `open` (TS `openOrdersByClientId[cid]`): the generation emitted in
+    ///   this call unless a synchronous terminal moved it to the history;
+    ///   otherwise the latest delivered generation, unless it is terminal
+    ///   (delivered or in this call) or its delivered fills reached its size
+    ///   (12 §9.2, `Portfolio.ts:865-873`). `acked` when its exchange id is
+    ///   known (delivered or in-call `OrderAccepted`).
+    /// - `history` (TS `ordersByClientId[cid]`): the latest delivered
+    ///   generation (or the in-call terminal one) and whether its lifecycle
+    ///   is terminal there. A full fill never updates it, so a delivered,
+    ///   fully filled, not yet terminal order is neither open nor known
+    ///   terminal.
+    fn ts_cid_view(&self, cid: Option<CidKey>, ledger: &Ledger) -> TsCidView {
+        let Some(cid) = cid else {
+            return TsCidView::default();
+        };
+        let call_terminal = |k: OrderKey| self.call.terminal.contains(&k);
+        let acked = |k: OrderKey| ledger.order(k).acknowledged || self.call.accepted.contains(&k);
+        let history = ledger.delivered_generation(cid).map(|d| TsHistory {
+            key: d,
+            terminal: ledger.order(d).state().is_terminal() || call_terminal(d),
+            has_id: acked(d),
+        });
+        if let Some(cur) = ledger
+            .current(cid)
+            .filter(|k| self.call.emitted.contains(k))
+        {
+            if call_terminal(cur) {
+                return TsCidView {
+                    open: None,
+                    history: Some(TsHistory {
+                        key: cur,
+                        terminal: true,
+                        has_id: acked(cur),
+                    }),
+                };
             }
+            return TsCidView {
+                open: Some((cur, acked(cur))),
+                history,
+            };
+        }
+        let open = history
+            .filter(|h| !h.terminal && !ledger.order(h.key).fully_filled())
+            .map(|h| (h.key, h.has_id));
+        TsCidView { open, history }
+    }
+
+    /// One ts-compat cancel reference resolved against the TS view, in the
+    /// order of `resolveCancelBatch` (`cancellation.ts:61-127`; 12 §7.3,
+    /// TC-C6, TC-C10; R5).
+    fn resolve_ts_compat_ref<E: Execution>(
+        &self,
+        intents: &Intents,
+        r: OrderRef,
+        io: &OmIo<'_, E>,
+    ) -> RefResolution {
+        // `Some(None)`: a cid the session never interned (unknown).
+        let cid: Option<Option<CidKey>> = r.cid().map(|c| io.cids.get(intents.cid_text(c)));
+        // `Some(None)`: an exchange id naming no order of this session.
+        let xk: Option<Option<OrderKey>> = r.exchange_id().map(|e| match e {
+            ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
+            ExchangeOrderId::Clob(_) => None,
+        });
+        let ledger = &*io.ledger;
+        let cid_view = self.ts_cid_view(cid.flatten(), ledger);
+        let x_view = xk
+            .flatten()
+            .map(|k| (k, self.ts_cid_view(Some(ledger.order(k).cid()), ledger)));
+        // `byExchange`: an open order of the view with that exchange id.
+        let by_exchange = x_view.and_then(|(k, v)| (v.open == Some((k, true))).then_some(k));
+        // A conflict names the cid's order when there is one, else the
+        // exchange id's (as realistic resolution does; the TS event carries
+        // both refs).
+        let conflict = || {
+            let by_cid = cid.flatten().and_then(|c| ledger.current(c));
+            RefResolution::Fail(by_cid.or(xk.flatten()), CancelFailReason::ConflictingRefs)
+        };
+        if let (Some(c), Some(bx)) = (cid, by_exchange) {
+            if c != Some(ledger.order(bx).cid()) {
+                return conflict();
+            }
+        }
+        let bot = cid_view.open.or(by_exchange.map(|k| (k, true)));
+        let previous = match cid {
+            Some(_) => cid_view.history,
+            None => x_view.and_then(|(k, v)| v.history.filter(|h| h.key == k && h.has_id)),
+        };
+        let known_id = bot
+            .filter(|b| b.1)
+            .map(|b| b.0)
+            .or(previous.filter(|h| h.has_id).map(|h| h.key));
+        if let (Some(x), Some(kid)) = (xk, known_id) {
+            if x != Some(kid) {
+                return conflict();
+            }
+        }
+        if bot.is_none() && previous.is_some_and(|h| h.terminal) {
+            // A known terminal order has no remainder to cancel.
+            return RefResolution::Skip;
+        }
+        match bot {
+            None if xk.is_none() => RefResolution::Fail(None, CancelFailReason::UnknownClientOrder),
+            // TC-C6 (`cancellation.ts:114-118`).
+            Some((k, false)) => {
+                RefResolution::Fail(Some(k), CancelFailReason::MissingExchangeOrderId)
+            }
+            Some((k, true)) => RefResolution::Target(k),
+            None => match (xk.flatten(), cid.map(|c| c.zip(xk.flatten()))) {
+                // TS forwards the exchange id; its simulator cancels only the
+                // cid's resting order with that id (`BacktestExecution.ts:647-660`).
+                (Some(k), None) => RefResolution::Target(k),
+                (Some(k), Some(Some((c, _)))) if ledger.order(k).cid() == c => {
+                    RefResolution::Target(k)
+                }
+                // TC-C10: TS sends it and the simulator finds nothing.
+                _ => RefResolution::Skip,
+            },
         }
     }
 
@@ -706,71 +891,20 @@ impl OrderManager {
             return;
         }
         for &r in refs {
-            let fail = |io: &mut OmIo<'_, E>, order, reason| {
-                io.push(stamp, AccountEventKind::CancelFailed { op, order, reason });
+            let resolution = match rules {
+                CoreRules::TsCompat => self.resolve_ts_compat_ref(intents, r, io),
+                CoreRules::Realistic => self.resolve_realistic_ref(intents, r, op, io),
             };
-            let by_cid = r.cid().map(|c| {
-                io.cids
-                    .get(intents.cid_text(c))
-                    .and_then(|c| io.ledger.current(c))
-            });
-            let by_exchange = r.exchange_id().map(|e| match e {
-                ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
-                // D-PENDING: the core keeps no exchange-id side table before
-                // the live adapter (M9); chose: a CLOB id resolves to nothing.
-                ExchangeOrderId::Clob(_) => None,
-            });
-            let key = match (by_cid, by_exchange) {
-                (Some(c), Some(x)) => {
-                    // 10 N1: both refs must agree.
-                    if c != x {
-                        fail(io, c.or(x), CancelFailReason::ConflictingRefs);
-                        continue;
-                    }
-                    c
+            match resolution {
+                RefResolution::Skip => {}
+                RefResolution::Fail(order, reason) => {
+                    io.push(stamp, AccountEventKind::CancelFailed { op, order, reason })
                 }
-                (Some(c), None) => c,
-                (None, Some(x)) => x,
-                (None, None) => None,
-            };
-            let Some(k) = key else {
-                if by_cid.is_some() {
-                    fail(io, None, CancelFailReason::UnknownClientOrder);
-                } else if rules == CoreRules::Realistic {
-                    // D-PENDING: an exchange id with no known order cannot be
-                    // dispatched (commands carry keys, 13 §2.1); chose the
-                    // answer the exchange would give, `ExchangeNotCanceled`.
-                    fail(io, None, CancelFailReason::ExchangeNotCanceled { code: 0 });
-                }
-                // TC-C10: TS sends it and the simulator finds nothing: no event.
-                continue;
-            };
-            match self.visible(k, io.ledger, rules) {
-                // A known terminal order has no remainder to cancel.
-                Visibility::Terminal => continue,
-                Visibility::Unknown => {
-                    fail(io, None, CancelFailReason::UnknownClientOrder);
-                    continue;
-                }
-                Visibility::Open { acked: false } => match rules {
-                    CoreRules::TsCompat => {
-                        // TC-C6 (`cancellation.ts:114-118`).
-                        fail(io, Some(k), CancelFailReason::MissingExchangeOrderId);
-                        continue;
+                RefResolution::Target(k) => {
+                    if !self.call.targets.contains(&k) {
+                        self.call.targets.push(k);
                     }
-                    CoreRules::Realistic => {
-                        // 12 §7.3: dispatched when the ack is delivered.
-                        if !self.deferred.iter().any(|d| d.0 == k) {
-                            io.ledger.request_cancel(k, CancelState::Deferred);
-                            self.deferred.push((k, op, CancelCause::Strategy(op)));
-                        }
-                        continue;
-                    }
-                },
-                Visibility::Open { acked: true } => {}
-            }
-            if !self.call.targets.contains(&k) {
-                self.call.targets.push(k);
+                }
             }
         }
         if self.call.targets.is_empty() {
@@ -790,6 +924,75 @@ impl OrderManager {
             io,
         );
         self.call.targets = keys;
+    }
+
+    /// One realistic cancel reference (12 §7.3): both refs must agree
+    /// (10 N1); known terminal skipped silently; unknown cid; an
+    /// unacknowledged target is deferred until its `OrderAccepted` is
+    /// delivered ("never guess an unacknowledged exchange id").
+    fn resolve_realistic_ref<E: Execution>(
+        &mut self,
+        intents: &Intents,
+        r: OrderRef,
+        op: CancelOp,
+        io: &mut OmIo<'_, E>,
+    ) -> RefResolution {
+        let by_cid = r.cid().map(|c| {
+            io.cids
+                .get(intents.cid_text(c))
+                .and_then(|c| io.ledger.current(c))
+        });
+        let by_exchange = r.exchange_id().map(|e| match e {
+            ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
+            // D-PENDING: the core keeps no exchange-id side table before
+            // the live adapter (M9); chose: a CLOB id resolves to nothing.
+            ExchangeOrderId::Clob(_) => None,
+        });
+        let key = match (by_cid, by_exchange) {
+            (Some(c), Some(x)) => {
+                // 10 N1: both refs must agree.
+                if c != x {
+                    return RefResolution::Fail(c.or(x), CancelFailReason::ConflictingRefs);
+                }
+                c
+            }
+            (Some(c), None) => c,
+            (None, Some(x)) => x,
+            (None, None) => None,
+        };
+        let Some(k) = key else {
+            if by_cid.is_some() {
+                return RefResolution::Fail(None, CancelFailReason::UnknownClientOrder);
+            }
+            // D-PENDING: an exchange id with no known order cannot be
+            // dispatched (commands carry keys, 13 §2.1); chose the answer
+            // the exchange would give, `ExchangeNotCanceled`.
+            return RefResolution::Fail(None, CancelFailReason::ExchangeNotCanceled { code: 0 });
+        };
+        self.target_realistic(k, op, CancelCause::Strategy(op), io)
+    }
+
+    /// A resolved realistic target (12 §7.3): terminal → skipped silently;
+    /// unacknowledged → `CancelState::Deferred` with its cause, dispatched
+    /// when the ack is delivered; acknowledged → dispatched.
+    fn target_realistic<E: Execution>(
+        &mut self,
+        k: OrderKey,
+        op: CancelOp,
+        cause: CancelCause,
+        io: &mut OmIo<'_, E>,
+    ) -> RefResolution {
+        match Self::visible_realistic(k, io.ledger) {
+            Visibility::Terminal => RefResolution::Skip,
+            Visibility::Open { acked: false } => {
+                if !self.deferred.iter().any(|d| d.0 == k) {
+                    io.ledger.request_cancel(k, CancelState::Deferred);
+                    self.deferred.push((k, op, cause));
+                }
+                RefResolution::Skip
+            }
+            Visibility::Open { acked: true } => RefResolution::Target(k),
+        }
     }
 
     fn cancel_batch<E: Execution>(
@@ -841,6 +1044,12 @@ impl OrderManager {
                 },
             );
         };
+        // 12 §7.3: halt and guards first (12 §8.3: a kill switch blocks new
+        // risk).
+        if let Some(reason) = self.halt.split_reason() {
+            fail(io, reason);
+            return;
+        }
         if !size.is_positive() {
             fail(io, SplitFailReason::InvalidSize);
             return;
@@ -971,40 +1180,41 @@ impl OrderManager {
         io: &mut OmIo<'_, E>,
     ) -> Option<OrderKey> {
         let mut req = Self::session_request(intents, local, io);
-        match self.halt {
-            Halt::Running => {}
-            Halt::StrategyHalted => {
-                Self::reject(io, stamp, req.cid, RejectReason::StrategyHalted);
-                return None;
-            }
-            Halt::KillSwitch => {
-                Self::reject(io, stamp, req.cid, RejectReason::KillSwitch);
-                return None;
-            }
+        if let Some(reason) = self.halt.reject_reason() {
+            Self::reject(io, stamp, req.cid, reason);
+            return None;
         }
         if io.ledger.cid_active(req.cid) {
             self.counters.duplicate_active_cid += 1;
             return None;
         }
         let rules = io.rules();
-        // 10 §7.2 O2: a share-sized market BUY becomes collateral-sized.
+        // 10 §7.2 O2: a share-sized market BUY becomes collateral-sized. 10
+        // T3: an overflow from strategy-derived values rejects the order.
         let amount_dp = tick_decimals(rules.tick[req.outcome]).map_or(6, |d| d.amount_dp as u32);
-        req = req
+        let checked = req
             .to_collateral_sized(amount_dp)
-            .expect("collateral conversion overflow (10 T3)");
-        let checked = self
-            .validate(&req, stamp, io.market, io.config)
-            .and_then(|()| Self::store_meta(intents, local, io))
-            .and_then(|meta| {
-                req.meta = meta;
-                Self::risk_realistic(&req, io)
+            .map_err(|_| RejectReason::InvalidSize)
+            .and_then(|r| {
+                req = r;
+                self.validate(&req, stamp, io.market, io.config)
             })
-            .and_then(|()| Self::fund_realistic(&req, &rules, io));
-        if let Err(reason) = checked {
-            Self::reject(io, stamp, req.cid, reason);
-            return None;
+            .and_then(|()| Self::check_meta(intents, local, &mut self.meta_json))
+            .and_then(|has_meta| {
+                Self::risk_realistic(&req, io)?;
+                Self::fund_realistic(&req, &rules, io)?;
+                Ok(has_meta)
+            });
+        match checked {
+            Err(reason) => {
+                Self::reject(io, stamp, req.cid, reason);
+                None
+            }
+            Ok(has_meta) => {
+                req.meta = self.store_checked_meta(has_meta, io);
+                Some(self.accept(req, stamp, &rules, io))
+            }
         }
-        Some(self.accept(req, stamp, &rules, io))
     }
 
     /// Realistic risk limits (12 §8.1), against the ledger as it stands.
@@ -1142,18 +1352,23 @@ impl OrderManager {
                 let op = self.cancel_op(CancelKind::All);
                 self.dispatch(stamp, ExecCommand::CancelAll { op, cause }, &mut io);
             }
-            EngineIntent::CancelKeys { key, cause } => {
+            EngineIntent::CancelCid { cid, cause } => {
+                let Some(key) = io.ledger.current(cid) else {
+                    return;
+                };
                 let op = self.cancel_op(CancelKind::Order);
-                io.ledger.request_cancel(key, CancelState::InFlight);
-                self.dispatch(
-                    stamp,
-                    ExecCommand::Cancel {
-                        op,
-                        cause,
-                        keys: &[key],
-                    },
-                    &mut io,
-                );
+                if let RefResolution::Target(k) = self.target_realistic(key, op, cause, &mut io) {
+                    io.ledger.request_cancel(k, CancelState::InFlight);
+                    self.dispatch(
+                        stamp,
+                        ExecCommand::Cancel {
+                            op,
+                            cause,
+                            keys: &[k],
+                        },
+                        &mut io,
+                    );
+                }
             }
         }
     }
@@ -1200,9 +1415,16 @@ impl OrderManager {
         }
     }
 
-    /// Sets the halt state (12 §11, §8.3).
+    /// Raises the halt state (12 §11, §8.3); a halt never downgrades.
     pub fn set_halt(&mut self, h: Halt) {
-        self.halt = h;
+        if h.rank() > self.halt.rank() {
+            self.halt = h;
+        }
+    }
+
+    /// The halt state.
+    pub fn halt(&self) -> Halt {
+        self.halt
     }
 
     /// Counters.
@@ -1211,15 +1433,43 @@ impl OrderManager {
     }
 }
 
-/// What cancel resolution can see of a key (12 §7.3).
+/// What realistic cancel resolution can see of a key (12 §7.3).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Visibility {
-    /// Not known to the TS view yet (submitted, not delivered, not this call).
-    Unknown,
     /// Open; `acked` when its exchange id is known.
     Open { acked: bool },
     /// Terminal.
     Terminal,
+}
+
+/// The outcome of resolving one cancel reference (12 §7.3).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum RefResolution {
+    /// No event, no target (known terminal, deferred, or TC-C10).
+    Skip,
+    /// `CancelFailed` with this order and reason.
+    Fail(Option<OrderKey>, CancelFailReason),
+    /// A key to dispatch.
+    Target(OrderKey),
+}
+
+/// The TS history entry of a cid (`ordersByClientId[cid]`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct TsHistory {
+    key: OrderKey,
+    /// Lifecycle terminal in the TS history.
+    terminal: bool,
+    /// Its exchange id is known (`orderId` present).
+    has_id: bool,
+}
+
+/// The TS view of one cid during an OM call (see `ts_cid_view`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+struct TsCidView {
+    /// `openOrdersByClientId[cid]`: key and whether its exchange id is known.
+    open: Option<(OrderKey, bool)>,
+    /// `ordersByClientId[cid]`.
+    history: Option<TsHistory>,
 }
 
 #[cfg(test)]

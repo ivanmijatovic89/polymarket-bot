@@ -13,7 +13,9 @@ mod views;
 pub use ctx::Ctx;
 pub use event::{AccountEvent, FillView};
 pub use intents::{CancelRef, Intents, Meta, MetaValue};
-pub use views::{BookView, Level, OrderView, PortfolioView, RulesView, TickCause, TickInfo};
+pub use views::{
+    BookView, Level, OrderView, PortfolioView, PositionView, RulesView, TickCause, TickInfo,
+};
 
 pub use pmb_core::fill::Capital;
 pub use pmb_core::MarketInfo;

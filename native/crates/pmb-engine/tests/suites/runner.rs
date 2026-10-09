@@ -258,9 +258,19 @@ fn synthetic_ticks_are_counted_before_the_gate() {
 // ---------------------------------------------------------------------------
 
 fn burst(n: usize, ty: OrderType, batch: bool, budget: u32) -> (HB, Result<(), SessionFault>) {
+    burst_with(n, ty, batch, budget, Script::default())
+}
+
+fn burst_with(
+    n: usize,
+    ty: OrderType,
+    batch: bool,
+    budget: u32,
+    script: Script,
+) -> (HB, Result<(), SessionFault>) {
     let mut cfg = ts();
     cfg.max_events_per_drain = budget;
-    let mut h = mk(cfg, MockExec::delayed(140), Script::default());
+    let mut h = mk(cfg, MockExec::delayed(140), script);
     let orders: Vec<Ord> = (0..n)
         .map(|i| {
             let o = Ord::buy(
@@ -321,6 +331,36 @@ fn a_low_budget_fails_the_candidate_with_cascade_limit() {
         .s
         .finalize(&m, pmb_core::FinalOutcome::new(Outcome::Up))
         .is_err());
+}
+
+#[test]
+fn declared_interests_do_not_change_the_cascade_limit_outcome() {
+    // spec: 12 §6.3 cascade budget, 30 §4.1 (only the callback is skipped),
+    // D69 A-08 (interest-skipped deliveries count)
+    let narrow = || Script {
+        interests: Some(pmb_engine::strategy::Interests {
+            events: pmb_engine::strategy::EventFlags::FILLS,
+            ticks: pmb_engine::strategy::TickInterest::All,
+        }),
+        ..Script::default()
+    };
+    for budget in [100, 4_200] {
+        let (all_h, all_r) = burst(42, OrderType::Fok, false, budget);
+        let (narrow_h, narrow_r) = burst_with(42, OrderType::Fok, false, budget, narrow());
+        assert_eq!(all_r, narrow_r, "budget {budget}");
+        assert_eq!(all_h.kinds(), narrow_h.kinds(), "budget {budget}");
+    }
+    let (_, r) = burst_with(42, OrderType::Fok, false, 100, narrow());
+    assert!(matches!(
+        r,
+        Err(SessionFault::Strategy {
+            cause: StrategyFaultCause::CascadeLimit {
+                deliveries: 100,
+                ..
+            },
+            ..
+        })
+    ));
 }
 
 #[test]
