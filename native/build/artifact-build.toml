@@ -83,4 +83,12 @@ rustflags = [
   # crate that include!s generated code would leak it. Chose: a fifth,
   # host-stable remap of the target directory.
   "--remap-path-prefix={{TARGET_DIR}}=/pmb/target",
+  # D-PENDING: 31 §4.2 does not list linker flags. ld64 computes LC_UUID
+  # before the strip, over a debug map whose N_OSO entries name the object
+  # files by absolute path in the target directory; the UUID then depends on
+  # the LENGTH of the target-directory path (measured on worker-1: same
+  # sources, target dirs of different lengths, different sha256), so hosts
+  # with different home directories would build different bytes. Chose:
+  # -oso_prefix makes those entries relative to the target directory.
+  "-Clink-arg=-Wl,-oso_prefix,{{TARGET_DIR}}/",
 ]

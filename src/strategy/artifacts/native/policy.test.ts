@@ -65,6 +65,8 @@ test('the committed artifact-build.toml pins every setting of 31 §4.2', () => {
     '"--remap-path-prefix=/Users/a/.rustup=/rustup"',
     '"--remap-path-prefix=/Users/a/Sites/bot=/pmb/engine"',
     '"--remap-path-prefix=/Users/a/.cache/pmb/target/1.89.0=/pmb/target"',
+    // The linker debug map must not depend on the target directory (see the template).
+    '"-Clink-arg=-Wl,-oso_prefix,/Users/a/.cache/pmb/target/1.89.0/"',
   ]) {
     assert.ok(flags.includes(f), `missing ${f} in ${flags}`)
   }
