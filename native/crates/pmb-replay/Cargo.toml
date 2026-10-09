@@ -24,3 +24,8 @@ workspace = true
 [[bench]]
 name = "decode"
 harness = false
+
+# smoke-50 reader throughput at T = 1, 4, 10 (E-core share, 16 §2.3, §10.3).
+[[bench]]
+name = "decode_parallel"
+harness = false
