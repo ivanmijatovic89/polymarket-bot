@@ -16,6 +16,7 @@ import {
   MAX_STDOUT_BYTES,
   checkedInContractSha256,
   describeNative,
+  describeNativeCached,
   ensureNativeArtifact,
   expectedExitCodes,
   nativeArtifactCachePath,
@@ -167,6 +168,12 @@ describe('describe (20 §5.1, §1, §3)', () => {
       describeNative(fakeBin({ describe: describeDoc() }), { target: 'x86_64-unknown-linux-gnu' }),
     )
     assert.equal(target.cause, 'artifact_incompatible')
+    const iterate = describeDoc()
+    iterate.binary.buildProfile = 'iterate'
+    const profile = await failure(
+      describeNative(fakeBin({ describe: iterate }), { buildProfile: 'artifact' }),
+    )
+    assert.equal(profile.cause, 'artifact_incompatible')
   })
 
   it('reports rejected params as invalid_input: params with the binary messages', async () => {
@@ -180,6 +187,19 @@ describe('describe (20 §5.1, §1, §3)', () => {
     )
     assert.deepEqual([info.class, info.cause], ['invalid_input', 'params'])
     assert.match(info.message, /\/size: expected a number >= 1/)
+  })
+
+  it('caches describe per binary and params for the process', async () => {
+    // spec: 31 §8 step 5 (cache describe results per (sha, canonical raw params))
+    const record = path.join(scratchDir('rec'), 'call.json')
+    const bin = fakeBin({ describe: describeDoc(), record })
+    const a = describeNativeCached(bin, { params: { b: 1, a: 2 } })
+    const b = describeNativeCached(bin, { params: { a: 2, b: 1 } })
+    assert.equal(a, b)
+    await a
+    const c = describeNativeCached(bin, { params: { a: 3 } })
+    assert.notEqual(a, c)
+    await c
   })
 
   it('passes a params list through --params-file', async () => {

@@ -61,6 +61,7 @@ export {
   NATIVE_PROTOCOL_VERSION,
   checkedInContractSha256,
   describeNative,
+  describeNativeCached,
   describeProblems,
   ensureNativeArtifact,
   nativeArtifactCachePath,

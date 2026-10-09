@@ -212,8 +212,9 @@ function execBinary(
       }
       out.push(b)
     })
-    child.stderr.on('data', (b: Buffer) => {
-      const s = b.toString('utf8')
+    // A decoding stream, so a UTF-8 sequence split across chunks stays intact.
+    child.stderr.setEncoding('utf8')
+    child.stderr.on('data', (s: string) => {
       tail = (tail + s).slice(-4000)
       if (!opts.log) return
       pending += s
@@ -360,7 +361,7 @@ export function checkedInContractSha256(
  */
 export function describeProblems(
   doc: NativeDescribe,
-  expected: { contractSha256: string; target?: string },
+  expected: { contractSha256: string; target?: string; buildProfile?: string },
 ): string[] {
   const problems: string[] = []
   if (doc.protocolVersion !== NATIVE_PROTOCOL_VERSION) {
@@ -386,6 +387,11 @@ export function describeProblems(
   if (!doc.capabilities.outputSchemaVersions.some((v) => TS_OUTPUT_SCHEMA_VERSIONS.includes(v))) {
     problems.push(
       `no common outputSchemaVersion in ${JSON.stringify(doc.capabilities.outputSchemaVersions)}`,
+    )
+  }
+  if (expected.buildProfile !== undefined && doc.binary.buildProfile !== expected.buildProfile) {
+    problems.push(
+      `buildProfile ${doc.binary.buildProfile} != ${expected.buildProfile} (31 §8 step 3)`,
     )
   }
   if (expected.target !== undefined && doc.binary.target !== expected.target) {
@@ -445,6 +451,8 @@ export interface DescribeOptions {
   paramsList?: Array<Record<string, unknown>>
   /** Expected target triple (worker gate, D12). */
   target?: string
+  /** Required build profile, e.g. `artifact` for the producer (31 §8 step 3). */
+  buildProfile?: string
   /** Checked-in contract sha; default the v1 bundle of this checkout. */
   contractSha256?: string
 }
@@ -482,6 +490,7 @@ export async function describeNative(
   const problems = describeProblems(doc, {
     contractSha256: opts.contractSha256 ?? checkedInContractSha256(),
     ...(opts.target === undefined ? {} : { target: opts.target }),
+    ...(opts.buildProfile === undefined ? {} : { buildProfile: opts.buildProfile }),
   })
   if (problems.length > 0) {
     const versionOnly = doc.protocolVersion !== NATIVE_PROTOCOL_VERSION
@@ -505,6 +514,35 @@ export async function describeNative(
     )
   }
   return doc
+}
+
+const describeCache = new Map<string, Promise<NativeDescribe>>()
+
+/**
+ * `describeNative` cached per process by (binary path, canonical options)
+ * (31 §8 step 5); a rejected call is evicted.
+ */
+export function describeNativeCached(
+  binPath: string,
+  opts: DescribeOptions = {},
+): Promise<NativeDescribe> {
+  const key = `${binPath}\u0000${JSON.stringify(sortedKeys(opts))}`
+  const hit = describeCache.get(key)
+  if (hit) return hit
+  const p = describeNative(binPath, opts)
+  describeCache.set(key, p)
+  p.catch(() => describeCache.delete(key))
+  return p
+}
+
+function sortedKeys(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sortedKeys)
+  if (!isRecord(v)) return v
+  return Object.fromEntries(
+    Object.keys(v)
+      .sort()
+      .map((k) => [k, sortedKeys(v[k])]),
+  )
 }
 
 export interface RunNativeJobOptions {

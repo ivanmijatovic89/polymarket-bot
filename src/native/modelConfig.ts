@@ -302,6 +302,8 @@ export function executionProblems(
   return problems
 }
 
+const namedFeedsCache = new Map<string, string>()
+
 let validators: ContractValidators | null = null
 function contractValidators(): ContractValidators {
   validators ??= createContractValidators()
@@ -340,10 +342,20 @@ export function validateModelConfig(
     throw modelConfigError('ts-compat ModelConfig carries no clock before M3b (D57)')
   }
   if (mc.feeds.calibrationId !== CUSTOM_CALIBRATION_ID) {
-    const reader = opts.reader ?? new SourceReader(opts.contractDir ?? CONTRACT_DIR)
-    const defaults = readDefaults(reader)
-    const named = namedFeedsSet(mc.feeds.calibrationId, reader, defaults[mc.profile]?.feeds)
-    if (canonicalJson(named) !== canonicalJson(mc.feeds)) {
+    const dir = opts.contractDir ?? CONTRACT_DIR
+    const key = `${dir}\u0000${mc.profile}\u0000${mc.feeds.calibrationId}`
+    // Committed calibration sets are immutable (21 §6.3), so a per-process
+    // cache keeps the per-job check of the shim free of file reads (R8).
+    let named = opts.reader === undefined ? namedFeedsCache.get(key) : undefined
+    if (named === undefined) {
+      const reader = opts.reader ?? new SourceReader(dir)
+      const defaults = readDefaults(reader)
+      named = canonicalJson(
+        namedFeedsSet(mc.feeds.calibrationId, reader, defaults[mc.profile]?.feeds),
+      )
+      if (opts.reader === undefined) namedFeedsCache.set(key, named)
+    }
+    if (named !== canonicalJson(mc.feeds)) {
       throw modelConfigError(
         `feeds differ from calibration set ${mc.feeds.calibrationId}; an override that changes them must set feeds.calibrationId = custom (21 §6.3, 14 F-48)`,
       )

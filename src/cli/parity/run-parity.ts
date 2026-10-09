@@ -420,6 +420,9 @@ async function main(): Promise<number> {
         `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
       )
     rustBinary = doc.binary
+    // VP-7: gate evidence comes from the canonical `artifact` binary.
+    if (doc.binary.buildProfile !== 'artifact')
+      nonGating.push(`--rust-bin build profile ${doc.binary.buildProfile}, not artifact (VP-7)`)
   }
   const rustDir = path.join(outDir, 'rust')
   if (rustBin) mkdirSync(rustDir, { recursive: true })
