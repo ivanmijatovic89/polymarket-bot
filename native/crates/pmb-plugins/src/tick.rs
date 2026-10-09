@@ -49,12 +49,14 @@ impl BookTop {
 }
 
 /// One tick as observed by plugins (14 §12.1 P-4).
+// D-PENDING: the task lists feed values as a plugin input, but no v1 plugin reads feeds (TA uses candles, 14 §12.5); chose to leave them out of PluginTick until a plugin needs them.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PluginTick {
     /// Decision time of the tick (14 §12.3, 12 §4.2 `tick.ts`): in ts-compat
     /// the TS `snapshot.timestamp` (exchange time of real ticks, clamped
     /// stamp of synthetic ticks, so it can step back); in realistic the loop
     /// clock `now`.
+    // D-PENDING: V-5 asks for non-finite timestamps; TsMs cannot hold one and the TS window gate drops such ticks before plugins (runSingleMarket.ts:306-313); chose to treat them as never observed (the golden records them as gate-dropped).
     pub ts: TsMs,
     /// A synthetic feed tick (14 §8): unchanged book, re-stamped time.
     pub synthetic: bool,

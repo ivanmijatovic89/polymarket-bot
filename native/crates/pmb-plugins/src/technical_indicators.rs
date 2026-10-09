@@ -140,6 +140,18 @@ pub enum TaUnavailable {
     Misaligned15m { last_close: TsMs, expected: TsMs },
 }
 
+impl TaUnavailable {
+    /// Stable reason key for diagnostics counters (14 P-7).
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            TaUnavailable::NotStarted => "not_started",
+            TaUnavailable::UnsupportedMarket => "unsupported_market",
+            TaUnavailable::NotEnoughCandles { .. } => "not_enough_candles",
+            TaUnavailable::Misaligned15m { .. } => "misaligned_15m",
+        }
+    }
+}
+
 /// TA output: ready values or a typed reason (14 P-7).
 // Computed once per market and read by reference; boxing would only add an allocation.
 #[allow(clippy::large_enum_variant)]
@@ -542,6 +554,23 @@ mod tests {
                 last_close: TsMs(T0 - 900_001),
                 expected: TsMs(T0 - 1)
             })
+        );
+    }
+
+    // spec: 14 P-7 (typed reasons, stable keys)
+    #[test]
+    fn reason_keys() {
+        assert_eq!(
+            TaUnavailable::UnsupportedMarket.as_str(),
+            "unsupported_market"
+        );
+        assert_eq!(
+            TaUnavailable::Misaligned15m {
+                last_close: TsMs(0),
+                expected: TsMs(1)
+            }
+            .as_str(),
+            "misaligned_15m"
         );
     }
 
