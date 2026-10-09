@@ -165,13 +165,17 @@ function child(node: JsonNode, key: string): JsonNode | undefined {
 
 /**
  * Fields that name the binary build rather than the computation. They are
- * dropped from the cross-binary comparison only (an A/B of two builds of
- * the same code must agree on everything else); `resultDigest` hashes them,
- * so it goes too.
- * D-PENDING: 16 §13.7 compares "deterministic result sections" across all
- * Rust rows of a report, but 21 §10 puts `echo.engineVersion` and
- * `echo.engineCommit` inside that section, so two builds can never agree
- * byte for byte. Same-binary repetitions are compared on the full section.
+ * dropped from the reduced cross-binary comparison only (an A/B of two
+ * builds of the same code must agree on everything else); `resultDigest`
+ * hashes them, so it goes too.
+ * D-PENDING (specQuestions; not yet in STATUS.md "Waiting on user" or 02):
+ * 16 §13.7 compares "deterministic result sections" across all Rust rows of
+ * a report, but 21 §10 puts `echo.engineVersion` and `echo.engineCommit`
+ * inside that section, so two builds can never agree byte for byte. Until
+ * the lead decides, the report carries both forms: the full digest (must
+ * agree across every arm of one binary) and this reduced digest (must agree
+ * across all arms), and states that the cross-binary verdict uses the
+ * reduced form.
  */
 export const BUILD_IDENTITY_ECHO_KEYS = ['engineVersion', 'engineCommit'] as const
 
@@ -208,12 +212,30 @@ export function resultSections(stdout: string): ResultSections {
   return { deterministic: canonicalize(det), crossBinary: canonicalize(cross), root }
 }
 
-/** Decoded value of a top-level string/number literal path, for reporting. */
-export function readLiteral(root: JsonNode, ...path: string[]): unknown {
+/** The node at `path` (object keys, or array indexes as numbers). */
+export function nodeAt(root: JsonNode, ...path: Array<string | number>): JsonNode | undefined {
   let node: JsonNode | undefined = root
-  for (const k of path) node = node === undefined ? undefined : child(node, k)
+  for (const k of path) {
+    if (node === undefined) return undefined
+    node = typeof k === 'number' ? (node.t === 'arr' ? node.items[k] : undefined) : child(node, k)
+  }
+  return node
+}
+
+/** Decoded value of a string/number/bool/null literal at `path`, for reporting. */
+export function readLiteral(root: JsonNode, ...path: Array<string | number>): unknown {
+  const node = nodeAt(root, ...path)
   if (node === undefined || node.t !== 'lit') return undefined
   return JSON.parse(node.raw) as unknown
+}
+
+/**
+ * Decoded value of any subtree at `path` (JS numbers; for diagnostics
+ * metrics only, never for deterministic sections).
+ */
+export function readValue(root: JsonNode, ...path: Array<string | number>): unknown {
+  const node = nodeAt(root, ...path)
+  return node === undefined ? undefined : (JSON.parse(canonicalize(node)) as unknown)
 }
 
 export function sha256Hex(text: string | Uint8Array): string {

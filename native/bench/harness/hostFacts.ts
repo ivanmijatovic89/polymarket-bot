@@ -178,7 +178,7 @@ export function coreSummary(f: HostFacts): string {
   return `${f.chip}, ${parts.join(' + ')} (${f.logicalCpu} logical)`
 }
 
-/** The host-facts page `native/bench/results/m1-host-facts-<date>-<host>.md`. */
+/** The host-facts page `native/reports/host-facts-<date>-<host>.md`. */
 export function renderHostFactsMarkdown(
   f: HostFacts,
   date: string,

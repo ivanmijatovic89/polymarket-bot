@@ -5,6 +5,7 @@ import {
   JsonSyntaxError,
   parseJsonPreserving,
   readLiteral,
+  readValue,
   resultSections,
   setDigest,
   sha256Hex,
@@ -64,6 +65,13 @@ describe('resultSections', () => {
     assert.equal(readLiteral(a.root, 'diagnostics', 'inputPath'), 'v1')
     assert.equal(readLiteral(a.root, 'status'), 'ok')
     assert.equal(readLiteral(a.root, 'missing'), undefined)
+    const c = resultSections(
+      '{"candidates":[{"status":"ok","n":[1,2]}],"diagnostics":{"cache":{"hits":2}}}',
+    )
+    assert.equal(readLiteral(c.root, 'candidates', 0, 'status'), 'ok')
+    assert.equal(readLiteral(c.root, 'candidates', 1, 'status'), undefined)
+    assert.equal(readLiteral(c.root, 'candidates', 'status'), undefined)
+    assert.deepEqual(readValue(c.root, 'diagnostics', 'cache'), { hits: 2 })
   })
 
   it('drops build identity only from the cross-binary section', () => {

@@ -1,8 +1,8 @@
 {
-  // Typechecks the L1 bench harness and its drivers (scripts/native/bench-l1*.ts)
+  // Typechecks the L1 bench harness and its drivers (scripts/native/bench-*.ts)
   // with the root settings; the root tsconfig covers src/ only.
   //   npx tsc -p native/bench/harness/tsconfig.json
   "extends": "../../../tsconfig.json",
   "compilerOptions": { "noEmit": true },
-  "include": ["./*.ts", "../../../scripts/native/bench-l1*.ts"]
+  "include": ["./*.ts", "../../../scripts/native/bench-*.ts"]
 }

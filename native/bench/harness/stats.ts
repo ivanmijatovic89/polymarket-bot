@@ -21,33 +21,41 @@ export function summarize(values: readonly number[]): Summary {
 }
 
 export interface Slot {
-  /** Binary index (0 = A, 1 = B). */
-  bin: number
-  /** Repetition number per binary, 1-based; 0 for the warm-up. */
+  /** Arm index (0 = A, 1 = B, …). */
+  arm: number
+  /** Repetition number per arm, 1-based; 0 for the warm-up. */
   rep: number
   warmup: boolean
 }
 
 /**
- * One discarded warm-up per configuration, then `reps` measured runs per
- * binary, interleaved ABBA across two binaries (A B, B A, A B, …; 16 §13.5).
+ * One discarded warm-up per arm (configuration), then `reps` measured runs
+ * per arm, interleaved ABBA across arms: forward order on odd repetitions,
+ * reverse order on even ones (A B, B A, A B, …; A B C, C B A, …; 16 §13.5).
  */
-export function abbaSchedule(binaries: number, reps: number): Slot[] {
-  if (binaries !== 1 && binaries !== 2) throw new Error('abbaSchedule: one or two binaries')
+export function abbaSchedule(arms: number, reps: number): Slot[] {
+  if (!Number.isInteger(arms) || arms < 1) throw new Error('abbaSchedule: arms must be >= 1')
   if (!Number.isInteger(reps) || reps < 1) throw new Error('abbaSchedule: reps must be >= 1')
-  const out: Slot[] = []
-  for (let b = 0; b < binaries; b++) out.push({ bin: b, rep: 0, warmup: true })
+  const forward = Array.from({ length: arms }, (_, i) => i)
+  const out: Slot[] = forward.map((a) => ({ arm: a, rep: 0, warmup: true }))
   for (let k = 0; k < reps; k++) {
-    const order = binaries === 1 ? [0] : k % 2 === 0 ? [0, 1] : [1, 0]
-    for (const b of order) out.push({ bin: b, rep: k + 1, warmup: false })
+    const order = k % 2 === 0 ? forward : [...forward].reverse()
+    for (const a of order) out.push({ arm: a, rep: k + 1, warmup: false })
   }
   return out
 }
 
 export interface RunMetrics {
+  /** Markets started. */
   markets: number
+  /** Markets whose `run` exited 0 with `status` and the candidate `ok` (20 §5.4). */
+  okMarkets: number
+  failedMarkets: number
   wallMs: number
+  /** ok markets per second; failed markets never count as throughput (R14). */
   marketsPerS: number
+  /** ok market-candidates per second (one candidate per `run` job, 16 §13.4). */
+  marketCandidatesPerS: number
   userMs: number
   sysMs: number
   cpuMs: number
@@ -61,7 +69,7 @@ export interface RunMetrics {
 
 export function runMetrics(
   wallMs: number,
-  children: readonly ChildUsage[],
+  children: ReadonlyArray<{ usage: ChildUsage; ok: boolean; candidates: number }>,
   logicalCores: number,
 ): RunMetrics {
   if (children.length === 0) throw new Error('runMetrics: no children')
@@ -70,22 +78,31 @@ export function runMetrics(
   let userMs = 0
   let sysMs = 0
   let peakRssBytes = 0
+  let okMarkets = 0
+  let okCandidates = 0
   for (const c of children) {
-    userMs += c.userMs
-    sysMs += c.sysMs
-    peakRssBytes = Math.max(peakRssBytes, c.maxRssBytes)
+    userMs += c.usage.userMs
+    sysMs += c.usage.sysMs
+    peakRssBytes = Math.max(peakRssBytes, c.usage.maxRssBytes)
+    if (c.ok) {
+      okMarkets++
+      okCandidates += c.candidates
+    }
   }
   const cpuMs = userMs + sysMs
   return {
     markets: children.length,
+    okMarkets,
+    failedMarkets: children.length - okMarkets,
     wallMs,
-    marketsPerS: children.length / (wallMs / 1000),
+    marketsPerS: okMarkets / (wallMs / 1000),
+    marketCandidatesPerS: okCandidates / (wallMs / 1000),
     userMs,
     sysMs,
     cpuMs,
     cpuUtilization: cpuMs / (wallMs * logicalCores),
     peakRssBytes,
-    childWallMedianMs: summarize(children.map((c) => c.realMs)).median,
+    childWallMedianMs: summarize(children.map((c) => c.usage.realMs)).median,
   }
 }
 

@@ -1,6 +1,6 @@
 // Records this host's core, cache, memory, OS and toolchain facts
 // (16 §2.3, M1 step 7) into
-// `native/bench/results/m1-host-facts-<yyyymmdd>-<host>.md`.
+// `native/reports/host-facts-<yyyymmdd>-<host>.md` (next to the bench reports, 16 §13.8).
 //
 //   npm run native:bench:host-facts [-- --host worker-1 --date 20261009 --force]
 //
@@ -41,7 +41,7 @@ function main(): void {
     options: {
       host: { type: 'string' },
       date: { type: 'string' },
-      'out-dir': { type: 'string', default: path.join(REPO_ROOT, 'native/bench/results') },
+      'out-dir': { type: 'string', default: path.join(REPO_ROOT, 'native/reports') },
       force: { type: 'boolean', default: false },
     },
   })
@@ -65,7 +65,7 @@ function main(): void {
       .join(' / ')}`,
     '',
   ]
-  const out = path.join(path.resolve(values['out-dir']), `m1-host-facts-${date}-${facts.host}.md`)
+  const out = path.join(path.resolve(values['out-dir']), `host-facts-${date}-${facts.host}.md`)
   if (!values.force && fs.existsSync(out)) throw new Error(`${out} exists (use --force to replace)`)
   fs.mkdirSync(path.dirname(out), { recursive: true })
   fs.writeFileSync(
