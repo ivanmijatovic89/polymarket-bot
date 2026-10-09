@@ -10,7 +10,13 @@ rust-version.workspace = true
 pmb-core.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 proptest.workspace = true
 
 [lints]
 workspace = true
+
+# L0 micro benchmarks (16 §13.2); run only by `cargo bench`.
+[[bench]]
+name = "book"
+harness = false

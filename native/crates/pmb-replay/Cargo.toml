@@ -13,8 +13,14 @@ parquet.workspace = true
 anyhow.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
 [lints]
 workspace = true
+
+# L0 micro benchmarks (16 §13.2); run only by `cargo bench`.
+[[bench]]
+name = "decode"
+harness = false

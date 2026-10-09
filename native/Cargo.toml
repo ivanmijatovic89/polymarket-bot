@@ -15,6 +15,8 @@ rust-version = "1.89"
 # L0 micro benchmarks only.
 [workspace.dependencies]
 anyhow = "=1.0.98"
+# L0 micro benchmarks only (16 §11.1 BP-5, §13.2); no plotters/rayon.
+criterion = { version = "=0.8.2", default-features = false, features = ["cargo_bench_support"] }
 flate2 = "=1.1.2"
 libm = "0.2"
 parquet = { version = "=56.2.0", default-features = false, features = ["snap", "flate2-rust_backened", "zstd", "lz4"] }
