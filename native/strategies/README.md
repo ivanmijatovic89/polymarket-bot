@@ -11,9 +11,14 @@ workspace in `native/` (31 §2.1). Its only dependency is `pmb-sdk`
 | `src/bin/engine-exerciser.rs` | `engine-exerciser.rs` | `src/strategies/testing/engine-exerciser.ts` (`engine-exerciser`) | 60 §5.1–§5.7, 30 §18, D20 |
 | `src/bin/feed-exerciser.rs`   | `feed-exerciser.rs`   | `src/strategies/testing/feed-exerciser.ts` (`feed-exerciser`)     | 60 §5.8, 14 §13 V-3       |
 
-The `Strategy` impls live in the library (`src/exerciser.rs`,
-`src/feed_exerciser.rs`) so that the testkit tests in `tests/` can name the
-strategy types; each bin only calls `pmb_sdk::strategy_main!` once (31 §2.2).
+Layout (31 §2.2):
+
+- Each bin holds its `impl Strategy`, its single `strategy_main!` call and
+  its testkit tests (`#[cfg(test)]`, run by `cargo test`).
+- `src/lib.rs` holds only code both bins run: the engine exerciser schedule
+  (`src/exerciser.rs`), which the feed exerciser runs on real ticks when
+  `trade: true`. An edit to one bin therefore leaves the other bin's source
+  hash unchanged (31 §5.2, §5.6).
 
 ## Status
 
@@ -30,25 +35,31 @@ strategy types; each bin only calls `pmb_sdk::strategy_main!` once (31 §2.2).
   31 §2.2, §3), adjust any facade name that differs from the checklist
   below, then run the commands below.
 - `engine-exerciser.rs` implements schedule v1 (60 §5.2) and the account
-  callback A0 (60 §5.4) with `EXERCISER_SCHEDULE_VERSION = 1`, as the TS twin.
-  Schedule v2 (60 §5.3, A1–A3, per-order meta) is M2: add rows to `SCHEDULE`
-  and `TRIGGERS`, attach the meta in `Writer`, bump the version in both twins
-  (60 §5.7).
-- `feed-exerciser.rs`: `trade: false` only. `trade: true` (schedule v2 on real
-  ticks) is M2 and is refused by params validation (`describe` fails before
-  enqueue) and, as a backstop, by an assert in `new` (00 R14).
-- The code was type-checked, clippy-clean (`-D warnings` plus the
-  determinism lints of `native/build/clippy`) and its schedule logic run
-  against a throwaway mock of the checklist below layered on the real
-  `ws/sdk` params derive and value macros. The mock is not committed.
+  callback A0 (60 §5.4) with `EXERCISER_SCHEDULE_VERSION = 1`, as the TS
+  twin. Schedule v2 (60 §5.3, A1–A3, per-order meta) is M2 (01 §4.1): add
+  rows to `SCHEDULE` and `TRIGGERS`, attach the meta in `Writer`, bump the
+  version in both twins (60 §5.7). Open before v2: rows `x17` and `x18`
+  cannot be written with the SDK builders (30 §7.1), see the D-PENDING note
+  at `SCHEDULE`.
+- `feed-exerciser.rs`: `trade: false` returns no intents; `trade: true` runs
+  the engine exerciser schedule on real ticks only, as the TS twin does, so
+  both follow `EXERCISER_SCHEDULE_VERSION` (v1 until M2; 60 §5.8 says v2).
+- Verification so far: `cargo fmt --all --check`,
+  `cargo clippy --all-targets -- -D warnings` (plus the determinism lints of
+  `native/build/clippy`, forbidden) and `cargo test` passed against a
+  throwaway, uncommitted mock of the checklist below. The mock is layered on
+  the real `ws/sdk` params derive and value macros, makes every config and
+  view `#[non_exhaustive]` or private-field (30 §1 P7), and runs a
+  zero-latency stand-in for the testkit. The expected traces still need the
+  real testkit, which runs the real engine (30 §15).
 
 Once the facade exists and the manifest is active:
 
 ```bash
 cd native/strategies
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked          # unit tests + tests/exerciser_schedule.rs + tests/feed_exerciser.rs
+cargo fmt --all --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked          # lib unit tests + both bins' testkit tests
 ```
 
 ## Facade checklist
@@ -65,11 +76,12 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
   `fn requirements(p: &Self::Params) -> Requirements`,
   `fn new(p: &Self::Params, market: &MarketInfo) -> Self`,
   `fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) -> StrategyResult`,
-  `fn on_event(&mut self, ctx: &Ctx, event: &AccountEvent, out: &mut Intents) -> StrategyResult`
-  (overridden by the engine exerciser), `interests` left at its default.
+  `fn on_event(&mut self, ctx: &Ctx, event: &AccountEvent, out: &mut Intents) -> StrategyResult`;
+  `interests` left at its default.
 - `StrategyResult`; `MarketInfo` (type only).
-- `pmb_sdk::strategy_main!(path::to::Type)`: accepts a path to a type
-  defined in the package library _(choice: 30 §4 shows a local type)_.
+- `pmb_sdk::strategy_main!(Type)` with a type defined in the bin (30 §4).
+  In a `cargo test` build of the bin the generated `main` is unused and must
+  not warn.
 
 ### Context (30 §5)
 
@@ -78,9 +90,9 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
   `Ctx::portfolio() -> &PortfolioView`. Author code writes `&Ctx` and
   `&AccountEvent` with elided lifetimes, also inside `fn` pointer types.
 - `BookView::best_bid()`, `BookView::best_ask() -> Option<Level>`;
-  `Level::price` (field).
-- `PortfolioView::position(Outcome) -> Position` with the field `qty: Qty`;
-  `PortfolioView::open_orders()` iterator (only `.next()` is used).
+  `Level::price` (field read).
+- `PortfolioView::position(Outcome) -> Position` with the field `qty: Qty`
+  (read); `PortfolioView::open_orders()` iterator (only `.next()` is used).
 
 ### Values (30 §6)
 
@@ -115,8 +127,8 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 
 - `AccountEvent::Fill { fill, .. }` (non-exhaustive enum).
 - `FillView` fields `order: &OrderView`, `outcome: Outcome`, `price: Price`,
-  `qty: Qty` _(choice: 30 §8 lists `order` inside `FillView`; `ws/core` puts
-  `order` on the `Fill` variant instead)_.
+  `qty: Qty` (reads) _(choice: 30 §8 lists `order` inside `FillView`;
+  `ws/core` puts `order` on the `Fill` variant instead)_.
 - `OrderView::cid() -> &ClientOrderId` (30 §5.2) _(`ws/core` today returns an
   interned key and resolves the text through `PortfolioView::cid_str`)_.
 
@@ -124,13 +136,9 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 
 - `#[derive(Params)]` on a unit struct and on a named struct;
   `#[param(default = true)]` on a `bool`; a field without a default is
-  required.
-- `#[param(validate)]` on the struct plus
-  `impl Params for T { fn validate(&self) -> Result<(), ParamError> }`
-  _(ws/sdk's mechanism; 30 §9 rule 2 names only the method)_;
-  `ParamError::new(field, message)`.
+  required. No custom `validate`.
 - Tests: `Params::from_cli`, `Params::normalized_json`, `ParamError::issues()`,
-  `ParamIssue::path()`, `ParamIssue::message()`.
+  `ParamIssue::path()`.
 
 ### Requirements (30 §10)
 
@@ -160,12 +168,17 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 - `pmb_sdk::testkit::{TestMarket, Profile}`.
 - `TestMarket::btc_15m(TsMs)`, by-value `profile(Profile::TsCompat)` and
   `starting_capital(Usdc)`.
-- `TestMarket::book(&mut self, at: TsMs, outcome: Outcome, bids: &[(Price, Qty)], asks: &[(Price, Qty)])`:
-  a full book (one `book` tick).
-- `TestMarket::price_change(&mut self, at: TsMs, outcome: Outcome, side: Side, price: Price, size: Qty)`:
-  one level (one `price_change` tick); `Side::Buy` is the bid ladder.
+- `&mut self` inputs, each returning `&mut Self`:
+  - `book(at: TsMs, outcome: Outcome, bids: &[(Price, Qty)], asks: &[(Price, Qty)])`:
+    a full book (one `book` tick);
+  - `price_change(at: TsMs, outcome: Outcome, side: Side, price: Price, size: Qty)`:
+    one level (one `price_change` tick); `Side::Buy` is the bid ladder;
+  - `binance_trade(at: TsMs, price: f64)`: one Binance aggTrade (a synthetic
+    tick when `tick_on_update` is requested);
+  - `price_to_beat(at: TsMs, value: f64)`: the price-to-beat key.
 - `TestMarket::run::<S: Strategy>(&self, params: &S::Params) -> TestRun`.
 - `TestRun::trace() -> &[pmb_sdk::json::Value]`: the canonical parity trace
-  records of 22 §3.2 at level `decisions`, header first.
+  records of 22 §3.2 at level `decisions`, header first, including the
+  `tick` records with `seq` and `cause`.
 - `pmb_sdk::json::Value` with `FromStr`, indexing by key, `as_u64`,
   `as_f64` and object access.

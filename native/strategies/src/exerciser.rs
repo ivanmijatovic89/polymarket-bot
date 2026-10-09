@@ -1,17 +1,15 @@
-//! Engine exerciser `engine-exerciser.rs` (60 §5.1–§5.7, 30 §18, D20): a
-//! deterministic parity-test strategy, not a trading strategy. It drives the
-//! engine's intent kinds and order types on real markets so the TS twin
-//! (`src/strategies/testing/engine-exerciser.ts`, id `engine-exerciser`) and
-//! this strategy can be diffed trace by trace.
+//! The engine exerciser schedule (60 §5.1–§5.7, 30 §18, D20): the state
+//! machine of the deterministic parity-test strategy `engine-exerciser.rs`
+//! (`src/bin/engine-exerciser.rs`). The feed exerciser
+//! (`src/bin/feed-exerciser.rs`) runs the same schedule on real ticks when
+//! `trade: true` (60 §5.8), which is why it lives in the library. TS twin:
+//! `src/strategies/testing/engine-exerciser.ts` (id `engine-exerciser`).
 //!
 //! This revision implements schedule v1 (60 §5.2) and the account callback
 //! A0 (60 §5.4). Schedule v2 (60 §5.3, A1–A3 and the per-order meta of
-//! 60 §5.1) lands in M2 (01 §4.1) by adding rows to `SCHEDULE` and
-//! `TRIGGERS`, attaching the meta in `Writer` and bumping
-//! [`EXERCISER_SCHEDULE_VERSION`] in both twins (60 §5.7). Two v2 rows
-//! cannot be built with the SDK builders, which enforce them structurally
-//! (30 §7.1): `x17` (GTD without `expireAtMs`) and `x18` (post-only FOK).
-//! M2 decides how the Rust twin covers them.
+//! 60 §5.1) lands in M2 (01 §4.1, §6 M2 step 2) by adding rows to `SCHEDULE`
+//! and `TRIGGERS`, attaching the meta in `Writer` and bumping
+//! [`EXERCISER_SCHEDULE_VERSION`] in both twins (60 §5.7).
 //!
 //! Rules (60 §5.1):
 //! - `n` counts the real `book`/`price_change` ticks delivered to the
@@ -32,8 +30,11 @@ use pmb_sdk::prelude::*;
 
 /// Schedule version implemented by both twins (60 §5.7); the parity manifest
 /// records it and `run-parity` refuses a mismatch.
-// D-PENDING: 60 §5.7 says `EXERCISER_SCHEDULE_VERSION = 2`; v2 (§5.3) is M2
-// (01 §4.1), so this revision implements v1 and says 1, as the TS twin does.
+// D-PENDING: 60 §5.7 says `EXERCISER_SCHEDULE_VERSION = 2`, while 01 §4.1
+// and §6 M2 step 2 stage schedule v2 in M2; until then both twins implement
+// v1 and say 1 (TS `engine-exerciser.ts`). Nothing a built binary outputs
+// carries this value yet, so `run-parity` cannot compare the Rust twin's
+// version (needs a 20/21 channel, raised as a spec question).
 pub const EXERCISER_SCHEDULE_VERSION: u32 = 1;
 
 /// The exerciser's fixed price tick (60 §5.1), independent of the market's
@@ -66,10 +67,6 @@ pub fn sell_price(raw: Price) -> Price {
     raw.snap(TICK, Rounding::Ceil).clamp(MIN_PRICE, MAX_PRICE)
 }
 
-/// Engine exerciser params: none (60 §5.1, params `{}`).
-#[derive(Params, Clone, Debug, Default)]
-pub struct ExerciserParams;
-
 /// Result of one scheduled action on one tick (60 §5.1).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Step {
@@ -96,6 +93,14 @@ const fn row(at: u64, run: Run) -> Action {
 }
 
 /// Schedule v1 (60 §5.2), ordered by `at`. Ties fire in table order.
+// D-PENDING: two v2 rows cannot be written with the SDK builders, which make
+// them unrepresentable (30 §7.1: GTD takes its expiry as an argument,
+// `post_only()` exists only on `LimitOrder`): 475 `x17` (GTD without
+// `expireAtMs`) and 480 `x18` (post-only FOK). 60 §5.3, §5.5 and §5.6 still
+// require both twins to emit them and count `x17 gtd no expiry` and
+// `x18 post-only market order` as class-D coverage. Raised as a spec
+// question for a 02 entry before v2 is written; not improvised here
+// (00 §3.2).
 const SCHEDULE: &[Action] = &[
     row(50, x1),
     row(60, x2),
@@ -354,9 +359,11 @@ struct PeriodicCancel {
     at: u64,
 }
 
-/// The engine exerciser (60 §5). One instance per market (30 §4 rule 4).
+/// The engine exerciser schedule state of one market (60 §5). The strategy
+/// that owns it is created per market (30 §4 rule 4), so this state never
+/// crosses markets.
 #[derive(Debug, Default)]
-pub struct EngineExerciser {
+pub struct Exerciser {
     /// Real ticks seen so far; the current tick's `n` before the increment.
     ticks: u64,
     /// Completed [`SCHEDULE`] rows, bit `i` = row `i`.
@@ -372,7 +379,33 @@ pub struct EngineExerciser {
     periodic_cancel: Option<PeriodicCancel>,
 }
 
-impl EngineExerciser {
+impl Exerciser {
+    /// The strategy tick callback (60 §5.1): synthetic feed ticks are
+    /// ignored and never advance `n`; on a real tick, every due schedule row
+    /// runs in schedule order, then the periodic phase.
+    pub fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) {
+        if ctx.tick().synthetic {
+            return;
+        }
+        let n = self.ticks;
+        self.ticks += 1;
+        let mut w = Writer { out };
+        self.run_schedule(ctx, n, &mut w);
+        self.run_periodic(ctx, n, &mut w);
+    }
+
+    /// The account callback (60 §5.4): each trigger fires on its first
+    /// matching event only.
+    pub fn on_event(&mut self, ctx: &Ctx, event: &AccountEvent, out: &mut Intents) {
+        let mut w = Writer { out };
+        for (i, trigger) in TRIGGERS.iter().enumerate() {
+            let bit = 1u32 << i;
+            if self.fired & bit == 0 && trigger(ctx, event, &mut w) {
+                self.fired |= bit;
+            }
+        }
+    }
+
     /// Runs every due, not yet completed schedule row in schedule order.
     fn run_schedule(&mut self, ctx: &Ctx, n: u64, w: &mut Writer<'_>) {
         for (i, action) in SCHEDULE.iter().enumerate().skip(self.first_open) {
@@ -428,48 +461,6 @@ impl EngineExerciser {
             slot,
             at: slot + PERIODIC_CANCEL_AFTER,
         });
-    }
-}
-
-impl Strategy for EngineExerciser {
-    type Params = ExerciserParams;
-    const ID: &'static str = "engine-exerciser.rs";
-
-    /// No feeds and no plugins (60 §5.1).
-    fn requirements(_p: &ExerciserParams) -> Requirements {
-        Requirements::new()
-    }
-
-    // `interests` keeps its default (all events, every tick): a ts-compat
-    // port MUST NOT declare a tick interest (30 §4.1).
-
-    fn new(_p: &ExerciserParams, _market: &MarketInfo) -> Self {
-        EngineExerciser::default()
-    }
-
-    fn on_tick(&mut self, ctx: &Ctx, out: &mut Intents) -> StrategyResult {
-        // 60 §5.1: synthetic feed ticks never count (none are requested here;
-        // the feed exerciser reuses this strategy with feeds in M2).
-        if ctx.tick().synthetic {
-            return Ok(());
-        }
-        let n = self.ticks;
-        self.ticks += 1;
-        let mut w = Writer { out };
-        self.run_schedule(ctx, n, &mut w);
-        self.run_periodic(ctx, n, &mut w);
-        Ok(())
-    }
-
-    fn on_event(&mut self, ctx: &Ctx, event: &AccountEvent, out: &mut Intents) -> StrategyResult {
-        let mut w = Writer { out };
-        for (i, trigger) in TRIGGERS.iter().enumerate() {
-            let bit = 1u32 << i;
-            if self.fired & bit == 0 && trigger(ctx, event, &mut w) {
-                self.fired |= bit;
-            }
-        }
-        Ok(())
     }
 }
 
