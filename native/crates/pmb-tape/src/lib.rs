@@ -10,6 +10,7 @@
 
 pub mod codec;
 pub mod compare;
+pub mod m19;
 pub mod manifest;
 pub mod replay;
 pub mod store;

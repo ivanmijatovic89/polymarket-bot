@@ -98,16 +98,50 @@ fn convert_verify_bench_round_trip_and_refusals() {
         "{}",
         text(&o)
     );
+    let o = run(&co, "m19-convert", &tapes, &[]);
+    assert!(o.status.success(), "{}", text(&o));
     let json = co.0.join("bench.json");
+    let all = "v1,tape,tape-full,tape-rows,pq-full,pq-rows";
     let o = run(
         &co,
         "bench",
         &tapes,
-        &["--reps", "1", "--json", json.to_str().unwrap()],
+        &[
+            "--reps",
+            "2",
+            "--configs",
+            all,
+            "--json",
+            json.to_str().unwrap(),
+        ],
     );
     assert!(o.status.success(), "{}", text(&o));
     let doc: serde_json::Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
     assert_eq!(doc["markets"], 1);
+    assert_eq!(
+        doc["order"].as_array().unwrap().len(),
+        12,
+        "ABBA over 6 configs"
+    );
+    let c = &doc["conditions"];
+    for k in [
+        "host",
+        "chip",
+        "macos",
+        "rustc",
+        "profile",
+        "binarySha256",
+        "qos",
+        "threads",
+    ] {
+        assert!(!c[k].is_null(), "condition {k} missing: {c}");
+    }
+    assert_eq!(c["label"], "non-idle");
+    assert_eq!(c["setManifest"]["sha256"].as_str().unwrap().len(), 64);
+    assert!(doc["bytes"]["m19"].as_u64().unwrap() > 0);
+    assert!(!doc["psStart"].as_array().unwrap().is_empty());
+    let o = run(&co, "bench", &tapes, &["--configs", "v1,nope"]);
+    assert!(!o.status.success() && text(&o).contains("unknown configuration"));
 
     // The manifest names another file: every subcommand refuses it.
     write_manifest(&co, Some(&"ab".repeat(32)));

@@ -83,6 +83,12 @@ impl<T: Clone + Default> Column<T> {
         self.row(r).first()
     }
 
+    /// Per-row value ranges: row `r` is `values[starts[r]..starts[r + 1]]`.
+    #[inline]
+    pub fn starts(&self) -> &[u32] {
+        &self.starts
+    }
+
     pub fn read<D: DataType<T = T>>(
         &mut self,
         rg: &dyn RowGroupReader,

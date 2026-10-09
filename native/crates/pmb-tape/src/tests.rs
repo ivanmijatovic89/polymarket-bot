@@ -1727,3 +1727,22 @@ fn generated_corpus_streams_are_identical_on_every_path() {
         "{tape_files} tape, {v1_only} v1-only"
     );
 }
+
+#[test]
+fn m19_parquet_round_trips_typed_rows() {
+    use crate::m19;
+    let dir = scratch("m19");
+    let v1 = dir.join("m.parquet");
+    write_v1(&v1, &synthetic_rows(), 5);
+    let rows = read_v1(Bytes::from(std::fs::read(&v1).unwrap())).unwrap();
+    assert!(rows.decimals.iter().any(|d| !d.inexact.is_empty()));
+    let id = identity(&v1);
+    let mut reader = m19::Reader::default();
+    for t in [rows, crate::typed::TypedRows::default()] {
+        let bytes = m19::encode(&t, &id, 3).unwrap();
+        let (meta, back) = reader.read(Bytes::from(bytes.clone())).unwrap();
+        assert_eq!(back, t);
+        assert_eq!((meta.v1_bytes, meta.v1_sha256), (id.bytes, id.sha256));
+        assert_eq!(m19::Reader::meta(Bytes::from(bytes)).unwrap(), meta);
+    }
+}
