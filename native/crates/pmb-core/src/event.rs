@@ -266,6 +266,14 @@ pub enum SplitMergeFailReason {
     InsufficientPairs,
     TxFailed,
     Ambiguous,
+    // D-PENDING: 12 §7.3 checks "Halt and guards" first for a split, but
+    // 10 §10.2 lists no halt reason for SplitFailed; chose the two
+    // `RejectReason` halt variants with the same codes. Never produced in
+    // ts-compat (a backtest strategy is never halted while it runs).
+    /// The strategy is halted (12 §11, 50 §10.2 `reject_burst`).
+    StrategyHalted,
+    /// A tripped kill switch or session guard (12 §8.3).
+    KillSwitch,
 }
 
 pub type SplitFailReason = SplitMergeFailReason;
@@ -280,6 +288,8 @@ impl SplitMergeFailReason {
             SplitMergeFailReason::InsufficientPairs => "insufficient_uncommitted_positions",
             SplitMergeFailReason::TxFailed => "tx_failed",
             SplitMergeFailReason::Ambiguous => "ambiguous",
+            SplitMergeFailReason::StrategyHalted => "strategy_halted",
+            SplitMergeFailReason::KillSwitch => "kill_switch",
         }
     }
 }

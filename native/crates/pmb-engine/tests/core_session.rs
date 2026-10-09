@@ -133,9 +133,10 @@ fn an_adapter_event_for_an_unknown_order_is_an_engine_fault() {
 }
 
 #[test]
-fn kill_switch_cancels_everything_and_rejects_new_placements() {
-    // spec: 12 §8.3 (KillSwitch rejections, engine-originated CancelAll,
-    // halt), §7.2 step 1
+fn kill_switch_cancels_everything_and_stops_strategy_calls() {
+    // spec: 12 §8.3 (engine-originated CancelAll with cause KillSwitch,
+    // halts the strategy), 50 §10.4 (stop strategy calls; keep applying
+    // account events)
     let mut h = H::new(
         config(CoreRules::Realistic),
         MockExec::sync(),
@@ -154,26 +155,136 @@ fn kill_switch_cancels_everything_and_rejects_new_placements() {
             ..
         }
     ));
+    assert_eq!(h.s.om().halt(), pmb_engine::om::Halt::KillSwitch);
+    // The strategy is not called again: its queued intents stay unread and
+    // no tick is dispatched.
+    let ticks = h.log().len();
+    let dispatched = h.s.stats().ticks.strategy_ticks;
     h.send(vec![Cmd::Place(Ord::buy("b", 10.0, 0.5))], 10, BIDS, ASKS)
         .unwrap();
-    assert_eq!(h.rejections(), vec!["kill_switch"]);
-    // A guard trip has the same effect (12 §8.3).
+    assert_eq!(h.log().len(), ticks);
+    assert_eq!(h.s.stats().ticks.strategy_ticks, dispatched);
+    assert!(h.rejections().is_empty());
+    assert!(h.current("b").is_none());
+    // A session-loss guard trip is a kill switch (50 §10.2).
     let mut g = H::new(
         config(CoreRules::Realistic),
         MockExec::sync(),
         Script::default(),
     );
-    g.control(0, Control::Guard(GuardTrip::RejectBurst))
+    g.control(0, Control::Guard(GuardTrip::SessionLoss))
         .unwrap();
     g.send(vec![Cmd::Place(Ord::buy("b", 10.0, 0.5))], 10, BIDS, ASKS)
         .unwrap();
+    assert!(g.log().is_empty());
+    assert!(g.current("b").is_none());
+}
+
+#[test]
+fn reject_burst_halts_placements_and_splits_but_keeps_callbacks_and_cancels() {
+    // spec: 12 §7.2 step 1 (StrategyHalted), §7.3 SplitPositions row (halt
+    // and guards first), 50 §10.2 reject_burst (strategy keeps receiving
+    // events; cancels stay allowed)
+    let mut h = H::new(
+        config(CoreRules::Realistic),
+        MockExec::sync(),
+        Script::default(),
+    );
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    h.control(5, Control::Guard(GuardTrip::RejectBurst))
+        .unwrap();
+    let from = h.n_events();
+    h.send(
+        vec![
+            Cmd::Place(Ord::buy("b", 10.0, 0.5)),
+            Cmd::Split(q(5.0)),
+            Cmd::Merge(q(1.0)),
+            Cmd::Cancel("a".into()),
+        ],
+        10,
+        BIDS,
+        ASKS,
+    )
+    .unwrap();
+    let kinds: Vec<&str> = h.since(from).iter().map(|e| e.kind.ts_kind()).collect();
+    assert_eq!(h.rejections(), vec!["strategy_halted"]);
+    assert!(h.since(from).iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::SplitFailed {
+            reason: pmb_core::event::SplitMergeFailReason::StrategyHalted,
+            ..
+        }
+    )));
+    // The merge is not halted (it fails on pairs, not on the halt).
+    assert!(h.since(from).iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::MergeFailed {
+            reason: pmb_core::event::SplitMergeFailReason::InsufficientPairs,
+            ..
+        }
+    )));
+    assert_eq!(h.done_cids(from), vec!["a"], "{kinds:?}");
+    assert!(h.ledger().pending_ops().is_empty());
+    // Other guards reject placements and splits with `KillSwitch` (D-PENDING
+    // in `Halt::Guard`) and keep the strategy running.
+    let mut g = H::new(
+        config(CoreRules::Realistic),
+        MockExec::sync(),
+        Script::default(),
+    );
+    g.control(0, Control::Guard(GuardTrip::OrderRate)).unwrap();
+    g.send(
+        vec![Cmd::Place(Ord::buy("b", 10.0, 0.5)), Cmd::Split(q(5.0))],
+        10,
+        BIDS,
+        ASKS,
+    )
+    .unwrap();
     assert_eq!(g.rejections(), vec!["kill_switch"]);
+    assert!(g.events().iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::SplitFailed {
+            reason: pmb_core::event::SplitMergeFailReason::KillSwitch,
+            ..
+        }
+    )));
+    // A later kill switch is not downgraded by a weaker guard.
+    g.control(20, Control::Operator(OperatorCommand::KillSwitch))
+        .unwrap();
+    g.control(30, Control::Guard(GuardTrip::RejectBurst))
+        .unwrap();
+    assert_eq!(g.s.om().halt(), pmb_engine::om::Halt::KillSwitch);
+}
+
+#[test]
+fn guards_and_adoption_are_refused_where_unsupported() {
+    // spec: D28 (ts-compat is backtest-only; guards are paper/live), 12 §10
+    // AdoptPositions (adopted shares must leave `sellable`), R14
+    let mut h = H::new(
+        config(CoreRules::TsCompat),
+        MockExec::sync(),
+        Script::default(),
+    );
+    assert!(matches!(
+        h.control(0, Control::Guard(GuardTrip::SessionLoss)),
+        Err(SessionFault::Engine { .. })
+    ));
+    let mut r = H::new(
+        config(CoreRules::Realistic),
+        MockExec::sync(),
+        Script::default(),
+    );
+    match r.control(0, Control::AdoptPositions) {
+        Err(SessionFault::Engine { message }) => assert!(message.contains("AdoptPositions")),
+        other => panic!("{other:?}"),
+    }
 }
 
 #[test]
 fn operator_cancel_order_targets_the_current_generation() {
     // spec: 12 §3.2 Operator(cancel_order{cid}), §8.3 (engine-originated
-    // cancels carry their cause)
+    // cancels carry their cause and go through the OM pipeline)
     let mut h = H::new(
         config(CoreRules::Realistic),
         MockExec::sync(),
@@ -193,6 +304,50 @@ fn operator_cancel_order_targets_the_current_generation() {
             ..
         }
     ));
+    // A known terminal target is skipped: no command, no event (12 §7.3).
+    let commands = h.s.exec().commands.len();
+    let from = h.n_events();
+    h.control(6, Control::Operator(OperatorCommand::CancelOrder { cid }))
+        .unwrap();
+    assert!(h.since(from).is_empty());
+    assert_eq!(h.s.exec().commands.len(), commands);
+}
+
+#[test]
+fn operator_cancel_of_an_unacknowledged_order_is_deferred_until_its_ack() {
+    // spec: 12 §7.3 (realistic CancelOrder resolved like CancelBatch: an
+    // unacknowledged target is Deferred, dispatched when OrderAccepted is
+    // delivered; "never guess an unacknowledged exchange id"), §8.3
+    let mut h = H::new(
+        config(CoreRules::Realistic),
+        MockExec::delayed(100),
+        Script::default(),
+    );
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    let k = h.current("a").unwrap();
+    assert!(!h.ledger().order(k).acknowledged());
+    let cid = h.s.cids().get("a").unwrap();
+    let commands = h.s.exec().commands.len();
+    h.control(5, Control::Operator(OperatorCommand::CancelOrder { cid }))
+        .unwrap();
+    assert_eq!(h.s.exec().commands.len(), commands, "deferred, not sent");
+    assert_eq!(
+        h.ledger().order(k).cancel_state(),
+        pmb_core::state::CancelState::Deferred
+    );
+    // The ack arrives with the next real tick; the deferred cancel follows.
+    let from = h.n_events();
+    h.tick(200, BIDS, ASKS).unwrap();
+    h.tick(400, BIDS, ASKS).unwrap();
+    assert_eq!(h.done_cids(from), vec!["a"], "{:?}", h.kinds());
+    assert!(h.since(from).iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::OrderDone {
+            reason: DoneReason::Canceled(CancelCause::Operator),
+            ..
+        }
+    )));
 }
 
 #[test]

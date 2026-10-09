@@ -132,26 +132,68 @@ pub enum EngineIntent {
         /// Engine cause.
         cause: CancelCause,
     },
-    /// Cancel one order (operator `cancel_order{cid}`, 50 §16).
-    CancelKeys {
-        /// The order.
-        key: OrderKey,
+    /// Cancel the current generation of a cid (operator `cancel_order{cid}`,
+    /// 50 §16), resolved like a realistic `CancelOrder` (12 §7.3): a known
+    /// terminal target is skipped, an unacknowledged one is deferred until
+    /// its `OrderAccepted` is delivered.
+    CancelCid {
+        /// The interned cid (session interner).
+        cid: CidKey,
         /// Engine cause.
         cause: CancelCause,
     },
 }
 
-/// Halt state of the strategy (12 §11, §8.3).
+/// Halt state of the strategy (12 §11, §8.3; 50 §10.2). Checked first for
+/// every placement (12 §7.2 step 1) and split (12 §7.3); cancels and merges
+/// always pass, so a halted session can still clean up.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum Halt {
     /// Placements allowed.
     #[default]
     Running,
-    /// Strategy halted (panic, error, cascade limit): placements rejected
-    /// `StrategyHalted`.
+    /// Strategy halted (paper panic, error or cascade limit; guard
+    /// `reject_burst`): placements rejected `StrategyHalted`.
     StrategyHalted,
-    /// Kill switch tripped: placements rejected `KillSwitch`.
+    /// Session guard `max_wallet_exposure_usdc` or `max_orders_per_minute`
+    /// tripped (50 §10.2): placements rejected.
+    // D-PENDING: 10 §10.2 has no guard reason and the core has no clock for
+    // the per-minute window before M8; chose `KillSwitch` as the reason and
+    // a halt that lasts until rotation.
+    Guard,
+    /// Kill switch tripped (12 §8.3, 50 §10.4): placements rejected
+    /// `KillSwitch`; strategy calls stop.
     KillSwitch,
+}
+
+impl Halt {
+    /// The placement reject reason of a halt (12 §7.2 step 1).
+    pub const fn reject_reason(self) -> Option<RejectReason> {
+        match self {
+            Halt::Running => None,
+            Halt::StrategyHalted => Some(RejectReason::StrategyHalted),
+            Halt::Guard | Halt::KillSwitch => Some(RejectReason::KillSwitch),
+        }
+    }
+
+    /// The split failure reason of a halt (12 §7.3 SplitPositions row).
+    pub const fn split_reason(self) -> Option<SplitFailReason> {
+        match self {
+            Halt::Running => None,
+            Halt::StrategyHalted => Some(SplitFailReason::StrategyHalted),
+            Halt::Guard | Halt::KillSwitch => Some(SplitFailReason::KillSwitch),
+        }
+    }
+
+    /// Severity order: a halt never downgrades (a kill switch stays).
+    const fn rank(self) -> u8 {
+        match self {
+            Halt::Running => 0,
+            Halt::StrategyHalted => 1,
+            Halt::Guard => 2,
+            Halt::KillSwitch => 3,
+        }
+    }
 }
 
 /// Mutable session parts the OM works on, borrowed disjointly from the
@@ -967,6 +1009,12 @@ impl OrderManager {
                 },
             );
         };
+        // 12 §7.3: halt and guards first (12 §8.3: a kill switch blocks new
+        // risk).
+        if let Some(reason) = self.halt.split_reason() {
+            fail(io, reason);
+            return;
+        }
         if !size.is_positive() {
             fail(io, SplitFailReason::InvalidSize);
             return;
@@ -1097,16 +1145,9 @@ impl OrderManager {
         io: &mut OmIo<'_, E>,
     ) -> Option<OrderKey> {
         let mut req = Self::session_request(intents, local, io);
-        match self.halt {
-            Halt::Running => {}
-            Halt::StrategyHalted => {
-                Self::reject(io, stamp, req.cid, RejectReason::StrategyHalted);
-                return None;
-            }
-            Halt::KillSwitch => {
-                Self::reject(io, stamp, req.cid, RejectReason::KillSwitch);
-                return None;
-            }
+        if let Some(reason) = self.halt.reject_reason() {
+            Self::reject(io, stamp, req.cid, reason);
+            return None;
         }
         if io.ledger.cid_active(req.cid) {
             self.counters.duplicate_active_cid += 1;
@@ -1268,18 +1309,23 @@ impl OrderManager {
                 let op = self.cancel_op(CancelKind::All);
                 self.dispatch(stamp, ExecCommand::CancelAll { op, cause }, &mut io);
             }
-            EngineIntent::CancelKeys { key, cause } => {
+            EngineIntent::CancelCid { cid, cause } => {
+                let Some(key) = io.ledger.current(cid) else {
+                    return;
+                };
                 let op = self.cancel_op(CancelKind::Order);
-                io.ledger.request_cancel(key, CancelState::InFlight);
-                self.dispatch(
-                    stamp,
-                    ExecCommand::Cancel {
-                        op,
-                        cause,
-                        keys: &[key],
-                    },
-                    &mut io,
-                );
+                if let RefResolution::Target(k) = self.target_realistic(key, op, cause, &mut io) {
+                    io.ledger.request_cancel(k, CancelState::InFlight);
+                    self.dispatch(
+                        stamp,
+                        ExecCommand::Cancel {
+                            op,
+                            cause,
+                            keys: &[k],
+                        },
+                        &mut io,
+                    );
+                }
             }
         }
     }
@@ -1326,9 +1372,16 @@ impl OrderManager {
         }
     }
 
-    /// Sets the halt state (12 §11, §8.3).
+    /// Raises the halt state (12 §11, §8.3); a halt never downgrades.
     pub fn set_halt(&mut self, h: Halt) {
-        self.halt = h;
+        if h.rank() > self.halt.rank() {
+            self.halt = h;
+        }
+    }
+
+    /// The halt state.
+    pub fn halt(&self) -> Halt {
+        self.halt
     }
 
     /// Counters.

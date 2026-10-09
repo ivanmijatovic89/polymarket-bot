@@ -16,7 +16,7 @@ use pmb_core::{FinalOutcome, MarketEvent, Outcome, PerOutcome, TsMs};
 use crate::clock::{Clocks, DecisionOrigin};
 use crate::config::EngineConfig;
 use crate::core_rules::CoreRules;
-use crate::envelope::{Control, Envelope, OperatorCommand, Payload, SyntheticKind};
+use crate::envelope::{Control, Envelope, GuardTrip, OperatorCommand, Payload, SyntheticKind};
 use crate::exec::{CancelScope, EventQueue, ExecCtx, Execution};
 use crate::feeds_view::FeedsView;
 use crate::ledger::Ledger;
@@ -135,6 +135,9 @@ pub struct Session<S: Strategy, E: Execution, T: TraceSink> {
     pub(crate) seen_generations: (u64, u64),
     pub(crate) stats: MarketStatsAcc,
     pub(crate) fault: Option<SessionFault>,
+    /// Strategy calls stopped by a kill switch (12 §8.3, 50 §10.4): events
+    /// are still applied, the strategy is never called again.
+    pub(crate) calls_stopped: bool,
 }
 
 /// Runs strategy code inside `catch_unwind` (12 §11, 30 §12); the panic
@@ -250,6 +253,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             seen_generations: (0, 0),
             stats: MarketStatsAcc::default(),
             fault: None,
+            calls_stopped: false,
         })
     }
 
@@ -323,12 +327,13 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         }
     }
 
-    /// Whether strategy callbacks may run by rule (12 §5.4, §10): the session
-    /// is `Active`. Deliveries with no callback by rule do not count against
-    /// the cascade budget (D69 A-08).
+    /// Whether strategy callbacks may run by rule (12 §5.4, §10, §8.3): the
+    /// session is `Active` and no kill switch stopped strategy calls.
+    /// Deliveries with no callback by rule do not count against the cascade
+    /// budget (D69 A-08).
     #[inline]
     pub(crate) fn callbacks_allowed(&self) -> bool {
-        self.state.callbacks_enabled()
+        self.state.callbacks_enabled() && !self.calls_stopped
     }
 
     #[inline]
@@ -432,8 +437,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             // TC-C9: the TS gate per input mode, on the TS tick time.
             CoreRules::TsCompat => self.window.in_window(tick_ts, self.clocks.now),
             CoreRules::Realistic => {
-                self.state == SessionState::Active
-                    && self.window.in_window(tick_ts, self.clocks.now)
+                self.callbacks_allowed() && self.window.in_window(tick_ts, self.clocks.now)
             }
         }
     }
@@ -582,6 +586,10 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     fn run_strategy_tick(&mut self, market: &SharedMarket) -> Result<(), SessionFault> {
         let tick = self.last_tick.expect("begin_tick ran");
         self.plugins.on_tick(&tick, market);
+        if self.calls_stopped {
+            // 12 §8.3: a kill switch stops strategy calls; plugins observe.
+            return Ok(());
+        }
         if !self.wake(&tick, market) {
             self.stats.ticks.strategy_ticks_skipped += 1;
             if T::ENABLED {
@@ -752,14 +760,37 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             Control::CapitalCap(cap) => self.ledger.set_cap(cap),
             // The driver applied rules changes and data gaps to SharedMarket.
             Control::RulesUpdate | Control::DataGap(_) => {}
-            // D-PENDING: adoption of read-only inventory is live-only (50,
-            // M9); chose a no-op in the core until the runtime sends it.
-            Control::AdoptPositions => {}
-            // D-PENDING: 12 §7.2 step 1 rejects with the guard's reason, but
-            // 10 §10.2 defines only `KillSwitch`; chose `KillSwitch` for every
-            // guard trip.
-            Control::Guard(_) | Control::Operator(OperatorCommand::KillSwitch) => {
+            Control::AdoptPositions => {
+                // R14: adopted inventory must be excluded from `sellable` and
+                // from the result (12 §10, D29); the core cannot honor it yet
+                // (the envelope carries no positions before the M8 runtime),
+                // so it is refused, never ignored.
+                return Err(self.engine_fault(
+                    "Control(AdoptPositions) is not supported before the M8 runtime (12 §10, D29; R14)"
+                        .into(),
+                ));
+            }
+            Control::Guard(_) | Control::Operator(OperatorCommand::KillSwitch) if !realistic => {
+                // D28: guards and the kill switch are paper/live; ts-compat
+                // is backtest-only.
+                return Err(self.engine_fault(
+                    "session guard or kill switch delivered to a ts-compat session (D28)".into(),
+                ));
+            }
+            // 50 §10.2: `reject_burst` rejects new placements locally
+            // (`StrategyHalted`) until rotation; the strategy keeps receiving
+            // events and cancels stay allowed.
+            Control::Guard(GuardTrip::RejectBurst) => self.om.set_halt(Halt::StrategyHalted),
+            Control::Guard(GuardTrip::WalletExposure | GuardTrip::OrderRate) => {
+                self.om.set_halt(Halt::Guard)
+            }
+            // 12 §8.3, 50 §10.2 `max_session_loss_usdc`, §10.4: stop strategy
+            // calls, reject placements `KillSwitch`, engine-originated
+            // `CancelAll` with cause `KillSwitch`; events keep being applied.
+            Control::Guard(GuardTrip::SessionLoss)
+            | Control::Operator(OperatorCommand::KillSwitch) => {
                 self.om.set_halt(Halt::KillSwitch);
+                self.calls_stopped = true;
                 self.handle_engine(
                     EngineIntent::CancelAll {
                         cause: pmb_core::event::CancelCause::KillSwitch,
@@ -773,17 +804,13 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                 },
                 market,
             ),
-            Control::Operator(OperatorCommand::CancelOrder { cid }) => {
-                if let Some(k) = self.ledger.current(cid) {
-                    self.handle_engine(
-                        EngineIntent::CancelKeys {
-                            key: k,
-                            cause: pmb_core::event::CancelCause::Operator,
-                        },
-                        market,
-                    );
-                }
-            }
+            Control::Operator(OperatorCommand::CancelOrder { cid }) => self.handle_engine(
+                EngineIntent::CancelCid {
+                    cid,
+                    cause: pmb_core::event::CancelCause::Operator,
+                },
+                market,
+            ),
             Control::Shutdown => {
                 if self.state != SessionState::Done {
                     self.state = SessionState::Closing;
