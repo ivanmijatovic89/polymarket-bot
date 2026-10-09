@@ -246,6 +246,12 @@ impl Simulator {
         self.sched.len()
     }
 
+    /// Length of the key arena (tests of 13 §10 bounded storage).
+    #[cfg(test)]
+    pub(crate) fn arena_len(&self) -> usize {
+        self.keys.len()
+    }
+
     fn store_keys(&mut self, keys: &[OrderKey]) -> KeyRange {
         let start = self.keys.len();
         self.keys.extend_from_slice(keys);

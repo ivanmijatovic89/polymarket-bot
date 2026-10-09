@@ -443,10 +443,22 @@ pub(crate) fn maker_scan(
     now: TsMs,
     out: &mut EventQueue,
 ) {
-    let books = &cx.market.books;
-    if ex.resting.is_empty() || scan_is_noop(ex, books, now) {
+    if ex.resting.is_empty() || scan_is_noop(ex, &cx.market.books, now) {
         return;
     }
+    maker_scan_full(m, ex, cx, now, out);
+}
+
+/// The maker scan without the early exit: the reference the early exit must
+/// match event for event (13 §5.1, §10).
+pub(crate) fn maker_scan_full(
+    m: &Models,
+    ex: &mut ExchangeTruth,
+    cx: &ExecCtx<'_>,
+    now: TsMs,
+    out: &mut EventQueue,
+) {
+    let books = &cx.market.books;
     let mut i = 0;
     while i < ex.resting.len() {
         let o = *ex.resting.get(i);
