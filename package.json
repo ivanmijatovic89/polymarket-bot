@@ -160,7 +160,7 @@
     "native:contract:check": "scripts/native/contract-check.sh",
     "native:contract:export": "scripts/native/contract-export.sh",
     "native:contract:gen": "scripts/native/contract-gen.sh",
-    "native:test:ts": "tsx --test src/native/contract/*.test.ts",
+    "native:test:ts": "tsx --test src/native/*.test.ts src/native/contract/*.test.ts src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:shim:test": "tsx --test src/native/*.test.ts",
     "native:fixture-job": "tsx scripts/native/fixture-job.ts"
   },
