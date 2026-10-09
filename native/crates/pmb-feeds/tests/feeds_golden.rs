@@ -121,6 +121,7 @@ fn load(job: &Job, cache: &DayCache) -> Result<pmb_feeds::LoadedFeeds, pmb_feeds
             feed_files: &refs,
             gamma: job.gamma,
             ptb_availability: job.ptb,
+            diag_clock: None,
         },
         cache,
     )
@@ -487,6 +488,7 @@ fn crafted_timelines() {
                     f64s(&c["value"]),
                     false,
                     c["latencyMs"].as_i64().unwrap(),
+                    FeedProfile::TsCompat,
                 ),
                 tick_on_update: c["tickOnUpdate"].as_bool().unwrap(),
             }),
@@ -601,7 +603,13 @@ fn lookback_invariance() {
             .unwrap()
             .series;
             let c = pmb_feeds::chainlink::build_chainlink_series_with_lookback(
-                "btcusd", &cdays, window, 320, 0, lookback,
+                "btcusd",
+                &cdays,
+                window,
+                320,
+                0,
+                FeedProfile::TsCompat,
+                lookback,
             )
             .unwrap();
             let feeds = MarketFeeds::from_parts(
@@ -639,11 +647,28 @@ fn realistic_constant_equals_ts_compat_on_monotone_days() {
         "btc-updown-15m-1773100800",
     ] {
         let window = slug_window(slug);
-        let (bdays, _) = fixture_days(window);
+        let (bdays, cdays) = fixture_days(window);
         assert!(
             bdays.iter().all(|d| d.ts_monotone()),
             "{slug}: PF-2 day check"
         );
+        // Chainlink (F-52): no fixture seed is broadcast after the first
+        // member, so the realistic clamp leaves the visibility unchanged.
+        if !cdays.is_empty() {
+            let build = |profile| {
+                pmb_feeds::chainlink::build_chainlink_series(
+                    "btcusd", &cdays, window, 320, 0, profile,
+                )
+                .unwrap()
+            };
+            let (t, r) = (build(FeedProfile::TsCompat), build(FeedProfile::Realistic));
+            for i in 0..t.len() {
+                assert_eq!(t.vis(i), r.vis(i), "{slug}: chainlink element {i}");
+                if i > 0 {
+                    assert!(r.vis(i - 1) <= r.vis(i), "{slug}: chainlink F-52");
+                }
+            }
+        }
         let build = |profile| {
             pmb_feeds::binance::build_binance_series("BTCUSDT", &bdays, window, 110, profile)
                 .unwrap()
@@ -772,8 +797,25 @@ fn loader_error_rows() {
     assert!(l.is_ok());
 }
 
+/// The visible point of one feed as `(source ts, value bits, receivedAt)`
+/// (price to beat: `(event start, open price bits, receivedAt)`).
+type Point = (i64, u64, i64);
+
+fn point(v: &FeedsView, k: FeedKind) -> Option<Point> {
+    let spot = |p: Option<&pmb_core::SpotPoint>| {
+        p.map(|p| (p.source_ts.0, p.value.to_bits(), p.received_at.0))
+    };
+    match k {
+        FeedKind::BinanceSpot => spot(v.binance_spot()),
+        FeedKind::ChainlinkSpot => spot(v.chainlink_spot()),
+        FeedKind::PriceToBeat => v
+            .price_to_beat()
+            .map(|p| (p.event_start.0, p.open_price.to_bits(), p.received_at.0)),
+    }
+}
+
 /// Every visible-value change on a dense 1 ms clock: (clock, feed, point).
-fn transitions(feeds: &MarketFeeds, from: i64, to: i64) -> Vec<(i64, FeedKind, String)> {
+fn transitions(feeds: &MarketFeeds, from: i64, to: i64) -> Vec<(i64, FeedKind, Option<Point>)> {
     let mut st = FeedState::new();
     let mut prev = FeedsView::EMPTY;
     let mut out = Vec::new();
@@ -781,8 +823,7 @@ fn transitions(feeds: &MarketFeeds, from: i64, to: i64) -> Vec<(i64, FeedKind, S
         let v = *st.advance(feeds, TsMs(clock));
         for k in FeedKind::ALL {
             if v.generation(k) != prev.generation(k) {
-                let line = render("t", 0, &v);
-                out.push((clock, k, line));
+                out.push((clock, k, point(&v, k)));
             }
         }
         prev = v;
@@ -807,8 +848,15 @@ fn latency_shift_self_test() {
         )
         .unwrap()
         .series;
-        let c = pmb_feeds::chainlink::build_chainlink_series("btcusd", &cdays, window, 320 + x, 0)
-            .unwrap();
+        let c = pmb_feeds::chainlink::build_chainlink_series(
+            "btcusd",
+            &cdays,
+            window,
+            320 + x,
+            0,
+            FeedProfile::TsCompat,
+        )
+        .unwrap();
         MarketFeeds::from_parts(
             window,
             Some(BinanceFeed {
@@ -834,13 +882,13 @@ fn latency_shift_self_test() {
         "replay twice"
     );
     let shifted = transitions(&build(X), start - 1_000, end);
-    // Compare transitions by feed and source time, keyed on clock - X; the
-    // rendered line differs only in receivedAtMs (+X), so compare clocks and
-    // the point identity (source ts and value bits) per feed.
-    let key = |v: &[(i64, FeedKind, String)], dx: i64, lo: i64, hi: i64| -> Vec<(i64, FeedKind)> {
+    // Shift the shifted run back by X: its clock and receivedAtMs move by
+    // +X, the point identity (source ts, value bits) does not.
+    type Key = (i64, FeedKind, Option<Point>);
+    let key = |v: &[Key], dx: i64, lo: i64, hi: i64| -> Vec<Key> {
         v.iter()
             .filter(|(c, _, _)| (lo..=hi).contains(c))
-            .map(|(c, k, _)| (c - dx, *k))
+            .map(|(c, k, p)| (c - dx, *k, p.map(|(t, b, r)| (t, b, r - dx))))
             .collect()
     };
     let lo = start;

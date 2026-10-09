@@ -115,6 +115,7 @@ impl<'a> Job<'a> {
                 feed_files: &refs,
                 gamma: self.gamma,
                 ptb_availability: self.ptb,
+                diag_clock: None,
             },
             &DayCache::new(1 << 30),
         )
@@ -269,4 +270,101 @@ fn model_and_availability_checked_without_a_request() {
     assert_eq!(class_cause(&e), ("invalid_input", "feed_availability"));
     assert!(e.message.contains(M1), "{e}");
     assert_eq!(e.cause, FeedCause::FeedAvailability);
+}
+
+static FAKE_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// A deterministic stand-in for the driver's monotonic clock: +1,000 ns per
+/// read.
+fn fake_clock() -> u64 {
+    FAKE_NS.fetch_add(1_000, std::sync::atomic::Ordering::Relaxed)
+}
+
+// spec: 14 PF-7 (feed load time, cold or warm, cache hits and misses, bytes
+// decoded, synthetic ticks scheduled, visibility-build time)
+#[test]
+fn load_measurements() {
+    let req = FeedRequest {
+        binance_spot: Some(FeedOptions {
+            symbol: None,
+            tick_on_update: true,
+        }),
+        chainlink: Some(FeedOptions {
+            symbol: None,
+            tick_on_update: true,
+        }),
+        price_to_beat: false,
+    };
+    let j = Job::new(M1, req);
+    let refs: Vec<FeedFile<'_>> = j
+        .files
+        .iter()
+        .map(|e| FeedFile {
+            feed: e.feed,
+            symbol: &e.symbol,
+            day: e.day,
+            path: &e.path,
+            bytes: e.bytes,
+        })
+        .collect();
+    let cache = DayCache::new(1 << 30);
+    let input = MarketFeedsInput {
+        slug: M1,
+        profile: FeedProfile::TsCompat,
+        model: j.model,
+        request: &j.request,
+        feed_files: &refs,
+        gamma: j.gamma,
+        ptb_availability: None,
+        diag_clock: Some(fake_clock),
+    };
+    let cold = load_market_feeds(&input, &cache).unwrap();
+    let s = cold.stats;
+    assert_eq!((s.cache.misses, s.cache.hits), (2, 0), "cold");
+    assert!(s.cache.bytes_decoded > 0);
+    let sched = cold.feeds.schedule();
+    assert_eq!(
+        s.scheduled,
+        [
+            sched.scheduled(pmb_core::SyntheticKind::BinanceAggTrade),
+            sched.scheduled(pmb_core::SyntheticKind::ChainlinkRound)
+        ]
+    );
+    assert!(s.scheduled[0] > 0 && s.scheduled[1] > 0);
+    let (load, build) = (s.load_ns.unwrap(), s.visibility_build_ns.unwrap());
+    assert!(build > 0 && load > build, "{load} {build}");
+    let warm = load_market_feeds(&input, &cache).unwrap().stats;
+    assert_eq!((warm.cache.misses, warm.cache.hits), (0, 2), "warm");
+    assert_eq!(warm.cache.bytes_decoded, 0);
+    // Without a clock the durations stay unset; nothing else changes.
+    let plain = MarketFeedsInput {
+        diag_clock: None,
+        ..input
+    };
+    let p = load_market_feeds(&plain, &cache).unwrap().stats;
+    assert_eq!((p.load_ns, p.visibility_build_ns), (None, None));
+    assert_eq!(p.scheduled, s.scheduled);
+}
+
+// spec: 14 F-18 and the §10 row "Binance seed-only window | warning only |
+// file to verify": the fixture day holds no trade inside the 16:00 market's
+// range, so the market replays on the seed and the warning names the file
+#[test]
+fn seed_only_warning_names_the_file() {
+    let slug = "btc-updown-15m-1789574400"; // 2026-09-16 16:00 UTC
+    let l = Job::new(slug, binance()).load().unwrap();
+    let s = &l.feeds.binance().unwrap().series;
+    assert_eq!((s.len(), s.in_range()), (1, 0));
+    assert_eq!(l.diagnostics.len(), 1);
+    let d = &l.diagnostics[0];
+    assert_eq!(d.level, pmb_feeds::DiagLevel::Warning);
+    let path = binance_file(UtcDay::parse("2026-09-16").unwrap());
+    assert!(
+        d.message.ends_with(&format!(
+            "(verify with: npm run verify:parquet -- {})",
+            path.display()
+        )),
+        "{}",
+        d.message
+    );
 }

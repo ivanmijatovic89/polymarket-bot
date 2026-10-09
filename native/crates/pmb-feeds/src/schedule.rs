@@ -199,8 +199,14 @@ mod tests {
             0,
             FeedProfile::TsCompat,
         );
-        let c =
-            ChainlinkSeries::from_parts(vec![1, 2, 3], vec![90, 100, 200], vec![1.0; 3], false, 0);
+        let c = ChainlinkSeries::from_parts(
+            vec![1, 2, 3],
+            vec![90, 100, 200],
+            vec![1.0; 3],
+            false,
+            0,
+            crate::config::FeedProfile::TsCompat,
+        );
         let s = SyntheticSchedule::build(Some(&b), Some(&c), win(99, 200));
         let got: Vec<(i64, SyntheticKind)> = s.entries().iter().map(|e| (e.v.0, e.kind)).collect();
         use SyntheticKind::*;

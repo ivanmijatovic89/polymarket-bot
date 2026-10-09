@@ -268,11 +268,33 @@ impl BinanceSeries {
     }
 }
 
-/// A built series plus the seed-only warning of 14 F-18.
+/// A built series plus the seed-only finding of 14 F-18.
 #[derive(Debug)]
 pub struct BuiltBinance {
     pub series: BinanceSeries,
-    pub warning: Option<String>,
+    /// No trade inside the membership range: only the pre-range seed
+    /// (14 F-18). Not an error; the loader raises [`seed_only_warning`].
+    pub seed_only: bool,
+}
+
+/// The F-18 seed-only warning (14 §10 row "Binance seed-only window": the
+/// message names the file to verify, the last covered day file, as TS does
+/// at `binanceAggTradesSource.ts:120-132`).
+pub fn seed_only_warning(
+    pair: &str,
+    window: Window,
+    series: &BinanceSeries,
+    verify: &Path,
+) -> String {
+    format!(
+        "no {pair} trades inside [{}, {}]: the whole market replays on the single pre-window \
+         price from {}. Quiet gap, or truncated day file? (verify with: npm run verify:parquet -- \
+         {})",
+        iso_ms(window.start_ms.0 - LOOKBACK_MS),
+        iso_ms(window.end_ms.0),
+        iso_ms(series.ts(0)),
+        verify.display()
+    )
 }
 
 /// Builds the market series from the covered days in date order (14 F-12 to
@@ -330,13 +352,9 @@ pub fn build_binance_series_with_lookback(
         series = Some(filtered_copy(pair, days, from, to, latency_ms)?);
     }
     let mut series = series.expect("series built above");
-    let dates = || {
+    if series.is_empty() {
         let first = days.first().map(|d| d.day.to_string()).unwrap_or_default();
         let last = days.last().map(|d| d.day.to_string()).unwrap_or_default();
-        (first, last)
-    };
-    if series.is_empty() {
-        let (first, last) = dates();
         let list: Vec<String> = days.iter().map(|d| d.day.to_string()).collect();
         return Err(FeedError::new(
             FeedCause::Corrupt,
@@ -350,19 +368,9 @@ pub fn build_binance_series_with_lookback(
             ),
         ));
     }
-    let warning = (series.in_range() == 0).then(|| {
-        let (_, last) = dates();
-        format!(
-            "no {pair} trades inside [{}, {}]: the whole market replays on the single pre-window \
-             price from {}. Quiet gap, or truncated day file? (verify {pair} day {last} with: npm \
-             run verify:parquet)",
-            iso_ms(from),
-            iso_ms(window.end_ms.0),
-            iso_ms(series.ts(0))
-        )
-    });
     series.apply_delivery(profile);
-    Ok(BuiltBinance { series, warning })
+    let seed_only = series.in_range() == 0;
+    Ok(BuiltBinance { series, seed_only })
 }
 
 /// F-13/F-14 by scanning: used for multi-day sets and days whose `ts_ms` is
@@ -484,7 +492,7 @@ mod tests {
         )
         .unwrap();
         let s = &b.series;
-        assert!(s.is_zero_copy() && s.seeded() && b.warning.is_none());
+        assert!(s.is_zero_copy() && s.seeded() && !b.seed_only);
         assert_eq!(
             elems(s),
             vec![(from - 1, 2.0), (from, 3.0), (from, 4.0), (end + 2000, 5.0)]
@@ -557,7 +565,18 @@ mod tests {
         )
         .unwrap();
         assert_eq!(b.series.len(), 1);
-        assert!(b.warning.unwrap().contains("single pre-window price"));
+        assert!(b.seed_only);
+        let w = seed_only_warning(
+            "BTCUSDT",
+            win(t0, 900_000),
+            &b.series,
+            Path::new("/data/BTCUSDT-aggTrades-2026-09-16.parquet"),
+        );
+        assert!(w.contains("single pre-window price"), "{w}");
+        assert!(
+            w.contains("npm run verify:parquet -- /data/BTCUSDT-aggTrades-2026-09-16.parquet"),
+            "{w}"
+        );
         let empty = day(DAY, &[]);
         let e = build_binance_series(
             "BTCUSDT",

@@ -46,7 +46,8 @@ fn main() {
     let bs = build_binance_series("BTCUSDT", &[bd], window, 110, FeedProfile::TsCompat)
         .expect("series")
         .series;
-    let cs = build_chainlink_series("btcusd", &[cd], window, 320, 300_000).expect("series");
+    let cs = build_chainlink_series("btcusd", &[cd], window, 320, 300_000, FeedProfile::TsCompat)
+        .expect("series");
     println!(
         "series: binance {} (zero-copy {}) chainlink {} in {:.3} ms",
         bs.len(),

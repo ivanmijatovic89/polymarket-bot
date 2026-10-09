@@ -3,7 +3,7 @@
 //! clock or path derivation (14 F-3). The result is immutable and shared by
 //! every candidate of the market read (14 F-42, 16 §6).
 
-use crate::binance::{build_binance_series, BinanceDay, BinanceSeries};
+use crate::binance::{build_binance_series, seed_only_warning, BinanceDay, BinanceSeries};
 use crate::cache::{CacheStats, DayCache};
 use crate::chainlink::{build_chainlink_series, ChainlinkDay, ChainlinkSeries};
 use crate::config::{FeedProfile, FeedsModel, CHAINLINK_COVERAGE_FROM_MS, LOOKBACK_MS};
@@ -15,7 +15,7 @@ use crate::price_to_beat::{
 use crate::request::{resolve_binance_symbol, resolve_chainlink_symbol, FeedRequest};
 use crate::schedule::SyntheticSchedule;
 use crate::time::{days_covering, iso_ms, UtcDay};
-use pmb_core::{parse_slug, SlugError, Window};
+use pmb_core::{parse_slug, SlugError, SyntheticKind, Window};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -160,6 +160,11 @@ pub struct MarketFeedsInput<'a> {
     pub gamma: GammaStrike,
     /// `market.feedAvailability.priceToBeat`.
     pub ptb_availability: Option<PtbAvailability<'a>>,
+    /// Monotonic nanosecond clock of the driver, used only to time the load
+    /// for the PF-7 diagnostics (14 PF-7). It never feeds a decision, so the
+    /// deterministic core reads no clock (00 R7); `None` leaves the
+    /// durations unset.
+    pub diag_clock: Option<fn() -> u64>,
 }
 
 /// Diagnostic severity.
@@ -176,13 +181,33 @@ pub struct FeedDiagnostic {
     pub message: String,
 }
 
-/// Load measurements (14 PF-7).
+/// Per-market load measurements for diagnostics (14 PF-7). A load is cold
+/// when `cache.misses > 0`. Synthetic ticks dispatched per session come from
+/// [`crate::SyntheticFlusher::dispatched`]; plugin time is measured by the
+/// plugin host. None of these values affects a result (00 R7).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct FeedLoadStats {
+    /// Day-cache hits and misses and bytes decoded (PF-1).
     pub cache: CacheStats,
     pub binance_elements: u32,
     pub chainlink_elements: u32,
     pub binance_zero_copy: bool,
+    /// Synthetic ticks scheduled, indexed by `SyntheticKind::index` (§8.4).
+    pub scheduled: [u32; 2],
+    /// Whole load, in ns of [`MarketFeedsInput::diag_clock`].
+    pub load_ns: Option<u64>,
+    /// Series, visibility and schedule build, in ns of the same clock.
+    pub visibility_build_ns: Option<u64>,
+}
+
+/// Runs `f`, adding its duration on `clock` to `acc` (PF-7 diagnostics).
+fn timed<T>(clock: Option<fn() -> u64>, acc: &mut Option<u64>, f: impl FnOnce() -> T) -> T {
+    let Some(clock) = clock else { return f() };
+    let t0 = clock();
+    let out = f();
+    let dt = clock().saturating_sub(t0);
+    *acc = Some(acc.unwrap_or(0) + dt);
+    out
 }
 
 /// Feeds plus what the loader observed.
@@ -282,7 +307,15 @@ pub fn load_market_feeds(
     input: &MarketFeedsInput<'_>,
     cache: &DayCache,
 ) -> Result<LoadedFeeds, FeedError> {
+    let mut load_ns = None;
+    let mut loaded = timed(input.diag_clock, &mut load_ns, || load_inner(input, cache))?;
+    loaded.stats.load_ns = load_ns;
+    Ok(loaded)
+}
+
+fn load_inner(input: &MarketFeedsInput<'_>, cache: &DayCache) -> Result<LoadedFeeds, FeedError> {
     let req = input.request;
+    let clock = input.diag_clock;
     let mut stats = FeedLoadStats::default();
     let mut diagnostics = Vec::new();
     let slug = input.slug;
@@ -361,17 +394,20 @@ pub fn load_market_feeds(
             .iter()
             .map(|f| cache.binance_day(pair, f.day, f.path, f.bytes, &mut stats.cache))
             .collect::<Result<_, _>>()?;
-        let built = build_binance_series(
-            pair,
-            &loaded,
-            window,
-            input.model.binance.constant_ms(),
-            input.profile,
-        )?;
-        if let Some(w) = built.warning {
+        let built = timed(clock, &mut stats.visibility_build_ns, || {
+            build_binance_series(
+                pair,
+                &loaded,
+                window,
+                input.model.binance.constant_ms(),
+                input.profile,
+            )
+        })?;
+        if built.seed_only {
+            let last = files.last().expect("the day set is never empty (F-12)");
             diagnostics.push(FeedDiagnostic {
                 level: DiagLevel::Warning,
-                message: w,
+                message: seed_only_warning(pair, window, &built.series, last.path),
             });
         }
         stats.binance_elements = built.series.len() as u32;
@@ -419,13 +455,29 @@ pub fn load_market_feeds(
             .iter()
             .map(|f| cache.chainlink_day(asset, f.day, f.path, f.bytes, &mut stats.cache))
             .collect::<Result<_, _>>()?;
-        let series = build_chainlink_series(
-            asset,
-            &loaded,
-            window,
-            input.model.chainlink.constant_ms(),
-            input.model.chainlink_max_gap_ms,
-        )?;
+        for (f, d) in files.iter().zip(&loaded) {
+            if d.null_rounds() > 0 {
+                diagnostics.push(FeedDiagnostic {
+                    level: DiagLevel::Warning,
+                    message: format!(
+                        "{} row(s) with NULL timestamp_us skipped in {} for {asset}: they can be \
+                         neither series member nor seed (14 F-21, F-22); check the day file",
+                        d.null_rounds(),
+                        f.path.display()
+                    ),
+                });
+            }
+        }
+        let series = timed(clock, &mut stats.visibility_build_ns, || {
+            build_chainlink_series(
+                asset,
+                &loaded,
+                window,
+                input.model.chainlink.constant_ms(),
+                input.model.chainlink_max_gap_ms,
+                input.profile,
+            )
+        })?;
         stats.chainlink_elements = series.len() as u32;
         chainlink = Some(ChainlinkFeed {
             symbol,
@@ -464,14 +516,58 @@ pub fn load_market_feeds(
         }
     }
 
+    let feeds = timed(clock, &mut stats.visibility_build_ns, || {
+        MarketFeeds::from_parts(window, binance, chainlink, price_to_beat)
+    });
+    for kind in [
+        SyntheticKind::BinanceAggTrade,
+        SyntheticKind::ChainlinkRound,
+    ] {
+        stats.scheduled[kind.index()] = feeds.schedule().scheduled(kind);
+    }
     Ok(LoadedFeeds {
-        feeds: Arc::new(MarketFeeds::from_parts(
-            window,
-            binance,
-            chainlink,
-            price_to_beat,
-        )),
+        feeds: Arc::new(feeds),
         diagnostics,
         stats,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pmb_core::TsMs;
+
+    fn win(start: i64) -> Window {
+        Window {
+            start_ms: TsMs(start),
+            end_ms: TsMs(start + 900_000),
+        }
+    }
+
+    fn days(feed: FeedDataset, start: i64) -> Vec<String> {
+        required_days(feed, win(start))
+            .iter()
+            .map(UtcDay::to_string)
+            .collect()
+    }
+
+    // spec: 14 F-12 (Binance day set incl. the lookback day), F-19 / F-20
+    // (Chainlink day set clamped to the coverage floor; none before it)
+    #[test]
+    fn required_days_at_the_coverage_floor() {
+        let floor = CHAINLINK_COVERAGE_FROM_MS; // 2026-04-02T00:00Z
+        let cl = FeedDataset::ChainlinkCryptoPrices;
+        let bn = FeedDataset::BinanceAggTrades;
+        assert_eq!(days(bn, floor), ["2026-04-01", "2026-04-02"]);
+        assert_eq!(days(cl, floor), ["2026-04-02"]);
+        // 00:00-00:05 starts: the lookback reaches before the floor.
+        assert_eq!(days(cl, floor + 300_000), ["2026-04-02"]);
+        assert_eq!(days(cl, floor + 299_999), ["2026-04-02"]);
+        assert!(days(cl, floor - 900_000).is_empty(), "pre-coverage");
+        // A midnight market after the floor needs both days.
+        let d = floor + 86_400_000; // 2026-04-03T00:00Z
+        assert_eq!(days(cl, d), ["2026-04-02", "2026-04-03"]);
+        // A window ending at midnight does not need the next day.
+        assert_eq!(days(cl, d - 900_000), ["2026-04-02"]);
+    }
 }

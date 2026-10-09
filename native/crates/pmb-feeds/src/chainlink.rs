@@ -6,7 +6,7 @@
 //! keeps the round time (14 F-21 to F-24). The series is a small filtered
 //! copy (about 1.5 k rows for a 15m market, 14 PF-2).
 
-use crate::config::{CHAINLINK_TAIL_MS, LOOKBACK_MS};
+use crate::config::{FeedProfile, CHAINLINK_TAIL_MS, LOOKBACK_MS};
 use crate::error::{FeedCause, FeedError};
 use crate::pq::{self, Column};
 use crate::time::{iso_ms, UtcDay};
@@ -22,8 +22,13 @@ const BAD_PRICE: u8 = 2;
 const BAD_ASSET: u8 = 4;
 
 /// One decoded `crypto_prices` day of one asset, in file order. Rows without
-/// a round time are dropped (they can be neither member nor seed, F-21).
-/// Row defects are flagged and raised only for rows a series uses (F-25).
+/// a round time are dropped, as TS SQL drops them (they can be neither member
+/// nor seed, F-21, F-22), and counted: the loader reports the count as a
+/// warning diagnostic (00 R14). Row defects are flagged and raised only for
+/// rows a series uses (F-25).
+// D-PENDING: NULL timestamp_us (Binance fails NULL ts_ms as corrupt); chose
+// skip with a warning diagnostic, because such a row cannot affect the series
+// in TS or Rust.
 // D-PENDING: F-25 "every row including the seed" read as every row of the
 // market series (members and seed), not every row of the day file; a bad row
 // outside the series does not fail the market.
@@ -36,6 +41,7 @@ pub struct ChainlinkDay {
     /// NaN where unparseable (flagged).
     price: Box<[f64]>,
     flags: Box<[u8]>,
+    null_rounds: u32,
 }
 
 /// Column builder shared by the decoder and [`ChainlinkDay::from_rows`].
@@ -45,6 +51,7 @@ struct Builder {
     broadcast: Vec<i64>,
     price: Vec<f64>,
     flags: Vec<u8>,
+    null_rounds: u32,
 }
 
 impl Builder {
@@ -77,6 +84,7 @@ impl Builder {
             broadcast_us: self.broadcast.into(),
             price: self.price.into(),
             flags: self.flags.into(),
+            null_rounds: self.null_rounds,
         }
     }
 }
@@ -134,7 +142,10 @@ impl ChainlinkDay {
                 .read::<ByteArrayType>(rg.as_ref(), c_asset, n)
                 .map_err(decode_err)?;
             for r in 0..n {
-                let Some(&t) = round.get(r) else { continue };
+                let Some(&t) = round.get(r) else {
+                    out.null_rounds += 1;
+                    continue;
+                };
                 let price = px.get(r).and_then(|b| std::str::from_utf8(b.data()).ok());
                 let asset_ok = asset
                     .get(r)
@@ -151,13 +162,18 @@ impl ChainlinkDay {
     pub fn is_empty(&self) -> bool {
         self.round_us.is_empty()
     }
+    /// Rows skipped for a NULL `timestamp_us`.
+    pub fn null_rounds(&self) -> u32 {
+        self.null_rounds
+    }
     /// Decoded size in bytes (cache accounting, 14 PF-1).
     pub fn bytes(&self) -> usize {
         self.len() * 25
     }
 }
 
-/// A market's Chainlink series, ordered by `(broadcast, round)`; times in ms.
+/// A market's Chainlink series: the seed first when present, then the
+/// members ordered by `(broadcast, round)`; times in ms.
 #[derive(Clone, Debug, Default)]
 pub struct ChainlinkSeries {
     round: Box<[i64]>,
@@ -165,6 +181,9 @@ pub struct ChainlinkSeries {
     price: Box<[f64]>,
     seeded: bool,
     latency_ms: i64,
+    /// Explicit visibility, only when the realistic monotone clamp changes
+    /// it (14 F-52, PF-8).
+    vis: Option<Box<[i64]>>,
 }
 
 impl ChainlinkSeries {
@@ -175,15 +194,41 @@ impl ChainlinkSeries {
         price: Vec<f64>,
         seeded: bool,
         latency_ms: i64,
+        profile: FeedProfile,
     ) -> ChainlinkSeries {
         assert!(round_ms.len() == broadcast_ms.len() && round_ms.len() == price.len());
-        ChainlinkSeries {
+        let mut s = ChainlinkSeries {
             round: round_ms.into(),
             broadcast: broadcast_ms.into(),
             price: price.into(),
             seeded,
             latency_ms,
+            vis: None,
+        };
+        s.apply_delivery(profile);
+        s
+    }
+
+    /// Realistic monotone delivery (14 F-52): `vis_i = max(vis_{i-1}, T_i +
+    /// L)` with `T` the broadcast time, in series order. The members are in
+    /// broadcast order, but the seed (the latest-broadcast row with a round
+    /// before the range, F-22) can carry a later broadcast than the first
+    /// members, so the clamp is not the identity on a seeded series. The
+    /// vector is built only when it differs from `T + L`.
+    fn apply_delivery(&mut self, profile: FeedProfile) {
+        if profile != FeedProfile::Realistic || self.broadcast.windows(2).all(|w| w[0] <= w[1]) {
+            return;
         }
+        let mut prev = i64::MIN;
+        self.vis = Some(
+            self.broadcast
+                .iter()
+                .map(|&t| {
+                    prev = prev.max(t + self.latency_ms);
+                    prev
+                })
+                .collect(),
+        );
     }
 
     #[inline]
@@ -208,12 +253,14 @@ impl ChainlinkSeries {
     pub fn price(&self, i: usize) -> f64 {
         self.price[i]
     }
-    /// Visibility `broadcast + L_c` (F-23). Broadcast order makes it
-    /// non-decreasing, so the realistic monotone clamp (F-52) is the
-    /// identity here.
+    /// Visibility of element `i`: `broadcast + L_c` (F-23), clamped in
+    /// series order in realistic (F-52).
     #[inline]
     pub fn vis(&self, i: usize) -> i64 {
-        self.broadcast[i] + self.latency_ms
+        match &self.vis {
+            Some(v) => v[i],
+            None => self.broadcast[i] + self.latency_ms,
+        }
     }
     #[inline]
     pub fn seeded(&self) -> bool {
@@ -230,6 +277,7 @@ pub fn build_chainlink_series(
     window: Window,
     latency_ms: i64,
     max_gap_ms: i64,
+    profile: FeedProfile,
 ) -> Result<ChainlinkSeries, FeedError> {
     build_chainlink_series_with_lookback(
         asset_id,
@@ -237,6 +285,7 @@ pub fn build_chainlink_series(
         window,
         latency_ms,
         max_gap_ms,
+        profile,
         LOOKBACK_MS,
     )
 }
@@ -251,6 +300,7 @@ pub fn build_chainlink_series_with_lookback(
     window: Window,
     latency_ms: i64,
     max_gap_ms: i64,
+    profile: FeedProfile,
     lookback_ms: i64,
 ) -> Result<ChainlinkSeries, FeedError> {
     let from_us = (window.start_ms.0 - lookback_ms) * 1000;
@@ -309,13 +359,15 @@ pub fn build_chainlink_series_with_lookback(
         broadcast.push(bc.div_euclid(1000));
         price.push(days[di].price[i]);
     }
-    let s = ChainlinkSeries {
+    let mut s = ChainlinkSeries {
         round: round.into(),
         broadcast: broadcast.into(),
         price: price.into(),
         seeded,
         latency_ms,
+        vis: None,
     };
+    s.apply_delivery(profile);
     if s.is_empty() {
         let list: Vec<String> = days.iter().map(|d| d.day.to_string()).collect();
         let first = list.first().cloned().unwrap_or_default();
@@ -397,6 +449,7 @@ mod tests {
     use pmb_core::TsMs;
 
     const DAY: i64 = 1_789_516_800_000; // 2026-09-16
+    const TC: FeedProfile = FeedProfile::TsCompat;
 
     fn win(start: i64) -> Window {
         Window {
@@ -430,7 +483,7 @@ mod tests {
             (from_us + 1_000_000, Some(from_us + 1_500_000), "5"),
             (t0 * 1000 + 300_000_000, Some(t0 * 1000 + 300_900_000), "6"),
         ]);
-        let s = build_chainlink_series("btcusd", &[d], win(t0), 320, 0).unwrap();
+        let s = build_chainlink_series("btcusd", &[d], win(t0), 320, 0, TC).unwrap();
         assert!(s.seeded());
         let got: Vec<(i64, i64, f64)> = (0..s.len())
             .map(|i| (s.round(i), s.broadcast(i), s.price(i)))
@@ -471,44 +524,170 @@ mod tests {
             worst_gap(&[t0 - 1000, t0 + 300_000], win(t0)),
             (600_000, t0 + 300_000)
         );
-        let e = build_chainlink_series("btcusd", std::slice::from_ref(&d), win(t0), 0, 300_000)
+        let e = build_chainlink_series("btcusd", std::slice::from_ref(&d), win(t0), 0, 300_000, TC)
             .unwrap_err();
         assert_eq!(e.cause, FeedCause::UpstreamHole);
+        // 14 §10: the message names the hole start and length and the
+        // `maxGapMs: 0` option.
         assert!(e.message.contains("maxGapMs 0") && e.message.contains("300000 ms"));
         assert!(
-            build_chainlink_series("btcusd", std::slice::from_ref(&d), win(t0), 0, 300_001).is_ok()
+            e.message.contains(&format!("from {} for", iso_ms(t0))),
+            "{}",
+            e.message
         );
-        assert!(build_chainlink_series("btcusd", std::slice::from_ref(&d), win(t0), 0, 0).is_ok());
+        assert!(build_chainlink_series(
+            "btcusd",
+            std::slice::from_ref(&d),
+            win(t0),
+            0,
+            300_001,
+            TC
+        )
+        .is_ok());
+        assert!(
+            build_chainlink_series("btcusd", std::slice::from_ref(&d), win(t0), 0, 0, TC).is_ok()
+        );
         // No round before the window: the span runs from start.
         assert_eq!(worst_gap(&[t0 + 10], win(t0)), (899_990, t0 + 10));
         assert_eq!(worst_gap(&[], win(t0)), (900_000, t0));
 
         let empty = day(&[]);
-        let e = build_chainlink_series("btcusd", &[empty], win(t0), 0, 0).unwrap_err();
+        let e = build_chainlink_series("btcusd", &[empty], win(t0), 0, 0, TC).unwrap_err();
         assert_eq!(e.cause, FeedCause::Corrupt);
+        // 14 §10: no rounds names the dates and the --force re-download.
+        assert!(e.message.contains("2026-09-16") && e.message.contains("--force"));
         let null_bc = day(&[(us(t0), None, "1")]);
-        let e = build_chainlink_series("btcusd", &[null_bc], win(t0), 0, 0).unwrap_err();
+        let e = build_chainlink_series("btcusd", &[null_bc], win(t0), 0, 0, TC).unwrap_err();
         assert!(e.message.contains("server_timestamp_us"));
+        // 14 §10: a corrupt row names the asset and the round ts.
+        assert!(e.message.contains("btcusd") && e.message.contains(&format!("round ts={t0}")));
         let bad_px = day(&[(us(t0), Some(us(t0)), "abc")]);
-        assert!(build_chainlink_series("btcusd", &[bad_px], win(t0), 0, 0)
-            .unwrap_err()
-            .message
-            .contains("price"));
+        assert!(
+            build_chainlink_series("btcusd", &[bad_px], win(t0), 0, 0, TC)
+                .unwrap_err()
+                .message
+                .contains("price")
+        );
         let foreign = Arc::new(ChainlinkDay::from_rows(
             UtcDay::of_ms(DAY),
             "btcusd",
             [(us(t0), Some(us(t0)), Some("1"), Some("ethusd"))],
         ));
-        assert!(build_chainlink_series("btcusd", &[foreign], win(t0), 0, 0)
-            .unwrap_err()
-            .message
-            .contains("asset_id"));
+        assert!(
+            build_chainlink_series("btcusd", &[foreign], win(t0), 0, 0, TC)
+                .unwrap_err()
+                .message
+                .contains("asset_id")
+        );
         // A defective row outside the series is not raised (F-25 covers the series).
         let far = day(&[
             (us(DAY + 10), None, "1"),
             (us(DAY + 20), Some(us(DAY + 21)), "1"),
             (us(t0), Some(us(t0)), "2"),
         ]);
-        assert!(build_chainlink_series("btcusd", &[far], win(t0), 0, 0).is_ok());
+        assert!(build_chainlink_series("btcusd", &[far], win(t0), 0, 0, TC).is_ok());
+    }
+
+    // spec: 14 F-52, V-10 (b): in realistic the seed can carry a later
+    // broadcast than the first members (membership by round, order by
+    // broadcast), so visibility is clamped in series order; ts-compat keeps
+    // the unclamped `broadcast + L_c`; schedule order equals series order
+    #[test]
+    fn realistic_clamp_with_a_late_seed() {
+        let t0 = DAY + 3_600_000;
+        let us = |ms: i64| ms * 1000;
+        // Lookback 0: the range starts at t0, so members are in the window.
+        let d = day(&[
+            (us(t0 - 5_000), Some(us(t0 + 900)), "1"), // seed
+            (us(t0), Some(us(t0 + 500)), "2"),
+            (us(t0 + 100), Some(us(t0 + 1_500)), "3"),
+        ]);
+        let build = |profile| {
+            build_chainlink_series_with_lookback(
+                "btcusd",
+                std::slice::from_ref(&d),
+                win(t0),
+                320,
+                0,
+                profile,
+                0,
+            )
+            .unwrap()
+        };
+        let vis = |s: &ChainlinkSeries| (0..s.len()).map(|i| s.vis(i)).collect::<Vec<_>>();
+        let tc = build(TC);
+        assert!(tc.seeded());
+        assert_eq!(vis(&tc), vec![t0 + 1_220, t0 + 820, t0 + 1_820]);
+        let r = build(FeedProfile::Realistic);
+        assert_eq!(vis(&r), vec![t0 + 1_220, t0 + 1_220, t0 + 1_820]);
+        let sched = crate::schedule::SyntheticSchedule::build(None, Some(&r), win(t0));
+        let v: Vec<i64> = sched.entries().iter().map(|e| e.v.0).collect();
+        assert_eq!(v, vis(&r), "schedule order equals series order");
+        // Without the late seed the clamp is the identity and no vector is built.
+        let r = ChainlinkSeries::from_parts(
+            vec![1, 2],
+            vec![10, 20],
+            vec![1.0, 2.0],
+            false,
+            5,
+            FeedProfile::Realistic,
+        );
+        assert!(r.vis.is_none() && r.vis(1) == 25);
+    }
+
+    // spec: 14 F-20 (multi-day set), F-21 (order by broadcast across files),
+    // F-22 (seed from the covered files)
+    #[test]
+    fn two_days_across_midnight() {
+        let us = |ms: i64| ms * 1000;
+        let t0 = DAY; // 2026-09-16T00:00Z: the lookback lies in 2026-09-15
+        let from = t0 - LOOKBACK_MS;
+        let prev = Arc::new(ChainlinkDay::from_rows(
+            UtcDay::of_ms(DAY - 86_400_000),
+            "btcusd",
+            [
+                (
+                    us(from - 3_000),
+                    Some(us(from - 2_000)),
+                    Some("1"),
+                    Some("btcusd"),
+                ),
+                (us(from - 1_000), Some(us(from)), Some("2"), Some("btcusd")), // seed
+                (
+                    us(from + 10),
+                    Some(us(from + 1_000)),
+                    Some("3"),
+                    Some("btcusd"),
+                ),
+                (
+                    us(t0 - 500),
+                    Some(us(t0 + 1_500)),
+                    Some("4"),
+                    Some("btcusd"),
+                ),
+            ],
+        ));
+        let cur = Arc::new(ChainlinkDay::from_rows(
+            UtcDay::of_ms(DAY),
+            "btcusd",
+            [
+                (
+                    us(t0 + 100),
+                    Some(us(t0 + 1_200)),
+                    Some("5"),
+                    Some("btcusd"),
+                ),
+                (
+                    us(t0 + 1_000),
+                    Some(us(t0 + 2_000)),
+                    Some("6"),
+                    Some("btcusd"),
+                ),
+            ],
+        ));
+        let s = build_chainlink_series("btcusd", &[prev, cur], win(t0), 0, 0, TC).unwrap();
+        let prices: Vec<f64> = (0..s.len()).map(|i| s.price(i)).collect();
+        assert!(s.seeded());
+        assert_eq!(prices, vec![2.0, 3.0, 5.0, 4.0, 6.0]);
     }
 }

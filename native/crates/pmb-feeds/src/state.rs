@@ -123,6 +123,7 @@ mod tests {
             vec![10.0, 11.0, 12.0],
             true,
             5,
+            FeedProfile::TsCompat,
         );
         let p = PriceToBeatSource {
             point: PriceToBeatPoint {
