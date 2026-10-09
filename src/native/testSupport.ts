@@ -4,7 +4,7 @@
  * `MarketJobData` of a BTC 15m market inside Chainlink coverage, and the
  * committed ts-compat default ModelConfig (D57).
  */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -159,4 +159,47 @@ export function echoingResult(
     })
   }
   return r
+}
+
+export interface FakeConfig {
+  describe?: unknown
+  describeExit?: number
+  result?: unknown
+  runExit?: number
+  stderr?: string
+  record?: string
+  selfKill?: boolean
+  bigMiB?: number
+}
+
+/** A scripted executable standing in for a native artifact. */
+export function fakeBin(cfg: FakeConfig): string {
+  const dir = scratchDir('bin')
+  const file = path.join(dir, 'fake-native')
+  writeFileSync(
+    file,
+    `#!${process.execPath}
+const fs = require('fs')
+const cfg = ${JSON.stringify(cfg)}
+const args = process.argv.slice(2)
+if (cfg.record) fs.writeFileSync(cfg.record, JSON.stringify({ args, env: process.env, cwd: process.cwd(), job: args[0] === 'run' ? JSON.parse(fs.readFileSync(args[2], 'utf8')) : null }))
+if (cfg.stderr) process.stderr.write(cfg.stderr)
+if (args[0] === 'describe') {
+  process.stdout.write(JSON.stringify(cfg.describe))
+  process.exitCode = cfg.describeExit || 0
+} else if (args[0] === 'run') {
+  if (cfg.selfKill) process.kill(process.pid, 'SIGKILL')
+  if (cfg.bigMiB) { const chunk = 'x'.repeat(1 << 20); for (let i = 0; i < cfg.bigMiB; i++) process.stdout.write(chunk) }
+  const t = args.indexOf('--trace')
+  if (t > 0) fs.writeFileSync(args[t + 1], 'trace')
+  if (cfg.result !== undefined) process.stdout.write(typeof cfg.result === 'string' ? cfg.result : JSON.stringify(cfg.result))
+  process.exitCode = cfg.runExit || 0
+} else {
+  process.stderr.write('unknown subcommand\\n')
+  process.exitCode = 2
+}
+`,
+  )
+  chmodSync(file, 0o755)
+  return file
 }

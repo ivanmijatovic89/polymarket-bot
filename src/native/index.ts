@@ -32,6 +32,12 @@ export {
   type RetryAction,
 } from './errors.js'
 export {
+  NATIVE_CHILD_ID_BASE,
+  executeNativeMarketJob,
+  type ExecuteNativeMarketOptions,
+  type HostStamps,
+} from './execute.js'
+export {
   FEED_ENGINE_CONSTANTS,
   feedDayFiles,
   resolvePriceToBeatAvailability,
@@ -48,7 +54,7 @@ export {
   type ResolveModelConfigArgs,
   type ResolvedModelConfig,
 } from './modelConfig.js'
-export { toNativeMarketJob, type NativeJobExtras } from './nativeJob.js'
+export { emptyRulesRecord, toNativeMarketJob, type NativeJobExtras } from './nativeJob.js'
 export {
   mapEngineResult,
   shortCircuitOutput,
