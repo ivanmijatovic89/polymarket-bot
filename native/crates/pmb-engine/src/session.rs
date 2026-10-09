@@ -159,6 +159,8 @@ pub struct Session<S: Strategy, E: Execution, T: TraceSink> {
     pub(crate) calls_stopped: bool,
     /// Paper strategy faults (12 §11, D32).
     pub(crate) strategy_halts: Vec<SessionFault>,
+    /// Feed high-water `H` (14 F-7).
+    pub(crate) feed_hw: Option<TsMs>,
 }
 
 /// Runs strategy code inside `catch_unwind` (12 §11, 30 §12); the panic
@@ -284,6 +286,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             fault: None,
             calls_stopped: false,
             strategy_halts: Vec::new(),
+            feed_hw: None,
         })
     }
 
@@ -535,7 +538,8 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let stale = rules == CoreRules::Realistic && market.last_apply.stale_book;
         let dispatch = cause.is_some() && !stale && self.passes_gate(tick_ts);
         if let (true, Some(c)) = (dispatch, cause) {
-            self.begin_tick(c, false, env.exchange_ts, tick_ts);
+            let vts = self.feed_clock_of(env, false, tick_ts);
+            self.begin_tick(c, false, env.exchange_ts, tick_ts, vts);
         }
         match rules {
             CoreRules::TsCompat => {
@@ -596,17 +600,47 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         if !self.passes_gate(tick_ts) {
             return Ok(());
         }
-        self.begin_tick(cause, true, env.exchange_ts, tick_ts);
+        let vts = self.feed_clock_of(env, true, tick_ts);
+        self.begin_tick(cause, true, env.exchange_ts, tick_ts, vts);
         self.run_strategy_tick(market)
     }
 
-    /// `begin_tick` (12 §5.3): tick seq, event clock, `TickStart`.
+    /// The feed clock `C(t)` of a dispatched tick (12 §4.1 column "Feed
+    /// clock", K5; 14 §3.1): ts-compat telonex-delta real tick `max(L, E)`
+    /// with the Telonex local time `L > 0`, else `E`; ts-compat synthetic
+    /// tick its stamp `S`; ts-compat recorder-v4 the receipt order (`at`);
+    /// realistic `now`.
+    fn feed_clock_of(&self, env: &Envelope<'_>, synthetic: bool, tick_ts: TsMs) -> TsMs {
+        match self.config.core_rules {
+            CoreRules::Realistic => self.clocks.now,
+            CoreRules::TsCompat if synthetic => tick_ts,
+            CoreRules::TsCompat => match self.config.input_mode {
+                pmb_contract::vocab::InputMode::TelonexDelta => match env.recv_wall {
+                    Some(l) if l.0 > 0 => l.max(tick_ts),
+                    _ => tick_ts,
+                },
+                _ => env.at,
+            },
+        }
+    }
+
+    /// The feed high-water `H` (14 F-7): the max of the feed clocks of every
+    /// dispatched tick so far; `None` before the first. Feed state seen by a
+    /// tick is evaluated at `H` (the pmb-feeds view reads it).
+    pub fn feed_clock(&self) -> Option<TsMs> {
+        self.feed_hw
+    }
+
+    /// `begin_tick` (12 §5.3): tick seq, event clock, feed high-water
+    /// (14 F-7: advanced on every dispatched tick, whether or not the
+    /// strategy reads feeds), `TickStart` with the visibility time `H`.
     fn begin_tick(
         &mut self,
         cause: TickCause,
         synthetic: bool,
         exchange_ts: Option<TsMs>,
         tick_ts: TsMs,
+        feed_clock: TsMs,
     ) {
         let seq = self.next_tick_seq;
         self.next_tick_seq += 1;
@@ -619,15 +653,15 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         });
         self.clocks.tick_ts = tick_ts;
         self.clocks.event_clock.init_if_unset(tick_ts);
+        let hw = self.feed_hw.map_or(feed_clock, |h| h.max(feed_clock));
+        self.feed_hw = Some(hw);
         if T::ENABLED {
-            // D-PENDING: the visibility time is the feed clock (14 F-7),
-            // owned by pmb-feeds; chose `tick.ts` until the integration.
             self.trace.record(&TraceEvent::TickStart {
                 seq,
                 cause,
                 decision_ts: tick_ts,
                 exchange_ts,
-                visibility_ts: tick_ts,
+                visibility_ts: hw,
             });
         }
     }

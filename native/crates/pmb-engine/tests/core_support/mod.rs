@@ -677,6 +677,8 @@ impl Strategy for ScriptStrategy {
 pub struct Rec {
     pub events: Vec<AccountEvent>,
     pub lines: Vec<String>,
+    /// `TickStart.visibility_ts` per dispatched tick, relative to `START`.
+    pub vts: Vec<i64>,
 }
 
 impl TraceSink for Rec {
@@ -689,12 +691,16 @@ impl TraceSink for Rec {
                 seq,
                 cause,
                 decision_ts,
+                visibility_ts,
                 ..
-            } => self.lines.push(format!(
-                "tick_start {seq} {} {}",
-                cause.as_str(),
-                decision_ts.0 - START
-            )),
+            } => {
+                self.vts.push(visibility_ts.0 - START);
+                self.lines.push(format!(
+                    "tick_start {seq} {} {}",
+                    cause.as_str(),
+                    decision_ts.0 - START
+                ))
+            }
             TraceEvent::FeedView { seq, .. } => self.lines.push(format!("feed_view {seq}")),
             TraceEvent::Decision {
                 seq,

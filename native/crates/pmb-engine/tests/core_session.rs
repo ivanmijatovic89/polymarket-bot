@@ -848,3 +848,53 @@ fn realistic_open_order_limit_counts_a_fully_filled_record_until_its_terminal() 
     assert!(h.ledger().order(k).fully_filled());
     assert_eq!(h.rejections(), vec!["risk_max_open_orders(max=1)"]);
 }
+
+#[test]
+fn tick_start_visibility_time_is_the_feed_high_water() {
+    // spec: 12 §4.1 (feed clock: ts-compat telonex-delta max(L, E), synthetic
+    // S; realistic now), K5; 14 F-7 (H advances on every dispatched tick and
+    // never moves back), 22 §2 TickStart.visibilityTsMs
+    let mut h = H::new(
+        config(CoreRules::TsCompat),
+        MockExec::sync(),
+        Script::default(),
+    );
+    let (b, a) = (lv(BIDS), lv(ASKS));
+    let book = || {
+        Payload::Market(pmb_core::MarketEvent::Book {
+            outcome: Outcome::Up,
+            bids: &b,
+            asks: &a,
+        })
+    };
+    let step = |h: &mut H, e: i64, l: Option<i64>| {
+        let env = Envelope {
+            seq: 0,
+            at: t(e),
+            exchange_ts: Some(t(e)),
+            recv_wall: l.map(t),
+            recv_mono: None,
+            source: Source::MarketWs,
+            payload: book(),
+        };
+        h.market.apply(&env);
+        h.s.step(&env, &h.market).unwrap();
+    };
+    step(&mut h, 100, Some(108)); // L > E: H = 108
+    step(&mut h, 110, Some(105)); // L steps back: H = max(108, 110)
+    step(&mut h, 120, None); // no L: E
+    step(&mut h, 130, Some(-START)); // L = 0 (absent): E
+    h.synth(125, pmb_engine::envelope::SyntheticKind::BinanceAggTrade)
+        .unwrap(); // S = max(125, E(last real)) = 130 ≤ H
+    assert_eq!(h.s.trace().vts, vec![108, 110, 120, 130, 130]);
+    assert_eq!(h.s.feed_clock(), Some(t(130)));
+    // Realistic: the loop clock.
+    let mut r = H::new(
+        config(CoreRules::Realistic),
+        MockExec::sync(),
+        Script::default(),
+    );
+    r.tick(50, BIDS, ASKS).unwrap();
+    r.tick(70, BIDS, ASKS).unwrap();
+    assert_eq!(r.s.trace().vts, vec![50, 70]);
+}
