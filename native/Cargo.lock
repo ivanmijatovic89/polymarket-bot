@@ -542,6 +542,7 @@ name = "pmb-engine"
 version = "0.1.0"
 dependencies = [
  "pmb-book",
+ "pmb-contract",
  "pmb-core",
  "pmb-feeds",
 ]

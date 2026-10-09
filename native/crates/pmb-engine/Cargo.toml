@@ -10,6 +10,9 @@ rust-version.workspace = true
 pmb-core.workspace = true
 pmb-book.workspace = true
 pmb-feeds.workspace = true
+# Closed vocabularies and model axes of `ModelConfig` (21 §6, §17; 13 §7.3).
+# Read once at session construction into `EngineConfig`; never on the hot path.
+pmb-contract.workspace = true
 
 [lints]
 workspace = true
