@@ -1,0 +1,50 @@
+{
+  "spec": "10 §6.1 RNG-1 … RNG-7; 14 F-51 (feed entities); 13 §5.1 (compat_jitter entity)",
+  "source": "native-spec-g1:native/spec/10-domain-model.md §6.1 (RNG-7 table); 14-feeds-and-plugins.md F-51",
+  "notes": [
+    "Every expected value below is transcribed from the RNG-7 table and was reproduced bit for bit by the independent implementation in src/rng.rs (SHA-256 + SplitMix64 per RNG-2…RNG-6) before being committed.",
+    "Encodings (RNG-2/RNG-3): LE64 = 8-byte little-endian; the seed is the first 8 digest bytes read back as a little-endian u64; tags are ASCII; the slug is UTF-8.",
+    "RNG-4 entity packing (kind << 32) | id applies only to per-market execution streams: kind 1 = OrderKey, 2 = CancelSeq, 3 = TradeSeq, 4 = OpKey, 5 = execution-command sequence, 6 = input row index. Feed streams use the raw element identities of 14 F-51 (no packing).",
+    "RNG-5: h = mix64(stream_seed ^ mix64(entity + G)); draw(i) = mix64(h + G x (i + 1)); G = 0x9E3779B97F4A7C15; all wrapping u64.",
+    "RNG-6 mappings: uniform in [0, n) accepts u = draw(i) when u < n x floor(2^64 / n) and returns u mod n (retry on i + 1); integer uniform in [a, b] = a + uniform in [0, b - a + 1); open unit u = ((draw(i) >> 11) + 0.5) x 2^-53.",
+    "The reference check of SplitMix64 itself: from state 0, outputs 0xe220a8397b1dcdaf, 0x6e789e6aa1b965f4 (state += G before each mix64)."
+  ],
+  "constants": {
+    "slug": "btc-updown-15m-1780272000",
+    "G": "0x9E3779B97F4A7C15",
+    "mix64_mul1": "0xBF58476D1CE4E5B9",
+    "mix64_mul2": "0x94D049BB133111EB",
+    "seed_prefix": "pmb-seed/v1",
+    "stream_prefix": "pmb-stream/v1",
+    "feed_stream_prefix": "pmb-feed-stream/v1",
+    "feed_entity_prefix": "pmb-feed-entity/v1",
+    "run_seed_max": 9007199254740991,
+    "run_seed_default": 0,
+    "stream_tags_13": ["place", "cancel", "ack", "cancelAck", "fillReport", "mined", "confirmed", "failed", "chainSplit", "chainMerge", "md_cmd", "md_row", "settlement_failure", "chain_failure", "compat_jitter"],
+    "stream_tags_14": ["feed.binance", "feed.chainlink", "feed.priceToBeat"],
+    "run_level_feed_tags": ["feed.binance", "feed.chainlink"]
+  },
+  "vectors": [
+    { "id": "splitmix-reference", "spec": "10 RNG-7 (SplitMix64 reference outputs)", "kind": "splitmix_reference", "from_state": 0, "expected": ["0xe220a8397b1dcdaf", "0x6e789e6aa1b965f4"] },
+    { "id": "market-seed-0", "spec": "10 RNG-7 row 1 (RNG-2)", "kind": "market_seed", "run_seed": 0, "expected": "0xeb300da7cf82ecde" },
+    { "id": "market-seed-123", "spec": "10 RNG-7 row 2 (RNG-2)", "kind": "market_seed", "run_seed": 123, "expected": "0x735cf00eaa5d23b2" },
+    { "id": "market-seed-max", "spec": "10 RNG-7 row 3 (RNG-1, RNG-2)", "kind": "market_seed", "run_seed": 9007199254740991, "expected": "0x2b93662d0e90152f" },
+    { "id": "stream-seed-place", "spec": "10 RNG-7 row 4 (RNG-3 a)", "kind": "stream_seed", "run_seed": 0, "tag": "place", "expected": "0xffc27cae89ae3033" },
+    { "id": "stream-seed-compat-jitter", "spec": "10 RNG-7 row 5 (RNG-3 a)", "kind": "stream_seed", "run_seed": 0, "tag": "compat_jitter", "expected": "0x0162432c20a594c5" },
+    { "id": "place-ok0-draw0-draw1", "spec": "10 RNG-7 row 6 (RNG-4, RNG-5)", "kind": "draws", "run_seed": 0, "tag": "place", "entity_kind": 1, "entity_id": 0, "entity": "0x0000000100000000", "expected": ["0x7ac83cc051482e69", "0x6af33a6533ac1ffa"] },
+    { "id": "place-ok0-open-unit", "spec": "10 RNG-7 row 7 (RNG-6 open unit interval)", "kind": "open_unit", "run_seed": 0, "tag": "place", "entity_kind": 1, "entity_id": 0, "draw_index": 0, "expected": 0.4796178788685956 },
+    { "id": "place-ok1-draw0", "spec": "10 RNG-7 row 8", "kind": "draws", "run_seed": 0, "tag": "place", "entity_kind": 1, "entity_id": 1, "entity": "0x0000000100000001", "expected": ["0x610af8c6b7bb80bd"] },
+    { "id": "compat-jitter-j100", "spec": "10 RNG-7 row 9 (RNG-6 integer uniform in [-j, j]; 13 §5.1 entity = command sequence, kind 5)", "kind": "jitter", "run_seed": 0, "tag": "compat_jitter", "entity_kind": 5, "j": 100, "commands": [0, 1, 2], "expected": [-34, -78, -52], "note": "n = 201; a = -100. All three accept draw(0) (no rejection), verified by the independent implementation." },
+    { "id": "md-row-row0-draw0", "spec": "10 RNG-7 row 10 (RNG-4 kind 6; 12 §4.3 RS1)", "kind": "draws", "run_seed": 0, "tag": "md_row", "entity_kind": 6, "entity_id": 0, "entity": "0x0000000600000000", "expected": ["0xbe885d470957411b"] },
+    { "id": "feed-stream-seed-binance", "spec": "10 RNG-7 row 11 (RNG-3 b)", "kind": "feed_stream_seed", "run_seed": 0, "tag": "feed.binance", "expected": "0x9416e0f7dd99bfb2" },
+    { "id": "feed-binance-agg-3e9-draw0", "spec": "10 RNG-7 row 12 (14 F-51: entity = agg_trade_id, no kind packing)", "kind": "feed_draws", "run_seed": 0, "tag": "feed.binance", "entity": 3000000000, "expected": ["0x3d2083a3f2c7d945"] },
+    { "id": "feed-chainlink-entity-and-draw0", "spec": "10 RNG-7 row 13 (14 F-51 Chainlink entity hash)", "kind": "chainlink", "run_seed": 0, "tag": "feed.chainlink", "timestamp_us": 1780272000000000, "server_timestamp_us": 1780272001012345, "expected_entity": "0x21f0f8efcd0a5519", "expected_draw0": "0x4469676c00a02960" },
+    { "id": "feed-ptb-entity0-draw0", "spec": "10 RNG-7 row 14 (RNG-3 a: price-to-beat is a per-market stream; 14 F-51 entity 0)", "kind": "draws", "run_seed": 0, "tag": "feed.priceToBeat", "entity_raw": 0, "expected": ["0xf00c88f6376b1577"] }
+  ],
+  "determinism_properties": [
+    { "id": "i1-no-idx", "spec": "10 I1, 21 §8 C5, 60 DET-10", "statement": "market_seed and every stream seed depend only on (run_seed, slug) and the tag; idx, candidate index, worker, thread, profile, strategy and wall clock never enter them." },
+    { "id": "rng1-range", "spec": "10 RNG-1, 21 §6.2", "statement": "run_seed is an integer in [0, 2^53 - 1]; the producer refuses anything else at submit; the binary never chooses a seed; default 0." },
+    { "id": "det9-ts-compat-seed-free", "spec": "60 DET-9, 10 I1", "statement": "ts-compat with jitterMs = 0 gives identical output for any two seeds; realistic with zero-variance (constant) latency models gives identical output for any two seeds." },
+    { "id": "rng5-call-order-free", "spec": "10 RNG-5", "statement": "A draw is a pure function of (stream, entity, i), never of call order." }
+  ]
+}
