@@ -9,6 +9,7 @@ import {
   ParityTraceRecorder,
   TRACE_FORMAT,
   TRACE_VERSION,
+  normalizeStats,
   num,
   parseTrace,
   readTrace,
@@ -318,6 +319,21 @@ describe('ParityTraceRecorder (pmb-parity-trace/2, 22 §3)', () => {
       () => bad.finish(output({ ...stats, pnl: 9.99 })),
       /does not round to the TS stat/,
     )
+  })
+
+  it('final.stats rounds money and sizes to 1e-9 but keeps intentMeta floats unrounded', () => {
+    // spec: 22 §3.3 (1e-9 for prices, sizes and USDC values); 22 §3.4 (intentMeta within relative 1e-9)
+    const out = normalizeStats({
+      pnl: 0.1 + 0.2,
+      upShares: 10.0000000001,
+      intentMeta: [{ vol: 0.000123456789012, nested: { x: 1e-12 }, id: 'a' }],
+    })
+    assert.deepEqual(out, {
+      pnl: 0.3,
+      upShares: 10,
+      intentMeta: [{ vol: 0.000123456789012, nested: { x: 1e-12 }, id: 'a' }],
+    })
+    assert.deepEqual(Object.keys(out), ['pnl', 'upShares', 'intentMeta'])
   })
 
   it('num() rounds to 1e-9 and normalizes -0', () => {
