@@ -47,6 +47,13 @@ impl Order {
     /// prices up to `max_price` (30 §7, 10 §7.2 O2). Finish it with
     /// [`SpendOrder::fok`] or [`SpendOrder::fak`]; collateral sizing exists
     /// only on market BUYs (10 §7.2 O1).
+    ///
+    /// The spend is exact; the shares are not: a market BUY can **receive
+    /// more shares than `usdc / max_price`** when it fills below
+    /// `max_price` (10 §7.2 O2). A share-sized `Order::buy(..).fok()` is
+    /// likewise converted to collateral at its limit price in the realistic
+    /// profile, paper and live, and can receive more shares than requested
+    /// (D42).
     #[inline]
     pub fn buy_spend(outcome: Outcome, max_price: Price, usdc: Usdc) -> SpendOrder {
         SpendOrder {
@@ -65,10 +72,26 @@ struct Common {
     note: Option<&'static str>,
 }
 
-/// A resting order: GTC (default) or GTD, optionally post-only (30 §7).
+/// A limit order: GTC (default) or GTD, optionally post-only (30 §7).
+///
+/// `RESTING` is the typestate of 30 §7.1: `Order::buy`/`Order::sell` give a
+/// `LimitOrder` (`RESTING = false`) that can still become a FOK/FAK
+/// [`MarketableOrder`] with `.fok()`/`.fak()`. `.gtd(..)` and `.post_only()`
+/// commit it to resting (`LimitOrder<true>`), which has no `.fok()`/`.fak()`:
+/// a post-only or GTD FOK/FAK does not compile, so it can never be silently
+/// sent as a plain FOK/FAK (R14).
+///
+/// ```compile_fail
+/// use pmb_sdk::prelude::*;
+/// let _ = Order::buy(Outcome::Up, price!(0.5), qty!(5)).post_only().fok();
+/// ```
+/// ```compile_fail
+/// use pmb_sdk::prelude::*;
+/// let _ = Order::buy(Outcome::Up, price!(0.5), qty!(5)).gtd(TsMs(1)).fak();
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 #[must_use = "an order does nothing until it is placed with `out.place(..)`"]
-pub struct LimitOrder {
+pub struct LimitOrder<const RESTING: bool = false> {
     outcome: Outcome,
     side: Side,
     price: Price,
@@ -89,21 +112,6 @@ impl LimitOrder {
             post_only: false,
             common: Common::default(),
         }
-    }
-
-    /// GTD with the stated exchange expiration `expire_at` (30 §7, 10 §7.4).
-    /// `ctx.gtd_expiration(lifetime)` builds the docs' "now + 60 + N" value.
-    #[inline]
-    pub fn gtd(mut self, expire_at: TsMs) -> LimitOrder {
-        self.expire_at = Some(expire_at);
-        self
-    }
-
-    /// Post-only: the order is rejected instead of taking liquidity (30 §7).
-    #[inline]
-    pub fn post_only(mut self) -> LimitOrder {
-        self.post_only = true;
-        self
     }
 
     /// Fill-or-kill: fill the whole size at once or cancel (30 §7).
@@ -131,6 +139,9 @@ impl LimitOrder {
     }
 
     fn marketable(self, order_type: OrderType) -> MarketableOrder {
+        // `RESTING = false`: neither `.gtd` nor `.post_only` was called, so
+        // nothing is dropped here (the typestate guarantees it).
+        debug_assert!(self.expire_at.is_none() && !self.post_only);
         MarketableOrder {
             outcome: self.outcome,
             side: self.side,
@@ -140,24 +151,57 @@ impl LimitOrder {
             common: self.common,
         }
     }
+}
+
+impl<const RESTING: bool> LimitOrder<RESTING> {
+    /// GTD with the stated exchange expiration `expire_at` (30 §7, 10 §7.4).
+    /// `ctx.gtd_expiration(lifetime)` builds the docs' "now + 60 + N" value.
+    /// The order then rests: it has no `.fok()`/`.fak()` (30 §7.1).
+    #[inline]
+    pub fn gtd(self, expire_at: TsMs) -> LimitOrder<true> {
+        let mut o = self.resting();
+        o.expire_at = Some(expire_at);
+        o
+    }
+
+    /// Post-only: the order is rejected instead of taking liquidity (30 §7).
+    /// The order then rests: it has no `.fok()`/`.fak()` (30 §7.1).
+    #[inline]
+    pub fn post_only(self) -> LimitOrder<true> {
+        let mut o = self.resting();
+        o.post_only = true;
+        o
+    }
+
+    fn resting(self) -> LimitOrder<true> {
+        LimitOrder {
+            outcome: self.outcome,
+            side: self.side,
+            price: self.price,
+            qty: self.qty,
+            expire_at: self.expire_at,
+            post_only: self.post_only,
+            common: self.common,
+        }
+    }
 
     /// The client order id (30 §6: unique per active order).
     #[inline]
-    pub fn cid(mut self, cid: ClientOrderId) -> LimitOrder {
+    pub fn cid(mut self, cid: ClientOrderId) -> Self {
         self.common.cid = Some(cid);
         self
     }
 
     /// Order meta (30 §7.2), serialized once at placement.
     #[inline]
-    pub fn meta(mut self, meta: Meta) -> LimitOrder {
+    pub fn meta(mut self, meta: Meta) -> Self {
         self.common.meta = Some(meta);
         self
     }
 
     /// A log and trace note; never affects behavior (10 §7.2).
     #[inline]
-    pub fn note(mut self, note: &'static str) -> LimitOrder {
+    pub fn note(mut self, note: &'static str) -> Self {
         self.common.note = Some(note);
         self
     }
@@ -273,7 +317,7 @@ impl SpendOrder {
 
 mod sealed {
     pub trait Sealed {}
-    impl Sealed for super::LimitOrder {}
+    impl<const R: bool> Sealed for super::LimitOrder<R> {}
     impl Sealed for super::MarketableOrder {}
     impl Sealed for pmb_engine::strategy::Intents {}
 }
@@ -285,7 +329,7 @@ pub trait PlaceableOrder: sealed::Sealed {
     fn __parts(&self) -> (Option<&ClientOrderId>, OrderRequest, Option<&Meta>);
 }
 
-impl PlaceableOrder for LimitOrder {
+impl<const R: bool> PlaceableOrder for LimitOrder<R> {
     fn __parts(&self) -> (Option<&ClientOrderId>, OrderRequest, Option<&Meta>) {
         (
             self.common.cid.as_ref(),
@@ -396,7 +440,7 @@ impl IntentsExt for Intents {
 // same name. Chose `LimitOrder::batch_item` (and `CancelRef::Cid` for
 // cancels) until the engine renames its request-level entry points
 // (crossStreamNeeds); then the 30 §7 signatures land here.
-impl LimitOrder {
+impl<const R: bool> LimitOrder<R> {
     /// `(cid, request, meta)` of this order for `Intents::place_batch`.
     ///
     /// # Panics
@@ -484,6 +528,47 @@ mod tests {
         );
         assert_eq!(e.size, OrderSize::Collateral(usdc!(2.5)));
         assert_eq!(out.local_cid_text(e.cid), "e");
+    }
+
+    #[test]
+    fn resting_options_survive_in_any_order_and_never_reach_fok() {
+        // spec: 30 §7.1 (post_only only on GTC/GTD; FOK/FAK never rest), R14;
+        // the post-only/GTD FOK/FAK shapes are compile_fail doctests on
+        // `LimitOrder`.
+        let mut out = Intents::new();
+        out.place(
+            Order::buy(Outcome::Up, price!(0.5), qty!(5))
+                .post_only()
+                .gtd(TsMs(7_000))
+                .cid(cid!("a")),
+        );
+        out.place(
+            Order::buy(Outcome::Up, price!(0.5), qty!(5))
+                .cid(cid!("b"))
+                .gtd(TsMs(8_000))
+                .post_only(),
+        );
+        let resting: [LimitOrder<true>; 1] =
+            [Order::sell(Outcome::Down, price!(0.6), qty!(1)).post_only()];
+        out.place_batch(
+            resting
+                .iter()
+                .map(|o| o.clone().cid(cid!("c")))
+                .collect::<Vec<_>>()
+                .iter()
+                .map(LimitOrder::batch_item),
+        );
+        for (i, at) in [(0, 7_000), (1, 8_000)] {
+            let r = place_of(&out, i);
+            assert_eq!(
+                (r.order_type, r.post_only, r.expire_at_ms),
+                (OrderType::Gtd, true, Some(TsMs(at)))
+            );
+        }
+        let Some(Intent::PlaceBatch(b)) = out.get(2) else {
+            panic!("batch third")
+        };
+        assert_eq!((b[0].order_type, b[0].post_only), (OrderType::Gtc, true));
     }
 
     #[test]

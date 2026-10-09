@@ -149,8 +149,9 @@ struct Writer<'o> {
 }
 
 impl Writer<'_> {
-    /// Places a resting order with its client id.
-    fn limit(&mut self, cid: ClientOrderId, order: LimitOrder) {
+    /// Places a limit order (GTC, or committed to resting by `.gtd`/`.post_only`)
+    /// with its client id.
+    fn limit<const RESTING: bool>(&mut self, cid: ClientOrderId, order: LimitOrder<RESTING>) {
         self.out.place(order.cid(cid));
     }
 
