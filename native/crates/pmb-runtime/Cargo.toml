@@ -1,0 +1,28 @@
+[package]
+name = "pmb-runtime"
+description = "Generic entry point of a native strategy artifact: CLI, describe/schema/selftest/run, job loading and integrity, parity trace writer (20, 21, 22)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pmb-core.workspace = true
+pmb-contract.workspace = true
+pmb-engine.workspace = true
+pmb-replay.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+flate2.workspace = true
+
+# A no-op strategy binary built on the production path, used by the
+# process-level tests (exit codes, stdout document, stderr reason line).
+[[bin]]
+name = "pmb-runtime-fixture"
+path = "src/bin/fixture.rs"
+test = false
+bench = false
+
+[lints]
+workspace = true
