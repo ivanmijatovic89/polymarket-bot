@@ -50,7 +50,47 @@
       "required": ["startingCapitalUsdc"],
       "type": "object"
     },
-    "Captured": {
+    "CapturedRules": {
+      "additionalProperties": false,
+      "description": "`captured`: any subset of the 11 keys of 11 §13.4.",
+      "properties": {
+        "acceptingOrdersTimestampMs": {
+          "$ref": "#/$defs/Captured_SafeI64"
+        },
+        "feeSchedule": {
+          "$ref": "#/$defs/Captured_FeeSchedule"
+        },
+        "feeType": {
+          "$ref": "#/$defs/Captured_FeeType"
+        },
+        "feesEnabled": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "minOrderAgeS": {
+          "$ref": "#/$defs/Captured_uint32"
+        },
+        "minSizeResting": {
+          "$ref": "#/$defs/Captured_Decimal"
+        },
+        "negRisk": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "secondsDelay": {
+          "$ref": "#/$defs/Captured_uint32"
+        },
+        "takerDelayEnabled": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "tick": {
+          "$ref": "#/$defs/Captured_Decimal"
+        },
+        "version": {
+          "$ref": "#/$defs/Captured_MarketVersion"
+        }
+      },
+      "type": "object"
+    },
+    "Captured_Decimal": {
       "additionalProperties": false,
       "description": "One captured value with its provenance (21 §7.1).",
       "properties": {
@@ -74,53 +114,7 @@
       "required": ["value", "origin", "phase", "snapshotId"],
       "type": "object"
     },
-    "Captured2": {
-      "additionalProperties": false,
-      "description": "One captured value with its provenance (21 §7.1).",
-      "properties": {
-        "origin": {
-          "$ref": "#/$defs/RulesOrigin"
-        },
-        "phase": {
-          "$ref": "#/$defs/RulesPhase"
-        },
-        "snapshotId": {
-          "description": "`exchange_rules_snapshots.id`, positive.",
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "value": {
-          "type": "boolean"
-        }
-      },
-      "required": ["value", "origin", "phase", "snapshotId"],
-      "type": "object"
-    },
-    "Captured3": {
-      "additionalProperties": false,
-      "description": "One captured value with its provenance (21 §7.1).",
-      "properties": {
-        "origin": {
-          "$ref": "#/$defs/RulesOrigin"
-        },
-        "phase": {
-          "$ref": "#/$defs/RulesPhase"
-        },
-        "snapshotId": {
-          "description": "`exchange_rules_snapshots.id`, positive.",
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "value": {
-          "$ref": "#/$defs/FeeType"
-        }
-      },
-      "required": ["value", "origin", "phase", "snapshotId"],
-      "type": "object"
-    },
-    "Captured4": {
+    "Captured_FeeSchedule": {
       "additionalProperties": false,
       "description": "One captured value with its provenance (21 §7.1).",
       "properties": {
@@ -143,7 +137,30 @@
       "required": ["value", "origin", "phase", "snapshotId"],
       "type": "object"
     },
-    "Captured5": {
+    "Captured_FeeType": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/FeeType"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_MarketVersion": {
       "additionalProperties": false,
       "description": "One captured value with its provenance (21 §7.1).",
       "properties": {
@@ -166,32 +183,7 @@
       "required": ["value", "origin", "phase", "snapshotId"],
       "type": "object"
     },
-    "Captured6": {
-      "additionalProperties": false,
-      "description": "One captured value with its provenance (21 §7.1).",
-      "properties": {
-        "origin": {
-          "$ref": "#/$defs/RulesOrigin"
-        },
-        "phase": {
-          "$ref": "#/$defs/RulesPhase"
-        },
-        "snapshotId": {
-          "description": "`exchange_rules_snapshots.id`, positive.",
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "value": {
-          "maximum": 4294967295,
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": ["value", "origin", "phase", "snapshotId"],
-      "type": "object"
-    },
-    "Captured7": {
+    "Captured_SafeI64": {
       "additionalProperties": false,
       "description": "One captured value with its provenance (21 §7.1).",
       "properties": {
@@ -216,121 +208,52 @@
       "required": ["value", "origin", "phase", "snapshotId"],
       "type": "object"
     },
-    "CapturedRules": {
+    "Captured_boolean": {
       "additionalProperties": false,
-      "description": "`captured`: any subset of the 11 keys of 11 §13.4.",
+      "description": "One captured value with its provenance (21 §7.1).",
       "properties": {
-        "acceptingOrdersTimestampMs": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured7"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
         },
-        "feeSchedule": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured4"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
         },
-        "feeType": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured3"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
         },
-        "feesEnabled": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured2"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "minOrderAgeS": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured6"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "minSizeResting": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "negRisk": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured2"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "secondsDelay": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured6"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "takerDelayEnabled": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured2"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "tick": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "version": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Captured5"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "value": {
+          "type": "boolean"
         }
       },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_uint32": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
       "type": "object"
     },
     "ChainlinkFeed": {
@@ -472,14 +395,7 @@
       "description": "`ModelConfig.execution` v1 (13 §7.3).",
       "properties": {
         "cancelBeforeAck": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CancelBeforeAck"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/CancelBeforeAck",
           "description": "M3b."
         },
         "compatLatency": {
@@ -487,50 +403,22 @@
           "description": "Used iff `models.latency = compat` (13 §5.1)."
         },
         "failureRates": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FailureRates"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/FailureRates",
           "description": "M3b."
         },
         "latency": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LatencyCalibration"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/LatencyCalibration",
           "description": "Realistic latency components (13 §6.8). M3b."
         },
         "makerQueue": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MakerQueueConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/MakerQueueConfig",
           "description": "M3b."
         },
         "models": {
           "$ref": "#/$defs/ExecutionModels"
         },
         "sellGate": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/SellGate"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/SellGate",
           "description": "M3b."
         }
       },
@@ -1083,14 +971,7 @@
           "$ref": "#/$defs/CapitalConfig"
         },
         "clock": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ClockConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/ClockConfig",
           "description": "Market-data clock (12 §4.5). Realistic only; absent in ts-compat\nuntil M3b (D57)."
         },
         "execution": {
@@ -1189,7 +1070,7 @@
           "maxLength": 1000,
           "minLength": 1,
           "pattern": "^[^\\n\\r]*$",
-          "type": ["string", "null"]
+          "type": "string"
         },
         "status": {
           "$ref": "#/$defs/PriceToBeatStatus"

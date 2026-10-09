@@ -59,6 +59,42 @@
       "jsonSchema": "reject"
     },
     {
+      "name": "explicit null for an optional key (clock)",
+      "rule": "21 §3 closed objects (optional keys are absent, not null)",
+      "set": {
+        "/run/modelConfig/clock": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null for a captured field",
+      "rule": "21 §7.1 (captured holds only captured fields)",
+      "set": {
+        "/market/rules/captured/negRisk": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "rules"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null availability message",
+      "rule": "14 §6.2",
+      "set": {
+        "/market/feedAvailability/priceToBeat/message": null
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "reject"
+    },
+    {
       "name": "missing conditionId key",
       "rule": "21 §5.1 market.conditionId",
       "remove": ["/market/conditionId"],

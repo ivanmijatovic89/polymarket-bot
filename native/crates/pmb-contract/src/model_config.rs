@@ -36,7 +36,12 @@ pub struct ModelConfig {
     pub execution: ExecutionConfig,
     /// Market-data clock (12 §4.5). Realistic only; absent in ts-compat
     /// until M3b (D57).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "ClockConfig")]
     pub clock: Option<ClockConfig>,
     pub feeds: FeedsConfig,
     pub runner: RunnerConfig,
@@ -59,19 +64,44 @@ pub struct ExecutionConfig {
     /// Used iff `models.latency = compat` (13 §5.1).
     pub compat_latency: CompatLatency,
     /// Realistic latency components (13 §6.8). M3b.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "LatencyCalibration")]
     pub latency: Option<LatencyCalibration>,
     /// M3b.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "CancelBeforeAck")]
     pub cancel_before_ack: Option<CancelBeforeAck>,
     /// M3b.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "MakerQueueConfig")]
     pub maker_queue: Option<MakerQueueConfig>,
     /// M3b.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "SellGate")]
     pub sell_gate: Option<SellGate>,
     /// M3b.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "FailureRates")]
     pub failure_rates: Option<FailureRates>,
 }
 

@@ -95,14 +95,7 @@
       "description": "One candidate's result: `output` iff `status = ok`, `error` iff\n`status = error` (checked by [`CandidateResult::validate`]).",
       "properties": {
         "error": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ErrorInfo"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/ErrorInfo"
         },
         "index": {
           "maximum": 4294967295,
@@ -119,14 +112,7 @@
           "type": "string"
         },
         "output": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/EngineMarketOutput"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/EngineMarketOutput"
         },
         "status": {
           "$ref": "#/$defs/ResultStatus"
@@ -289,7 +275,7 @@
           },
           "maxItems": 32,
           "minItems": 1,
-          "type": ["array", "null"]
+          "type": "array"
         },
         "eventsByType": {
           "$ref": "#/$defs/EventsByType"
@@ -311,14 +297,7 @@
           "description": "Null for the null-stats rows of 21 §13."
         },
         "skipReason": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/SkipReason"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/SkipReason"
         },
         "slug": {
           "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
@@ -404,14 +383,7 @@
           "description": "Object in realistic, null in ts-compat (11 §13.8). Absent only on\nTS-engine rows, which are not engine output."
         },
         "skipReason": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/StatsSkipReason"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/StatsSkipReason"
         },
         "slug": {
           "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
@@ -494,26 +466,26 @@
       "additionalProperties": false,
       "properties": {
         "callback": {
-          "type": ["string", "null"]
+          "type": "string"
         },
         "fixCommand": {
-          "type": ["string", "null"]
+          "type": "string"
         },
         "location": {
-          "type": ["string", "null"]
+          "type": "string"
         },
         "path": {
-          "type": ["string", "null"]
+          "type": "string"
         },
         "seq": {
           "maximum": 9007199254740991,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": "integer"
         },
         "tsMs": {
           "maximum": 9007199254740991,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": "integer"
         }
       },
       "type": "object"
@@ -530,14 +502,7 @@
           "$ref": "#/$defs/ErrorClass"
         },
         "detail": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ErrorDetail"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/ErrorDetail"
         },
         "message": {
           "description": "One line, at most 1,000 characters.",
@@ -556,22 +521,22 @@
         "binance_agg_trade": {
           "maximum": 9007199254740991,
           "minimum": 1,
-          "type": ["integer", "null"]
+          "type": "integer"
         },
         "book": {
           "maximum": 9007199254740991,
           "minimum": 1,
-          "type": ["integer", "null"]
+          "type": "integer"
         },
         "chainlink_round": {
           "maximum": 9007199254740991,
           "minimum": 1,
-          "type": ["integer", "null"]
+          "type": "integer"
         },
         "price_change": {
           "maximum": 9007199254740991,
           "minimum": 1,
-          "type": ["integer", "null"]
+          "type": "integer"
         }
       },
       "type": "object"

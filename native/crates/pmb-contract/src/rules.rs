@@ -34,6 +34,7 @@ impl MarketRules {
 /// One captured value with its provenance (21 §7.1).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[schemars(rename = "Captured_{T}")]
 pub struct Captured<T> {
     pub value: T,
     pub origin: RulesOrigin,
@@ -47,27 +48,82 @@ pub struct Captured<T> {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CapturedRules {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<Decimal>")]
     pub tick: Option<Captured<Decimal>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<Decimal>")]
     pub min_size_resting: Option<Captured<Decimal>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<bool>")]
     pub fees_enabled: Option<Captured<bool>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<FeeType>")]
     pub fee_type: Option<Captured<FeeType>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<FeeSchedule>")]
     pub fee_schedule: Option<Captured<FeeSchedule>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<bool>")]
     pub taker_delay_enabled: Option<Captured<bool>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<bool>")]
     pub neg_risk: Option<Captured<bool>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<MarketVersion>")]
     pub version: Option<Captured<MarketVersion>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<u32>")]
     pub seconds_delay: Option<Captured<u32>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<u32>")]
     pub min_order_age_s: Option<Captured<u32>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "Captured<SafeI64>")]
     pub accepting_orders_timestamp_ms: Option<Captured<SafeI64>>,
 }
 

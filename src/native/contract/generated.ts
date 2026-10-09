@@ -36,14 +36,14 @@ export interface CandidateCounters {
  * `status = error` (checked by [`CandidateResult::validate`]).
  */
 export interface CandidateResult {
-  error?: ErrorInfo | null
+  error?: ErrorInfo
   index: number
   key: string
   /**
    * Hash of this candidate's effective ModelConfig (21 §1.1).
    */
   modelConfigSha256: string
-  output?: EngineMarketOutput | null
+  output?: EngineMarketOutput
   status: ResultStatus
 }
 
@@ -71,9 +71,26 @@ export interface CapitalConfig {
 }
 
 /**
+ * `captured`: any subset of the 11 keys of 11 §13.4.
+ */
+export interface CapturedRules {
+  acceptingOrdersTimestampMs?: Captured_SafeI64
+  feeSchedule?: Captured_FeeSchedule
+  feeType?: Captured_FeeType
+  feesEnabled?: Captured_boolean
+  minOrderAgeS?: Captured_uint32
+  minSizeResting?: Captured_Decimal
+  negRisk?: Captured_boolean
+  secondsDelay?: Captured_uint32
+  takerDelayEnabled?: Captured_boolean
+  tick?: Captured_Decimal
+  version?: Captured_MarketVersion
+}
+
+/**
  * One captured value with its provenance (21 §7.1).
  */
-export interface Captured {
+export interface Captured_Decimal {
   origin: RulesOrigin
   phase: RulesPhase
   /**
@@ -86,33 +103,7 @@ export interface Captured {
 /**
  * One captured value with its provenance (21 §7.1).
  */
-export interface Captured2 {
-  origin: RulesOrigin
-  phase: RulesPhase
-  /**
-   * `exchange_rules_snapshots.id`, positive.
-   */
-  snapshotId: number
-  value: boolean
-}
-
-/**
- * One captured value with its provenance (21 §7.1).
- */
-export interface Captured3 {
-  origin: RulesOrigin
-  phase: RulesPhase
-  /**
-   * `exchange_rules_snapshots.id`, positive.
-   */
-  snapshotId: number
-  value: FeeType
-}
-
-/**
- * One captured value with its provenance (21 §7.1).
- */
-export interface Captured4 {
+export interface Captured_FeeSchedule {
   origin: RulesOrigin
   phase: RulesPhase
   /**
@@ -125,7 +116,20 @@ export interface Captured4 {
 /**
  * One captured value with its provenance (21 §7.1).
  */
-export interface Captured5 {
+export interface Captured_FeeType {
+  origin: RulesOrigin
+  phase: RulesPhase
+  /**
+   * `exchange_rules_snapshots.id`, positive.
+   */
+  snapshotId: number
+  value: FeeType
+}
+
+/**
+ * One captured value with its provenance (21 §7.1).
+ */
+export interface Captured_MarketVersion {
   origin: RulesOrigin
   phase: RulesPhase
   /**
@@ -138,7 +142,7 @@ export interface Captured5 {
 /**
  * One captured value with its provenance (21 §7.1).
  */
-export interface Captured6 {
+export interface Captured_SafeI64 {
   origin: RulesOrigin
   phase: RulesPhase
   /**
@@ -151,7 +155,20 @@ export interface Captured6 {
 /**
  * One captured value with its provenance (21 §7.1).
  */
-export interface Captured7 {
+export interface Captured_boolean {
+  origin: RulesOrigin
+  phase: RulesPhase
+  /**
+   * `exchange_rules_snapshots.id`, positive.
+   */
+  snapshotId: number
+  value: boolean
+}
+
+/**
+ * One captured value with its provenance (21 §7.1).
+ */
+export interface Captured_uint32 {
   origin: RulesOrigin
   phase: RulesPhase
   /**
@@ -159,23 +176,6 @@ export interface Captured7 {
    */
   snapshotId: number
   value: number
-}
-
-/**
- * `captured`: any subset of the 11 keys of 11 §13.4.
- */
-export interface CapturedRules {
-  acceptingOrdersTimestampMs?: Captured7 | null
-  feeSchedule?: Captured4 | null
-  feeType?: Captured3 | null
-  feesEnabled?: Captured2 | null
-  minOrderAgeS?: Captured6 | null
-  minSizeResting?: Captured | null
-  negRisk?: Captured2 | null
-  secondsDelay?: Captured6 | null
-  takerDelayEnabled?: Captured2 | null
-  tick?: Captured | null
-  version?: Captured5 | null
 }
 
 export interface ChainlinkFeed {
@@ -298,14 +298,14 @@ export interface EngineMarketOutput {
   /**
    * 1..32 non-empty strings of at most 512 characters (21 §13).
    */
-  coverageReasons?: string[] | null
+  coverageReasons?: string[]
   eventsByType: EventsByType
   eventsProcessed: number
   /**
    * Null for the null-stats rows of 21 §13.
    */
   marketStats: EngineMarketStats | null
-  skipReason?: SkipReason | null
+  skipReason?: SkipReason
   slug: string
 }
 
@@ -337,7 +337,7 @@ export interface EngineMarketStats {
    * TS-engine rows, which are not engine output.
    */
   rules: MarketStatsRules | null
-  skipReason?: StatsSkipReason | null
+  skipReason?: StatsSkipReason
   slug: string
   splitCost: number
   tradeAsMaker: number
@@ -390,12 +390,12 @@ export type ErrorClass =
   | 'canceled'
 
 export interface ErrorDetail {
-  callback?: string | null
-  fixCommand?: string | null
-  location?: string | null
-  path?: string | null
-  seq?: number | null
-  tsMs?: number | null
+  callback?: string
+  fixCommand?: string
+  location?: string
+  path?: string
+  seq?: number
+  tsMs?: number
 }
 
 /**
@@ -404,7 +404,7 @@ export interface ErrorDetail {
 export interface ErrorInfo {
   cause: string
   class: ErrorClass
-  detail?: ErrorDetail | null
+  detail?: ErrorDetail
   /**
    * One line, at most 1,000 characters.
    */
@@ -416,10 +416,10 @@ export interface ErrorInfo {
  * are at least 1, so the form is canonical (TS omits unseen types).
  */
 export interface EventsByType {
-  binance_agg_trade?: number | null
-  book?: number | null
-  chainlink_round?: number | null
-  price_change?: number | null
+  binance_agg_trade?: number
+  book?: number
+  chainlink_round?: number
+  price_change?: number
 }
 
 /**
@@ -429,7 +429,7 @@ export interface ExecutionConfig {
   /**
    * M3b.
    */
-  cancelBeforeAck?: CancelBeforeAck | null
+  cancelBeforeAck?: CancelBeforeAck
   /**
    * Used iff `models.latency = compat` (13 §5.1).
    */
@@ -437,20 +437,20 @@ export interface ExecutionConfig {
   /**
    * M3b.
    */
-  failureRates?: FailureRates | null
+  failureRates?: FailureRates
   /**
    * Realistic latency components (13 §6.8). M3b.
    */
-  latency?: LatencyCalibration | null
+  latency?: LatencyCalibration
   /**
    * M3b.
    */
-  makerQueue?: MakerQueueConfig | null
+  makerQueue?: MakerQueueConfig
   models: ExecutionModels
   /**
    * M3b.
    */
-  sellGate?: SellGate | null
+  sellGate?: SellGate
 }
 
 /**
@@ -759,7 +759,7 @@ export interface ModelConfig {
    * Market-data clock (12 §4.5). Realistic only; absent in ts-compat
    * until M3b (D57).
    */
-  clock?: ClockConfig | null
+  clock?: ClockConfig
   execution: ExecutionConfig
   feeds: FeedsConfig
   modelConfigVersion: 1
@@ -797,7 +797,7 @@ export interface PriceToBeatAvailability {
   /**
    * Required for `unavailable_*` (14 §6.2); one line.
    */
-  message?: string | null
+  message?: string
   status: PriceToBeatStatus
 }
 

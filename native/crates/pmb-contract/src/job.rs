@@ -147,8 +147,13 @@ pub struct FeedAvailability {
 pub struct PriceToBeatAvailability {
     pub status: PriceToBeatStatus,
     /// Required for `unavailable_*` (14 §6.2); one line.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(length(min = 1, max = 1000), regex(pattern = r"^[^\n\r]*$"))]
+    #[schemars(with = "String")]
     pub message: Option<String>,
 }
 

@@ -37,6 +37,30 @@
       "jsonSchema": "reject"
     },
     {
+      "name": "explicit null top-level skipReason",
+      "rule": "21 §13 (absent, not null)",
+      "set": {
+        "/candidates/0/output/skipReason": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "explicit null stats skipReason",
+      "rule": "21 §11, MarketStats.skipReason?",
+      "set": {
+        "/candidates/0/output/marketStats/skipReason": null
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
       "name": "missing stats rules key",
       "rule": "11 §13.8",
       "remove": ["/candidates/0/output/marketStats/rules"],

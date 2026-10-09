@@ -84,6 +84,19 @@ pub fn nullable<'de, T: Deserialize<'de>, D: Deserializer<'de>>(
     Option::<T>::deserialize(d)
 }
 
+/// `#[serde(default, skip_serializing_if = "Option::is_none",
+/// deserialize_with = "crate::support::present")]` (with
+/// `#[schemars(with = "T")]`) makes an `Option<T>` field optional-but-not-
+/// nullable: absent means `None`, and an explicit `null` is rejected, so the
+/// accepted form is the emitted one and the generated TS type is `field?: T`
+/// (21 §3 closed objects; P1 keeps today's TS shapes, e.g.
+/// `MarketStats.skipReason?`).
+pub fn present<'de, T: Deserialize<'de>, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+
 /// A contract validation failure, classified per 20 §4 (class and cause).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContractError {

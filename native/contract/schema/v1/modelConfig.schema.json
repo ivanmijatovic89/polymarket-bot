@@ -156,14 +156,7 @@
       "description": "`ModelConfig.execution` v1 (13 §7.3).",
       "properties": {
         "cancelBeforeAck": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CancelBeforeAck"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/CancelBeforeAck",
           "description": "M3b."
         },
         "compatLatency": {
@@ -171,50 +164,22 @@
           "description": "Used iff `models.latency = compat` (13 §5.1)."
         },
         "failureRates": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FailureRates"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/FailureRates",
           "description": "M3b."
         },
         "latency": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LatencyCalibration"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/LatencyCalibration",
           "description": "Realistic latency components (13 §6.8). M3b."
         },
         "makerQueue": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MakerQueueConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/MakerQueueConfig",
           "description": "M3b."
         },
         "models": {
           "$ref": "#/$defs/ExecutionModels"
         },
         "sellGate": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/SellGate"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "$ref": "#/$defs/SellGate",
           "description": "M3b."
         }
       },
@@ -497,14 +462,7 @@
       "$ref": "#/$defs/CapitalConfig"
     },
     "clock": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ClockConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
+      "$ref": "#/$defs/ClockConfig",
       "description": "Market-data clock (12 §4.5). Realistic only; absent in ts-compat\nuntil M3b (D57)."
     },
     "execution": {

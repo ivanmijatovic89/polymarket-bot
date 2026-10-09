@@ -105,9 +105,19 @@ pub struct CandidateResult {
     pub status: ResultStatus,
     /// Hash of this candidate's effective ModelConfig (21 §1.1).
     pub model_config_sha256: Sha256Hex,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "EngineMarketOutput")]
     pub output: Option<EngineMarketOutput>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "ErrorInfo")]
     pub error: Option<ErrorInfo>,
 }
 
@@ -122,11 +132,21 @@ pub struct EngineMarketOutput {
     pub market_stats: Option<EngineMarketStats>,
     pub events_processed: SafeU64,
     pub events_by_type: EventsByType,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "SkipReason")]
     pub skip_reason: Option<SkipReason>,
     /// 1..32 non-empty strings of at most 512 characters (21 §13).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(length(min = 1, max = 32), inner(length(min = 1, max = 512)))]
+    #[schemars(with = "Vec<String>")]
     pub coverage_reasons: Option<Vec<String>>,
 }
 
@@ -135,17 +155,37 @@ pub struct EngineMarketOutput {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EventsByType {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(range(min = 1))]
+    #[schemars(with = "SafeU64")]
     pub book: Option<SafeU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(range(min = 1))]
+    #[schemars(with = "SafeU64")]
     pub price_change: Option<SafeU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(range(min = 1))]
+    #[schemars(with = "SafeU64")]
     pub binance_agg_trade: Option<SafeU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
     #[schemars(range(min = 1))]
+    #[schemars(with = "SafeU64")]
     pub chainlink_round: Option<SafeU64>,
 }
 
@@ -225,7 +265,12 @@ pub struct EngineMarketStats {
     pub split_cost: OutDec2,
     /// Opaque strategy meta objects (21 §16).
     pub intent_meta: Vec<Map<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "StatsSkipReason")]
     pub skip_reason: Option<StatsSkipReason>,
     /// Object in realistic, null in ts-compat (11 §13.8). Absent only on
     /// TS-engine rows, which are not engine output.
@@ -261,24 +306,59 @@ pub struct ErrorInfo {
     /// One line, at most 1,000 characters.
     #[schemars(length(max = 1000), regex(pattern = r"^[^\n\r]*$"))]
     pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "ErrorDetail")]
     pub detail: Option<ErrorDetail>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ErrorDetail {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "String")]
     pub callback: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "SafeU64")]
     pub seq: Option<SafeU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "SafeU64")]
     pub ts_ms: Option<SafeU64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "String")]
     pub location: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "String")]
     pub path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::support::present"
+    )]
+    #[schemars(with = "String")]
     pub fix_command: Option<String>,
 }
 
