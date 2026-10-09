@@ -233,6 +233,8 @@ export function gate6(
  * `iterate` profile and the rendered policy, run `describe`, and check it as
  * gate 6 does (id grammar and uniqueness; the target is the host's). No
  * post-link steps: CI builds are never artifacts.
+ * D-PENDING: 31 §7.6 says "gate 6 uses a Linux host build" without a
+ * profile; chose iterate (local checks, 31 §4.1).
  */
 function ciGate6(s: Session): GateResult {
   const name = `describe of every bin from a ${s.toolchain.host} host build (CI, 31 §7.6)`
@@ -539,6 +541,8 @@ export function publishNativeLocalOnly(opts: LocalPublishOptions): LocalPublishR
   }
   // 31 §2.2 row 6: ids are unique within the package, enforced by every
   // publish. The other bins are described from iterate builds (cached).
+  // D-PENDING: 31 §7.2 builds only the published bin; chose iterate builds
+  // (with the post-link steps) of every other bin to read their ids.
   const otherIds: Array<{ strategyId: string; bin: string }> = []
   for (const other of s.loaded.bins.filter((b) => b !== opts.bin)) {
     const b = buildNative({

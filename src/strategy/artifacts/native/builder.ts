@@ -677,7 +677,15 @@ export function buildNative(args: {
       describe,
       engine,
       toolchain,
-      cargoArgs: [...cargoArgs.slice(0, -1), '<rendered artifact-build.toml>'],
+      // The staged manifest path is host-independent, so the recorded command
+      // replays the build (31 §5.4) once stage.ts recreates the layout.
+      cargoArgs: [
+        ...cargoArgs.slice(0, 1),
+        '--manifest-path',
+        path.join(plan.stagedPackageRoot, 'Cargo.toml'),
+        ...cargoArgs.slice(1, -1),
+        '<rendered artifact-build.toml>',
+      ],
       renderedConfigRemapped,
       buildEnv,
       wallTimeMs: { cargo: cargoMs, total: Date.now() - t0 },

@@ -29,6 +29,8 @@ export const NATIVE_SUBCOMMANDS = [
  * of distinct names from the 20 §1 table, including `describe` and
  * `selftest` (which the builder runs) and never `live`. Anything else is a
  * violation, including a missing or mistyped field (00 R14).
+ * D-PENDING: 20 §1 lists the subcommands but not which ones `describe`
+ * must report; chose: at least describe and selftest (the builder runs both).
  */
 export function subcommandViolations(subs: unknown): string[] {
   if (!Array.isArray(subs) || !subs.every((x) => typeof x === 'string'))

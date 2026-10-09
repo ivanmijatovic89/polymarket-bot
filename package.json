@@ -177,7 +177,8 @@
     "native:bench:check": "npm run -s native:bench:typecheck && npm run -s native:bench:lint && npm run -s native:bench:test",
     "native:parity:test": "tsx --test src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:parity:summary": "tsx src/cli/parity/parity-summary.ts",
-    "native:shim:test": "tsx --test src/native/*.test.ts"
+    "native:shim:test": "tsx --test src/native/*.test.ts",
+    "native:build:verify": "scripts/native/build-verify.sh"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
