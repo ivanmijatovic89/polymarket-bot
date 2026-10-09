@@ -23,8 +23,12 @@ fn fixed_point_literals() {
     assert_eq!(price!(1.0), Price::ONE);
     assert_eq!(price!(0.000001), Price::from_micros(1));
     assert_eq!(price!(0.999999), Price::from_micros(999_999));
-    // Trailing zeros are not extra precision.
+    // Trailing zeros are not extra precision, however many there are.
     assert_eq!(price!(0.5300000), Price::from_micros(530_000));
+    assert_eq!(
+        price!(0.1000000000000000000000000000000000000000000),
+        Price::from_micros(100_000)
+    );
     // Exponents and underscores of Rust literals.
     assert_eq!(usdc!(1e3), Usdc::from_micros(1_000_000_000));
     assert_eq!(usdc!(1.5e-5), Usdc::from_micros(15));

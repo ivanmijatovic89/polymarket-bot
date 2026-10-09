@@ -291,6 +291,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
     };
 
     let enum_checks = specs.iter().filter_map(enum_default_check);
+    let option_checks = specs.iter().filter_map(option_default_check);
 
     Ok(quote! {
         const _: () = {
@@ -355,6 +356,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         };
         #collision_check
         #(#enum_checks)*
+        #(#option_checks)*
     })
 }
 
@@ -772,6 +774,27 @@ fn option_default_error(span: Span) -> syn::Error {
         "an Option field defaults to None and is omitted from normalized params when None \
          (30 §9 rules 1 and 6); remove the default, or use a non-Option field with a default",
     )
+}
+
+/// `const _: () = assert!(..)` that a field with a default is not an
+/// `Option` under another spelling (a type alias, a path the derive cannot
+/// see through): the syntactic check of `compile_default` catches only
+/// `Option<..>` written out (30 §9 rules 1 and 6).
+fn option_default_check(f: &FieldSpec) -> Option<TokenStream> {
+    f.default.as_ref()?;
+    let ty = &f.ty;
+    let msg = format!(
+        "field `{}` has #[param(default)] but its type is an Option: an Option field defaults \
+         to None and is omitted from normalized params when None (30 §9 rules 1 and 6); \
+         remove the default, or use a non-Option field with a default",
+        f.ident
+    );
+    Some(quote! {
+        const _: () = ::core::assert!(
+            !<#ty as ::pmb_sdk::__private::ParamValue>::OPTIONAL,
+            #msg
+        );
+    })
 }
 
 /// `const _: () = assert!(..)` that a string default of a ParamEnum field

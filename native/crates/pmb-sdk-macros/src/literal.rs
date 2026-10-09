@@ -260,7 +260,17 @@ impl NumLit {
                     ),
                 ))
             }
-            Err(DecError::Range) | Err(DecError::Syntax) => i128::MAX,
+            Err(DecError::Syntax) => {
+                return Err(syn::Error::new(
+                    self.span(),
+                    format!(
+                        "`{}` is not a decimal literal; write digits with an optional \
+                         fraction and exponent, such as 0.53 or 5e-3",
+                        self.source()
+                    ),
+                ))
+            }
+            Err(DecError::Range) => i128::MAX,
         };
         let (lo, hi) = kind.range();
         if v < lo || v > hi {
@@ -289,35 +299,27 @@ impl NumLit {
 }
 
 /// Parses decimal digits (`12`, `0.53`, `2.`, `1.5e-3`) into
-/// `value × 10^scale`, exactly.
+/// `value × 10^scale`, exactly. Leading and trailing zeros are not
+/// significant: they never overflow the mantissa (`0.5000…0` with any
+/// number of zeros is `0.5`).
 pub(crate) fn scaled_decimal(text: &str, scale: u32) -> Result<i128, DecError> {
     let b = text.as_bytes();
     let mut i = 0;
-    let mut mant: i128 = 0;
+    let mut digits: Vec<u8> = Vec::with_capacity(b.len());
     let mut frac_digits: i64 = 0;
-    let mut any = false;
-    fn push(d: u8, mant: &mut i128) -> Result<(), DecError> {
-        *mant = mant
-            .checked_mul(10)
-            .and_then(|m| m.checked_add((d - b'0') as i128))
-            .ok_or(DecError::Range)?;
-        Ok(())
-    }
     while i < b.len() && b[i].is_ascii_digit() {
-        push(b[i], &mut mant)?;
-        any = true;
+        digits.push(b[i] - b'0');
         i += 1;
     }
     if i < b.len() && b[i] == b'.' {
         i += 1;
         while i < b.len() && b[i].is_ascii_digit() {
-            push(b[i], &mut mant)?;
+            digits.push(b[i] - b'0');
             frac_digits += 1;
-            any = true;
             i += 1;
         }
     }
-    if !any {
+    if digits.is_empty() {
         return Err(DecError::Syntax);
     }
     let mut exp: i64 = 0;
@@ -349,26 +351,28 @@ pub(crate) fn scaled_decimal(text: &str, scale: u32) -> Result<i128, DecError> {
     if i != b.len() {
         return Err(DecError::Syntax);
     }
-    if mant == 0 {
+    // value = digits × 10^exp10; trailing zeros move into the exponent.
+    let mut exp10 = exp - frac_digits;
+    while digits.last() == Some(&0) {
+        digits.pop();
+        exp10 += 1;
+    }
+    let Some(first) = digits.iter().position(|&d| d != 0) else {
         return Ok(0);
+    };
+    let sig = &digits[first..];
+    let shift = exp10 + scale as i64;
+    if shift < 0 {
+        // The last significant digit is below 10^-scale.
+        return Err(DecError::TooPrecise);
     }
-    let shift = exp - frac_digits + scale as i64;
-    if shift >= 0 {
-        if shift > 38 {
-            return Err(DecError::Range);
-        }
-        mant.checked_mul(10i128.pow(shift as u32))
-            .ok_or(DecError::Range)
-    } else {
-        if -shift > 38 {
-            return Err(DecError::TooPrecise);
-        }
-        let den = 10i128.pow((-shift) as u32);
-        if mant % den != 0 {
-            return Err(DecError::TooPrecise);
-        }
-        Ok(mant / den)
+    if sig.len() as i64 + shift > 38 {
+        return Err(DecError::Range);
     }
+    // At most 38 digits: fits an i128.
+    let mant = sig.iter().fold(0i128, |m, &d| m * 10 + d as i128);
+    mant.checked_mul(10i128.pow(shift as u32))
+        .ok_or(DecError::Range)
 }
 
 /// Formats a value scaled by 1e6 as an exact decimal (`530000` → `0.53`).
@@ -435,6 +439,30 @@ mod tests {
             scaled_decimal("9223372036854.775807", 6),
             Ok(i64::MAX as i128)
         );
+        // Insignificant zeros never overflow the mantissa.
+        assert_eq!(
+            scaled_decimal("0.50000000000000000000000000000000000000000", 6),
+            Ok(500_000)
+        );
+        assert_eq!(
+            scaled_decimal("0000000000000000000000000000000000000000001", 6),
+            Ok(1_000_000)
+        );
+        assert_eq!(
+            scaled_decimal("1000000000000000000000000000000000000000e-40", 6),
+            Ok(100_000)
+        );
+        assert_eq!(
+            scaled_decimal("1.0000000000000000000000000000000000000001", 6),
+            Err(DecError::TooPrecise)
+        );
+        assert_eq!(
+            scaled_decimal("100000000000000000000000000000000000000001", 6),
+            Err(DecError::Range)
+        );
+        assert_eq!(scaled_decimal("1e-100000000", 6), Err(DecError::TooPrecise));
+        assert_eq!(scaled_decimal("1e100000000", 6), Err(DecError::Range));
+        assert_eq!(scaled_decimal(".", 6), Err(DecError::Syntax));
     }
 
     #[test]

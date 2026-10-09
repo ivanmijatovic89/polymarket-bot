@@ -52,6 +52,9 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             }
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("rename") {
+                    if rename.is_some() {
+                        return Err(meta.error("#[param(rename)] is given twice; keep one name"));
+                    }
                     rename = Some(meta.value()?.parse()?);
                     Ok(())
                 } else {

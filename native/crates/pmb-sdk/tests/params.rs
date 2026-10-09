@@ -725,3 +725,21 @@ fn recursive_params() {
     let s = Node::params_schema();
     assert_eq!(s["properties"]["children"]["items"]["type"], "object");
 }
+
+/// A size type spelled through an alias.
+pub type Lot = Qty;
+
+#[derive(Params, Debug, PartialEq)]
+pub struct AliasParams {
+    #[param(default = qty!(5))]
+    pub lot: Lot,
+}
+
+// spec: 30 §9 rules 1, 6: a default on a non-Option alias is fine (the
+// Option-through-alias case is a compile_fail doctest in src/lib.rs)
+#[test]
+fn alias_field_with_default() {
+    let p = AliasParams::from_cli([]).unwrap();
+    assert_eq!(p.lot, qty!(5));
+    assert_eq!(p.normalized_json(), r#"{"lot":5}"#);
+}

@@ -111,6 +111,14 @@
 //! }
 //! ```
 //! ```compile_fail
+//! type MaybeQty = Option<pmb_sdk::prelude::Qty>;
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(default = Some(pmb_sdk::qty!(5)))] // an Option, through an alias
+//!     x: MaybeQty,
+//! }
+//! ```
+//! ```compile_fail
 //! #[derive(pmb_sdk::Params)]
 //! struct P {
 //!     #[param(maximum = 1)] // unknown option
@@ -179,6 +187,10 @@
 //! ```compile_fail
 //! #[derive(pmb_sdk::ParamEnum)]
 //! enum Mode { Fast, #[param(rename = "Fast")] Slow } // names must be unique
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::ParamEnum)]
+//! enum Mode { #[param(rename = "a", rename = "b")] Fast } // one rename
 //! ```
 //! ```compile_fail
 //! let k = "edge";
