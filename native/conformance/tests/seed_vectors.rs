@@ -185,6 +185,16 @@ fn feed_draws_and_chainlink_entity() {
     }
 }
 
+// spec: 10 RNG-6 open unit interval at the top of the range (D68)
+#[test]
+fn open_unit_top_of_range_stays_below_one() {
+    let top = u64::MAX; // draw >> 11 == 2^53 - 1
+    let u = rng::open_unit(top);
+    assert!(u < 1.0 && u > 0.0);
+    assert_eq!(u, 1.0 - 2f64.powi(-53));
+    assert_eq!(rng::open_unit(0), 0.5 * 2f64.powi(-53));
+}
+
 // spec: 10 RNG-6 (rejection sampling is unbiased: n × floor(2^64 / n) bound)
 #[test]
 fn uniform_below_respects_bound() {

@@ -131,7 +131,7 @@ skeleton!(
     cancel_batch_3001_ts_compat,
     "cancel-batch-3001-ts-compat",
     "C2: needs pmb-sdk testkit",
-    "C2: CancelFailed for the whole intent (reason mapping: PLAN A-15)"
+    "C2: CancelFailed(TooManyIds) serialized invalid_cancel_batch_size (D62)"
 );
 // spec: 60 §5.3 n=380 (mixed known/unknown)
 skeleton!(
@@ -152,5 +152,5 @@ skeleton!(
     batch_empty,
     "batch-0-entries",
     "C2: needs pmb-sdk testkit",
-    "C2: decide per triage A-05 (unrepresentable, no-op or InvalidSize)"
+    "C2 (D60): empty batch writes no intent: no event, no trace record, no dispatch"
 );

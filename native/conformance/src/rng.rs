@@ -108,7 +108,14 @@ pub fn uniform_in(stream_seed: u64, entity: u64, a: i64, b: i64) -> i64 {
 
 /// RNG-6: open unit interval `u = ((draw(i) >> 11) + 0.5) × 2^−53`.
 pub fn open_unit(draw_value: u64) -> f64 {
-    ((draw_value >> 11) as f64 + 0.5) * 2f64.powi(-53)
+    // D68: binary64 evaluation; the single result 1.0 (draw >> 11 == 2^53 - 1)
+    // is mapped to 1 - 2^-53 so that u is in (0, 1).
+    let u = ((draw_value >> 11) as f64 + 0.5) * 2f64.powi(-53);
+    if u >= 1.0 {
+        1.0 - 2f64.powi(-53)
+    } else {
+        u
+    }
 }
 
 /// RNG-5 reference: SplitMix64 started from state 0 (state += G per output).

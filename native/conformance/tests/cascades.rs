@@ -149,7 +149,7 @@ skeleton!(
 skeleton!(
     cs08_decision_stamp_ts_compat,
     "cs-08-decision-stamp-ts-compat",
-    "C2: GTD at T+60000 accepted, T+59999 rejected from an account callback"
+    "C2 (D69): in tick N's execution-step callbacks tick().seq == N, now() == T1; g1 accepted, g2 and g3 rejected"
 );
 // spec: 12 §5.4, 60 INV-13, D23, 13 TC-C13
 skeleton!(
@@ -161,7 +161,7 @@ skeleton!(
 skeleton!(
     cs10_plugin_snapshot_previous_tick,
     "cs-10-plugin-snapshot-previous-tick",
-    "C2: needs a plugin through Requirements; else outline"
+    "C2 (D69): tick().seq == N, book N, plugins()/feeds() of tick N-1; needs a plugin through Requirements"
 );
 // spec: 12 §5.3 (synthetic ticks never run the execution step), 14 F-36
 skeleton!(

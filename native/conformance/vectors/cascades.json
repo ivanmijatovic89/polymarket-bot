@@ -70,8 +70,9 @@
       "id": "cs-08-decision-stamp-ts-compat",
       "spec": "12 §4.2 (decision stamp), 13 TC-C8, 11 §4 (GTD check uses the stamp)",
       "profiles": ["ts-compat"],
-      "script": "tick at T. on_tick: place GTC BUY UP (resting). on_event(OrderOpen): place GTD BUY UP with expire_at = T + 60000 cid g1 and GTD with expire_at = T + 59999 cid g2.",
-      "expect": { "g1": "accepted (OrderSubmitted)", "g2": "OrderRejected(GtdExpiryTooSoon{min_offset_ms: 60000}) — the callback intents are stamped with the last tick's ts T, not with a later time" }
+      "decision": "D69 (A-09): events of tick N's execution step belong to tick N; inside their callbacks tick().seq == N and the ts-compat decision stamp / now() is tick N's ts",
+      "script": "tick N-1 at T0: on_tick places GTC BUY UP @ P (rests). tick N at T1 = T0 + 30000 with best ask < P: the execution step fills it as maker and the Fill/OrderDone(Filled) callbacks run before tick N's own on_tick. In the OrderDone(Filled) callback: read ctx.tick().seq and ctx.now(); place GTD g1 with expire_at = T1 + 60000, g2 with expire_at = T1 + 59999, g3 with expire_at = T0 + 60000.",
+      "expect": { "tick_seq_in_callback": "N (not N-1)", "now_in_callback": "T1 (tick N's ts; TC-C8, D67)", "g1": "accepted (OrderSubmitted)", "g2": "OrderRejected(GtdExpiryTooSoon{min_offset_ms: 60000})", "g3": "OrderRejected(GtdExpiryTooSoon{min_offset_ms: 60000}) — T0 + 60000 = T1 + 30000 < T1 + 60000: the stamp is tick N's ts, not tick N-1's" }
     },
     {
       "id": "cs-09-no-callbacks-outside-window",
@@ -86,7 +87,8 @@
       "profiles": ["ts-compat", "realistic"],
       "requires": "a plugin (DwellGate or TimeWindowVolatility, 14) — G2 scope only if the testkit exposes plugins; else outlined",
       "script": "request DwellGate; place a resting order at tick N-1; tick N changes the book so that the order fills (maker) and the plugin output changes.",
-      "expect": { "in_fill_callback_of_tick_N": "ctx.book() shows tick N's book; ctx.plugins() equals the snapshot built at tick N-1; ctx.tick().seq == N-1 is NOT required (tick() is the last dispatched tick: N-1 until tick N's own callback runs) — see PLAN.md A-09" }
+      "decision": "D69 (A-09)",
+      "expect": { "in_fill_callback_of_tick_N": "ctx.tick().seq == N and ctx.now() == tick N's ts (begin_tick runs before the execution step, 12 §5.3; the events belong to tick N); ctx.book() shows tick N's book; ctx.plugins() and ctx.feeds() equal the snapshot built at tick N-1 (12 §6.4); in tick N's own on_tick, plugins() is tick N's snapshot" }
     },
     {
       "id": "cs-11-synthetic-tick-no-execution",

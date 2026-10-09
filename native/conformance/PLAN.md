@@ -248,13 +248,19 @@ decision; the affected vectors cite the item id.
   raised at the (N+1)-th delivery (strictly greater) and do deliveries whose
   callback is skipped by interests (A-07) count? `cs-06` uses N = 8 and
   expects the fault once more than 8 deliveries with callbacks occur.
-- **A-09 `ctx.tick()` inside callbacks of tick N's execution step.** 12 §6.5
-  says `tick()` inside event callbacks is "the last dispatched tick"; events
-  produced by `execution.on_market_event` at tick N are drained *before*
-  `run_strategy_tick()` of tick N (12 §5.2), so inside their callbacks the
-  last dispatched tick is N−1 while `book()` already shows tick N (12 §6.4).
-  Confirm that `tick().seq == N−1` and `now()` = the decision stamp (ts-compat:
-  tick N−1's ts; TC-C8) in those callbacks — this affects `cs-10` and `cs-08`.
+- **A-09 `ctx.tick()` inside callbacks of tick N's execution step — RESOLVED
+  D69, 60 §10.3 case (b): the test misread the clause.** My reading took
+  "the last dispatched tick" (12 §6.5) to be N−1 because the execution step's
+  events are drained before `run_strategy_tick()` of tick N (12 §5.2). The
+  intended reading: `begin_tick` runs before the execution step (12 §5.3) and
+  those events "belong to that tick", so inside their callbacks
+  `tick().seq == N`, the ts-compat `now()` / decision stamp is tick N's ts
+  (TC-C8; the execution clock of D67) and only `plugins()`/`feeds()` are
+  tick N−1's snapshot (12 §6.4). Fixed in `cs-08` (now exercises a maker
+  fill produced by tick N's execution step and a third GTD at
+  `T0 + 60000` that is rejected because the stamp is `T1`, not `T0`) and in
+  `cs-10` (expects `tick().seq == N`); the skeleton strings in
+  `tests/cascades.rs` follow.
 - **A-10 Order of validation and funding for a realistic order that fails
   precision/minimum at arrival.** 12 §7.2 funds at decision (step 5) and the
   simulator re-applies exchange checks at arrival (12 §7.4 last bullet;
@@ -321,6 +327,23 @@ decision; the affected vectors cite the item id.
   merges by "delivered quantity minus pending merges". Both can hold (the
   clamp does not use `sellable`), but the SDK doc should say which number a
   ts-compat port sees between a merge intent and its `PositionsMerged`.
+
+## 4a. Triage decisions D58–D69 (native/spec/02-decisions.md on `native-engine`)
+
+Binding for the C2 tests; the vectors below were updated to them.
+
+| Decision | Resolves | Effect on this crate |
+|---|---|---|
+| D57 (via D58) | A-02 | CI item 6 pins the sha of the committed defaults file; `ts-compat-default-jitter0` stays the spec-shaped candidate and `ci_item6_default_fixture_hashes` compares against the committed file. |
+| D58 | A-01, A-19 | Committed ts-compat default `compatLatency` 0/0; producer fallback 0/20 is producer-only; the binary accepts any `jitterMs ≥ 0` (removed from `invalid-values`); zero jitter enforced by the harness. A-19 needs no action. |
+| D59 | A-04 | `min_order_size()`, `price_bounds()`, `taker_delay()`, `batch_cap()` return `Option`, `None` in ts-compat; `source()` is the RS4 classification in both profiles (`ts_compat_rules.json` note, `rules_view_constants`). |
+| D60 | A-05 | `out.place_batch(&[])` writes no intent (no event, trace record or dispatch) and is not an error (`caps.json` `batch-0-entries`, `g3_caps.rs::batch_empty`). |
+| D61 | A-14 | Backtests expose `Some("sim-{order_key}")` but it is opaque; `cg-01` key density is read from the ledger only (`cid_generations.json`). |
+| D62 | A-15 | `TooManyIds` = `invalid_cancel_batch_size`, `ConflictingRefs` = `conflicting_order_reference`; `invalid_order_reference` unreachable from typed intents (`vocabularies.json`, `caps.json`, `ts_compat_rules.json`). |
+| D67 | (context for A-09) | ts-compat `on_market_event` receives `tick.ts`; `cs-08` expects `now() == T1` in the execution-step callbacks. |
+| D68 | (RNG-6 top of range) | `open_unit` maps the single 1.0 result to `1 − 2^-53`; `src/rng.rs` and `seed_vectors.rs::open_unit_top_of_range_stays_below_one` follow; RNG-7 row 7 unchanged. |
+| D69 | A-03, A-06, A-07, A-08, A-09, A-10, A-11, A-12, A-13, A-16, A-17, A-18, A-20 | A-03: `-0` rejected (tightened regex; `decimal_string_grammar`). A-06/A-13: `dd-05`, `dd-15` correct. A-07: `cs-05` correct. A-08: fault at the (N+1)-th counted delivery, interest-skipped deliveries count; `cs-06` correct. A-09: `cs-08`, `cs-10` fixed (above). A-10: validation before funding; `c1-realistic-notional-ceil` now 5 @ 0.33 and a new `c1-realistic-precision-reject-no-reservation` vector. A-11: `c3-release-partial-then-terminal` correct. A-12: `dd-12`, `cg-04`, `cg-06` correct. A-16: vectors assert the 13 §5.1 sequence, correct. A-17: `marketId` from the first counted tick carrying one. A-18: vectors follow the cited code, correct; spec wording to be fixed. A-20: `sellable` = `qty` in ts-compat; pending merges do not reduce it. |
+| D63–D66 | — | Harness, parity-input, cargo-deny and `selftest` matters; no vector affected. `det13_selftest_reports_seed_vectors_ok` must accept the D66 `serve_vs_run` skip detail before M5a. |
 
 ## 5. What C2 needs from the testkit (30 §15) to execute the skeletons
 
