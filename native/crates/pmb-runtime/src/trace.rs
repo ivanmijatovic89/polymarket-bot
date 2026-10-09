@@ -2,18 +2,15 @@
 //! and the `ParityTraceSink` that feeds it from the engine event stream
 //! (22 §2).
 //!
-//! - One JSONL file per (market, candidate); first line `header`, last line
-//!   `final` (22 §3.1). Written on the job's thread through a 64 KiB buffer,
-//!   gzip level 6 when the path ends in `.gz` (22 §3.6), atomically: a temp
-//!   file in the same directory, renamed by [`ParityTraceWriter::finish`].
+//! - One gzip JSONL file per (market, candidate), whatever the path's
+//!   extension (22 §3.1); first line `header`, last line `final`. Written on
+//!   the job's thread through a 64 KiB buffer, gzip level 6 (22 §3.6),
+//!   atomically: a temp file in the same directory, renamed by
+//!   [`ParityTraceWriter::finish`].
 //! - Numbers: prices, sizes and USDC values are rendered exactly from fixed
 //!   point (22 §3.3), as the shortest exact decimal of the micros value
 //!   (`0.53`, `5`, `-1.005`): no exponent, no `-0`, never through `f64`.
 //! - Assets are outcome indexes `0` (UP) and `1` (DOWN) (22 §3.3).
-//!
-//! D-PENDING: 22 §3.1 says "gzip JSONL"; the TS writer gzips only `.gz`
-//! paths (`trace.ts` `writeTrace`). Chose the TS rule so `--trace
-//! <out.jsonl>` (30 §15) stays plain and `<key>.jsonl.gz` (20 §5.5) is gzip.
 //!
 //! D-PENDING: 22 §3.3 "exact 6 dp decimals" is read as exact at 1e-6 with
 //! trailing zeros trimmed (the diff parses numbers to micros, 22 §3.4).
@@ -325,10 +322,7 @@ pub struct TraceFinal<'a> {
     pub unrounded: Unrounded,
 }
 
-enum Out {
-    Plain(BufWriter<File>),
-    Gzip(BufWriter<GzEncoder<File>>),
-}
+type Out = BufWriter<GzEncoder<File>>;
 
 /// Writer of one `pmb-parity-trace/2` file (22 §3).
 pub struct ParityTraceWriter {
@@ -440,15 +434,11 @@ impl ParityTraceWriter {
     pub fn create(path: &Path, header: &TraceHeader<'_>) -> Result<ParityTraceWriter, EngineError> {
         let mut file = AtomicFile::create(path).map_err(|e| io_error(path, e))?;
         let handle = file.take_file().expect("fresh atomic file has a handle");
-        let gzip = path.extension().is_some_and(|e| e == "gz");
-        let out = if gzip {
-            Out::Gzip(BufWriter::with_capacity(
-                TRACE_BUFFER_BYTES,
-                GzEncoder::new(handle, Compression::new(TRACE_GZIP_LEVEL)),
-            ))
-        } else {
-            Out::Plain(BufWriter::with_capacity(TRACE_BUFFER_BYTES, handle))
-        };
+        // 22 §3.1: the format is gzip JSONL for every path.
+        let out = BufWriter::with_capacity(
+            TRACE_BUFFER_BYTES,
+            GzEncoder::new(handle, Compression::new(TRACE_GZIP_LEVEL)),
+        );
         let mut w = ParityTraceWriter {
             out: Some(out),
             file: Some(file),
@@ -493,8 +483,7 @@ impl ParityTraceWriter {
         }
         self.line.push('\n');
         let r = match self.out.as_mut() {
-            Some(Out::Plain(w)) => w.write_all(self.line.as_bytes()),
-            Some(Out::Gzip(w)) => w.write_all(self.line.as_bytes()),
+            Some(w) => w.write_all(self.line.as_bytes()),
             None => Ok(()),
         };
         if let Err(e) = r {
@@ -794,8 +783,7 @@ impl ParityTraceWriter {
             });
         }
         let file = match self.out.take() {
-            Some(Out::Plain(w)) => w.into_inner().map_err(|e| io_error(&path, e.error()))?,
-            Some(Out::Gzip(w)) => w
+            Some(w) => w
                 .into_inner()
                 .map_err(|e| io_error(&path, e.error()))?
                 .finish()
@@ -928,15 +916,12 @@ mod tests {
 
     fn read_lines(path: &Path) -> Vec<String> {
         let raw = std::fs::read(path).unwrap();
-        let text = if path.extension().is_some_and(|e| e == "gz") {
-            let mut s = String::new();
-            flate2::read::GzDecoder::new(&raw[..])
-                .read_to_string(&mut s)
-                .unwrap();
-            s
-        } else {
-            String::from_utf8(raw).unwrap()
-        };
+        // gzip whatever the extension (22 §3.1).
+        assert_eq!(&raw[..2], &[0x1f, 0x8b], "{} is not gzip", path.display());
+        let mut text = String::new();
+        flate2::read::GzDecoder::new(&raw[..])
+            .read_to_string(&mut text)
+            .unwrap();
         text.lines().map(str::to_string).collect()
     }
 
@@ -1106,8 +1091,8 @@ mod tests {
     }
 
     #[test]
-    fn plain_path_is_uncompressed_and_decisions_level_drops_feeds() {
-        // spec: 22 §3.2 (`feeds` at level feeds only)
+    fn any_path_is_gzip_and_decisions_level_drops_feeds() {
+        // spec: 22 §3.1 (gzip JSONL), §3.2 (`feeds` at level feeds only)
         let d = scratch("plain");
         let path = d.join("t.jsonl");
         let mut w = ParityTraceWriter::create(&path, &header(TraceLevel::Decisions)).unwrap();

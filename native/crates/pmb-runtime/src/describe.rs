@@ -29,8 +29,18 @@ pub const SUBCOMMANDS: [&str; 4] = ["describe", "schema", "selftest", "run"];
 pub const INPUT_MODES: [&str; 1] = ["telonex-delta"];
 /// Profiles (M1: ts-compat only; realistic M3b).
 pub const PROFILES: [&str; 1] = ["ts-compat"];
-/// Optional engine features (20 §3; M1).
-pub const FEATURES: [&str; 2] = ["parity_trace", "parity_trace_feeds"];
+/// Optional engine features (20 §3) this binary implements: none yet.
+/// `parity_trace` and `parity_trace_feeds` are listed once the sink renders
+/// `intent` and `event` records (22 §3.2, §3.3), which needs pmb-engine's
+/// intent and account-event read accessors (crossStreamNeeds). Until then a
+/// trace request is refused at job planning (`crate::job`), so the result
+/// never depends on whether an output was requested (20 G5, 22 §2).
+pub const FEATURES: &[&str] = &[];
+
+/// Whether this binary implements the optional feature `name` (20 §3).
+pub fn has_feature(name: &str) -> bool {
+    FEATURES.contains(&name)
+}
 /// Candidates per job: `run` takes exactly one; groups are M4.
 pub const MAX_CANDIDATES: u32 = 1;
 
@@ -415,7 +425,9 @@ mod tests {
         );
         assert_eq!(c["inputModes"], json!(["telonex-delta"]));
         assert_eq!(c["profiles"], json!(["ts-compat"]));
-        assert_eq!(c["features"], json!(["parity_trace", "parity_trace_feeds"]));
+        // No parity_trace before intent and event records render (22 §3.2).
+        assert_eq!(c["features"], json!([]));
+        assert!(!has_feature("parity_trace") && !has_feature("parity_trace_feeds"));
         assert_eq!(c["realOrders"], json!(false));
         assert_eq!(c["jobSchemaVersions"], json!([1]));
         assert_eq!(c["traceFormat"], "pmb-parity-trace/2");

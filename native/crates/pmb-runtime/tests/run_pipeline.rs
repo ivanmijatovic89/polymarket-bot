@@ -9,11 +9,13 @@ use std::io::Read;
 
 use common::{fixture_market, synthetic_job, FakeBackend, Idle, Mode, PanicsInNew};
 use pmb_contract::result::EngineResult;
+use pmb_contract::vocab::TraceLevel;
 use pmb_contract::vocab::{ErrorClass, ResultStatus, SkipReason, StatsSkipReason};
 use pmb_engine::Strategy;
 use pmb_runtime::cli::dispatch;
-use pmb_runtime::job::OutputOverrides;
-use pmb_runtime::run::{deterministic_json, run_job_bytes, JobClock, RunOutcome};
+use pmb_runtime::inputs::build_inputs;
+use pmb_runtime::job::{parse_job, plan_job, OutputOverrides, TraceRequest};
+use pmb_runtime::run::{deterministic_json, execute_plan, run_job_bytes, JobClock, RunOutcome};
 use pmb_runtime::EngineError;
 use serde_json::Value;
 
@@ -94,21 +96,34 @@ fn fixture_market_runs_twice_with_identical_deterministic_sections() {
 }
 
 #[test]
-fn parity_trace_is_written_and_does_not_change_the_result() {
-    // spec: 22 §2 (observation never changes engine state), §3.1–§3.3, 20 §5.4 (--trace overrides outputs)
+fn parity_trace_sink_is_wired_and_does_not_change_the_result() {
+    // spec: 22 §2 (observation never changes engine state), §3.1–§3.3.
+    // `run` refuses trace requests until the sink renders intent and event
+    // records (crate::job::trace_request); this drives the trace plumbing
+    // of `execute_plan` directly so it is ready for integration.
     let (path, slug, tokens, bytes) = fixture_market();
     let d = scratch("trace");
-    let trace = d.join("cand-a.jsonl.gz");
+    // gzip whatever the extension (22 §3.1).
+    let trace = d.join("cand-a.jsonl");
     let job = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
-    let plain = run_value::<Idle>(&job, &IDLE, &OutputOverrides::default());
-    let traced = run_value::<Idle>(
-        &job,
-        &IDLE,
-        &OutputOverrides {
-            trace_path: Some(trace.to_str().unwrap().to_string()),
-            trace_level: None,
-        },
-    );
+    let bytes_of_job = serde_json::to_vec(&job).unwrap();
+    let plan = plan_job::<Idle>(
+        parse_job(&bytes_of_job).unwrap(),
+        &OutputOverrides::default(),
+    )
+    .map_err(|e| e.error)
+    .unwrap();
+    assert!(plan.trace.is_none());
+    let inputs = build_inputs(&plan.job, plan.rules_table).unwrap();
+    let plain = execute_plan::<Idle, FakeBackend>(&plan, &inputs, &IDLE, &JobClock::start());
+    let mut traced_plan = plan;
+    traced_plan.trace = Some(TraceRequest {
+        path: trace.clone(),
+        level: TraceLevel::Decisions,
+    });
+    let traced =
+        execute_plan::<Idle, FakeBackend>(&traced_plan, &inputs, &IDLE, &JobClock::start());
+    assert_eq!(plain.exit_code, 0, "{:?}", plain.reason);
     assert_eq!(traced.exit_code, 0, "{:?}", traced.reason);
     assert_eq!(
         deterministic_json(&plain.result),
@@ -250,6 +265,58 @@ fn pipeline_raises_each_class_with_its_exit_code() {
         },
     );
     assert_error(&o, ErrorClass::InvalidInput, "path");
+    // The job's own tracePath is checked even when --trace overrides it.
+    let mut j = base.clone();
+    j["outputs"]["tracePath"] = Value::from("r2://bucket/t.jsonl.gz");
+    let o = run_value::<Idle>(
+        &j,
+        &IDLE,
+        &OutputOverrides {
+            trace_path: Some("/tmp/t.jsonl.gz".into()),
+            trace_level: None,
+        },
+    );
+    assert_error(&o, ErrorClass::InvalidInput, "path");
+    // No parity_trace feature yet (20 §3): any trace request is refused
+    // before the input is read (the synthetic input is absent, so a later
+    // refusal would be data_missing), from the job or from the flags.
+    let mut j = base.clone();
+    j["outputs"]["tracePath"] = Value::from("/tmp/t.jsonl.gz");
+    let o = run_value::<Idle>(&j, &IDLE, &ov);
+    assert_error(&o, ErrorClass::InvalidInput, "flag");
+    assert!(o
+        .result
+        .error
+        .as_ref()
+        .unwrap()
+        .message
+        .contains("parity_trace"));
+    let o = run_value::<Idle>(
+        &base,
+        &IDLE,
+        &OutputOverrides {
+            trace_path: Some("/tmp/t.jsonl.gz".into()),
+            trace_level: Some(TraceLevel::Feeds),
+        },
+    );
+    assert_error(&o, ErrorClass::InvalidInput, "flag");
+    assert!(o
+        .result
+        .error
+        .as_ref()
+        .unwrap()
+        .message
+        .contains("parity_trace_feeds"));
+    // --trace-level without any trace path does nothing: refused (R14).
+    let o = run_value::<Idle>(
+        &base,
+        &IDLE,
+        &OutputOverrides {
+            trace_path: None,
+            trace_level: Some(TraceLevel::Feeds),
+        },
+    );
+    assert_error(&o, ErrorClass::InvalidInput, "flag");
 
     // data_missing (3): the input is absent on this host.
     assert_error(

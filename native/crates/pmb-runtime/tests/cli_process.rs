@@ -70,6 +70,7 @@ fn describe_and_schema() {
     assert_eq!(d["protocolVersion"], 2);
     assert_eq!(d["strategy"]["id"], STRATEGY_ID);
     assert_eq!(d["capabilities"]["realOrders"], false);
+    assert_eq!(d["capabilities"]["features"], serde_json::json!([]));
     assert_eq!(
         d["capabilities"]["subcommands"],
         serde_json::json!(["describe", "schema", "selftest", "run"])
@@ -206,6 +207,22 @@ fn run_exit_classes_from_the_real_binary() {
     assert_eq!(r.error.as_ref().unwrap().cause, "path");
     assert!(r.echo.is_some());
     assert!(reason(&o).starts_with("invalid_input: path: "));
+
+    // A trace request is refused (no parity_trace feature yet, 20 §3)
+    // before the (absent) input is read: invalid_input: flag, not 3.
+    let j = synthetic_job(STRATEGY_ID);
+    let o = run(
+        &[
+            "run",
+            "--job",
+            "-",
+            "--trace",
+            "/tmp/pmb-runtime-never-written.jsonl.gz",
+        ],
+        Some(&serde_json::to_vec(&j).unwrap()),
+    );
+    assert_eq!(code(&o), 2);
+    assert!(reason(&o).starts_with("invalid_input: flag: "));
 
     // Unknown job field → 2 (20 §8 item 5).
     let mut j = synthetic_job(STRATEGY_ID);

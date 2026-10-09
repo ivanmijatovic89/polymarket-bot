@@ -16,7 +16,7 @@ use pmb_engine::Strategy;
 use serde_json::{Map, Value};
 use std::path::PathBuf;
 
-use crate::describe::{evaluate, requests_nothing};
+use crate::describe::{evaluate, has_feature, requests_nothing};
 use crate::error::EngineError;
 use crate::identity::engine_identity;
 use crate::io::local_abs_path;
@@ -197,6 +197,52 @@ where
 
 type Planned<P> = (CandidatePlan<P>, RulesTableVersion, Option<TraceRequest>);
 
+/// The trace output in effect (20 §5.4: `--trace`/`--trace-level` override
+/// `job.outputs`). Every given path is checked (21 §5.1, also the job's
+/// when a flag overrides it), `--trace-level` without a path is refused
+/// (R14), and a trace is refused while this binary lacks the feature
+/// (20 §3 `features`), before any input is decoded.
+pub fn trace_request(
+    job: &EngineJob,
+    overrides: &OutputOverrides,
+) -> Result<Option<TraceRequest>, EngineError> {
+    let from_job = job
+        .outputs
+        .trace_path
+        .as_deref()
+        .map(|p| local_abs_path(p, "outputs.tracePath"))
+        .transpose()?;
+    let from_flag = overrides
+        .trace_path
+        .as_deref()
+        .map(|p| local_abs_path(p, "--trace"))
+        .transpose()?;
+    let Some(path) = from_flag.or(from_job) else {
+        if overrides.trace_level.is_some() {
+            return Err(EngineError::invalid_input(
+                "flag",
+                "--trace-level needs a trace path (--trace or outputs.tracePath)",
+            ));
+        }
+        return Ok(None);
+    };
+    let level = overrides.trace_level.unwrap_or(job.outputs.trace_level);
+    let feature = match level {
+        TraceLevel::Decisions => "parity_trace",
+        TraceLevel::Feeds => "parity_trace_feeds",
+    };
+    if !has_feature(feature) {
+        return Err(EngineError::invalid_input(
+            "flag",
+            format!(
+                "a parity trace needs feature {feature}, which this binary lacks before \
+                 integration (intent and event records, 22 §3.2)"
+            ),
+        ));
+    }
+    Ok(Some(TraceRequest { path, level }))
+}
+
 fn plan_inner<T>(
     job: &EngineJob,
     overrides: &OutputOverrides,
@@ -289,17 +335,7 @@ where
     }
 
     // Outputs: CLI flags override the job (20 §5.4); never result-affecting.
-    let trace_path = overrides
-        .trace_path
-        .clone()
-        .or_else(|| job.outputs.trace_path.clone());
-    let trace = match trace_path {
-        Some(p) => Some(TraceRequest {
-            path: local_abs_path(&p, "trace path")?,
-            level: overrides.trace_level.unwrap_or(job.outputs.trace_level),
-        }),
-        None => None,
-    };
+    let trace = trace_request(job, overrides)?;
 
     // The candidate (21 §8): params must be describe-normalized (C2).
     let cand = &run.candidates[0];

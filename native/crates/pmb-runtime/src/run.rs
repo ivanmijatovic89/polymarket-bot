@@ -534,8 +534,10 @@ where
             seq,
             at,
         }) => {
-            // D-PENDING: a faulted candidate has no `final` record (22 §3.1
-            // requires `final` last), so its trace file is not written.
+            // D-PENDING: 22 §3.1 gives every (market, candidate) a file that
+            // ends in `final`, but a faulted candidate has no final values
+            // (21 §13) and 22 defines no terminal record for it, so its trace
+            // file is not written (spec question).
             if let Some(s) = sink {
                 s.abort();
             }
