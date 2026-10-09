@@ -193,23 +193,79 @@ pub struct LoadedFeeds {
     pub stats: FeedLoadStats,
 }
 
+/// Matches the required days of one feed against `feedFiles`. Entries are
+/// validated by [`check_feed_files`] first, so each day has at most one.
 fn find_files<'a>(
     files: &'a [FeedFile<'a>],
     feed: FeedDataset,
-    symbol: &str,
     days: &[UtcDay],
 ) -> (Vec<&'a FeedFile<'a>>, Vec<UtcDay>) {
     let (mut found, mut missing) = (Vec::new(), Vec::new());
     for d in days {
-        match files
-            .iter()
-            .find(|f| f.feed == feed && f.symbol == symbol && f.day == *d)
-        {
+        match files.iter().find(|f| f.feed == feed && f.day == *d) {
             Some(f) => found.push(f),
             None => missing.push(*d),
         }
     }
     (found, missing)
+}
+
+/// What `market.feedFiles` may list for one requested feed: the derived
+/// symbol (Binance pair or Chainlink asset id, 14 F-49) and the day set
+/// (F-12, F-20).
+struct ExpectedFiles {
+    feed: FeedDataset,
+    symbol: &'static str,
+    days: Vec<UtcDay>,
+}
+
+/// `market.feedFiles` lists exactly what the request needs (21 §5.1, 00 R14):
+/// no duplicate `(feed, symbol, day)`, no feed the strategy does not request,
+/// no symbol other than the derived one and no day outside the required day
+/// set. A violation is a shim or producer bug, `invalid_input: schema`, never
+/// a retried `data_missing` whose message would ask to download files that
+/// are present. A missing required day is checked per feed afterwards
+/// (`data_missing: day_file_missing`, 14 §10).
+fn check_feed_files(
+    slug: &str,
+    files: &[FeedFile<'_>],
+    expected: &[ExpectedFiles],
+) -> Result<(), FeedError> {
+    let mut seen = std::collections::BTreeSet::new();
+    for f in files {
+        let entry = format!(
+            "{{feed: {}, symbol: {}, day: {}, path: {}}}",
+            f.feed.as_str(),
+            f.symbol,
+            f.day,
+            f.path.display()
+        );
+        let bad = |why: String| {
+            Err(FeedError::new(
+                FeedCause::Schema,
+                format!("market.feedFiles entry {entry} for {slug}: {why} (21 §5.1)"),
+            ))
+        };
+        if !seen.insert((f.feed, f.symbol, f.day)) {
+            return bad("duplicate (feed, symbol, day)".into());
+        }
+        let Some(want) = expected.iter().find(|e| e.feed == f.feed) else {
+            return bad("the strategy does not request this feed".into());
+        };
+        if f.symbol != want.symbol {
+            return bad(format!(
+                "symbol differs from the derived {:?} (14 F-49)",
+                want.symbol
+            ));
+        }
+        if !want.days.contains(&f.day) {
+            return bad(format!(
+                "day is outside the required day set [{}] (14 F-12, F-20)",
+                join_days(&want.days)
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn join_days(days: &[UtcDay]) -> String {
@@ -229,15 +285,29 @@ pub fn load_market_feeds(
     let req = input.request;
     let mut stats = FeedLoadStats::default();
     let mut diagnostics = Vec::new();
+    let slug = input.slug;
+    // F-46: the model is validated whatever the request.
+    input.model.validate()?;
+    // 14 §6.2: `feedAvailability.priceToBeat` is null iff the strategy does
+    // not request price to beat; a non-null value without the request is a
+    // producer bug.
+    if !req.price_to_beat && input.ptb_availability.is_some() {
+        return Err(FeedError::new(
+            FeedCause::FeedAvailability,
+            format!(
+                "price to beat for {slug}: feedAvailability.priceToBeat is set but the strategy \
+                 does not request price to beat (producer bug, 14 §6.2)"
+            ),
+        ));
+    }
     if req.is_empty() {
+        check_feed_files(slug, input.feed_files, &[])?;
         return Ok(LoadedFeeds {
             feeds: Arc::new(MarketFeeds::empty()),
             diagnostics,
             stats,
         });
     }
-    input.model.validate()?;
-    let slug = input.slug;
     let info = parse_slug(slug).map_err(|e| match e {
         SlugError::UnsupportedSymbol => FeedError::new(
             FeedCause::Symbol,
@@ -252,14 +322,29 @@ pub fn load_market_feeds(
     })?;
     let window = info.window;
     let start = window.start_ms.0;
+    let mut expected = Vec::with_capacity(2);
+    if req.binance_spot.is_some() {
+        expected.push(ExpectedFiles {
+            feed: FeedDataset::BinanceAggTrades,
+            symbol: info.symbol.binance_pair(),
+            days: required_days(FeedDataset::BinanceAggTrades, window),
+        });
+    }
+    if req.chainlink.is_some() {
+        expected.push(ExpectedFiles {
+            feed: FeedDataset::ChainlinkCryptoPrices,
+            symbol: info.symbol.chainlink_asset_id(),
+            days: required_days(FeedDataset::ChainlinkCryptoPrices, window),
+        });
+    }
+    check_feed_files(slug, input.feed_files, &expected)?;
 
     let mut binance = None;
     if let Some(opts) = &req.binance_spot {
         let symbol = resolve_binance_symbol(opts, info.symbol, slug)?;
         let pair = info.symbol.binance_pair();
         let days = required_days(FeedDataset::BinanceAggTrades, window);
-        let (files, missing) =
-            find_files(input.feed_files, FeedDataset::BinanceAggTrades, pair, &days);
+        let (files, missing) = find_files(input.feed_files, FeedDataset::BinanceAggTrades, &days);
         if let (Some(first), Some(last)) = (missing.first(), missing.last()) {
             return Err(FeedError::new(
                 FeedCause::DayFileMissing,
@@ -315,12 +400,8 @@ pub fn load_market_feeds(
             ));
         }
         let days = required_days(FeedDataset::ChainlinkCryptoPrices, window);
-        let (files, missing) = find_files(
-            input.feed_files,
-            FeedDataset::ChainlinkCryptoPrices,
-            asset,
-            &days,
-        );
+        let (files, missing) =
+            find_files(input.feed_files, FeedDataset::ChainlinkCryptoPrices, &days);
         if let (Some(first), Some(last)) = (missing.first(), missing.last()) {
             return Err(FeedError::new(
                 FeedCause::DayFileMissing,

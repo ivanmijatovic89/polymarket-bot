@@ -35,6 +35,9 @@ pub enum FeedCause {
     ModelConfig,
     /// `invalid_input`: `feedAvailability` missing or inconsistent (14 §6.2).
     FeedAvailability,
+    /// `invalid_input`: `market.feedFiles` lists a duplicate, foreign or
+    /// unneeded day file (21 §5.1, 00 R14).
+    Schema,
     /// `runtime`: a day file fails to decode (day files carry no sha256).
     DecodeUnverified,
     /// `runtime`: an I/O error other than a missing file.
@@ -63,6 +66,7 @@ impl FeedCause {
             FeedCause::Window => "window",
             FeedCause::ModelConfig => "model_config",
             FeedCause::FeedAvailability => "feed_availability",
+            FeedCause::Schema => "schema",
             FeedCause::DecodeUnverified => "decode_unverified",
             FeedCause::Io => "io",
             FeedCause::DayFileMissing => "day_file_missing",
@@ -82,7 +86,8 @@ impl FeedCause {
             | FeedCause::Symbol
             | FeedCause::Window
             | FeedCause::ModelConfig
-            | FeedCause::FeedAvailability => ErrorClass::InvalidInput,
+            | FeedCause::FeedAvailability
+            | FeedCause::Schema => ErrorClass::InvalidInput,
             FeedCause::DecodeUnverified | FeedCause::Io => ErrorClass::Runtime,
             FeedCause::DayFileMissing | FeedCause::InputMissing | FeedCause::IntegrityMismatch => {
                 ErrorClass::DataMissing

@@ -92,9 +92,16 @@ struct Job {
 }
 
 fn load(job: &Job, cache: &DayCache) -> Result<pmb_feeds::LoadedFeeds, pmb_feeds::FeedError> {
-    let files = pmb_core::parse_slug(&job.slug)
+    // The shim lists the required days of the requested feeds only (21 §5.1).
+    let files: Vec<_> = pmb_core::parse_slug(&job.slug)
         .map(|s| feed_files(&job.root, s.window))
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|f| match f.0 {
+            FeedDataset::BinanceAggTrades => job.request.binance_spot.is_some(),
+            FeedDataset::ChainlinkCryptoPrices => job.request.chainlink.is_some(),
+        })
+        .collect();
     let refs: Vec<FeedFile<'_>> = files
         .iter()
         .map(|(feed, symbol, day, path, bytes)| FeedFile {
