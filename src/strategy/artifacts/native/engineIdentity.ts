@@ -3,7 +3,7 @@
  * PMB_ENGINE_SOURCE_HASH, PMB_ENGINE_COMMIT, PMB_ENGINE_DIRTY.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { runOk } from './host.js'
 import {
@@ -11,7 +11,6 @@ import {
   computeEngineSourceHash,
   isEngineSourcePath,
   sha256Hex,
-  toPosix,
 } from './sourceHash.js'
 
 export type EngineIdentity = {
@@ -22,37 +21,36 @@ export type EngineIdentity = {
   fileCount: number
 }
 
-function walkFiles(root: string, rel: string, out: string[]): void {
-  const abs = path.join(root, rel)
-  if (!existsSync(abs)) return
-  for (const ent of readdirSync(abs, { withFileTypes: true })) {
-    const childRel = path.join(rel, ent.name)
-    if (ent.isDirectory()) walkFiles(root, childRel, out)
-    else if (ent.isFile()) out.push(toPosix(childRel))
-    else if (ent.isSymbolicLink()) throw new Error(`symlink in the engine source set: ${childRel}`)
-  }
-}
+/**
+ * Re-include native/build/ for git's untracked-file listing: the root
+ * .gitignore's `build/` rule would otherwise hide untracked files there,
+ * while 31 §5.3 lists native/build/** in the engine source set. Other rules
+ * (e.g. `.DS_Store`) still apply, so editor and Finder litter never enters
+ * the hash. Command-line excludes take precedence over .gitignore files.
+ */
+const REINCLUDE_BUILD = ['-x', '!native/build/'] as const
 
 /**
- * Compute the engine identity of the checkout at `engineRoot`. Working-tree
- * contents are hashed (tracked and untracked, not ignored). `native/build/**`
- * is listed explicitly by 31 §5.3, so it is walked on disk as well (the root
- * .gitignore's `build/` rule would otherwise hide untracked files there).
+ * Compute the engine identity of the checkout at `engineRoot` (31 §5.3).
+ * Working-tree contents are hashed: tracked files and untracked files that
+ * git does not ignore (with native/build/ re-included).
  */
 export function computeEngineIdentity(engineRoot: string, env: NodeJS.ProcessEnv): EngineIdentity {
   const git = (args: string[]): string =>
     runOk('git', ['-C', engineRoot, ...args], { cwd: engineRoot, env })
-  const listed = git(['ls-files', '-z', '-c', '-o', '--exclude-standard', '--', 'native'])
-    .split('\0')
-    .filter((p) => p !== '')
-  const buildFiles: string[] = []
-  walkFiles(engineRoot, 'native/build', buildFiles)
+  const nul = (out: string): string[] => out.split('\0').filter((p) => p !== '')
+  const listed = nul(
+    git(['ls-files', '-z', '-c', '-o', '--exclude-standard', ...REINCLUDE_BUILD, '--', 'native']),
+  )
   const set = new Set<string>()
-  for (const rel of [...listed, ...buildFiles]) {
+  for (const rel of listed) {
     if (!isEngineSourcePath(rel)) continue
     const abs = path.join(engineRoot, rel)
     // Tracked but deleted in the working tree: not part of the working-tree contents.
-    if (!existsSync(abs) || !statSync(abs).isFile()) continue
+    if (!existsSync(abs)) continue
+    const st = lstatSync(abs)
+    if (st.isSymbolicLink()) throw new Error(`symlink in the engine source set: ${rel}`)
+    if (!st.isFile()) continue
     set.add(rel)
   }
   if (!set.has('native/Cargo.toml') || !set.has('native/build/artifact-build.toml')) {
@@ -76,11 +74,14 @@ export function computeEngineIdentity(engineRoot: string, env: NodeJS.ProcessEnv
     '--',
     ...ENGINE_SOURCE_PATHSPECS,
   ]).trim()
-  const trackedBuild = new Set(
-    git(['ls-files', '-z', '--', 'native/build'])
-      .split('\0')
-      .filter((p) => p !== ''),
-  )
-  const untrackedBuild = buildFiles.some((f) => !trackedBuild.has(f))
-  return { sourceHash, commit, dirty: status !== '' || untrackedBuild, fileCount: entries.length }
+  // Untracked files under native/build/ that `git status` hides behind `build/`.
+  const untrackedBuild = nul(
+    git(['ls-files', '-z', '-o', '--exclude-standard', ...REINCLUDE_BUILD, '--', 'native/build']),
+  ).filter((rel) => isEngineSourcePath(rel))
+  return {
+    sourceHash,
+    commit,
+    dirty: status !== '' || untrackedBuild.length > 0,
+    fileCount: entries.length,
+  }
 }

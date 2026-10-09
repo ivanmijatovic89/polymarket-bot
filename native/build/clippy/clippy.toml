@@ -55,6 +55,10 @@ disallowed-types = [
   { path = "std::net::UdpSocket", reason = "no network access in strategies (30 §11)" },
   { path = "std::process::Command", reason = "no processes in strategies (30 §11)" },
   { path = "std::process::Child", reason = "no processes in strategies (30 §11)" },
+  { path = "std::fs::DirBuilder", reason = "no filesystem access in strategies (30 §11)" },
+  { path = "std::os::unix::net::UnixStream", reason = "no IPC in strategies (30 §11)" },
+  { path = "std::os::unix::net::UnixListener", reason = "no IPC in strategies (30 §11)" },
+  { path = "std::os::unix::net::UnixDatagram", reason = "no IPC in strategies (30 §11)" },
   # Standard streams: stdout carries protocol JSON (20 G1); use the logging macros (30 §13).
   { path = "std::io::Stdin", reason = "no standard streams in strategies (30 §11, 20 G1)" },
   { path = "std::io::Stdout", reason = "no standard streams in strategies (30 §11, 20 G1)" },
@@ -71,6 +75,10 @@ disallowed-methods = [
   { path = "std::thread::scope", reason = "no threads in strategies (30 §11)" },
   { path = "std::sync::mpsc::channel", reason = "no threads in strategies (30 §11)" },
   { path = "std::sync::mpsc::sync_channel", reason = "no threads in strategies (30 §11)" },
+  # Host- or thread-dependent values: a strategy must not branch on them.
+  { path = "std::thread::available_parallelism", reason = "host-dependent value; results must not depend on the host (30 §11, 00 R7)" },
+  { path = "std::thread::current", reason = "thread-dependent value; no threads in strategies (30 §11)" },
+  { path = "std::process::id", reason = "host-dependent value; no processes in strategies (30 §11)" },
   # Environment and arguments.
   { path = "std::env::var", reason = "no environment reads; use params (30 §11, 20 G2)" },
   { path = "std::env::var_os", reason = "no environment reads; use params (30 §11, 20 G2)" },
@@ -102,6 +110,10 @@ disallowed-methods = [
   { path = "std::fs::symlink_metadata", reason = "no filesystem access in strategies (30 §11)" },
   { path = "std::fs::canonicalize", reason = "no filesystem access in strategies (30 §11)" },
   { path = "std::fs::exists", reason = "no filesystem access in strategies (30 §11)" },
+  { path = "std::fs::hard_link", reason = "no filesystem access in strategies (30 §11)" },
+  { path = "std::fs::soft_link", reason = "no filesystem access in strategies (30 §11)" },
+  { path = "std::fs::set_permissions", reason = "no filesystem access in strategies (30 §11)" },
+  { path = "std::os::unix::fs::symlink", reason = "no filesystem access in strategies (30 §11)" },
   { path = "std::fs::File::open", reason = "no filesystem access in strategies (30 §11)" },
   { path = "std::fs::File::create", reason = "no filesystem access in strategies (30 §11)" },
   { path = "std::fs::OpenOptions::open", reason = "no filesystem access in strategies (30 §11)" },
