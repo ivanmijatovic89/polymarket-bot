@@ -588,6 +588,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pmb-runtime"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "pmb-contract",
+ "pmb-core",
+ "pmb-engine",
+ "pmb-replay",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "pmb-sdk"
 version = "0.1.0"
 dependencies = [
