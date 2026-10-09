@@ -25,7 +25,8 @@ while :; do
   if (( now >= DEADLINE )); then log "deadline reached"; break; fi
   iter=$((iter + 1))
   remaining_min=$(( (DEADLINE - now) / 60 ))
-  if (( iter == 1 )); then
+  # GOAL_RESUME=1: continue the previous conversation from the first iteration.
+  if (( iter == 1 )) && [[ "${GOAL_RESUME:-0}" != 1 ]]; then
     prompt="$(cat "$GOAL_DIR/PROMPT.md")
 
 Deadline: $DEADLINE_STR local time ($remaining_min minutes from now)."

@@ -18,7 +18,7 @@
 
 ### Waiting on user
 
-- (none yet)
+- **Fable unavailable (D45, 60 §10.0 C0).** Spawning the conformance author with `model: "fable"` fails with "Fable 5.1 requires usage credits" (HTTP 429, 2026-10-09 03:35 and 03:41). The conformance checkout `/Users/worker-1/Sites/polymarket-bot-conformance` (branch `native-conformance` from origin/main, `.claude/settings.local.json` read-denies per CF-2) is ready. Needed: usage credits for Fable at claude.ai/settings/usage, or a decision to use another model as the independent author. C1 has not started; nothing else is blocked until M2 step 3.
 
 ## Milestone plans
 
@@ -39,6 +39,11 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 07:25 — session limit pause (03:42–07:20)
+
+- At 03:42 every agent of this run stopped with "You've hit your session limit · resets 7:20am" (HTTP 429): rules capture (uncommitted work kept in its worktree), pmb-core domain, pmb-contract, pmb-book/replay, pmb-feeds, TS parity tooling, canonical builder. None had committed. The launcher iterations 2–7 exited after 30 s on the same limit.
+- Resumed at 07:21 with at most three agents at a time to stay inside the limit: rules capture (finish and prove), pmb-core domain types.
 
 ### 2026-10-09 — M0 close
 
