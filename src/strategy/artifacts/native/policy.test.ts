@@ -5,6 +5,7 @@ import test from 'node:test'
 import { ENGINE_ROOT } from './host.js'
 import {
   BUILD_CONFIG_REL,
+  BUILD_PROFILES,
   remapHostPaths,
   remapPairs,
   renderBuildConfig,
@@ -66,6 +67,8 @@ test('the committed artifact-build.toml pins every setting of 31 §4.2', () => {
     '"--remap-path-prefix=/Users/a/.rustup=/rustup"',
     '"--remap-path-prefix=/Users/a/Sites/bot=/pmb/engine"',
     '"--remap-path-prefix=/Users/a/.cache/pmb/target/1.89.0=/pmb/target"',
+    // Engine sources reach rustc under the fixed staging root (stage.ts).
+    '"--remap-path-prefix=/tmp/pmb-stage=/pmb/src"',
     // The linker debug map must not depend on the target directory (see the template).
     '"-Clink-arg=-Wl,-oso_prefix,/Users/a/.cache/pmb/target/1.89.0/"',
   ]) {
@@ -78,9 +81,16 @@ test('the committed artifact-build.toml pins every setting of 31 §4.2', () => {
   assert.ok(!r.includes('#'))
 })
 
-// spec: 31 §4.1 — the rendered file is identical for every command on one host.
-test('rendering is deterministic and independent of the profile', () => {
-  assert.equal(renderBuildConfig(template, VALUES), renderBuildConfig(template, { ...VALUES }))
+// spec: 31 §4.1 — the rendered file is identical for every command on one host:
+// it holds every profile and nothing that depends on the command or profile.
+test('the rendered file holds every profile and no per-command value', () => {
+  const r = renderBuildConfig(template, VALUES)
+  assert.equal(r, renderBuildConfig(template, { ...VALUES }))
+  const tables = scanToml(r).tables
+  for (const p of BUILD_PROFILES) assert.ok(tables.includes(`profile.${p}`), p)
+  // The profile name reaches the binary through PMB_BUILD_PROFILE on the
+  // cargo process (builder.ts), never through this file.
+  assert.ok(!r.includes('PMB_BUILD_PROFILE'))
 })
 
 // spec: 00 R14 — unknown placeholders and unusable values fail loud.
