@@ -836,3 +836,54 @@ fn alias_field_with_default() {
     assert_eq!(p.lot, qty!(5));
     assert_eq!(p.normalized_json(), r#"{"lot":5}"#);
 }
+
+#[derive(Params, Clone, Debug)]
+#[param(selftest = r#"{"trade":false}"#)]
+struct WithSelftest {
+    /// Required.
+    trade: bool,
+    /// Defaulted.
+    #[param(default = true)]
+    chainlink: bool,
+}
+
+#[derive(Params, Clone, Debug)]
+struct RequiredNoSelftest {
+    /// Required.
+    trade: bool,
+}
+
+#[derive(Params, Clone, Debug)]
+struct AllDefaulted {
+    /// Defaulted.
+    #[param(default = 5)]
+    size: pmb_sdk::prelude::Qty,
+    /// Optional.
+    note: Option<bool>,
+}
+
+#[derive(Params, Clone, Debug)]
+struct FlattensRequired {
+    /// Flattened required field.
+    #[param(flatten)]
+    inner: RequiredNoSelftest,
+}
+
+#[test]
+fn selftest_params_come_from_the_container_option() {
+    // spec: 20 §5.3 (embedded selftest job), 31 §4.4 step 5, D66, R14
+    use pmb_sdk::__private::{SelftestReady, StrategyParams};
+    let m = <WithSelftest as StrategyParams>::selftest_params();
+    let p = <WithSelftest as StrategyParams>::from_json(&m).expect("selftest params are valid");
+    assert!(!p.trade && p.chainlink);
+    assert!(<AllDefaulted as StrategyParams>::selftest_params().is_empty());
+    // A required field without selftest params: `strategy_main!` refuses it
+    // at compile time (compile_fail doctest on `assert_selftest_ready`).
+    let ready = [
+        <WithSelftest as SelftestReady>::READY,
+        <AllDefaulted as SelftestReady>::READY,
+        <RequiredNoSelftest as SelftestReady>::READY,
+        <FlattensRequired as SelftestReady>::READY,
+    ];
+    assert_eq!(ready, [true, true, false, false]);
+}

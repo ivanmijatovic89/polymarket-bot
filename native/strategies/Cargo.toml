@@ -1,7 +1,3 @@
-# Staged manifest (README "Status"): renamed to Cargo.toml, and this comment
-# removed, in the change that brings the pmb-sdk facade onto the branch with
-# a Cargo.lock from strategy:sync-lock (31 §2.2, §3). Until then the CI step
-# keyed on native/strategies/Cargo.toml stays off.
 [package]
 name = "native-strategies"
 edition = "2021"

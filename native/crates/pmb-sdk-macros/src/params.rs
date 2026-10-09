@@ -155,7 +155,8 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             ))
         }
     };
-    let custom_validate = parse_container(&input)?;
+    let container = parse_container(&input)?;
+    let custom_validate = container.validate;
     let doc = doc_string(&input.attrs);
 
     let mut specs = Vec::with_capacity(fields.len());
@@ -180,6 +181,25 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let p = quote!(::pmb_sdk::__private);
     let name_str = name.to_string();
+    let required_terms = specs.iter().map(|f| {
+        let ty = &f.ty;
+        if f.flatten {
+            quote!(<#ty as #p::ParamsFields>::HAS_REQUIRED)
+        } else if f.default.is_some() {
+            quote!(false)
+        } else {
+            quote!(!<#ty as #p::ParamValue>::OPTIONAL)
+        }
+    });
+    let has_required = quote!(false #(|| #required_terms)*);
+    let has_selftest = container.selftest.is_some();
+    let selftest_fn = container.selftest.as_ref().map(|lit| {
+        quote! {
+            fn selftest_params() -> #p::JsonMap {
+                #p::selftest_params(#name_str, #lit)
+            }
+        }
+    });
 
     let mut parse_stmts = Vec::new();
     let mut ctor_fields = Vec::new();
@@ -303,6 +323,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 };
                 const NAME: &'static str = #name_str;
                 const DOC: &'static str = #doc;
+                const HAS_REQUIRED: bool = #has_required;
 
                 fn __parse_fields(
                     __pmb_obj: &[(::std::string::String, #p::Input)],
@@ -336,6 +357,28 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 
             #params_impl
 
+            // The runtime's params seam (30 §9, 20 §5.1), so the type can be
+            // `Strategy::Params` of a binary (`strategy_main!`).
+            impl #p::StrategyParams for #name {
+                fn from_json(
+                    __pmb_obj: &#p::JsonMap,
+                ) -> ::core::result::Result<Self, ::std::vec::Vec<#p::RuntimeParamError>> {
+                    #p::runtime_from_json::<Self>(__pmb_obj)
+                }
+                fn to_normalized(&self) -> #p::JsonMap {
+                    #p::runtime_normalized(self)
+                }
+                fn json_schema() -> #p::Value {
+                    <Self as ::pmb_sdk::Params>::params_schema()
+                }
+                #selftest_fn
+            }
+
+            impl #p::SelftestReady for #name {
+                const READY: bool =
+                    #has_selftest || !<Self as #p::ParamsFields>::HAS_REQUIRED;
+            }
+
             impl #p::ParamValue for #name {
                 fn parse(
                     __pmb_in: &#p::Input,
@@ -361,30 +404,49 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
-/// Container options: `#[param(validate)]` only.
+/// Container options: `#[param(validate)]` and `#[param(selftest = "..")]`.
+struct Container {
+    validate: bool,
+    selftest: Option<LitStr>,
+}
+
 // D-PENDING: 30 §9 rule 2 makes `validate` a trait method with a default,
 // but the derive implements the trait; chose a container opt-in
 // `#[param(validate)]` that leaves `impl Params` (with `validate`) to the
 // author.
-fn parse_container(input: &DeriveInput) -> syn::Result<bool> {
-    let mut validate = false;
+// D-PENDING: 20 §5.3 does not say which params the embedded selftest job
+// uses, and the derive owns `StrategyParams::selftest_params`; chose a
+// container option `#[param(selftest = "<JSON object>")]`, required (a
+// compile error naming it) when some field is required.
+fn parse_container(input: &DeriveInput) -> syn::Result<Container> {
+    let mut c = Container {
+        validate: false,
+        selftest: None,
+    };
     for attr in &input.attrs {
         if !attr.path().is_ident("param") {
             continue;
         }
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("validate") {
-                validate = true;
+                c.validate = true;
+                Ok(())
+            } else if meta.path.is_ident("selftest") {
+                if c.selftest.is_some() {
+                    return Err(meta.error("#[param(selftest)] is given twice"));
+                }
+                c.selftest = Some(meta.value()?.parse()?);
                 Ok(())
             } else {
                 Err(meta.error(
-                    "unknown #[param] option on a params struct; the only struct option is \
-                     `validate` (then write `impl Params for .. { fn validate(&self) .. }`)",
+                    "unknown #[param] option on a params struct; the struct options are \
+                     `validate` (then write `impl Params for .. { fn validate(&self) .. }`) \
+                     and `selftest = \"<JSON object>\"` (the params of the embedded selftest)",
                 ))
             }
         })?;
     }
-    Ok(validate)
+    Ok(c)
 }
 
 fn parse_field(f: &Field) -> syn::Result<FieldSpec> {

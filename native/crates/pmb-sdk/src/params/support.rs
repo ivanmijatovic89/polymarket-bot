@@ -22,6 +22,10 @@ pub trait ParamsFields: Sized + 'static {
     const KEY_TREE: KeyTree;
     const NAME: &'static str;
     const DOC: &'static str;
+    /// Whether some field (or a field of a flattened struct) is required:
+    /// no default and not an `Option`. Such a struct needs
+    /// `#[param(selftest = "..")]` (20 §5.3).
+    const HAS_REQUIRED: bool;
 
     /// Parses this struct's fields (and flattened structs) from `obj`,
     /// marking consumed entries in `used`.
@@ -528,4 +532,59 @@ pub fn enum_schema<T: ParamEnum>(doc: &str, _defs: &mut SchemaDefs) -> Value {
 
 pub fn enum_expected<T: ParamEnum>() -> String {
     format!("one of {}", T::VARIANTS.join(", "))
+}
+
+/// The selftest params of `#[param(selftest = "..")]` (20 §5.3): `text` is a
+/// JSON object of the struct's params, checked when the binary's embedded
+/// selftest evaluates it like any params object.
+#[track_caller]
+pub fn selftest_params(name: &str, text: &str) -> serde_json::Map<String, Value> {
+    match serde_json::from_str::<Value>(text) {
+        Ok(Value::Object(m)) => m,
+        _ => panic!(
+            "#[param(selftest = {text:?})] on {name}: the selftest params must be a JSON object \
+             of this struct's params, e.g. selftest = r#\"{{\"trade\":false}}\"#"
+        ),
+    }
+}
+
+/// Whether the embedded selftest job (20 §5.3) has params this struct
+/// accepts: no required field, or `#[param(selftest = "..")]`. Implemented
+/// by the `Params` derive and by `()`.
+pub trait SelftestReady {
+    const READY: bool;
+}
+
+impl SelftestReady for () {
+    const READY: bool = true;
+}
+
+/// `strategy_main!`'s compile-time check (20 §5.3, R14): a binary whose
+/// params have a required field and no selftest params would fail its own
+/// `selftest`, which the canonical builder and worker checks run (31 §4.4).
+///
+/// ```compile_fail
+/// #[derive(pmb_sdk::Params, Clone, Debug)]
+/// struct P {
+///     /// Required, and no `#[param(selftest = "..")]`.
+///     trade: bool,
+/// }
+/// const _: () = pmb_sdk::__private::assert_selftest_ready::<P>();
+/// ```
+/// ```
+/// #[derive(pmb_sdk::Params, Clone, Debug)]
+/// #[param(selftest = r#"{"trade":true}"#)]
+/// struct P {
+///     /// Required.
+///     trade: bool,
+/// }
+/// const _: () = pmb_sdk::__private::assert_selftest_ready::<P>();
+/// ```
+pub const fn assert_selftest_ready<P: SelftestReady>() {
+    assert!(
+        P::READY,
+        "the strategy's Params has a required param (no default), so the embedded selftest job \
+         (20 §5.3) has no valid params: add #[param(selftest = \"<JSON object>\")] with a JSON object \
+         of valid params to the params struct"
+    );
 }

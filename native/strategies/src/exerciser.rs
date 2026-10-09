@@ -53,7 +53,7 @@ const PERIODIC_EVERY: u64 = 100;
 const PERIODIC_CANCEL_AFTER: u64 = 40;
 
 /// `x3` lifetime: `expireAtMs = tick ts + 120000` (60 §5.2).
-const X3_LIFETIME: DurMs = DurMs::from_ms(120_000);
+const X3_LIFETIME: DurMs = DurMs(120_000);
 
 /// A BUY price: snapped down to [`TICK`], clamped to
 /// [[`MIN_PRICE`], [`MAX_PRICE`]] (60 §5.1).
@@ -149,8 +149,9 @@ struct Writer<'o> {
 }
 
 impl Writer<'_> {
-    /// Places a resting order with its client id.
-    fn limit(&mut self, cid: ClientOrderId, order: LimitOrder) {
+    /// Places a limit order (GTC, or committed to resting by `.gtd`/`.post_only`)
+    /// with its client id.
+    fn limit<const RESTING: bool>(&mut self, cid: ClientOrderId, order: LimitOrder<RESTING>) {
         self.out.place(order.cid(cid));
     }
 
@@ -161,8 +162,9 @@ impl Writer<'_> {
 
     /// Places one `place_batch` of resting orders, in the given order.
     fn batch<const N: usize>(&mut self, orders: [(ClientOrderId, LimitOrder); N]) {
+        let orders = orders.map(|(cid, order)| order.cid(cid));
         self.out
-            .place_batch(orders.map(|(cid, order)| order.cid(cid)));
+            .place_batch(orders.iter().map(LimitOrder::batch_item));
     }
 }
 
@@ -287,7 +289,7 @@ fn x7(ctx: &Ctx, w: &mut Writer<'_>) -> Step {
 /// 220: `cancel_batch` [`x4a`, `x4b`, `x9-missing`].
 fn cancel_batch(_ctx: &Ctx, w: &mut Writer<'_>) -> Step {
     w.out
-        .cancel_batch([&cid!("x4a"), &cid!("x4b"), &cid!("x9-missing")]);
+        .cancel_batch([&cid!("x4a"), &cid!("x4b"), &cid!("x9-missing")].map(CancelRef::Cid));
     Step::Fired
 }
 
@@ -332,11 +334,11 @@ fn cancel_all(_ctx: &Ctx, w: &mut Writer<'_>) -> Step {
 
 /// A0 (60 §5.4): on the first `fill` of `x2`, GTC SELL of the filled outcome
 /// @ fill price + 0.05 (snapped up), size = fill size, cid `x2-exit`.
-fn a0_x2_exit(_ctx: &Ctx, event: &AccountEvent, w: &mut Writer<'_>) -> bool {
-    let AccountEvent::Fill { fill, .. } = event else {
+fn a0_x2_exit(ctx: &Ctx, event: &AccountEvent, w: &mut Writer<'_>) -> bool {
+    let AccountEvent::Fill { fill, order, .. } = event else {
         return false;
     };
-    if fill.order.cid().as_str() != "x2" {
+    if ctx.portfolio().cid_str(order) != "x2" {
         return false;
     }
     w.limit(

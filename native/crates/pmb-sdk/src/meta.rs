@@ -201,6 +201,11 @@ impl Meta {
         self.set(key, MetaValue::Json(value))
     }
 
+    /// Entries in insertion order (the engine's placement path).
+    pub(crate) fn entries(&self) -> impl Iterator<Item = (&str, &MetaValue)> {
+        self.entries.iter().map(|(k, v)| (k.as_ref(), v))
+    }
+
     pub fn get(&self, key: &str) -> Option<&MetaValue> {
         self.entries.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }

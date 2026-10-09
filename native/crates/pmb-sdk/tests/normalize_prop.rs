@@ -4,7 +4,9 @@
 mod common;
 
 use pmb_sdk::prelude::*;
+// Both preludes export a `Strategy`; the proptest one is meant here.
 use proptest::prelude::*;
+use proptest::strategy::Strategy;
 
 #[derive(ParamEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Leg {

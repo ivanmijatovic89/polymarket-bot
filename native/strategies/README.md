@@ -26,18 +26,10 @@ Layout (31 §2.2):
 
 ## Status
 
-- **Manifest staged.** The manifest is committed as `Cargo.toml.pending`,
-  so `native/strategies/` is not a Cargo package yet. The CI step "Strategy
-  package" (`.github/workflows/quality.yml`) and `scripts/native/ci-local.sh`
-  key on `native/strategies/Cargo.toml`, so they stay off and every gate
-  stays green (00 R12). The package cannot build before the `pmb-sdk` facade
-  of `30-strategy-sdk.md` (`Strategy`, `Ctx`, `Intents`, `Requirements`,
-  `testkit`) exists in `native/crates/`.
-- **Activation**, in one change on the branch that already has the facade:
-  `git mv Cargo.toml.pending Cargo.toml` (drop its staging comment), add
-  `Cargo.lock` with `strategy:sync-lock` (a subset of `native/Cargo.lock`,
-  31 §2.2, §3), adjust any facade name that differs from the checklist
-  below, then run the commands below.
+- **Active.** `Cargo.toml` and `Cargo.lock` (from `strategy:sync-lock`, a
+  subset of `native/Cargo.lock`, 31 §3) are committed; the package builds
+  against the real `pmb-sdk` facade, and its tests run on the real engine
+  (`Session` + `Simulator`, ts-compat) through `pmb_sdk::testkit`.
 - `engine-exerciser.rs` implements schedule v1 (60 §5.2) and the account
   callback A0 (60 §5.4) with `EXERCISER_SCHEDULE_VERSION = 1`, as the TS
   twin. Schedule v2 (60 §5.3, A1–A3, per-order meta) is M2 (01 §4.1): add
@@ -48,14 +40,19 @@ Layout (31 §2.2):
 - `feed-exerciser.rs`: `trade: false` returns no intents; `trade: true` runs
   the engine exerciser schedule on real ticks only, as the TS twin does, so
   both follow `EXERCISER_SCHEDULE_VERSION` (v1 until M2; 60 §5.8 says v2).
-- Verification so far: `cargo fmt --all --check`,
-  `cargo clippy --all-targets -- -D warnings` (plus the determinism lints of
-  `native/build/clippy`, forbidden) and `cargo test` passed against a
-  throwaway, uncommitted mock of the checklist below. The mock is layered on
-  the real `ws/sdk` params derive and value macros, makes every config and
-  view `#[non_exhaustive]` or private-field (30 §1 P7), and runs a
-  zero-latency stand-in for the testkit. The expected traces still need the
-  real testkit, which runs the real engine (30 §15).
+  It compiles, but its feed requirements fail loud (`RequirementsExt` in
+  `pmb-sdk`) until the engine's `Requirements` stand-in is replaced by the
+  feed wiring; the three tests that need requirements or feed inputs are
+  `#[ignore]`d with `TODO(feeds-merge)`.
+- Facade names that differ from the checklist below, until the engine
+  changes listed in `pmb-sdk` land: `place_batch` takes
+  `orders.iter().map(LimitOrder::batch_item)` and `cancel_batch` takes
+  `[&cid, ..].map(CancelRef::Cid)` (the engine buffer's inherent
+  request-level methods shadow the 30 §7 signatures); the `Fill` event
+  carries `order` next to `fill`, and its cid text is
+  `ctx.portfolio().cid_str(order)`; durations and times are built with
+  the `DurMs(..)`/`TsMs(..)` constructors; the plugin configs are the
+  `pmb-plugins` types (integer ms fields, `VolPrice`).
 
 Once the facade exists and the manifest is active:
 
