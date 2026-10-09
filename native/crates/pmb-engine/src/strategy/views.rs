@@ -3,7 +3,7 @@
 //! S1, 12 §14 P3).
 
 use pmb_book::OutcomeBook;
-use pmb_core::fill::{Capital, Fill, Position};
+use pmb_core::fill::{Capital, Fill};
 use pmb_core::ids::{CidInterner, ClientOrderId};
 use pmb_core::market_event::QuoteSide;
 use pmb_core::rules::{ExchangeRules, FeeCurve, GtdRules, RulesSource, TakerDelay};
@@ -183,11 +183,16 @@ impl<'a> PortfolioView<'a> {
         PortfolioView { ledger, cids }
     }
 
-    /// Position of an outcome (30 §5.2; `avg_entry` via
-    /// [`PortfolioView::avg_entry`]).
+    /// Position of an outcome (30 §5.2 `Position { qty, avg_entry,
+    /// cost_basis }`).
     #[inline]
-    pub fn position(&self, o: Outcome) -> Position {
-        self.ledger.position(o)
+    pub fn position(&self, o: Outcome) -> PositionView {
+        let p = self.ledger.position(o);
+        PositionView {
+            qty: p.qty,
+            avg_entry: self.avg_entry(o),
+            cost_basis: p.cost_basis,
+        }
     }
 
     /// Average entry `basis / quantity` when both are positive (12 §9.7).
@@ -225,10 +230,21 @@ impl<'a> PortfolioView<'a> {
         self.ledger.realized_pnl()
     }
 
-    /// The latest generation of a cid (30 §5.2, 12 §9.7).
+    /// The latest generation of a cid (30 §5.2, 12 §9.7), including one
+    /// whose `OrderSubmitted` is not delivered yet (see
+    /// [`OrderView::submission_delivered`]).
     pub fn order(&self, cid: &ClientOrderId) -> Option<&'a OrderView> {
         let k = self.cids.get(cid.as_str())?;
         let key = self.ledger.current(k)?;
+        Some(self.ledger.order(key))
+    }
+
+    /// The latest generation of a cid whose `OrderSubmitted` was delivered:
+    /// the generation TS `ordersByClientId` shows (12 §9.7), for ports that
+    /// must reproduce the TS view while a re-placed submission is queued.
+    pub fn delivered_order(&self, cid: &ClientOrderId) -> Option<&'a OrderView> {
+        let k = self.cids.get(cid.as_str())?;
+        let key = self.ledger.delivered_generation(k)?;
         Some(self.ledger.order(key))
     }
 
@@ -256,11 +272,27 @@ impl<'a> PortfolioView<'a> {
     }
 }
 
+/// The author view of a position (30 §5.2 `Position`): quantity, average
+/// entry (`None` when there is no positive quantity and basis) and cost
+/// basis.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PositionView {
+    /// Quantity, shares.
+    pub qty: Qty,
+    /// Average entry `basis / quantity` ([`PortfolioView::avg_entry`]).
+    pub avg_entry: Option<Price>,
+    /// Cost basis.
+    pub cost_basis: Usdc,
+}
+
 /// Exchange rules in force (30 §5 `rules()`, 11).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RulesView {
     pub(crate) rules: ExchangeRules,
     pub(crate) source: RulesSource,
+    /// The session runs the ts-compat rules (D59: accessors whose 11 §3
+    /// ts-compat value is "none" or "unbounded" return `None`).
+    pub(crate) ts_compat: bool,
 }
 
 impl RulesView {
@@ -269,27 +301,28 @@ impl RulesView {
     pub fn tick(&self, o: Outcome) -> Price {
         self.rules.tick[o]
     }
-    /// Minimum resting size, shares (11 §7.4).
+    /// Minimum resting size, shares (11 §7.4); `None` in ts-compat, which
+    /// has no minimum (D59, 11 §3).
     #[inline]
-    pub fn min_order_size(&self) -> Qty {
-        self.rules.min_size_resting
+    pub fn min_order_size(&self) -> Option<Qty> {
+        (!self.ts_compat).then_some(self.rules.min_size_resting)
     }
-    /// Valid price bounds `[tick, 1 − tick]` for an outcome (11 §7.2).
-    pub fn price_bounds(&self, o: Outcome) -> (Price, Price) {
+    /// Valid price bounds `[tick, 1 − tick]` for an outcome (11 §7.2);
+    /// `None` in ts-compat, which checks only price > 0 (D59, 11 §3).
+    pub fn price_bounds(&self, o: Outcome) -> Option<(Price, Price)> {
         let t = self.tick(o);
-        (t, Price::ONE - t)
+        (!self.ts_compat).then_some((t, Price::ONE - t))
     }
     /// Fee curve in force (11 §5).
     #[inline]
     pub fn fee_schedule(&self) -> &FeeCurve {
         &self.rules.fee
     }
-    /// Taker delay in force, when enabled (11 §6).
+    /// Taker delay in force, when enabled (11 §6); `None` in ts-compat
+    /// (D59).
     #[inline]
     pub fn taker_delay(&self) -> Option<&TakerDelay> {
-        self.rules
-            .taker_delay_enabled
-            .then_some(&self.rules.taker_delay)
+        (self.rules.taker_delay_enabled && !self.ts_compat).then_some(&self.rules.taker_delay)
     }
     /// GTD minimum lead (11 §8).
     #[inline]
@@ -306,10 +339,14 @@ impl RulesView {
     pub fn gtd(&self) -> &GtdRules {
         &self.rules.gtd
     }
-    /// Batch cap; `None` is unbounded (ts-compat, 11 §9).
+    /// Batch cap; `None` is unbounded (ts-compat, 11 §9, D59).
     #[inline]
     pub fn batch_cap(&self) -> Option<u8> {
-        self.rules.max_place_batch
+        if self.ts_compat {
+            None
+        } else {
+            self.rules.max_place_batch
+        }
     }
     /// RS4 source classification (11 §13.3).
     #[inline]
@@ -321,6 +358,50 @@ impl RulesView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ts_compat_rules_view_returns_none_for_unbounded_accessors() {
+        // spec: D59 (min_order_size, price_bounds, taker_delay, batch_cap
+        // are None in ts-compat), 11 §3, §4
+        let ts = RulesView {
+            rules: ExchangeRules::ts_compat(),
+            source: RulesSource::Fallback,
+            ts_compat: true,
+        };
+        assert_eq!(ts.min_order_size(), None);
+        assert_eq!(ts.price_bounds(Outcome::Up), None);
+        assert!(ts.taker_delay().is_none());
+        assert_eq!(ts.batch_cap(), None);
+        assert_eq!(ts.tick(Outcome::Up), Price::from_micros(10_000));
+        assert_eq!(ts.gtd_min_lead(), pmb_core::DurMs(60_000));
+        let real = RulesView {
+            ts_compat: false,
+            ..ts
+        };
+        assert_eq!(real.min_order_size(), Some(ts.rules.min_size_resting));
+        assert_eq!(
+            real.price_bounds(Outcome::Up),
+            Some((Price::from_micros(10_000), Price::from_micros(990_000)))
+        );
+    }
+
+    #[test]
+    fn position_view_carries_the_average_entry() {
+        use pmb_core::fill::Position;
+        // spec: 30 §5.2 Position { qty, avg_entry, cost_basis }, 12 §9.7
+        let mut ledger = Ledger::new(crate::core_rules::CoreRules::TsCompat, Usdc::ZERO);
+        ledger.positions[Outcome::Up] = Position {
+            qty: Qty::from_micros(3_000_000),
+            cost_basis: Usdc::from_micros(1_000_000),
+        };
+        let cids = CidInterner::new();
+        let v = PortfolioView::new(&ledger, &cids);
+        let p = v.position(Outcome::Up);
+        assert_eq!(p.qty, Qty::from_micros(3_000_000));
+        assert_eq!(p.cost_basis, Usdc::from_micros(1_000_000));
+        assert_eq!(p.avg_entry, Some(Price::from_micros(333_333)));
+        assert_eq!(v.position(Outcome::Down).avg_entry, None);
+    }
 
     #[test]
     fn tick_cause_order_and_strings() {

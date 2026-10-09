@@ -395,8 +395,8 @@ fn ctx_exposes_profile_rules_book_and_portfolio() {
         let script = Script {
             on_tick: Some(Box::new(|ctx, _out, log| {
                 log.lock().unwrap().push(format!(
-                    "min={} ask={:?} warmed={} cash={} slug={}",
-                    ctx.rules().min_order_size(),
+                    "min={:?} ask={:?} warmed={} cash={} slug={}",
+                    ctx.rules().min_order_size().map(|q| q.to_string()),
                     ctx.book(Outcome::Up).best_ask().map(|l| l.price),
                     ctx.warmed(),
                     ctx.portfolio().capital().cash,
@@ -407,9 +407,10 @@ fn ctx_exposes_profile_rules_book_and_portfolio() {
         };
         let mut h = H::new(config(rules), MockExec::sync(), script);
         h.tick(0, BIDS, ASKS).unwrap();
+        // D59: `None` in ts-compat.
         let min = match rules {
-            CoreRules::TsCompat => "0",
-            CoreRules::Realistic => "5",
+            CoreRules::TsCompat => "None",
+            CoreRules::Realistic => "Some(\"5\")",
         };
         assert_eq!(
             h.log()[1],
@@ -717,4 +718,108 @@ fn a_panicking_strategy_drop_fails_only_its_candidate() {
             ..
         })
     ));
+}
+
+fn timed_fill(k: OrderKey, ms: i64, side: Side, outcome: Outcome) -> AccountEventKind {
+    AccountEventKind::Fill(Fill {
+        key: FillKey { order: k, seq: 1 },
+        trade: TradeSeq::new(1),
+        outcome,
+        side,
+        price: p(0.5),
+        qty: q(1.0),
+        fee: u(0.0),
+        liquidity: Liquidity::Maker,
+        at: t(ms),
+        exchange_ts: None,
+        late: false,
+    })
+}
+
+#[test]
+fn a_fill_after_the_terminal_event_reaches_the_strategy_flagged_late() {
+    // spec: 10 §8.2 (late fill: applied and flagged `late`), 30 §8 FillView,
+    // 12 §12 (the trace records the delivered event)
+    let k = OrderKey::new(0);
+    let mut exec = MockExec::sync();
+    exec.accept_only = true;
+    exec.timed.push((
+        t(100),
+        AccountEventKind::OrderDone {
+            order: k,
+            reason: DoneReason::Canceled(CancelCause::Exchange),
+            filled: None,
+        },
+    ));
+    exec.timed
+        .push((t(200), timed_fill(k, 200, Side::Buy, Outcome::Up)));
+    let script = Script {
+        on_event: Some(Box::new(|_ctx, ev, _out, log| {
+            if let pmb_engine::strategy::AccountEvent::Fill { fill, .. } = ev {
+                log.lock().unwrap().push(format!("late={}", fill.late));
+            }
+        })),
+        ..Script::default()
+    };
+    let mut h = H::new(config(CoreRules::Realistic), exec, script);
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    assert_eq!(h.current("a"), Some(k));
+    h.tick(300, BIDS, ASKS).unwrap();
+    assert!(h.log().iter().any(|l| l == "late=true"), "{:?}", h.log());
+    assert!(h.ledger().fills()[0].late);
+    let traced = h
+        .events()
+        .iter()
+        .find_map(|e| match e.kind {
+            AccountEventKind::Fill(f) => Some(f),
+            _ => None,
+        })
+        .unwrap();
+    assert!(traced.late);
+}
+
+#[test]
+fn a_fill_on_the_wrong_outcome_or_side_is_an_engine_fault() {
+    // spec: 13 §2.4 X3/X5 (adapter contract), 12 §9.8, §11 (engine_fault),
+    // R14
+    for (side, outcome) in [(Side::Sell, Outcome::Up), (Side::Buy, Outcome::Down)] {
+        let k = OrderKey::new(0);
+        let mut exec = MockExec::sync();
+        exec.accept_only = true;
+        exec.timed.push((t(100), timed_fill(k, 100, side, outcome)));
+        let mut h = H::new(config(CoreRules::Realistic), exec, Script::default());
+        h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+            .unwrap();
+        match h.tick(300, BIDS, ASKS) {
+            Err(SessionFault::Engine { message }) => {
+                assert!(message.contains("outcome or side"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+}
+
+#[test]
+fn realistic_open_order_limit_counts_a_fully_filled_record_until_its_terminal() {
+    // spec: 12 §8.1 Open orders ("non-terminal own records (InFlight,
+    // Delayed, Live, Unknown) + 1 > maxOpenOrders")
+    let k = OrderKey::new(0);
+    let mut exec = MockExec::sync();
+    exec.accept_only = true;
+    // The order fills completely; its OrderDone is not delivered.
+    let mut fill = timed_fill(k, 100, Side::Buy, Outcome::Up);
+    if let AccountEventKind::Fill(f) = &mut fill {
+        f.qty = q(10.0);
+    }
+    exec.timed.push((t(100), fill));
+    let mut cfg = config(CoreRules::Realistic);
+    cfg.risk.max_open_orders = 1;
+    let mut h = H::new(cfg, exec, Script::default());
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    h.send(vec![Cmd::Place(Ord::buy("b", 10.0, 0.5))], 200, BIDS, ASKS)
+        .unwrap();
+    assert!(h.ledger().order(k).fully_filled());
+    assert_eq!(h.rejections(), vec!["risk_max_open_orders(max=1)"]);
 }

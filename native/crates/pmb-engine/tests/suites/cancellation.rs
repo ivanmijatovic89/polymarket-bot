@@ -148,7 +148,7 @@ fn conflicting_client_and_exchange_ids_fail() {
         &asks(0.6),
     )
     .unwrap();
-    assert_eq!(h.cancel_failures(from), vec!["conflicting_refs"]);
+    assert_eq!(h.cancel_failures(from), vec!["conflicting_order_reference"]);
     assert_eq!(h.open_cids(), vec!["a", "b"]);
 }
 
@@ -540,7 +540,7 @@ fn both_refs_follow_the_ts_conflict_rules() {
         &asks(0.6),
     )
     .unwrap();
-    assert_eq!(h.cancel_failures(from), vec!["conflicting_refs"]);
+    assert_eq!(h.cancel_failures(from), vec!["conflicting_order_reference"]);
     assert_eq!(h.open_cids(), vec!["a", "b"]);
     // An unknown cid with an id that names nothing: TS forwards it and its
     // simulator finds nothing (TC-C10): no event.

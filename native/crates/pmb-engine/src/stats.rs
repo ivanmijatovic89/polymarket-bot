@@ -8,7 +8,7 @@
 use pmb_core::event::{AccountEvent, AccountEventKind, DoneReason};
 use pmb_core::fill::Liquidity;
 use pmb_core::order::Side;
-use pmb_core::{FinalOutcome, Outcome, PerOutcome, Rounding, Usdc};
+use pmb_core::{FinalOutcome, Outcome, PerOutcome, Usdc};
 
 use crate::ledger::Ledger;
 use crate::strategy::TickCause;
@@ -103,8 +103,10 @@ pub struct MarketStatsAcc {
 }
 
 impl CandidateCounters {
-    /// Counts one delivered event (21 §10 `counters`).
-    pub fn on_delivered(&mut self, ev: &AccountEvent) {
+    /// Counts one delivered event (21 §10 `counters`). Fill notional uses
+    /// the ledger's rounding of the rule set (10 §3.3 R5/R6), so the
+    /// reported notional equals the cash the ledger moved.
+    pub fn on_delivered(&mut self, ev: &AccountEvent, rules: crate::core_rules::CoreRules) {
         match ev.kind {
             AccountEventKind::OrderSubmitted { .. } => self.orders_placed += 1,
             AccountEventKind::OrderRejected { reason, .. } => {
@@ -121,7 +123,7 @@ impl CandidateCounters {
             AccountEventKind::Fill(f) => {
                 let n = f
                     .price
-                    .notional(f.qty, Rounding::HalfAwayFromZero)
+                    .notional(f.qty, crate::ledger::notional_mode(rules, f.side))
                     .expect("notional overflow (10 T3)");
                 match f.side {
                     Side::Buy => self.buy_notional += n,
@@ -207,6 +209,43 @@ impl MarketStatsAcc {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn diagnostic_notional_uses_the_ledger_rounding() {
+        // spec: 21 §10 counters (buyNotionalUsdc/sellNotionalUsdc), 10 §3.3
+        // R5/R6 (realistic BUY Ceil, SELL Floor; ts-compat half away)
+        use crate::core_rules::CoreRules;
+        use pmb_core::fill::Fill;
+        use pmb_core::ids::{FillKey, OrderKey, TradeSeq};
+        use pmb_core::{Price, Qty, TsMs};
+        let fill = |side| AccountEvent {
+            at: TsMs(0),
+            kind: AccountEventKind::Fill(Fill {
+                key: FillKey {
+                    order: OrderKey::new(0),
+                    seq: 1,
+                },
+                trade: TradeSeq::new(1),
+                outcome: Outcome::Up,
+                side,
+                price: Price::from_micros(333_333),
+                qty: Qty::from_micros(1_000_001),
+                fee: Usdc::ZERO,
+                liquidity: Liquidity::Taker,
+                at: TsMs(0),
+                exchange_ts: None,
+                late: false,
+            }),
+        };
+        let mut real = CandidateCounters::default();
+        real.on_delivered(&fill(Side::Buy), CoreRules::Realistic);
+        real.on_delivered(&fill(Side::Sell), CoreRules::Realistic);
+        assert_eq!(real.buy_notional, Usdc::from_micros(333_334));
+        assert_eq!(real.sell_notional, Usdc::from_micros(333_333));
+        let mut ts = CandidateCounters::default();
+        ts.on_delivered(&fill(Side::Buy), CoreRules::TsCompat);
+        assert_eq!(ts.buy_notional, Usdc::from_micros(333_333));
+    }
 
     #[test]
     fn counts_by_cause_and_total() {

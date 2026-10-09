@@ -117,9 +117,16 @@ impl EngineConfig {
         if mc.runner.max_events_per_drain == 0 {
             return Err(err("runner.maxEventsPerDrain", "must be positive"));
         }
-        // D-PENDING: realistic sections (`execution.latency`, `makerQueue`,
-        // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are resolved
-        // in M3b (D57); chose to accept and ignore them until then.
+        // R14: the realistic sections (`execution.latency`, `makerQueue`,
+        // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are
+        // resolved in M3b (D57); until then a realistic ModelConfig is
+        // refused instead of running with them silently ignored.
+        if mc.profile == pmb_contract::vocab::Profile::Realistic {
+            return Err(err(
+                "profile",
+                "realistic is not resolvable before M3b (D57); its execution sections cannot be honored yet",
+            ));
+        }
         Ok(EngineConfig {
             core_rules: CoreRules::from_profile(mc.profile),
             input_mode,
@@ -161,4 +168,25 @@ impl RiskLimits {
         max_abs_position: Qty::from_micros(2_000_000_000),
         max_loss_stop: Usdc::from_micros(500_000_000),
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_realistic_model_config_is_refused_until_its_sections_resolve() {
+        // spec: R14 (no silent substitution), 12 §9.3 (sellGate from
+        // ModelConfig), D57 (realistic sections resolved in M3b)
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contract/model-configs/ts-compat-default.json"
+        ))
+        .unwrap();
+        let mut mc: ModelConfig = serde_json::from_str(&text).unwrap();
+        mc.profile = pmb_contract::vocab::Profile::Realistic;
+        let err = EngineConfig::from_model_config(&mc, InputMode::TelonexDelta, MarketSeed(1))
+            .unwrap_err();
+        assert!(err.message.starts_with("profile:"), "{}", err.message);
+    }
 }

@@ -247,7 +247,8 @@ impl CancelFailReason {
     pub const fn code(self) -> &'static str {
         match self {
             CancelFailReason::UnknownClientOrder => "unknown_client_order",
-            CancelFailReason::ConflictingRefs => "conflicting_refs",
+            // D62: the TS string (`cancellation.ts:90,99`).
+            CancelFailReason::ConflictingRefs => "conflicting_order_reference",
             CancelFailReason::MissingExchangeOrderId => "missing_exchange_order_id",
             CancelFailReason::NotCancelableDuringDelay => "not_cancelable_during_delay",
             CancelFailReason::ExchangeNotCanceled { .. } => "exchange_not_canceled",

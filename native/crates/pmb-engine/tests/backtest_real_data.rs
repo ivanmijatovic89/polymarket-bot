@@ -229,4 +229,15 @@ fn real_telonex_markets_run_end_to_end_deterministically() {
         ran += 1;
     }
     eprintln!("real-data markets run: {ran}");
+    // A host with the Telonex data link must run at least one market, so a
+    // broken path or a renamed file cannot turn this test into a no-op; a
+    // host without the link (CI) skips explicitly.
+    if root.join("data/telonex").exists() {
+        assert!(
+            ran > 0,
+            "data/telonex exists but no golden market file was found"
+        );
+    } else {
+        eprintln!("skip: data/telonex is absent on this host");
+    }
 }

@@ -279,6 +279,9 @@ pub enum LedgerError {
     Overfill(OrderKey),
     /// A second terminal event for one key (10 S1).
     SecondTerminal(OrderKey),
+    /// A fill whose outcome or side differs from its order's request
+    /// (13 §2.4 X3/X5).
+    FillMismatch(FillKey),
     /// Fixed-point overflow in engine arithmetic (10 T3).
     Overflow,
 }
@@ -294,6 +297,11 @@ impl std::fmt::Display for LedgerError {
         match self {
             LedgerError::UnknownOrder(k) => write!(f, "delivered event for unknown order {k}"),
             LedgerError::UnknownOp(k) => write!(f, "delivered event for unknown op {k}"),
+            LedgerError::FillMismatch(k) => write!(
+                f,
+                "fill {} of order {} disagrees with the order's outcome or side",
+                k.seq, k.order
+            ),
             LedgerError::Transition(t) => write!(f, "{t}"),
             LedgerError::FillSeq(k) => {
                 write!(f, "fill seq {} of order {} not increasing", k.seq, k.order)
@@ -368,7 +376,7 @@ pub struct Ledger {
 }
 
 #[inline]
-fn notional_mode(rules: CoreRules, side: Side) -> Rounding {
+pub(crate) fn notional_mode(rules: CoreRules, side: Side) -> Rounding {
     // 10 §3.3 R5, R6: realistic BUY Ceil, SELL Floor; ts-compat HalfAwayFromZero.
     match (rules, side) {
         (CoreRules::TsCompat, _) => Rounding::HalfAwayFromZero,
@@ -952,6 +960,10 @@ impl Ledger {
         if f.key.seq <= r.fill_seq {
             return Err(LedgerError::FillSeq(f.key));
         }
+        // 13 §2.4 X3/X5: a fill moves the position of its own order only.
+        if f.outcome != r.req.outcome || f.side != r.req.side {
+            return Err(LedgerError::FillMismatch(f.key));
+        }
         r.fill_seq = f.key.seq;
         let mode = notional_mode(rules, f.side);
         let notional = f.price.notional(f.qty, mode)?;
@@ -1196,17 +1208,15 @@ impl Ledger {
         (n, buys, sells)
     }
 
-    /// Non-terminal own records that are not fully filled, and their
-    /// remaining BUY shares per outcome (12 §8.1: undelivered submissions
-    /// count at once).
+    /// Non-terminal own records (`InFlight`, `Delayed`, `Live`, `Unknown`)
+    /// and their remaining BUY shares per outcome (12 §8.1: undelivered
+    /// submissions count at once; a fully filled record counts until its
+    /// terminal event is delivered, its remaining quantity is zero).
     pub(crate) fn nonterminal_exposure(&self) -> (u32, PerOutcome<Qty>) {
         let mut n = 0u32;
         let mut buys = PerOutcome::<Qty>::default();
         for &k in &self.active {
             let r = &self.orders[k.index()];
-            if r.fully_filled() {
-                continue;
-            }
             n += 1;
             if r.req.side == Side::Buy {
                 buys[r.req.outcome] += r.remaining();

@@ -199,12 +199,14 @@ fn make_ctx<'a>(
     plugins: &'a crate::plugins_view::PluginsView,
     rules: &'a RulesView,
 ) -> Ctx<'a> {
+    let ts_compat = rules.ts_compat;
     let book = |o: Outcome| BookView {
         outcome: o,
         recorded: market.books.get(o),
         overlay,
         updated_at: market.book_updated_at[o].unwrap_or(TsMs(0)),
-        stale: market.stale[o],
+        // 12 §5.2: ts-compat follows TS and has no stale state.
+        stale: !ts_compat && market.stale[o],
     };
     Ctx::new(
         now,
@@ -687,6 +689,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let rules_view = RulesView {
             rules: self.effective_rules(market),
             source: market.rules_source,
+            ts_compat: self.config.core_rules == CoreRules::TsCompat,
         };
         let Some(strategy) = self.strategy.as_mut() else {
             return Ok(());
@@ -1000,6 +1003,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let rules_view = RulesView {
             rules: effective_rules(rules, market),
             source: market.rules_source,
+            ts_compat: rules == CoreRules::TsCompat,
         };
         // 12 §6.5 book(o): ts-compat shows the recorded book only.
         let overlay = match rules {
