@@ -798,3 +798,37 @@ committed golden vector (10 RNG-7).
   its evidence. Extending the auto-class would change a diff rule (CL-9, R5)
   and would need the user. Raise it only if such divergences show up at
   volume.
+
+## D70. M9, M10 and gates 3 and 4 move to a separate later goal
+
+**Decision (user, 2026-10-09, after the owner's review of the plan):** the
+CLOB V2 adapter (M9), the calibration (M10), gate 4 (first real order) and
+gate 3 (`realistic` as the default profile) are removed from this goal and
+form a separate later goal ("goal 2"). This goal ends when M8 (live paper
+mode) and M11 pass their proofs (01 §1.1 as amended). Consequences:
+
+- Nothing in this goal builds or tests order-sending code: no `real-orders`
+  build, no EIP-712 v2 signing, no CLOB REST place/cancel adapter, no
+  heartbeat, no shadow mode, no `calibration-probe.v1`. The `standard` build
+  and the paper adapter (D28, 50 §8.1) stay in scope; M8 remains the "one
+  core" proof (journal replay identity, DET-11).
+- `realistic` stays opt-in through this goal (default `ts-compat`). The A/B
+  reports of M3b and the money-free V4 fill evaluation of M7 are its evidence
+  until goal 2 calibrates it.
+- The gate-4 questions of 01 §12.1 are asked at the start of goal 2; their
+  interim rules stay in force here. 50-live-runtime.md (real-order parts) and
+  51-calibration-plan.md are kept unchanged as goal 2's spec; the 00 §2
+  working sets of M9 and M10 are goal 2's.
+- Milestone numbers do not change (00 §3.4). Goal 2 starts from this goal's
+  final STATUS.md and PARITY.md with a new goal prompt that begins at M9.
+- Amends D02 (gates in this goal: G1, G2), D05 (the adapter stays promoted
+  into the plan, but in goal 2), D34 and D35 (thresholds unchanged, applied
+  in goal 2) and 01 §1 item 7.
+
+Rationale: the backtest engine, the realistic profile and the fleet have a TS
+oracle, goldens and A/B evidence; the real-order adapter and the calibration
+have no oracle until real orders exist and need the owner's presence for
+several days. Splitting them gives this goal an end point the owner can judge
+and keeps live-order work from being pulled forward. Recorded by the owner's
+review session and committed directly (00 §3.2: scope and gate change, user
+decision).

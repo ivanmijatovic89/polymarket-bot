@@ -34,24 +34,27 @@ documents use them.
    that market.
 6. **Speed is the top design priority** (§2).
 7. Order of work: engine and backtest → fleet → protocols author Rust
-   strategies (M11, right after the fleet, D39) in parallel with live (Rust
-   live runtime and CLOB V2 adapter are in scope) → calibration.
+   strategies (M11, right after the fleet, D39) in parallel with the Rust
+   live runtime in paper mode (M7, M8). The CLOB V2 adapter (M9) and the
+   calibration (M10) belong to a separate later goal (D70).
 8. No overall wall-clock limit and no stop criteria (D02, D07). Each
    goal-session run lasts at most 8 hours and then pauses (§9.4). Progress is
-   bounded by milestone proofs and four user gates (§7). Speed is measured and
-   reported; there is no minimum speedup threshold.
+   bounded by milestone proofs and the user gates of §7 (G1 and G2 in this
+   goal; G4 and G3 belong to goal 2, D70). Speed is measured and reported;
+   there is no minimum speedup threshold.
 9. All engine work runs on worker-1 (D36, §8.1).
 
 ### 1.1 Done means
 
-The goal is done when every milestone M0–M9 and M11 (including M3a–M3c and
-M5a–M5b) passes its proof on the final revision, M10 has been run by the user
-and analyzed, gate 3 has been decided, all work is merged to main through PRs
-with CI green, `PARITY.md` has no unclassified entry, and the benchmark and
-calibration reports exist. The telonex-delta BTC 5m cells (E5) are required
-only once 5m data exists after a Telonex renewal (D38); until then BTC 5m is
-proven on Recorder V4 (M7) and the final report states the gap. If the user
-has not yet run the calibration, the goal is paused at gate 4, not failed.
+The goal is done when every milestone M0–M8 and M11 (including M3a–M3c and
+M5a–M5b) passes its proof on the final revision, all work is merged to main
+through PRs with CI green, `PARITY.md` has no unclassified entry, the
+benchmark reports exist, and a closing STATUS.md entry records the starting
+point for goal 2 (M9 CLOB V2 adapter, M10 calibration, gates 4 and 3; D70).
+The telonex-delta BTC 5m cells (E5) are required only once 5m data exists
+after a Telonex renewal (D38); until then BTC 5m is proven on Recorder V4
+(M7) and the final report states the gap. `realistic` stays opt-in; gate 3
+is decided in goal 2.
 
 **What the speedup covers.** Rust speeds up only strategies compiled into a
 native artifact: in M1–M6 the strategies of §4.1. About 80% of today's fleet
@@ -142,7 +145,7 @@ live in the protocols' own packages (31 §2.2).
 | `overnight-opus55-lagsnipe.v15.rs` | port (D20, D40) of TS artifact sha `304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8` (strategy_artifacts, read 2026-10-08; BTC 15m telonex-delta only, 264 runs), from the bundle `data/strategy-artifacts/304eceb3….mjs` (13,663 bytes, complete: Zod schema, normCdf/normInv, both callbacks; 60 §6.1–§6.2) | M2 | 60 §6, 30 §18 |
 | `engine-exerciser-realistic.rs` | Rust only, realistic features without a TS oracle | M3b | 60 §5.9 |
 | `panic-probe.rs` | test only, fault injection in groups | M4 | 60 CG-4 |
-| `calibration-probe.v1` | calibration probe, normal SDK | prepared and paper-rehearsed before G4 (M9) | 51 §3 P6, §6 |
+| `calibration-probe.v1` | calibration probe, normal SDK | goal 2 (M9, D70); not built in this goal | 51 §3 P6, §6 |
 
 No other TS strategy is ported in this goal.
 
@@ -200,8 +203,8 @@ repository. Parity runs use `--concurrency 4` while the fleet worker runs
 | M11 | Protocols author Rust strategies (D39) | M6 | Sandboxed end-to-end authoring, publish and fleet backtest of a Rust strategy | — |
 | M7 | Recorder V4 input | M3b | V4 parity vs TS (incl. BTC 5m), realistic on V4 tape, P13 | — |
 | M8 | Live paper mode | M7 | Journal replay gives identical decisions; latency report | — |
-| M9 | CLOB V2 adapter | M8 | Fixture/mock tests, shadow mode, safety checklist, calibration preparation | **G4** |
-| M10 | Calibration | M9, G4 | Calibration report against D35 thresholds | **G3** |
+| M9 | CLOB V2 adapter (goal 2, D70) | M8 | Fixture/mock tests, shadow mode, safety checklist, calibration preparation | **G4** (goal 2) |
+| M10 | Calibration (goal 2, D70) | M9, G4 | Calibration report against D35 thresholds | **G3** (goal 2) |
 
 M11 keeps its number so the existing numbers stay stable; it runs right after
 M6, and from then on protocol sessions author Rust strategies in parallel with
@@ -666,6 +669,9 @@ their sessions (CLAUDE.md); this milestone builds the engine-side path.
 
 ### M9 — CLOB V2 adapter
 
+**Deferred to goal 2 (D70).** Not started in this goal; the text below is kept
+as goal 2's plan.
+
 - Deliverables: V2 order struct and EIP-712 domain v2 signing, REST place/
   cancel/batch with the shared error taxonomy, ambiguous-outcome
   reconciliation, 429 backoff, user WS mapping incl. FAILED reversal and maker
@@ -688,6 +694,9 @@ their sessions (CLAUDE.md); this milestone builds the engine-side path.
 
 ### M10 — Calibration
 
+**Deferred to goal 2 (D70).** Not started in this goal; the text below is kept
+as goal 2's plan.
+
 - The user launches and stops the bot on the host chosen at G4; budget and
   stop per D34; worker-2 records the same markets with Recorder V4 (51 §7).
 - Analysis: journal ↔ V4 join, decontamination, execution-pinned and
@@ -708,8 +717,8 @@ user.
 |---|---|---|---|
 | G1 | End of M0 | Delegated to the lead (D56): the frozen spec (tag `native-spec-g1`), D36–D56, 03-overview-for-user.md | The user reviews 03 and may change any decision (00 §3.2) |
 | G2 | End of M2 | BTC 15m parity matrix results (D38), PARITY.md (money-semantics classifications highlighted), coverage, invariants, conformance results, benchmark and tape numbers so far, spec deviations (new D entries), the merge content (§8) | Accept the port; merge to main; confirm classifications; fleet-wide tape (D46) |
-| G4 | End of M9 | Adapter test report, paper journal-replay identity, safety checklist (`standard` vs `real-orders` build, flag gate, heartbeat, lockfile, session guards, kill switch, alerts), calibration runbook, probe rehearsal and frozen thresholds, the questions of §12.1 | Answer §12.1; approve the first real order; the user launches |
-| G3 | End of M10 | Calibration report against D35 per input mode, with C9/C10 as headline if accepted at G4 (51 §12.4, §15), validity envelope, A/B summary | Make `realistic` the default profile |
+| G4 (goal 2, D70) | End of M9 | Adapter test report, paper journal-replay identity, safety checklist (`standard` vs `real-orders` build, flag gate, heartbeat, lockfile, session guards, kill switch, alerts), calibration runbook, probe rehearsal and frozen thresholds, the questions of §12.1 | Answer §12.1; approve the first real order; the user launches |
+| G3 (goal 2, D70) | End of M10 | Calibration report against D35 per input mode, with C9/C10 as headline if accepted at G4 (51 §12.4, §15), validity envelope, A/B summary | Make `realistic` the default profile |
 
 ## 8. Branch, merge and oracle policy
 
@@ -861,7 +870,7 @@ its limit.
 
 ## 12. Gate-4 questions and resolved gate-1 questions
 
-### 12.1 Gate-4 questions (deferred by the lead, D56)
+### 12.1 Gate-4 questions (deferred by the lead, D56; asked at the start of goal 2, D70)
 
 Asked at G4 at the latest; none blocks work before M9. Interim rules apply
 until answered.

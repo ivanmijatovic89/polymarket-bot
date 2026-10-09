@@ -23,7 +23,7 @@ A one-page summary in plain language. It is not normative: where it differs from
 
 ## Order of work
 
-1. Plan frozen tonight (gate 1, decided by the lead for you). 2. Rules-saving script on main. 3. Engine and backtests on worker-1. 4. Copy-mode proof on 200+ BTC 15m markets (gate 2), then merge to main. 5. Database, speed work, realistic mode, candidate groups (many parameter sets in one pass), final speed test. 6. Fleet: worker-1, worker-2 and milan-m1 (if available); the MacBook only sends jobs. 7. AI protocols start writing Rust strategies, so the whole fleet gets faster. In parallel: 8. worker-2's recordings, paper trading (live data, no money), the real-order connection (gate 4), and your ~$100 calibration (gate 3).
+1. Plan frozen tonight (gate 1, decided by the lead for you). 2. Rules-saving script on main. 3. Engine and backtests on worker-1. 4. Copy-mode proof on 200+ BTC 15m markets (gate 2), then merge to main. 5. Database, speed work, realistic mode, candidate groups (many parameter sets in one pass), final speed test. 6. Fleet: worker-1, worker-2 and milan-m1 (if available); the MacBook only sends jobs. 7. AI protocols start writing Rust strategies, so the whole fleet gets faster. In parallel: 8. worker-2's recordings and paper trading (live data, no money). The real-order connection (gate 4) and your ~$100 calibration (gate 3) are a separate later goal (D70, decided by you on 2026-10-09); this goal places no real orders.
 
 **Copy mode** reproduces the old engine to prove the new one is right. **Realistic mode** follows today's exchange rules and is checked against real trading. BTC 5m copy-mode checks on Telonex data wait until you renew Telonex; 5m is checked on worker-2's recordings meanwhile.
 
@@ -33,8 +33,8 @@ A one-page summary in plain language. It is not normative: where it differs from
 |---|---|---|---|
 | G1 | Tonight | Decided by the lead for you; this page | Change any decision below in the morning |
 | G2 | After the copy-mode proof | Same orders, fills and cancels as the old engine on 200+ BTC 15m markets (money within $0.0001 per market); every difference labeled; first speed numbers | Accept, merge to main, approve differences that change money |
-| G4 | Before any real order | 24+ hours of paper trading whose replay gives identical decisions, exchange-simulation tests, safety checklist, calibration plan | Answer the questions below; build the real-order version on the chosen Mac and run a short paper test with it; approve; you launch |
-| G3 | After calibration | Pass or fail on each pass mark fixed in advance | Make realistic mode the default |
+| G4 (later goal) | Before any real order | 24+ hours of paper trading whose replay gives identical decisions, exchange-simulation tests, safety checklist, calibration plan | Answer the questions below; build the real-order version on the chosen Mac and run a short paper test with it; approve; you launch |
+| G3 (later goal) | After calibration | Pass or fail on each pass mark fixed in advance | Make realistic mode the default |
 
 ## Decisions taken tonight that you may want to check (details in 02-decisions.md)
 
@@ -44,7 +44,7 @@ A one-page summary in plain language. It is not normative: where it differs from
 - Old engine: bug fixes only after gate 2, except features AI protocols still need (which also get a Rust version); retirement review about 3 months after gate 3 (D49). The agent runs database migrations that only add columns or tables (D50).
 - Backtests across fee periods are allowed, with per-period statistics (D51). Instant-order hold times before 2026-08-17 are used but flagged and do not count for gate 3 (D52). Fees are checked with free data first; buying Telonex data needs you (D53).
 
-## Questions for you at gate 4 (before any real order)
+## Questions for you at gate 4 (before any real order; asked when the later goal starts)
 
 Separate storage keys per machine; a paper-trading key on an empty wallet; which Mac calibrates and trades; which wallet (recommended: a new one); alert app (recommended: ntfy); automatic restarts (recommended: up to 3 per hour); extra calibration pass marks; maker budget; calibration days.
 

@@ -4,7 +4,7 @@
 
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
 - Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
-- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D69)
+- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D70)
 - Milestone / step: M1 / steps 2–6 in parallel (workflow wave 1); steps 0 and 1 done
 - Oracle pin: main@ad2f11b8 (merged 2026-10-09 11:50; the only change since 9463830d is the rules capture, outside the OR-2 engine paths)
 - Binaries: none yet
@@ -35,6 +35,10 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 13:00 — D70 (user): M9, M10 and gates 3/4 move to a separate goal
+
+- Recorded by the owner's review session and committed directly (00 §3.2: scope and gate change, user decision). Edited: 01 §1 items 7–8, §1.1, §4.1 (`calibration-probe.v1`), §6 table and the M9/M10 headings, §7, §12.1; 03 order of work and gates; 00 §2 rows M9/M10. 50 and 51 are unchanged (goal 2's spec). No effect on M1 work; nothing in this goal builds order-sending code.
 
 ### 2026-10-09 12:45 — lead decisions D58–D69
 

@@ -115,8 +115,8 @@ listed sections, or when a listed section points to another one the step needs.
 | M11 Protocols in Rust | 31 §2.2, §7.3, §9, §11; 30 §17; 41 §3; 16 §9.4 |
 | M7 Recorder V4 input | 15 §5–§6, §10; 14 §7; 13 §6.5; 22 §6.2; 51 §3 (P13), §12.4 |
 | M8 Paper mode | 50 §1–§7, §8.1, §9–§15, §18; 22 §6; 15 §7; 16 §12 |
-| M9 CLOB V2 adapter | 50 §8.2–§8.3, §16–§17; 11 §10; 20 §7; 60 §13; 51 §3, §11.3 |
-| M10 Calibration | 51 (whole); 13 §6.13–§6.14; 22 §6.8; 15 §6 |
+| M9 CLOB V2 adapter (goal 2, D70) | 50 §8.2–§8.3, §16–§17; 11 §10; 20 §7; 60 §13; 51 §3, §11.3 |
+| M10 Calibration (goal 2, D70) | 51 (whole); 13 §6.13–§6.14; 22 §6.8; 15 §6 |
 
 ## 3. How the documents relate
 
