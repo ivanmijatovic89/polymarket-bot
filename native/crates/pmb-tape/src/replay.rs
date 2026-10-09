@@ -163,8 +163,14 @@ impl<'a> Replayer<'a> {
         );
     }
 
-    /// Applies the rows of `t`, whose first row is file row `row0`.
+    /// Applies the rows of `t`, whose first row is file row `row0`. `t` must
+    /// carry the dictionary given to [`Replayer::new`] (its ids index it).
     pub fn feed(&mut self, t: &TypedRows, row0: usize) -> Result<(), InputError> {
+        assert_eq!(
+            t.dict.len(),
+            self.market_of.len(),
+            "typed rows from another file's dictionary"
+        );
         let market_of = &self.market_of;
         let asset_of = &self.asset_of;
         let s = &mut self.s;
