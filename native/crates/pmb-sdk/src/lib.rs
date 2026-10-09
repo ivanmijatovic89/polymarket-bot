@@ -203,7 +203,10 @@ mod meta;
 pub mod params;
 pub mod toolkit;
 
-pub use meta::Meta;
+// D-PENDING: 30 §3 lists Meta and meta! only; chose to also expose
+// `pmb_sdk::MetaValue` (not in the prelude), the value type of the public
+// `Meta::set` / `Meta::get` signatures.
+pub use meta::{Meta, MetaValue};
 pub use params::{ParamEnum, ParamError, Params};
 pub use pmb_sdk_macros::{cid, meta, price, qty, usdc, ParamEnum, Params};
 

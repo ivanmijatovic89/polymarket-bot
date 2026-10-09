@@ -4,6 +4,7 @@
 
 use pmb_sdk::json::Value;
 use pmb_sdk::prelude::*;
+use pmb_sdk::MetaValue;
 
 // spec: 30 §6: literal macros are const-evaluable fixed-point values
 const ENTRY: Price = price!(0.53);
@@ -98,12 +99,22 @@ fn meta_values() {
         "pnl" => usdc!(-1.01),
         "stake" => stake,
         "some" => Some(2_i64),
-        "big" => i64::MAX,
+        "safe" => 9_007_199_254_740_991_i64,
         "ratio" => 2.0 * 0.5,
+        "count" => 3_usize,
     };
     assert_eq!(
         m.to_json_string(),
-        r#"{"label":"a\"b\n","owned":"a\"b\n","px":0.53,"fill":5.994806,"pnl":-1.01,"stake":null,"some":2,"big":9223372036854775807,"ratio":1}"#
+        r#"{"label":"a\"b\n","owned":"a\"b\n","px":0.53,"fill":5.994806,"pnl":-1.01,"stake":null,"some":2,"safe":9007199254740991,"ratio":1,"count":3}"#
+    );
+    // spec: 21 §18 N2: no integer beyond ±(2^53 - 1) in a payload; larger
+    // integers are written as the nearest f64, as a JSON reader holds them.
+    let m = meta! { "big" => i64::MAX, "neg" => -9_007_199_254_740_993_i64, "u" => u64::MAX };
+    assert_eq!(m.get("big"), Some(&MetaValue::Float(9.223372036854776e18)));
+    assert_eq!(m.get("neg"), Some(&MetaValue::Float(-9007199254740992.0)));
+    assert_eq!(
+        m.to_json_string(),
+        r#"{"big":9223372036854776000,"neg":-9007199254740992,"u":18446744073709552000}"#
     );
     // Non-finite numbers serialize as null (21 §16).
     let m = meta! { "nan" => f64::NAN, "inf" => f64::INFINITY, "neg0" => -0.0 };
@@ -132,7 +143,7 @@ fn meta_builder() {
     assert_eq!(m.get("dyn"), Some(&7_u32.into()));
     assert!(matches!(
         m.get("levels"),
-        Some(pmb_sdk::__private::MetaValue::Json(Value::Array(_)))
+        Some(MetaValue::Json(Value::Array(_)))
     ));
     let parsed: Value = serde_json::from_str(&m.to_json_string()).unwrap();
     assert_eq!(parsed["levels"][1]["s"], 3);

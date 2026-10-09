@@ -12,9 +12,21 @@ use std::fmt::Write;
 /// the fixed-point types (an exact decimal number), `TsMs`/`DurMs`
 /// (integer ms), `Option<T>` (`None` is `null`) and `json::Value` (the
 /// escape hatch for nested values).
+///
+/// An integer beyond ±(2^53 - 1) becomes [`MetaValue::Float`], the nearest
+/// `f64`: no integer in a payload exceeds ±(2^53 - 1) (21 §18 N2), and a
+/// JSON reader (TS `intentMeta`) holds the value as that `f64` anyway.
+///
+/// ```
+/// use pmb_sdk::MetaValue;
+///
+/// assert_eq!(MetaValue::from(3_u64), MetaValue::Int(3));
+/// assert_eq!(MetaValue::from(i64::MAX), MetaValue::Float(9223372036854775807.0));
+/// ```
 // D-PENDING: 30 §7.2 lists bool, i64, f64 and string scalars; chose to also
 // accept Price/Qty/Usdc/Rate (exact decimal numbers, no lossy f64 detour),
-// TsMs/DurMs (integers) and Option<T> (null).
+// TsMs/DurMs (integers), Option<T> (null), and to turn integers beyond
+// ±(2^53 - 1) into the nearest f64 (21 §18 N2) instead of failing.
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MetaValue {
@@ -35,16 +47,31 @@ impl From<bool> for MetaValue {
     }
 }
 
+/// Largest integer magnitude in any payload, `2^53 - 1` (21 §18 N2).
+const SAFE_INT: i128 = (1 << 53) - 1;
+
+impl MetaValue {
+    /// `Int` within ±(2^53 - 1), else the nearest `f64` (21 §18 N2).
+    fn int(v: i128) -> MetaValue {
+        if (-SAFE_INT..=SAFE_INT).contains(&v) {
+            // In range of i64 by the check above.
+            MetaValue::Int(v as i64)
+        } else {
+            MetaValue::Float(v as f64)
+        }
+    }
+}
+
 macro_rules! meta_int {
     ($($t:ty),*) => {$(
         impl From<$t> for MetaValue {
             fn from(v: $t) -> Self {
-                MetaValue::Int(v as i64)
+                MetaValue::int(v as i128)
             }
         }
     )*};
 }
-meta_int!(i8, i16, i32, i64, u8, u16, u32);
+meta_int!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
 impl From<f64> for MetaValue {
     fn from(v: f64) -> Self {
@@ -83,13 +110,13 @@ meta_fixed!(Price, Qty, Usdc, Rate);
 
 impl From<TsMs> for MetaValue {
     fn from(v: TsMs) -> Self {
-        MetaValue::Int(v.0)
+        MetaValue::from(v.0)
     }
 }
 
 impl From<DurMs> for MetaValue {
     fn from(v: DurMs) -> Self {
-        MetaValue::Int(v.0)
+        MetaValue::from(v.0)
     }
 }
 
