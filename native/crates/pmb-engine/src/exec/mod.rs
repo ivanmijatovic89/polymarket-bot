@@ -253,10 +253,9 @@ pub trait Execution: Send {
     /// After a real market event was applied to the shared book (12 §5.2).
     /// Never called for synthetic ticks, nor in ts-compat for out-of-window
     /// events (13 X6).
-    // D-PENDING: on recorder-v4 ts-compat the loop clock (receivedAtMs)
-    // differs from the TS tick ts that the compat models stamp with (TC-C11);
-    // chose: the core passes the TS tick ts as `now` in ts-compat and the
-    // loop clock in realistic (equal on telonex-delta real ticks).
+    // D67: `now` is the profile's execution clock: the loop clock in
+    // realistic, the TS tick ts in ts-compat (TC-C11; equal on
+    // telonex-delta real ticks, different on recorder-v4).
     fn on_market_event(
         &mut self,
         now: TsMs,

@@ -128,11 +128,9 @@ discarded at end of stream (TC-C13). As a realistic A/B arm the same release
 rule applies to every scheduled action, `next_due()` is `None` while input
 remains and reports pending actions after `on_end_of_input`.
 
-D-PENDING (time argument): 13 §2.2 passes `now` to `on_market_event`; in
-ts-compat on recorder-v4 the loop clock (`receivedAtMs`) differs from the TS
-tick ts the compat models need (TC-C11). Chose: the core passes the TS tick
-ts as `now` in ts-compat and the loop clock in realistic. On telonex-delta the
-two are equal for real ticks.
+Time argument (D67): 13 §2.2 passes `now` to `on_market_event`; it is the
+profile's execution clock, the TS tick ts in ts-compat (TC-C11) and the loop
+clock in realistic. On telonex-delta the two are equal for real ticks.
 
 ### Profile branching
 

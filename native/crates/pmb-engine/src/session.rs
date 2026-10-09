@@ -556,7 +556,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     ledger: &self.ledger,
                     config: &self.config,
                 };
-                // ARCHITECTURE.md D-PENDING (time argument): the TS tick ts.
+                // D67: the ts-compat execution clock is the TS tick ts.
                 self.exec.on_market_event(tick_ts, ev, &cx, &mut self.queue);
             }
             CoreRules::Realistic => {

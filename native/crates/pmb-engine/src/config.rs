@@ -57,9 +57,10 @@ pub struct EngineConfig {
     /// by the runtime, never by `ModelConfig` (D28: paper runs the realistic
     /// rules).
     pub run_mode: RunMode,
-    // D-PENDING: realistic sections (`execution.latency`, `makerQueue`,
-    // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) are M3b (D57);
-    // chose to add their resolved forms here when M3b starts.
+    // The realistic sections (`execution.latency`, `makerQueue`,
+    // `sellGate`, `cancelBeforeAck`, `failureRates`, `clock`) get resolved
+    // forms here in M3b (D57); until then `from_model_config` refuses a
+    // realistic ModelConfig (R14).
 }
 
 /// How a session treats strategy faults (12 §6.3, §11).
