@@ -207,6 +207,54 @@ fn reset_unlists_books_and_rebuilds() {
 }
 
 #[test]
+fn reset_marks_books_stale_until_next_book() {
+    // spec: 15 I-6f, §8 `staleBookEvents` — a reset book is stale until its
+    // next `book`; events applied meanwhile are counted once per message;
+    // an outcome that never had a book is not stale.
+    let mut m = MarketBooks::new();
+    assert!(!m.is_stale(Outcome::Up) && !m.is_stale(Outcome::Down));
+    let book = |o| MarketEvent::Book {
+        outcome: o,
+        bids: &[],
+        asks: &[],
+    };
+    m.apply(Some(TsMs(1)), &book(Outcome::Up));
+    m.reset(Some(Outcome::Up));
+    assert!(m.is_stale(Outcome::Up) && !m.is_stale(Outcome::Down));
+    let changes = [
+        lu(Outcome::Up, QuoteSide::Bid, 400_000, 1),
+        lu(Outcome::Up, QuoteSide::Ask, 600_000, 1),
+        lu(Outcome::Down, QuoteSide::Bid, 400_000, 1),
+    ];
+    m.apply(
+        Some(TsMs(2)),
+        &MarketEvent::PriceChange { changes: &changes },
+    );
+    assert_eq!(m.counters.stale_book_events, 1, "once per message");
+    assert!(
+        m.is_stale(Outcome::Up),
+        "a price_change does not end staleness"
+    );
+    m.apply(
+        Some(TsMs(3)),
+        &MarketEvent::PriceChange {
+            changes: &changes[2..],
+        },
+    );
+    assert_eq!(m.counters.stale_book_events, 1, "Down is not stale");
+    m.touch(Outcome::Up);
+    assert_eq!(m.counters.stale_book_events, 2);
+    m.apply(Some(TsMs(4)), &book(Outcome::Up));
+    assert_eq!(
+        m.counters.stale_book_events, 2,
+        "the re-booking message is not"
+    );
+    assert!(!m.is_stale(Outcome::Up), "the next book ends staleness");
+    m.reset(None);
+    assert!(m.is_stale(Outcome::Up) && m.is_stale(Outcome::Down));
+}
+
+#[test]
 fn crossed_book_ticks() {
     // spec: 15 §8 `crossedBookTicks` — counted per book/price_change message
     // after which some book is crossed or locked; replay unchanged.
@@ -325,6 +373,10 @@ proptest! {
                 prop_assert_eq!(s.len(), want.len());
                 prop_assert_eq!(s.best().map(|l| (l.price.micros(), l.size.micros())), want.first().copied());
                 prop_assert_eq!(s.size_at(p(price)).micros(), r.get(&price).copied().unwrap_or(0));
+                for n in [0usize, 1, 3, 50] {
+                    let d: i64 = want.iter().take(n).map(|x| x.1).sum();
+                    prop_assert_eq!(s.depth_levels(n).micros(), d);
+                }
             }
         }
     }

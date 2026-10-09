@@ -437,6 +437,17 @@ const files: Crafted[] = [
     expect: err('runtime', 'decode_unverified'),
   },
   {
+    name: 'duplicate_across_groups',
+    note: '15 §8 duplicateRows: identical kept rows 4 and 5 straddle the 5-row group boundary',
+    rows: [
+      ...smallRows(),
+      pc(16, 17, [[0, 0, '0.42', '1']]),
+      pc(18, 19, [[0, 0, '0.43', '1']]),
+      pc(18, 19, [[0, 0, '0.43', '1']]),
+    ],
+    expect: ok({ rowsRead: 6, duplicateRows: 1 }),
+  },
+  {
     name: 'market_changes_on_skipped_row',
     note: 'I-18: the market column changes on a row that I-16 skips (TS skips the row)',
     rows: [...smallRows(), without(row({ market: '0xBEEF' }), 'ts_exchange_ms')],

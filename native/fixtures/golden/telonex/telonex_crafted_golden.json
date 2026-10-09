@@ -774,6 +774,74 @@
       "ts": { "error": "[orderbook] invalid price_change.price: \"0.4.1\"", "eventsBeforeError": 3 }
     },
     {
+      "bytes": 8864,
+      "expect": { "counters": { "duplicateRows": 1, "rowsRead": 6 } },
+      "file": "crafted/duplicate_across_groups.parquet",
+      "name": "duplicate_across_groups",
+      "note": "15 §8 duplicateRows: identical kept rows 4 and 5 straddle the 5-row group boundary",
+      "sha256": "7179b2ea547ce93f6b2dfb478cbe4c599e84f99bb371ed7e97a141e4fea5d5fc",
+      "tokens": ["111111", "222222"],
+      "ts": {
+        "events": [
+          {
+            "asks": [["0.6", "1"]],
+            "asset": "111111",
+            "bids": [["0.4", "1"]],
+            "kind": "book",
+            "local": 11,
+            "ts": 10
+          },
+          {
+            "asks": [["0.7", "2"]],
+            "asset": "222222",
+            "bids": [["0.3", "2"]],
+            "kind": "book",
+            "local": 13,
+            "ts": 12
+          },
+          {
+            "changes": [
+              ["111111", "BUY", "0.41", "1"],
+              ["222222", "SELL", "0.69", "0"]
+            ],
+            "kind": "price_change",
+            "local": 15,
+            "ts": 14
+          },
+          {
+            "changes": [["111111", "BUY", "0.42", "1"]],
+            "kind": "price_change",
+            "local": 17,
+            "ts": 16
+          },
+          {
+            "changes": [["111111", "BUY", "0.43", "1"]],
+            "kind": "price_change",
+            "local": 19,
+            "ts": 18
+          },
+          {
+            "changes": [["111111", "BUY", "0.43", "1"]],
+            "kind": "price_change",
+            "local": 19,
+            "ts": 18
+          }
+        ],
+        "finalBook": {
+          "111111": {
+            "asks": [["0.6", "1"]],
+            "bids": [
+              ["0.43", "1"],
+              ["0.42", "1"],
+              ["0.41", "1"],
+              ["0.4", "1"]
+            ]
+          },
+          "222222": { "asks": [["0.7", "2"]], "bids": [["0.3", "2"]] }
+        }
+      }
+    },
+    {
       "bytes": 4742,
       "expect": {
         "divergence": "D1",
@@ -1203,7 +1271,7 @@
   "header": {
     "contentPin": "ad2f11b81ab6ff003bb5febe280c00120255a944",
     "generator": "native/fixtures/gen/telonex_crafted_gen.ts",
-    "generatorSha256": "b9a6242118de8d824fdee68d0fefa84d44cacacf0bece528f30492bbd14b0912"
+    "generatorSha256": "a0b1da94c55f6a3e5316e299361bf0500425a5670f2e56a7e9a3c79fec10283c"
   },
   "spec": "native-spec-g1 15 §4.1 I-11..I-13, §4.2 I-15..I-20, §8, §10 I-V1; 60 §7.2"
 }

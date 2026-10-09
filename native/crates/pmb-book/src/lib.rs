@@ -11,7 +11,7 @@
 //! [`MarketBooks::apply`] is the message-level entry point: it applies one
 //! recorded market event with the rules I-6a–I-6e, keeps the snapshot time
 //! (I-6d) and the anomaly counters of 15 §8 that belong to books
-//! (`deltaBeforeBook`, `crossedBookTicks`).
+//! (`deltaBeforeBook`, `crossedBookTicks`, `staleBookEvents`).
 
 use pmb_core::{LevelUpdate, MarketEvent, Outcome, PerOutcome, Price, PriceSize, Qty, TsMs};
 use std::collections::btree_map;
@@ -311,6 +311,17 @@ impl BookSide {
         LevelIter::new(self)
     }
 
+    /// Cumulative size of the best `n` levels (16 BK-4 "depth to N").
+    /// Sizes are bounded at decode (15 I-20), so the checked sum cannot
+    /// overflow for real books (10 T3).
+    pub fn depth_levels(&self, n: usize) -> Qty {
+        let mut total = Qty::ZERO;
+        for l in self.levels().take(n) {
+            total += l.size;
+        }
+        total
+    }
+
     /// Sum of sizes of levels at or better than `limit` (BUY walks asks
     /// `<= limit`, SELL walks bids `>= limit`).
     pub fn depth_through(&self, limit: Price) -> Qty {
@@ -491,6 +502,12 @@ pub struct BookCounters {
     /// `crossedBookTicks`: a `book` or `price_change` message after which
     /// some outcome book has best bid >= best ask (replayed unchanged).
     pub crossed_book_ticks: u64,
+    /// `staleBookEvents`: a message applied to an outcome whose book is
+    /// stale (reset and not yet re-booked, I-6f); counted once per message.
+    /// The `book` message that ends staleness is not counted.
+    /// Kept in both profiles; only realistic reports it and skips the
+    /// strategy tick (12 §5.2).
+    pub stale_book_events: u64,
 }
 
 /// Recorded books of both outcomes of one market (15 §2.1). Outcomes not
@@ -503,6 +520,10 @@ pub struct MarketBooks {
     present: PerOutcome<bool>,
     /// A `book` message was applied for the outcome since start or reset.
     saw_book: PerOutcome<bool>,
+    /// The outcome's book was cleared by a `BookReset` and has had no `book`
+    /// message since (I-6f): distinguishes "reset, not yet re-booked" from
+    /// "never had a book".
+    stale: PerOutcome<bool>,
     /// Timestamp of the last message applied to each outcome (TS
     /// `byAssetId[id].timestamp`).
     outcome_ts: PerOutcome<Option<TsMs>>,
@@ -546,6 +567,14 @@ impl MarketBooks {
         self.saw_book[o]
     }
 
+    /// The outcome's book is stale: cleared by a `BookReset` and not yet
+    /// replaced by a `book` message (I-6f; the strategy's `is_stale()`,
+    /// 30 §5.1). Never true for an outcome that simply had no book yet.
+    #[inline]
+    pub fn is_stale(&self, o: Outcome) -> bool {
+        self.stale[o]
+    }
+
     #[inline]
     fn book_mut(&mut self, o: Outcome) -> &mut OutcomeBook {
         if !self.present[o] {
@@ -570,6 +599,14 @@ impl MarketBooks {
             self.outcome_ts[o] = ts;
         }
         self.book_mut(o)
+    }
+
+    /// Counts `staleBookEvents` once per message (I-6f).
+    #[inline]
+    fn count_stale(&mut self, stale: bool) {
+        if stale {
+            self.counters.stale_book_events += 1;
+        }
     }
 
     #[inline]
@@ -611,6 +648,7 @@ impl MarketBooks {
             MarketEvent::PriceChange { changes } => self.apply_changes(ts, changes),
             MarketEvent::LastTrade { outcome, .. }
             | MarketEvent::TickSizeChange { outcome, .. } => {
+                self.count_stale(self.stale[outcome]);
                 self.touch_outcome(outcome, ts);
                 TopChange::default()
             }
@@ -641,12 +679,14 @@ impl MarketBooks {
             }
         }
         self.saw_book[o] = true;
+        self.stale[o] = false;
         self.count_crossed();
         TopChange::between(&before, &self.tops())
     }
 
     /// `price_change` message: its changes in message order (I-6b, I-6c).
     fn apply_changes(&mut self, ts: Option<TsMs>, changes: &[LevelUpdate]) -> TopChange {
+        self.count_stale(changes.iter().any(|c| self.stale[c.outcome]));
         let before = self.tops();
         let mut touched = [false; 2];
         for c in changes {
@@ -678,14 +718,17 @@ impl MarketBooks {
     /// A `last_trade_price` or `tick_size_change` message without a
     /// timestamp: creates an empty book for an unseen outcome (I-6c).
     pub fn touch(&mut self, o: Outcome) {
+        self.count_stale(self.stale[o]);
         self.touch_outcome(o, None);
     }
 
     /// `BookReset` (I-6f) for one outcome or, with `None`, the whole market:
     /// the books in scope are cleared and unlisted until later messages
     /// rebuild them (I-6a–I-6c), as TS does with a fresh
-    /// `MarketOrderBookEngine` (`dispatcher.ts:179-189`). A market-wide reset
-    /// also clears the snapshot time. Counters are kept.
+    /// `MarketOrderBookEngine` (`dispatcher.ts:179-189`), and marked stale
+    /// until their next `book` message ([`is_stale`](Self::is_stale),
+    /// `staleBookEvents`; used by the realistic profile). A market-wide
+    /// reset also clears the snapshot time. Counters are kept.
     pub fn reset(&mut self, scope: Option<Outcome>) {
         for o in Outcome::ALL {
             if scope.is_none() || scope == Some(o) {
@@ -694,6 +737,7 @@ impl MarketBooks {
                 }
                 self.present[o] = false;
                 self.saw_book[o] = false;
+                self.stale[o] = true;
                 self.outcome_ts[o] = None;
             }
         }
