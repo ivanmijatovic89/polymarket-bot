@@ -18,11 +18,11 @@ export const TRACE_CACHE_KEY_VERSION = 1
 /** Host-specific variables that never change results; excluded from the key. */
 const HOST_ENV = new Set(['PATH', 'HOME'])
 
-// D-PENDING: OR-12 keys on the engine-path trees "at the pin"; chose the trees at HEAD (equal to the pin outside the allowlisted files, and the trace writer itself is an allowlisted engine-path file) plus src/strategies (the TS twins live outside the engine paths, OR-4), and no caching on a dirty working tree.
-export function cacheTreeHashes(paths: EnginePaths): Record<string, string> {
+// D-PENDING: OR-12 keys on the engine-path trees "at the pin"; chose the trees of the commit whose sources run (HEAD, or the pin for --oracle-tree pin) plus src/strategies (the TS twins live outside the engine paths, OR-4), and no caching on a dirty working tree.
+export function cacheTreeHashes(paths: EnginePaths, commit = 'HEAD'): Record<string, string> {
   const out: Record<string, string> = {}
   for (const p of [...paths.engine, ...paths.inputFormat, 'src/strategies'])
-    out[p] = execFileSync('git', ['rev-parse', `HEAD:${p}`], {
+    out[p] = execFileSync('git', ['rev-parse', `${commit}:${p}`], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
     }).trim()

@@ -83,6 +83,10 @@ export type ParityManifest = {
     disallowed: string[]
     oracleEnv: Record<string, string>
     oracleEnvSha256: string
+    /** Which TS sources produced the traces: this checkout, or a scratch copy of the pin (OR-17, PM-1). */
+    tree: 'head' | 'pin'
+    patches: Array<{ file: string; sha256: string }>
+    patchSetSha256: string | null
   }
   exerciserScheduleVersion: number | null
   traceFormat: string
@@ -245,4 +249,24 @@ export function renderSummary(
     }
   }
   return lines.join('\n') + '\n'
+}
+
+export type SelfParityRow = { slug: string; a: string | null; b: string | null; identical: boolean }
+
+/**
+ * TS self-parity (60 OR-17): the same cell run from two TS trees (branch
+ * head and the pin) must give byte-identical TS traces on every market,
+ * compared by the sha256 of the decompressed trace bytes.
+ */
+export function compareTsTraces(a: ParityManifest, b: ParityManifest): SelfParityRow[] {
+  const bySlug = new Map(b.markets.map((m) => [m.slug, m.ts.traceSha256 ?? null] as const))
+  const slugs = [
+    ...new Set([...a.markets.map((m) => m.slug), ...b.markets.map((m) => m.slug)]),
+  ].sort()
+  const aBySlug = new Map(a.markets.map((m) => [m.slug, m.ts.traceSha256 ?? null] as const))
+  return slugs.map((slug) => {
+    const ha = aBySlug.get(slug) ?? null
+    const hb = bySlug.get(slug) ?? null
+    return { slug, a: ha, b: hb, identical: ha !== null && ha === hb }
+  })
 }

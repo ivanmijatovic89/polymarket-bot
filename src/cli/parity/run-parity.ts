@@ -73,6 +73,7 @@ import {
   readTrace,
   readTraceText,
 } from '../../backtest/parity/trace.js'
+import { prepareOracleTree } from '../../backtest/parity/oracleTree.js'
 import {
   cacheTreeHashes,
   restoreFromCache,
@@ -85,7 +86,8 @@ import { EXERCISER_SCHEDULE_VERSION } from '../../strategies/testing/engine-exer
 const USAGE = `Usage (from the repository root):
   npx tsx scripts/parity/run-parity.ts --cell native/parity/cells/<cell>.json --out-dir <dir outside the repo>
       [--data-root <repo>/data] [--concurrency 4] [--slugs a,b | --limit N]
-      [--pin <sha>] [--repeat-ts [--repeat-seed 1]] [--trace-cache <dir>] [--plain]
+      [--pin <sha>] [--oracle-tree head|pin] [--oracle-patch <file.patch> ...]
+      [--repeat-ts [--repeat-seed 1]] [--trace-cache <dir>] [--plain]
       [--rust-bin <canonical artifact binary> [--rust-only]] [--tolerance <x>]
 
 Runs one parity cell (native/spec/60-verification.md §4): builds each market's
@@ -99,7 +101,10 @@ Writes <dir>/manifest.json (HR-7) and <dir>/summary.md.
 --slugs/--limit/--tolerance and a dirty oracle tree (OR-3) make the run non-gating.
 --repeat-ts re-runs TS on a seeded 10% sample (at least 20 markets) and requires
 byte-identical traces (OR-9). --trace-cache reuses TS traces whose key (engine
-trees, job, input identities, oracle env, patch set) is unchanged (OR-12). --rust-only reuses <dir>/jobs and the TS traces.
+trees, job, input identities, oracle env, patch set) is unchanged (OR-12).
+--oracle-tree pin runs TS from a scratch copy of the pin with this checkout's
+parity tooling and twins (OR-17); --oracle-patch applies a patch set to it
+(PM-1) and an equal Rust trace is then \`identical-patched\`. --rust-only reuses <dir>/jobs and the TS traces.
 Exit 0 only with zero TS failures, zero unclassified and zero markets matched
 by an open Rust-bug entry (HR-8).`
 
@@ -108,11 +113,11 @@ type Child = { code: number; tail: string }
 function runChild(
   cmd: string,
   args: string[],
-  opts: { env: Record<string, string>; logFile: string },
+  opts: { env: Record<string, string>; logFile: string; cwd?: string },
 ): Promise<Child> {
   return new Promise((resolve) => {
     const log = createWriteStream(opts.logFile)
-    const child = spawn(cmd, args, { cwd: REPO_ROOT, env: opts.env })
+    const child = spawn(cmd, args, { cwd: opts.cwd ?? REPO_ROOT, env: opts.env })
     let tail = ''
     const keep = (chunk: Buffer) => {
       log.write(chunk)
@@ -221,6 +226,8 @@ async function main(): Promise<number> {
       'tolerance',
       'trace-cache',
       'engine-job-builder',
+      'oracle-tree',
+      'oracle-patch',
     ],
     switches: ['repeat-ts', 'rust-only', 'plain', 'help'],
   })
@@ -297,6 +304,20 @@ async function main(): Promise<number> {
   const oracleEnvSha256 = sha256Hex(canonicalJson(oracleEnv))
   const mcSha = modelConfigSha256(cell.modelConfig)
 
+  // TS sources: this checkout (default) or a scratch copy of the pin with the
+  // tooling copied in and the patch set applied (OR-17, PM-1, HR-4).
+  const patchFiles = (p.values.get('oracle-patch') ?? []).map((f) => path.resolve(f))
+  const treeMode = one(p, 'oracle-tree') ?? (patchFiles.length > 0 ? 'pin' : 'head')
+  if (treeMode !== 'head' && treeMode !== 'pin')
+    throw new Error('--oracle-tree must be head or pin')
+  if (patchFiles.length > 0 && treeMode !== 'pin')
+    throw new Error('--oracle-patch applies to the pin tree (--oracle-tree pin)')
+  for (const f of patchFiles)
+    if (!existsSync(f)) throw new Error(`--oracle-patch ${f} does not exist`)
+  const oracleTree =
+    treeMode === 'pin' ? prepareOracleTree(pin, patchFiles, path.join(outDir, 'oracle-tree')) : null
+  const tsRoot = oracleTree?.root ?? REPO_ROOT
+
   const jobsDir = path.join(outDir, 'jobs')
   const tsDir = path.join(outDir, 'ts')
   const logsDir = path.join(outDir, 'logs')
@@ -336,6 +357,12 @@ async function main(): Promise<number> {
     missingCatalog.push(...res.missing)
     for (const job of jobs) writeJsonAtomic(path.join(jobsDir, `${job.slug}.json`), job)
   }
+  // The pin tree has no git history of this branch: its jobs carry an empty
+  // commitSha (provenance only, D12), which the worker commit gate accepts.
+  const tsJobsDir = oracleTree ? path.join(outDir, 'jobs-oracle') : jobsDir
+  if (oracleTree)
+    for (const job of jobs)
+      writeJsonAtomic(path.join(tsJobsDir, `${job.slug}.json`), { ...job, commitSha: '' })
   await closeDb()
   if (jobs.length === 0) throw new Error('no markets to run')
 
@@ -376,14 +403,19 @@ async function main(): Promise<number> {
   const rustDir = path.join(outDir, 'rust')
   if (rustBin) mkdirSync(rustDir, { recursive: true })
   const matchers = loadMatchers(path.join(PARITY_DIR, 'matchers'))
-  const tsTraceEntry = path.join(REPO_ROOT, 'src', 'cli', 'parity', 'ts-trace.ts')
+  const tsTraceEntry = path.join(tsRoot, 'src', 'cli', 'parity', 'ts-trace.ts')
 
   // OR-12 trace cache (HR-4): only on a clean working tree, whose tree hashes describe the code.
   const cacheArg = one(p, 'trace-cache')
   const cacheDir = cacheArg ? path.resolve(cacheArg) : null
   if (cacheDir && (cacheDir === REPO_ROOT || cacheDir.startsWith(REPO_ROOT + path.sep)))
     throw new Error('--trace-cache must be outside the repository')
-  const cacheTrees = cacheDir && tree.workingTreeClean ? cacheTreeHashes(enginePaths) : null
+  const cacheTrees =
+    cacheDir && tree.workingTreeClean
+      ? oracleTree
+        ? { ...cacheTreeHashes(enginePaths, pin), ...oracleTree.toolingTrees }
+        : cacheTreeHashes(enginePaths)
+      : null
   if (cacheDir && !cacheTrees)
     console.error(
       '[run-parity] --trace-cache disabled: the working tree is dirty (OR-12 keys on git trees)',
@@ -397,14 +429,14 @@ async function main(): Promise<number> {
         'tsx',
         tsTraceEntry,
         '--job',
-        path.join(jobsDir, `${job.slug}.json`),
+        path.join(tsJobsDir, `${job.slug}.json`),
         '--out',
         out,
         '--level',
         cell.traceLevel,
         '--quiet',
       ],
-      { env: oracleEnv, logFile: path.join(logsDir, logName) },
+      { env: oracleEnv, logFile: path.join(logsDir, logName), cwd: tsRoot },
     )
 
   const entries = new Map<string, MarketEntry>()
@@ -427,7 +459,7 @@ async function main(): Promise<number> {
             inputs: entry.inputs,
             oracleEnv,
             traceLevel: cell.traceLevel,
-            patchSetSha256: null,
+            patchSetSha256: oracleTree?.patchSetSha256 ?? null,
           })
         : null
     if (
@@ -500,7 +532,11 @@ async function main(): Promise<number> {
             : null,
         }
         const c = classifyMarket(d, tsRecs, matchers)
-        entry.verdict = c.verdict
+        // 60 HR-6: Rust equal to the patched oracle is `identical-patched` (PM-2).
+        entry.verdict =
+          c.verdict.verdict === 'identical' && patchFiles.length > 0
+            ? { verdict: 'identical-patched' }
+            : c.verdict
         entry.openRustBug = c.openRustBug
       }
     }
@@ -585,6 +621,9 @@ async function main(): Promise<number> {
       disallowed: tree.disallowed,
       oracleEnv,
       oracleEnvSha256,
+      tree: oracleTree ? 'pin' : 'head',
+      patches: oracleTree?.patches ?? [],
+      patchSetSha256: oracleTree?.patchSetSha256 ?? null,
     },
     exerciserScheduleVersion: schedule,
     traceFormat: `${TRACE_FORMAT}/${TRACE_VERSION}`,
