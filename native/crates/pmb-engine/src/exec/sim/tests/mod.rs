@@ -181,6 +181,7 @@ impl Harness {
             reserved: Usdc::ZERO,
             reserved_shares: Qty::ZERO,
             fill_seq: 0,
+            last_fill: None,
             res_fee: FeeCurve::TS_COMPAT,
             res_lo: Price::from_micros(10_000),
         });

@@ -660,7 +660,7 @@ fn paper_cascade_limit_applies_every_remaining_event_without_callbacks() {
         full.ledger().position(Outcome::Up)
     );
     assert_eq!(h.ledger().capital(), full.ledger().capital());
-    assert!(h.ledger().active_keys().is_empty());
+    assert!(h.ledger().active_keys().next().is_none());
     // The same budget in backtest stops the candidate.
     let mut cfg = config(CoreRules::Realistic);
     cfg.max_events_per_drain = 3;

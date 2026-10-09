@@ -107,7 +107,7 @@ impl SelfCrossIndex {
     /// acknowledged (10 N6); O(open orders), run only on removals.
     fn rebuild(&mut self, ledger: &Ledger) {
         *self = SelfCrossIndex::default();
-        for &k in ledger.active_keys() {
+        for k in ledger.active_keys() {
             let r = ledger.order(k);
             if r.cancel_state() != CancelState::Acked {
                 self.add(r.outcome(), r.side(), r.price(), k);

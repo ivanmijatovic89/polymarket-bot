@@ -227,7 +227,7 @@ impl<'a> AccountEvent<'a> {
             } => AccountEvent::SettlementUpdate {
                 at,
                 order: o(*order),
-                fill: fill.and_then(|k| ledger.fills().iter().rev().find(|x| x.key == k)),
+                fill: fill.and_then(|k| ledger.fill_index(k).map(|i| &ledger.fills()[i])),
                 status: *status,
             },
             K::OrderDone {
