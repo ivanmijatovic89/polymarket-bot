@@ -95,7 +95,7 @@ not carried.
 Not carried: D01–D05, D07, D15, D16, D19, D21, D24, D34, D35, D38–D41, D43,
 D45, D46, D48, D49, D56–D71 (process of the previous attempt, ts-compat, the
 calibration plan as a $100 strategy-level run; the probe-based calibration of
-N2/N3 replaces it; D35's pass marks are adapted in 01 §4).
+N2/N3 replaces it; pass marks are proposed in 01 §4 after P0 and confirmed at gate B).
 
 ## E07. Spec size cap
 
