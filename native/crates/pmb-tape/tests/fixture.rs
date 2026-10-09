@@ -6,7 +6,7 @@
 //! the v1 reader's stream, and both match the pinned digest.
 
 use pmb_replay::telonex::file_asset_ids;
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 use pmb_tape::codec::{Decoder, EncodeOptions};
 use pmb_tape::compare::{digest, first_difference};
 use pmb_tape::store::{self, hex, Budget, ConvertOptions, ConvertOutcome};
@@ -14,7 +14,7 @@ use pmb_tape::{read_market, InputPath, MarketStream};
 use std::path::{Path, PathBuf};
 
 /// Digest of the fixture's event stream (`pmb_tape::compare::digest`).
-const STREAM_DIGEST: &str = "6f2be512d177e68f4680b089bb29a1e46d1ad213c70465a6789b0a1c19e073f5";
+const STREAM_DIGEST: &str = "a67435697e2b15bc694de934b169fb71466e8b3c134e879f033875e151e2525a";
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/telonex-mini.parquet")
@@ -35,9 +35,17 @@ fn check_fixture(block_rows: u32) {
     let v1 = fixture();
     let tokens = file_asset_ids(&v1).unwrap();
     let input = TelonexInput {
-        format_version: 1,
         tokens: [tokens[0].as_str(), tokens[1].as_str()],
         condition_id: None,
+    };
+    let file = InputFile {
+        path: &v1,
+        bytes: std::fs::metadata(&v1).unwrap().len(),
+        sha256: None,
+        format: InputFormat {
+            name: "telonex-delta-typed",
+            version: 1,
+        },
     };
     let root = Root(Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
         "pmb-tape-fixture-{}-{block_rows}",
@@ -81,9 +89,9 @@ fn check_fixture(block_rows: u32) {
     assert_eq!(blocks, 3007usize.div_ceil(block_rows as usize));
 
     // The executor path (block-streamed decode and replay).
-    let (from_tape, path) = read_market(&v1, Some(&tape), None, &input, &mut decoder).unwrap();
+    let (from_tape, path) = read_market(&file, Some(&tape), &input, &mut decoder).unwrap();
     assert_eq!(path, InputPath::Tape);
-    let from_v1 = MarketStream::V1(read_telonex_delta(&v1, &input).unwrap());
+    let from_v1 = MarketStream::V1(read_telonex_delta(&file, input).unwrap());
     assert_eq!(first_difference(&from_v1, &from_tape), None);
 
     let d = from_v1.diagnostics();
@@ -97,6 +105,11 @@ fn check_fixture(block_rows: u32) {
     assert!(d.ingest_seq_backwards >= 1);
     assert!(d.exchange_clock_backwards >= 1);
     assert!(d.local_behind_exchange >= 1);
+    // Counters of the reviewed reader (15 §8): the crafted book row has
+    // unequal bid lists; the slice has no repeated row and no off-grid price.
+    assert_eq!(d.ragged_rows, 1);
+    assert_eq!(d.duplicate_rows, 0);
+    assert_eq!(d.off_grid_prices, 0);
     let dig = hex(&digest(&from_tape));
     assert_eq!(dig, hex(&digest(&from_v1)));
     assert_eq!(dig, STREAM_DIGEST);

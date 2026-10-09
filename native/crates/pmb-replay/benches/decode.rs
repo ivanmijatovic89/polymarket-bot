@@ -11,7 +11,7 @@
 //!   the top-change bit (BK-7) and both outcomes' best bid/ask per event.
 //!
 //! Inputs: the markets of the committed decode fixture
-//! (`native/fixtures/decode/telonex_book_golden.json`) and `heavy-1` from its
+//! (`native/fixtures/golden/telonex/telonex_book_golden.json`) and `heavy-1` from its
 //! frozen manifest (`native/bench/sets/heavy-1.json`, 16 §13.1), whose size
 //! and sha256 are verified before any measurement (a changed source
 //! invalidates comparisons). Files are resolved under the data root
@@ -30,8 +30,8 @@ use parquet::schema::types::ColumnDescriptor;
 use pmb_book::{Level, MarketBooks, Side};
 use pmb_core::fixed::parse_decimal;
 use pmb_core::{MarketEvent, Outcome, QuoteSide};
-use pmb_replay::telonex::file_asset_ids;
-use pmb_replay::{read_telonex_delta, TelonexInput, TelonexTape};
+use pmb_replay::telonex::{file_asset_ids, FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput, TelonexTape};
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::hint::black_box;
@@ -137,7 +137,7 @@ fn heavy_1(data: &Path) -> Option<Market> {
 
 fn markets() -> Vec<Market> {
     let data = data_root();
-    let golden_path = repo_root().join("native/fixtures/decode/telonex_book_golden.json");
+    let golden_path = repo_root().join("native/fixtures/golden/telonex/telonex_book_golden.json");
     let golden: serde_json::Value = serde_json::from_slice(
         &std::fs::read(&golden_path).unwrap_or_else(|e| panic!("{}: {e}", golden_path.display())),
     )
@@ -145,7 +145,11 @@ fn markets() -> Vec<Market> {
     let mut out = Vec::new();
     for m in golden["markets"].as_array().expect("markets array") {
         let rel = m["file"].as_str().expect("file");
-        let path = data.join(rel);
+        let path = match m["source"].as_str().expect("source") {
+            "fixture" => repo_root().join("native/fixtures/golden/telonex").join(rel),
+            "data" => data.join(rel),
+            other => panic!("source {other}"),
+        };
         let slug = Path::new(rel)
             .file_stem()
             .and_then(|s| s.to_str())
@@ -169,18 +173,34 @@ fn markets() -> Vec<Market> {
     }
     out.extend(heavy_1(&data));
     for m in &mut out {
-        m.rows = read(m).diagnostics.rows_read;
+        m.rows = read(m).diagnostics().rows_read;
     }
     out
 }
 
 fn read(m: &Market) -> TelonexTape {
     let input = TelonexInput {
-        format_version: 1,
         tokens: [m.tokens[0].as_str(), m.tokens[1].as_str()],
         condition_id: None,
     };
-    read_telonex_delta(&m.path, &input).unwrap_or_else(|e| panic!("{}: {e}", m.path.display()))
+    read_telonex_delta(&input_file(&m.path), input)
+        .unwrap_or_else(|e| panic!("{}: {e}", m.path.display()))
+}
+
+/// The job input of a bench market: its size from `stat`, no sha256 (the
+/// sets are verified against their manifests before measuring).
+fn input_file(path: &Path) -> InputFile<'_> {
+    InputFile {
+        path,
+        bytes: std::fs::metadata(path)
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+            .len(),
+        sha256: None,
+        format: InputFormat {
+            name: FORMAT_NAME,
+            version: FORMAT_VERSION,
+        },
+    }
 }
 
 fn open(path: &Path) -> SerializedFileReader<File> {

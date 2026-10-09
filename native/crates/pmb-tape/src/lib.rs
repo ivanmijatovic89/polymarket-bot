@@ -21,7 +21,7 @@ pub mod v1;
 mod tests;
 
 pub use codec::{Decoder, EncodeOptions, TapeError, TapeHeader, V1Identity};
-pub use replay::{replay, ReplayStream, Replayer};
+pub use replay::{replay, ReplayStream, Replayer, RowKind};
 pub use store::{
     convert_one, load_tape, read_tape_stream, tape_path, ConvertOptions, ConvertOutcome, Fallback,
     MarketKey,
@@ -30,7 +30,7 @@ pub use typed::{TypedRows, Unconvertible};
 
 use pmb_core::TimedMarketEvent;
 use pmb_replay::telonex::TelonexDiagnostics;
-use pmb_replay::{read_telonex_delta, InputError, TelonexInput, TelonexTape};
+use pmb_replay::{read_telonex_delta, InputError, InputFile, TelonexInput, TelonexTape};
 use std::path::Path;
 
 /// A decoded market from either input path; both yield the same events.
@@ -66,14 +66,14 @@ impl MarketStream {
     pub fn diagnostics(&self) -> &TelonexDiagnostics {
         match self {
             MarketStream::Tape(s) => &s.diagnostics,
-            MarketStream::V1(t) => &t.diagnostics,
+            MarketStream::V1(t) => t.diagnostics(),
         }
     }
 
     pub fn market(&self) -> &str {
         match self {
             MarketStream::Tape(s) => &s.market,
-            MarketStream::V1(t) => &t.market,
+            MarketStream::V1(t) => &t.meta.market,
         }
     }
 }
@@ -86,23 +86,28 @@ pub enum InputPath {
 }
 
 /// Reads a telonex-delta market, from its tape when one is valid for this
-/// exact v1 file (NT-5), else from v1. A bad or stale tape is never an error;
-/// errors are the v1 reader's own (15 §9), raised identically on both paths.
+/// exact v1 file and job (NT-5), else from v1. A bad or stale tape is never
+/// an error; errors are the v1 reader's own (15 §9), raised identically on
+/// both paths: a job whose input facts the v1 reader would refuse (format,
+/// size, sha256) always takes the v1 path, so v1 raises the error.
 pub fn read_market(
-    v1: &Path,
+    file: &InputFile<'_>,
     tape: Option<&Path>,
-    expected_sha: Option<&[u8; 32]>,
     input: &TelonexInput<'_>,
     decoder: &mut Decoder,
 ) -> Result<(MarketStream, InputPath), InputError> {
+    let v1 = file.path;
     let fallback = match tape {
         // Relative or missing v1 paths are the v1 reader's errors (I-3).
         Some(_) if !v1.is_absolute() => Fallback::Io("v1 path is not absolute".into()),
-        Some(t) => match store::read_tape_stream(decoder, t, v1, expected_sha, input) {
-            Ok(stream) => return stream.map(|s| (MarketStream::Tape(s), InputPath::Tape)),
+        Some(t) => match store::check_job(file) {
             Err(f) => f,
+            Ok(sha) => match store::read_tape_stream(decoder, t, v1, sha.as_ref(), input) {
+                Ok(stream) => return stream.map(|s| (MarketStream::Tape(s), InputPath::Tape)),
+                Err(f) => f,
+            },
         },
         None => Fallback::Missing,
     };
-    read_telonex_delta(v1, input).map(|t| (MarketStream::V1(t), InputPath::V1(fallback)))
+    read_telonex_delta(file, *input).map(|t| (MarketStream::V1(t), InputPath::V1(fallback)))
 }

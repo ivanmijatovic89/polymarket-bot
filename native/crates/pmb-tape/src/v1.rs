@@ -9,11 +9,13 @@ use crate::typed::{
     dec, event_type, int, row_flags, DictBuilder, TypedRows, Unconvertible, NULL_ID,
 };
 use bytes::Bytes;
-use parquet::basic::{Repetition, Type as PhysicalType};
+use parquet::basic::{ConvertedType, LogicalType, Repetition, Type as PhysicalType};
 use parquet::data_type::{ByteArray, ByteArrayType, DataType, Int32Type, Int64Type};
 use parquet::file::reader::{FileReader, RowGroupReader, SerializedFileReader};
 use pmb_core::fixed::parse_decimal;
-use pmb_replay::telonex::{FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::telonex::{
+    FOOTER_FORMAT_KEY, FOOTER_VERSION_KEY, FORMAT_NAME, MAX_LEVEL_SIZE_MICROS, PRICE_MAX_MICROS,
+};
 
 /// Version-1 schema fingerprint (`src/parquet/io/eventSchema.ts:53-70`).
 const V1_COLUMNS: [(&str, PhysicalType, Repetition); 16] = [
@@ -213,34 +215,59 @@ impl Batch {
     }
 }
 
-/// Footer keys and the version-1 fingerprint (15 I-12).
+/// Footer keys and the version-1 fingerprint (15 I-12), as the reader's
+/// `check_format` decides them: footer keys both absent, or both present
+/// naming this format and version 1; 16 top-level primitive columns with
+/// the v1 names, order, physical types, repetition and annotations (`UTF8`
+/// on byte arrays, none on integers).
 pub(crate) fn check_v1_format(reader: &impl FileReader) -> Result<(), Unconvertible> {
     let meta = reader.metadata().file_metadata();
-    if let Some(kv) = meta.key_value_metadata() {
-        let get = |k: &str| kv.iter().find(|e| e.key == k).and_then(|e| e.value.clone());
-        if let Some(name) = get("pmb_format") {
-            let version = get("pmb_format_version");
-            if name != FORMAT_NAME || version.as_deref() != Some(&FORMAT_VERSION.to_string()) {
-                return Err(Unconvertible::Format(format!(
-                    "footer format {name} version {version:?}"
-                )));
-            }
+    let get = |k: &str| {
+        meta.key_value_metadata()
+            .and_then(|kv| kv.iter().find(|e| e.key == k))
+            .map(|e| e.value.as_deref().unwrap_or(""))
+    };
+    match (get(FOOTER_FORMAT_KEY), get(FOOTER_VERSION_KEY)) {
+        (None, None) => {}
+        (Some(name), Some(version)) if name == FORMAT_NAME && version == "1" => {}
+        (name, version) => {
+            return Err(Unconvertible::Format(format!(
+                "footer format {name:?} version {version:?}"
+            )))
         }
     }
     let schema = meta.schema_descr();
-    let cols = schema.columns();
-    if cols.len() != V1_COLUMNS.len() {
-        return Err(Unconvertible::Format(format!("{} columns", cols.len())));
+    let fields = schema.root_schema().get_fields();
+    if fields.len() != V1_COLUMNS.len() || schema.num_columns() != V1_COLUMNS.len() {
+        return Err(Unconvertible::Format(format!(
+            "{} fields / {} columns",
+            fields.len(),
+            schema.num_columns()
+        )));
     }
     for (i, (name, ty, rep)) in V1_COLUMNS.iter().enumerate() {
-        let c = &cols[i];
-        let actual_rep = schema.get_column_root(i).get_basic_info().repetition();
-        if c.path().string() != *name || c.physical_type() != *ty || actual_rep != *rep {
+        let c = schema.column(i);
+        let field = &fields[i];
+        let info = field.get_basic_info();
+        let annotation_ok = if *ty == PhysicalType::BYTE_ARRAY {
+            c.converted_type() == ConvertedType::UTF8
+                && matches!(c.logical_type(), None | Some(LogicalType::String))
+        } else {
+            c.converted_type() == ConvertedType::NONE && c.logical_type().is_none()
+        };
+        let ok = field.is_primitive()
+            && c.path().parts().len() == 1
+            && c.path().string() == *name
+            && c.physical_type() == *ty
+            && info.has_repetition()
+            && info.repetition() == *rep
+            && annotation_ok;
+        if !ok {
             return Err(Unconvertible::Format(format!(
                 "column {i} is `{}` {:?} {:?}, v1 expects `{name}` {ty:?} {rep:?}",
                 c.path().string(),
                 c.physical_type(),
-                actual_rep
+                c.converted_type(),
             )));
         }
     }
@@ -337,12 +364,34 @@ pub fn read_v1(data: Bytes) -> Result<TypedRows, Unconvertible> {
                         column: dec::NAMES[k],
                         detail: format!("{s:?}: {e}"),
                     })?;
+                    // The reader refuses these with the decimal's text,
+                    // which typed rows do not keep (I-20).
+                    let in_range = if dec::IS_PRICE[k] {
+                        (0..=PRICE_MAX_MICROS).contains(&d.micros)
+                    } else {
+                        d.micros.unsigned_abs() <= MAX_LEVEL_SIZE_MICROS as u64
+                    };
+                    if !in_range {
+                        return Err(Unconvertible::Decimal {
+                            column: dec::NAMES[k],
+                            detail: format!("{s:?} is outside the reader's range"),
+                        });
+                    }
                     if d.inexact {
                         let i = u32::try_from(out.values.len())
                             .map_err(|_| Unconvertible::TooManyValues(dec::NAMES[k]))?;
                         out.inexact.push(i);
                     }
                     out.values.push(d.micros);
+                }
+                if col.row(r).len() > usize::from(u16::MAX) {
+                    return Err(Unconvertible::Value(format!(
+                        "row {}: {} values in {}, the reader's limit is {}",
+                        t.ingest_seq.len() - 1,
+                        col.row(r).len(),
+                        dec::NAMES[k],
+                        u16::MAX
+                    )));
                 }
                 push_offset(&mut out.offsets, out.values.len(), dec::NAMES[k])?;
             }
@@ -354,5 +403,13 @@ pub fn read_v1(data: Bytes) -> Result<TypedRows, Unconvertible> {
         }
     }
     t.dict = dict.finish();
+    // The reader refuses an id that is not UTF-8 as a decode failure whose
+    // class depends on the job's sha256 (15 I-8); such files stay on v1.
+    if let Some(e) = t.dict.iter().find(|e| std::str::from_utf8(e).is_err()) {
+        return Err(Unconvertible::Value(format!(
+            "id {:?} is not UTF-8",
+            String::from_utf8_lossy(e)
+        )));
+    }
     Ok(t)
 }

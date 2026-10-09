@@ -15,8 +15,8 @@
 //! `npm run native:bench:l0 -- --target pmb-replay/decode_parallel`.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use pmb_replay::telonex::file_asset_ids;
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::telonex::{file_asset_ids, FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 use sha2::{Digest, Sha256};
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
@@ -99,14 +99,29 @@ fn markets() -> Vec<Market> {
 
 fn read_rows(m: &Market) -> u64 {
     let input = TelonexInput {
-        format_version: 1,
         tokens: [m.tokens[0].as_str(), m.tokens[1].as_str()],
         condition_id: None,
     };
-    read_telonex_delta(&m.path, &input)
+    read_telonex_delta(&input_file(&m.path), input)
         .unwrap_or_else(|e| panic!("{}: {e}", m.path.display()))
-        .diagnostics
+        .diagnostics()
         .rows_read
+}
+
+/// The job input of a bench market: its size from `stat`, no sha256 (the
+/// sets are verified against their manifests before measuring).
+fn input_file(path: &Path) -> InputFile<'_> {
+    InputFile {
+        path,
+        bytes: std::fs::metadata(path)
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+            .len(),
+        sha256: None,
+        format: InputFormat {
+            name: FORMAT_NAME,
+            version: FORMAT_VERSION,
+        },
+    }
 }
 
 /// Reads every market once with `threads` workers; returns the rows read.

@@ -22,9 +22,31 @@ use crate::typed::{dec, event_type, int, row_flags, TypedRows, NULL_ID};
 use pmb_core::{
     LevelUpdate, MarketEvent, Outcome, Price, PriceSize, Qty, QuoteSide, TimedMarketEvent, TsMs,
 };
-use pmb_replay::telonex::{RowKind, SkippedRows, TelonexDiagnostics, FORMAT_VERSION};
+use pmb_replay::telonex::{SkippedRows, TelonexDiagnostics};
 use pmb_replay::{ErrorClass, InputError, TelonexInput};
 use std::collections::TryReserveError;
+use std::path::{Path, PathBuf};
+
+/// Ladder unit of the book (0.0001); other prices count as `offGridPrices`.
+const GRID_MICROS: i64 = pmb_book::LADDER_STEP;
+
+/// Kind of a kept row.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RowKind {
+    /// A `book` snapshot of `outcome` with `bids` bid levels (the rest asks).
+    Book {
+        outcome: Outcome,
+        bids: u32,
+    },
+    PriceChange,
+}
+
+/// Blank as the reader sees it (ECMAScript `trim() === ''`): every code
+/// point is Unicode `White_Space` except U+0085, or U+FEFF.
+fn is_blank(s: &str) -> bool {
+    s.chars()
+        .all(|c| c == '\u{FEFF}' || (c.is_whitespace() && c != '\u{0085}'))
+}
 
 /// One kept row (exactly one real tick, I-19).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -86,12 +108,24 @@ impl ReplayStream {
     pub fn events(&self) -> impl Iterator<Item = TimedMarketEvent<'_>> + '_ {
         (0..self.rows.len()).map(move |i| self.event(i))
     }
+
+    /// Whether two rows of the same kind carry equal levels.
+    fn payload_eq(&self, a: &StreamRow, b: &StreamRow) -> bool {
+        let (ra, rb) = (
+            a.start as usize..a.end as usize,
+            b.start as usize..b.end as usize,
+        );
+        match a.kind {
+            RowKind::Book { .. } => self.book_levels[ra] == self.book_levels[rb],
+            RowKind::PriceChange => self.changes[ra] == self.changes[rb],
+        }
+    }
 }
 
 /// The counters this mirror maintains, destructured without `..`: a counter
 /// added to (or removed from) pmb-replay's reader diagnostics fails to
 /// compile here until the replayer below counts it the same way.
-pub fn mirrored_counters(d: &TelonexDiagnostics) -> [(&'static str, u64); 12] {
+pub fn mirrored_counters(d: &TelonexDiagnostics) -> [(&'static str, u64); 15] {
     let TelonexDiagnostics {
         rows_read,
         skipped:
@@ -108,6 +142,9 @@ pub fn mirrored_counters(d: &TelonexDiagnostics) -> [(&'static str, u64); 12] {
         local_clock_backwards,
         local_behind_exchange,
         ingest_seq_backwards,
+        duplicate_rows,
+        ragged_rows,
+        off_grid_prices,
     } = *d;
     [
         ("rows_read", rows_read),
@@ -122,6 +159,9 @@ pub fn mirrored_counters(d: &TelonexDiagnostics) -> [(&'static str, u64); 12] {
         ("local_clock_backwards", local_clock_backwards),
         ("local_behind_exchange", local_behind_exchange),
         ("ingest_seq_backwards", ingest_seq_backwards),
+        ("duplicate_rows", duplicate_rows),
+        ("ragged_rows", ragged_rows),
+        ("off_grid_prices", off_grid_prices),
     ]
 }
 
@@ -129,27 +169,33 @@ fn defect(cause: &'static str, detail: impl Into<String>) -> InputError {
     InputError::new(ErrorClass::DataDefect, cause, detail)
 }
 
-/// Asset resolution of one dictionary entry (I-17, I-18).
+/// Asset resolution of one dictionary entry (I-17, I-18): a blank id does
+/// not resolve; any other id MUST equal one of the job's tokens exactly.
+/// The converter refuses ids that are not UTF-8 ([`crate::typed::Unconvertible::Value`]).
 fn resolve(bytes: &[u8], tokens: [&str; 2]) -> Result<Option<Outcome>, InputError> {
     let s = std::str::from_utf8(bytes).map_err(|_| defect("corrupt", "asset id is not UTF-8"))?;
-    let t = s.trim();
-    if t.is_empty() {
+    if is_blank(s) {
         Ok(None)
-    } else if t == tokens[0] {
+    } else if s == tokens[0] {
         Ok(Some(Outcome::Up))
-    } else if t == tokens[1] {
+    } else if s == tokens[1] {
         Ok(Some(Outcome::Down))
     } else {
         Err(defect(
             "foreign_file",
-            format!("asset id {t} is not one of the job's tokens"),
+            format!("asset id {s:?} is not one of the job's tokens"),
         ))
     }
 }
 
-/// Replays typed rows with the reader's rules into a market stream.
-pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, InputError> {
-    let mut r = Replayer::new(&t.dict, input)?;
+/// Replays typed rows of the v1 file `v1` with the reader's rules into a
+/// market stream (`v1` names the file in error texts, as the reader does).
+pub fn replay(
+    t: &TypedRows,
+    input: &TelonexInput<'_>,
+    v1: &Path,
+) -> Result<ReplayStream, InputError> {
+    let mut r = Replayer::new(&t.dict, input, v1);
     r.reserve(t);
     r.feed(t, 0)?;
     Ok(r.finish())
@@ -158,13 +204,15 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
 /// The reader state across the blocks of one file.
 pub struct Replayer<'a> {
     condition_id: Option<&'a str>,
+    /// The v1 file, for error texts.
+    path: PathBuf,
     /// The dictionary every fed block must carry (its ids index it).
     dict: Vec<Vec<u8>>,
-    /// Trimmed UTF-8 view of each dictionary entry ("" when not UTF-8).
+    /// UTF-8 view of each dictionary entry, as stored ("" when not UTF-8).
     market_of: Vec<Box<str>>,
     /// Asset resolution of each dictionary entry.
     asset_of: Vec<Result<Option<Outcome>, InputError>>,
-    /// Dictionary id of the market once set; other ids compare by string.
+    /// Dictionary id of the market once set (ids are unique by bytes).
     market_id: Option<u8>,
     last_ex: Option<i64>,
     last_local: Option<i64>,
@@ -173,23 +221,16 @@ pub struct Replayer<'a> {
 }
 
 impl<'a> Replayer<'a> {
-    /// Checks the job's format version (I-13) and resolves the dictionary once.
-    pub fn new(dict: &[Vec<u8>], input: &TelonexInput<'a>) -> Result<Self, InputError> {
-        if input.format_version != FORMAT_VERSION {
-            return Err(defect(
-                "format_version",
-                format!(
-                    "job format version {} is not supported",
-                    input.format_version
-                ),
-            ));
-        }
-        Ok(Replayer {
+    /// Resolves the dictionary once. The job's input format (I-13) is
+    /// checked by the caller before a tape is used ([`crate::read_market`]).
+    pub fn new(dict: &[Vec<u8>], input: &TelonexInput<'a>, v1: &Path) -> Self {
+        Replayer {
             condition_id: input.condition_id,
+            path: v1.to_path_buf(),
             dict: dict.to_vec(),
             market_of: dict
                 .iter()
-                .map(|e| std::str::from_utf8(e).map(str::trim).unwrap_or("").into())
+                .map(|e| std::str::from_utf8(e).unwrap_or("").into())
                 .collect(),
             asset_of: dict.iter().map(|e| resolve(e, input.tokens)).collect(),
             market_id: None,
@@ -197,7 +238,7 @@ impl<'a> Replayer<'a> {
             last_local: None,
             last_seq: None,
             s: ReplayStream::default(),
-        })
+        }
     }
 
     /// Reserves output for `t` (or, block-wise, for the whole file). Fails
@@ -254,6 +295,7 @@ impl<'a> Replayer<'a> {
         let d = &t.decimals;
         let any_inexact: [bool; dec::COUNT] = std::array::from_fn(|k| !d[k].inexact.is_empty());
         let inexact = |list: usize, i: usize| (any_inexact[list] && d[list].is_inexact(i)) as u64;
+        let path = &self.path;
         let result = (|| {
             for r in 0..t.len() {
                 let diag = &mut s.diagnostics;
@@ -264,30 +306,41 @@ impl<'a> Replayer<'a> {
                 }
                 last_seq = Some(seq);
 
+                // I-18: every asset id is one of the job's tokens, also on
+                // rows that I-16 skips (resolved before the market check).
+                let a0 = asset(t.asset0[r])?;
+                let a1 = asset(t.asset1[r])?;
+
                 let mid = t.market[r];
-                let market: &str = &market_of[mid as usize];
-                if market.is_empty() {
-                    diag.skipped.blank_market += 1;
-                    continue;
-                }
-                if market_id == Some(mid) {
-                    // Same dictionary entry as the market already set: equal.
-                } else if s.market.is_empty() {
+                if market_id != Some(mid) {
+                    let market: &str = &market_of[mid as usize];
+                    if is_blank(market) {
+                        diag.skipped.blank_market += 1;
+                        continue;
+                    }
+                    if market_id.is_some() {
+                        return Err(defect(
+                            "foreign_file",
+                            format!(
+                                "{}: market column changes: {:?} then {market:?}",
+                                path.display(),
+                                s.market,
+                            ),
+                        ));
+                    }
                     if let Some(cid) = self.condition_id {
                         if !cid.eq_ignore_ascii_case(market) {
                             return Err(defect(
                                 "foreign_file",
-                                format!("file market {market} != job condition id {cid}"),
+                                format!(
+                                    "{}: file market {market:?} != job condition id {cid}",
+                                    path.display()
+                                ),
                             ));
                         }
                     }
                     s.market = market.to_string();
                     market_id = Some(mid);
-                } else if s.market != market {
-                    return Err(defect(
-                        "foreign_file",
-                        format!("market column changes: {} then {market}", s.market),
-                    ));
                 }
                 let flags = t.flags[r];
                 let ex = t.ts_exchange_ms[r];
@@ -297,8 +350,6 @@ impl<'a> Replayer<'a> {
                 }
                 let local = Some(t.ts_local_ms[r]).filter(|&l| l > 0);
 
-                let a0 = asset(t.asset0[r])?;
-                let a1 = asset(t.asset1[r])?;
                 let by_index = |i: i32| -> Option<Outcome> {
                     match i {
                         0 => a0,
@@ -306,7 +357,7 @@ impl<'a> Replayer<'a> {
                         _ => None,
                     }
                 };
-                let diag = &mut s.diagnostics;
+                let off_grid = |m: i64| (m % GRID_MICROS != 0) as u64;
                 let (kind, start, end) = match t.event_type[r] {
                     event_type::BOOK => {
                         let outcome = if flags & row_flags::ASSET_INDEX_NULL != 0 {
@@ -320,23 +371,30 @@ impl<'a> Replayer<'a> {
                         };
                         let start = s.book_levels.len();
                         let mut bids = 0usize;
+                        let mut ragged = false;
                         for (pl, sl) in [
                             (dec::BID_PRICES, dec::BID_SIZES),
                             (dec::ASK_PRICES, dec::ASK_SIZES),
                         ] {
                             let (p0, p1) = d[pl].range(r);
                             let (s0, s1) = d[sl].range(r);
+                            ragged |= p1 - p0 != s1 - s0;
                             let n = (p1 - p0).min(s1 - s0);
                             for i in 0..n {
+                                let price = d[pl].values[p0 + i];
                                 diag.inexact_decimal += inexact(pl, p0 + i) + inexact(sl, s0 + i);
+                                diag.off_grid_prices += off_grid(price);
                                 s.book_levels.push(PriceSize {
-                                    price: Price::from_micros(d[pl].values[p0 + i]),
+                                    price: Price::from_micros(price),
                                     size: Qty::from_micros(d[sl].values[s0 + i]),
                                 });
                             }
                             if pl == dec::BID_PRICES {
                                 bids = n;
                             }
+                        }
+                        if ragged {
+                            diag.ragged_rows += 1;
                         }
                         let end = s.book_levels.len();
                         (
@@ -355,6 +413,7 @@ impl<'a> Replayer<'a> {
                         let (p0, p1) = d[dec::CHANGE_PRICES].range(r);
                         let (z0, z1) = d[dec::CHANGE_SIZES].range(r);
                         let n = (a1r - a0r).min(c1 - c0).min(p1 - p0).min(z1 - z0);
+                        let ragged = [c1 - c0, p1 - p0, z1 - z0].iter().any(|&l| l != a1r - a0r);
                         let ai = &t.ints[int::CHANGE_ASSETS].values[a0r..a1r];
                         let sc = &t.ints[int::CHANGE_SIDES].values[c0..c1];
                         for i in 0..n {
@@ -370,12 +429,14 @@ impl<'a> Replayer<'a> {
                                 diag.dropped_changes += 1;
                                 continue;
                             };
+                            let price = d[dec::CHANGE_PRICES].values[p0 + i];
                             diag.inexact_decimal += inexact(dec::CHANGE_PRICES, p0 + i)
                                 + inexact(dec::CHANGE_SIZES, z0 + i);
+                            diag.off_grid_prices += off_grid(price);
                             s.changes.push(LevelUpdate {
                                 outcome,
                                 side,
-                                price: Price::from_micros(d[dec::CHANGE_PRICES].values[p0 + i]),
+                                price: Price::from_micros(price),
                                 size: Qty::from_micros(d[dec::CHANGE_SIZES].values[z0 + i]),
                             });
                         }
@@ -383,6 +444,9 @@ impl<'a> Replayer<'a> {
                         if end == start {
                             diag.skipped.empty_price_change += 1;
                             continue;
+                        }
+                        if ragged {
+                            diag.ragged_rows += 1;
                         }
                         (RowKind::PriceChange, start, end)
                     }
@@ -405,14 +469,27 @@ impl<'a> Replayer<'a> {
                     }
                     last_local = Some(l);
                 }
-                s.rows.push(StreamRow {
+                let row = StreamRow {
                     row: (row0 + r) as u32,
                     exchange_ts: TsMs(ex),
                     local_ts: local.map(TsMs),
                     kind,
                     start: start as u32,
                     end: end as u32,
-                });
+                };
+                // `duplicateRows` (15 §8): identical to the previous kept
+                // row in clocks, kind, outcome and every level (the file
+                // row index and `ingest_seq` are not compared).
+                if let Some(prev) = s.rows.last() {
+                    if prev.exchange_ts == row.exchange_ts
+                        && prev.local_ts == row.local_ts
+                        && prev.kind == row.kind
+                        && s.payload_eq(prev, &row)
+                    {
+                        s.diagnostics.duplicate_rows += 1;
+                    }
+                }
+                s.rows.push(row);
             }
             Ok(())
         })();

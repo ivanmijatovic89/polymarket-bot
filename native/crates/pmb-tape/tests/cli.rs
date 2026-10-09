@@ -75,7 +75,7 @@ fn text(o: &Output) -> String {
 }
 
 fn tape_file(tapes: &Path) -> PathBuf {
-    tapes.join("telonex-delta-typed-v1/tape-v1/btc/15m/m.pmbtape")
+    tapes.join("telonex-delta-typed-v1/tape-v2/btc/15m/m.pmbtape")
 }
 
 #[test]

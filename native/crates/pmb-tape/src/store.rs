@@ -7,7 +7,8 @@ use crate::replay::{ReplayStream, Replayer};
 use crate::typed::{dec, TypedRows, Unconvertible};
 use crate::v1::read_v1;
 use bytes::Bytes;
-use pmb_replay::{InputError, TelonexInput};
+use pmb_replay::telonex::{FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::{InputError, InputFile, TelonexInput};
 use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fs;
@@ -102,6 +103,9 @@ pub enum Fallback {
     Invalid(TapeError),
     /// The tape was built from a different v1 file (bytes, mtime or sha256).
     Stale(String),
+    /// The job's input facts (format, bytes, sha256) are ones the v1 reader
+    /// refuses; v1 raises that error (15 I-8, I-13).
+    Job(String),
 }
 
 impl Fallback {
@@ -112,6 +116,7 @@ impl Fallback {
             Fallback::Invalid(TapeError::Version(_)) => "version",
             Fallback::Invalid(_) => "invalid",
             Fallback::Stale(_) => "stale",
+            Fallback::Job(_) => "job",
         }
     }
 }
@@ -123,6 +128,7 @@ impl fmt::Display for Fallback {
             Fallback::Io(e) => write!(f, "io: {e}"),
             Fallback::Invalid(e) => write!(f, "invalid tape: {e}"),
             Fallback::Stale(e) => write!(f, "stale tape: {e}"),
+            Fallback::Job(e) => write!(f, "job input: {e}"),
         }
     }
 }
@@ -148,6 +154,38 @@ fn check_identity(
         }
     }
     Ok(())
+}
+
+/// Checks the job's input facts that the v1 reader verifies before decoding
+/// (15 I-8, I-13): the supported format, the file size, and the sha256 in
+/// its contract form (64 lowercase hex digits). Returns the sha256 a tape
+/// must carry, if any; a refusal is a [`Fallback::Job`], so v1 raises the
+/// reader's own error.
+pub fn check_job(file: &InputFile<'_>) -> Result<Option<[u8; 32]>, Fallback> {
+    if file.format.name != FORMAT_NAME || file.format.version != FORMAT_VERSION {
+        return Err(Fallback::Job(format!(
+            "format {:?} version {}",
+            file.format.name, file.format.version
+        )));
+    }
+    let sha = match file.sha256 {
+        None => None,
+        Some(h) => {
+            let lower = h.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+            match parse_hex32(h).filter(|_| lower) {
+                Some(d) => Some(d),
+                None => return Err(Fallback::Job(format!("sha256 {h:?}"))),
+            }
+        }
+    };
+    let (bytes, _) = stat_identity(file.path).map_err(|e| Fallback::Io(e.to_string()))?;
+    if bytes != file.bytes {
+        return Err(Fallback::Job(format!(
+            "v1 has {bytes} bytes, the job says {}",
+            file.bytes
+        )));
+    }
+    Ok(sha)
 }
 
 /// Checks a parsed tape header against the v1 file's `stat` and, when
@@ -218,10 +256,7 @@ pub fn read_tape_stream(
     input: &TelonexInput<'_>,
 ) -> Result<Result<ReplayStream, InputError>, Fallback> {
     with_tape(decoder, tape, v1, expected_sha, |d, buf, h| {
-        let mut replayer = match Replayer::new(&h.dict, input) {
-            Ok(r) => r,
-            Err(e) => return Ok(Err(e)),
-        };
+        let mut replayer = Replayer::new(&h.dict, input, v1);
         // `parse_meta` checked these counts against the blocks; the sum and
         // the reservation still fail softly into a fallback (NT-5).
         let counts = (|| {

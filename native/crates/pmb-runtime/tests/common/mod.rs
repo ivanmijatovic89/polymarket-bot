@@ -1,5 +1,5 @@
 //! Shared test fixtures: the committed fixture market (`tests/fixtures/`,
-//! one market of the decode golden in `native/fixtures/decode/`), job
+//! one market of the decode golden in `native/fixtures/golden/telonex/`), job
 //! builders, and an in-test engine backend that stands in for the
 //! pmb-engine bodies still being written.
 
@@ -32,7 +32,7 @@ pub fn repo_root() -> PathBuf {
 }
 
 /// The committed fixture market (`tests/fixtures/`): a 54-row telonex-delta
-/// file of the decode golden (`native/fixtures/decode/telonex_book_golden.json`),
+/// file of the decode golden (`native/fixtures/golden/telonex/telonex_book_golden.json`),
 /// copied into the crate so every host and CI run it (R12: no test passes
 /// by skipping).
 pub const FIXTURE_SLUG: &str = "btc-updown-5m-1770857100";
@@ -42,7 +42,7 @@ pub const FIXTURE_SHA256: &str = "0b2d0cb9a79ae7d8c0e96fad91055b1084ff335d4d3728
 /// The golden entry of the fixture market.
 pub fn fixture_golden() -> Value {
     let golden: Value = serde_json::from_slice(
-        &std::fs::read(repo_root().join("native/fixtures/decode/telonex_book_golden.json"))
+        &std::fs::read(repo_root().join("native/fixtures/golden/telonex/telonex_book_golden.json"))
             .unwrap(),
     )
     .unwrap();
@@ -140,6 +140,7 @@ pub fn job(
                 "format": { "name": "telonex-delta-typed", "version": 1 }
             },
             "recorderV4": null,
+            "journal": null,
             "ownActivity": null,
             "feedFiles": []
         },

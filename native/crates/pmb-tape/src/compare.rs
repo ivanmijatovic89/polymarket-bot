@@ -5,8 +5,9 @@
 //! file's market id, and the skip and anomaly counters.
 
 use crate::MarketStream;
+use crate::RowKind;
 use pmb_core::{MarketEvent, QuoteSide, TimedMarketEvent};
-use pmb_replay::telonex::{RowKind, TelonexDiagnostics};
+use pmb_replay::telonex::TelonexDiagnostics;
 use sha2::{Digest, Sha256};
 
 /// The first difference between two streams, or `None` when identical.

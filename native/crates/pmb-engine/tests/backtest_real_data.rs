@@ -1,6 +1,6 @@
 //! Real-data smoke run of the integrated ts-compat backtest path (M1 steps
 //! 3–4): the pmb-replay reader over the real telonex-delta markets listed in
-//! the decode golden (`native/fixtures/decode/telonex_book_golden.json`),
+//! the decode golden (`native/fixtures/golden/telonex/telonex_book_golden.json`),
 //! `BacktestMarket` with a rule-based strategy that places, cancels and
 //! fills, and `market_output` with its egress self-check (21 §19).
 //!
@@ -30,7 +30,8 @@ use pmb_engine::{
     market_output, BacktestMarket, CoreRules, Ctx, EngineConfig, Intents, NoTrace, OutputContext,
     SharedMarket, Strategy, StrategyResult,
 };
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::telonex::{FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -129,13 +130,18 @@ fn real_telonex_markets_run_end_to_end_deterministically() {
     // spec: 12 §4.1, §5.1; 21 §15, §19; 00 R7
     let root = repo_root();
     let golden: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(root.join("native/fixtures/decode/telonex_book_golden.json")).unwrap(),
+        &std::fs::read(root.join("native/fixtures/golden/telonex/telonex_book_golden.json"))
+            .unwrap(),
     )
     .unwrap();
     let mut ran = 0;
     for m in golden["markets"].as_array().unwrap() {
         let rel = m["file"].as_str().unwrap();
-        let path = root.join("data").join(rel);
+        let path = match m["source"].as_str().unwrap() {
+            "fixture" => root.join("native/fixtures/golden/telonex").join(rel),
+            "data" => root.join("data").join(rel),
+            other => panic!("source {other}"),
+        };
         if !path.exists() {
             eprintln!("skip (no data on this host): {}", path.display());
             continue;
@@ -150,10 +156,18 @@ fn real_telonex_markets_run_end_to_end_deterministically() {
             eprintln!("skip (one-sided market): {rel}");
             continue;
         }
+        let file = InputFile {
+            path: &path,
+            bytes: std::fs::metadata(&path).unwrap().len(),
+            sha256: None,
+            format: InputFormat {
+                name: FORMAT_NAME,
+                version: FORMAT_VERSION,
+            },
+        };
         let tape = read_telonex_delta(
-            &path,
-            &TelonexInput {
-                format_version: 1,
+            &file,
+            TelonexInput {
                 tokens: [toks[0], toks[1]],
                 condition_id: None,
             },
@@ -162,7 +176,7 @@ fn real_telonex_markets_run_end_to_end_deterministically() {
         let slug = path.file_stem().unwrap().to_str().unwrap();
         let info = MarketInfo::new(
             slug,
-            ConditionId::parse(&tape.market).expect("condition id"),
+            ConditionId::parse(&tape.meta.market).expect("condition id"),
             PerOutcome::new(
                 TokenId::parse(toks[0]).unwrap(),
                 TokenId::parse(toks[1]).unwrap(),

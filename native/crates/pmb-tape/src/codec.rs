@@ -1,4 +1,4 @@
-//! On-disk tape format, version 1 (16 §7.5 NT-1, NT-3).
+//! On-disk tape format, version 2 (16 §7.5 NT-1, NT-3).
 //!
 //! ```text
 //! prefix   magic "PMBTAPE\0" | format_version u32 | meta_comp_len u32 | meta_raw_len u32
@@ -27,8 +27,13 @@ use zstd::zstd_safe::CParameter;
 /// File magic.
 pub const MAGIC: [u8; 8] = *b"PMBTAPE\0";
 /// Tape format version; bumped only when the typed-row layer or this
-/// encoding changes (NT-2), never for reader semantics.
-pub const FORMAT_VERSION: u32 = 1;
+/// encoding changes (NT-2), never for reader semantics. Version 2: the
+/// layout of version 1, but the typed-row layer admits only files the
+/// reviewed v1 reader accepts by schema (annotations, footer keys) and that
+/// hold no value it refuses with a text the tape does not keep (ids that
+/// are not UTF-8, decimals outside its ranges, lists beyond `u16`), so a
+/// version-1 tape may describe a file the reader now refuses.
+pub const FORMAT_VERSION: u32 = 2;
 /// Rows per block (~64 k, NT-3).
 pub const DEFAULT_BLOCK_ROWS: u32 = 65_536;
 /// zstd level of the published tool (decode speed does not depend on it).

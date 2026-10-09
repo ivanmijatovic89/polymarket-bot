@@ -27,7 +27,9 @@ use pmb_core::{
     TimedMarketEvent, TsMs,
 };
 use pmb_replay::telonex::{FORMAT_NAME, FORMAT_VERSION};
-use pmb_replay::{read_telonex_delta, TelonexDiagnostics, TelonexInput, TelonexTape};
+use pmb_replay::{
+    read_telonex_delta, InputFile, InputFormat, TelonexDiagnostics, TelonexInput, TelonexTape,
+};
 use sha2::{Digest, Sha256};
 
 use crate::error::EngineError;
@@ -68,8 +70,8 @@ impl StaticTape {
 
 /// The decoded market events of one market, in replay order (15 I-15).
 pub enum MarketTape {
-    /// A decoded telonex-delta file.
-    Telonex(TelonexTape),
+    /// A decoded telonex-delta file (boxed: the tape carries its file meta).
+    Telonex(Box<TelonexTape>),
     /// An in-memory tape (selftest).
     Static(StaticTape),
 }
@@ -451,20 +453,30 @@ pub fn build_inputs(
     }
     let verified = verify_input(input, &m.slug)?;
     let tin = TelonexInput {
-        format_version: input.format.version,
         tokens: [m.token_ids.up.as_str(), m.token_ids.down.as_str()],
         condition_id: m.condition_id.as_deref(),
     };
+    // `verify_input` above already checked bytes and sha256; the sha256 is
+    // not passed again so the file is hashed once, and
+    // `classify_decode_error` classes decode failures by `verified`.
+    let file = InputFile {
+        path: Path::new(&input.path),
+        bytes: input.bytes.get(),
+        sha256: None,
+        format: InputFormat {
+            name: &input.format.name,
+            version: input.format.version,
+        },
+    };
     let classify =
         |e: EngineError| classify_decode_error(e, verified, || reread_input(input, &m.slug));
-    let tape = read_telonex_delta(Path::new(&input.path), &tin)
-        .map_err(|e| classify(EngineError::from(e)))?;
-    let market_text = (!tape.market.is_empty()).then(|| tape.market.clone());
-    let anomalies = anomalies_of(&tape.diagnostics);
+    let tape = read_telonex_delta(&file, tin).map_err(|e| classify(EngineError::from(e)))?;
+    let market_text = (!tape.meta.market.is_empty()).then(|| tape.meta.market.clone());
+    let anomalies = anomalies_of(tape.diagnostics());
     assemble(
         job,
         table,
-        MarketTape::Telonex(tape),
+        MarketTape::Telonex(Box::new(tape)),
         market_text,
         anomalies,
     )

@@ -16,7 +16,9 @@ use pmb_contract::result::{
     EventsByType, MarketEcho,
 };
 use pmb_contract::support::Version;
-use pmb_contract::vocab::{self, ErrorClass, InputPath, ResultStatus, SkipReason, StatsSkipReason};
+use pmb_contract::vocab::{
+    self, ErrorClass, InputPath, RejectReasonCode, ResultStatus, SkipReason, StatsSkipReason,
+};
 use pmb_core::fixed::{div_round_i128, Rounding};
 use pmb_core::Outcome;
 use pmb_engine::stats::{CandidateCounters, FinalStats};
@@ -217,9 +219,10 @@ fn group_error(
 pub fn error_outcome(
     e: EngineError,
     echo: Option<pmb_contract::result::Echo>,
+    market: Option<MarketEcho>,
     clock: &JobClock,
 ) -> RunOutcome {
-    RunOutcome::from_result(seal(group_error(e, echo, None, clock), clock))
+    RunOutcome::from_result(seal(group_error(e, echo, market, clock), clock))
 }
 
 /// Serializes the deterministic section (every field but `diagnostics`,
@@ -304,7 +307,7 @@ pub fn market_stats(
         intent_meta,
         skip_reason: zero_row.then_some(StatsSkipReason::NoInWindowActivity),
         // ts-compat outputs `rules: null` (11 §13.8, 21 §7.2).
-        rules: Some(None),
+        rules: None,
     })
 }
 
@@ -343,13 +346,27 @@ pub fn market_output(
 }
 
 /// Capital-aware counters for `diagnostics.counters` (21 §10).
-pub fn counters_of(key: &str, c: &CandidateCounters, skipped: u64) -> OutCounters {
+pub fn counters_of(
+    key: &str,
+    c: &CandidateCounters,
+    skipped: u64,
+) -> Result<OutCounters, EngineError> {
     let safe = |v: u64| SafeU64::new(v).unwrap_or(SafeU64::new(0).expect("zero is safe"));
-    let mut rejected: BTreeMap<String, u64> = BTreeMap::new();
-    for (reason, n) in &c.orders_rejected {
-        *rejected.entry(reason.code().to_string()).or_default() += n;
+    let mut rejected: BTreeMap<RejectReasonCode, u64> = BTreeMap::new();
+    for &(code, n) in &c.orders_rejected {
+        let reason = RejectReasonCode::ALL
+            .iter()
+            .copied()
+            .find(|r| r.as_str() == code)
+            .ok_or_else(|| {
+                EngineError::engine_fault(
+                    "invariant",
+                    format!("ordersRejected: unknown reason code {code:?} (21 §17)"),
+                )
+            })?;
+        *rejected.entry(reason).or_default() += n;
     }
-    OutCounters {
+    Ok(OutCounters {
         key: key.to_string(),
         orders_placed: safe(c.orders_placed),
         orders_rejected: rejected.into_iter().map(|(k, v)| (k, safe(v))).collect(),
@@ -358,7 +375,7 @@ pub fn counters_of(key: &str, c: &CandidateCounters, skipped: u64) -> OutCounter
         sell_notional_usdc: Decimal::from_micros(c.sell_notional.micros()),
         peak_reserved_usdc: Decimal::from_micros(c.peak_reserved.micros()),
         strategy_ticks_skipped: safe(skipped),
-    }
+    })
 }
 
 /// Runs a job document through the whole pipeline with `backend`.
@@ -375,7 +392,7 @@ where
 {
     let job = match parse_job(bytes) {
         Ok(j) => j,
-        Err(e) => return error_outcome(e, None, clock),
+        Err(e) => return error_outcome(e, None, None, clock),
     };
     run_job::<T, B>(job, overrides, backend, clock, build_inputs)
 }
@@ -399,22 +416,26 @@ where
 {
     let plan = match plan_job::<T>(job, overrides) {
         Ok(p) => p,
-        Err(je) => return error_outcome(je.error, je.echo.map(|e| *e), clock),
+        Err(je) => {
+            return error_outcome(je.error, je.echo.map(|e| *e), je.market.map(|m| *m), clock)
+        }
     };
     // Engine panics anywhere below are engine faults (12 §11).
     let echo = plan.echo.clone();
+    let market = crate::job::market_echo(&plan.job, plan.rules_table);
     match catch(|| -> Result<RunOutcome, EngineError> {
         let decoded = inputs(&plan.job, plan.rules_table)?;
         Ok(execute_plan::<T, B>(&plan, &decoded, backend, clock))
     }) {
         Ok(Ok(o)) => o,
-        Ok(Err(e)) => error_outcome(e, Some(echo), clock),
+        Ok(Err(e)) => error_outcome(e, Some(echo), Some(market), clock),
         Err(p) => error_outcome(
             EngineError::engine_fault("panic", p.message.clone()).with_detail(ErrorDetail {
                 location: p.location,
                 ..ErrorDetail::default()
             }),
             Some(echo),
+            Some(market),
             clock,
         ),
     }
@@ -619,11 +640,14 @@ where
                     return finish_group_error(e, plan, market, inputs, clock);
                 }
             }
-            let counters = vec![counters_of(
+            let counters = match counters_of(
                 &cand.key,
                 &run.acc.counters,
                 run.acc.ticks.strategy_ticks_skipped,
-            )];
+            ) {
+                Ok(c) => vec![c],
+                Err(e) => return finish_group_error(e, plan, market, inputs, clock),
+            };
             (
                 CandidateResult {
                     key: cand.key.clone(),

@@ -40,6 +40,8 @@ pub mod dec {
     pub const CHANGE_PRICES: usize = 4;
     pub const CHANGE_SIZES: usize = 5;
     pub const COUNT: usize = 6;
+    /// Whether each list holds prices (else sizes).
+    pub const IS_PRICE: [bool; COUNT] = [true, false, true, false, true, false];
     pub const NAMES: [&str; COUNT] = [
         "bid_prices",
         "bid_sizes",
@@ -318,6 +320,10 @@ pub enum Unconvertible {
     DictionaryOverflow,
     /// More list values than a `u32` offset can address.
     TooManyValues(&'static str),
+    /// A value the reader refuses with a decode failure the tape cannot
+    /// reproduce: an id that is not UTF-8, or more levels in one list than
+    /// the reader's `u16` count.
+    Value(String),
 }
 
 impl Unconvertible {
@@ -330,6 +336,7 @@ impl Unconvertible {
             Unconvertible::EventType(_) => "event_type",
             Unconvertible::DictionaryOverflow => "dictionary_overflow",
             Unconvertible::TooManyValues(_) => "too_many_values",
+            Unconvertible::Value(_) => "value",
         }
     }
 }
@@ -345,6 +352,7 @@ impl fmt::Display for Unconvertible {
                 write!(f, "more than {DICT_CAP} distinct id strings")
             }
             Unconvertible::TooManyValues(c) => write!(f, "{c}: more than u32::MAX values"),
+            Unconvertible::Value(d) => write!(f, "refused value: {d}"),
         }
     }
 }

@@ -275,7 +275,12 @@ fn from_run(o: RunOutcome) -> Outcome {
             "line_too_large",
             format!("result document of {} bytes exceeds 64 MiB", document.len()),
         );
-        return from_run(error_outcome(e, o.result.echo.clone(), &JobClock::start()));
+        return from_run(error_outcome(
+            e,
+            o.result.echo.clone(),
+            o.result.market.clone(),
+            &JobClock::start(),
+        ));
     }
     Outcome {
         document,
@@ -288,7 +293,7 @@ fn from_run(o: RunOutcome) -> Outcome {
 /// subcommand: `run` prints an `EngineResult`).
 pub fn error_for(args: &[String], e: EngineError) -> Outcome {
     if args.first().map(String::as_str) == Some("run") {
-        from_run(error_outcome(e, None, &JobClock::start()))
+        from_run(error_outcome(e, None, None, &JobClock::start()))
     } else {
         error_outcome_doc(e, None)
     }
@@ -474,7 +479,7 @@ where
             };
             let bytes = match bytes {
                 Ok(b) => b,
-                Err(e) => return from_run(error_outcome(e, None, &clock)),
+                Err(e) => return from_run(error_outcome(e, None, None, &clock)),
             };
             let overrides = run.overrides.clone();
             let result = on_job_thread(run.stack_mb << 20, || {
@@ -482,7 +487,7 @@ where
             });
             match result {
                 Ok(o) => from_run(o),
-                Err(e) => from_run(error_outcome(e, None, &clock)),
+                Err(e) => from_run(error_outcome(e, None, None, &clock)),
             }
         }
     }

@@ -785,6 +785,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "parquet",
+ "pmb-book",
  "pmb-core",
  "pmb-replay",
  "serde",

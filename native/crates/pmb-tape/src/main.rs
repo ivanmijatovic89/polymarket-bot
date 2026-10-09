@@ -23,7 +23,7 @@
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 use pmb_tape::codec::{Decoder, EncodeOptions};
 use pmb_tape::compare::{digest, first_difference};
 use pmb_tape::manifest::{Manifest, Market};
@@ -124,9 +124,23 @@ fn market_tape(m: &Manifest, mk: &Market, tape_root: &Path) -> Result<PathBuf> {
 
 fn input<'a>(mk: &'a Market) -> TelonexInput<'a> {
     TelonexInput {
-        format_version: 1,
         tokens: [mk.tokens.up.as_str(), mk.tokens.down.as_str()],
         condition_id: None,
+    }
+}
+
+/// The job input of a manifest market (15 §9): the manifest's format and
+/// size, and its sha256 when `sha256` is set (the bench passes none, as
+/// before the reader verified inputs, so v1 timings exclude hashing).
+fn job_file<'a>(m: &'a Manifest, mk: &'a Market, v1: &'a Path, sha256: bool) -> InputFile<'a> {
+    InputFile {
+        path: v1,
+        bytes: mk.bytes,
+        sha256: sha256.then_some(mk.sha256.as_str()),
+        format: InputFormat {
+            name: &m.format.name,
+            version: m.format.version,
+        },
     }
 }
 
@@ -321,8 +335,9 @@ fn verify(a: &Args) -> Result<()> {
             );
             // NT-6 (b): engine event streams of both paths are identical.
             let inp = input(mk);
-            let from_v1 = read_telonex_delta(&v1, &inp).map(MarketStream::V1);
-            let from_tape = replay(&tape_rows, &inp).map(MarketStream::Tape);
+            let file = job_file(&m, mk, &v1, true);
+            let from_v1 = read_telonex_delta(&file, inp).map(MarketStream::V1);
+            let from_tape = replay(&tape_rows, &inp, &v1).map(MarketStream::Tape);
             let (x, y) = match (from_v1, from_tape) {
                 (Ok(x), Ok(y)) => (x, y),
                 (Err(e1), Err(e2)) if e1 == e2 => {
@@ -335,7 +350,7 @@ fn verify(a: &Args) -> Result<()> {
             }
             // The production lookup takes the tape path (block-streamed
             // decode and replay) and yields the same stream.
-            let (streamed, path) = read_market(&v1, Some(&tape), Some(&sha), &inp, &mut decoder)
+            let (streamed, path) = read_market(&file, Some(&tape), &inp, &mut decoder)
                 .map_err(|e| anyhow::anyhow!("read_market: {e}"))?;
             ensure!(path == InputPath::Tape, "read_market fell back: {path:?}");
             if let Some(diff) = first_difference(&x, &streamed) {
@@ -487,14 +502,16 @@ fn bench_pass(
         let fail = |e: &dyn std::fmt::Display| anyhow::anyhow!("{} {}: {e}", cfg.name(), mk.slug);
         let t0 = Instant::now();
         let n = match cfg {
-            Config::V1 => read_telonex_delta(&v1, &inp).map_err(|e| fail(&e))?.len(),
+            Config::V1 => read_telonex_delta(&job_file(m, mk, &v1, false), inp)
+                .map_err(|e| fail(&e))?
+                .len(),
             Config::Tape => read_tape_stream(decoder, &tape, &v1, None, &inp)
                 .map_err(|e| fail(&e))?
                 .map_err(|e| fail(&e))?
                 .len(),
             Config::TapeFull => {
                 let (_, rows) = load_tape(decoder, &tape, &v1, None).map_err(|e| fail(&e))?;
-                replay(&rows, &inp).map_err(|e| fail(&e))?.len()
+                replay(&rows, &inp, &v1).map_err(|e| fail(&e))?.len()
             }
             Config::TapeRows => load_tape(decoder, &tape, &v1, None)
                 .map_err(|e| fail(&e))?
@@ -504,7 +521,7 @@ fn bench_pass(
                 let data = std::fs::read(&alt).map_err(|e| fail(&e))?;
                 let (_, rows) = pq.read(Bytes::from(data)).map_err(|e| fail(&e))?;
                 if cfg == Config::PqFull {
-                    replay(&rows, &inp).map_err(|e| fail(&e))?.len()
+                    replay(&rows, &inp, &v1).map_err(|e| fail(&e))?.len()
                 } else {
                     rows.len()
                 }

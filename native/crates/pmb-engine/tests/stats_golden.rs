@@ -31,7 +31,8 @@ use pmb_engine::{
     market_output, BacktestMarket, CoreRules, Ctx, EngineConfig, Intents, NoTrace, OutputContext,
     SharedMarket, Strategy, StrategyResult,
 };
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::telonex::{FORMAT_NAME, FORMAT_VERSION};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -230,10 +231,18 @@ fn run_case(case: &Value, candidates: usize) -> Vec<EngineMarketOutput> {
     let path = repo_root().join(case["parquet"].as_str().expect("parquet"));
     let up = case["tokens"]["UP"].as_str().expect("UP");
     let down = case["tokens"]["DOWN"].as_str().expect("DOWN");
+    let file = InputFile {
+        path: &path,
+        bytes: std::fs::metadata(&path).expect("parquet").len(),
+        sha256: None,
+        format: InputFormat {
+            name: FORMAT_NAME,
+            version: FORMAT_VERSION,
+        },
+    };
     let tape = read_telonex_delta(
-        &path,
-        &TelonexInput {
-            format_version: 1,
+        &file,
+        TelonexInput {
             tokens: [up, down],
             condition_id: case["conditionId"].as_str(),
         },
@@ -391,6 +400,6 @@ fn the_activity_case_places_cancels_and_fills() {
         2,
         "first fill per cid; unfilled y1 excluded"
     );
-    assert_eq!(s.split_cost.micros(), 5_000_000);
+    assert_eq!(s.split_cost.micros(), Some(5_000_000));
     assert_eq!(o.events_processed.get(), 10);
 }

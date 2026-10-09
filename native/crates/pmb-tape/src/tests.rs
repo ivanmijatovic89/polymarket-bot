@@ -24,7 +24,7 @@ use parquet::file::properties::WriterProperties;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::file::writer::SerializedFileWriter;
 use parquet::schema::parser::parse_message_type;
-use pmb_replay::{read_telonex_delta, TelonexInput};
+use pmb_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -338,10 +338,28 @@ fn root_of(tape: &Path) -> PathBuf {
 
 fn input() -> TelonexInput<'static> {
     TelonexInput {
-        format_version: 1,
         tokens: [UP, DOWN],
         condition_id: None,
     }
+}
+
+/// The job input of a v1 file at format `version`: its size (0 when
+/// absent) and no sha256.
+fn job_v(path: &Path, version: u32) -> InputFile<'_> {
+    InputFile {
+        path,
+        bytes: std::fs::metadata(path).map(|m| m.len()).unwrap_or(0),
+        sha256: None,
+        format: InputFormat {
+            name: "telonex-delta-typed",
+            version,
+        },
+    }
+}
+
+/// The job input of a v1 file (format version 1).
+fn job(path: &Path) -> InputFile<'_> {
+    job_v(path, 1)
 }
 
 fn opts() -> ConvertOptions {
@@ -401,10 +419,7 @@ fn synthetic_rows() -> Vec<RawRow> {
         change(
             7,
             1005,
-            &[
-                (0, 1, "0.999999", "123456789012.345678"),
-                (1, 0, "1E-6", "-5"),
-            ],
+            &[(0, 1, "0.999999", "123456789.345678"), (1, 0, "1E-6", "-5")],
         ),
     ];
     // Unequal list lengths: only the paired prefix is read.
@@ -424,7 +439,7 @@ fn synthetic_rows() -> Vec<RawRow> {
     rows.push(r);
     rows.push(book(12, 1009, 5, &[("0.1", "1")], &[])); // unresolved index 5
     let mut r = book(13, 1010, 0, &[("0.2", "1")], &[]);
-    r.asset1 = Some(format!("  {DOWN} ")); // whitespace-padded id
+    r.asset1 = Some("\u{3000}\u{00A0}".into()); // ECMAScript-blank id: does not resolve
     rows.push(r);
     let mut r = book(13, 1011, 1, &[("0.2", "1")], &[]); // ingest_seq repeats
     r.asset0 = None; // null asset0 column still resolves asset1
@@ -447,7 +462,7 @@ fn synthetic_rows() -> Vec<RawRow> {
 }
 
 fn v1_stream(path: &Path, inp: &TelonexInput<'_>) -> MarketStream {
-    MarketStream::V1(read_telonex_delta(path, inp).unwrap())
+    MarketStream::V1(read_telonex_delta(&job(path), *inp).unwrap())
 }
 
 #[test]
@@ -466,7 +481,7 @@ fn synthetic_round_trip_and_stream_equality() {
     assert_eq!(h.tool_sha256, [1; 32]);
 
     let a = v1_stream(&v1, &input());
-    let b = MarketStream::Tape(replay(&back, &input()).unwrap());
+    let b = MarketStream::Tape(replay(&back, &input(), &v1).unwrap());
     assert_eq!(first_difference(&a, &b), None);
     assert_eq!(digest(&a), digest(&b));
     let d = a.diagnostics();
@@ -481,6 +496,9 @@ fn synthetic_round_trip_and_stream_equality() {
     assert!(d.exchange_clock_backwards >= 1);
     assert!(d.local_clock_backwards >= 1);
     assert!(d.local_behind_exchange >= 1);
+    assert_eq!(d.ragged_rows, 1);
+    assert_eq!(d.off_grid_prices, 2, "0.999999 and 1E-6");
+    assert_eq!(d.duplicate_rows, 0);
 }
 
 #[test]
@@ -633,7 +651,7 @@ fn unknown_event_type_stays_v1() {
     );
     assert!(!tape.exists());
     // The market still reads, from v1, with the row counted as skipped.
-    let (s, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+    let (s, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::V1(Fallback::Missing));
     assert_eq!(s.diagnostics().skipped.other_event_type, 1);
 }
@@ -649,7 +667,7 @@ fn unparseable_decimal_stays_v1() {
     write_v1(&v1, &rows, 100);
     let err = read_v1(Bytes::from(std::fs::read(&v1).unwrap())).unwrap_err();
     assert_eq!(err.label(), "decimal");
-    assert!(read_telonex_delta(&v1, &input()).is_ok());
+    assert!(read_telonex_delta(&job(&v1), input()).is_ok());
 }
 
 #[test]
@@ -659,8 +677,9 @@ fn dictionary_overflow_stays_v1() {
     let mut rows = synthetic_rows();
     for i in 0..DICT_CAP {
         let mut r = book(100 + i as i64, 3000, 0, &[], &[]);
-        r.market = String::new(); // skipped before asset resolution
-        r.asset0 = Some(format!("foreign-{i}"));
+        r.market = String::new(); // blank market: skipped
+                                  // Distinct blank ids (assets resolve on every row, I-18).
+        r.asset0 = Some(" ".repeat(i + 1));
         rows.push(r);
     }
     write_v1(&v1, &rows, 64);
@@ -680,7 +699,7 @@ fn dictionary_overflow_stays_v1() {
         ConvertOutcome::Unconvertible(Unconvertible::DictionaryOverflow)
     );
     assert!(!tape.exists());
-    let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+    let (_, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::V1(Fallback::Missing));
 }
 
@@ -705,7 +724,7 @@ fn converted(name: &str) -> (Scratch, PathBuf, PathBuf, Decoder) {
 }
 
 fn assert_fallback(v1: &Path, tape: &Path, dec: &mut Decoder, label: &str) {
-    let (s, path) = read_market(v1, Some(tape), None, &input(), dec).unwrap();
+    let (s, path) = read_market(&job(v1), Some(tape), &input(), dec).unwrap();
     match &path {
         InputPath::V1(f) => assert_eq!(f.label(), label, "{f}"),
         InputPath::Tape => panic!("expected a fallback ({label})"),
@@ -716,11 +735,15 @@ fn assert_fallback(v1: &Path, tape: &Path, dec: &mut Decoder, label: &str) {
 #[test]
 fn valid_tape_is_used_and_skipped_on_reconvert() {
     let (_dir, v1, tape, mut dec) = converted("valid");
-    let (s, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+    let (s, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
     assert_eq!(first_difference(&s, &v1_stream(&v1, &input())), None);
-    let sha = identity(&v1).sha256;
-    let (_, path) = read_market(&v1, Some(&tape), Some(&sha), &input(), &mut dec).unwrap();
+    let sha = store::hex(&identity(&v1).sha256);
+    let file = InputFile {
+        sha256: Some(&sha),
+        ..job(&v1)
+    };
+    let (_, path) = read_market(&file, Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
     let out = convert_one(
         &v1,
@@ -776,7 +799,11 @@ fn corrupted_frame_falls_back_to_v1() {
     std::fs::write(&tape, &bad).unwrap();
     assert_fallback(&v1, &tape, &mut dec, "invalid");
     let mut bad = good.clone();
-    bad[8..12].copy_from_slice(&2u32.to_le_bytes());
+    bad[8..12].copy_from_slice(&(codec::FORMAT_VERSION + 1).to_le_bytes());
+    std::fs::write(&tape, &bad).unwrap();
+    assert_fallback(&v1, &tape, &mut dec, "version");
+    let mut bad = good.clone();
+    bad[8..12].copy_from_slice(&1u32.to_le_bytes()); // before the reviewed reader
     std::fs::write(&tape, &bad).unwrap();
     assert_fallback(&v1, &tape, &mut dec, "version");
     // An empty file.
@@ -784,7 +811,7 @@ fn corrupted_frame_falls_back_to_v1() {
     assert_fallback(&v1, &tape, &mut dec, "invalid");
     // Restored, it is used again.
     std::fs::write(&tape, &good).unwrap();
-    let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+    let (_, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
 }
 
@@ -802,24 +829,31 @@ fn stale_tape_falls_back_and_is_rebuilt() {
     let root = root_of(&tape);
     let out = convert_one(&v1, &tape, None, &opts(), &mut budget(&root), &mut dec).unwrap();
     assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
-    let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+    let (_, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
 }
 
 fn assert_fallback_sha(v1: &Path, tape: &Path, dec: &mut Decoder) {
-    let (s, path) = read_market(v1, Some(tape), Some(&[0xAB; 32]), &input(), dec).unwrap();
-    assert!(
-        matches!(path, InputPath::V1(Fallback::Stale(_))),
-        "{path:?}"
-    );
-    assert_eq!(first_difference(&s, &v1_stream(v1, &input())), None);
+    let fallback = store::read_tape_stream(dec, tape, v1, Some(&[0xAB; 32]), &input())
+        .err()
+        .unwrap();
+    assert!(matches!(fallback, Fallback::Stale(_)), "{fallback:?}");
+    // The executor path falls back, and v1 raises the integrity error.
+    let sha = "ab".repeat(32);
+    let file = InputFile {
+        sha256: Some(&sha),
+        ..job(v1)
+    };
+    let e1 = read_telonex_delta(&file, input()).unwrap_err();
+    let e2 = read_market(&file, Some(tape), &input(), dec).err().unwrap();
+    assert_eq!(e1.cause, "integrity_mismatch");
+    assert_eq!(e1, e2);
 }
 
 #[test]
 fn input_errors_are_identical_on_both_paths() {
     let (_dir, v1, tape, mut dec) = converted("errors");
     let foreign = TelonexInput {
-        format_version: 1,
         tokens: [UP, "9999"],
         condition_id: None,
     };
@@ -831,23 +865,33 @@ fn input_errors_are_identical_on_both_paths() {
         condition_id: Some("0XMARKET"),
         ..input()
     };
-    let bad_version = TelonexInput {
-        format_version: 2,
-        ..input()
+    let wrong_bytes = InputFile {
+        bytes: 7,
+        ..job(&v1)
     };
-    for inp in [&foreign, &wrong_cid, &bad_version] {
-        let e1 = read_telonex_delta(&v1, inp).unwrap_err();
-        let e2 = read_market(&v1, Some(&tape), None, inp, &mut dec)
+    let bad_sha = InputFile {
+        sha256: Some("AB"),
+        ..job(&v1)
+    };
+    for (file, inp) in [
+        (job(&v1), &foreign),
+        (job(&v1), &wrong_cid),
+        (job_v(&v1, 2), &input()),
+        (wrong_bytes, &input()),
+        (bad_sha, &input()),
+    ] {
+        let e1 = read_telonex_delta(&file, *inp).unwrap_err();
+        let e2 = read_market(&file, Some(&tape), inp, &mut dec)
             .err()
             .unwrap();
         assert_eq!(e1, e2);
     }
-    let (s, path) = read_market(&v1, Some(&tape), None, &right_cid, &mut dec).unwrap();
+    let (s, path) = read_market(&job(&v1), Some(&tape), &right_cid, &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
     assert_eq!(first_difference(&s, &v1_stream(&v1, &right_cid)), None);
     // A missing v1 file is the v1 reader's error even with a valid tape.
     let gone = v1.with_file_name("missing.parquet");
-    let e = read_market(&gone, Some(&tape), None, &input(), &mut dec)
+    let e = read_market(&job(&gone), Some(&tape), &input(), &mut dec)
         .err()
         .unwrap();
     assert_eq!(e.cause, "input_missing");
@@ -883,7 +927,7 @@ fn tape_paths_are_plain_and_versioned() {
     let root = Path::new("/tapes");
     assert_eq!(
         store::tape_path(root, &key("btc-updown-15m-1")).unwrap(),
-        Path::new("/tapes/telonex-delta-typed-v1/tape-v1/btc/15m/btc-updown-15m-1.pmbtape")
+        Path::new("/tapes/telonex-delta-typed-v1/tape-v2/btc/15m/btc-updown-15m-1.pmbtape")
     );
     // The input format comes from the job, not a constant.
     let v2 = store::MarketKey {
@@ -892,7 +936,7 @@ fn tape_paths_are_plain_and_versioned() {
     };
     assert_eq!(
         store::tape_path(root, &v2).unwrap(),
-        Path::new("/tapes/telonex-delta-typed-v2/tape-v1/btc/15m/m.pmbtape")
+        Path::new("/tapes/telonex-delta-typed-v2/tape-v2/btc/15m/m.pmbtape")
     );
     for bad in ["", "..", "a/b", "x y"] {
         assert!(store::tape_path(root, &key(bad)).is_err(), "{bad:?}");
@@ -938,7 +982,7 @@ fn regenerate_fixture() {
     let mut rows: Vec<RawRow> = all[..1200].to_vec();
     rows.extend_from_slice(&all[mid..mid + 1800]);
     let tokens = pmb_replay::telonex::file_asset_ids(&src).unwrap();
-    let (t0, t1) = (tokens[0].clone(), tokens[1].clone());
+    let t0 = tokens[0].clone();
     let last = rows.last().unwrap().clone();
     let ts = last.ts_exchange.unwrap();
     let mk = |f: &dyn Fn(&mut RawRow)| {
@@ -973,8 +1017,8 @@ fn regenerate_fixture() {
         }),
         mk(&|r| {
             r.event_type = "book".into();
-            r.asset0 = Some(format!(" {t0} "));
-            r.asset1 = Some(t1.clone());
+            r.asset0 = Some(t0.clone());
+            r.asset1 = Some("\u{3000}".into());
             r.asset_index = Some(0);
             r.bid_prices = strings(&["0.45", "0.44", "0.43"]);
             r.bid_sizes = strings(&["10", "20"]);
@@ -1016,11 +1060,10 @@ fn block_streamed_read_equals_v1_at_every_block_size() {
         );
         // A foreign token fails identically on both paths, whatever the block.
         let foreign = TelonexInput {
-            format_version: 1,
             tokens: ["nope", DOWN],
             condition_id: None,
         };
-        let e1 = read_telonex_delta(&v1, &foreign).unwrap_err();
+        let e1 = read_telonex_delta(&job(&v1), foreign).unwrap_err();
         let e2 = store::read_tape_stream(&mut dec, &tape, &v1, None, &foreign)
             .unwrap()
             .unwrap_err();
@@ -1162,7 +1205,7 @@ fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
             matches!(out, ConvertOutcome::Written { .. }),
             "{what}: {out:?}"
         );
-        let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+        let (_, path) = read_market(&job(&v1), Some(&tape), &input(), &mut dec).unwrap();
         assert_eq!(path, InputPath::Tape, "{what}");
     }
 }
@@ -1384,26 +1427,31 @@ fn replayer_rejects_rows_of_another_dictionary_of_equal_length() {
     let mut other = rows.clone();
     assert!(other.dict.len() >= 2);
     other.dict.swap(0, 1);
-    let mut r = crate::Replayer::new(&rows.dict, &input()).unwrap();
+    let mut r = crate::Replayer::new(&rows.dict, &input(), &v1);
     let _ = r.feed(&other, 0);
 }
 
 /// sha256 of the pmb-replay sources this crate mirrors: `replay.rs` mirrors
 /// the reader loop, counters and error texts of `telonex.rs` (and
-/// `error.rs`), `v1.rs` mirrors `pq.rs` and `check_format`. Update a pin
+/// `error.rs`), `v1.rs` mirrors `pq.rs` and `check_format`, and
+/// `store::check_job` mirrors the job checks of `integrity.rs`. Update a pin
 /// only after reviewing the mirror against the change (16 NT-2, 15 I-55).
-const MIRRORED_READER: [(&str, &str); 3] = [
+const MIRRORED_READER: [(&str, &str); 4] = [
     (
         "telonex.rs",
-        "2ff868f665797a3fbe93bad003d7c2fd1dd6bc2573e095dd8cf152690076752c",
+        "6f6ed44dbadc1b4d7ba7b290a1b90890c96e04118fc08ef23e95e7d41a721a27",
     ),
     (
         "pq.rs",
-        "29c0cd5008f78ce32f0fd5fc381bef9eb353349de571ea4016e2afd03244e037",
+        "5a51b4bfd93ed50c8e4b534ca798ea362b1fb3b590f834b0cb02ea04cbecb9b3",
     ),
     (
         "error.rs",
         "d437106c6de2b9f69ec98fdbeecb6d0403190d7d822d0851945a19da57cd69d2",
+    ),
+    (
+        "integrity.rs",
+        "cd032ad642d01528779dbec4dfd3dedba08a719de595ab8a22b55a05fd8b9fda",
     ),
 ];
 
@@ -1443,14 +1491,29 @@ impl Rng {
     }
 }
 
-fn gen_decimal(rng: &mut Rng) -> String {
+/// A price inside the reader's `0..=1` range, on or off the 0.0001 grid.
+fn gen_price(rng: &mut Rng) -> String {
+    match rng.below(12) {
+        0 => format!("0.{:07}", rng.below(10_000_000)), // 7 digits: rounded
+        1 => format!("0.{:09}", rng.below(1_000_000_000)),
+        2 => format!("{}e-3", rng.below(1000)),
+        3 => format!("{}E-2", rng.below(50)),
+        4 => format!("{}", rng.below(2)),
+        5 => format!("0.{:05}", rng.below(100_000)), // mostly off the grid
+        6 => format!("0.{:04}", rng.below(10_000)),
+        _ => format!("0.{:02}", rng.below(100)),
+    }
+}
+
+/// A size inside the reader's level bound (1e9 shares), negative ones too.
+fn gen_size(rng: &mut Rng) -> String {
     match rng.below(12) {
         0 => format!("0.{:07}", rng.below(10_000_000)), // 7 digits: rounded
         1 => format!("{}.{:09}", rng.below(3), rng.below(1_000_000_000)),
         2 => format!("{}e-{}", rng.below(1000), rng.below(4)),
         3 => format!("{}E{}", rng.below(50), rng.below(3)),
         4 => format!("-{}.{}", rng.below(5), rng.below(100)),
-        5 => "123456789012.345678".into(),
+        5 => "999999999.999999".into(),
         6 => format!("{}", rng.below(5000)),
         _ => format!("0.{:02}", rng.below(100)),
     }
@@ -1458,7 +1521,7 @@ fn gen_decimal(rng: &mut Rng) -> String {
 
 /// Per-file injections.
 struct Mode {
-    /// Foreign ids only in rows the reader skips before resolving assets.
+    /// Foreign ids in rows that I-16 skips (still refused, I-18).
     foreign_in_skipped: bool,
     /// A foreign token in a row at this index.
     foreign_at: Option<usize>,
@@ -1466,6 +1529,9 @@ struct Mode {
     market_change_at: Option<usize>,
     /// An unknown event type at this index (the file stays on v1).
     unknown_event_at: Option<usize>,
+    /// A price outside `0..=1` at this index (the file stays on v1; the
+    /// reader refuses it when it parses the level).
+    bad_price_at: Option<usize>,
 }
 
 fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
@@ -1476,6 +1542,7 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
             mode.foreign_at,
             mode.market_change_at,
             mode.unknown_event_at,
+            mode.bad_price_at,
         ]
         .contains(&Some(i));
         // Identical consecutive rows (15 §8 `duplicateRows`).
@@ -1510,7 +1577,7 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
         let market = match rng.below(100) {
             0..=2 => String::new(),
             3..=4 => "   ".into(),
-            5..=6 => format!(" {MARKET} "),
+            5..=6 => "\u{2028}\t".into(), // ECMAScript-blank
             _ => MARKET.into(),
         };
         let pair: (Option<&str>, Option<&str>) = *rng.pick(&[
@@ -1521,7 +1588,7 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
             (None, Some(DOWN)),
             (Some(UP), None),
             (Some(""), Some(UP)),
-            (Some(" 1111 "), Some(DOWN)),
+            (Some("\u{3000}"), Some(DOWN)), // ECMAScript-blank
             (None, None),
         ]);
         let mut r = RawRow {
@@ -1533,8 +1600,8 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
             asset1: pair.1.map(str::to_string),
             ..RawRow::default()
         };
-        let skipped_early =
-            r.market.trim().is_empty() || !matches!(r.ts_exchange, Some(t) if t >= 0);
+        let skipped_early = r.market.chars().all(char::is_whitespace)
+            || !matches!(r.ts_exchange, Some(t) if t >= 0);
         if mode.foreign_in_skipped && skipped_early {
             r.asset0 = Some(format!("foreign-{}", rng.below(4)));
         }
@@ -1549,18 +1616,18 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
             r.asset_index =
                 *rng.pick(&[None, Some(2), Some(-1), Some(0), Some(1), Some(0), Some(1)]);
             for _ in 0..rng.below(5) {
-                r.bid_prices.push(gen_decimal(rng));
-                r.bid_sizes.push(gen_decimal(rng));
+                r.bid_prices.push(gen_price(rng));
+                r.bid_sizes.push(gen_size(rng));
             }
             for _ in 0..rng.below(5) {
-                r.ask_prices.push(gen_decimal(rng));
-                r.ask_sizes.push(gen_decimal(rng));
+                r.ask_prices.push(gen_price(rng));
+                r.ask_sizes.push(gen_size(rng));
             }
             if rng.chance(10) {
-                r.bid_prices.push(gen_decimal(rng)); // unequal list lengths
+                r.bid_prices.push(gen_price(rng)); // unequal list lengths
             }
             if rng.chance(10) {
-                r.ask_sizes.push(gen_decimal(rng));
+                r.ask_sizes.push(gen_size(rng));
             }
         } else {
             r.event_type = "price_change".into();
@@ -1569,8 +1636,8 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
                     .push(*rng.pick(&[0, 1, 0, 1, 0, 1, 2, -1, 7]));
                 r.change_sides
                     .push(*rng.pick(&[0, 1, 0, 1, 0, 1, 0, 1, 2, -1]));
-                r.change_prices.push(gen_decimal(rng));
-                r.change_sizes.push(gen_decimal(rng));
+                r.change_prices.push(gen_price(rng));
+                r.change_sizes.push(gen_size(rng));
             }
             if rng.chance(10) {
                 r.change_sides.pop();
@@ -1578,6 +1645,12 @@ fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
         }
         if mode.unknown_event_at == Some(i) {
             r.event_type = "last_trade_price".into();
+        }
+        if mode.bad_price_at == Some(i) {
+            r.event_type = "book".into();
+            r.asset_index = Some(0);
+            r.bid_prices = vec!["1.5".into()];
+            r.bid_sizes = vec!["1".into()];
         }
         rows.push(r);
     }
@@ -1632,6 +1705,7 @@ fn generated_corpus_streams_are_identical_on_every_path() {
             foreign_at: at(&mut rng, 8),
             market_change_at: at(&mut rng, 6),
             unknown_event_at: at(&mut rng, 6),
+            bad_price_at: at(&mut rng, 6),
         };
         let rows = gen_rows(&mut rng, n, &mode);
         let v1 = dir.join(format!("f{f}.parquet"));
@@ -1639,11 +1713,11 @@ fn generated_corpus_streams_are_identical_on_every_path() {
         write_v1_with(&v1, &rows, 1 + rng.below(64) as usize, codec);
         let condition_id = *rng.pick(&[None, None, None, None, Some("0XMARKET"), Some("0xother")]);
         let inp = TelonexInput {
-            format_version: if rng.chance(3) { 2 } else { 1 },
             tokens: [UP, DOWN],
             condition_id,
         };
-        let want = read_telonex_delta(&v1, &inp);
+        let file = job_v(&v1, if rng.chance(3) { 2 } else { 1 });
+        let want = read_telonex_delta(&file, inp);
 
         let block_rows = *rng.pick(&[1u32, 2, 5, 16, 64, 65_536]);
         let o = ConvertOptions {
@@ -1656,44 +1730,51 @@ fn generated_corpus_streams_are_identical_on_every_path() {
         let tape = dir.join(format!("f{f}.pmbtape"));
         let out = convert_one(&v1, &tape, None, &o, &mut corpus_budget, &mut dec).unwrap();
         let typed = read_v1(Bytes::from(std::fs::read(&v1).unwrap()));
-        match (&typed, mode.unknown_event_at) {
-            (Ok(t), None) => {
+        let convertible = mode.unknown_event_at.is_none() && mode.bad_price_at.is_none();
+        match (&typed, convertible) {
+            (Ok(t), true) => {
                 assert!(
                     matches!(out, ConvertOutcome::Written { .. }),
                     "file {f}: {out:?}"
                 );
                 let (_, back) = dec.decode(&std::fs::read(&tape).unwrap()).unwrap();
                 assert_eq!(&back, t, "file {f}: typed rows survive the tape");
-                assert_same(
-                    f,
-                    "whole-file tape",
-                    &want,
-                    replay(&back, &inp).map(MarketStream::Tape),
-                );
+                // The job's format is checked before a tape is used
+                // (`read_market`, below); the replay itself is format-free.
+                if file.format.version == 1 {
+                    assert_same(
+                        f,
+                        "whole-file tape",
+                        &want,
+                        replay(&back, &inp, &v1).map(MarketStream::Tape),
+                    );
+                }
                 tape_files += 1;
             }
-            (Err(Unconvertible::EventType(_)), Some(_)) => {
+            (Err(Unconvertible::EventType(_) | Unconvertible::Decimal { .. }), false) => {
                 assert!(
                     matches!(out, ConvertOutcome::Unconvertible(_)),
                     "file {f}: {out:?}"
                 );
                 v1_only += 1;
             }
-            (t, u) => panic!(
-                "file {f}: typed rows {:?} with unknown event at {u:?}",
-                t.as_ref().err()
+            (t, _) => panic!(
+                "file {f}: typed rows {:?} with unknown event at {:?}, bad price at {:?}",
+                t.as_ref().err(),
+                mode.unknown_event_at,
+                mode.bad_price_at
             ),
         }
-        let streamed = read_market(&v1, Some(&tape), None, &inp, &mut dec);
+        let streamed = read_market(&file, Some(&tape), &inp, &mut dec);
         if let Ok((_, path)) = &streamed {
-            let expect_tape = mode.unknown_event_at.is_none();
+            let expect_tape = convertible;
             assert_eq!(*path == InputPath::Tape, expect_tape, "file {f}: {path:?}");
         }
         assert_same(f, "read_market", &want, streamed.map(|(s, _)| s));
 
         match &want {
             Ok(t) => {
-                for (k, v) in crate::replay::mirrored_counters(&t.diagnostics) {
+                for (k, v) in crate::replay::mirrored_counters(t.diagnostics()) {
                     *fired.get_mut(k).unwrap() += v;
                 }
             }
@@ -1705,6 +1786,7 @@ fn generated_corpus_streams_are_identical_on_every_path() {
                     ("foreign_file", d) if d.contains("market column changes") => "market changes",
                     ("foreign_file", d) if d.contains("job condition id") => "condition id",
                     ("format_version", _) => "format version",
+                    ("decode_unverified", d) if d.contains("outside 0..=1") => "price range",
                     _ => panic!("file {f}: unexpected error {e}"),
                 });
             }
@@ -1719,7 +1801,8 @@ fn generated_corpus_streams_are_identical_on_every_path() {
             "condition id",
             "foreign token",
             "format version",
-            "market changes"
+            "market changes",
+            "price range"
         ]
     );
     assert!(

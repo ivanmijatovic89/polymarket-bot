@@ -254,6 +254,10 @@ fn pipeline_raises_each_class_with_its_exit_code() {
     let mut j = base.clone();
     j["run"]["inputMode"] = Value::from("recorder-v4");
     j["market"]["recorderV4"] = serde_json::json!({ "manifest": {}, "allowGaps": false });
+    // A contract-valid recorder-v4 job (21 §5.2: null window in ts-compat;
+    // 15 §9: sha256 required), refused by this binary's input modes.
+    j["market"]["window"] = Value::Null;
+    j["market"]["input"]["sha256"] = Value::from("a".repeat(64));
     assert_error(
         &run_value::<Idle>(&j, &IDLE, &ov),
         ErrorClass::InvalidInput,

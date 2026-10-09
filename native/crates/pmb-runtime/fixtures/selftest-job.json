@@ -51,6 +51,7 @@
       "format": { "name": "telonex-delta-typed", "version": 1 }
     },
     "recorderV4": null,
+    "journal": null,
     "ownActivity": null,
     "feedFiles": []
   },

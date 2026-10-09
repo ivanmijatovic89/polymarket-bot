@@ -6,7 +6,7 @@
 use pmb_contract::job::EngineJob;
 use pmb_contract::model_config::ModelConfig;
 use pmb_contract::num::Sha256Hex;
-use pmb_contract::result::Echo;
+use pmb_contract::result::{Echo, MarketEcho};
 use pmb_contract::vocab::{InputMode, Profile, TraceLevel};
 use pmb_contract::{JOB_SCHEMA_VERSION, MODEL_CONFIG_VERSION};
 use pmb_core::ids::{ConditionId, TokenId};
@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use crate::describe::{evaluate, has_feature, requests_nothing};
 use crate::error::EngineError;
 use crate::identity::engine_identity;
+use crate::inputs::{provenance, rules_source_vocab};
 use crate::io::local_abs_path;
 use crate::params::{params_equal, ParamError, StrategyParams};
 
@@ -82,11 +83,28 @@ pub struct JobError {
     pub error: EngineError,
     /// The echo, when available (boxed to keep the `Result` small).
     pub echo: Option<Box<Echo>>,
+    /// The market echo; present iff `echo` is (21 §10).
+    pub market: Option<Box<MarketEcho>>,
 }
 
 impl From<EngineError> for JobError {
     fn from(error: EngineError) -> JobError {
-        JobError { error, echo: None }
+        JobError {
+            error,
+            echo: None,
+            market: None,
+        }
+    }
+}
+
+/// The market echo of a read job before its input is decoded (21 §10):
+/// no counted tick yet, so `conditionId` is null; `rulesSource` from the
+/// job's captured rules under `table` (11 RS4).
+pub fn market_echo(job: &EngineJob, table: RulesTableVersion) -> MarketEcho {
+    MarketEcho {
+        slug: job.market.slug.clone(),
+        condition_id: None,
+        rules_source: rules_source_vocab(provenance(&job.market.rules.captured, table).source()),
     }
 }
 
@@ -206,10 +224,18 @@ where
             rules_table,
             trace,
         }),
-        Err(error) => Err(JobError {
-            error,
-            echo: Some(Box::new(echo)),
-        }),
+        // `echo` and `market` are present together (21 §10); without a
+        // known rules table there is no `rulesSource`, so both are null
+        // (the error is then `invalid_input`, which may precede the read).
+        Err(error) => {
+            let market = RulesTableVersion::parse(&job.run.model_config.rules.rules_table_version)
+                .map(|t| market_echo(&job, t));
+            Err(JobError {
+                error,
+                echo: market.is_some().then(|| Box::new(echo)),
+                market: market.map(Box::new),
+            })
+        }
     }
 }
 

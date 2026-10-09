@@ -16,7 +16,9 @@ use pmb_contract::result::{
     check_intent_meta_caps, CandidateCounters, EngineMarketOutput, EngineMarketStats, ErrorDetail,
     ErrorInfo, EventsByType, MarketStatsRules,
 };
-use pmb_contract::vocab::{ErrorClass, Outcome as ContractOutcome, SkipReason, StatsSkipReason};
+use pmb_contract::vocab::{
+    ErrorClass, Outcome as ContractOutcome, RejectReasonCode, SkipReason, StatsSkipReason,
+};
 use pmb_core::fixed::div_round_i128;
 use pmb_core::{FinalOutcome, MarketInfo, Outcome, Rounding};
 use serde_json::{Map, Value};
@@ -214,8 +216,8 @@ pub fn market_output(
     let slug: &str = &cx.info.slug;
     let rules = match (cx.core_rules, cx.rules) {
         // 21 §11: `rules` is null in ts-compat.
-        (CoreRules::TsCompat, None) => Some(None),
-        (CoreRules::Realistic, Some(r)) => Some(Some(r.clone())),
+        (CoreRules::TsCompat, None) => None,
+        (CoreRules::Realistic, Some(r)) => Some(r.clone()),
         (CoreRules::TsCompat, Some(_)) => {
             return Err(OutputError::SelfCheck(
                 "MarketStats.rules given for a ts-compat session (21 §11)".into(),
@@ -300,7 +302,14 @@ pub fn candidate_counters(
     let c = &acc.counters;
     let mut rejected = BTreeMap::new();
     for &(code, n) in &c.orders_rejected {
-        rejected.insert(code.to_owned(), safe("ordersRejected", n)?);
+        let reason = RejectReasonCode::ALL
+            .iter()
+            .copied()
+            .find(|r| r.as_str() == code)
+            .ok_or_else(|| {
+                OutputError::SelfCheck(format!("ordersRejected: unknown reason code {code:?}"))
+            })?;
+        rejected.insert(reason, safe("ordersRejected", n)?);
     }
     Ok(CandidateCounters {
         key: key.to_owned(),
@@ -488,7 +497,7 @@ mod tests {
         // 10 §4 Q3: -1.005 → -1.01 (half away from zero, not JS Math.round).
         assert_eq!(st.pnl.to_string(), "-1.01");
         assert_eq!(st.market_id, format!("0x{}", "ab".repeat(32)));
-        assert_eq!(st.rules, Some(None));
+        assert_eq!(st.rules, None);
         assert_eq!(
             serde_json::to_string(&o.events_by_type).unwrap(),
             r#"{"book":2,"price_change":1}"#
@@ -580,7 +589,7 @@ mod tests {
         ));
         c.core_rules = CoreRules::Realistic;
         let o = market_output(&c, &s).unwrap();
-        assert_eq!(o.market_stats.unwrap().rules, Some(Some(r.clone())));
+        assert_eq!(o.market_stats.unwrap().rules, Some(r.clone()));
         c.rules = None;
         assert!(matches!(
             market_output(&c, &s),
