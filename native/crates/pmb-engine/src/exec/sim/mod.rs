@@ -13,3 +13,6 @@ pub mod latency;
 pub mod report;
 pub mod scheduler;
 pub mod simulator;
+
+#[cfg(test)]
+mod tests;
