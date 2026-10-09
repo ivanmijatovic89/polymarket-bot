@@ -58,13 +58,15 @@ plan. Before new work:
    the pause procedure: baselines in M1 run alongside the fleet and are labeled
    "non-idle"; the idle M5a measurement waits for the user.
 4. Database: read-only. No migrations before gate 2.
-5. GitHub: worker-1 can fetch but NOT push, and has no `gh` CLI. Commit
-   locally only; the lead copies branches to GitHub from the MacBook and opens
-   PRs. Wherever the spec says "push", commit instead. Put the D37 capture
-   script on its own local branch `rules-capture` (based on `origin/main`,
-   created with `git worktree add` so `native-engine` stays checked out) and
-   record in STATUS.md that it is ready for a PR; do not try to merge anything.
-   The draft PR for `native-engine` is opened by the lead.
+5. GitHub (since 2026-10-09 11:20): this checkout can push (repo-local
+   credential helper = `gh auth git-credential`, a fine-grained token limited to
+   this repository) and `/opt/homebrew/bin/gh` works. Push `native-engine` after
+   each milestone step. Open the draft PR `native-engine` → `main` titled
+   "DO NOT MERGE before gate 2: Rust trading engine". Open the D37 rules-capture
+   PR from branch `rules-capture`; merge it (squash) only after CI is green —
+   the user approved this one merge. Never merge anything else to `main`. If a
+   push touching `.github/workflows/` is rejected, record it under "Waiting on
+   user" (the token needs the Workflows permission).
 6. Never emulate JavaScript semantics; never transliterate TS internals. When
    the spec is silent or contradictory on a non-user topic, add a lead-level
    decision entry (D57, D58, …) to `native/spec/02-decisions.md` with the
