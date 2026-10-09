@@ -10,6 +10,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { definedPaths, scanToml } from './toml.js'
 
+/** Default target-directory budget of 31 §4.5 (10 GiB per host). */
+export const TARGET_DIR_BUDGET_BYTES = 10 * 1024 ** 3
+
 /** Engine checkout running this builder: src/strategy/artifacts/native → repository root, realpath. */
 export const ENGINE_ROOT = realpathSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..'),
@@ -26,6 +29,10 @@ export type HostContext = {
   toolEnv: NodeJS.ProcessEnv
   /** Run cargo builds under `taskpolicy -b` (background QoS, 31 §4.5). */
   backgroundQos: boolean
+  /** Host-wide builder lock (31 §4.5: one build at a time per host). */
+  lockPath: string
+  /** Target-directory budget; above it the LRU profile directory is deleted (31 §4.5). */
+  targetBudgetBytes: number
 }
 
 /**
@@ -71,6 +78,8 @@ export function makeHostContext(opts: {
     targetDir,
     toolEnv,
     backgroundQos: opts.backgroundQos ?? false,
+    lockPath: path.join(home, '.cache', 'pmb', 'builder.lock'),
+    targetBudgetBytes: TARGET_DIR_BUDGET_BYTES,
   }
 }
 

@@ -59,6 +59,7 @@ import {
   type SourceFileEntry,
   type SourceHashInput,
 } from './sourceHash.js'
+import { enforceTargetBudget, withBuilderLock } from './targetDir.js'
 import { parseCargoLock } from './toml.js'
 
 export class NativeBuildError extends Error {
@@ -299,21 +300,30 @@ export function buildNative(args: {
     log(
       `[native-build] cargo ${cargoArgs.slice(0, -1).join(' ')} <rendered artifact-build.toml>${host.backgroundQos ? ' (background QoS)' : ''}`,
     )
-    const tc = Date.now()
-    const r = run(cmd, cmdArgs, { cwd: loaded.packageRoot, env, inheritStderr: true })
-    const cargoMs = Date.now() - tc
-    if (r.status !== 0)
-      throw new NativeBuildError(`cargo build failed (exit ${r.status ?? r.signal})`)
-
-    const outDir = path.join(host.targetDir, NATIVE_TARGET, profile)
-    const outBin = path.join(outDir, bin)
-    const depInfoPath = path.join(outDir, `${bin}.d`)
-    if (!existsSync(outBin) || !existsSync(depInfoPath)) {
-      throw new NativeBuildError(`cargo produced no ${outBin} (or its dep-info)`)
-    }
+    const staged = path.join(work, bin)
+    // One build at a time per host (31 §4.5): cargo uplifts every bin to
+    // <target>/<triple>/<profile>/<bin>, so the build and the copy of its
+    // output and dep-info happen under the host-wide builder lock.
+    const { cargoMs, depInfoText } = withBuilderLock(host.lockPath, log, () => {
+      enforceTargetBudget(host.targetDir, profile, host.targetBudgetBytes, log)
+      const tc = Date.now()
+      const r = run(cmd, cmdArgs, { cwd: loaded.packageRoot, env, inheritStderr: true })
+      const ms = Date.now() - tc
+      if (r.status !== 0) {
+        throw new NativeBuildError(`cargo build failed (exit ${r.status ?? r.signal})`)
+      }
+      const outDir = path.join(host.targetDir, NATIVE_TARGET, profile)
+      const outBin = path.join(outDir, bin)
+      const depInfoPath = path.join(outDir, `${bin}.d`)
+      if (!existsSync(outBin) || !existsSync(depInfoPath)) {
+        throw new NativeBuildError(`cargo produced no ${outBin} (or its dep-info)`)
+      }
+      copyFileSync(outBin, staged)
+      return { cargoMs: ms, depInfoText: readFileSync(depInfoPath, 'utf8') }
+    })
 
     // --- source hash (31 §5.2) ----------------------------------------------
-    const depInfo = parseDepInfo(readFileSync(depInfoPath, 'utf8'))
+    const depInfo = parseDepInfo(depInfoText)
     const roots = {
       engineRoot: host.engineRoot,
       packageRoot: loaded.packageRoot,
@@ -349,8 +359,6 @@ export function buildNative(args: {
     const sourceHash = computeSourceHash(sourceHashInput)
 
     // --- post-link steps (31 §4.4) ------------------------------------------
-    const staged = path.join(work, bin)
-    copyFileSync(outBin, staged)
     const runDir = path.join(work, 'run')
     mkdirSync(runDir)
     // The canonical identifier needs the strategy id, which comes from code
