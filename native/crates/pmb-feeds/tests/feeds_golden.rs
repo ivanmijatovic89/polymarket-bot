@@ -92,7 +92,9 @@ struct Job {
 }
 
 fn load(job: &Job, cache: &DayCache) -> Result<pmb_feeds::LoadedFeeds, pmb_feeds::FeedError> {
-    let files = feed_files(&job.root, slug_window(&job.slug));
+    let files = pmb_core::parse_slug(&job.slug)
+        .map(|s| feed_files(&job.root, s.window))
+        .unwrap_or_default();
     let refs: Vec<FeedFile<'_>> = files
         .iter()
         .map(|(feed, symbol, day, path, bytes)| FeedFile {
@@ -531,4 +533,232 @@ fn no_opt_in_means_no_schedule() {
         l.stats.binance_zero_copy,
         "14 PF-2: single monotone day is zero-copy"
     );
+}
+
+fn fixture_days(
+    window: Window,
+) -> (
+    Vec<std::sync::Arc<pmb_feeds::BinanceDay>>,
+    Vec<std::sync::Arc<pmb_feeds::ChainlinkDay>>,
+) {
+    let cache = DayCache::new(1 << 30);
+    let mut st = pmb_feeds::CacheStats::default();
+    let mut b = Vec::new();
+    let mut c = Vec::new();
+    for (feed, symbol, day, path, bytes) in feed_files(&fixtures().join("feeds"), window) {
+        match feed {
+            FeedDataset::BinanceAggTrades => b.push(
+                cache
+                    .binance_day(&symbol, day, &path, bytes, &mut st)
+                    .unwrap(),
+            ),
+            FeedDataset::ChainlinkCryptoPrices => c.push(
+                cache
+                    .chainlink_day(&symbol, day, &path, bytes, &mut st)
+                    .unwrap(),
+            ),
+        }
+    }
+    (b, c)
+}
+
+fn ptb_source(window: Window, latency: i64) -> PriceToBeatSource {
+    PriceToBeatSource {
+        point: PriceToBeatPoint {
+            open_price: 117_234.51,
+            received_at: TsMs(window.start_ms.0 + latency),
+            event_start: window.start_ms,
+            end: window.end_ms,
+        },
+    }
+}
+
+// spec: 14 §4.3 and V-7 (identical outputs for lookbacks of 60 s, 300 s and
+// 900 s: the seed rule makes the lookback not result-affecting)
+#[test]
+fn lookback_invariance() {
+    for slug in ["btc-updown-15m-1789570800", "btc-updown-15m-1785028500"] {
+        let window = slug_window(slug);
+        let (bdays, cdays) = fixture_days(window);
+        let clocks = read_clocks(slug);
+        let run = |lookback: i64| {
+            let b = pmb_feeds::binance::build_binance_series_with_lookback(
+                "BTCUSDT",
+                &bdays,
+                window,
+                110,
+                FeedProfile::TsCompat,
+                lookback,
+            )
+            .unwrap()
+            .series;
+            let c = pmb_feeds::chainlink::build_chainlink_series_with_lookback(
+                "btcusd", &cdays, window, 320, 0, lookback,
+            )
+            .unwrap();
+            let feeds = MarketFeeds::from_parts(
+                window,
+                Some(BinanceFeed {
+                    symbol: "btcusdt",
+                    series: b,
+                    tick_on_update: true,
+                }),
+                Some(ChainlinkFeed {
+                    symbol: "btc/usd",
+                    asset_id: "btcusd",
+                    series: c,
+                    tick_on_update: true,
+                }),
+                Some(ptb_source(window, 2_700)),
+            );
+            drive(&feeds, window, &clocks).lines
+        };
+        let base = run(300_000);
+        assert!(base.len() > 3_000);
+        assert_eq!(run(60_000), base, "{slug}: lookback 60 s");
+        assert_eq!(run(900_000), base, "{slug}: lookback 900 s");
+    }
+}
+
+// spec: 14 V-10 (a) realistic with constant latencies reproduces the ts-compat
+// timeline on days whose ts_ms is non-decreasing in id order, (b) visibility
+// is non-decreasing in series order and schedule order equals series order
+#[test]
+fn realistic_constant_equals_ts_compat_on_monotone_days() {
+    for slug in [
+        "btc-updown-15m-1789570800",
+        "btc-updown-15m-1785028500",
+        "btc-updown-15m-1773100800",
+    ] {
+        let window = slug_window(slug);
+        let (bdays, _) = fixture_days(window);
+        assert!(
+            bdays.iter().all(|d| d.ts_monotone()),
+            "{slug}: PF-2 day check"
+        );
+        let build = |profile| {
+            pmb_feeds::binance::build_binance_series("BTCUSDT", &bdays, window, 110, profile)
+                .unwrap()
+                .series
+        };
+        let (t, r) = (build(FeedProfile::TsCompat), build(FeedProfile::Realistic));
+        assert_eq!(t.len(), r.len());
+        for i in 0..t.len() {
+            assert_eq!(t.vis(i), r.vis(i), "{slug}: element {i}");
+            if i > 0 {
+                assert!(r.vis(i - 1) <= r.vis(i), "{slug}: F-52 monotone");
+            }
+        }
+        let feeds = MarketFeeds::from_parts(
+            window,
+            Some(BinanceFeed {
+                symbol: "btcusdt",
+                series: r,
+                tick_on_update: true,
+            }),
+            None,
+            None,
+        );
+        let v: Vec<i64> = feeds.schedule().entries().iter().map(|e| e.v.0).collect();
+        assert!(
+            v.windows(2).all(|w| w[0] <= w[1]),
+            "{slug}: schedule in series order"
+        );
+    }
+}
+
+// spec: 14 §10 / V-9 rows raised by the loader before any file is read:
+// symbol mismatch, model_config, pre_coverage, missing day files naming the
+// fix commands, and price-to-beat from feedAvailability
+#[test]
+fn loader_error_rows() {
+    let cache = DayCache::new(1 << 30);
+    let base = |slug: &str| Job {
+        slug: slug.into(),
+        request: FeedRequest::default(),
+        model: FeedsModel::DEFAULTS_2026_07_21,
+        gamma: GammaStrike::NotResolved,
+        ptb: None,
+        root: fixtures().join("feeds"),
+    };
+    let m1 = "btc-updown-15m-1789570800";
+
+    let mut j = base(m1);
+    j.request.binance_spot = Some(FeedOptions {
+        symbol: Some("ethusdt".into()),
+        tick_on_update: false,
+    });
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(
+        (e.class().as_str(), e.cause.as_str()),
+        ("invalid_input", "symbol")
+    );
+
+    let mut j = base(m1);
+    j.request.chainlink = Some(FeedOptions::default());
+    j.model.chainlink_max_gap_ms = 10;
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(e.cause.as_str(), "model_config");
+
+    let mut j = base("btc-updown-15m-1773100800");
+    j.request.chainlink = Some(FeedOptions::default());
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(
+        (e.class().as_str(), e.cause.as_str()),
+        ("data_defect", "pre_coverage")
+    );
+    assert!(e.message.contains("1775088000000"), "{e}");
+
+    let mut j = base("btc-updown-15m-1789646400");
+    j.request.binance_spot = Some(FeedOptions::default());
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(
+        (e.class().as_str(), e.cause.as_str()),
+        ("data_missing", "day_file_missing")
+    );
+    assert!(e.message.contains("2026-09-17"));
+    assert!(e.message.contains("binance:download-aggtrades-r2-to-local"));
+    assert!(e
+        .message
+        .contains("binance:download-aggtrades -- --pair BTCUSDT"));
+    let mut j = base("btc-updown-15m-1789646400");
+    j.request.chainlink = Some(FeedOptions::default());
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(e.cause.as_str(), "day_file_missing");
+    assert!(e
+        .message
+        .contains("telonex:crypto-prices:download-r2-to-local"));
+
+    let mut j = base(m1);
+    j.request.price_to_beat = true;
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(
+        (e.class().as_str(), e.cause.as_str()),
+        ("invalid_input", "feed_availability")
+    );
+    j.gamma = GammaStrike::Resolved {
+        price_to_beat: None,
+    };
+    j.ptb = Some(PtbAvailability {
+        status: PtbStatus::UnavailableUpstreamHole,
+        message: Some("no strike for this window"),
+    });
+    let e = load(&j, &cache).unwrap_err();
+    assert_eq!(
+        e.to_string(),
+        "data_defect: upstream_hole: no strike for this window"
+    );
+    j.ptb = Some(PtbAvailability {
+        status: PtbStatus::AbsentFreshMarketGrace,
+        message: None,
+    });
+    let l = load(&j, &cache).unwrap();
+    assert!(l.feeds.price_to_beat().is_none());
+    assert_eq!(l.diagnostics.len(), 1);
+    assert_eq!(l.diagnostics[0].level, pmb_feeds::DiagLevel::Warning);
+
+    // An empty request loads nothing, even for an unparseable slug.
+    let j = base("not-a-slug");
+    let l = load(&j, &cache);
+    assert!(l.is_ok());
 }

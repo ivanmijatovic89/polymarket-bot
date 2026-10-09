@@ -250,7 +250,22 @@ pub fn build_binance_series(
     latency_ms: i64,
     profile: FeedProfile,
 ) -> Result<BuiltBinance, FeedError> {
-    let from = window.start_ms.0 - LOOKBACK_MS;
+    build_binance_series_with_lookback(pair, days, window, latency_ms, profile, LOOKBACK_MS)
+}
+
+/// [`build_binance_series`] with an explicit lookback, for the lookback
+/// invariance property only (14 §4.3, V-7); the engine always uses
+/// [`LOOKBACK_MS`] (F-47).
+#[doc(hidden)]
+pub fn build_binance_series_with_lookback(
+    pair: &str,
+    days: &[Arc<BinanceDay>],
+    window: Window,
+    latency_ms: i64,
+    profile: FeedProfile,
+    lookback_ms: i64,
+) -> Result<BuiltBinance, FeedError> {
+    let from = window.start_ms.0 - lookback_ms;
     let to = window.end_ms.0 + BINANCE_TAIL_MS;
     let mut series = if let [d] = days {
         if d.ts_monotone {

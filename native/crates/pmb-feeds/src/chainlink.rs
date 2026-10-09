@@ -216,7 +216,29 @@ pub fn build_chainlink_series(
     latency_ms: i64,
     max_gap_ms: i64,
 ) -> Result<ChainlinkSeries, FeedError> {
-    let from_us = (window.start_ms.0 - LOOKBACK_MS) * 1000;
+    build_chainlink_series_with_lookback(
+        asset_id,
+        days,
+        window,
+        latency_ms,
+        max_gap_ms,
+        LOOKBACK_MS,
+    )
+}
+
+/// [`build_chainlink_series`] with an explicit lookback, for the lookback
+/// invariance property only (14 §4.3, V-7); the engine always uses
+/// [`LOOKBACK_MS`] (F-47).
+#[doc(hidden)]
+pub fn build_chainlink_series_with_lookback(
+    asset_id: &str,
+    days: &[Arc<ChainlinkDay>],
+    window: Window,
+    latency_ms: i64,
+    max_gap_ms: i64,
+    lookback_ms: i64,
+) -> Result<ChainlinkSeries, FeedError> {
+    let from_us = (window.start_ms.0 - lookback_ms) * 1000;
     let to_us = (window.end_ms.0 + CHAINLINK_TAIL_MS) * 1000;
     // (broadcast_us, round_us, day, row); comparisons in µs as the TS SQL.
     let mut members: Vec<(i64, i64, usize, usize)> = Vec::new();
