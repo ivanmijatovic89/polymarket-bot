@@ -2,13 +2,16 @@
  * native:bench:sets — select the frozen native bench sets (native/spec/16 §13.1).
  *
  *   npm run native:bench:sets -- [--set smoke-50|heavy-1|all] [--force] [--dry-run]
+ *   npm run native:bench:sets -- --set smoke-50|heavy-1 --name <new-name>   # a replacement set
  *   npm run native:bench:sets -- --verify        # re-hash the files of committed manifests
  *
  * Read-only on MySQL: the universe comes from `listEligibleTelonexSlugs` and the
  * token maps from `getMarketsBySlugs` (CLAUDE.md eligibility rule). Writes only
- * native/bench/sets/<name>.json. A manifest is frozen once committed: an
- * existing one is never overwritten without --force, and --verify reports any
- * source file whose sha256 or size changed (that invalidates comparisons).
+ * native/bench/sets/<name>.json. A manifest is frozen once committed (16 §13.1):
+ * a committed one (tracked by git) is never overwritten, not even with --force;
+ * a replacement selection is written under a new name with --name. --force only
+ * replaces a manifest that was never committed. --verify reports any source
+ * file whose sha256 or size changed (that invalidates comparisons).
  *
  * smoke-50: the eligible BTC 15m telonex delta-typed markets up to the pinned
  * cutoff whose file exists under data/events/telonex (the local_path
@@ -17,6 +20,7 @@
  * the smallest sha256("smoke-50|" + slug). Deterministic for a given universe.
  */
 import '../../src/config/env.js'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream, existsSync, promises as fs } from 'node:fs'
 import path from 'node:path'
@@ -53,7 +57,7 @@ type ManifestMarket = {
 
 type Manifest = {
   benchSetVersion: 1
-  name: SetName
+  name: string
   description: string
   createdAt: string
   inputMode: 'telonex-delta'
@@ -70,6 +74,7 @@ type Manifest = {
 
 function parseArgs(argv: string[]) {
   let set: 'all' | SetName = 'all'
+  let name: string | undefined
   let force = false
   let dryRun = false
   let verify = false
@@ -81,12 +86,21 @@ function parseArgs(argv: string[]) {
         throw new Error(`--set must be smoke-50, heavy-1 or all (got ${v})`)
       }
       set = v
+    } else if (a === '--name') {
+      const v = argv[++i]
+      if (v === undefined || !/^[a-z0-9][a-z0-9-]*$/.test(v)) {
+        throw new Error(`--name must be a plain set name such as smoke-50-20261101 (got ${v})`)
+      }
+      name = v
     } else if (a === '--force') force = true
     else if (a === '--dry-run') dryRun = true
     else if (a === '--verify') verify = true
     else throw new Error(`unknown argument ${a}`)
   }
-  return { set, force, dryRun, verify }
+  if (name !== undefined && set === 'all') {
+    throw new Error('--name needs a single --set (smoke-50 or heavy-1)')
+  }
+  return { set, name, force, dryRun, verify }
 }
 
 async function sha256File(file: string): Promise<string> {
@@ -162,6 +176,19 @@ function totals(markets: ManifestMarket[]) {
     markets: markets.length,
     bytes: markets.reduce((s, m) => s + m.bytes, 0),
     rows: markets.reduce((s, m) => s + m.rows, 0),
+  }
+}
+
+/** Whether a file is tracked by git (a committed, frozen manifest). */
+function isTracked(file: string): boolean {
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', path.relative(repoRoot, file)], {
+      cwd: repoRoot,
+      stdio: 'ignore',
+    })
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -310,12 +337,24 @@ async function main() {
     return
   }
   const wanted: SetName[] = args.set === 'all' ? ['smoke-50', 'heavy-1'] : [args.set]
-  for (const name of wanted) {
+  for (const kind of wanted) {
+    const name = args.name ?? kind
     const out = path.join(setsDir, `${name}.json`)
-    if (existsSync(out) && !args.force && !args.dryRun) {
-      throw new Error(`${out} exists and is frozen; pass --force to replace it`)
+    if (existsSync(out) && !args.dryRun) {
+      if (isTracked(out)) {
+        throw new Error(
+          `${out} is committed and frozen (16 §13.1); write a replacement under a new name with --name`,
+        )
+      }
+      if (!args.force) {
+        throw new Error(`${out} exists (not committed yet); pass --force to replace it`)
+      }
     }
-    const manifest = name === 'smoke-50' ? await buildSmoke() : await buildHeavy()
+    const built = kind === 'smoke-50' ? await buildSmoke() : await buildHeavy()
+    const manifest: Manifest =
+      name === kind
+        ? built
+        : { ...built, name, description: `${built.description} Replacement selection of ${kind}.` }
     const t = manifest.totals
     console.log(`[bench-sets] ${name}: ${t.markets} markets, ${t.rows} rows, ${t.bytes} bytes`)
     if (!args.dryRun) {

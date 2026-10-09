@@ -35,6 +35,7 @@ added by the steps that first need them.
 
 ```bash
 npm run native:bench:sets -- --set smoke-50|heavy-1|all [--dry-run] [--force]
+npm run native:bench:sets -- --set smoke-50|heavy-1 --name <new-name>   # replacement set
 npm run native:bench:sets -- --verify
 ```
 
@@ -52,30 +53,56 @@ footer cannot be read are listed in `selection.unreadableFooter` and left out
 
 ## Frozen
 
-A committed manifest is never edited. The script refuses to overwrite one
-without `--force`, and a replaced set gets a new name. `--verify` re-hashes
-every listed file; a changed sha256 or size invalidates comparisons across
-that change and is reported (16 §13.1). `pmb-tape verify` checks the same
-before it compares streams.
+A committed manifest is never edited. The script refuses to overwrite a
+manifest that git tracks, even with `--force`; a replacement selection is
+written under a new name with `--name` (for example `smoke-50-20261101`).
+`--force` only replaces a manifest that was never committed. `--verify`
+re-hashes every listed file; a changed sha256 or size invalidates
+comparisons across that change and is reported (16 §13.1). `pmb-tape`
+checks the same: `convert` refuses (and exits non-zero on) a source whose
+bytes or sha256 differ from the manifest, `verify` fails on it, and `bench`
+refuses to time a set until every source and tape matches.
 
 ## Derived tapes on these sets
 
+Run from the repository root (the build runs in a subshell, so the paths
+below stay root-relative):
+
 ```bash
-cd native && cargo build --release -p pmb-tape
-R=$(git rev-parse --show-toplevel)
-native/target/release/pmb-tape convert --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json
-native/target/release/pmb-tape verify  --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json
-taskpolicy -c utility native/target/release/pmb-tape bench --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json --reps 3 --json <out.json>
+R=$(git rev-parse --show-toplevel); cd "$R"
+(cd native && CARGO_BUILD_JOBS=3 taskpolicy -c background cargo build --release -p pmb-tape)
+T=native/target/release/pmb-tape
+$T convert --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json
+$T verify  --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json
+$T m19-convert --data-root "$R/data" --tape-root "$R/data/native-tapes" --set native/bench/sets/smoke-50.json  # only for M-19 rows
+taskpolicy -c utility $T bench --data-root "$R/data" --tape-root "$R/data/native-tapes" \
+  --set native/bench/sets/smoke-50.json --reps 3 --qos utility \
+  --configs v1,tape,tape-full,tape-rows,pq-full,pq-rows --json <out.json>
 ```
 
 Tapes live only under the checkout's gitignored `data/native-tapes/`
-(16 NT-8). `bench` runs one discarded warm-up pass per configuration, then
-ABBA-interleaved repetitions, and prints the binary sha256 and load averages.
+(16 NT-8), at `<format>-v<version>/tape-v<tape format>/<symbol>/<timeframe>/<slug>.pmbtape`.
+`convert` resolves the tape root through symlinks and refuses one that lies
+inside the inputs' data links or the fleet copy. M-19 alternative files go
+to `m19-parquet-int64/` under the same root.
+
+`bench` checks every source and tape against the manifest, then runs one
+discarded warm-up pass per configuration and ABBA-interleaved repetitions.
+Its JSON records the 16 §13.5 conditions (label, host, chip, macOS, rustc,
+profile, binary and set manifest sha256, ModelConfig, threads, requested
+and effective QoS, cache budget, input path per configuration), `ps`
+snapshots, load averages after every pass and the first read of the
+sitting. `--label` defaults to `non-idle`; `idle-window` is claimed only
+for runs in the 01:00–07:00 window with the fleet worker and Global
+Runtime paused.
 
 ## Results
 
 `results/<topic>-<yyyymmdd>-<host>.md` holds step-level measurements (for
-example the M1 step 7 tape numbers). Numbers taken outside the 01:00–07:00
+example the M1 step 7 tape numbers), each with a `.json` of every row, its
+conditions and raw repetitions. Numbers taken outside the 01:00–07:00
 window with the fleet worker and Global Runtime paused are labeled
 `non-idle` with their load average and are never gate evidence of speed
-(16 §13.5). Milestone reports go to `native/reports/` (16 §13.8).
+(16 §13.5). 16 §13.8 places milestone reports in `native/reports/`; where
+step-level results live is a question for the lead (they may move to
+`native/reports/bench-m1-<yyyymmdd>-<host>.*` at merge).
