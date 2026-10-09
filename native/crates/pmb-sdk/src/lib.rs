@@ -52,6 +52,35 @@
 //! # fn main() {}
 //! ```
 //!
+//! `status` (30 §4 rule 8) from the prelude alone:
+//!
+//! ```
+//! use pmb_sdk::prelude::*;
+//!
+//! #[derive(Params, Clone, Debug)]
+//! pub struct NoParams;
+//!
+//! pub struct Quiet { ticks: i64 }
+//!
+//! impl Strategy for Quiet {
+//!     type Params = NoParams;
+//!     const ID: &'static str = "example-quiet.v1";
+//!     fn requirements(_p: &NoParams) -> Requirements { Requirements::new() }
+//!     fn new(_p: &NoParams, _m: &MarketInfo) -> Self { Quiet { ticks: 0 } }
+//!     fn on_tick(&mut self, _ctx: &Ctx, _out: &mut Intents) -> StrategyResult {
+//!         self.ticks += 1;
+//!         Ok(())
+//!     }
+//!     fn status(&self, out: &mut StatusMeta) {
+//!         out.push("ticks", StatusValue::I64(self.ticks));
+//!     }
+//! }
+//!
+//! let mut m = StatusMeta::new();
+//! Quiet { ticks: 3 }.status(&mut m);
+//! assert_eq!(m.to_json(), r#"{"ticks":3}"#);
+//! ```
+//!
 //! Params alone:
 //!
 //! ```
@@ -340,7 +369,13 @@ pub mod prelude {
     pub use crate::values::{ClientOrderIdExt as _, OutcomeExt as _, PriceExt as _, TsMsExt as _};
     // Intents (30 §7).
     pub use crate::meta::Meta;
+    // D-PENDING: 30 §4 rule 8 has `Strategy::status(&self, out: &mut Meta)`
+    // take the 30 §7.2 `Meta`, but the engine trait takes its own scalar
+    // meta; chose to export that type as `StatusMeta` (with `StatusValue`)
+    // so `status` can be overridden from a pmb-sdk-only package, until the
+    // engine trait takes the SDK `Meta` (crossStreamNeeds).
     pub use crate::order::{IntentsExt as _, LimitOrder, MarketableOrder, Order};
+    pub use pmb_engine::strategy::{Meta as StatusMeta, MetaValue as StatusValue};
     // D-PENDING: `CancelRef` is not in the 30 §3 list; it is the item type
     // of the engine buffer's `cancel_batch` until the 30 §7 signature
     // lands (see `order.rs`).
