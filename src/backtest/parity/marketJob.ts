@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import {
   buildStrategyFromConfig,
@@ -19,6 +19,7 @@ import { externalFeedsRequest } from '../../strategy/plugins/ExternalFeedsReques
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { getMarketResolution as getTelonexMarketResolution } from '../stats/telonexMarketResolution.js'
 import type { MarketJobData } from '../jobTypes.js'
+import { feedDayFiles } from '../../native/feeds.js'
 import type { RunSingleMarketLatency } from '../runSingleMarket.js'
 import { getCurrentGitSha } from '../workerIdentity.js'
 
@@ -37,12 +38,21 @@ export type ParityStrategySelection = {
   rawParams: Record<string, unknown>
 }
 
-/** Copy a published artifact bundle from `dataRoot` into this checkout's cache (hash is verified on load). */
+/**
+ * Copy a published artifact bundle from `dataRoot` into this checkout's
+ * cache (hash is verified on load). Parity runs read only local inputs
+ * (60 MS-5): a bundle that is neither cached nor under the data root is an
+ * error, never an R2 download (which would read credentials and use the
+ * network, R14).
+ */
 export function stageArtifact(sha256: string, dataRoot: string): void {
   const dest = artifactCachePath(sha256)
   if (existsSync(dest)) return
   const src = path.join(dataRoot, 'strategy-artifacts', `${sha256}.mjs`)
-  if (!existsSync(src)) return // loader falls back to its R2 download
+  if (!existsSync(src))
+    throw new Error(
+      `artifact ${sha256} is neither in the cache (${dest}) nor under the data root (${src}); parity runs read only local inputs (60 MS-5)`,
+    )
   mkdirSync(path.dirname(dest), { recursive: true })
   copyFileSync(src, dest)
 }
@@ -220,6 +230,33 @@ export type StratifiedCandidate = {
   localPath: string
   /** Outcome token ids (catalog asset ids), for the MS-3 edge scan. */
   assets?: string[]
+  /** `telonex_market_conversions.size_bytes` (D64); null when the catalog has none. */
+  conversionSizeBytes?: number | null
+}
+
+/**
+ * 60 MS-5 / 02 D64: why a candidate cannot be a gating parity market, or
+ * null when every input is local and trusted: the converted file must exist
+ * and, when the catalog records a size, have exactly that size (D64: both
+ * sizes are reported); every feed day file the strategy needs must exist
+ * (the shim's own day set, `feedDayFiles`: 14 F-12, F-20; any timeframe).
+ */
+export function localInputProblem(
+  c: StratifiedCandidate,
+  feeds: ExternalFeedsRequestConfig | null,
+  dataRoot: string,
+): string | null {
+  if (!existsSync(c.localPath)) return `missing local input ${c.localPath}`
+  const catalog = c.conversionSizeBytes ?? null
+  if (catalog !== null) {
+    const local = statSync(c.localPath).size
+    if (local !== catalog) return `local size ${local} != catalog size_bytes ${catalog} (D64)`
+  }
+  const window = windowFromSlug(c.slug)
+  if (window === null) return `no window derivable from ${c.slug}`
+  for (const f of feedDayFiles(dataRoot, c.slug, window, feeds))
+    if (!existsSync(f.path)) return `missing ${f.feed} day file ${f.path}`
+  return null
 }
 
 /**
@@ -298,5 +335,6 @@ export async function listParityCandidates(args: {
       assets: [r.assetId0, r.assetId1].filter(
         (a): a is string => typeof a === 'string' && a !== '',
       ),
+      conversionSizeBytes: r.conversionSizeBytes,
     }))
 }

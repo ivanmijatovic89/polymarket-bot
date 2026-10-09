@@ -2,7 +2,6 @@ import '../../config/env.js'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { closeDb } from '../../db/index.js'
-import { utcDatesCovering } from '../../binance/paths.js'
 import { DEFAULT_DATA_ROOT, REPO_ROOT } from '../../backtest/parity/cell.js'
 import { dateMsArg, intArg, one, paramArgs, parseArgv } from '../../backtest/parity/cliArgs.js'
 import {
@@ -13,29 +12,28 @@ import {
 } from '../../backtest/parity/edgeScan.js'
 import {
   listParityCandidates,
+  localInputProblem,
   resolveParityStrategy,
   seededShuffle,
   stratifiedByMonth,
   type StratifiedCandidate,
 } from '../../backtest/parity/marketJob.js'
 import { PARITY_DIR, resolvePin } from '../../backtest/parity/oracle.js'
-import {
-  externalFeedsRequest,
-  type ExternalFeedsRequestConfig,
-} from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { externalFeedsRequest } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 
 const USAGE = `Usage (from the repository root):
   npx tsx scripts/parity/select-set.ts --set <name> --strategy <id> [--param k=v ...]
       --from <ISO date> [--to <ISO date>] --per-month <n> --seed <n>
       [--edge <minimum edge markets, MS-3: 10>] [--edge-scan <sample size> [--edge-per-criterion 2]
-      [--edge-scan-cache <file>]] [--data-root <repo>/data] [--dry-run]
+      [--edge-scan-cache <file>]] [--timeframe 15m|5m] [--data-root <repo>/data] [--dry-run]
 
 Selects a committed parity market set native/parity/sets/<name>.txt
 (native/spec/60-verification.md §4.2): seeded random through
 listEligibleTelonexMarkets with the strategy's required feeds (MS-2, read-only
 on MySQL), stratified by calendar month, local inputs only (MS-5: a market
-whose telonex-delta or feed day files are missing is replaced by the next
-seeded market and recorded), plus MS-3 edge markets: with --edge-scan N a
+whose telonex-delta or feed day files are missing, or whose local file size
+differs from the catalog (D64), is replaced by the next seeded market and
+recorded with the reason), plus MS-3 edge markets: with --edge-scan N a
 seeded sample of N candidates is replayed and --edge-per-criterion markets are
 taken per criterion; otherwise --edge markets with the largest and smallest
 input files (proxy for most/fewest events).`
@@ -54,39 +52,6 @@ function feeEra(ms: number): string {
   return era
 }
 
-/** MS-5: the market file and every feed day file the strategy needs exist locally. */
-function localInputs(
-  c: StratifiedCandidate,
-  feeds: ExternalFeedsRequestConfig,
-  dataRoot: string,
-): boolean {
-  if (!existsSync(c.localPath)) return false
-  const days = utcDatesCovering(c.marketStartMs - 300_000, c.marketStartMs + 15 * 60_000)
-  for (const d of days) {
-    if (
-      feeds.binanceWsSpotPrice &&
-      !existsSync(
-        path.join(dataRoot, 'binance', 'aggTrades', 'BTCUSDT', `BTCUSDT-aggTrades-${d}.parquet`),
-      )
-    )
-      return false
-    if (
-      feeds.rtdsCryptoPrices &&
-      !existsSync(
-        path.join(
-          dataRoot,
-          'telonex',
-          'crypto_prices',
-          'btcusd',
-          `btcusd-crypto-prices-${d}.parquet`,
-        ),
-      )
-    )
-      return false
-  }
-  return true
-}
-
 async function main(): Promise<number> {
   const p = parseArgv(process.argv.slice(2), {
     values: [
@@ -102,6 +67,7 @@ async function main(): Promise<number> {
       'edge-per-criterion',
       'edge-scan-cache',
       'data-root',
+      'timeframe',
     ],
     switches: ['dry-run', 'help'],
   })
@@ -129,9 +95,12 @@ async function main(): Promise<number> {
   const params = paramArgs(p)
   const built = await resolveParityStrategy({ strategyId, rawParams: params }, dataRoot)
   const requiredFeeds = externalFeedsRequest(built)
+  const timeframe = one(p, 'timeframe') ?? '15m'
+  if (timeframe !== '15m' && timeframe !== '5m')
+    throw new Error(`--timeframe ${timeframe}: expected 15m or 5m (sets S15*, SL, S5)`)
   const candidates = await listParityCandidates({
     symbol: 'btc',
-    timeframe: '15m',
+    timeframe,
     fromMs,
     ...(toMs !== undefined ? { toMs } : {}),
     requiredFeeds,
@@ -139,7 +108,13 @@ async function main(): Promise<number> {
   })
   await closeDb()
   if (candidates.length === 0) throw new Error('no eligible candidates')
-  const hasLocal = (c: StratifiedCandidate) => localInputs(c, requiredFeeds, dataRoot)
+  // MS-5 / D64: the reason each replaced market is not a trusted local input.
+  const problems = new Map<string, string>()
+  const hasLocal = (c: StratifiedCandidate) => {
+    const why = localInputProblem(c, requiredFeeds, dataRoot)
+    if (why !== null) problems.set(c.slug, why)
+    return why === null
+  }
   const { selected, replaced, months } = stratifiedByMonth(candidates, perMonth, seed, hasLocal)
   const chosen = new Set(selected.map((c) => c.slug))
   // MS-3 edge markets. With --edge-scan N: replay a seeded sample of N
@@ -213,7 +188,7 @@ async function main(): Promise<number> {
     `# Parity market set ${set} (native/spec/60-verification.md §4.2 MS-0..MS-5)`,
     `# Selection command: npx tsx scripts/parity/select-set.ts ${process.argv.slice(2).join(' ')}`,
     `# Seed: ${seed}; per month: ${perMonth}; minimum edge markets: ${edge}`,
-    `# Eligibility (MS-2): listEligibleTelonexMarkets ${JSON.stringify({ symbol: 'btc', timeframe: '15m', converter: 'delta-typed', readFrom: 'local', requiredFeeds, fromMs, toMs: toMs ?? null })}`,
+    `# Eligibility (MS-2): listEligibleTelonexMarkets ${JSON.stringify({ symbol: 'btc', timeframe, converter: 'delta-typed', readFrom: 'local', requiredFeeds, fromMs, toMs: toMs ?? null })}`,
     `# Eligible candidates: ${candidates.length}, market starts ${first} .. ${last} (the range ends where the local Telonex catalog ends, D38)`,
     `# Stratification (calendar month, UTC): ${Object.entries(months)
       .map(([m, n]) => `${m}=${n}`)
@@ -227,7 +202,8 @@ async function main(): Promise<number> {
     ...(missingCriteria.length > 0
       ? [`# MS-3 criteria with no market in the scan: ${missingCriteria.join('; ')}`]
       : []),
-    `# MS-5 replaced (missing local input or feed day file): ${replaced.length}${replaced.length > 0 ? ` -- ${replaced.join(', ')}` : ''}`,
+    `# MS-5 replaced (missing local input or feed day file, or a local size that differs from the catalog, D64): ${replaced.length}`,
+    ...replaced.map((slug) => `#   ${slug} -- ${problems.get(slug) ?? '?'}`),
     `# Oracle pin: ${pin}`,
     `# Date: ${new Date().toISOString().slice(0, 10)}`,
     `# Markets: ${all.length}`,

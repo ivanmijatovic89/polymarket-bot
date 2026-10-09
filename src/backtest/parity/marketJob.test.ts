@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { rmSync } from 'node:fs'
+import path from 'node:path'
 import {
+  localInputProblem,
   resolveDatasetPath,
   seededShuffle,
+  stageArtifact,
   stratifiedByMonth,
   type StratifiedCandidate,
 } from './marketJob.js'
+import { FEEDS_ALL, INPUT_BYTES, INPUT_REL, SLUG, makeDataRoot } from '../../native/testSupport.js'
 
 const cand = (iso: string, i: number): StratifiedCandidate => ({
   slug: `btc-updown-15m-${Date.parse(iso) / 1000 + i * 900}`,
@@ -48,6 +53,41 @@ describe('parity job building and set selection', () => {
     assert.deepEqual(
       stratifiedByMonth(cands, 4, 1, (c) => !missing.has(c.slug)),
       res,
+    )
+  })
+
+  it('MS-5 / D64: a missing input, a size that differs from the catalog or a missing day file is not a local input', () => {
+    // spec: 60 MS-5; 02 D64 (local size != telonex_market_conversions.size_bytes); 14 F-12, F-20 (the shim's day set)
+    const root = makeDataRoot()
+    const c: StratifiedCandidate = {
+      slug: SLUG,
+      marketStartMs: 1_776_556_800_000,
+      localPath: path.join(root, INPUT_REL.slice('data/'.length)),
+      conversionSizeBytes: INPUT_BYTES,
+    }
+    assert.equal(localInputProblem(c, FEEDS_ALL, root), null)
+    assert.equal(localInputProblem({ ...c, conversionSizeBytes: null }, FEEDS_ALL, root), null)
+    assert.match(
+      localInputProblem({ ...c, conversionSizeBytes: INPUT_BYTES + 1 }, FEEDS_ALL, root) ?? '',
+      new RegExp(`local size ${INPUT_BYTES} != catalog size_bytes ${INPUT_BYTES + 1} \\(D64\\)`),
+    )
+    assert.match(
+      localInputProblem({ ...c, localPath: '/nonexistent' }, FEEDS_ALL, root) ?? '',
+      /missing local input/,
+    )
+    rmSync(
+      path.join(root, 'binance', 'aggTrades', 'BTCUSDT', 'BTCUSDT-aggTrades-2026-04-18.parquet'),
+    )
+    assert.match(localInputProblem(c, FEEDS_ALL, root) ?? '', /binance_agg_trades day file/)
+    // Without a Binance request the missing Binance day does not matter.
+    assert.equal(localInputProblem(c, { rtdsCryptoPrices: {} }, root), null)
+  })
+
+  it('an artifact bundle that is not local is an error, never an R2 download (MS-5)', () => {
+    // spec: 60 MS-5 (gating runs read only local inputs); R14
+    assert.throws(
+      () => stageArtifact('f'.repeat(64), makeDataRoot({ input: false, days: false })),
+      /parity runs read only local inputs/,
     )
   })
 })
