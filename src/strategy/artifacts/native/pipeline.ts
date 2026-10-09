@@ -6,6 +6,7 @@
  * this module imports neither the R2 client nor the DB layer.
  */
 
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {
@@ -30,7 +31,6 @@ import {
   type BuildManifest,
   type ToolchainProvenance,
 } from './manifest.js'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import {
   CLIPPY_CONF_DIR_REL,
   DETERMINISM_LINTS,
