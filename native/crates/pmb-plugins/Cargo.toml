@@ -14,6 +14,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+# V-6 (a) reads the local aggTrades day files in tests/ta_klines.rs.
+parquet.workspace = true
 proptest.workspace = true
 sha2.workspace = true
 

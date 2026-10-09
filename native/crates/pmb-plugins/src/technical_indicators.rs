@@ -263,7 +263,7 @@ fn in_window(c: &[Candle], from: i64, as_of: TsMs) -> &[Candle] {
 /// the dataset, never on how many days the caller passed (14 V-7 cold or
 /// warm day cache). Without gaps this equals TS's "last 160 of the 170
 /// klines ending at `t0 - 1`" (`TechnicalIndicatorsPlugin.ts:235-260`).
-// D-PENDING: a slot without a candle inside the P-12 range makes TA unavailable, while TS's positional window (last 160 of 170 REST klines) reaches further back; chose the time-bounded window (deterministic over the preflight day set); needs a PARITY classification if V-6 (a) ever finds a gap.
+// D-PENDING: a slot without a candle inside the P-12 range makes TA unavailable, while TS's positional window (last 160 of 170 REST klines) reaches further back; chose the time-bounded window (deterministic over the preflight day set). V-6 (a) found no gap in 57 sampled windows (tests/ta_klines.rs); a gap would need a PARITY classification.
 pub fn compute(market: &PluginMarket, input: Option<TaInput<'_>>) -> Result<TaOutput, PluginError> {
     if !ta_supported(market) {
         return Ok(TaOutput::Unavailable(TaUnavailable::UnsupportedMarket));

@@ -558,6 +558,7 @@ name = "pmb-plugins"
 version = "0.1.0"
 dependencies = [
  "libm",
+ "parquet",
  "pmb-core",
  "proptest",
  "serde",

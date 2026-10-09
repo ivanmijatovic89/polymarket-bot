@@ -79,7 +79,7 @@ pub enum CandleError {
 
 /// Builds the candles of `interval` from trades in `agg_trade_id` order
 /// (14 P-8). Intervals without trades produce no candle.
-// D-PENDING: an interval without trades has no aggTrade to build from; chose to emit no candle (Binance omits klines for exchange outages; BTCUSDT has no idle 15m interval).
+// D-PENDING: an interval without trades has no aggTrade to build from; chose to emit no candle. Evidence (14 V-6 (a), tests/ta_klines.rs): the 11,400 REST klines of the 57 sampled TA windows are contiguous and all have trades > 0, and the aggTrades candles equal them, so no sampled window has a trade-less interval; what REST returns for one is unmeasured.
 pub fn build_candles(
     trades: &[AggTrade],
     interval: CandleInterval,
