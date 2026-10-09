@@ -636,9 +636,17 @@ impl OrderManager {
         io: &mut OmIo<'_, E>,
     ) -> Option<OrderKey> {
         match r {
-            OrderRef::Cid(c) | OrderRef::Both(c, _) => {
+            OrderRef::Cid(c) => {
                 let cid = io.cids.get(intents.cid_text(c))?;
                 io.ledger.current(cid)
+            }
+            // TS keeps the given exchange id and cancels only when it names
+            // the cid's resting order (`BacktestExecution.ts:647-686`): bind
+            // the current key only when the id is that key.
+            OrderRef::Both(c, x) => {
+                let cid = io.cids.get(intents.cid_text(c))?;
+                let k = io.ledger.current(cid)?;
+                (x == ExchangeOrderId::Sim(k)).then_some(k)
             }
             OrderRef::Exchange(ExchangeOrderId::Sim(k)) => io.ledger.get(k).map(|r| r.key()),
             OrderRef::Exchange(ExchangeOrderId::Clob(_)) => None,
@@ -649,34 +657,134 @@ impl OrderManager {
     // Cancels (12 §7.3; `cancellation.ts:61-127`)
     // ------------------------------------------------------------------
 
-    /// Whether a key is visible as an open order to cancel resolution: in
-    /// realistic the ledger record; in ts-compat the TS view — the delivered
-    /// portfolio plus the events of this call (`OrderManager.ts:262-334`).
-    fn visible(&self, k: OrderKey, ledger: &Ledger, rules: CoreRules) -> Visibility {
+    /// What realistic cancel resolution sees of a key (12 §7.3): the ledger
+    /// record itself.
+    fn visible_realistic(k: OrderKey, ledger: &Ledger) -> Visibility {
         let r = ledger.order(k);
-        match rules {
-            CoreRules::Realistic => {
-                if r.state().is_terminal() {
-                    Visibility::Terminal
-                } else if r.acknowledged {
-                    Visibility::Open { acked: true }
-                } else {
-                    Visibility::Open { acked: false }
-                }
+        if r.state().is_terminal() {
+            Visibility::Terminal
+        } else {
+            Visibility::Open {
+                acked: r.acknowledged,
             }
-            CoreRules::TsCompat => {
-                let terminal = r.state().is_terminal() || self.call.terminal.contains(&k);
-                let seen = r.submitted_delivered || self.call.emitted.contains(&k);
-                if terminal {
-                    Visibility::Terminal
-                } else if seen {
-                    Visibility::Open {
-                        acked: r.acknowledged || self.call.accepted.contains(&k),
-                    }
-                } else {
-                    Visibility::Unknown
-                }
+        }
+    }
+
+    /// The TS portfolio view of one cid during this OM call (TC-C2 step 4;
+    /// `OrderManager.ts:262-334`, `Portfolio.ts:593-878`), which ts-compat
+    /// cancel resolution reads (12 §7.3, §15 "Cancel reference resolution";
+    /// R5):
+    ///
+    /// - `open` (TS `openOrdersByClientId[cid]`): the generation emitted in
+    ///   this call unless a synchronous terminal moved it to the history;
+    ///   otherwise the latest delivered generation, unless it is terminal
+    ///   (delivered or in this call) or its delivered fills reached its size
+    ///   (12 §9.2, `Portfolio.ts:865-873`). `acked` when its exchange id is
+    ///   known (delivered or in-call `OrderAccepted`).
+    /// - `history` (TS `ordersByClientId[cid]`): the latest delivered
+    ///   generation (or the in-call terminal one) and whether its lifecycle
+    ///   is terminal there. A full fill never updates it, so a delivered,
+    ///   fully filled, not yet terminal order is neither open nor known
+    ///   terminal.
+    fn ts_cid_view(&self, cid: Option<CidKey>, ledger: &Ledger) -> TsCidView {
+        let Some(cid) = cid else {
+            return TsCidView::default();
+        };
+        let call_terminal = |k: OrderKey| self.call.terminal.contains(&k);
+        let acked = |k: OrderKey| ledger.order(k).acknowledged || self.call.accepted.contains(&k);
+        let history = ledger.delivered_generation(cid).map(|d| TsHistory {
+            key: d,
+            terminal: ledger.order(d).state().is_terminal() || call_terminal(d),
+            has_id: acked(d),
+        });
+        if let Some(cur) = ledger
+            .current(cid)
+            .filter(|k| self.call.emitted.contains(k))
+        {
+            if call_terminal(cur) {
+                return TsCidView {
+                    open: None,
+                    history: Some(TsHistory {
+                        key: cur,
+                        terminal: true,
+                        has_id: acked(cur),
+                    }),
+                };
             }
+            return TsCidView {
+                open: Some((cur, acked(cur))),
+                history,
+            };
+        }
+        let open = history
+            .filter(|h| !h.terminal && !ledger.order(h.key).fully_filled())
+            .map(|h| (h.key, h.has_id));
+        TsCidView { open, history }
+    }
+
+    /// One ts-compat cancel reference resolved against the TS view, in the
+    /// order of `resolveCancelBatch` (`cancellation.ts:61-127`; 12 §7.3,
+    /// TC-C6, TC-C10; R5).
+    fn resolve_ts_compat_ref<E: Execution>(
+        &self,
+        intents: &Intents,
+        r: OrderRef,
+        io: &OmIo<'_, E>,
+    ) -> RefResolution {
+        // `Some(None)`: a cid the session never interned (unknown).
+        let cid: Option<Option<CidKey>> = r.cid().map(|c| io.cids.get(intents.cid_text(c)));
+        // `Some(None)`: an exchange id naming no order of this session.
+        let xk: Option<Option<OrderKey>> = r.exchange_id().map(|e| match e {
+            ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
+            ExchangeOrderId::Clob(_) => None,
+        });
+        let ledger = &*io.ledger;
+        let cid_view = self.ts_cid_view(cid.flatten(), ledger);
+        let x_view = xk
+            .flatten()
+            .map(|k| (k, self.ts_cid_view(Some(ledger.order(k).cid()), ledger)));
+        // `byExchange`: an open order of the view with that exchange id.
+        let by_exchange = x_view.and_then(|(k, v)| (v.open == Some((k, true))).then_some(k));
+        if let (Some(c), Some(bx)) = (cid, by_exchange) {
+            if c != Some(ledger.order(bx).cid()) {
+                return RefResolution::Fail(Some(bx), CancelFailReason::ConflictingRefs);
+            }
+        }
+        let bot = cid_view.open.or(by_exchange.map(|k| (k, true)));
+        let previous = match cid {
+            Some(_) => cid_view.history,
+            None => x_view.and_then(|(k, v)| v.history.filter(|h| h.key == k && h.has_id)),
+        };
+        let known_id = bot
+            .filter(|b| b.1)
+            .map(|b| b.0)
+            .or(previous.filter(|h| h.has_id).map(|h| h.key));
+        if let (Some(x), Some(kid)) = (xk, known_id) {
+            if x != Some(kid) {
+                return RefResolution::Fail(Some(kid), CancelFailReason::ConflictingRefs);
+            }
+        }
+        if bot.is_none() && previous.is_some_and(|h| h.terminal) {
+            // A known terminal order has no remainder to cancel.
+            return RefResolution::Skip;
+        }
+        match bot {
+            None if xk.is_none() => RefResolution::Fail(None, CancelFailReason::UnknownClientOrder),
+            // TC-C6 (`cancellation.ts:114-118`).
+            Some((k, false)) => {
+                RefResolution::Fail(Some(k), CancelFailReason::MissingExchangeOrderId)
+            }
+            Some((k, true)) => RefResolution::Target(k),
+            None => match (xk.flatten(), cid.map(|c| c.zip(xk.flatten()))) {
+                // TS forwards the exchange id; its simulator cancels only the
+                // cid's resting order with that id (`BacktestExecution.ts:647-660`).
+                (Some(k), None) => RefResolution::Target(k),
+                (Some(k), Some(Some((c, _)))) if ledger.order(k).cid() == c => {
+                    RefResolution::Target(k)
+                }
+                // TC-C10: TS sends it and the simulator finds nothing.
+                _ => RefResolution::Skip,
+            },
         }
     }
 
@@ -706,71 +814,20 @@ impl OrderManager {
             return;
         }
         for &r in refs {
-            let fail = |io: &mut OmIo<'_, E>, order, reason| {
-                io.push(stamp, AccountEventKind::CancelFailed { op, order, reason });
+            let resolution = match rules {
+                CoreRules::TsCompat => self.resolve_ts_compat_ref(intents, r, io),
+                CoreRules::Realistic => self.resolve_realistic_ref(intents, r, op, io),
             };
-            let by_cid = r.cid().map(|c| {
-                io.cids
-                    .get(intents.cid_text(c))
-                    .and_then(|c| io.ledger.current(c))
-            });
-            let by_exchange = r.exchange_id().map(|e| match e {
-                ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
-                // D-PENDING: the core keeps no exchange-id side table before
-                // the live adapter (M9); chose: a CLOB id resolves to nothing.
-                ExchangeOrderId::Clob(_) => None,
-            });
-            let key = match (by_cid, by_exchange) {
-                (Some(c), Some(x)) => {
-                    // 10 N1: both refs must agree.
-                    if c != x {
-                        fail(io, c.or(x), CancelFailReason::ConflictingRefs);
-                        continue;
-                    }
-                    c
+            match resolution {
+                RefResolution::Skip => {}
+                RefResolution::Fail(order, reason) => {
+                    io.push(stamp, AccountEventKind::CancelFailed { op, order, reason })
                 }
-                (Some(c), None) => c,
-                (None, Some(x)) => x,
-                (None, None) => None,
-            };
-            let Some(k) = key else {
-                if by_cid.is_some() {
-                    fail(io, None, CancelFailReason::UnknownClientOrder);
-                } else if rules == CoreRules::Realistic {
-                    // D-PENDING: an exchange id with no known order cannot be
-                    // dispatched (commands carry keys, 13 §2.1); chose the
-                    // answer the exchange would give, `ExchangeNotCanceled`.
-                    fail(io, None, CancelFailReason::ExchangeNotCanceled { code: 0 });
-                }
-                // TC-C10: TS sends it and the simulator finds nothing: no event.
-                continue;
-            };
-            match self.visible(k, io.ledger, rules) {
-                // A known terminal order has no remainder to cancel.
-                Visibility::Terminal => continue,
-                Visibility::Unknown => {
-                    fail(io, None, CancelFailReason::UnknownClientOrder);
-                    continue;
-                }
-                Visibility::Open { acked: false } => match rules {
-                    CoreRules::TsCompat => {
-                        // TC-C6 (`cancellation.ts:114-118`).
-                        fail(io, Some(k), CancelFailReason::MissingExchangeOrderId);
-                        continue;
+                RefResolution::Target(k) => {
+                    if !self.call.targets.contains(&k) {
+                        self.call.targets.push(k);
                     }
-                    CoreRules::Realistic => {
-                        // 12 §7.3: dispatched when the ack is delivered.
-                        if !self.deferred.iter().any(|d| d.0 == k) {
-                            io.ledger.request_cancel(k, CancelState::Deferred);
-                            self.deferred.push((k, op, CancelCause::Strategy(op)));
-                        }
-                        continue;
-                    }
-                },
-                Visibility::Open { acked: true } => {}
-            }
-            if !self.call.targets.contains(&k) {
-                self.call.targets.push(k);
+                }
             }
         }
         if self.call.targets.is_empty() {
@@ -790,6 +847,75 @@ impl OrderManager {
             io,
         );
         self.call.targets = keys;
+    }
+
+    /// One realistic cancel reference (12 §7.3): both refs must agree
+    /// (10 N1); known terminal skipped silently; unknown cid; an
+    /// unacknowledged target is deferred until its `OrderAccepted` is
+    /// delivered ("never guess an unacknowledged exchange id").
+    fn resolve_realistic_ref<E: Execution>(
+        &mut self,
+        intents: &Intents,
+        r: OrderRef,
+        op: CancelOp,
+        io: &mut OmIo<'_, E>,
+    ) -> RefResolution {
+        let by_cid = r.cid().map(|c| {
+            io.cids
+                .get(intents.cid_text(c))
+                .and_then(|c| io.ledger.current(c))
+        });
+        let by_exchange = r.exchange_id().map(|e| match e {
+            ExchangeOrderId::Sim(k) => io.ledger.get(k).map(|r| r.key()),
+            // D-PENDING: the core keeps no exchange-id side table before
+            // the live adapter (M9); chose: a CLOB id resolves to nothing.
+            ExchangeOrderId::Clob(_) => None,
+        });
+        let key = match (by_cid, by_exchange) {
+            (Some(c), Some(x)) => {
+                // 10 N1: both refs must agree.
+                if c != x {
+                    return RefResolution::Fail(c.or(x), CancelFailReason::ConflictingRefs);
+                }
+                c
+            }
+            (Some(c), None) => c,
+            (None, Some(x)) => x,
+            (None, None) => None,
+        };
+        let Some(k) = key else {
+            if by_cid.is_some() {
+                return RefResolution::Fail(None, CancelFailReason::UnknownClientOrder);
+            }
+            // D-PENDING: an exchange id with no known order cannot be
+            // dispatched (commands carry keys, 13 §2.1); chose the answer
+            // the exchange would give, `ExchangeNotCanceled`.
+            return RefResolution::Fail(None, CancelFailReason::ExchangeNotCanceled { code: 0 });
+        };
+        self.target_realistic(k, op, CancelCause::Strategy(op), io)
+    }
+
+    /// A resolved realistic target (12 §7.3): terminal → skipped silently;
+    /// unacknowledged → `CancelState::Deferred` with its cause, dispatched
+    /// when the ack is delivered; acknowledged → dispatched.
+    fn target_realistic<E: Execution>(
+        &mut self,
+        k: OrderKey,
+        op: CancelOp,
+        cause: CancelCause,
+        io: &mut OmIo<'_, E>,
+    ) -> RefResolution {
+        match Self::visible_realistic(k, io.ledger) {
+            Visibility::Terminal => RefResolution::Skip,
+            Visibility::Open { acked: false } => {
+                if !self.deferred.iter().any(|d| d.0 == k) {
+                    io.ledger.request_cancel(k, CancelState::Deferred);
+                    self.deferred.push((k, op, cause));
+                }
+                RefResolution::Skip
+            }
+            Visibility::Open { acked: true } => RefResolution::Target(k),
+        }
     }
 
     fn cancel_batch<E: Execution>(
@@ -1211,15 +1337,43 @@ impl OrderManager {
     }
 }
 
-/// What cancel resolution can see of a key (12 §7.3).
+/// What realistic cancel resolution can see of a key (12 §7.3).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Visibility {
-    /// Not known to the TS view yet (submitted, not delivered, not this call).
-    Unknown,
     /// Open; `acked` when its exchange id is known.
     Open { acked: bool },
     /// Terminal.
     Terminal,
+}
+
+/// The outcome of resolving one cancel reference (12 §7.3).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum RefResolution {
+    /// No event, no target (known terminal, deferred, or TC-C10).
+    Skip,
+    /// `CancelFailed` with this order and reason.
+    Fail(Option<OrderKey>, CancelFailReason),
+    /// A key to dispatch.
+    Target(OrderKey),
+}
+
+/// The TS history entry of a cid (`ordersByClientId[cid]`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct TsHistory {
+    key: OrderKey,
+    /// Lifecycle terminal in the TS history.
+    terminal: bool,
+    /// Its exchange id is known (`orderId` present).
+    has_id: bool,
+}
+
+/// The TS view of one cid during an OM call (see `ts_cid_view`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+struct TsCidView {
+    /// `openOrdersByClientId[cid]`: key and whether its exchange id is known.
+    open: Option<(OrderKey, bool)>,
+    /// `ordersByClientId[cid]`.
+    history: Option<TsHistory>,
 }
 
 #[cfg(test)]

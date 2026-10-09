@@ -200,6 +200,19 @@ impl OrderRecord {
     pub fn reserved(&self) -> Usdc {
         self.reserved
     }
+    /// Whether this submission's `OrderSubmitted` was delivered (12 §9.2):
+    /// only then is it in the strategy's view (12 §9.7; TS
+    /// `ordersByClientId` holds delivered submissions only).
+    #[inline]
+    pub fn submission_delivered(&self) -> bool {
+        self.submitted_delivered
+    }
+    /// Whether the order's `OrderAccepted` was delivered (12 §7.3): its
+    /// exchange id is known to the strategy.
+    #[inline]
+    pub fn acknowledged(&self) -> bool {
+        self.acknowledged
+    }
     /// Strategy-view open order: `OrderSubmitted` delivered, non-terminal and
     /// not fully filled (12 §9.2, §9.7).
     #[inline]
@@ -321,6 +334,10 @@ pub struct Ledger {
     pub(crate) active: Vec<OrderKey>,
     /// cid → current generation; lookup only, never iterated (12 §7.1).
     pub(crate) current: Vec<Option<OrderKey>>,
+    /// cid → latest generation whose `OrderSubmitted` was delivered (the
+    /// strategy-view generation of 12 §9.7; the TS view of cancel
+    /// resolution, 12 §7.3). Lookup only.
+    pub(crate) delivered: Vec<Option<OrderKey>>,
     pub(crate) positions: PerOutcome<Position>,
     pub(crate) starting: Usdc,
     pub(crate) cash: Usdc,
@@ -368,6 +385,7 @@ impl Ledger {
             orders: Vec::new(),
             active: Vec::new(),
             current: Vec::new(),
+            delivered: Vec::new(),
             positions: PerOutcome::default(),
             starting,
             cash: starting,
@@ -439,6 +457,15 @@ impl Ledger {
     #[inline]
     pub fn current(&self, cid: CidKey) -> Option<OrderKey> {
         self.current.get(cid.index()).copied().flatten()
+    }
+
+    /// Latest generation of a cid whose `OrderSubmitted` was delivered
+    /// (12 §9.7 strategy view; 12 §7.3 ts-compat cancel resolution). It
+    /// differs from [`Ledger::current`] while a re-placed generation's
+    /// submission is still queued.
+    #[inline]
+    pub fn delivered_generation(&self, cid: CidKey) -> Option<OrderKey> {
+        self.delivered.get(cid.index()).copied().flatten()
     }
 
     /// A cid is active iff its current key exists and is not `om_terminal`
@@ -760,7 +787,15 @@ impl Ledger {
         use AccountEventKind as K;
         match ev.kind {
             K::OrderSubmitted { order } => {
-                self.record_mut(order)?.submitted_delivered = true;
+                let r = self.record_mut(order)?;
+                r.submitted_delivered = true;
+                let ci = r.req.cid.index();
+                // Submissions are delivered in emission order (12 §6.2), so
+                // the last one delivered is the newest generation seen.
+                if self.delivered.len() <= ci {
+                    self.delivered.resize(ci + 1, None);
+                }
+                self.delivered[ci] = Some(order);
                 Ok(Delivered::default())
             }
             K::OrderRejected {

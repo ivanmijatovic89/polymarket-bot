@@ -418,3 +418,155 @@ fn delayed_cancel_order_is_bound_to_the_decision_time_generation() {
     h.tick(1260, BIDS, &asks(0.6)).unwrap();
     assert_eq!(h.open_cids(), vec!["a"], "the replacement survives");
 }
+
+// ---------------------------------------------------------------------------
+// The TS view of cancel resolution inside cascades (12 §7.3, §15 "Cancel
+// reference resolution"; `cancellation.ts:61-127`, `Portfolio.ts:593-878`;
+// R5). Scenarios reproduced with a TS probe (Portfolio + OrderManager +
+// BacktestExecution) by the reviewers of ws/core.
+// ---------------------------------------------------------------------------
+
+fn cancel_on_completing_fill(cid: &'static str) -> Script {
+    Script {
+        on_event: Some(Box::new(move |ctx, ev, out, _log| {
+            if let pmb_engine::strategy::AccountEvent::Fill { order, .. } = ev {
+                if ctx.portfolio().cid_str(order) == cid && order.fully_filled() {
+                    out.push(Cmd::CancelBatch(vec![Ref::Cid(cid.into())]));
+                }
+            }
+        })),
+        ..Script::default()
+    }
+}
+
+#[test]
+fn cancel_from_the_completing_fill_callback_is_an_unknown_client_order() {
+    // spec: 12 §7.3 CancelBatch (unknown cid → UnknownClientOrder), §9.2
+    // (the order leaves the open orders when filled reaches its size), R5.
+    // TS removes the order from `openOrdersByClientId` on the full fill
+    // while its history keeps the non-terminal lifecycle, so
+    // `resolveCancelBatch` emits `unknown_client_order` (TS probe:
+    // `[{kind:"cancel_failed",reason:"unknown_client_order",clientOrderId:"buy-up"}]`).
+    let mut cfg = config(CoreRules::TsCompat);
+    cfg.starting_capital = u(1000.0);
+    let mut h = mk(cfg, MockExec::sync(), cancel_on_completing_fill("buy-up"));
+    h.send(vec![Cmd::Place(order("buy-up"))], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    let from = h.n_events();
+    // The ask moves through the resting BUY: a maker fill, then OrderDone.
+    h.tick(1100, &[(0.3, 50.0)], &[(0.45, 50.0)]).unwrap();
+    let kinds: Vec<&str> = h.since(from).iter().map(|e| e.kind.ts_kind()).collect();
+    let fill_at = kinds.iter().position(|k| *k == "fill").expect("filled");
+    assert_eq!(h.cancel_failures(from), vec!["unknown_client_order"]);
+    // The failure is queued behind the sibling OrderDone (12 §6.2).
+    assert_eq!(kinds.last(), Some(&"cancel_failed"), "{kinds:?}");
+    assert!(kinds[fill_at..].contains(&"order_done"), "{kinds:?}");
+    assert!(h.open_cids().is_empty());
+}
+
+#[test]
+fn cancel_of_a_reused_cid_before_its_new_submission_is_delivered_is_silent() {
+    // spec: 12 §7.3 CancelBatch (known terminal → skipped silently), §7.1
+    // (generations), TC-C2 step 4, R5. Generation 1 of `x` is a killed FOK;
+    // generation 2 is placed in the same tick list after `y`, and the
+    // `OrderSubmitted(y)` callback cancels `x` while generation 2's
+    // submission is still queued. TS resolves against the delivered
+    // history (gen 1, `killed`) and skips (TS probe: `[]`).
+    let script = Script {
+        on_event: Some(Box::new(move |ctx, ev, out, _log| {
+            if let pmb_engine::strategy::AccountEvent::OrderSubmitted { order, .. } = ev {
+                if ctx.portfolio().cid_str(order) == "y" {
+                    out.push(Cmd::CancelBatch(vec![Ref::Cid("x".into())]));
+                }
+            }
+        })),
+        ..Script::default()
+    };
+    let mut cfg = config(CoreRules::TsCompat);
+    cfg.starting_capital = u(1000.0);
+    let mut h = mk(cfg, MockExec::sync(), script);
+    // Generation 1: a FOK BUY below the ask is killed.
+    h.send(
+        vec![Cmd::Place(order("x").ty(OrderType::Fok))],
+        1000,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    let gen1 = h.current("x").unwrap();
+    assert!(h.ledger().order(gen1).state().is_terminal());
+    let from = h.n_events();
+    h.send(
+        vec![
+            Cmd::Place(order("y").outcome(Outcome::Down)),
+            Cmd::Place(order("x")),
+        ],
+        1010,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    assert!(h.cancel_failures(from).is_empty(), "{:?}", h.kinds());
+    let gen2 = h.current("x").unwrap();
+    assert_ne!(gen1, gen2);
+    assert_eq!(h.open_cids(), vec!["x", "y"]);
+}
+
+#[test]
+fn both_refs_follow_the_ts_conflict_rules() {
+    // spec: 10 §7.3 N1, 12 §7.3 (conflicting refs), TC-C10;
+    // `cancellation.ts:85-99`: an unknown cid with the exchange id of an
+    // open order of another cid conflicts; a matching pair cancels.
+    let mut h = harness(MockExec::sync());
+    h.send(
+        vec![
+            Cmd::Place(order("a")),
+            Cmd::Place(order("b").outcome(Outcome::Down)),
+        ],
+        1000,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    let ka = h.current("a").unwrap();
+    let from = h.n_events();
+    h.send(
+        vec![Cmd::CancelBatch(vec![Ref::Both(
+            "ghost".into(),
+            ExchangeOrderId::Sim(ka),
+        )])],
+        1000,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    assert_eq!(h.cancel_failures(from), vec!["conflicting_refs"]);
+    assert_eq!(h.open_cids(), vec!["a", "b"]);
+    // An unknown cid with an id that names nothing: TS forwards it and its
+    // simulator finds nothing (TC-C10): no event.
+    let from = h.n_events();
+    h.send(
+        vec![Cmd::CancelBatch(vec![Ref::Both(
+            "ghost".into(),
+            unknown_exchange_id(),
+        )])],
+        1000,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    assert!(h.since(from).iter().all(|e| e.kind.ts_kind() != "cancel_failed"));
+    // A matching pair cancels.
+    let from = h.n_events();
+    h.send(
+        vec![Cmd::CancelBatch(vec![Ref::Both(
+            "a".into(),
+            ExchangeOrderId::Sim(ka),
+        )])],
+        1000,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    assert_eq!(h.done_cids(from), vec!["a"]);
+}
