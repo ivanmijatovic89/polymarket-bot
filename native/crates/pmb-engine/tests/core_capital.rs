@@ -5,6 +5,18 @@
 //! Live-adapter cases (`LiveExecution`, REST/WS reconciliation) are M9 and
 //! not converted; the TS `queued` intent mode has no Rust counterpart.
 //!
+//! Coverage of the 20 TS cases (by `capital.test.ts` line): converted
+//! :155, :190, :201, :214, :355, :395, :405, :414, :435 (backtest half),
+//! :459, :531 and :545 (per-session strategy and allowance). Not converted:
+//! :231, :273, :311 (REST cancel acknowledgement and adapter rejections of
+//! `LiveExecution`, M9); :259, :331, :366 (duplicate fill ids, fills and
+//! acknowledgements matched by exchange id: raw-frame dedupe and id mapping
+//! of the live adapter, 10 S5, 50 §8.2.5, M9; the core addresses every
+//! event by `OrderKey`, 12 §7.1); :478 (`queued` intent mode, no Rust
+//! counterpart); :498 (rotation of undispatched decisions, replaced by the
+//! window-end rule of 12 §10). These are hand-transcribed oracle cases;
+//! TS-recorded event-sequence fixtures (60 §7.3) are a cross-stream item.
+//!
 //! The suite runs on both execution adapters (M1 step 4): `mock::` on the
 //! compat-like `MockExec` of `core_support`, `sim::` on the real ts-compat
 //! `Simulator` (13 §5). Assertions on mock internals run only on the mock.

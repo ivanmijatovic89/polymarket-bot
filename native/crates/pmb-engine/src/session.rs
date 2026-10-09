@@ -239,6 +239,10 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             tick_seq: 0,
             at: TsMs(0),
         };
+        // 30 §4 rule 3: requirements are evaluated once, before the
+        // instance. STAND-IN: `Requirements` carries nothing until pmb-feeds
+        // and pmb-plugins land; a panic in it fails this candidate only.
+        let _requirements = guarded(|| S::requirements(params)).map_err(fault)?;
         let interests = guarded(|| S::interests(params)).map_err(fault)?;
         let strategy = guarded(|| S::new(params, &market.info)).map_err(fault)?;
         let rules = config.core_rules;

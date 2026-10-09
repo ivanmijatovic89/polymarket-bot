@@ -3,6 +3,12 @@
 //! bug. Snapshot caching and object identity are TS internals with no
 //! observable counterpart (R4) and are not converted.
 //!
+//! Coverage (by `Portfolio.test.ts` line): converted :84, :118, :174 and the
+//! event-clock rule of :24 (in the runner suite, StrategyRunner.clock);
+//! not converted :45 and :59 (snapshot cache invalidation and frozen object
+//! identity: TS internals, R4). TS-recorded event-sequence fixtures (60
+//! §7.3) are a cross-stream item.
+//!
 //! The suite runs on both execution adapters (M1 step 4): `mock::` on the
 //! compat-like `MockExec` of `core_support`, `sim::` on the real ts-compat
 //! `Simulator` (13 §5). Assertions on mock internals run only on the mock.

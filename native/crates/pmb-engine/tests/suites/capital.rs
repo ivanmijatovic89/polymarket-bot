@@ -162,7 +162,7 @@ fn partial_fill_spends_part_of_reservation_and_delayed_cancel_releases_the_rest(
 
 #[test]
 fn rejection_fok_kill_and_expiry_release_unused_capital() {
-    // spec: 12 §9.4 final-quantity table (capital.test.ts:368). TS runs this
+    // spec: 12 §9.4 final-quantity table (capital.test.ts:355). TS runs this
     // fixture with `minGtdOffsetMs: 0`; ts-compat fixes the GTD lead at 60 s
     // (11 §4, TC-C1), so the expiry is moved past the lead.
     let mut h = mk_ts(MockExec::sync());
@@ -388,3 +388,4 @@ fn each_market_session_has_its_own_allowance() {
     assert_eq!(cap(&new).cash, u(438.32));
     assert_eq!(cap(&old).cash, u(438.32));
 }
+

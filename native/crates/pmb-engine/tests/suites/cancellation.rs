@@ -570,3 +570,38 @@ fn both_refs_follow_the_ts_conflict_rules() {
     .unwrap();
     assert_eq!(h.done_cids(from), vec!["a"]);
 }
+
+#[test]
+fn empty_batch_and_known_completed_orders_produce_no_duplicate_terminal() {
+    // spec: 12 §7.3 CancelBatch (known terminal → skipped silently; nothing
+    // resolved → no dispatch) (cancellation.test.ts:198, backtest runtime)
+    let mut h = harness(MockExec::sync());
+    h.send(vec![Cmd::Place(order("buy-up"))], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    let from = h.n_events();
+    h.send(vec![Cmd::CancelBatch(vec![])], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    assert!(h.since(from).is_empty());
+    let cancel = || vec![Cmd::CancelBatch(vec![Ref::Cid("buy-up".into())])];
+    h.send(cancel(), 1000, BIDS, &asks(0.6)).unwrap();
+    assert_eq!(h.done_cids(from), vec!["buy-up"]);
+    let from = h.n_events();
+    h.send(cancel(), 1000, BIDS, &asks(0.6)).unwrap();
+    assert!(h.since(from).is_empty());
+}
+
+#[test]
+fn single_and_account_wide_cancellation_still_work() {
+    // spec: 12 §7.3 CancelOrder (TC-C5) and CancelAll (cancellation.test.ts:209,
+    // backtest runtime)
+    let mut h = harness(MockExec::sync());
+    seed(&mut h);
+    let from = h.n_events();
+    h.send(vec![Cmd::Cancel("buy-up".into())], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    assert_eq!(h.done_cids(from), vec!["buy-up"]);
+    let from = h.n_events();
+    h.send(vec![Cmd::CancelAll], 1000, BIDS, &asks(0.6)).unwrap();
+    assert_eq!(h.done_cids(from), vec!["buy-down", "sell-up"]);
+    assert!(h.open_cids().is_empty());
+}
