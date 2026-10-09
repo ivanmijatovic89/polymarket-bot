@@ -1,0 +1,1378 @@
+{
+  "$defs": {
+    "CancelBeforeAck": {
+      "description": "`ModelConfig.execution.cancelBeforeAck` (13 §7.3; realistic, M3b).",
+      "enum": ["defer_until_ack", "immediate"],
+      "type": "string"
+    },
+    "CandidateSpec": {
+      "additionalProperties": false,
+      "description": "One candidate (21 §8).",
+      "properties": {
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A complete `execution` object replacing the run's, or null (C4)."
+        },
+        "index": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "key": {
+          "pattern": "^[A-Za-z0-9._-]{1,128}$",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Opaque: validated by the strategy's `paramsSchema` (21 §3).",
+          "type": "object"
+        }
+      },
+      "required": ["key", "index", "params", "execution"],
+      "type": "object"
+    },
+    "CapitalConfig": {
+      "additionalProperties": false,
+      "description": "Per-market capital allowance (12 §9.4).",
+      "properties": {
+        "startingCapitalUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["startingCapitalUsdc"],
+      "type": "object"
+    },
+    "CapturedRules": {
+      "additionalProperties": false,
+      "description": "`captured`: any subset of the 11 keys of 11 §13.4.",
+      "properties": {
+        "acceptingOrdersTimestampMs": {
+          "$ref": "#/$defs/Captured_SafeI64"
+        },
+        "feeSchedule": {
+          "$ref": "#/$defs/Captured_FeeSchedule"
+        },
+        "feeType": {
+          "$ref": "#/$defs/Captured_FeeType"
+        },
+        "feesEnabled": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "minOrderAgeS": {
+          "$ref": "#/$defs/Captured_uint32"
+        },
+        "minSizeResting": {
+          "$ref": "#/$defs/Captured_Decimal"
+        },
+        "negRisk": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "secondsDelay": {
+          "$ref": "#/$defs/Captured_uint32"
+        },
+        "takerDelayEnabled": {
+          "$ref": "#/$defs/Captured_boolean"
+        },
+        "tick": {
+          "$ref": "#/$defs/Captured_Decimal"
+        },
+        "version": {
+          "$ref": "#/$defs/Captured_MarketVersion"
+        }
+      },
+      "type": "object"
+    },
+    "Captured_Decimal": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_FeeSchedule": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/FeeSchedule"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_FeeType": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/FeeType"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_MarketVersion": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/MarketVersion"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_SafeI64": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_boolean": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "Captured_uint32": {
+      "additionalProperties": false,
+      "description": "One captured value with its provenance (21 §7.1).",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/RulesOrigin"
+        },
+        "phase": {
+          "$ref": "#/$defs/RulesPhase"
+        },
+        "snapshotId": {
+          "description": "`exchange_rules_snapshots.id`, positive.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "value": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["value", "origin", "phase", "snapshotId"],
+      "type": "object"
+    },
+    "ChainlinkFeed": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "maxGapMs": {
+          "description": "0 disables the gap check; otherwise at least 1,000 (14 §9).",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["latency", "maxGapMs"],
+      "type": "object"
+    },
+    "ClockConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.clock` (12 §4.5). Realistic, M3b.",
+      "properties": {
+        "marketData": {
+          "$ref": "#/$defs/MarketDataClock"
+        }
+      },
+      "required": ["marketData"],
+      "type": "object"
+    },
+    "CompatLatency": {
+      "additionalProperties": false,
+      "description": "TS latency parameters: one delay for every placement and cancel, jitter\nonly when the delay is positive (13 §5.1 `NextRealTick`).",
+      "properties": {
+        "delayMs": {
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitterMs": {
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["delayMs", "jitterMs"],
+      "type": "object"
+    },
+    "DepletionModel": {
+      "description": "`ModelConfig.execution.models.depletion` (13 §7.3).",
+      "enum": ["persistent_deficit", "reset_on_update", "none"],
+      "type": "string"
+    },
+    "Distribution": {
+      "description": "A latency distribution (13 §7.3).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "constant",
+              "type": "string"
+            },
+            "ms": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["kind", "ms"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "hiMs": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "uniform",
+              "type": "string"
+            },
+            "loMs": {
+              "maximum": 4294967295,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["kind", "loMs", "hiMs"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "101 non-decreasing quantiles q0..q100.",
+          "properties": {
+            "kind": {
+              "const": "empirical",
+              "type": "string"
+            },
+            "quantilesMs": {
+              "items": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 101,
+              "minItems": 101,
+              "type": "array"
+            }
+          },
+          "required": ["kind", "quantilesMs"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Parameters of ln(ms), decimal strings.",
+          "properties": {
+            "kind": {
+              "const": "lognormal",
+              "type": "string"
+            },
+            "mu": {
+              "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+              "type": "string"
+            },
+            "sigma": {
+              "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "mu", "sigma"],
+          "type": "object"
+        }
+      ]
+    },
+    "ExecutionConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.execution` v1 (13 §7.3).",
+      "properties": {
+        "cancelBeforeAck": {
+          "$ref": "#/$defs/CancelBeforeAck",
+          "description": "M3b."
+        },
+        "compatLatency": {
+          "$ref": "#/$defs/CompatLatency",
+          "description": "Used iff `models.latency = compat` (13 §5.1)."
+        },
+        "failureRates": {
+          "$ref": "#/$defs/FailureRates",
+          "description": "M3b."
+        },
+        "latency": {
+          "$ref": "#/$defs/LatencyCalibration",
+          "description": "Realistic latency components (13 §6.8). M3b."
+        },
+        "makerQueue": {
+          "$ref": "#/$defs/MakerQueueConfig",
+          "description": "M3b."
+        },
+        "models": {
+          "$ref": "#/$defs/ExecutionModels"
+        },
+        "sellGate": {
+          "$ref": "#/$defs/SellGate",
+          "description": "M3b."
+        }
+      },
+      "required": ["models", "compatLatency"],
+      "type": "object"
+    },
+    "ExecutionModels": {
+      "additionalProperties": false,
+      "description": "The six model axes (13 §7.1, §7.3).",
+      "properties": {
+        "depletion": {
+          "$ref": "#/$defs/DepletionModel"
+        },
+        "fee": {
+          "$ref": "#/$defs/FeeModel"
+        },
+        "latency": {
+          "$ref": "#/$defs/LatencyModel"
+        },
+        "maker": {
+          "$ref": "#/$defs/MakerModel"
+        },
+        "reports": {
+          "$ref": "#/$defs/ReportsModel"
+        },
+        "takerDelay": {
+          "$ref": "#/$defs/TakerDelayModel"
+        }
+      },
+      "required": ["latency", "fee", "takerDelay", "depletion", "maker", "reports"],
+      "type": "object"
+    },
+    "FailureRates": {
+      "additionalProperties": false,
+      "description": "Failure rates (13 §7.3), each a probability in [0, 1]. M3b.",
+      "properties": {
+        "chain": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "settlement": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["settlement", "chain"],
+      "type": "object"
+    },
+    "FeeModel": {
+      "description": "`ModelConfig.execution.models.fee` (13 §7.3).",
+      "enum": ["schedule", "flat_700bps_4dp"],
+      "type": "string"
+    },
+    "FeeSchedule": {
+      "additionalProperties": false,
+      "description": "`feeSchedule {rate, exponent, takerOnly}` (11 §13.4).",
+      "properties": {
+        "exponent": {
+          "description": "0..=4 (11 FE3).",
+          "maximum": 4,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rate": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "takerOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": ["rate", "exponent", "takerOnly"],
+      "type": "object"
+    },
+    "FeeType": {
+      "description": "Gamma `feeType`, `^[a-z0-9_]{1,64}$`; unknown types are accepted here and\nhandled by 11 FE3.",
+      "pattern": "^[a-z0-9_]{1,64}$",
+      "type": "string"
+    },
+    "FeedAvailability": {
+      "additionalProperties": false,
+      "description": "Producer-resolved feed availability (14 §6.2).",
+      "properties": {
+        "priceToBeat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PriceToBeatAvailability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null when the strategy did not request price-to-beat."
+        }
+      },
+      "required": ["priceToBeat"],
+      "type": "object"
+    },
+    "FeedFile": {
+      "additionalProperties": false,
+      "description": "One feed day file (14 §4.1, §5.1).",
+      "properties": {
+        "bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "day": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "feed": {
+          "$ref": "#/$defs/FeedId"
+        },
+        "path": {
+          "type": "string"
+        },
+        "symbol": {
+          "pattern": "^[A-Za-z0-9]{1,32}$",
+          "type": "string"
+        }
+      },
+      "required": ["feed", "symbol", "day", "path", "bytes"],
+      "type": "object"
+    },
+    "FeedId": {
+      "description": "Feed ids of `market.feedFiles` (21 §17).",
+      "enum": ["binance_agg_trades", "chainlink_crypto_prices"],
+      "type": "string"
+    },
+    "FeedLatency": {
+      "additionalProperties": false,
+      "properties": {
+        "latency": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": ["latency"],
+      "type": "object"
+    },
+    "FeedsConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.feeds` (14 §9).",
+      "properties": {
+        "binance": {
+          "$ref": "#/$defs/FeedLatency"
+        },
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "chainlink": {
+          "$ref": "#/$defs/ChainlinkFeed"
+        },
+        "priceToBeat": {
+          "$ref": "#/$defs/FeedLatency"
+        }
+      },
+      "required": ["calibrationId", "binance", "chainlink", "priceToBeat"],
+      "type": "object"
+    },
+    "FileRef": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": ["path", "bytes", "sha256"],
+      "type": "object"
+    },
+    "GammaPriceToBeat": {
+      "additionalProperties": false,
+      "properties": {
+        "priceToBeat": {
+          "type": ["number", "null"]
+        },
+        "syncedAtMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["priceToBeat", "syncedAtMs"],
+      "type": "object"
+    },
+    "InputFormat": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "version": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": ["name", "version"],
+      "type": "object"
+    },
+    "InputMode": {
+      "description": "Native input modes (21 §17). `recorded` and `telonex-paired` are not\nnative modes (20 §5.6).",
+      "enum": ["telonex-delta", "recorder-v4", "journal"],
+      "type": "string"
+    },
+    "InputRef": {
+      "additionalProperties": false,
+      "description": "Logical input file (15 I-8).",
+      "properties": {
+        "bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "format": {
+          "$ref": "#/$defs/InputFormat"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Required for `recorder-v4` and `journal` inputs (15 §9).",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["path", "bytes", "sha256", "format"],
+      "type": "object"
+    },
+    "JobBudget": {
+      "additionalProperties": false,
+      "description": "Non-semantic budget (21 §5.1).",
+      "properties": {
+        "threads": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "wallMs": {
+          "maximum": 3600000,
+          "minimum": 1000,
+          "type": "integer"
+        }
+      },
+      "required": ["wallMs", "threads"],
+      "type": "object"
+    },
+    "JobOutputs": {
+      "additionalProperties": false,
+      "description": "Non-semantic output paths (21 §5.1, 22).",
+      "properties": {
+        "ledgerPath": {
+          "type": ["string", "null"]
+        },
+        "traceLevel": {
+          "$ref": "#/$defs/TraceLevel"
+        },
+        "tracePath": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["tracePath", "traceLevel", "ledgerPath"],
+      "type": "object"
+    },
+    "JournalInput": {
+      "additionalProperties": false,
+      "description": "Journal replay options (15 §9, I-50, I-51).",
+      "properties": {
+        "allowEngineMismatch": {
+          "description": "Turns the run into a what-if replay that cannot serve as a\ndeterminism proof (I-51).",
+          "type": "boolean"
+        },
+        "replay": {
+          "$ref": "#/$defs/JournalReplay"
+        }
+      },
+      "required": ["replay", "allowEngineMismatch"],
+      "type": "object"
+    },
+    "JournalReplay": {
+      "description": "`market.journal.replay` (15 §9, I-50).",
+      "enum": ["determinism"],
+      "type": "string"
+    },
+    "LatencyCalibration": {
+      "additionalProperties": false,
+      "description": "Realistic latency calibration (13 §6.8, §7.4). M3b.",
+      "properties": {
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "components": {
+          "$ref": "#/$defs/LatencyComponents"
+        }
+      },
+      "required": ["calibrationId", "components"],
+      "type": "object"
+    },
+    "LatencyComponents": {
+      "additionalProperties": false,
+      "description": "The realistic latency components (13 §7.3).",
+      "properties": {
+        "ack": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "cancel": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "cancelAck": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "chainMerge": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "chainSplit": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "confirmed": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "failed": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "fillReport": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "mined": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "place": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": [
+        "place",
+        "cancel",
+        "ack",
+        "cancelAck",
+        "fillReport",
+        "mined",
+        "confirmed",
+        "failed",
+        "chainSplit",
+        "chainMerge"
+      ],
+      "type": "object"
+    },
+    "LatencyModel": {
+      "description": "`ModelConfig.execution.models.latency` (13 §7.3).",
+      "enum": ["exact", "compat"],
+      "type": "string"
+    },
+    "MakerModel": {
+      "description": "`ModelConfig.execution.models.maker` (13 §7.3).",
+      "enum": ["queue", "trade_through", "worst_queue"],
+      "type": "string"
+    },
+    "MakerQueueConfig": {
+      "additionalProperties": false,
+      "description": "Maker queue parameters (13 §6.5, §7.3). M3b.",
+      "properties": {
+        "cancelAheadShare": {
+          "description": "A share in [0, 1].",
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "printMatchWindowMs": {
+          "description": "At most [`PRINT_MATCH_WINDOW_MAX_MS`].",
+          "maximum": 600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prints": {
+          "$ref": "#/$defs/MakerQueuePrints"
+        }
+      },
+      "required": ["cancelAheadShare", "printMatchWindowMs", "prints"],
+      "type": "object"
+    },
+    "MakerQueuePrints": {
+      "description": "`ModelConfig.execution.makerQueue.prints` (13 §7.3; realistic, M3b).",
+      "enum": ["auto", "off"],
+      "type": "string"
+    },
+    "MarketDataClock": {
+      "additionalProperties": false,
+      "properties": {
+        "calibrationId": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "delay": {
+          "$ref": "#/$defs/Distribution"
+        }
+      },
+      "required": ["calibrationId", "delay"],
+      "type": "object"
+    },
+    "MarketRules": {
+      "additionalProperties": false,
+      "description": "`market.rules`: captured values only (11 JC1).",
+      "properties": {
+        "captured": {
+          "$ref": "#/$defs/CapturedRules"
+        },
+        "disagreements": {
+          "description": "RS3 Gamma-vs-CLOB disagreements.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "snapshotParserVersion": {
+          "description": "Positive; `null` iff `captured` is empty.",
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["snapshotParserVersion", "captured", "disagreements"],
+      "type": "object"
+    },
+    "MarketSection": {
+      "additionalProperties": false,
+      "properties": {
+        "conditionId": {
+          "description": "`telonex_markets.market_id`, the V4 manifest or the journal header;\nnull when unknown (15 I-18).",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": ["string", "null"]
+        },
+        "feedAvailability": {
+          "$ref": "#/$defs/FeedAvailability"
+        },
+        "feedFiles": {
+          "items": {
+            "$ref": "#/$defs/FeedFile"
+          },
+          "type": "array"
+        },
+        "gammaPriceToBeat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GammaPriceToBeat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Tri-state: absent = not requested, null = catalog miss, object =\nresolved (21 §5.1)."
+        },
+        "input": {
+          "$ref": "#/$defs/InputRef"
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JournalInput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required iff `inputMode` is `journal` (15 §9, I-50, I-51)."
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "ownActivity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OwnActivity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Calibration only (15 I-39)."
+        },
+        "recorderV4": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecorderV4Input"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required iff `inputMode` is `recorder-v4` (15 §5)."
+        },
+        "rules": {
+          "$ref": "#/$defs/MarketRules"
+        },
+        "slug": {
+          "pattern": "^btc-updown-(5m|15m)-[0-9]{10}$",
+          "type": "string"
+        },
+        "tokenIds": {
+          "$ref": "#/$defs/TokenIds"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Window"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null only for recorder-v4 in ts-compat (21 §5.1)."
+        }
+      },
+      "required": [
+        "slug",
+        "conditionId",
+        "window",
+        "tokenIds",
+        "outcome",
+        "rules",
+        "feedAvailability",
+        "input",
+        "recorderV4",
+        "journal",
+        "ownActivity",
+        "feedFiles"
+      ],
+      "type": "object"
+    },
+    "MarketVersion": {
+      "description": "Market exchange version (11 V1).",
+      "enum": ["v1", "v2"],
+      "type": "string"
+    },
+    "MissingSnapshot": {
+      "description": "`ModelConfig.rules.missingSnapshot` (11 §13.4; one value in v1).",
+      "enum": ["dated_fallback"],
+      "type": "string"
+    },
+    "ModelConfig": {
+      "additionalProperties": false,
+      "description": "The complete, producer-resolved model settings of a run (21 §6).",
+      "properties": {
+        "capital": {
+          "$ref": "#/$defs/CapitalConfig"
+        },
+        "clock": {
+          "$ref": "#/$defs/ClockConfig",
+          "description": "Market-data clock (12 §4.5). Realistic only; absent in ts-compat\nuntil M3b (D57)."
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionConfig"
+        },
+        "feeds": {
+          "$ref": "#/$defs/FeedsConfig"
+        },
+        "modelConfigVersion": {
+          "const": 1,
+          "type": "integer"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskConfig"
+        },
+        "rules": {
+          "$ref": "#/$defs/RulesConfig"
+        },
+        "runner": {
+          "$ref": "#/$defs/RunnerConfig"
+        },
+        "seed": {
+          "description": "Run seed in `[0, 2^53 - 1]` (10 §6.1 RNG-1).",
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelConfigVersion",
+        "profile",
+        "seed",
+        "capital",
+        "execution",
+        "feeds",
+        "runner",
+        "risk",
+        "rules"
+      ],
+      "type": "object"
+    },
+    "Outcome": {
+      "description": "Market outcome; also the `tokenIds` keys and `finalOutcome` (21 §17).",
+      "enum": ["UP", "DOWN"],
+      "type": "string"
+    },
+    "OwnActivity": {
+      "additionalProperties": false,
+      "description": "Own-activity ledger for decontaminated calibration replays (15 I-39).",
+      "properties": {
+        "clock": {
+          "$ref": "#/$defs/OwnActivityClock"
+        },
+        "ledger": {
+          "$ref": "#/$defs/FileRef"
+        },
+        "maxPlacementMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "restoreHorizonMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["ledger", "clock", "maxPlacementMs", "restoreHorizonMs"],
+      "type": "object"
+    },
+    "OwnActivityClock": {
+      "additionalProperties": false,
+      "properties": {
+        "offsetMs": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "uncertaintyMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["offsetMs", "uncertaintyMs"],
+      "type": "object"
+    },
+    "PriceToBeatAvailability": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "description": "Required for `unavailable_*` (14 §6.2); one line.",
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "^[^\\n\\r]*$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PriceToBeatStatus"
+        }
+      },
+      "required": ["status"],
+      "type": "object"
+    },
+    "PriceToBeatStatus": {
+      "description": "Producer-resolved price-to-beat availability (14 §6.2).",
+      "enum": [
+        "fed",
+        "absent_pre_series_epoch",
+        "absent_fresh_market_grace",
+        "unavailable_pipeline_incomplete",
+        "unavailable_upstream_hole"
+      ],
+      "type": "string"
+    },
+    "Profile": {
+      "description": "Execution profile (21 §17, 13 §7.2).",
+      "enum": ["ts-compat", "realistic"],
+      "type": "string"
+    },
+    "RecorderV4Input": {
+      "additionalProperties": false,
+      "description": "Recorder V4 input (15 §5). `manifest` is opaque here and validated by the\nV4 manifest schema (21 §3).",
+      "properties": {
+        "allowGaps": {
+          "type": "boolean"
+        },
+        "manifest": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": ["manifest", "allowGaps"],
+      "type": "object"
+    },
+    "ReportsModel": {
+      "description": "`ModelConfig.execution.models.reports` (13 §7.3).",
+      "enum": ["settlement", "compat"],
+      "type": "string"
+    },
+    "RiskConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.risk` (12 §8).",
+      "properties": {
+        "maxAbsPosition": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "maxLossStopUsdc": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        },
+        "maxOpenOrders": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxOrderSize": {
+          "pattern": "^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\\.[0-9]{0,5}[1-9])$",
+          "type": "string"
+        }
+      },
+      "required": ["maxOpenOrders", "maxOrderSize", "maxAbsPosition", "maxLossStopUsdc"],
+      "type": "object"
+    },
+    "RulesConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.rules` (11 §13.4).",
+      "properties": {
+        "missingSnapshot": {
+          "$ref": "#/$defs/MissingSnapshot"
+        },
+        "rulesTableVersion": {
+          "pattern": "^rules-table-v[1-9][0-9]{0,5}$",
+          "type": "string"
+        }
+      },
+      "required": ["rulesTableVersion", "missingSnapshot"],
+      "type": "object"
+    },
+    "RulesOrigin": {
+      "description": "Origin of a captured rules value (11 §13.1).",
+      "enum": ["gamma", "clob", "v4_bootstrap", "live_gamma", "live_clob"],
+      "type": "string"
+    },
+    "RulesPhase": {
+      "description": "Capture phase relative to the market start (11 §13.1).",
+      "enum": ["pre_start", "post_start"],
+      "type": "string"
+    },
+    "RunSection": {
+      "additionalProperties": false,
+      "description": "Run-level section, identical for every market of a submission or group.",
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/CandidateSpec"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "inputMode": {
+          "$ref": "#/$defs/InputMode"
+        },
+        "modelConfig": {
+          "$ref": "#/$defs/ModelConfig"
+        },
+        "strategyId": {
+          "description": "Equals the binary's strategy id (21 §5.1).",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": ["strategyId", "inputMode", "modelConfig", "candidates"],
+      "type": "object"
+    },
+    "RunnerConfig": {
+      "additionalProperties": false,
+      "description": "`ModelConfig.runner` (12 §6.3).",
+      "properties": {
+        "maxEventsPerDrain": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": ["maxEventsPerDrain"],
+      "type": "object"
+    },
+    "SellGate": {
+      "description": "`ModelConfig.execution.sellGate` (13 §7.3; realistic, M3b).",
+      "enum": ["Matched", "Mined", "Confirmed"],
+      "type": "string"
+    },
+    "ServeJob": {
+      "additionalProperties": false,
+      "description": "An `EngineJob` whose run section is inline (`run`) or a cached context\n(`runRef`), exactly one of the two (20 §6.2).",
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/JobBudget"
+        },
+        "jobSchemaVersion": {
+          "const": 1,
+          "type": "integer"
+        },
+        "market": {
+          "$ref": "#/$defs/MarketSection"
+        },
+        "outputs": {
+          "$ref": "#/$defs/JobOutputs"
+        },
+        "run": {
+          "$ref": "#/$defs/RunSection"
+        },
+        "runRef": {
+          "pattern": "^[!-~]{1,256}$",
+          "type": "string"
+        }
+      },
+      "required": ["jobSchemaVersion", "market", "outputs", "budget"],
+      "type": "object"
+    },
+    "TakerDelayModel": {
+      "description": "`ModelConfig.execution.models.takerDelay` (13 §7.3).",
+      "enum": ["on", "off"],
+      "type": "string"
+    },
+    "TokenIds": {
+      "additionalProperties": false,
+      "properties": {
+        "DOWN": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "UP": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": ["UP", "DOWN"],
+      "type": "object"
+    },
+    "TraceLevel": {
+      "description": "Parity trace level (22 §3.2, 20 §5.4).",
+      "enum": ["decisions", "feeds"],
+      "type": "string"
+    },
+    "Window": {
+      "additionalProperties": false,
+      "description": "Market window in epoch ms (10 §5).",
+      "properties": {
+        "endMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startMs": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["startMs", "endMs"],
+      "type": "object"
+    }
+  },
+  "$id": "https://pmb.invalid/contract/v1/serveIn.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "TS to binary (20 §6.2).",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "description": "Caches the run-level section under `contextId`; idempotent. The\nbinary parses it with each job that references it (20 §6.3 S1).",
+      "properties": {
+        "contextId": {
+          "pattern": "^[!-~]{1,256}$",
+          "type": "string"
+        },
+        "run": {
+          "$ref": "#/$defs/RunSection"
+        },
+        "type": {
+          "const": "context",
+          "type": "string"
+        }
+      },
+      "required": ["type", "contextId", "run"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Starts a job; `job.run` is inline or replaced by `job.runRef`. An\ninvalid job gets its own error result, as in `run` (20 §6.3 S1).",
+      "properties": {
+        "job": {
+          "$ref": "#/$defs/ServeJob"
+        },
+        "jobId": {
+          "pattern": "^[!-~]{1,256}$",
+          "type": "string"
+        },
+        "type": {
+          "const": "job",
+          "type": "string"
+        }
+      },
+      "required": ["type", "jobId", "job"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Cooperative abort; the job returns class `canceled`.",
+      "properties": {
+        "jobId": {
+          "pattern": "^[!-~]{1,256}$",
+          "type": "string"
+        },
+        "type": {
+          "const": "cancel",
+          "type": "string"
+        }
+      },
+      "required": ["type", "jobId"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Liveness probe.",
+      "properties": {
+        "id": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": {
+          "const": "ping",
+          "type": "string"
+        }
+      },
+      "required": ["type", "id"],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Accept no new jobs, finish in-flight jobs, emit `drained`, exit 0.",
+      "properties": {
+        "type": {
+          "const": "drain",
+          "type": "string"
+        }
+      },
+      "required": ["type"],
+      "type": "object"
+    }
+  ],
+  "title": "ServeIn"
+}

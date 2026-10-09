@@ -22,9 +22,18 @@ pub const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 /// Scale of [`Decimal`] (fixed point at 1e6 base units, 10 §2).
 pub const MICROS_PER_UNIT: i64 = 1_000_000;
 
-/// Pattern of a contract decimal string: canonical form, at most 6
-/// fractional digits, no trailing zeros, no exponent, no `-0` (21 §6.1).
-pub const DECIMAL_PATTERN: &str = r"^(0|-?[1-9][0-9]*|-?(0|[1-9][0-9]*)\.[0-9]{0,5}[1-9])$";
+/// Most integer digits of a contract decimal string, so every value fits
+/// `i64` micros exactly (|x| < 1e12).
+// D-PENDING: 21 §6.1 bounds only the fractional digits; chose at most 12
+// integer digits (|x| < 1e12, the largest column range of 21 §11) so the
+// JSON Schema and the Rust parser reject exactly the same strings.
+pub const DECIMAL_MAX_INT_DIGITS: usize = 12;
+
+/// Pattern of a contract decimal string (21 §6.1): canonical form, at most 6
+/// fractional digits, no trailing zeros, no exponent, no `-0` (N1), at most
+/// [`DECIMAL_MAX_INT_DIGITS`] integer digits.
+pub const DECIMAL_PATTERN: &str =
+    r"^(0|-?[1-9][0-9]{0,11}|-?(0|[1-9][0-9]{0,11})\.[0-9]{0,5}[1-9])$";
 
 // ---------------------------------------------------------------------------
 // Decimal (job side, string)
@@ -82,7 +91,9 @@ impl Decimal {
         if int_part.is_empty() || !int_part.bytes().all(|b| b.is_ascii_digit()) {
             return Err(err());
         }
-        if int_part.len() > 1 && int_part.starts_with('0') {
+        if (int_part.len() > 1 && int_part.starts_with('0'))
+            || int_part.len() > DECIMAL_MAX_INT_DIGITS
+        {
             return Err(err());
         }
         let mut frac_micros: i64 = 0;
@@ -202,13 +213,19 @@ impl<const DP: u32> OutDec<DP> {
         self.units
     }
 
-    /// The value in 1e6 micros (exact for DP ≤ 6).
-    pub fn micros(self) -> i64 {
+    /// The value in 1e6 micros (exact for DP ≤ 6); `None` when it does not
+    /// fit `i64` (a parsed 2-dp value above about 9.2e12).
+    pub fn micros(self) -> Option<i64> {
         assert!(DP <= 6, "OutDec micros() needs DP <= 6");
-        self.units * 10_i64.pow(6 - DP)
+        self.units.checked_mul(10_i64.pow(6 - DP))
     }
 
     /// Quantizes micros half away from zero to DP places (D08, 21 §11).
+    ///
+    /// For values held exactly in micros only (money, shares). A value that
+    /// is a ratio (the BUY VWAP `avgEntryPrice*`) goes through
+    /// [`Self::from_ratio_half_away`] instead: quantizing it to micros first
+    /// and then to DP places would round twice (10 §3.1 R-3).
     pub fn from_micros_half_away(micros: i64) -> Self {
         assert!(DP <= 6, "OutDec from_micros needs DP <= 6");
         let div = 10_i64.pow(6 - DP);
@@ -222,58 +239,79 @@ impl<const DP: u32> OutDec<DP> {
         OutDec { units }
     }
 
-    /// Parses a JSON number token exactly.
+    /// Quantizes the exact rational `num / den` half away from zero to DP
+    /// places in one step (10 §3.1 R-3, §3.3; D08). `None` when `den` is 0
+    /// or the result does not fit.
+    ///
+    /// 21 §11 `avgEntryPriceUp/Down` = Σ(price × size) / Σ size: with prices
+    /// and sizes in micros, `num = Σ(price_micros × size_micros)` and
+    /// `den = Σ size_micros × 1_000_000`. Exact VWAP 0.1234495 gives 0.1234
+    /// at 4 dp, where micros-then-4-dp would give 0.1235.
+    pub fn from_ratio_half_away(num: i128, den: i128) -> Option<Self> {
+        if den == 0 {
+            return None;
+        }
+        let (num, den) = if den < 0 {
+            (num.checked_neg()?, -den)
+        } else {
+            (num, den)
+        };
+        let scaled = num.checked_mul(10_i128.pow(DP))?;
+        let q = scaled / den;
+        let r = scaled % den;
+        let units = if 2 * r.unsigned_abs() >= den.unsigned_abs() {
+            q + scaled.signum()
+        } else {
+            q
+        };
+        Some(OutDec {
+            units: i64::try_from(units).ok()?,
+        })
+    }
+
+    /// Parses a JSON number token exactly (21 §18 N5): plain decimal
+    /// digits, no exponent, at most `DP` fractional digits, no `-0` (N1).
+    /// Trailing zeros inside `DP` are accepted (N5 has no padding rule).
     pub fn parse_json_number(text: &str) -> Result<Self, DecimalError> {
         let err = |why: &str| DecimalError(format!("invalid {DP}-dp number {text:?}: {why}"));
-        let (mantissa, exp) = match text.find(['e', 'E']) {
-            Some(pos) => {
-                let e: i32 = text[pos + 1..].parse().map_err(|_| err("bad exponent"))?;
-                (&text[..pos], e)
-            }
-            None => (text, 0),
-        };
-        let (neg, body) = match mantissa.strip_prefix('-') {
+        let (neg, body) = match text.strip_prefix('-') {
             Some(rest) => (true, rest),
-            None => (false, mantissa),
+            None => (false, text),
         };
-        let (int_part, frac_part) = body.split_once('.').unwrap_or((body, ""));
+        let (int_part, frac_part) = match body.split_once('.') {
+            Some((i, f)) => (i, Some(f)),
+            None => (body, None),
+        };
         if int_part.is_empty()
             || !int_part.bytes().all(|b| b.is_ascii_digit())
-            || !frac_part.bytes().all(|b| b.is_ascii_digit())
-            || (body.contains('.') && frac_part.is_empty())
+            || (int_part.len() > 1 && int_part.starts_with('0'))
         {
-            return Err(err("not a JSON number"));
+            return Err(err("not a plain decimal number (no exponent, N5)"));
         }
-        // digits × 10^(exp − frac_len) must be a multiple of 10^-DP.
-        let digits = format!("{int_part}{frac_part}");
-        let digits = digits.trim_start_matches('0');
-        let shift = i64::from(exp) - frac_part.len() as i64 + i64::from(DP);
-        let mut units: i128 = 0;
-        if !digits.is_empty() {
-            if digits.len() > 30 {
-                return Err(err("too many digits"));
-            }
-            let mut v: i128 = digits.parse().map_err(|_| err("digits"))?;
-            if shift >= 0 {
-                for _ in 0..shift {
-                    v = v.checked_mul(10).ok_or_else(|| err("out of range"))?;
-                }
-            } else {
-                for _ in 0..(-shift) {
-                    if v % 10 != 0 {
-                        return Err(err("more decimal places than allowed"));
-                    }
-                    v /= 10;
-                }
-            }
-            units = v;
+        let frac = frac_part.unwrap_or("");
+        if frac_part.is_some() && (frac.is_empty() || !frac.bytes().all(|b| b.is_ascii_digit())) {
+            return Err(err("not a plain decimal number (no exponent, N5)"));
         }
-        let units = if neg { -units } else { units };
+        if frac.len() > DP as usize {
+            return Err(err("more decimal places than allowed"));
+        }
+        let mut units: i64 = 0;
+        let digits = int_part
+            .bytes()
+            .chain(frac.bytes())
+            .chain(std::iter::repeat_n(b'0', DP as usize - frac.len()));
+        for b in digits {
+            units = units
+                .checked_mul(10)
+                .and_then(|v| v.checked_add(i64::from(b - b'0')))
+                .ok_or_else(|| err("out of range"))?;
+        }
         if neg && units == 0 {
             return Err(err("negative zero (N1)"));
         }
-        let units = i64::try_from(units).map_err(|_| err("out of range"))?;
-        Ok(OutDec { units })
+        Ok(OutDec {
+            units: if neg { -units } else { units },
+        })
     }
 }
 
@@ -489,6 +527,7 @@ mod tests {
             ("-1.5", -1_500_000),
             ("0.000001", 1),
             ("2000", 2_000_000_000),
+            ("999999999999.999999", 999_999_999_999_999_999),
         ] {
             let d = Decimal::parse(t).unwrap();
             assert_eq!(d.micros(), m, "{t}");
@@ -509,6 +548,9 @@ mod tests {
             "-0.0",
             "1.0",
             "0x10",
+            // spec: 21 §6.1 bound chosen in DECIMAL_MAX_INT_DIGITS.
+            "1000000000000",
+            "-1000000000000.5",
         ] {
             assert!(Decimal::parse(bad).is_err(), "{bad:?} must be rejected");
         }
@@ -535,8 +577,10 @@ mod tests {
         let v: OutDec2 = serde_json::from_str("12.40").unwrap();
         assert_eq!(v.units(), 1240);
         assert_eq!(serde_json::to_string(&v).unwrap(), "12.4");
-        let v: OutDec4 = serde_json::from_str("1.5e-3").unwrap();
-        assert_eq!(v.units(), 15);
+        // spec: 21 §18 N5 (no exponent), N1 (no -0).
+        assert!(serde_json::from_str::<OutDec4>("1.5e-3").is_err());
+        assert!(serde_json::from_str::<OutDec4>("15E2").is_err());
+        assert!(serde_json::from_str::<OutDec2>("-0.00").is_err());
         assert!(serde_json::from_str::<OutDec2>("0.001").is_err());
         assert!(serde_json::from_str::<OutDec2>("\"1.5\"").is_err());
         assert!(serde_json::from_str::<OutDec2>("-0").is_err());
@@ -549,6 +593,40 @@ mod tests {
         assert_eq!(OutDec2::from_micros_half_away(12_344_999).units(), 1234);
         assert_eq!(OutDec4::from_micros_half_away(-50).units(), -1);
         assert_eq!(OutDec6::from_micros_half_away(-7).units(), -7);
+    }
+
+    #[test]
+    fn ratio_quantizes_in_one_step() {
+        // spec: 10 §3.1 R-3 (one HalfAwayFromZero step), 21 §11 avgEntryPrice (4 dp)
+        // 0.1234495 exactly: 1234495 / 10^7.
+        assert_eq!(
+            OutDec4::from_ratio_half_away(1_234_495, 10_000_000)
+                .unwrap()
+                .units(),
+            1234
+        );
+        // Double rounding would give 1235 here.
+        assert_eq!(OutDec4::from_micros_half_away(123_450).units(), 1235);
+        // VWAP of 3 @ 0.51 and 1 @ 0.52 in micros: (0.51*3 + 0.52*1) / 4 = 0.5125.
+        let num = 510_000_i128 * 3_000_000 + 520_000 * 1_000_000;
+        let den = 4_000_000_i128 * 1_000_000;
+        assert_eq!(
+            OutDec4::from_ratio_half_away(num, den).unwrap().units(),
+            5125
+        );
+        // Ties go away from zero, in both signs and with a negative den.
+        assert_eq!(OutDec2::from_ratio_half_away(1, 200).unwrap().units(), 1);
+        assert_eq!(OutDec2::from_ratio_half_away(-1, 200).unwrap().units(), -1);
+        assert_eq!(OutDec2::from_ratio_half_away(1, -200).unwrap().units(), -1);
+        assert_eq!(OutDec2::from_ratio_half_away(1, 0), None);
+        assert_eq!(OutDec2::from_ratio_half_away(i128::MAX, 1), None);
+    }
+
+    #[test]
+    fn micros_is_checked() {
+        let v: OutDec2 = serde_json::from_str("92233720368547758.07").unwrap();
+        assert_eq!(v.micros(), None);
+        assert_eq!(OutDec2::from_units(-1235).micros(), Some(-12_350_000));
     }
 
     #[test]

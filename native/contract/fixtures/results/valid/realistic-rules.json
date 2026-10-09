@@ -7,16 +7,16 @@
     "engineCommit": "da5d150e00000000000000000000000000000000",
     "strategyId": "engine-exerciser.v2.rs",
     "jobSchemaVersion": 1,
-    "profile": "ts-compat",
+    "profile": "realistic",
     "seed": 0,
     "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "rulesTableVersion": "rules-table-v1",
-    "snapshotParserVersion": null
+    "snapshotParserVersion": 1
   },
   "market": {
     "slug": "btc-updown-15m-1780272000",
     "conditionId": "0x8f3c1a2b",
-    "rulesSource": "fallback"
+    "rulesSource": "partial"
   },
   "candidates": [
     {
@@ -43,12 +43,31 @@
           "cost": 5.12,
           "splitCost": 0,
           "intentMeta": [
-            { "signal": "lag", "edge": 0.0123, "windowsMetrics": { "w60": [1, 2.5, null] } }
+            {
+              "signal": "lag",
+              "edge": 0.0123,
+              "windowsMetrics": {
+                "w60": [1, 2.5, null]
+              }
+            }
           ],
-          "rules": null
+          "rules": {
+            "source": "partial",
+            "rulesTableVersion": "rules-table-v1",
+            "snapshotParserVersion": 1,
+            "feeEra": "f3",
+            "feeCurve": "crypto_fees_v2",
+            "feeSource": "captured",
+            "unverifiedRules": ["fe3_curve", "tt3_inference"]
+          }
         },
-        "eventsProcessed": 4824,
-        "eventsByType": { "book": 1, "price_change": 4823 }
+        "eventsProcessed": 4830,
+        "eventsByType": {
+          "book": 1,
+          "price_change": 4823,
+          "binance_agg_trade": 6,
+          "chainlink_round": 0
+        }
       }
     },
     {
@@ -76,32 +95,26 @@
           "splitCost": 0,
           "intentMeta": [],
           "skipReason": "no_in_window_activity",
-          "rules": null
+          "rules": {
+            "source": "partial",
+            "rulesTableVersion": "rules-table-v1",
+            "snapshotParserVersion": 1,
+            "feeEra": "f3",
+            "feeCurve": "crypto_fees_v2",
+            "feeSource": "captured",
+            "unverifiedRules": []
+          }
         },
         "eventsProcessed": 4824,
-        "eventsByType": { "book": 1, "price_change": 4823 },
+        "eventsByType": {
+          "book": 1,
+          "price_change": 4823
+        },
         "skipReason": "no_activity"
-      }
-    },
-    {
-      "key": "cand-c",
-      "index": 2,
-      "status": "error",
-      "modelConfigSha256": "1111111111111111111111111111111111111111111111111111111111111111",
-      "error": {
-        "class": "strategy_fault",
-        "cause": "panic",
-        "message": "index out of bounds",
-        "detail": {
-          "callback": "onMarketTick",
-          "seq": 1843,
-          "tsMs": 1780272401234,
-          "location": "src/bin/x.rs:88"
-        }
       }
     }
   ],
-  "resultDigest": "7789f154996383de1cb8f90b6868963cece81f39ab43674b047e5d549f66fac1",
+  "resultDigest": "385b5a6b23a4d2994f81f35ad98fe0961db6343e3882f535100d2c9e2f02e0c2",
   "diagnostics": {
     "startedAtMs": 1791500000000,
     "finishedAtMs": 1791500000210,
@@ -110,19 +123,27 @@
     "cpuMs": 205,
     "peakRssBytes": 41000000,
     "thread": 3,
-    "cache": { "hits": 2, "misses": 0 },
+    "cache": {
+      "hits": 2,
+      "misses": 0
+    },
     "skewMs": 9,
     "inputPath": "tape",
     "anomalies": {
       "staleBookEvents": 0,
       "inexact_decimal": 1,
-      "skippedRows": { "unknown_asset": 2 }
+      "skippedRows": {
+        "unknown_asset": 2
+      }
     },
     "counters": [
       {
         "key": "cand-a",
         "ordersPlaced": 4,
-        "ordersRejected": { "post_only_would_cross": 1 },
+        "ordersRejected": {
+          "insufficient_capital": 2,
+          "post_only_would_cross": 1
+        },
         "ordersCanceled": 2,
         "buyNotionalUsdc": "12.4",
         "sellNotionalUsdc": "0",

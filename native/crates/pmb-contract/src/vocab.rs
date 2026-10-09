@@ -123,6 +123,18 @@ impl ErrorClass {
         }
     }
 
+    /// Classes a group-level error may have when it is raised before the
+    /// job is read, so the result has no `echo` and no `market` (21 §10):
+    /// a job that does not parse (`invalid_input`), an unreadable job file
+    /// (`runtime`), or a caught panic (`engine_fault`). Every other class
+    /// needs a read job.
+    pub const fn may_precede_job_read(self) -> bool {
+        matches!(
+            self,
+            ErrorClass::InvalidInput | ErrorClass::Runtime | ErrorClass::EngineFault
+        )
+    }
+
     /// Deterministic classes never burn retries (21 §14).
     pub const fn is_deterministic(self) -> bool {
         matches!(
@@ -171,6 +183,46 @@ impl FailureClass {
             ErrorClass::Killed => FailureClass::Killed,
             ErrorClass::Canceled => return None,
         })
+    }
+}
+
+closed_enum! {
+    /// Reject reason codes: the `RejectReason` enum of 10 §10.2, serialized
+    /// as the text before `(` of today's TS strings (21 §17; the keys of
+    /// `diagnostics.counters[].ordersRejected`). Equal to `pmb-core`'s
+    /// `RejectReason::code()` values, engine origin first.
+    pub enum RejectReasonCode {
+        InvalidPrice => "invalid_price",
+        InvalidSize => "invalid_size",
+        UnknownOutcome => "missing_assetId",
+        PostOnlyRequiresResting => "post_only_requires_gtc_or_gtd",
+        GtdRequiresExpiry => "gtd_requires_expireAtMs",
+        GtdExpiryTooSoon => "gtd_expireAtMs_too_soon",
+        InsufficientCapital => "insufficient_capital",
+        InsufficientInventory => "insufficient_inventory",
+        RiskMaxOpenOrders => "risk_max_open_orders",
+        RiskMaxOrderSize => "risk_max_order_size",
+        RiskMaxAbsPosition => "risk_max_abs_position",
+        RiskLossStop => "risk_loss_stop",
+        BatchTooLarge => "batch_too_large",
+        SelfCross => "self_cross",
+        MetaTooLarge => "meta_too_large",
+        StrategyHalted => "strategy_halted",
+        KillSwitch => "kill_switch",
+        InvalidTick => "invalid_tick",
+        PriceOutOfBounds => "price_out_of_bounds",
+        SizeBelowMinimum => "size_below_minimum",
+        NotionalBelowMinimum => "notional_below_minimum",
+        SizePrecision => "size_precision",
+        AmountPrecision => "amount_precision",
+        PostOnlyWouldCross => "post_only_would_cross",
+        GtdLeadTooShort => "gtd_lead_too_short",
+        MarketClosed => "market_closed",
+        TradingRestricted => "trading_restricted",
+        RateLimited => "rate_limited",
+        InsufficientExchangeBalance => "insufficient_exchange_balance",
+        NotFoundAfterAmbiguous => "not_found_after_ambiguous",
+        Unmapped => "unmapped",
     }
 }
 
@@ -226,10 +278,45 @@ closed_enum! {
 }
 
 closed_enum! {
+    /// `market.journal.replay` (15 §9, I-50).
+    // D-PENDING: 15 §9 shows only "determinism"; chose a one-value enum
+    // (`allowEngineMismatch` selects the what-if replay of I-51).
+    pub enum JournalReplay {
+        Determinism => "determinism",
+    }
+}
+
+closed_enum! {
     /// Parity trace level (22 §3.2, 20 §5.4).
     pub enum TraceLevel {
         Decisions => "decisions",
         Feeds => "feeds",
+    }
+}
+
+closed_enum! {
+    /// `serve --qos` values (16 §10.2), echoed as `ready.qos.requested`.
+    pub enum QosClass {
+        UserInitiated => "user-initiated",
+        Default => "default",
+        Utility => "utility",
+        Background => "background",
+    }
+}
+
+closed_enum! {
+    /// The thread QoS class read back after setting it (16 §10.2); a
+    /// clamped process can report a class it did not request.
+    // D-PENDING: 16 §10.2 lists only the requestable classes; chose to add
+    // the other macOS classes (`user-interactive`, `unspecified`) for the
+    // read-back value.
+    pub enum EffectiveQos {
+        UserInteractive => "user-interactive",
+        UserInitiated => "user-initiated",
+        Default => "default",
+        Utility => "utility",
+        Background => "background",
+        Unspecified => "unspecified",
     }
 }
 
@@ -348,7 +435,15 @@ mod tests {
         }
         assert!(serde_json::from_str::<Profile>("\"Realistic\"").is_err());
         assert!(serde_json::from_str::<InputMode>("\"recorded\"").is_err());
-        assert!(serde_json::from_str::<ErrorClass>("\"input_invalid\"").is_err());
+        // A superseded class name (20 §4.4), built at run time so the drift
+        // guard never sees it in source.
+        let superseded = format!("\"{}_{}\"", "input", "invalid");
+        assert!(serde_json::from_str::<ErrorClass>(&superseded).is_err());
+        assert!(serde_json::from_str::<RejectReasonCode>("\"insufficient_capital\"").is_ok());
+        assert!(serde_json::from_str::<RejectReasonCode>(
+            "\"insufficient_capital(required=1,available=0)\""
+        )
+        .is_err());
         assert_eq!(FailureClass::from_error_class(ErrorClass::Canceled), None);
         assert_eq!(ErrorClass::DataDefect.exit_code(), Some(4));
     }

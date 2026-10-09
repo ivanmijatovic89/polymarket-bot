@@ -73,6 +73,30 @@ pub mod tristate {
     }
 }
 
+/// `#[serde(deserialize_with = "crate::support::nullable")]` makes an
+/// `Option<T>` field required-but-nullable: the key MUST be present and may
+/// be `null` (21 §3 closed objects, §6 "a missing field is
+/// `invalid_input`"). Without it serde silently reads a missing `Option`
+/// field as `None` (R14).
+pub fn nullable<'de, T: Deserialize<'de>, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    Option::<T>::deserialize(d)
+}
+
+/// `#[serde(default, skip_serializing_if = "Option::is_none",
+/// deserialize_with = "crate::support::present")]` (with
+/// `#[schemars(with = "T")]`) makes an `Option<T>` field optional-but-not-
+/// nullable: absent means `None`, and an explicit `null` is rejected, so the
+/// accepted form is the emitted one and the generated TS type is `field?: T`
+/// (21 §3 closed objects; P1 keeps today's TS shapes, e.g.
+/// `MarketStats.skipReason?`).
+pub fn present<'de, T: Deserialize<'de>, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+
 /// A contract validation failure, classified per 20 §4 (class and cause).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContractError {
@@ -88,6 +112,11 @@ impl ContractError {
             cause,
             message: message.into(),
         }
+    }
+
+    /// True for `invalid_input: schema`.
+    pub fn is_invalid_input_schema(&self) -> bool {
+        self.class == ErrorClass::InvalidInput && self.cause == "schema"
     }
 
     pub fn invalid_output(cause: &'static str, message: impl Into<String>) -> Self {
@@ -119,6 +148,18 @@ pub(crate) fn ensure(
     } else {
         Err(ContractError::invalid_input(cause, msg()))
     }
+}
+
+/// True when `s` has `min..=max` Unicode scalar values: JSON Schema
+/// `minLength`/`maxLength` and MySQL `varchar(N)` count characters, not
+/// bytes (21 §3: Rust and TS reject the same values; §11 varchar(255)).
+pub fn is_char_len_within(s: &str, min: usize, max: usize) -> bool {
+    let n = if s.is_ascii() {
+        s.len()
+    } else {
+        s.chars().count()
+    };
+    (min..=max).contains(&n)
 }
 
 /// Printable ASCII without `"` or `\` (21 §6.1 string rule).

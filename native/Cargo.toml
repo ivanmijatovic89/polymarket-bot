@@ -19,7 +19,7 @@ flate2 = "=1.1.2"
 libm = "0.2"
 parquet = { version = "=56.2.0", default-features = false, features = ["snap", "flate2-rust_backened", "zstd", "lz4"] }
 proptest = { version = "1", default-features = false, features = ["std"] }
-schemars = "1"
+schemars = "=1.2.2"
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.141"
 sha2 = "=0.10.9"

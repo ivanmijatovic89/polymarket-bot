@@ -29,12 +29,22 @@ pub fn canonical_json(value: &Value) -> Result<String, CanonicalError> {
 }
 
 /// Canonical form for documents whose strings may need escaping (the JSON
-/// Schema bundle): strings are escaped as `serde_json` (and `JSON.stringify`)
-/// do; strings and keys MUST still be ASCII so the bytes agree everywhere.
+/// Schema bundle, 21 §3 `contractSha256`): strings are escaped as
+/// `serde_json` and `JSON.stringify` both do (`\"`, `\\`, `\b\f\n\r\t`,
+/// other C0 controls as lowercase `\u00xx`, everything else raw UTF-8), so
+/// the bytes agree in Rust and TS. Keys MUST be ASCII, because Rust sorts
+/// UTF-8 bytes and JS sorts UTF-16 units, which agree only on ASCII.
 pub fn canonical_json_escaped(value: &Value) -> Result<String, CanonicalError> {
     let mut out = String::new();
     write_value(value, false, &mut out)?;
     Ok(out)
+}
+
+fn write_key(k: &str, strict: bool, out: &mut String) -> Result<(), CanonicalError> {
+    if !k.is_ascii() {
+        return Err(CanonicalError(format!("key {k:?} is not ASCII")));
+    }
+    write_str(k, strict, out)
 }
 
 fn write_str(s: &str, strict: bool, out: &mut String) -> Result<(), CanonicalError> {
@@ -48,9 +58,6 @@ fn write_str(s: &str, strict: bool, out: &mut String) -> Result<(), CanonicalErr
         out.push_str(s);
         out.push('"');
     } else {
-        if !s.is_ascii() {
-            return Err(CanonicalError(format!("string {s:?} is not ASCII")));
-        }
         out.push_str(&serde_json::to_string(s).map_err(|e| CanonicalError(e.to_string()))?);
     }
     Ok(())
@@ -94,7 +101,7 @@ fn write_value(value: &Value, strict: bool, out: &mut String) -> Result<(), Cano
                 if i > 0 {
                     out.push(',');
                 }
-                write_str(k, strict, out)?;
+                write_key(k, strict, out)?;
                 out.push(':');
                 write_value(&map[k], strict, out)?;
             }
@@ -128,6 +135,11 @@ mod tests {
             canonical_json_escaped(&json!({"a": "q\"q\n"})).unwrap(),
             r#"{"a":"q\"q\n"}"#
         );
-        assert!(canonical_json_escaped(&json!({"a": "é"})).is_err());
+        // spec: 21 §3 contractSha256 (UTF-8 strings raw, keys ASCII).
+        assert_eq!(
+            canonical_json_escaped(&json!({"a": "§\u{1}"})).unwrap(),
+            "{\"a\":\"§\\u0001\"}"
+        );
+        assert!(canonical_json_escaped(&json!({"é": 1})).is_err());
     }
 }

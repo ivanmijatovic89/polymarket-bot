@@ -2,11 +2,12 @@
   "outputSchemaVersion": 1,
   "status": "error",
   "error": {
-    "class": "data_defect",
-    "cause": "upstream_hole",
-    "message": "Chainlink hole 2026-06-01T10:00:00Z for 412 s (set maxGapMs 0 to replay stale)",
+    "class": "data_missing",
+    "cause": "day_file_missing",
+    "message": "binance_agg_trades BTCUSDT 2026-06-01 is not on this host",
     "detail": {
-      "fixCommand": "npm run telonex:crypto-prices:download -- --sync"
+      "path": "/data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-06-01.parquet",
+      "fixCommand": "npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT"
     }
   },
   "echo": {
@@ -26,7 +27,7 @@
     "rulesSource": "fallback"
   },
   "candidates": [],
-  "resultDigest": "17ae2a0546b7949b3742a58bc97c803d14731686680f9fe5ac03bbf3f4e21552",
+  "resultDigest": "0049d9293a1ae467ca448f423e9e9d62d8184091e298bddda3beb571b95c5d90",
   "diagnostics": {
     "startedAtMs": 1791500000000,
     "finishedAtMs": 1791500000010,

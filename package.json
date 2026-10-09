@@ -156,7 +156,11 @@
     "native:verify:local": "scripts/native/verify-local.sh",
     "native:parity:test": "tsx --test src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:parity:summary": "tsx src/cli/parity/parity-summary.ts",
-    "native:oracle:env-audit": "tsx src/cli/parity/oracle-env-audit.ts"
+    "native:oracle:env-audit": "tsx src/cli/parity/oracle-env-audit.ts",
+    "native:contract:check": "scripts/native/contract-check.sh",
+    "native:contract:export": "scripts/native/contract-export.sh",
+    "native:contract:gen": "scripts/native/contract-gen.sh",
+    "native:test:ts": "tsx --test src/native/contract/*.test.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
