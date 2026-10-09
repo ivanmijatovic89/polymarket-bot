@@ -1,11 +1,22 @@
 # Parity market set S15-CL (native/spec/60-verification.md §4.2 MS-0..MS-5)
-# Selection command: npx tsx scripts/parity/select-set.ts --set S15-CL --strategy feed-exerciser --param tickOnUpdate=false --param trade=false --param ta=false --param chainlink=true --from 2026-04-02T00:00:00Z --per-month 34 --seed 1 --edge 10
-# Seed: 1; per month: 34; edge markets: 10
+# Selection command: npx tsx scripts/parity/select-set.ts --set S15-CL --strategy feed-exerciser --param tickOnUpdate=false --param trade=false --param ta=false --param chainlink=true --from 2026-04-02T00:00:00Z --per-month 34 --seed 1 --edge 10 --edge-scan 400 --edge-per-criterion 2 --edge-scan-cache /private/tmp/claude-501/-Users-worker-1-Sites-polymarket-bot-native/905d21ba-7328-4701-a595-09a662ebcb36/scratchpad/edge-scan-cache.json
+# Seed: 1; per month: 34; minimum edge markets: 10
 # Eligibility (MS-2): listEligibleTelonexMarkets {"symbol":"btc","timeframe":"15m","converter":"delta-typed","readFrom":"local","requiredFeeds":{"binanceWsSpotPrice":{"tickOnUpdate":false},"rtdsCryptoPrices":{"tickOnUpdate":false},"polymarketPriceToBeat":{"enabled":true}},"fromMs":1775088000000,"toMs":null}
 # Eligible candidates: 15219, market starts 2026-04-02T00:00:00.000Z .. 2026-09-16T15:15:00.000Z (the range ends where the local Telonex catalog ends, D38)
 # Stratification (calendar month, UTC): 2026-04=34 2026-05=34 2026-06=34 2026-07=34 2026-08=34 2026-09=34
-# Fee eras (11 §5.3): F2=45 F3=169
-# MS-3 edge markets (proxy: input file size; the other MS-3 scan criteria are pending): btc-updown-15m-1787935500 (largest input file, 6506258 B), btc-updown-15m-1784298600 (largest input file, 6634379 B), btc-updown-15m-1789483500 (largest input file, 6843866 B), btc-updown-15m-1789498800 (largest input file, 7216354 B), btc-updown-15m-1789497900 (largest input file, 7942575 B), btc-updown-15m-1782880200 (smallest input file, 14174 B), btc-updown-15m-1787728500 (smallest input file, 14243 B), btc-updown-15m-1788304500 (smallest input file, 15952 B), btc-updown-15m-1787725800 (smallest input file, 16165 B), btc-updown-15m-1788318000 (smallest input file, 16260 B)
+# Fee eras (11 §5.3): F2=48 F3=166
+# MS-3 edge markets (replay scan of 400 seeded candidates plus the 5 largest and 5 smallest input files): 10
+#   btc-updown-15m-1789497900 -- most events: {"events":566496,"crossedBookTicks":101,"localClockBackwards":352,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1789498800 -- most events: {"events":511218,"crossedBookTicks":1143,"localClockBackwards":570,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1782880200 -- fewest events: {"events":425,"crossedBookTicks":0,"localClockBackwards":1,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1787728500 -- fewest events: {"events":472,"crossedBookTicks":0,"localClockBackwards":0,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1777202100 -- crossed-book ticks: {"events":40392,"crossedBookTicks":4033,"localClockBackwards":6999,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1785821400 -- crossed-book ticks: {"events":129004,"crossedBookTicks":990,"localClockBackwards":40,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1776816000 -- local clock backwards: {"events":139063,"crossedBookTicks":56,"localClockBackwards":50661,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1776887100 -- local clock backwards: {"events":171900,"crossedBookTicks":106,"localClockBackwards":41989,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1784298600 -- most events: {"events":498552,"crossedBookTicks":74,"localClockBackwards":139,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+#   btc-updown-15m-1787725800 -- fewest events: {"events":559,"crossedBookTicks":0,"localClockBackwards":0,"exchangeClockBackwards":0,"deltaBeforeBook":0,"missingBestAtStart":false}
+# MS-3 criteria with no market in the scan: exchange clock backwards; deltas before the first book; missing best bid or ask at window start
 # MS-5 replaced (missing local input or feed day file): 0
 # Oracle pin: 9463830defba2a1e305a77f3b5df24b7520c6c53
 # Date: 2026-10-09
@@ -34,10 +45,13 @@ btc-updown-15m-1776761100
 btc-updown-15m-1776771000
 btc-updown-15m-1776775500
 btc-updown-15m-1776790800
+btc-updown-15m-1776816000
 btc-updown-15m-1776879000
+btc-updown-15m-1776887100
 btc-updown-15m-1777086900
 btc-updown-15m-1777131900
 btc-updown-15m-1777187700
+btc-updown-15m-1777202100
 btc-updown-15m-1777229100
 btc-updown-15m-1777275000
 btc-updown-15m-1777340700
@@ -152,6 +166,7 @@ btc-updown-15m-1785625200
 btc-updown-15m-1785651300
 btc-updown-15m-1785694500
 btc-updown-15m-1785814200
+btc-updown-15m-1785821400
 btc-updown-15m-1785916800
 btc-updown-15m-1785997800
 btc-updown-15m-1786086000
@@ -183,11 +198,8 @@ btc-updown-15m-1787725800
 btc-updown-15m-1787728500
 btc-updown-15m-1787816700
 btc-updown-15m-1787819400
-btc-updown-15m-1787935500
 btc-updown-15m-1788104700
 btc-updown-15m-1788237900
-btc-updown-15m-1788304500
-btc-updown-15m-1788318000
 btc-updown-15m-1788380100
 btc-updown-15m-1788391800
 btc-updown-15m-1788478200
@@ -218,7 +230,6 @@ btc-updown-15m-1789397100
 btc-updown-15m-1789399800
 btc-updown-15m-1789425900
 btc-updown-15m-1789440300
-btc-updown-15m-1789483500
 btc-updown-15m-1789497900
 btc-updown-15m-1789498800
 btc-updown-15m-1789500600

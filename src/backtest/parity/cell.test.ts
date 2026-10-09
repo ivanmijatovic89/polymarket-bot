@@ -49,6 +49,21 @@ describe('parity cells (60 §4.1, HR-1)', () => {
     }
   })
 
+  it('the T15 cells use the committed ts-compat default ModelConfig (60 §4.1, 21 §6.3)', () => {
+    const defaults = JSON.parse(
+      readFileSync(
+        path.join(REPO_ROOT, 'native', 'contract', 'model-configs', 'ts-compat-default.json'),
+        'utf8',
+      ),
+    ) as unknown
+    for (const name of ['T15-on', 'T15-off'])
+      assert.deepEqual(
+        loadCell(path.join(CELLS, `${name}.json`)).modelConfig,
+        defaults,
+        `${name}: re-derive the cell ModelConfig from the ts-compat default`,
+      )
+  })
+
   it('unknown fields, a non-zero jitter and a wrong file name are errors (R14, OR-6)', () => {
     assert.throws(() => loadCell(tmpCell('X1', (c) => (c.extra = 1))), /invalid cell/)
     assert.throws(
