@@ -9,10 +9,12 @@
 //! become `pmb_contract::result` types; it runs once per candidate at the end
 //! of a market, never on the hot path.
 
-use pmb_contract::num::{OutDec2, OutDec4, SafeU64};
+use std::collections::BTreeMap;
+
+use pmb_contract::num::{Decimal, OutDec2, OutDec4, SafeU64};
 use pmb_contract::result::{
-    check_intent_meta_caps, EngineMarketOutput, EngineMarketStats, ErrorDetail, ErrorInfo,
-    EventsByType, MarketStatsRules,
+    check_intent_meta_caps, CandidateCounters, EngineMarketOutput, EngineMarketStats, ErrorDetail,
+    ErrorInfo, EventsByType, MarketStatsRules,
 };
 use pmb_contract::vocab::{ErrorClass, Outcome as ContractOutcome, SkipReason, StatsSkipReason};
 use pmb_core::fixed::div_round_i128;
@@ -21,6 +23,7 @@ use serde_json::{Map, Value};
 
 use crate::core_rules::CoreRules;
 use crate::session::{SessionFault, SessionOutput, StrategyFaultCause};
+use crate::stats::MarketStatsAcc;
 
 /// Why a finished session produced no `EngineMarketOutput`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -280,6 +283,34 @@ pub fn market_output(
     Ok(o)
 }
 
+/// The capital-aware counters of one candidate (21 §10 `counters`,
+/// diagnostics only): rejections keyed by reason code (21 §17), notional
+/// and peak reservation as exact decimals, `strategyTicksSkipped`
+/// (16 TF-6).
+pub fn candidate_counters(
+    key: &str,
+    acc: &MarketStatsAcc,
+) -> Result<CandidateCounters, OutputError> {
+    let safe = |name: &str, v: u64| {
+        SafeU64::new(v).ok_or_else(|| OutputError::SelfCheck(format!("{name} above 2^53-1")))
+    };
+    let c = &acc.counters;
+    let mut rejected = BTreeMap::new();
+    for &(code, n) in &c.orders_rejected {
+        rejected.insert(code.to_owned(), safe("ordersRejected", n)?);
+    }
+    Ok(CandidateCounters {
+        key: key.to_owned(),
+        orders_placed: safe("ordersPlaced", c.orders_placed)?,
+        orders_rejected: rejected,
+        orders_canceled: safe("ordersCanceled", c.orders_canceled)?,
+        buy_notional_usdc: Decimal::from_micros(c.buy_notional.micros()),
+        sell_notional_usdc: Decimal::from_micros(c.sell_notional.micros()),
+        peak_reserved_usdc: Decimal::from_micros(c.peak_reserved.micros()),
+        strategy_ticks_skipped: safe("strategyTicksSkipped", acc.ticks.strategy_ticks_skipped)?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,7 +408,7 @@ mod tests {
     use pmb_core::order::MetaStore;
     use pmb_core::{PerOutcome, Usdc};
 
-    use crate::stats::{FinalStats, MarketStatsAcc};
+    use crate::stats::FinalStats;
     use crate::strategy::TickCause;
 
     fn info() -> Arc<MarketInfo> {
@@ -503,6 +534,24 @@ mod tests {
                 }
             ),
             "{e:?}"
+        );
+    }
+
+    #[test]
+    fn counters_map_to_the_contract_shape() {
+        // spec: 21 §10 `counters` (rejections by reason code, §17), 16 TF-6
+        let mut acc = MarketStatsAcc::default();
+        acc.counters.orders_placed = 4;
+        acc.counters.orders_rejected =
+            vec![("risk_max_open_orders", 2), ("insufficient_capital", 1)];
+        acc.counters.orders_canceled = 2;
+        acc.counters.buy_notional = Usdc::from_micros(12_400_000);
+        acc.counters.peak_reserved = Usdc::from_micros(6_200_000);
+        acc.ticks.strategy_ticks_skipped = 3;
+        let c = candidate_counters("c0", &acc).unwrap();
+        assert_eq!(
+            serde_json::to_string(&c).unwrap(),
+            r#"{"key":"c0","ordersPlaced":4,"ordersRejected":{"insufficient_capital":1,"risk_max_open_orders":2},"ordersCanceled":2,"buyNotionalUsdc":"12.4","sellNotionalUsdc":"0","peakReservedUsdc":"6.2","strategyTicksSkipped":3}"#
         );
     }
 
