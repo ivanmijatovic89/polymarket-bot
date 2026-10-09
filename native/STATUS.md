@@ -13,7 +13,7 @@
 - Paused: none. Benchmarks that need a paused fleet are deferred for this run by the user's rule (no pause/stop of the fleet worker or Global Runtime until the user confirms the pause procedure); M1 baselines run alongside the fleet and are labeled `non-idle`
 - Last proof: workspace gates after the leftover tidy (2026-10-09 11:55): `cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked` → green (pmb-core 41, pmb-book 3, pmb-contract 8+6, pmb-replay golden 1)
 - Benchmark (fixed set): none yet
-- Waiting on user: none
+- Waiting on user: none (spec questions collected for D entries after wave 1)
 - Next action: M1 steps 2–5 in parallel workstreams (feeds, plugins, core+execution, contract, builder, TS side), then binary/SDK/strategies
 
 ## Milestone plans
@@ -35,6 +35,12 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run)
 
 ## Log (newest first)
+
+### 2026-10-09 12:35 — tooling merged; conformance C1 merged; pmb-core review
+
+- Merged into native-engine: `native/PARITY.md` (60 §3.1 layout, standing PE-R1…R3; ws/paritymd), `npm run native:goldens:check` (GF-4, generator convention `--out-dir <dir>`; ws/goldens), `npm run native:oracle:env-audit` (OR-7; currently exits 1 on two unlisted variables, `BACKTEST_LATENCY_DELAY`/`_JITTER` read by `src/backtest/simulator/resolveMarket.ts:72-73` — open question, see below; ws/envaudit), `native/deny.toml` + a cargo-deny step in the native-quality CI job (`cargo deny --manifest-path native/Cargo.toml --locked check` → advisories/bans/licenses/sources ok locally with cargo-deny 0.20.2; RUSTSEC-2026-0190 anyhow ignored until the `=1.0.98` pin is bumped; ws/deny), and the read-only data inventory `native/reports/data-inventory-20261009-worker-1.md` (27,614 eligible BTC 15m files all local; 6 BTC 5m (F1, 2026-02-12); Binance 2025-11-29…2026-09-18 and Chainlink 2026-04-02…2026-09-18 without gaps; S15-CL universe 15,219 markets with every input local; ws/inventory).
+- Conformance C1 (Fable, D45) done and pushed as `native-conformance` @ e6dbfb20; merged (only `native/conformance/`). `cargo test --manifest-path native/conformance/Cargo.toml` → 86 data tests pass, 151 skeletons ignored until C2. Its PLAN.md lists spec ambiguities A-01…A-20 for triage (60 §10.3). `native/conformance/` added to `.prettierignore` (CF-4: the implementation session never reformats conformance files).
+- Independent review of the first run's pmb-core domain code (no edits): 38 findings (14 major), saved for the core fix stage; highlights: unchecked `Price::complement` (10 T3), `transition` accepts forbidden 10 §8.2 rows, no CancelState transitions, missing `exchange_id`/`CancelFailed` cid payloads, reason codes vs TS strings, rules timeline from captured `market.rules` missing.
 
 ### 2026-10-09 11:50 — M1.0 rules capture merged and deployed
 
