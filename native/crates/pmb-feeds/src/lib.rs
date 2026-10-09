@@ -10,7 +10,9 @@
 //! environment, the wall clock or the network (14 F-3); every parameter comes
 //! from the job (`ModelConfig.feeds`, `feedFiles`, `feedAvailability`).
 //!
-//! Captured feeds (14 §7) and plugins (§12) are not in this crate yet.
+//! The TS shapes of the view and the request (14 F-5, §11.2) are rendered
+//! only at the boundary, by [`ts_shape`]. Captured feeds (14 §7) and plugins
+//! (§12) are not in this crate yet.
 //!
 //! # Use from the engine loop (12 §4.1, §5.3)
 //!
@@ -47,6 +49,7 @@ pub mod request;
 pub mod schedule;
 pub mod state;
 pub mod time;
+pub mod ts_shape;
 
 pub use binance::{BinanceDay, BinanceSeries};
 pub use cache::{CacheStats, DayCache};
@@ -67,3 +70,4 @@ pub use schedule::{
 };
 pub use state::FeedState;
 pub use time::UtcDay;
+pub use ts_shape::historical_snapshot;

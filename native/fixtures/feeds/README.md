@@ -40,9 +40,23 @@ fixture markets and constants are in `native/fixtures/gen/feeds_markets.ts`:
   monotone in id order with same-ms trades (`binance-nonmono`), no trade up to
   the window end (`binance-empty`), Chainlink broadcast order differing from
   round order with microsecond boundary rows (`chainlink-twoclock`), a 400 s
-  hole inside the window (`chainlink-hole`) and a NULL broadcast time on a
-  member row (`chainlink-nullbc`). Their window is 2026-09-16 12:00 UTC.
+  hole inside the window (`chainlink-hole`), a NULL broadcast time on a
+  member row (`chainlink-nullbc`) and a row without a round time
+  (`chainlink-nullround`). Their window is 2026-09-16 12:00 UTC, except
+  `chainlink-twoday` (2026-09-17 00:00 UTC: seed and lookback in the
+  2026-09-16 file, members in both files, broadcast order across files).
+- `crafted/<case>/...` GF-5 divergence inputs (60 §7.1): TS loads them, the
+  spec fails the market `data_defect: corrupt`. Binance NULL, zero and
+  negative prices (`binance-nullprice`, `binance-zeroprice`,
+  `binance-negprice`, 14 F-17), a duplicate `agg_trade_id`
+  (`binance-dupid`), a seed row with a NULL broadcast time
+  (`chainlink-seed-nullbc`), a zero price (`chainlink-zeroprice`) and a
+  foreign `asset_id` (`chainlink-foreign-asset`) (14 F-25).
+  `feeds_slice.ts --crafted-only` rewrites only the crafted files (no data
+  roots needed).
 
 The slices are inputs, not goldens: regenerating them is only needed when a
-fixture market is added. After changing a slice, rerun
-`npx tsx native/fixtures/gen/feeds_gen.ts` and commit both.
+fixture market or crafted case is added. After changing a slice, rerun
+`npx tsx native/fixtures/gen/feeds_gen.ts` and commit both. The generator
+also accepts `--out-dir <dir>` (writes `<dir>/feeds/feeds_golden.json` only,
+for `npm run native:goldens:check`, 60 GF-4) and `--check`.

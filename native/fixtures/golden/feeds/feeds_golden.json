@@ -5,12 +5,15 @@
     "lookbackMs": 300000,
     "priceToBeatLatencyMs": 2700
   },
-  "contentPin": "e5cebe6cd098c9704892ec8c0ee69980227382ac",
-  "generator": "native/fixtures/gen/feeds_gen.ts",
-  "generatorSha256": "1ef4277a956f50fffb23863cd9c4c1a9c915f9981303c02f7740795c1214ec8b",
+  "header": {
+    "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
+    "generator": "native/fixtures/gen/feeds_gen.ts",
+    "generatorSha256": "70d6f39afb0085e1e6bcd1db07e02486f1960b6811273e47f8db363c39397dd3"
+  },
   "lineFormats": {
     "binance": "tsMs|f64 bits of value (hex)",
     "chainlink": "roundTsMs|broadcastMs|f64 bits of value (hex)",
+    "snapshots": "the TS ExternalFeedsSnapshot (14 §11.2) per delivered line, null when gated; real timelines keep the sample lines and the last line",
     "timeline": "eventType|tick ts|gated, or bn=tsMs,bits,receivedAtMs;cl=tsMs,bits,receivedAtMs;ptb=bits,receivedAtMs,eventStartTimeIso,endDateIso (\"-\" = key absent)"
   },
   "loaders": [
@@ -253,9 +256,184 @@
       "name": "chainlink-missing",
       "root": ".",
       "slug": "btc-updown-15m-1789646400"
+    },
+    {
+      "feed": "chainlink",
+      "maxGapMs": null,
+      "name": "chainlink-nullround",
+      "ok": {
+        "len": 6,
+        "lines": [
+          "1789559698000|1789559699000|3ff8000000000000",
+          "1789560001000|1789560002000|4004000000000000",
+          "1789560250000|1789560251000|400c000000000000",
+          "1789560500000|1789560501000|4012000000000000",
+          "1789560750000|1789560751000|4016000000000000",
+          "1789560899000|1789560900000|401a000000000000"
+        ],
+        "seeded": true,
+        "sha256": "a2a35983830d0ec96d4db161d57728d78a15a2f5b6ee7539c99c603d5b628829"
+      },
+      "root": "crafted/chainlink-nullround",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "chainlink",
+      "maxGapMs": null,
+      "name": "chainlink-twoday",
+      "ok": {
+        "len": 8,
+        "lines": [
+          "1789602899000|1789602900000|4027000000000000",
+          "1789602900010|1789602901000|4029000000000000",
+          "1789603200100|1789603201200|402d000000000000",
+          "1789603199500|1789603201500|402b000000000000",
+          "1789603400000|1789603401000|402e800000000000",
+          "1789603600000|1789603601000|4030400000000000",
+          "1789603800000|1789603801000|4031400000000000",
+          "1789604000000|1789604001000|4032400000000000"
+        ],
+        "seeded": true,
+        "sha256": "070dffed47f992e028e27e4b477ffa4a35d04f72d95755375a564c8583f4fef3"
+      },
+      "root": "crafted/chainlink-twoday",
+      "slug": "btc-updown-15m-1789603200"
+    },
+    {
+      "feed": "binance",
+      "maxGapMs": null,
+      "name": "binance-nullprice",
+      "ok": {
+        "len": 4,
+        "lines": [
+          "1789559699000|4069100000000000",
+          "1789560000000|4069300000000000",
+          "1789560100000|4069500000000000",
+          "1789560200000|0000000000000000"
+        ],
+        "seeded": true,
+        "sha256": "b6112bcfd3aa89a0223ec0c5428df56305311b13496881ebbf0e8f24ef5ac224"
+      },
+      "root": "crafted/binance-nullprice",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "binance",
+      "maxGapMs": null,
+      "name": "binance-zeroprice",
+      "ok": {
+        "len": 4,
+        "lines": [
+          "1789559699000|4069100000000000",
+          "1789560000000|4069300000000000",
+          "1789560100000|4069500000000000",
+          "1789560200000|0000000000000000"
+        ],
+        "seeded": true,
+        "sha256": "b6112bcfd3aa89a0223ec0c5428df56305311b13496881ebbf0e8f24ef5ac224"
+      },
+      "root": "crafted/binance-zeroprice",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "binance",
+      "maxGapMs": null,
+      "name": "binance-negprice",
+      "ok": {
+        "len": 4,
+        "lines": [
+          "1789559699000|4069100000000000",
+          "1789560000000|4069300000000000",
+          "1789560100000|4069500000000000",
+          "1789560200000|bff8000000000000"
+        ],
+        "seeded": true,
+        "sha256": "b96be2a3adef9e756b1606f59e5979abc45676bd8fe001193ed1e1b4bbb86f09"
+      },
+      "root": "crafted/binance-negprice",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "binance",
+      "maxGapMs": null,
+      "name": "binance-dupid",
+      "ok": {
+        "len": 4,
+        "lines": [
+          "1789559699000|4069100000000000",
+          "1789560000000|4069300000000000",
+          "1789560100000|4069500000000000",
+          "1789560100000|4069500000000000"
+        ],
+        "seeded": true,
+        "sha256": "50c2631fa1164b1da61ce8e7496fd71a6c4a7e4ffd7dfbd48b8f16d5b69d1649"
+      },
+      "root": "crafted/binance-dupid",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "chainlink",
+      "maxGapMs": null,
+      "name": "chainlink-seed-nullbc",
+      "ok": {
+        "len": 6,
+        "lines": [
+          "1789559699000|0|3ff8000000000000",
+          "1789560001000|1789560002000|4004000000000000",
+          "1789560250000|1789560251000|400c000000000000",
+          "1789560500000|1789560501000|4012000000000000",
+          "1789560750000|1789560751000|4016000000000000",
+          "1789560899000|1789560900000|401a000000000000"
+        ],
+        "seeded": true,
+        "sha256": "783b3f774560394433b82bcd0938eb24ed16f6a25cdff066eb45af0162d13a98"
+      },
+      "root": "crafted/chainlink-seed-nullbc",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "chainlink",
+      "maxGapMs": null,
+      "name": "chainlink-zeroprice",
+      "ok": {
+        "len": 7,
+        "lines": [
+          "1789559699000|1789559700000|3ff8000000000000",
+          "1789560000500|1789560001500|0000000000000000",
+          "1789560001000|1789560002000|4004000000000000",
+          "1789560250000|1789560251000|400c000000000000",
+          "1789560500000|1789560501000|4012000000000000",
+          "1789560750000|1789560751000|4016000000000000",
+          "1789560899000|1789560900000|401a000000000000"
+        ],
+        "seeded": true,
+        "sha256": "621e2aae00750f1cf4e2190f27a9b1310384d0d6354f6ec953db3d916f451039"
+      },
+      "root": "crafted/chainlink-zeroprice",
+      "slug": "btc-updown-15m-1789560000"
+    },
+    {
+      "feed": "chainlink",
+      "maxGapMs": null,
+      "name": "chainlink-foreign-asset",
+      "ok": {
+        "len": 6,
+        "lines": [
+          "1789559699000|1789559700000|3ff8000000000000",
+          "1789560001000|1789560002000|4004000000000000",
+          "1789560250000|1789560251000|400c000000000000",
+          "1789560500000|1789560501000|4012000000000000",
+          "1789560750000|1789560751000|4016000000000000",
+          "1789560899000|1789560900000|401a000000000000"
+        ],
+        "seeded": true,
+        "sha256": "9bb71bb86fb45c94e114b7c87dd8d73768e971f30ca2a50092d8fbf8aff50e24"
+      },
+      "root": "crafted/chainlink-foreign-asset",
+      "slug": "btc-updown-15m-1789560000"
     }
   ],
-  "spec": "native-spec-g1 14 §3-§6, §8.2, §10, §13 V-1, V-2; 60 §7.1-§7.2",
+  "spec": "native-spec-g1 14 §3-§6, §8.2, §10, §11.2, §13 V-1, V-2; 60 §7.1-§7.2",
   "timelines": [
     {
       "config": {
@@ -302,6 +480,125 @@
       },
       "sha256": "5394642d6197892379e0e8be25c5098190b0b36aeae56b0b73f4274604fcf257",
       "slug": "btc-updown-15m-1789570800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570981682,
+            "symbol": "btcusdt",
+            "tsMs": 1789570981572,
+            "value": 75689.97
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570981183,
+              "symbol": "btc/usd",
+              "tsMs": 1789570980000,
+              "value": 75651.81147871348
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571162159,
+            "symbol": "btcusdt",
+            "tsMs": 1789571162049,
+            "value": 75615.84
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571162301,
+              "symbol": "btc/usd",
+              "tsMs": 1789571161000,
+              "value": 75555.50550596796
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571302050,
+            "symbol": "btcusdt",
+            "tsMs": 1789571301940,
+            "value": 75635.46
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571301644,
+              "symbol": "btc/usd",
+              "tsMs": 1789571300000,
+              "value": 75584.39393352566
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571424294,
+            "symbol": "btcusdt",
+            "tsMs": 1789571424184,
+            "value": 75771.21
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571424033,
+              "symbol": "btc/usd",
+              "tsMs": 1789571423000,
+              "value": 75701.77415186902
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571582879,
+            "symbol": "btcusdt",
+            "tsMs": 1789571582769,
+            "value": 75703.97
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571582116,
+              "symbol": "btc/usd",
+              "tsMs": 1789571581000,
+              "value": 75650.96033273281
+            }
+          }
+        },
+        "2639": null
+      },
       "tail": [
         "price_change|1789571700039|gated",
         "price_change|1789571700041|gated",
@@ -379,6 +676,677 @@
       },
       "sha256": "8473c9ce584d10a24ce5fd5079af5135bba25d3f6b143f8e472324ea0ea4a4eb",
       "slug": "btc-updown-15m-1789570800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570835136,
+            "symbol": "btcusdt",
+            "tsMs": 1789570835026,
+            "value": 75720
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570834367,
+              "symbol": "btc/usd",
+              "tsMs": 1789570833000,
+              "value": 75655.08428751247
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570885103,
+            "symbol": "btcusdt",
+            "tsMs": 1789570884993,
+            "value": 75739.74
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570884177,
+              "symbol": "btc/usd",
+              "tsMs": 1789570883000,
+              "value": 75681.25270062547
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570923028,
+            "symbol": "btcusdt",
+            "tsMs": 1789570922918,
+            "value": 75737.67
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570922318,
+              "symbol": "btc/usd",
+              "tsMs": 1789570921000,
+              "value": 75687.35542302225
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570970048,
+            "symbol": "btcusdt",
+            "tsMs": 1789570969938,
+            "value": 75701.53
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570970002,
+              "symbol": "btc/usd",
+              "tsMs": 1789570968000,
+              "value": 75661.37657634632
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571006309,
+            "symbol": "btcusdt",
+            "tsMs": 1789571006199,
+            "value": 75687.06
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571005814,
+              "symbol": "btc/usd",
+              "tsMs": 1789571004000,
+              "value": 75622.97110072647
+            }
+          }
+        },
+        "3000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571055745,
+            "symbol": "btcusdt",
+            "tsMs": 1789571055635,
+            "value": 75715.77
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571055483,
+              "symbol": "btc/usd",
+              "tsMs": 1789571054000,
+              "value": 75657.76613640942
+            }
+          }
+        },
+        "3500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571088541,
+            "symbol": "btcusdt",
+            "tsMs": 1789571088431,
+            "value": 75720.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571088231,
+              "symbol": "btc/usd",
+              "tsMs": 1789571087000,
+              "value": 75663.97113354373
+            }
+          }
+        },
+        "4000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571122587,
+            "symbol": "btcusdt",
+            "tsMs": 1789571122477,
+            "value": 75760.22
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571121322,
+              "symbol": "btc/usd",
+              "tsMs": 1789571120000,
+              "value": 75695.67288916599
+            }
+          }
+        },
+        "4500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571134376,
+            "symbol": "btcusdt",
+            "tsMs": 1789571134266,
+            "value": 75695.87
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571133185,
+              "symbol": "btc/usd",
+              "tsMs": 1789571132000,
+              "value": 75717.69132057781
+            }
+          }
+        },
+        "5000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571158975,
+            "symbol": "btcusdt",
+            "tsMs": 1789571158865,
+            "value": 75607.3
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571158386,
+              "symbol": "btc/usd",
+              "tsMs": 1789571157000,
+              "value": 75564.04291756001
+            }
+          }
+        },
+        "5500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571195451,
+            "symbol": "btcusdt",
+            "tsMs": 1789571195341,
+            "value": 75600.49
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571195332,
+              "symbol": "btc/usd",
+              "tsMs": 1789571194000,
+              "value": 75544.90879747111
+            }
+          }
+        },
+        "6000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571236776,
+            "symbol": "btcusdt",
+            "tsMs": 1789571236666,
+            "value": 75559.56
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571236400,
+              "symbol": "btc/usd",
+              "tsMs": 1789571235000,
+              "value": 75503.70199245887
+            }
+          }
+        },
+        "6500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571262105,
+            "symbol": "btcusdt",
+            "tsMs": 1789571261995,
+            "value": 75623.17
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571261250,
+              "symbol": "btc/usd",
+              "tsMs": 1789571260000,
+              "value": 75502.7017754303
+            }
+          }
+        },
+        "7000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571272636,
+            "symbol": "btcusdt",
+            "tsMs": 1789571272526,
+            "value": 75721.28
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571272425,
+              "symbol": "btc/usd",
+              "tsMs": 1789571271000,
+              "value": 75574.13499775277
+            }
+          }
+        },
+        "7500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571275696,
+            "symbol": "btcusdt",
+            "tsMs": 1789571275586,
+            "value": 75754.16
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571275667,
+              "symbol": "btc/usd",
+              "tsMs": 1789571274000,
+              "value": 75656.59627256257
+            }
+          }
+        },
+        "8000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571286712,
+            "symbol": "btcusdt",
+            "tsMs": 1789571286602,
+            "value": 75658.78
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571286402,
+              "symbol": "btc/usd",
+              "tsMs": 1789571285000,
+              "value": 75627.2747010447
+            }
+          }
+        },
+        "8500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571313667,
+            "symbol": "btcusdt",
+            "tsMs": 1789571313557,
+            "value": 75609.77
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571313620,
+              "symbol": "btc/usd",
+              "tsMs": 1789571312000,
+              "value": 75548.96146079311
+            }
+          }
+        },
+        "9000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571354288,
+            "symbol": "btcusdt",
+            "tsMs": 1789571354178,
+            "value": 75607.41
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571354227,
+              "symbol": "btc/usd",
+              "tsMs": 1789571353000,
+              "value": 75531.45444167498
+            }
+          }
+        },
+        "9500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571371603,
+            "symbol": "btcusdt",
+            "tsMs": 1789571371493,
+            "value": 75680.87
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571371013,
+              "symbol": "btc/usd",
+              "tsMs": 1789571369000,
+              "value": 75596.15329240936
+            }
+          }
+        },
+        "10000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571389845,
+            "symbol": "btcusdt",
+            "tsMs": 1789571389735,
+            "value": 75695.39
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571389421,
+              "symbol": "btc/usd",
+              "tsMs": 1789571388000,
+              "value": 75630.21296847
+            }
+          }
+        },
+        "10500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571406856,
+            "symbol": "btcusdt",
+            "tsMs": 1789571406746,
+            "value": 75746.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571406089,
+              "symbol": "btc/usd",
+              "tsMs": 1789571405000,
+              "value": 75695.11380615961
+            }
+          }
+        },
+        "11000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571438198,
+            "symbol": "btcusdt",
+            "tsMs": 1789571438088,
+            "value": 75754.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571437464,
+              "symbol": "btc/usd",
+              "tsMs": 1789571436000,
+              "value": 75700.80843939148
+            }
+          }
+        },
+        "11500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571470753,
+            "symbol": "btcusdt",
+            "tsMs": 1789571470643,
+            "value": 75781.16
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571470583,
+              "symbol": "btc/usd",
+              "tsMs": 1789571469000,
+              "value": 75715.88196812368
+            }
+          }
+        },
+        "12000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571500055,
+            "symbol": "btcusdt",
+            "tsMs": 1789571499945,
+            "value": 75762
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571499445,
+              "symbol": "btc/usd",
+              "tsMs": 1789571498000,
+              "value": 75706.66616580932
+            }
+          }
+        },
+        "12500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571513043,
+            "symbol": "btcusdt",
+            "tsMs": 1789571512933,
+            "value": 75752.33
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571512659,
+              "symbol": "btc/usd",
+              "tsMs": 1789571511000,
+              "value": 75714.04313558308
+            }
+          }
+        },
+        "13000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571537237,
+            "symbol": "btcusdt",
+            "tsMs": 1789571537127,
+            "value": 75726.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571533655,
+              "symbol": "btc/usd",
+              "tsMs": 1789571532000,
+              "value": 75663.85458534189
+            }
+          }
+        },
+        "13500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571573219,
+            "symbol": "btcusdt",
+            "tsMs": 1789571573109,
+            "value": 75705.25
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571573166,
+              "symbol": "btc/usd",
+              "tsMs": 1789571571000,
+              "value": 75654.06294322906
+            }
+          }
+        },
+        "14000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571617478,
+            "symbol": "btcusdt",
+            "tsMs": 1789571617368,
+            "value": 75717.63
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571616875,
+              "symbol": "btc/usd",
+              "tsMs": 1789571615000,
+              "value": 75666.27450060484
+            }
+          }
+        },
+        "14500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571653258,
+            "symbol": "btcusdt",
+            "tsMs": 1789571653148,
+            "value": 75764.37
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571653868,
+              "symbol": "btc/usd",
+              "tsMs": 1789571652000,
+              "value": 75706.44847599539
+            }
+          }
+        },
+        "14756": null
+      },
       "tail": [
         "price_change|1789571700039|gated",
         "price_change|1789571700041|gated",
@@ -463,6 +1431,723 @@
       },
       "sha256": "38b50224792ce44602ad134b155dfb60a1725b6de62264a7955bd835b470c3c3",
       "slug": "btc-updown-15m-1789570800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570835101,
+            "symbol": "btcusdt",
+            "tsMs": 1789570834991,
+            "value": 75714.28
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570834367,
+              "symbol": "btc/usd",
+              "tsMs": 1789570833000,
+              "value": 75655.08428751247
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570876345,
+            "symbol": "btcusdt",
+            "tsMs": 1789570876235,
+            "value": 75737.68
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570875206,
+              "symbol": "btc/usd",
+              "tsMs": 1789570874000,
+              "value": 75676.44203638668
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570914707,
+            "symbol": "btcusdt",
+            "tsMs": 1789570914597,
+            "value": 75752
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570914399,
+              "symbol": "btc/usd",
+              "tsMs": 1789570913000,
+              "value": 75705.24747913248
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570958466,
+            "symbol": "btcusdt",
+            "tsMs": 1789570958356,
+            "value": 75733.14
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570957876,
+              "symbol": "btc/usd",
+              "tsMs": 1789570956000,
+              "value": 75691.12961251126
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789570994114,
+            "symbol": "btcusdt",
+            "tsMs": 1789570994004,
+            "value": 75697.77
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570994084,
+              "symbol": "btc/usd",
+              "tsMs": 1789570993000,
+              "value": 75645.73046039084
+            }
+          }
+        },
+        "3000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571032265,
+            "symbol": "btcusdt",
+            "tsMs": 1789571032155,
+            "value": 75709.83
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571032230,
+              "symbol": "btc/usd",
+              "tsMs": 1789571031000,
+              "value": 75646.6531543618
+            }
+          }
+        },
+        "3500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571066311,
+            "symbol": "btcusdt",
+            "tsMs": 1789571066201,
+            "value": 75744.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571065169,
+              "symbol": "btc/usd",
+              "tsMs": 1789571064000,
+              "value": 75673.9192220598
+            }
+          }
+        },
+        "4000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571108505,
+            "symbol": "btcusdt",
+            "tsMs": 1789571108395,
+            "value": 75716.49
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571107246,
+              "symbol": "btc/usd",
+              "tsMs": 1789571106000,
+              "value": 75658.33051159719
+            }
+          }
+        },
+        "4500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571132239,
+            "symbol": "btcusdt",
+            "tsMs": 1789571132129,
+            "value": 75753.19
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571131682,
+              "symbol": "btc/usd",
+              "tsMs": 1789571130000,
+              "value": 75717.56022072886
+            }
+          }
+        },
+        "5000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571145996,
+            "symbol": "btcusdt",
+            "tsMs": 1789571145886,
+            "value": 75673.09
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571145301,
+              "symbol": "btc/usd",
+              "tsMs": 1789571144000,
+              "value": 75615.67204416549
+            }
+          }
+        },
+        "5500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571164514,
+            "symbol": "btcusdt",
+            "tsMs": 1789571164404,
+            "value": 75602.85
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571164170,
+              "symbol": "btc/usd",
+              "tsMs": 1789571163000,
+              "value": 75559.73728803407
+            }
+          }
+        },
+        "6000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571203527,
+            "symbol": "btcusdt",
+            "tsMs": 1789571203417,
+            "value": 75586.87
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571203201,
+              "symbol": "btc/usd",
+              "tsMs": 1789571202000,
+              "value": 75543.09733257412
+            }
+          }
+        },
+        "6500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571245179,
+            "symbol": "btcusdt",
+            "tsMs": 1789571245069,
+            "value": 75555.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571244112,
+              "symbol": "btc/usd",
+              "tsMs": 1789571243000,
+              "value": 75505.23228168544
+            }
+          }
+        },
+        "7000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571262958,
+            "symbol": "btcusdt",
+            "tsMs": 1789571262848,
+            "value": 75630.03
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571262596,
+              "symbol": "btc/usd",
+              "tsMs": 1789571261000,
+              "value": 75536.20500684982
+            }
+          }
+        },
+        "7500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571272731,
+            "symbol": "btcusdt",
+            "tsMs": 1789571272621,
+            "value": 75728.51
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571272425,
+              "symbol": "btc/usd",
+              "tsMs": 1789571271000,
+              "value": 75574.13499775277
+            }
+          }
+        },
+        "8000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571276099,
+            "symbol": "btcusdt",
+            "tsMs": 1789571275989,
+            "value": 75746.94
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571275667,
+              "symbol": "btc/usd",
+              "tsMs": 1789571274000,
+              "value": 75656.59627256257
+            }
+          }
+        },
+        "8500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571286733,
+            "symbol": "btcusdt",
+            "tsMs": 1789571286623,
+            "value": 75652.85
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571286402,
+              "symbol": "btc/usd",
+              "tsMs": 1789571285000,
+              "value": 75627.2747010447
+            }
+          }
+        },
+        "9000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571313345,
+            "symbol": "btcusdt",
+            "tsMs": 1789571313235,
+            "value": 75609.76
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571312405,
+              "symbol": "btc/usd",
+              "tsMs": 1789571311000,
+              "value": 75572.98647142002
+            }
+          }
+        },
+        "9500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571354147,
+            "symbol": "btcusdt",
+            "tsMs": 1789571354037,
+            "value": 75594.66
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571353041,
+              "symbol": "btc/usd",
+              "tsMs": 1789571352000,
+              "value": 75531.05746068519
+            }
+          }
+        },
+        "10000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571370347,
+            "symbol": "btcusdt",
+            "tsMs": 1789571370237,
+            "value": 75661.98
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571370065,
+              "symbol": "btc/usd",
+              "tsMs": 1789571368000,
+              "value": 75585.75534150649
+            }
+          }
+        },
+        "10500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571385814,
+            "symbol": "btcusdt",
+            "tsMs": 1789571385704,
+            "value": 75679.8
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571385302,
+              "symbol": "btc/usd",
+              "tsMs": 1789571384000,
+              "value": 75601.21648058512
+            }
+          }
+        },
+        "11000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571402545,
+            "symbol": "btcusdt",
+            "tsMs": 1789571402435,
+            "value": 75755.99
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571402222,
+              "symbol": "btc/usd",
+              "tsMs": 1789571401000,
+              "value": 75687.11607928315
+            }
+          }
+        },
+        "11500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571426292,
+            "symbol": "btcusdt",
+            "tsMs": 1789571426182,
+            "value": 75765.66
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571426471,
+              "symbol": "btc/usd",
+              "tsMs": 1789571425000,
+              "value": 75707.84510351285
+            }
+          }
+        },
+        "12000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571460414,
+            "symbol": "btcusdt",
+            "tsMs": 1789571460304,
+            "value": 75771.2
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571459367,
+              "symbol": "btc/usd",
+              "tsMs": 1789571458000,
+              "value": 75700.40923714236
+            }
+          }
+        },
+        "12500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571489274,
+            "symbol": "btcusdt",
+            "tsMs": 1789571489164,
+            "value": 75794.96
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571488342,
+              "symbol": "btc/usd",
+              "tsMs": 1789571487000,
+              "value": 75723.20718421057
+            }
+          }
+        },
+        "13000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571502731,
+            "symbol": "btcusdt",
+            "tsMs": 1789571502621,
+            "value": 75785.21
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571501314,
+              "symbol": "btc/usd",
+              "tsMs": 1789571500000,
+              "value": 75704.70840873997
+            }
+          }
+        },
+        "13500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571526225,
+            "symbol": "btcusdt",
+            "tsMs": 1789571526115,
+            "value": 75711.41
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571525543,
+              "symbol": "btc/usd",
+              "tsMs": 1789571524000,
+              "value": 75666.1398920704
+            }
+          }
+        },
+        "14000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571551497,
+            "symbol": "btcusdt",
+            "tsMs": 1789571551387,
+            "value": 75726
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571551483,
+              "symbol": "btc/usd",
+              "tsMs": 1789571550000,
+              "value": 75675.59973426143
+            }
+          }
+        },
+        "14500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571595690,
+            "symbol": "btcusdt",
+            "tsMs": 1789571595580,
+            "value": 75698.64
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571595499,
+              "symbol": "btc/usd",
+              "tsMs": 1789571594000,
+              "value": 75648.49813443066
+            }
+          }
+        },
+        "15000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571634503,
+            "symbol": "btcusdt",
+            "tsMs": 1789571634393,
+            "value": 75744.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571633555,
+              "symbol": "btc/usd",
+              "tsMs": 1789571632000,
+              "value": 75677.17179095735
+            }
+          }
+        },
+        "15500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1789571682197,
+            "symbol": "btcusdt",
+            "tsMs": 1789571682087,
+            "value": 75760.72
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571682184,
+              "symbol": "btc/usd",
+              "tsMs": 1789571681000,
+              "value": 75708.83254290697
+            }
+          }
+        },
+        "15637": null
+      },
       "tail": [
         "price_change|1789571700039|gated",
         "price_change|1789571700041|gated",
@@ -518,6 +2203,129 @@
       },
       "sha256": "3afe57e0685fe728012b081f1231e82a4046aa61f6270fa9cfb1d04b91b2e0b7",
       "slug": "btc-updown-15m-1789570800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789570924664,
+              "symbol": "btc/usd",
+              "tsMs": 1789570923000,
+              "value": 75680.716791732
+            }
+          }
+        },
+        "1000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571072079,
+              "symbol": "btc/usd",
+              "tsMs": 1789571071000,
+              "value": 75687.00783817147
+            }
+          }
+        },
+        "1500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571196530,
+              "symbol": "btc/usd",
+              "tsMs": 1789571195000,
+              "value": 75544.37176352624
+            }
+          }
+        },
+        "2000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571301644,
+              "symbol": "btc/usd",
+              "tsMs": 1789571300000,
+              "value": 75584.39393352566
+            }
+          }
+        },
+        "2500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571398389,
+              "symbol": "btc/usd",
+              "tsMs": 1789571397000,
+              "value": 75672.86346101746
+            }
+          }
+        },
+        "3000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571517362,
+              "symbol": "btc/usd",
+              "tsMs": 1789571516000,
+              "value": 75687.63119256738
+            }
+          }
+        },
+        "3500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-09-16T15:15:00.000Z",
+            "eventStartTimeIso": "2026-09-16T15:00:00.000Z",
+            "openPrice": 75812.35,
+            "receivedAtMs": 1789570802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1789571699246,
+              "symbol": "btc/usd",
+              "tsMs": 1789571698000,
+              "value": 75710.02375944216
+            }
+          }
+        },
+        "3520": null
+      },
       "tail": [
         "price_change|1789571700039|gated",
         "price_change|1789571700041|gated",
@@ -571,6 +2379,125 @@
       },
       "sha256": "d262e8a15d91d421a352d51868eb48f1b13b5ebf6833d1d36e3d211635c9501c",
       "slug": "btc-updown-15m-1785028500",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028620047,
+            "symbol": "btcusdt",
+            "tsMs": 1785028619937,
+            "value": 64496.01
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028619455,
+              "symbol": "btc/usd",
+              "tsMs": 1785028618000,
+              "value": 64433.36678432838
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028769276,
+            "symbol": "btcusdt",
+            "tsMs": 1785028769166,
+            "value": 64493.77
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028768829,
+              "symbol": "btc/usd",
+              "tsMs": 1785028767000,
+              "value": 64435.3308712
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028922777,
+            "symbol": "btcusdt",
+            "tsMs": 1785028922667,
+            "value": 64483.88
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028922642,
+              "symbol": "btc/usd",
+              "tsMs": 1785028921000,
+              "value": 64420.50412335677
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029109246,
+            "symbol": "btcusdt",
+            "tsMs": 1785029109136,
+            "value": 64480.14
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029110333,
+              "symbol": "btc/usd",
+              "tsMs": 1785029109000,
+              "value": 64418.69823874619
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029383883,
+            "symbol": "btcusdt",
+            "tsMs": 1785029383773,
+            "value": 64474.06
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029384571,
+              "symbol": "btc/usd",
+              "tsMs": 1785029383000,
+              "value": 64419.79313042
+            }
+          }
+        },
+        "2543": null
+      },
       "tail": [
         "price_change|1785029401908|gated",
         "price_change|1785029401985|gated",
@@ -628,6 +2555,217 @@
       },
       "sha256": "8f06d98c01ea44f3dca4381b537869df0f4fe4ff72e25b3fe8a90e5bc0a8db13",
       "slug": "btc-updown-15m-1785028500",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028545805,
+            "symbol": "btcusdt",
+            "tsMs": 1785028545695,
+            "value": 64497.74
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028546254,
+              "symbol": "btc/usd",
+              "tsMs": 1785028545000,
+              "value": 64436.54478946
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028644320,
+            "symbol": "btcusdt",
+            "tsMs": 1785028644210,
+            "value": 64494.52
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028643881,
+              "symbol": "btc/usd",
+              "tsMs": 1785028642000,
+              "value": 64433.528787568444
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028729494,
+            "symbol": "btcusdt",
+            "tsMs": 1785028729384,
+            "value": 64485.45
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028728938,
+              "symbol": "btc/usd",
+              "tsMs": 1785028727000,
+              "value": 64428.35233299684
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028804929,
+            "symbol": "btcusdt",
+            "tsMs": 1785028804819,
+            "value": 64494
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028804305,
+              "symbol": "btc/usd",
+              "tsMs": 1785028803000,
+              "value": 64435.80916562657
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028874973,
+            "symbol": "btcusdt",
+            "tsMs": 1785028874863,
+            "value": 64478.93
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028874014,
+              "symbol": "btc/usd",
+              "tsMs": 1785028872000,
+              "value": 64420.142
+            }
+          }
+        },
+        "3000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028972443,
+            "symbol": "btcusdt",
+            "tsMs": 1785028972333,
+            "value": 64483.88
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028971757,
+              "symbol": "btc/usd",
+              "tsMs": 1785028970000,
+              "value": 64422.89666704702
+            }
+          }
+        },
+        "3500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029075187,
+            "symbol": "btcusdt",
+            "tsMs": 1785029075077,
+            "value": 64480.14
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029074547,
+              "symbol": "btc/usd",
+              "tsMs": 1785029073000,
+              "value": 64419.957564166034
+            }
+          }
+        },
+        "4000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029199461,
+            "symbol": "btcusdt",
+            "tsMs": 1785029199351,
+            "value": 64478.02
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029200424,
+              "symbol": "btc/usd",
+              "tsMs": 1785029199000,
+              "value": 64417.066843411485
+            }
+          }
+        },
+        "4500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029322877,
+            "symbol": "btcusdt",
+            "tsMs": 1785029322767,
+            "value": 64472.17
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029322576,
+              "symbol": "btc/usd",
+              "tsMs": 1785029321000,
+              "value": 64417.979
+            }
+          }
+        },
+        "4825": null
+      },
       "tail": [
         "price_change|1785029401908|gated",
         "price_change|1785029401985|gated",
@@ -692,6 +2830,263 @@
       },
       "sha256": "068554c30af3602b2fef67d4607de07909030c9983195112693e4f0b1e702a9b",
       "slug": "btc-updown-15m-1785028500",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028541425,
+            "symbol": "btcusdt",
+            "tsMs": 1785028541315,
+            "value": 64498.93
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028542012,
+              "symbol": "btc/usd",
+              "tsMs": 1785028540000,
+              "value": 64437.17363956295
+            }
+          }
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028625103,
+            "symbol": "btcusdt",
+            "tsMs": 1785028624993,
+            "value": 64496
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028624664,
+              "symbol": "btc/usd",
+              "tsMs": 1785028623000,
+              "value": 64433.39523879788
+            }
+          }
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028696593,
+            "symbol": "btcusdt",
+            "tsMs": 1785028696483,
+            "value": 64488.11
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028696314,
+              "symbol": "btc/usd",
+              "tsMs": 1785028695000,
+              "value": 64427.402828786704
+            }
+          }
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028765858,
+            "symbol": "btcusdt",
+            "tsMs": 1785028765748,
+            "value": 64490.42
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028765676,
+              "symbol": "btc/usd",
+              "tsMs": 1785028764000,
+              "value": 64432.60320236356
+            }
+          }
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028827451,
+            "symbol": "btcusdt",
+            "tsMs": 1785028827341,
+            "value": 64486.65
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028826593,
+              "symbol": "btc/usd",
+              "tsMs": 1785028825000,
+              "value": 64429.78015605
+            }
+          }
+        },
+        "3000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028894332,
+            "symbol": "btcusdt",
+            "tsMs": 1785028894222,
+            "value": 64483.89
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028893712,
+              "symbol": "btc/usd",
+              "tsMs": 1785028892000,
+              "value": 64420.65560587
+            }
+          }
+        },
+        "3500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785028980209,
+            "symbol": "btcusdt",
+            "tsMs": 1785028980099,
+            "value": 64483.88
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028979873,
+              "symbol": "btc/usd",
+              "tsMs": 1785028978000,
+              "value": 64422.85665230983
+            }
+          }
+        },
+        "4000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029065458,
+            "symbol": "btcusdt",
+            "tsMs": 1785029065348,
+            "value": 64480.14
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029065175,
+              "symbol": "btc/usd",
+              "tsMs": 1785029064000,
+              "value": 64421.41625972437
+            }
+          }
+        },
+        "4500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029162151,
+            "symbol": "btcusdt",
+            "tsMs": 1785029162041,
+            "value": 64478.03
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029161828,
+              "symbol": "btc/usd",
+              "tsMs": 1785029160000,
+              "value": 64416.7066512603
+            }
+          }
+        },
+        "5000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029260518,
+            "symbol": "btcusdt",
+            "tsMs": 1785029260408,
+            "value": 64472.18
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029260199,
+              "symbol": "btc/usd",
+              "tsMs": 1785029259000,
+              "value": 64411.482931157574
+            }
+          }
+        },
+        "5500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1785029358998,
+            "symbol": "btcusdt",
+            "tsMs": 1785029358888,
+            "value": 64474.05
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029358260,
+              "symbol": "btc/usd",
+              "tsMs": 1785029357000,
+              "value": 64418.81754974229
+            }
+          }
+        },
+        "5688": null
+      },
       "tail": [
         "price_change|1785029401908|gated",
         "price_change|1785029401985|gated",
@@ -746,6 +3141,112 @@
       },
       "sha256": "2be62ba7d73137c7580a3c6feaf06ec09321bad77854d5d560b9e6cbd834e2a0",
       "slug": "btc-updown-15m-1785028500",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028585627,
+              "symbol": "btc/usd",
+              "tsMs": 1785028584000,
+              "value": 64432.524243788685
+            }
+          }
+        },
+        "1000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028717860,
+              "symbol": "btc/usd",
+              "tsMs": 1785028716000,
+              "value": 64428.12753406571
+            }
+          }
+        },
+        "1500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028821304,
+              "symbol": "btc/usd",
+              "tsMs": 1785028820000,
+              "value": 64434.22715373
+            }
+          }
+        },
+        "2000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785028948386,
+              "symbol": "btc/usd",
+              "tsMs": 1785028947000,
+              "value": 64423.02265783695
+            }
+          }
+        },
+        "2500": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029083834,
+              "symbol": "btc/usd",
+              "tsMs": 1785029082000,
+              "value": 64420.52225089
+            }
+          }
+        },
+        "3000": {
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-07-26T01:30:00.000Z",
+            "eventStartTimeIso": "2026-07-26T01:15:00.000Z",
+            "openPrice": 117234.51,
+            "receivedAtMs": 1785028502700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 1785029263365,
+              "symbol": "btc/usd",
+              "tsMs": 1785029262000,
+              "value": 64410.69619673636
+            }
+          }
+        },
+        "3406": null
+      },
       "tail": [
         "price_change|1785029401908|gated",
         "price_change|1785029401985|gated",
@@ -799,6 +3300,90 @@
       },
       "sha256": "c88f16af0deaaa6ae8e9bb46c5c073403d14c2562855cfeb5953f479a34e9697",
       "slug": "btc-updown-15m-1773100800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100945387,
+            "symbol": "btcusdt",
+            "tsMs": 1773100945277,
+            "value": 68392.47
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101110562,
+            "symbol": "btcusdt",
+            "tsMs": 1773101110452,
+            "value": 68476.63
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101310975,
+            "symbol": "btcusdt",
+            "tsMs": 1773101310865,
+            "value": 68463.92
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101500175,
+            "symbol": "btcusdt",
+            "tsMs": 1773101500065,
+            "value": 68448.74
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101687402,
+            "symbol": "btcusdt",
+            "tsMs": 1773101687292,
+            "value": 68431.89
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "2555": null
+      },
       "tail": [
         "price_change|1773101701076|gated",
         "price_change|1773101701198|gated",
@@ -870,6 +3455,378 @@
       },
       "sha256": "8d8f78e4cbed9296b7f1364880e73c1f166f2e7e1fd1d07fa182005ff5f7aad7",
       "slug": "btc-updown-15m-1773100800",
+      "snapshots": {
+        "0": null,
+        "500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100811425,
+            "symbol": "btcusdt",
+            "tsMs": 1773100811315,
+            "value": 68410.9
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "1000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100839974,
+            "symbol": "btcusdt",
+            "tsMs": 1773100839864,
+            "value": 68426.4
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "1500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100867547,
+            "symbol": "btcusdt",
+            "tsMs": 1773100867437,
+            "value": 68427.13
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "2000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100922632,
+            "symbol": "btcusdt",
+            "tsMs": 1773100922522,
+            "value": 68412.87
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "2500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100968016,
+            "symbol": "btcusdt",
+            "tsMs": 1773100967906,
+            "value": 68414.91
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "3000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773100993090,
+            "symbol": "btcusdt",
+            "tsMs": 1773100992980,
+            "value": 68480.94
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "3500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101028798,
+            "symbol": "btcusdt",
+            "tsMs": 1773101028688,
+            "value": 68498.76
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "4000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101069394,
+            "symbol": "btcusdt",
+            "tsMs": 1773101069284,
+            "value": 68474.73
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "4500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101099482,
+            "symbol": "btcusdt",
+            "tsMs": 1773101099372,
+            "value": 68460.57
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "5000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101135540,
+            "symbol": "btcusdt",
+            "tsMs": 1773101135430,
+            "value": 68436.1
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "5500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101190558,
+            "symbol": "btcusdt",
+            "tsMs": 1773101190448,
+            "value": 68454.64
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "6000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101213656,
+            "symbol": "btcusdt",
+            "tsMs": 1773101213546,
+            "value": 68451.45
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "6500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101263938,
+            "symbol": "btcusdt",
+            "tsMs": 1773101263828,
+            "value": 68428.58
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "7000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101315068,
+            "symbol": "btcusdt",
+            "tsMs": 1773101314958,
+            "value": 68457.94
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "7500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101374395,
+            "symbol": "btcusdt",
+            "tsMs": 1773101374285,
+            "value": 68463.37
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "8000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101406961,
+            "symbol": "btcusdt",
+            "tsMs": 1773101406851,
+            "value": 68442.41
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "8500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101460428,
+            "symbol": "btcusdt",
+            "tsMs": 1773101460318,
+            "value": 68440.97
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "9000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101510073,
+            "symbol": "btcusdt",
+            "tsMs": 1773101509963,
+            "value": 68456.28
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "9500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101553707,
+            "symbol": "btcusdt",
+            "tsMs": 1773101553597,
+            "value": 68461.42
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "10000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101600497,
+            "symbol": "btcusdt",
+            "tsMs": 1773101600387,
+            "value": 68500.32
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "10500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101643671,
+            "symbol": "btcusdt",
+            "tsMs": 1773101643561,
+            "value": 68489.53
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "11000": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101679051,
+            "symbol": "btcusdt",
+            "tsMs": 1773101678941,
+            "value": 68431.84
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "11500": {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 1773101689668,
+            "symbol": "btcusdt",
+            "tsMs": 1773101689558,
+            "value": 68410.05
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "2026-03-10T00:15:00.000Z",
+            "eventStartTimeIso": "2026-03-10T00:00:00.000Z",
+            "openPrice": 69420.5,
+            "receivedAtMs": 1773100802700,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {}
+        },
+        "11630": null
+      },
       "tail": [
         "price_change|1773101701076|gated",
         "price_change|1773101701198|gated",
@@ -942,7 +3899,379 @@
         "price_change|20001|gated",
         "book|20400|gated"
       ],
-      "name": "edges"
+      "name": "edges",
+      "snapshots": [
+        null,
+        null,
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10000,
+            "symbol": "btcusdt",
+            "tsMs": 9990,
+            "value": 1.5
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10000,
+            "symbol": "btcusdt",
+            "tsMs": 9990,
+            "value": 1.5
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10010,
+            "symbol": "btcusdt",
+            "tsMs": 10000,
+            "value": 2.25
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9805, "symbol": "btc/usd", "tsMs": 9000, "value": 100.5 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11505,
+              "symbol": "btc/usd",
+              "tsMs": 11000,
+              "value": 101.5
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11505,
+              "symbol": "btc/usd",
+              "tsMs": 11000,
+              "value": 101.5
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11605,
+              "symbol": "btc/usd",
+              "tsMs": 10800,
+              "value": 101.25
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11605,
+              "symbol": "btc/usd",
+              "tsMs": 10800,
+              "value": 101.25
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10410,
+            "symbol": "btcusdt",
+            "tsMs": 10400,
+            "value": 2.75
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11605,
+              "symbol": "btc/usd",
+              "tsMs": 10800,
+              "value": 101.25
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 15010,
+            "symbol": "btcusdt",
+            "tsMs": 15000,
+            "value": 4
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": {
+              "receivedAtMs": 11605,
+              "symbol": "btc/usd",
+              "tsMs": 10800,
+              "value": 101.25
+            }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 20000,
+            "symbol": "btcusdt",
+            "tsMs": 19990,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 20000, "symbol": "btc/usd", "tsMs": 19000, "value": 102 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 20000,
+            "symbol": "btcusdt",
+            "tsMs": 19990,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 20000, "symbol": "btc/usd", "tsMs": 19000, "value": 102 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 20000,
+            "symbol": "btcusdt",
+            "tsMs": 19990,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 20000, "symbol": "btc/usd", "tsMs": 19000, "value": 102 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 20000,
+            "symbol": "btcusdt",
+            "tsMs": 19990,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 100.125,
+            "receivedAtMs": 10300,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 20000, "symbol": "btc/usd", "tsMs": 19000, "value": 102 }
+          }
+        },
+        null,
+        null
+      ]
     },
     {
       "counts": { "binance_agg_trade": 2, "book": 1, "price_change": 2 },
@@ -976,7 +4305,99 @@
         "price_change|10700|bn=10600,4014000000000000,10600;cl=10050,4049800000000000,10300;ptb=401e000000000000,10000,1970-01-01T00:00:10.000Z,1970-01-01T00:00:20.000Z",
         "binance_agg_trade|12000|bn=12000,4018000000000000,12000;cl=10050,4049800000000000,10300;ptb=401e000000000000,10000,1970-01-01T00:00:10.000Z,1970-01-01T00:00:20.000Z"
       ],
-      "name": "late-first-book"
+      "name": "late-first-book",
+      "snapshots": [
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10200,
+            "symbol": "btcusdt",
+            "tsMs": 10200,
+            "value": 4
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 7.5,
+            "receivedAtMs": 10000,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 9900, "symbol": "btc/usd", "tsMs": 9500, "value": 50 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10600,
+            "symbol": "btcusdt",
+            "tsMs": 10600,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 7.5,
+            "receivedAtMs": 10000,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 10300, "symbol": "btc/usd", "tsMs": 10050, "value": 51 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10600,
+            "symbol": "btcusdt",
+            "tsMs": 10600,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 7.5,
+            "receivedAtMs": 10000,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 10300, "symbol": "btc/usd", "tsMs": 10050, "value": 51 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 10600,
+            "symbol": "btcusdt",
+            "tsMs": 10600,
+            "value": 5
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 7.5,
+            "receivedAtMs": 10000,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 10300, "symbol": "btc/usd", "tsMs": 10050, "value": 51 }
+          }
+        },
+        {
+          "binanceWsSpotPrice": {
+            "receivedAtMs": 12000,
+            "symbol": "btcusdt",
+            "tsMs": 12000,
+            "value": 6
+          },
+          "polymarketPriceToBeat": {
+            "endDateIso": "1970-01-01T00:00:20.000Z",
+            "eventStartTimeIso": "1970-01-01T00:00:10.000Z",
+            "openPrice": 7.5,
+            "receivedAtMs": 10000,
+            "symbol": "BTC"
+          },
+          "rtdsPolymarketCryptoPrices": {
+            "chainlink": { "receivedAtMs": 10300, "symbol": "btc/usd", "tsMs": 10050, "value": 51 }
+          }
+        }
+      ]
     }
   ]
 }

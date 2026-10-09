@@ -3,7 +3,7 @@
  * V-2 timeline goldens). Runs the real TS oracle modules over the committed
  * input slices of native/fixtures/feeds/ (made by feeds_slice.ts) and writes
  * native/fixtures/golden/feeds/feeds_golden.json with sorted keys and the
- * header {generator, generatorSha256, contentPin}.
+ * header object {contentPin, generator, generatorSha256} (60 GF-2).
  *
  * Oracle modules: loadBinanceAggTradesSeries, loadChainlinkCryptoPricesSeries,
  * createBacktestExternalFeedsProvider, buildSyntheticTickSchedule,
@@ -11,8 +11,19 @@
  * loop below mirrors runSingleMarket.ts:297-378 and :492 (counting before the
  * inclusive window gate, flush before every real tick, tail flush).
  *
- * Usage: npx tsx native/fixtures/gen/feeds_gen.ts [--check]
- *   --check  regenerate and fail on any content difference (contentPin ignored)
+ * Usage: npx tsx native/fixtures/gen/feeds_gen.ts [--out-dir <dir>] [--check]
+ *   --out-dir <dir>  write <dir>/feeds/feeds_golden.json instead of the
+ *                    committed golden and nothing else (the convention of
+ *                    `npm run native:goldens:check`, 60 GF-4); the committed
+ *                    golden is read only to keep its contentPin
+ *   --check          local convenience: regenerate in memory and fail on any
+ *                    content difference from the committed golden (the
+ *                    header is ignored)
+ *
+ * contentPin (60 OR-1, GF-2) is the oracle pin at which the content last
+ * changed: the committed pin when the content is unchanged, else the
+ * origin/main commit last merged into this branch (git merge-base HEAD
+ * origin/main).
  */
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -48,7 +59,12 @@ import {
 const here = import.meta.dirname
 const repoRoot = path.resolve(here, '../../..')
 const feedsRoot = path.join(repoRoot, 'native/fixtures/feeds')
-const outFile = path.join(repoRoot, 'native/fixtures/golden/feeds/feeds_golden.json')
+const goldenRel = 'feeds/feeds_golden.json'
+const committedFile = path.join(repoRoot, 'native/fixtures/golden', goldenRel)
+const outDirArg = process.argv.indexOf('--out-dir')
+if (outDirArg >= 0 && !process.argv[outDirArg + 1]) throw new Error('--out-dir needs a directory')
+const outFile =
+  outDirArg >= 0 ? path.join(path.resolve(process.argv[outDirArg + 1]!), goldenRel) : committedFile
 const generatorRel = 'native/fixtures/gen/feeds_gen.ts'
 const SAMPLE_EVERY = 500
 
@@ -154,6 +170,7 @@ async function runLoader(c: LoaderCase): Promise<Record<string, unknown>> {
 
 const CRAFTED_SLUG = 'btc-updown-15m-1789560000' // 2026-09-16T12:00Z
 const MISSING_SLUG = 'btc-updown-15m-1789646400' // 2026-09-17T12:00Z, no slice
+const MIDNIGHT_SLUG = 'btc-updown-15m-1789603200' // 2026-09-17T00:00Z, two crafted days
 const LOADER_CASES: LoaderCase[] = [
   ...FIXTURE_MARKETS.flatMap((m): LoaderCase[] => [
     { name: `${m.slug}/binance`, root: '.', feed: 'binance', slug: m.slug, full: false },
@@ -204,6 +221,39 @@ const LOADER_CASES: LoaderCase[] = [
     full: true,
   },
   { name: 'chainlink-missing', root: '.', feed: 'chainlink', slug: MISSING_SLUG, full: true },
+  {
+    name: 'chainlink-nullround',
+    root: 'crafted/chainlink-nullround',
+    feed: 'chainlink',
+    slug: CRAFTED_SLUG,
+    full: true,
+  },
+  {
+    name: 'chainlink-twoday',
+    root: 'crafted/chainlink-twoday',
+    feed: 'chainlink',
+    slug: MIDNIGHT_SLUG,
+    full: true,
+  },
+  // GF-5 divergences: TS loads these; the Rust test asserts the spec value
+  // (data_defect corrupt) under an expected_divergence annotation.
+  ...[
+    'binance-nullprice',
+    'binance-zeroprice',
+    'binance-negprice',
+    'binance-dupid',
+    'chainlink-seed-nullbc',
+    'chainlink-zeroprice',
+    'chainlink-foreign-asset',
+  ].map(
+    (name): LoaderCase => ({
+      name,
+      root: `crafted/${name}`,
+      feed: name.startsWith('binance') ? 'binance' : 'chainlink',
+      slug: CRAFTED_SLUG,
+      full: true,
+    }),
+  ),
 ]
 
 /** A real tick of the clock sequence: [E, L | null, 0 book | 1 price_change]. */
@@ -233,9 +283,11 @@ function render(type: string, ts: number, snap: ExternalFeedsSnapshot): string {
 }
 
 /** Drives the oracle exactly as runSingleMarket.ts does for telonex-delta. */
-async function runTimeline(
-  t: TimelineInput,
-): Promise<{ lines: string[]; counts: Record<string, number> }> {
+async function runTimeline(t: TimelineInput): Promise<{
+  lines: string[]
+  counts: Record<string, number>
+  snapshots: (ExternalFeedsSnapshot | null)[]
+}> {
   const { startMs, endMs } = t.window
   const provider = createBacktestExternalFeedsProvider({
     ...(t.binance
@@ -296,6 +348,7 @@ async function runTimeline(
         })
       : null
   const lines: string[] = []
+  const snapshots: (ExternalFeedsSnapshot | null)[] = []
   const counts: Record<string, number> = {}
   const dispatchTick = (tick: MarketTick): void => {
     const type = tick.msg.event_type
@@ -303,9 +356,13 @@ async function runTimeline(
     const ts = tick.snapshot.timestamp
     if (!Number.isFinite(ts) || ts < startMs || ts > endMs) {
       lines.push(`${type}|${ts}|gated`)
+      snapshots.push(null)
       return
     }
-    lines.push(render(type, ts, provider.snapshotAt(feedClockMs(tick))))
+    // The full TS snapshot shape (14 §11.2) next to the line rendering.
+    const snap = provider.snapshotAt(feedClockMs(tick))
+    lines.push(render(type, ts, snap))
+    snapshots.push(snap)
   }
   let lastRealSnap: MarketOrderBooksSnapshot | undefined
   const flusher = createSyntheticFlusher({
@@ -348,7 +405,7 @@ async function runTimeline(
     dispatchTick(tick)
   }
   await flusher.flushTail()
-  return { lines, counts }
+  return { lines, counts, snapshots }
 }
 
 function readClocks(slug: string): ClockTick[] {
@@ -363,15 +420,25 @@ function readClocks(slug: string): ClockTick[] {
   })
 }
 
-function timelineSummary(lines: string[]): Record<string, unknown> {
+function timelineSummary(
+  lines: string[],
+  snapshots: (ExternalFeedsSnapshot | null)[],
+): Record<string, unknown> {
   const samples: Record<string, string> = {}
-  for (let i = 0; i < lines.length; i += SAMPLE_EVERY) samples[String(i)] = lines[i]!
+  const snaps: Record<string, ExternalFeedsSnapshot | null> = {}
+  for (let i = 0; i < lines.length; i += SAMPLE_EVERY) {
+    samples[String(i)] = lines[i]!
+    snaps[String(i)] = snapshots[i]!
+  }
+  const last = lines.length - 1
+  snaps[String(last)] = snapshots[last]!
   return {
     delivered: lines.filter((l) => !l.endsWith('|gated')).length,
     head: lines.slice(0, 20),
     len: lines.length,
     samples,
     sha256: sha256(lines),
+    snapshots: snaps,
     tail: lines.slice(-5),
   }
 }
@@ -431,7 +498,7 @@ async function realTimelines(): Promise<Record<string, unknown>[]> {
         name: `${m.slug}/${f.name}`,
         priceToBeat: m.priceToBeat,
         slug: m.slug,
-        ...timelineSummary(r.lines),
+        ...timelineSummary(r.lines, r.snapshots),
       })
     }
   }
@@ -545,7 +612,13 @@ async function craftedTimelines(): Promise<Record<string, unknown>[]> {
       priceToBeat: c.priceToBeat,
       ticks: c.ticks,
     })
-    out.push({ counts: r.counts, input: c, lines: r.lines, name: c.name })
+    out.push({
+      counts: r.counts,
+      input: c,
+      lines: r.lines,
+      name: c.name,
+      snapshots: r.snapshots,
+    })
   }
   return out
 }
@@ -575,40 +648,49 @@ const content = canon({
   lineFormats: {
     binance: 'tsMs|f64 bits of value (hex)',
     chainlink: 'roundTsMs|broadcastMs|f64 bits of value (hex)',
+    snapshots:
+      'the TS ExternalFeedsSnapshot (14 §11.2) per delivered line, null when gated; real timelines keep the sample lines and the last line',
     timeline:
       'eventType|tick ts|gated, or bn=tsMs,bits,receivedAtMs;cl=tsMs,bits,receivedAtMs;ptb=bits,receivedAtMs,eventStartTimeIso,endDateIso ("-" = key absent)',
   },
   loaders,
-  spec: 'native-spec-g1 14 §3-§6, §8.2, §10, §13 V-1, V-2; 60 §7.1-§7.2',
+  spec: 'native-spec-g1 14 §3-§6, §8.2, §10, §11.2, §13 V-1, V-2; 60 §7.1-§7.2',
   timelines: [...(await realTimelines()), ...(await craftedTimelines())],
 }) as Record<string, unknown>
 
 const contentText = JSON.stringify(content)
-let contentPin = execSync('git rev-parse HEAD', { cwd: repoRoot }).toString().trim()
 let previous: string | null = null
-if (existsSync(outFile)) {
-  const old = JSON.parse(readFileSync(outFile, 'utf8')) as Record<string, unknown>
-  const { generator: _g, generatorSha256: _s, contentPin: pin, ...rest } = old
+let committedPin: string | null = null
+if (existsSync(committedFile)) {
+  const old = JSON.parse(readFileSync(committedFile, 'utf8')) as Record<string, unknown>
+  const { header, ...rest } = old
   previous = JSON.stringify(canon(rest))
-  if (previous === contentText && typeof pin === 'string') contentPin = pin
+  const pin = (header as { contentPin?: unknown } | undefined)?.contentPin
+  if (typeof pin === 'string') committedPin = pin
 }
 if (process.argv.includes('--check')) {
   if (previous !== contentText) {
-    console.error(`feeds golden differs from ${path.relative(repoRoot, outFile)}`)
+    console.error(`feeds golden differs from ${path.relative(repoRoot, committedFile)}`)
     process.exit(1)
   }
   console.log('feeds golden unchanged')
 } else {
+  const contentPin =
+    previous === contentText && committedPin !== null
+      ? committedPin
+      : execSync('git merge-base HEAD origin/main', { cwd: repoRoot }).toString().trim()
   const generatorSha256 = createHash('sha256')
     .update(readFileSync(path.join(repoRoot, generatorRel)))
     .digest('hex')
   const doc = {
-    ...(canon({ contentPin, generator: generatorRel, generatorSha256 }) as object),
     ...content,
+    header: { contentPin, generator: generatorRel, generatorSha256 },
   }
   mkdirSync(path.dirname(outFile), { recursive: true })
-  // Prettier-formatted so `npm run code:prettier:check` passes (CI).
-  const options = { ...(await resolveConfig(outFile)), parser: 'json' }
+  // Prettier-formatted with the repo config of the committed path, so the
+  // output is identical with or without --out-dir and passes
+  // `npm run code:prettier:check` (CI).
+  const options = { ...(await resolveConfig(committedFile)), parser: 'json' }
   writeFileSync(outFile, await format(JSON.stringify(canon(doc)), options))
-  console.log(`wrote ${path.relative(repoRoot, outFile)}`)
+  console.log(`wrote ${outFile}`)
 }

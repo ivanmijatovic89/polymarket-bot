@@ -5,7 +5,9 @@
  * (feeds_gen.ts) and the Rust tests read only these slices, so CI needs no
  * data roots. See native/fixtures/feeds/README.md.
  *
- * Usage: npx tsx native/fixtures/gen/feeds_slice.ts
+ * Usage: npx tsx native/fixtures/gen/feeds_slice.ts [--crafted-only]
+ *   --crafted-only  rewrite only the crafted day files under crafted/ (no
+ *                   data roots needed)
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -143,13 +145,19 @@ async function crafted(): Promise<void> {
        TO ${sqlQuote(path.join(dir, `BTCUSDT-aggTrades-${day}.parquet`))} (FORMAT parquet)`,
     )
   }
-  const cl = async (c: string, day: string, rows: [number, number | null, string][]) => {
+  const cl = async (
+    c: string,
+    day: string,
+    rows: [number | null, number | null, string][],
+    assetByRound: Record<number, string> = {},
+  ) => {
     const dir = path.join(root, c, 'telonex/crypto_prices/btcusd')
     mkdirSync(dir, { recursive: true })
+    const sql = (v: number | null) => (v === null ? 'NULL' : String(v))
     const values = rows
       .map(
         ([r, b, px]) =>
-          `(${r}::BIGINT, ${b === null ? 'NULL' : b}::BIGINT, ${r}::BIGINT, 'polymarket', 'btcusd', 'btc/usd', 'chainlink', '${px}')`,
+          `(${sql(r)}::BIGINT, ${sql(b)}::BIGINT, ${sql(r)}::BIGINT, 'polymarket', '${(r !== null && assetByRound[r]) || 'btcusd'}', 'btc/usd', 'chainlink', '${px}')`,
       )
       .join(', ')
     await conn.run(
@@ -204,12 +212,76 @@ async function crafted(): Promise<void> {
     [us(s - 1_000), us(s), '1.5'],
     [us(s + 100_000), null, '2.5'],
   ])
+  // A row without a round time: dropped by both engines (14 F-21, F-22).
+  await cl('chainlink-nullround', '2026-09-16', [
+    [us(f) - 2_000_000, us(f) - 1_000_000, '1.5'],
+    [null, us(s), '9.5'],
+    [us(s + 1_000), us(s + 2_000), '2.5'],
+    [us(s + 250_000), us(s + 251_000), '3.5'],
+    [us(s + 500_000), us(s + 501_000), '4.5'],
+    [us(s + 750_000), us(s + 751_000), '5.5'],
+    [us(e - 1_000), us(e), '6.5'],
+  ])
+  // Window 2026-09-17T00:00Z: the lookback and the seed lie in the
+  // 2026-09-16 file, members in both files, broadcast order across files
+  // (14 F-20, F-21, F-22).
+  const m = Date.parse('2026-09-17T00:00:00Z')
+  const mf = m - LOOKBACK_MS
+  await cl('chainlink-twoday', '2026-09-16', [
+    [us(mf - 3_000), us(mf - 2_000), '10.5'],
+    [us(mf - 1_000), us(mf), '11.5'],
+    [us(mf + 10), us(mf + 1_000), '12.5'],
+    [us(m - 500), us(m + 1_500), '13.5'],
+  ])
+  await cl('chainlink-twoday', '2026-09-17', [
+    [us(m + 100), us(m + 1_200), '14.5'],
+    ...Array.from({ length: 4 }, (_, i): [number, number, string] => [
+      us(m + (i + 1) * 200_000),
+      us(m + (i + 1) * 200_000 + 1_000),
+      `${15 + i}.25`,
+    ]),
+  ])
+  // GF-5 divergences: inputs where TS loads but the spec makes the market
+  // data_defect corrupt (14 F-17, F-25 and the D-PENDING row rules).
+  const base: [number, number, number | null][] = [
+    [200, f - 1_000, 200.5],
+    [201, s, 201.5],
+    [202, s + 100_000, 202.5],
+  ]
+  await bin('binance-nullprice', '2026-09-16', [...base, [203, s + 200_000, null]])
+  await bin('binance-zeroprice', '2026-09-16', [...base, [203, s + 200_000, 0]])
+  await bin('binance-negprice', '2026-09-16', [...base, [203, s + 200_000, -1.5]])
+  // Identical duplicate rows keep the TS order deterministic.
+  await bin('binance-dupid', '2026-09-16', [...base, [202, s + 100_000, 202.5]])
+  // No stale span >= 300 s inside the window (14 F-26).
+  const okRows: [number | null, number | null, string][] = [
+    [us(s + 1_000), us(s + 2_000), '2.5'],
+    [us(s + 250_000), us(s + 251_000), '3.5'],
+    [us(s + 500_000), us(s + 501_000), '4.5'],
+    [us(s + 750_000), us(s + 751_000), '5.5'],
+    [us(e - 1_000), us(e), '6.5'],
+  ]
+  // The only pre-range row has a NULL broadcast time: it is the seed.
+  await cl('chainlink-seed-nullbc', '2026-09-16', [[us(f) - 1_000_000, null, '1.5'], ...okRows])
+  await cl('chainlink-zeroprice', '2026-09-16', [
+    [us(f) - 1_000_000, us(f), '1.5'],
+    [us(s + 500), us(s + 1_500), '0'],
+    ...okRows,
+  ])
+  await cl(
+    'chainlink-foreign-asset',
+    '2026-09-16',
+    [[us(f) - 1_000_000, us(f), '1.5'], ...okRows],
+    { [us(s + 500_000)]: 'ethusd' },
+  )
 }
 
-for (const m of FIXTURE_MARKETS) {
-  await sliceBinance(m.startMs, m.endMs)
-  if (m.chainlink) await sliceChainlink(m.startMs, m.endMs)
-  await sliceClocks(m.slug, m.startMs, m.endMs)
+if (!process.argv.includes('--crafted-only')) {
+  for (const m of FIXTURE_MARKETS) {
+    await sliceBinance(m.startMs, m.endMs)
+    if (m.chainlink) await sliceChainlink(m.startMs, m.endMs)
+    await sliceClocks(m.slug, m.startMs, m.endMs)
+  }
 }
 await crafted()
 conn.closeSync()

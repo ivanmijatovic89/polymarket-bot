@@ -12,10 +12,10 @@
 use pmb_core::{FeedKind, FeedsView, PriceToBeatPoint, TsMs, Window};
 use pmb_feeds::time::iso_ms;
 use pmb_feeds::{
-    load_market_feeds, required_days, synthetic_stamp, ts_compat_feed_clock, BinanceFeed,
-    BinanceSeries, ChainlinkFeed, ChainlinkSeries, DayCache, FeedDataset, FeedFile, FeedOptions,
-    FeedProfile, FeedRequest, FeedState, FeedsModel, GammaStrike, MarketFeeds, MarketFeedsInput,
-    PriceToBeatSource, PtbAvailability, PtbStatus, SyntheticFlusher,
+    historical_snapshot, load_market_feeds, required_days, synthetic_stamp, ts_compat_feed_clock,
+    BinanceFeed, BinanceSeries, ChainlinkFeed, ChainlinkSeries, DayCache, FeedDataset, FeedFile,
+    FeedOptions, FeedProfile, FeedRequest, FeedState, FeedsModel, GammaStrike, MarketFeeds,
+    MarketFeedsInput, PriceToBeatSource, PtbAvailability, PtbStatus, SyntheticFlusher,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -28,8 +28,85 @@ fn fixtures() -> PathBuf {
 
 fn golden() -> Value {
     let p = fixtures().join("golden/feeds/feeds_golden.json");
-    serde_json::from_slice(&std::fs::read(&p).expect("read golden")).expect("parse golden")
+    let g: Value =
+        serde_json::from_slice(&std::fs::read(&p).expect("read golden")).expect("parse golden");
+    // spec: 60 GF-2 (header object {contentPin, generator, generatorSha256})
+    let h = &g["header"];
+    assert_eq!(h["generator"], "native/fixtures/gen/feeds_gen.ts");
+    for k in ["contentPin", "generatorSha256"] {
+        let v = h[k].as_str().unwrap_or_else(|| panic!("header.{k}"));
+        assert!(v.len() == 40 || v.len() == 64, "header.{k} = {v}");
+    }
+    g
 }
+
+/// JSON equality with numbers compared as `f64` (the golden holds JS number
+/// spellings such as `2` for `2.0`; the writer owns spelling, 14 §11.2).
+fn json_same(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => x.as_f64() == y.as_f64(),
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .all(|(k, v)| y.get(k).is_some_and(|w| json_same(v, w)))
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(v, w)| json_same(v, w))
+        }
+        _ => a == b,
+    }
+}
+
+/// GF-5 (60 §7.1): crafted loader cases where the TS oracle loads but the
+/// spec fails the market. The golden keeps the TS outcome; Rust asserts the
+/// spec value under the annotation. The PARITY.md entries (60 §3) do not
+/// exist yet, so the ids are pending and the check that an entry is
+/// `accepted` cannot run.
+const EXPECTED_DIVERGENCES: &[(&str, &str, &str, &str)] = &[
+    // (case, class, cause, expected_divergence)
+    (
+        "binance-nullprice",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-17, TS bug: NULL price fed as 0)",
+    ),
+    (
+        "binance-zeroprice",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-17, TS bug)",
+    ),
+    (
+        "binance-negprice",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-17, TS bug)",
+    ),
+    (
+        "binance-dupid",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (D-PENDING duplicate agg_trade_id)",
+    ),
+    (
+        "chainlink-seed-nullbc",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-25, TS validates range rows only)",
+    ),
+    (
+        "chainlink-zeroprice",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-25, TS does not check prices)",
+    ),
+    (
+        "chainlink-foreign-asset",
+        "data_defect",
+        "corrupt",
+        "PE-PENDING (14 F-25, TS does not check asset_id)",
+    ),
+];
 
 fn sha(lines: &[String]) -> String {
     let mut h = Sha256::new();
@@ -176,8 +253,31 @@ fn loader_goldens() {
                 .join("feeds")
                 .join(case["root"].as_str().unwrap()),
         };
+        let divergence = EXPECTED_DIVERGENCES.iter().find(|d| d.0 == name);
+        if let Some(&(_, class, cause, expected_divergence)) = divergence {
+            assert!(
+                case.get("ok").is_some(),
+                "{name}: the golden keeps the TS load"
+            );
+            let e = load(&job, &cache).expect_err(expected_divergence);
+            assert_eq!(
+                (e.class().as_str(), e.cause.as_str()),
+                (class, cause),
+                "{name} ({expected_divergence}): {e}"
+            );
+            seen += 1;
+            continue;
+        }
         match (load(&job, &cache), case.get("ok")) {
             (Ok(l), Some(ok)) => {
+                if name == "chainlink-nullround" {
+                    // The NULL-round row is dropped by both engines; Rust
+                    // reports it (D-PENDING in chainlink.rs).
+                    assert_eq!(l.diagnostics.len(), 1, "{name}");
+                    assert!(l.diagnostics[0]
+                        .message
+                        .contains("1 row(s) with NULL timestamp_us"));
+                }
                 let (lines, seeded) = if feed == "binance" {
                     let s = &l.feeds.binance().unwrap().series;
                     (binance_lines(s), s.seeded())
@@ -225,7 +325,7 @@ fn loader_goldens() {
         }
         seen += 1;
     }
-    assert_eq!(seen, 14);
+    assert_eq!(seen, 23);
 }
 
 fn render(kind: &str, ts: i64, v: &FeedsView) -> String {
@@ -256,6 +356,8 @@ type Clock = (i64, Option<i64>, u8);
 struct Driven {
     lines: Vec<String>,
     counts: BTreeMap<String, u64>,
+    /// TS-shape snapshot per line (14 §11.2), `Null` when gated.
+    snapshots: Vec<Value>,
 }
 
 /// The ts-compat telonex-delta tick loop, feed parts only (see module docs).
@@ -265,12 +367,14 @@ fn drive(feeds: &MarketFeeds, window: Window, ticks: &[Clock]) -> Driven {
     let mut out = Driven {
         lines: Vec::new(),
         counts: BTreeMap::new(),
+        snapshots: Vec::new(),
     };
     let mut prev = FeedsView::EMPTY;
     let mut dispatch = |kind: &str, ts: i64, clock: TsMs, state: &mut FeedState| {
         *out.counts.entry(kind.to_owned()).or_default() += 1;
         if ts < window.start_ms.0 || ts > window.end_ms.0 {
             out.lines.push(format!("{kind}|{ts}|gated"));
+            out.snapshots.push(Value::Null);
             return;
         }
         let v = *state.advance(feeds, clock);
@@ -301,6 +405,7 @@ fn drive(feeds: &MarketFeeds, window: Window, ticks: &[Clock]) -> Driven {
         }
         prev = v;
         out.lines.push(render(kind, ts, &v));
+        out.snapshots.push(historical_snapshot(feeds, &v));
     };
     let mut has_book = false;
     let mut last_exchange = TsMs(i64::MIN);
@@ -421,6 +526,17 @@ fn real_market_timelines() {
         );
         let delivered = d.lines.iter().filter(|l| !l.ends_with("|gated")).count();
         assert_eq!(delivered as u64, t["delivered"].as_u64().unwrap(), "{name}");
+        // spec: 14 §11.2 (TS-shape snapshot incl. symbols, ISO strings and
+        // the always-present rtdsPolymarketCryptoPrices)
+        let snaps = t["snapshots"].as_object().unwrap();
+        assert!(snaps.len() > 2, "{name}");
+        for (i, want) in snaps {
+            let got = &d.snapshots[i.parse::<usize>().unwrap()];
+            assert!(
+                json_same(got, want),
+                "{name}: snapshot {i}: {got} != {want}"
+            );
+        }
         assert_eq!(
             sha(&d.lines),
             t["sha256"].as_str().unwrap(),
@@ -493,6 +609,7 @@ fn crafted_timelines() {
                 tick_on_update: c["tickOnUpdate"].as_bool().unwrap(),
             }),
             Some(PriceToBeatSource {
+                symbol: "BTC",
                 point: PriceToBeatPoint {
                     open_price: p["openPrice"].as_f64().unwrap(),
                     received_at: TsMs(window.start_ms.0 + p["latencyMs"].as_i64().unwrap()),
@@ -515,6 +632,14 @@ fn crafted_timelines() {
             .collect();
         let d = drive(&feeds, window, &ticks);
         assert_eq!(d.lines, strs(&t["lines"]), "{name}");
+        let want = t["snapshots"].as_array().unwrap();
+        assert_eq!(d.snapshots.len(), want.len(), "{name}");
+        for (i, (got, want)) in d.snapshots.iter().zip(want).enumerate() {
+            assert!(
+                json_same(got, want),
+                "{name}: snapshot {i}: {got} != {want}"
+            );
+        }
         assert_eq!(d.counts, counts_of(&t["counts"]), "{name}: counts");
         seen += 1;
     }
@@ -574,6 +699,7 @@ fn fixture_days(
 
 fn ptb_source(window: Window, latency: i64) -> PriceToBeatSource {
     PriceToBeatSource {
+        symbol: "BTC",
         point: PriceToBeatPoint {
             open_price: 117_234.51,
             received_at: TsMs(window.start_ms.0 + latency),

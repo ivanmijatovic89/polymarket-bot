@@ -43,6 +43,8 @@ pub struct PtbAvailability<'a> {
 /// `H >= available_at = start + L_p`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PriceToBeatSource {
+    /// Uppercase slug symbol (`BTC`, F-28, F-49); the TS shape only (§11.2).
+    pub symbol: &'static str,
     pub point: PriceToBeatPoint,
 }
 
@@ -87,6 +89,7 @@ fn inconsistent(slug: &str, what: &str) -> FeedError {
 /// Every other pair is a producer bug: `invalid_input: feed_availability`.
 pub fn resolve_price_to_beat(
     slug: &str,
+    symbol: &'static str,
     window: Window,
     latency_ms: i64,
     gamma: GammaStrike,
@@ -127,6 +130,7 @@ pub fn resolve_price_to_beat(
                 ));
             };
             Ok(PtbResolution::Fed(PriceToBeatSource {
+                symbol,
                 point: PriceToBeatPoint {
                     open_price: p,
                     received_at: TsMs(window.start_ms.0 + latency_ms),
@@ -187,7 +191,8 @@ mod tests {
             synced_at_ms: None,
         };
         let s = "btc-updown-15m-1789570800";
-        match resolve_price_to_beat(s, win(), 2_700, fed, av(PtbStatus::Fed, None)).unwrap() {
+        match resolve_price_to_beat(s, "BTC", win(), 2_700, fed, av(PtbStatus::Fed, None)).unwrap()
+        {
             PtbResolution::Fed(src) => {
                 assert_eq!(src.available_at(), TsMs(START + 2_700));
                 assert_eq!(src.point.open_price, 117_234.51);
@@ -195,13 +200,21 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        let r = resolve_price_to_beat(s, win(), 0, none, av(PtbStatus::AbsentPreSeriesEpoch, None));
+        let r = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            none,
+            av(PtbStatus::AbsentPreSeriesEpoch, None),
+        );
         assert_eq!(
             r.unwrap(),
             PtbResolution::Absent(PtbStatus::AbsentPreSeriesEpoch)
         );
         let r = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             GammaStrike::NotResolved,
@@ -210,6 +223,7 @@ mod tests {
         assert!(r.is_ok());
         let r = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             none,
@@ -221,6 +235,7 @@ mod tests {
         );
         let e = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             GammaStrike::CatalogMiss,
@@ -237,6 +252,7 @@ mod tests {
         assert_eq!(e.message, "run telonex:sync");
         let e = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             unsynced,
@@ -248,13 +264,20 @@ mod tests {
         .unwrap_err();
         assert_eq!(e.cause, FeedCause::PipelineIncomplete);
         for g in [GammaStrike::CatalogMiss, unsynced] {
-            let r =
-                resolve_price_to_beat(s, win(), 0, g, av(PtbStatus::AbsentFreshMarketGrace, None));
+            let r = resolve_price_to_beat(
+                s,
+                "BTC",
+                win(),
+                0,
+                g,
+                av(PtbStatus::AbsentFreshMarketGrace, None),
+            );
             assert!(r.is_ok(), "{g:?}");
         }
         // A strike fed without a sync stamp is still fed (TS feeds any strike).
         let r = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             GammaStrike::Resolved {
@@ -266,6 +289,7 @@ mod tests {
         assert!(matches!(r, Ok(PtbResolution::Fed(_))));
         let e = resolve_price_to_beat(
             s,
+            "BTC",
             win(),
             0,
             none,
@@ -324,7 +348,7 @@ mod tests {
                 av(PtbStatus::Fed, None),
             ),
         ] {
-            let e = resolve_price_to_beat(s, win(), 0, g, a).unwrap_err();
+            let e = resolve_price_to_beat(s, "BTC", win(), 0, g, a).unwrap_err();
             assert_eq!(e.cause, FeedCause::FeedAvailability, "{g:?} {a:?}");
         }
     }

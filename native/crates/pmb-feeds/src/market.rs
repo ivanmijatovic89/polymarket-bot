@@ -491,6 +491,7 @@ fn load_inner(input: &MarketFeedsInput<'_>, cache: &DayCache) -> Result<LoadedFe
     if req.price_to_beat {
         match resolve_price_to_beat(
             slug,
+            info.symbol.price_to_beat_symbol(),
             window,
             input.model.price_to_beat.constant_ms(),
             input.gamma,

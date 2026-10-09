@@ -126,6 +126,7 @@ mod tests {
             FeedProfile::TsCompat,
         );
         let p = PriceToBeatSource {
+            symbol: "BTC",
             point: PriceToBeatPoint {
                 open_price: 7.0,
                 received_at: TsMs(1050),

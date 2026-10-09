@@ -9,9 +9,10 @@ rust-version.workspace = true
 [dependencies]
 pmb-core.workspace = true
 parquet.workspace = true
+# TS-shape boundary values (14 §11.2): describe.requiredFeeds and the trace.
+serde_json.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 sha2.workspace = true
 
 [lints]
