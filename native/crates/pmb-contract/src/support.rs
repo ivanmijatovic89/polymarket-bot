@@ -150,6 +150,18 @@ pub(crate) fn ensure(
     }
 }
 
+/// True when `s` has `min..=max` Unicode scalar values: JSON Schema
+/// `minLength`/`maxLength` and MySQL `varchar(N)` count characters, not
+/// bytes (21 §3: Rust and TS reject the same values; §11 varchar(255)).
+pub fn is_char_len_within(s: &str, min: usize, max: usize) -> bool {
+    let n = if s.is_ascii() {
+        s.len()
+    } else {
+        s.chars().count()
+    };
+    (min..=max).contains(&n)
+}
+
 /// Printable ASCII without `"` or `\` (21 §6.1 string rule).
 pub fn is_plain_ascii(s: &str) -> bool {
     s.bytes()

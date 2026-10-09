@@ -1369,6 +1369,135 @@
         "cause": "params"
       },
       "jsonSchema": "reject"
+    },
+    {
+      "name": "strike present but absent_pre_series_epoch",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "absent_pre_series_epoch"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but absent_fresh_market_grace",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "absent_fresh_market_grace"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but unavailable_upstream_hole",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "strike present but unavailable_pipeline_incomplete",
+      "rule": "14 §6.2 (a strike always feeds)",
+      "set": {
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_pipeline_incomplete",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "upstream hole on a catalog miss",
+      "rule": "14 §6.2 (upstream_hole = synced row, empty strike)",
+      "set": {
+        "/market/gammaPriceToBeat": null,
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "upstream hole on a never-synced row",
+      "rule": "14 §6.2 (upstream_hole = synced row, empty strike)",
+      "set": {
+        "/market/gammaPriceToBeat": {
+          "priceToBeat": null,
+          "syncedAtMs": null
+        },
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_upstream_hole",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "pipeline incomplete on a synced row",
+      "rule": "14 §6.2 (pipeline_incomplete = catalog miss or never synced)",
+      "set": {
+        "/market/gammaPriceToBeat": {
+          "priceToBeat": null,
+          "syncedAtMs": 1780280000000
+        },
+        "/market/feedAvailability/priceToBeat": {
+          "status": "unavailable_pipeline_incomplete",
+          "message": "x"
+        }
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "feed_availability"
+      },
+      "jsonSchema": "accept"
+    },
+    {
+      "name": "window on a ts-compat recorder-v4 job",
+      "rule": "21 §5.2 (ts-compat, recorder-v4: window is null)",
+      "set": {
+        "/run/inputMode": "recorder-v4",
+        "/market/recorderV4": {
+          "manifest": {},
+          "allowGaps": false
+        },
+        "/market/input/sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "window"
+      },
+      "jsonSchema": "accept"
     }
   ]
 }

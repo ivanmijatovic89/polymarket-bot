@@ -475,7 +475,14 @@ impl EngineJob {
                 ensure(mc.profile != Profile::TsCompat, "params", || {
                     "ts-compat candidates cannot vary execution (21 §8 C4)".into()
                 })?;
-                mc.effective(Some(x)).validate()?;
+                // 21 §5.1: every §8 candidate rule is `invalid_input: params`,
+                // including an effective execution invalid for the profile (C4).
+                mc.effective(Some(x)).validate().map_err(|e| {
+                    ContractError::invalid_input(
+                        "params",
+                        format!("candidate {:?} execution: {}", cand.key, e.message),
+                    )
+                })?;
             }
         }
         for (i, a) in run.candidates.iter().enumerate() {
@@ -499,17 +506,25 @@ impl EngineJob {
         let (tf_ms, start_ms) = slug_window(&m.slug).ok_or_else(|| {
             ContractError::invalid_input("market", format!("bad slug {:?}", m.slug))
         })?;
+        // 21 §5.2: (ts-compat, recorder-v4) has no strategy gate, so its
+        // window is null (TS `strategyWindow` is null for V4); every other
+        // combination carries the slug window (D23 for realistic).
+        let window_is_null =
+            run.input_mode == InputMode::RecorderV4 && profile == Profile::TsCompat;
         match &m.window {
-            Some(w) => ensure(
-                w.start_ms.get() == start_ms && w.end_ms.get() == start_ms + tf_ms,
-                "window",
-                || "window must equal the slug window (10 §5)".into(),
-            )?,
-            None => ensure(
-                run.input_mode == InputMode::RecorderV4 && profile == Profile::TsCompat,
-                "window",
-                || "window may be null only for recorder-v4 in ts-compat".into(),
-            )?,
+            Some(w) => {
+                ensure(!window_is_null, "window", || {
+                    "window must be null for recorder-v4 in ts-compat (21 §5.2)".into()
+                })?;
+                ensure(
+                    w.start_ms.get() == start_ms && w.end_ms.get() == start_ms + tf_ms,
+                    "window",
+                    || "window must equal the slug window (10 §5)".into(),
+                )?
+            }
+            None => ensure(window_is_null, "window", || {
+                "window may be null only for recorder-v4 in ts-compat".into()
+            })?,
         }
         ensure(
             !m.token_ids.up.is_empty()
@@ -519,9 +534,13 @@ impl EngineJob {
             || "tokenIds must be distinct and non-empty".into(),
         )?;
         if let Some(cid) = &m.condition_id {
-            ensure(!cid.is_empty() && cid.len() <= 255, "market", || {
-                "conditionId must be 1..255 characters".into()
-            })?;
+            // Characters, as JSON Schema `maxLength` and MySQL varchar(255)
+            // count them (21 §3: Rust and TS reject the same values).
+            ensure(
+                crate::support::is_char_len_within(cid, 1, 255),
+                "market",
+                || "conditionId must be 1..255 characters".into(),
+            )?;
         }
         m.rules.validate()?;
         self.validate_feed_availability()?;
@@ -562,8 +581,21 @@ impl EngineJob {
     }
 
     /// 14 §6.2: `gammaPriceToBeat` is absent iff price-to-beat was not
-    /// requested, which is when `feedAvailability.priceToBeat` is null;
-    /// `fed` needs a finite strike; `unavailable_*` needs a message.
+    /// requested, which is when `feedAvailability.priceToBeat` is null, and
+    /// the status MUST be the one the producer's TS logic derives from
+    /// `gammaPriceToBeat` (`wireBacktestExternalFeeds.ts:283-344`); any other
+    /// combination is a producer bug, `invalid_input: feed_availability`:
+    ///
+    /// | `gammaPriceToBeat` | allowed `status` |
+    /// |---|---|
+    /// | object, `priceToBeat` set | `fed` only (a strike always feeds) |
+    /// | `null` (catalog miss) | `absent_*`, `unavailable_pipeline_incomplete` |
+    /// | object, both null (never synced) | `absent_*`, `unavailable_pipeline_incomplete` |
+    /// | object, synced, `priceToBeat` null | `absent_*`, `unavailable_upstream_hole` |
+    ///
+    /// `absent_*` accepts every strike-less form because TS checks the
+    /// series epoch and the fresh-market grace before it looks at the
+    /// catalog row. `unavailable_*` needs a message.
     fn validate_feed_availability(&self) -> Result<(), ContractError> {
         let m = &self.market;
         let c = "feed_availability";
@@ -572,23 +604,39 @@ impl EngineJob {
                 "gammaPriceToBeat is present but feedAvailability.priceToBeat is null".into()
             });
         };
-        ensure(m.gamma_price_to_beat.is_some(), c, || {
-            "feedAvailability.priceToBeat is set but gammaPriceToBeat is absent".into()
-        })?;
-        match p.status {
-            PriceToBeatStatus::Fed => ensure(
-                matches!(&m.gamma_price_to_beat, Some(Some(g)) if g.price_to_beat.is_some()),
+        let Some(gamma) = &m.gamma_price_to_beat else {
+            return Err(ContractError::invalid_input(
                 c,
-                || "status fed requires gammaPriceToBeat.priceToBeat".into(),
-            )?,
+                "feedAvailability.priceToBeat is set but gammaPriceToBeat is absent",
+            ));
+        };
+        let strike = gamma.as_ref().and_then(|g| g.price_to_beat);
+        let synced = gamma.as_ref().is_some_and(|g| g.synced_at_ms.is_some());
+        let consistent = match p.status {
+            PriceToBeatStatus::Fed => strike.is_some(),
+            PriceToBeatStatus::AbsentPreSeriesEpoch | PriceToBeatStatus::AbsentFreshMarketGrace => {
+                strike.is_none()
+            }
+            PriceToBeatStatus::UnavailablePipelineIncomplete => strike.is_none() && !synced,
+            PriceToBeatStatus::UnavailableUpstreamHole => strike.is_none() && synced,
+        };
+        ensure(consistent, c, || {
+            format!(
+                "status {} is inconsistent with gammaPriceToBeat (strike {}, synced {synced}; 14 §6.2)",
+                p.status,
+                if strike.is_some() { "present" } else { "absent" },
+            )
+        })?;
+        if matches!(
+            p.status,
             PriceToBeatStatus::UnavailablePipelineIncomplete
-            | PriceToBeatStatus::UnavailableUpstreamHole => ensure(
+                | PriceToBeatStatus::UnavailableUpstreamHole
+        ) {
+            ensure(
                 p.message.as_deref().is_some_and(|s| !s.is_empty()),
                 c,
                 || "unavailable_* requires a message".into(),
-            )?,
-            PriceToBeatStatus::AbsentPreSeriesEpoch | PriceToBeatStatus::AbsentFreshMarketGrace => {
-            }
+            )?;
         }
         if let Some(msg) = &p.message {
             ensure(
@@ -641,6 +689,93 @@ mod tests {
         ] {
             assert!(!is_day(bad), "{bad}");
         }
+    }
+
+    /// The telonex-delta fixture job turned realistic (13 §7.3 sections),
+    /// with a second candidate that varies `execution`.
+    fn realistic_group_job() -> Value {
+        let c = |ms: u32| serde_json::json!({"kind": "constant", "ms": ms});
+        let mut v: Value = serde_json::from_str(include_str!(
+            "../../../contract/fixtures/jobs/valid/telonex-delta-ts-compat.json"
+        ))
+        .unwrap();
+        let mc = &mut v["run"]["modelConfig"];
+        mc["profile"] = "realistic".into();
+        mc["execution"] = serde_json::json!({
+            "models": {"latency": "exact", "fee": "schedule", "takerDelay": "on",
+                       "depletion": "persistent_deficit", "maker": "queue", "reports": "settlement"},
+            "compatLatency": {"delayMs": 0, "jitterMs": 0},
+            "latency": {"calibrationId": "uncalibrated-2026-10", "components": {
+                "place": c(58), "cancel": c(45), "ack": c(58), "cancelAck": c(45),
+                "fillReport": c(58), "mined": c(2000), "confirmed": c(10000), "failed": c(2000),
+                "chainSplit": c(4000), "chainMerge": c(4000)}},
+            "cancelBeforeAck": "defer_until_ack",
+            "makerQueue": {"cancelAheadShare": "0.5", "printMatchWindowMs": 1000, "prints": "auto"},
+            "sellGate": "Mined",
+            "failureRates": {"settlement": "0", "chain": "0"}
+        });
+        mc["clock"] = serde_json::json!({"marketData": {"calibrationId": "uncalibrated-2026-10",
+                                                        "delay": c(20)}});
+        let mut variant = mc["execution"].clone();
+        variant["sellGate"] = "Confirmed".into();
+        let cands = v["run"]["candidates"].as_array_mut().unwrap();
+        let mut second = cands[0].clone();
+        second["key"] = "variant".into();
+        second["index"] = 1.into();
+        second["execution"] = variant;
+        cands.push(second);
+        v
+    }
+
+    #[test]
+    fn candidate_execution_errors_are_params_errors() {
+        // spec: 21 §5.1 run.candidates -> invalid_input: params; §8 C4
+        let v = realistic_group_job();
+        EngineJob::parse(&v.to_string()).unwrap();
+        let mut bad = v.clone();
+        bad["run"]["candidates"][1]["execution"]["sellGate"] = Value::Null;
+        bad["run"]["candidates"][1]["execution"]
+            .as_object_mut()
+            .unwrap()
+            .remove("sellGate");
+        let e = EngineJob::parse(&bad.to_string()).unwrap_err();
+        assert_eq!(
+            (e.class, e.cause),
+            (crate::vocab::ErrorClass::InvalidInput, "params"),
+            "{e}"
+        );
+        assert!(e.message.contains("\"variant\""), "{e}");
+    }
+
+    #[test]
+    fn realistic_jobs_need_a_window_in_every_mode() {
+        // spec: 21 §5.1 market.window, §5.2 (realistic: every input mode, D23)
+        let mut v = realistic_group_job();
+        v["run"]["inputMode"] = "recorder-v4".into();
+        v["market"]["recorderV4"] = serde_json::json!({"manifest": {}, "allowGaps": false});
+        v["market"]["input"]["sha256"] = "a".repeat(64).into();
+        EngineJob::parse(&v.to_string()).unwrap();
+        v["market"]["window"] = Value::Null;
+        assert_eq!(
+            EngineJob::parse(&v.to_string()).unwrap_err().cause,
+            "window"
+        );
+    }
+
+    #[test]
+    fn condition_id_length_counts_characters() {
+        // spec: 21 §3 (Rust and TS reject the same values), §11 varchar(255)
+        let mut v: Value = serde_json::from_str(include_str!(
+            "../../../contract/fixtures/jobs/valid/telonex-delta-ts-compat.json"
+        ))
+        .unwrap();
+        v["market"]["conditionId"] = "é".repeat(255).into();
+        EngineJob::parse(&v.to_string()).unwrap();
+        v["market"]["conditionId"] = "é".repeat(256).into();
+        assert_eq!(
+            EngineJob::parse(&v.to_string()).unwrap_err().cause,
+            "market"
+        );
     }
 
     #[test]
