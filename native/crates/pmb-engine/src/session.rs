@@ -14,7 +14,7 @@ use pmb_core::rules::ExchangeRules;
 use pmb_core::{FinalOutcome, MarketEvent, Outcome, PerOutcome, TsMs};
 
 use crate::clock::{Clocks, DecisionOrigin};
-use crate::config::EngineConfig;
+use crate::config::{EngineConfig, RunMode};
 use crate::core_rules::CoreRules;
 use crate::envelope::{Control, Envelope, GuardTrip, OperatorCommand, Payload, SyntheticKind};
 use crate::exec::{CancelScope, EventQueue, ExecCtx, Execution};
@@ -157,6 +157,8 @@ pub struct Session<S: Strategy, E: Execution, T: TraceSink> {
     /// Strategy calls stopped by a kill switch (12 §8.3, 50 §10.4): events
     /// are still applied, the strategy is never called again.
     pub(crate) calls_stopped: bool,
+    /// Paper strategy faults (12 §11, D32).
+    pub(crate) strategy_halts: Vec<SessionFault>,
 }
 
 /// Runs strategy code inside `catch_unwind` (12 §11, 30 §12); the panic
@@ -236,6 +238,12 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let interests = guarded(|| S::interests(params)).map_err(fault)?;
         let strategy = guarded(|| S::new(params, &market.info)).map_err(fault)?;
         let rules = config.core_rules;
+        if config.run_mode == RunMode::Paper && rules != CoreRules::Realistic {
+            // D28: paper runs the realistic rules (R14: never a silent mix).
+            return Err(SessionFault::Engine {
+                message: "paper run mode with the ts-compat rules (D28)".into(),
+            });
+        }
         let window = WindowGate {
             rule: WindowRule::select(rules, config.input_mode),
             window: market.window(),
@@ -273,6 +281,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             stats: MarketStatsAcc::default(),
             fault: None,
             calls_stopped: false,
+            strategy_halts: Vec::new(),
         })
     }
 
@@ -314,26 +323,68 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     pub(crate) fn engine_fault(&mut self, message: String) -> SessionFault {
         let f = SessionFault::Engine { message };
         self.fault = Some(f.clone());
-        self.strategy = None;
+        self.drop_strategy();
         f
     }
 
+    /// Drops the strategy instance inside `catch_unwind` (30 §12: the
+    /// instance is poisoned and dropped there), so a panicking `Drop` in
+    /// strategy code fails only this candidate, never the driver.
+    fn drop_strategy(&mut self) {
+        if let Some(s) = self.strategy.take() {
+            // A panic from the drop is ignored: the fault that caused the
+            // drop is already recorded.
+            let _ = guarded(move || drop(s));
+        }
+    }
+
+    /// A strategy fault (12 §6.3, §11). The strategy object is never called
+    /// again and placements are rejected `StrategyHalted`.
+    ///
+    /// - Backtest: the candidate stops; the fault is returned and kept.
+    /// - Paper (D32): an engine-originated `CancelMarket{Market}` with cause
+    ///   `StrategyPanic` goes through the OM, the fault is recorded as an
+    ///   alert ([`Session::strategy_halts`]) and the session keeps stepping:
+    ///   queued and later events are applied without callbacks (10 S5).
     pub(crate) fn strategy_fault(
         &mut self,
         cause: StrategyFaultCause,
         callback: &'static str,
-    ) -> SessionFault {
+        market: &SharedMarket,
+    ) -> Result<(), SessionFault> {
         let f = SessionFault::Strategy {
             cause,
             callback,
             tick_seq: self.last_tick.map_or(0, |t| t.seq),
             at: self.clocks.now,
         };
-        // 12 §11: after a fault the strategy object is never called again.
-        self.fault = Some(f.clone());
-        self.strategy = None;
+        self.drop_strategy();
         self.om.set_halt(Halt::StrategyHalted);
-        f
+        // Intents of the faulted callback are never handled.
+        self.intents.clear();
+        match self.config.run_mode {
+            RunMode::Backtest => {
+                self.fault = Some(f.clone());
+                Err(f)
+            }
+            RunMode::Paper => {
+                self.strategy_halts.push(f);
+                self.handle_engine(
+                    EngineIntent::CancelMarket {
+                        scope: CancelScope::Market,
+                        cause: pmb_core::event::CancelCause::StrategyPanic,
+                    },
+                    market,
+                );
+                Ok(())
+            }
+        }
+    }
+
+    /// Paper strategy faults recorded as alerts (12 §11 paper column, D32);
+    /// always empty in backtest, where a fault stops the candidate.
+    pub fn strategy_halts(&self) -> &[SessionFault] {
+        &self.strategy_halts
     }
 
     /// Forwards the adapter's lifecycle records to the sink (22 §2, 13 §4.3).
@@ -670,17 +721,22 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         );
         match res {
             Err(message) => {
-                return Err(
-                    self.strategy_fault(StrategyFaultCause::Panic { message }, "onMarketTick")
-                )
+                self.strategy_fault(
+                    StrategyFaultCause::Panic { message },
+                    "onMarketTick",
+                    market,
+                )?;
+                return self.drain(market);
             }
             Ok(Err(e)) => {
-                return Err(self.strategy_fault(
+                self.strategy_fault(
                     StrategyFaultCause::Error {
                         message: e.message().to_string(),
                     },
                     "onMarketTick",
-                ))
+                    market,
+                )?;
+                return self.drain(market);
             }
             Ok(Ok(())) => {}
         }
@@ -970,17 +1026,20 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let res = guarded(|| strategy.on_event(&ctx, &author, out));
         match res {
             Err(message) => {
-                return Err(
-                    self.strategy_fault(StrategyFaultCause::Panic { message }, "onAccountEvent")
+                return self.strategy_fault(
+                    StrategyFaultCause::Panic { message },
+                    "onAccountEvent",
+                    market,
                 )
             }
             Ok(Err(e)) => {
-                return Err(self.strategy_fault(
+                return self.strategy_fault(
                     StrategyFaultCause::Error {
                         message: e.message().to_string(),
                     },
                     "onAccountEvent",
-                ))
+                    market,
+                )
             }
             Ok(Ok(())) => {}
         }

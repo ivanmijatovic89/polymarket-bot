@@ -234,6 +234,7 @@ mod tests {
             market_seed: MarketSeed(0),
             starting_capital: Usdc::from_micros(500_000_000),
             max_events_per_drain: 4_200,
+            run_mode: crate::config::RunMode::Backtest,
             risk: RiskLimits::TS_DEFAULTS,
         }
     }

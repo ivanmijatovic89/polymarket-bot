@@ -52,6 +52,7 @@ pub(super) fn ts_compat_config(delay_ms: u32, jitter_ms: u32) -> EngineConfig {
         market_seed: MarketSeed(0),
         starting_capital: Usdc::from_micros(500_000_000),
         max_events_per_drain: 4_200,
+        run_mode: crate::config::RunMode::Backtest,
         risk: RiskLimits {
             max_open_orders: 100,
             max_order_size: Qty::from_micros(2_000_000_000),

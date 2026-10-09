@@ -750,6 +750,7 @@ pub fn config(rules: CoreRules) -> EngineConfig {
         market_seed: MarketSeed(0),
         starting_capital: u(500.0),
         max_events_per_drain: 4_200,
+        run_mode: pmb_engine::config::RunMode::Backtest,
         risk: RiskLimits::TS_DEFAULTS,
     }
 }

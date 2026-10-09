@@ -46,9 +46,11 @@ impl CascadeBudget {
 }
 
 impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
-    /// Drains the cascade queue (12 §6.2, §6.3). Events are never dropped:
-    /// after a fault in paper and live, remaining events are applied to the
-    /// ledger without callbacks (10 S5).
+    /// Drains the cascade queue (12 §6.2, §6.3). Backtest: a strategy fault
+    /// (panic, error, cascade limit) stops the candidate at once. Paper: the
+    /// fault halts the strategy ([`Session::strategy_fault`]) and the drain
+    /// continues, so every remaining event is applied to the ledger without
+    /// callbacks; events are never dropped (10 S5).
     pub(crate) fn drain(&mut self, market: &SharedMarket) -> Result<(), SessionFault> {
         let mut budget = CascadeBudget::new(self.config.max_events_per_drain);
         while let Some(ev) = self.queue.pop() {
@@ -105,7 +107,9 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
                     tick: self.last_tick.map_or(0, |t| t.seq),
                     deliveries: budget.used - 1,
                 };
-                return Err(self.strategy_fault(cause, "onAccountEvent"));
+                // Paper: the strategy is gone; the loop applies the rest.
+                self.strategy_fault(cause, "onAccountEvent", market)?;
+                continue;
             }
             // 12 §6.1: a skipped callback is equivalent to one that returned
             // no intents.

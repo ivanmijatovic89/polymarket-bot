@@ -555,3 +555,166 @@ fn ts_compat_end_of_stream_counts_discarded_actions() {
     let a = pmb_engine::output::engine_anomalies(&out.diagnostics).unwrap();
     assert!(a.contains_key("actions_discarded"), "{a:?}");
 }
+
+fn paper() -> pmb_engine::EngineConfig {
+    config(CoreRules::Realistic)
+        .with_run_mode(pmb_engine::config::RunMode::Paper)
+        .unwrap()
+}
+
+#[test]
+fn paper_panic_cancels_the_market_and_keeps_applying_events() {
+    // spec: 12 §11 paper column (D32: CancelMarket{Market} with cause
+    // StrategyPanic, strategy halted until rotation, exchange events keep
+    // being applied), 30 §12
+    let script = Script {
+        panic_at_tick: Some(1),
+        ..Script::default()
+    };
+    let mut h = H::new(paper(), MockExec::sync(), script);
+    h.send(vec![Cmd::Place(Ord::buy("a", 10.0, 0.5))], 0, BIDS, ASKS)
+        .unwrap();
+    let from = h.n_events();
+    h.tick(10, BIDS, ASKS).unwrap();
+    assert!(h.s.fault().is_none());
+    assert_eq!(h.s.strategy_halts().len(), 1);
+    assert!(matches!(
+        h.s.strategy_halts()[0],
+        SessionFault::Strategy {
+            cause: StrategyFaultCause::Panic { .. },
+            ..
+        }
+    ));
+    assert_eq!(h.done_cids(from), vec!["a"]);
+    assert!(h.since(from).iter().any(|e| matches!(
+        e.kind,
+        AccountEventKind::OrderDone {
+            reason: DoneReason::Canceled(CancelCause::StrategyPanic),
+            ..
+        }
+    )));
+    assert_eq!(h.s.om().halt(), pmb_engine::om::Halt::StrategyHalted);
+    // Later inputs are still stepped (no callbacks): the session finalizes.
+    let log = h.log().len();
+    h.tick(20, BIDS, ASKS).unwrap();
+    assert_eq!(h.log().len(), log);
+    let m = h.market.clone();
+    assert!(h.s.finalize(&m, FinalOutcome::new(Outcome::Up)).is_ok());
+}
+
+#[test]
+fn paper_cascade_limit_applies_every_remaining_event_without_callbacks() {
+    // spec: 12 §6.3 paper ("as a strategy panic ... every remaining queued
+    // event is still applied to the ledger without callbacks; events are
+    // never dropped", 10 S5), 50 §10.2 max_cascade_events
+    // Marketable GTC BUYs (the mock models share-sized orders only).
+    let take = |c: &str| Cmd::Place(Ord::buy(c, 5.0, 0.7));
+    let cmds = || vec![take("a"), take("b"), take("c")];
+    // Reference: the same input with an ample budget.
+    let mut full = H::new(
+        config(CoreRules::Realistic),
+        MockExec::sync(),
+        Script::default(),
+    );
+    full.send(cmds(), 0, BIDS, ASKS).unwrap();
+    let mut cfg = paper();
+    cfg.max_events_per_drain = 3;
+    let mut h = H::new(cfg, MockExec::sync(), Script::default());
+    h.send(cmds(), 0, BIDS, ASKS).unwrap();
+    assert!(matches!(
+        h.s.strategy_halts(),
+        [SessionFault::Strategy {
+            cause: StrategyFaultCause::CascadeLimit { deliveries: 3, .. },
+            ..
+        }]
+    ));
+    // Every fill reached the ledger, as in the reference run.
+    assert_eq!(
+        h.ledger().position(Outcome::Up),
+        full.ledger().position(Outcome::Up)
+    );
+    assert_eq!(h.ledger().capital(), full.ledger().capital());
+    assert!(h.ledger().active_keys().is_empty());
+    // The same budget in backtest stops the candidate.
+    let mut cfg = config(CoreRules::Realistic);
+    cfg.max_events_per_drain = 3;
+    let mut b = H::new(cfg, MockExec::sync(), Script::default());
+    assert!(b.send(cmds(), 0, BIDS, ASKS).is_err());
+}
+
+#[test]
+fn paper_requires_the_realistic_rules() {
+    // spec: D28 (paper runs the realistic rules), R14
+    assert!(config(CoreRules::TsCompat)
+        .with_run_mode(pmb_engine::config::RunMode::Paper)
+        .is_err());
+    let mut cfg = config(CoreRules::TsCompat);
+    cfg.run_mode = pmb_engine::config::RunMode::Paper;
+    let script = Arc::new(Script::default());
+    assert!(matches!(
+        S::new(&script, &market(), cfg, MockExec::sync(), Rec::default()),
+        Err(SessionFault::Engine { .. })
+    ));
+}
+
+#[test]
+fn a_panicking_strategy_drop_fails_only_its_candidate() {
+    // spec: 30 §12 (the instance is poisoned and dropped inside
+    // catch_unwind), 12 §11 (a candidate's panic never stops the driver or
+    // the other candidates)
+    struct Bomb;
+    impl Drop for Bomb {
+        fn drop(&mut self) {
+            panic!("drop bomb");
+        }
+    }
+    impl pmb_engine::Strategy for Bomb {
+        type Params = ();
+        const ID: &'static str = "core-drop-bomb.v1";
+        fn requirements(_p: &()) -> pmb_engine::strategy::Requirements {
+            pmb_engine::strategy::Requirements::new()
+        }
+        fn new(_p: &(), _m: &pmb_core::MarketInfo) -> Self {
+            Bomb
+        }
+        fn on_tick(
+            &mut self,
+            _ctx: &pmb_engine::Ctx,
+            _out: &mut pmb_engine::Intents,
+        ) -> pmb_engine::StrategyResult {
+            Err(pmb_engine::StrategyError::new("stop"))
+        }
+    }
+    let mut market = market();
+    let mut sessions = vec![pmb_engine::Session::<Bomb, MockExec, Rec>::new(
+        &(),
+        &market,
+        config(CoreRules::TsCompat),
+        MockExec::sync(),
+        Rec::default(),
+    )
+    .unwrap()];
+    let (b, a) = (lv(BIDS), lv(ASKS));
+    let env = Envelope {
+        seq: 1,
+        at: t(0),
+        exchange_ts: Some(t(0)),
+        recv_wall: None,
+        recv_mono: None,
+        source: Source::MarketWs,
+        payload: Payload::Market(pmb_core::MarketEvent::Book {
+            outcome: Outcome::Up,
+            bids: &b,
+            asks: &a,
+        }),
+    };
+    // The error drops the instance; its panicking Drop is contained.
+    drive(&mut market, &mut sessions, std::slice::from_ref(&env));
+    assert!(matches!(
+        sessions[0].fault(),
+        Some(SessionFault::Strategy {
+            cause: StrategyFaultCause::Error { .. },
+            ..
+        })
+    ));
+}
