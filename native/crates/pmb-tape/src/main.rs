@@ -23,8 +23,8 @@ use pmb_tape::codec::{Decoder, EncodeOptions};
 use pmb_tape::compare::{digest, first_difference};
 use pmb_tape::manifest::{Manifest, Market};
 use pmb_tape::store::{
-    self, hex, sha256, Budget, ConvertOptions, ConvertOutcome, MarketKey, DEFAULT_CAP_BYTES,
-    DEFAULT_MIN_FREE_BYTES,
+    self, hex, sha256, Budget, ConvertOptions, ConvertOutcome, ExpectedSource, MarketKey,
+    DEFAULT_CAP_BYTES, DEFAULT_MIN_FREE_BYTES,
 };
 use pmb_tape::{
     load_tape, read_market, read_tape_stream, replay, tape_path, InputPath, MarketStream,
@@ -191,14 +191,26 @@ fn convert(a: &Args) -> Result<()> {
     });
     let mut decoder = Decoder::new()?;
     let (mut written, mut skipped, mut other) = (0u32, 0u32, 0u32);
+    let mut changed: Vec<String> = Vec::new();
     let (mut v1_total, mut tape_total) = (0u64, 0u64);
     let started = Instant::now();
     for mk in order {
         let v1 = mk.v1_path(&a.data_root)?;
         let tape = market_tape(&m, mk, &a.tape_root)?;
+        let expected = ExpectedSource {
+            bytes: mk.bytes,
+            sha256: mk.sha256_bytes()?,
+        };
         let t0 = Instant::now();
-        let out = store::convert_one(&v1, &tape, &opts, &mut budget, &mut decoder)
-            .with_context(|| format!("convert {}", mk.slug))?;
+        let out = store::convert_one(
+            &v1,
+            &tape,
+            Some(&expected),
+            &opts,
+            &mut budget,
+            &mut decoder,
+        )
+        .with_context(|| format!("convert {}", mk.slug))?;
         let ms = t0.elapsed().as_secs_f64() * 1e3;
         match &out {
             ConvertOutcome::Written {
@@ -210,12 +222,6 @@ fn convert(a: &Args) -> Result<()> {
                 written += 1;
                 v1_total += v1_bytes;
                 tape_total += tape_bytes;
-                if *v1_bytes != mk.bytes {
-                    println!(
-                        "  WARNING {}: v1 is {v1_bytes} bytes, manifest says {}",
-                        mk.slug, mk.bytes
-                    );
-                }
                 println!(
                     "  written {} rows {rows} levels {levels} v1 {v1_bytes} tape {tape_bytes} ({:.1}%) {ms:.1} ms",
                     mk.slug,
@@ -243,6 +249,16 @@ fn convert(a: &Args) -> Result<()> {
                 other += 1;
                 println!("  raced   {}: v1 changed during conversion", mk.slug);
             }
+            ConvertOutcome::SourceChanged { bytes, sha256 } => {
+                changed.push(mk.slug.clone());
+                println!(
+                    "  CHANGED {}: v1 is {bytes} bytes sha256 {} (manifest {} / {}); not converted",
+                    mk.slug,
+                    hex(sha256),
+                    mk.bytes,
+                    mk.sha256
+                );
+            }
             ConvertOutcome::Stopped(stop) => {
                 println!("  STOP at {}: {stop:?} limit reached", mk.slug);
                 break;
@@ -254,6 +270,13 @@ fn convert(a: &Args) -> Result<()> {
         if v1_total > 0 { 100.0 * tape_total as f64 / v1_total as f64 } else { 0.0 },
         budget.used_bytes,
         started.elapsed().as_secs_f64()
+    );
+    // A changed source invalidates the frozen set (16 §13.1).
+    ensure!(
+        changed.is_empty(),
+        "{} source file(s) differ from the manifest {}: {changed:?}",
+        changed.len(),
+        a.set.display()
     );
     Ok(())
 }
@@ -408,11 +431,61 @@ fn bench_pass(cfg: Config, m: &Manifest, a: &Args, decoder: &mut Decoder) -> Res
     Ok(ms)
 }
 
+/// Before anything is timed: every v1 source still has the manifest's bytes
+/// and sha256, and every tape is valid for exactly that file (16 §13.1,
+/// NT-5). Returns the bytes and wall ms of these file reads, the first of
+/// the sitting (the cold-read note of 16 §13.5; the page cache is not
+/// purged, so "cold" is not guaranteed).
+fn check_sources(m: &Manifest, a: &Args, decoder: &mut Decoder) -> Result<(u64, f64)> {
+    let (mut bytes, mut read_ms) = (0u64, 0f64);
+    let mut bad = Vec::new();
+    for mk in &m.markets {
+        let v1 = mk.v1_path(&a.data_root)?;
+        let tape = market_tape(m, mk, &a.tape_root)?;
+        let t0 = Instant::now();
+        let data = std::fs::read(&v1).with_context(|| format!("read {}", v1.display()))?;
+        let buf = std::fs::read(&tape).with_context(|| format!("read {}", tape.display()))?;
+        read_ms += t0.elapsed().as_secs_f64() * 1e3;
+        bytes += (data.len() + buf.len()) as u64;
+        let sha = sha256(&data);
+        let expected = mk.sha256_bytes()?;
+        if data.len() as u64 != mk.bytes || sha != expected {
+            bad.push(format!(
+                "{}: v1 source changed ({} bytes sha256 {}; manifest {} / {})",
+                mk.slug,
+                data.len(),
+                hex(&sha),
+                mk.bytes,
+                mk.sha256
+            ));
+            continue;
+        }
+        let tape_ok = decoder
+            .header(&buf)
+            .map_err(store::Fallback::Invalid)
+            .and_then(|h| store::check_tape_identity(&h, &v1, Some(&expected)));
+        if let Err(f) = tape_ok {
+            bad.push(format!("{}: no valid tape ({f})", mk.slug));
+        }
+    }
+    ensure!(
+        bad.is_empty(),
+        "refusing to time set {}: {}",
+        m.name,
+        bad.join("; ")
+    );
+    Ok((bytes, read_ms))
+}
+
 fn bench(a: &Args) -> Result<()> {
     let m = Manifest::load(&a.set)?;
     let reps: usize = flag(a, "reps", 3)?;
     ensure!(reps >= 1, "--reps must be at least 1");
     let mut decoder = Decoder::new()?;
+    let (first_read_bytes, first_read_ms) = check_sources(&m, a, &mut decoder)?;
+    println!(
+        "  sources match the manifest; first read of the sitting: {first_read_bytes} bytes in {first_read_ms:.1} ms"
+    );
     // Sizes.
     let (mut v1_bytes, mut tape_bytes, mut raw_bytes, mut frame_bytes) = (0u64, 0u64, 0u64, 0u64);
     let mut per_market = Vec::new();
@@ -512,6 +585,8 @@ fn bench(a: &Args) -> Result<()> {
             "loadAvgStart": load_start,
             "loadAvgEnd": load_end,
             "binarySha256": exe_sha,
+            "firstRead": { "bytes": first_read_bytes, "ms": first_read_ms,
+                           "note": "v1 + tape file reads of the source check, the first reads of the sitting; page cache not purged" },
             "bytes": { "v1": v1_bytes, "tape": tape_bytes, "tapeOverV1": tape_bytes as f64 / v1_bytes as f64,
                         "tapeRawColumns": raw_bytes, "tapeFrames": frame_bytes },
             "speedupMedianTotal": speedup,

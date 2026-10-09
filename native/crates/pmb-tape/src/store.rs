@@ -150,6 +150,17 @@ fn check_identity(
     Ok(())
 }
 
+/// Checks a parsed tape header against the v1 file's `stat` and, when
+/// given, the expected sha256 (NT-5).
+pub fn check_tape_identity(
+    h: &TapeHeader,
+    v1: &Path,
+    expected_sha: Option<&[u8; 32]>,
+) -> Result<(), Fallback> {
+    let v1_stat = stat_identity(v1).map_err(|e| Fallback::Io(e.to_string()))?;
+    check_identity(h, v1_stat, expected_sha)
+}
+
 /// Reads a tape file into the decoder's reused buffer and checks its header
 /// against the v1 file (NT-5); `f` gets the buffer and header.
 fn with_tape<T>(
@@ -490,6 +501,12 @@ pub enum ConvertOutcome {
     Unconvertible(Unconvertible),
     /// The v1 file changed while it was converted; nothing written.
     Raced,
+    /// The v1 file is not the expected one (bytes or sha256 differ from the
+    /// frozen manifest, 16 §13.1); nothing written.
+    SourceChanged {
+        bytes: u64,
+        sha256: [u8; 32],
+    },
     Stopped(Stop),
 }
 
@@ -500,21 +517,45 @@ pub struct ConvertOptions {
     pub tool_sha256: [u8; 32],
 }
 
+/// The identity a caller expects of a v1 file (a frozen bench manifest's
+/// bytes and sha256, 16 §13.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExpectedSource {
+    pub bytes: u64,
+    pub sha256: [u8; 32],
+}
+
 /// Converts one v1 file to its tape (NT-4): skip if valid, read the whole
-/// file once (sha256 and decode from the same bytes), encode, decode the
-/// encoded bytes and compare with the typed rows from v1, check the v1 file
-/// did not change meanwhile, then write `tmp` and rename.
+/// file once (sha256 and decode from the same bytes), refuse a file that
+/// is not the `expected` one, encode, decode the encoded bytes and compare
+/// with the typed rows from v1, check the v1 file did not change
+/// meanwhile, then write `tmp` and rename.
 pub fn convert_one(
     v1: &Path,
     tape: &Path,
+    expected: Option<&ExpectedSource>,
     opts: &ConvertOptions,
     budget: &mut Budget,
     decoder: &mut Decoder,
 ) -> anyhow::Result<ConvertOutcome> {
+    convert_one_hooked(v1, tape, expected, opts, budget, decoder, &mut || {})
+}
+
+/// [`convert_one`] with a hook run after the v1 bytes were read (tests use
+/// it to change the file mid-conversion).
+pub(crate) fn convert_one_hooked(
+    v1: &Path,
+    tape: &Path,
+    expected: Option<&ExpectedSource>,
+    opts: &ConvertOptions,
+    budget: &mut Budget,
+    decoder: &mut Decoder,
+    after_read: &mut dyn FnMut(),
+) -> anyhow::Result<ConvertOutcome> {
     use anyhow::{bail, Context};
     let existing = fs::metadata(tape).map(|m| m.len()).unwrap_or(0);
     if existing > 0 {
-        match load_tape(decoder, tape, v1, None) {
+        match load_tape(decoder, tape, v1, expected.map(|e| &e.sha256)) {
             Ok(_) => {
                 return Ok(ConvertOutcome::SkippedValid {
                     tape_bytes: existing,
@@ -536,6 +577,15 @@ pub fn convert_one(
         mtime_ns: before.1,
         sha256: sha256(&data),
     };
+    after_read();
+    if let Some(e) = expected {
+        if e.bytes != identity.bytes || e.sha256 != identity.sha256 {
+            return Ok(ConvertOutcome::SourceChanged {
+                bytes: identity.bytes,
+                sha256: identity.sha256,
+            });
+        }
+    }
     let rows = match read_v1(Bytes::from(data)) {
         Ok(r) => r,
         Err(u) => return Ok(ConvertOutcome::Unconvertible(u)),

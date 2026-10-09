@@ -594,7 +594,7 @@ fn unknown_event_type_stays_v1() {
     let tape = dir.join("tapes/m.pmbtape");
     let mut root = budget(&dir.join("tapes"));
     let mut dec = Decoder::new().unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut root, &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, None, &opts(), &mut root, &mut dec).unwrap();
     assert_eq!(
         out,
         ConvertOutcome::Unconvertible(Unconvertible::EventType("last_trade_price".into()))
@@ -637,6 +637,7 @@ fn dictionary_overflow_stays_v1() {
     let out = convert_one(
         &v1,
         &tape,
+        None,
         &opts(),
         &mut budget(&dir.join("tapes")),
         &mut dec,
@@ -661,6 +662,7 @@ fn converted(name: &str) -> (PathBuf, PathBuf, Decoder) {
     let out = convert_one(
         &v1,
         &tape,
+        None,
         &opts(),
         &mut budget(&dir.join("tapes")),
         &mut dec,
@@ -688,7 +690,15 @@ fn valid_tape_is_used_and_skipped_on_reconvert() {
     let sha = identity(&v1).sha256;
     let (_, path) = read_market(&v1, Some(&tape), Some(&sha), &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
-    let out = convert_one(&v1, &tape, &opts(), &mut budget(&root_of(&tape)), &mut dec).unwrap();
+    let out = convert_one(
+        &v1,
+        &tape,
+        None,
+        &opts(),
+        &mut budget(&root_of(&tape)),
+        &mut dec,
+    )
+    .unwrap();
     assert!(
         matches!(out, ConvertOutcome::SkippedValid { .. }),
         "{out:?}"
@@ -758,7 +768,7 @@ fn stale_tape_falls_back_and_is_rebuilt() {
     drop(f);
     assert_fallback(&v1, &tape, &mut dec, "stale");
     let root = root_of(&tape);
-    let out = convert_one(&v1, &tape, &opts(), &mut budget(&root), &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, None, &opts(), &mut budget(&root), &mut dec).unwrap();
     assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
     let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
@@ -820,15 +830,15 @@ fn cap_and_free_disk_floor_stop_conversion() {
     let tape = store::tape_path(&root, &key("m")).unwrap();
     let mut dec = Decoder::new().unwrap();
     let mut cap = Budget::new(&root, 10, 0).unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut cap, &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, None, &opts(), &mut cap, &mut dec).unwrap();
     assert_eq!(out, ConvertOutcome::Stopped(Stop::Cap));
     assert!(!tape.exists());
     let mut floor = Budget::new(&root, u64::MAX, u64::MAX).unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut floor, &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, None, &opts(), &mut floor, &mut dec).unwrap();
     assert_eq!(out, ConvertOutcome::Stopped(Stop::FreeDisk));
     assert!(!tape.exists());
     let mut ok = Budget::new(&root, u64::MAX, 0).unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut ok, &mut dec).unwrap();
+    let out = convert_one(&v1, &tape, None, &opts(), &mut ok, &mut dec).unwrap();
     let ConvertOutcome::Written { tape_bytes, .. } = out else {
         panic!("{out:?}")
     };
@@ -868,7 +878,15 @@ fn newer_tape_format_is_not_overwritten() {
     let mut newer = std::fs::read(&tape).unwrap();
     newer[8..12].copy_from_slice(&(codec::FORMAT_VERSION + 1).to_le_bytes());
     std::fs::write(&tape, &newer).unwrap();
-    let out = convert_one(&v1, &tape, &opts(), &mut budget(&root_of(&tape)), &mut dec).unwrap();
+    let out = convert_one(
+        &v1,
+        &tape,
+        None,
+        &opts(),
+        &mut budget(&root_of(&tape)),
+        &mut dec,
+    )
+    .unwrap();
     assert_eq!(out, ConvertOutcome::NewerFormat(codec::FORMAT_VERSION + 1));
     assert_eq!(std::fs::read(&tape).unwrap(), newer, "left alone");
     assert_fallback(&v1, &tape, &mut dec, "version");
@@ -953,7 +971,7 @@ fn block_streamed_read_equals_v1_at_every_block_size() {
             },
             tool_sha256: [0; 32],
         };
-        let out = convert_one(&v1, &tape, &o, &mut budget(&dir), &mut dec).unwrap();
+        let out = convert_one(&v1, &tape, None, &o, &mut budget(&dir), &mut dec).unwrap();
         assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
         let s = store::read_tape_stream(&mut dec, &tape, &v1, None, &input())
             .unwrap()
@@ -1107,7 +1125,7 @@ fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
         assert_fallback(&v1, &tape, &mut dec, "invalid");
         // The converter rewrites it instead of panicking.
         let root = root_of(&tape);
-        let out = convert_one(&v1, &tape, &opts(), &mut budget(&root), &mut dec).unwrap();
+        let out = convert_one(&v1, &tape, None, &opts(), &mut budget(&root), &mut dec).unwrap();
         assert!(
             matches!(out, ConvertOutcome::Written { .. }),
             "{what}: {out:?}"
@@ -1200,4 +1218,126 @@ fn real_layout_tape_roots() {
         let e = store::check_tape_root(&data.join(bad), &data, &inputs).unwrap_err();
         eprintln!("refused data/{bad}: {e}");
     }
+}
+
+#[test]
+fn convert_refuses_a_source_that_is_not_the_manifest_file() {
+    let dir = scratch("expected");
+    let v1 = dir.join("m.parquet");
+    write_v1(&v1, &synthetic_rows(), 5);
+    let id = identity(&v1);
+    let root = dir.join("tapes");
+    let tape = store::tape_path(&root, &key("m")).unwrap();
+    let mut dec = Decoder::new().unwrap();
+    let wrong = store::ExpectedSource {
+        bytes: id.bytes,
+        sha256: [0xAB; 32],
+    };
+    let out = convert_one(
+        &v1,
+        &tape,
+        Some(&wrong),
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+    )
+    .unwrap();
+    assert_eq!(
+        out,
+        ConvertOutcome::SourceChanged {
+            bytes: id.bytes,
+            sha256: id.sha256
+        }
+    );
+    assert!(!tape.exists());
+    let short = store::ExpectedSource {
+        bytes: id.bytes - 1,
+        sha256: id.sha256,
+    };
+    let out = convert_one(
+        &v1,
+        &tape,
+        Some(&short),
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+    )
+    .unwrap();
+    assert!(
+        matches!(out, ConvertOutcome::SourceChanged { .. }),
+        "{out:?}"
+    );
+    let right = store::ExpectedSource {
+        bytes: id.bytes,
+        sha256: id.sha256,
+    };
+    let out = convert_one(
+        &v1,
+        &tape,
+        Some(&right),
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+    )
+    .unwrap();
+    assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
+    let out = convert_one(
+        &v1,
+        &tape,
+        Some(&right),
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+    )
+    .unwrap();
+    assert!(
+        matches!(out, ConvertOutcome::SkippedValid { .. }),
+        "{out:?}"
+    );
+    // A valid tape of the file on disk is not "valid" for another expected file.
+    let out = convert_one(
+        &v1,
+        &tape,
+        Some(&wrong),
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+    )
+    .unwrap();
+    assert!(
+        matches!(out, ConvertOutcome::SourceChanged { .. }),
+        "{out:?}"
+    );
+}
+
+#[test]
+fn a_source_changed_mid_conversion_is_not_written() {
+    let dir = scratch("raced");
+    let v1 = dir.join("m.parquet");
+    write_v1(&v1, &synthetic_rows(), 5);
+    let root = dir.join("tapes");
+    let tape = store::tape_path(&root, &key("m")).unwrap();
+    let mut dec = Decoder::new().unwrap();
+    let touch = || {
+        let f = std::fs::File::options().write(true).open(&v1).unwrap();
+        f.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+            .unwrap();
+    };
+    let out = store::convert_one_hooked(
+        &v1,
+        &tape,
+        None,
+        &opts(),
+        &mut budget(&root),
+        &mut dec,
+        &mut || touch(),
+    )
+    .unwrap();
+    assert_eq!(out, ConvertOutcome::Raced);
+    assert!(!tape.exists());
+    assert_eq!(
+        store::dir_bytes(&root).unwrap(),
+        0,
+        "no temporary file left"
+    );
 }

@@ -46,7 +46,7 @@ fn fixture_tape_stream_equals_v1_stream() {
         encode: EncodeOptions::default(),
         tool_sha256: [0; 32],
     };
-    let out = store::convert_one(&v1, &tape, &opts, &mut budget, &mut decoder).unwrap();
+    let out = store::convert_one(&v1, &tape, None, &opts, &mut budget, &mut decoder).unwrap();
     let ConvertOutcome::Written {
         tape_bytes,
         v1_bytes,
