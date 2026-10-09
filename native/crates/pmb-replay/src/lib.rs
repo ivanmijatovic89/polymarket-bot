@@ -1,1 +1,8 @@
-//! Historical inputs: telonex-delta reader, slug parsing, merged replay timeline (15-inputs.md).
+//! Historical inputs: the telonex-delta reader and its decoded tape (15-inputs.md).
+
+pub mod error;
+mod pq;
+pub mod telonex;
+
+pub use error::{ErrorClass, InputError};
+pub use telonex::{read_telonex_delta, TelonexDiagnostics, TelonexInput, TelonexTape};
