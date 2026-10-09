@@ -562,6 +562,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pmb-plugins"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "parquet",
+ "pmb-core",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "pmb-replay"
 version = "0.1.0"
 dependencies = [
