@@ -45,6 +45,9 @@ const matcher = (over: Partial<Matcher>): Matcher =>
   MatcherSchema.parse({
     id: 'PE-0001',
     class: 'TS bug',
+    subclass: 'accounting',
+    money: 'no',
+    counterfactual: 'not-required',
     status: 'accepted',
     recordType: 'event',
     kind: 'order_done',
@@ -87,9 +90,66 @@ describe('matchers and verdicts (60 §3.2, HR-6)', () => {
     const a = [header, rej('invalid_price'), fin]
     const b = [header, rej('invalid_size'), fin]
     const c = classifyMarket(diffTraces(a, b), kinds(a), [
-      matcher({ class: 'Rust bug', status: 'open', kind: 'order_rejected', pathGlob: '$.reason' }),
+      matcher({
+        class: 'Rust bug',
+        status: 'open',
+        kind: 'order_rejected',
+        pathGlob: '$.reason',
+        money: 'yes',
+        counterfactual: 'n/a',
+      }),
     ])
     assert.equal(c.verdict.verdict, 'classified')
     assert.equal(c.openRustBug, true)
+  })
+
+  it('a matched sequence divergence is never classified: unclassified, or masked when PM-4 allows it', () => {
+    // spec: 60 HR-6, PM-1 (b) (a sequence shift leaves the rest unverified), PM-4
+    const a = [header, done(5), done(5), fin]
+    const b = [header, rej('invalid_price'), done(5), fin]
+    const d = diffTraces(a, b)
+    assert.equal(d.sequenceDivergence, 1)
+    const seq = { recordType: 'event' as const, kind: 'order_done', pathGlob: '$' }
+    const patchEntry = matcher({ ...seq, money: 'no', counterfactual: 'patch' })
+    const c = classifyMarket(d, kinds(a), [patchEntry])
+    assert.equal(c.verdict.verdict, 'unclassified')
+    assert.match((c.verdict as { reason: string }).reason, /PE-0001 shifts the record sequence/)
+    // A field-only-declared entry cannot excuse a sequence shift either.
+    assert.equal(classifyMarket(d, kinds(a), [matcher({ ...seq })]).verdict.verdict, 'unclassified')
+    // CL-5 float-boundary: masked, with the identical prefix ending at the divergence.
+    assert.deepEqual(
+      classifyMarket(d, kinds(a), [
+        matcher({ ...seq, subclass: 'float-boundary', counterfactual: 'patch' }),
+      ]).verdict,
+      { verdict: 'masked', entries: ['PE-0001'], divergenceIndex: 1 },
+    )
+    // `n/a` (no patch can express it): masked, pending the user's acceptance at G2.
+    assert.equal(
+      classifyMarket(d, kinds(a), [matcher({ ...seq, counterfactual: 'n/a' })]).verdict.verdict,
+      'masked',
+    )
+  })
+
+  it('a money = yes entry needs a counterfactual even for a field-only divergence', () => {
+    // spec: 60 PM-1 (a), PM-2, PM-4
+    const a = [header, done(5), fin]
+    const b = [header, done(4), fin]
+    const d = diffTraces(a, b)
+    assert.equal(d.sequenceDivergence, null)
+    const c = classifyMarket(d, kinds(a), [matcher({ money: 'yes', counterfactual: 'patch' })])
+    assert.equal(c.verdict.verdict, 'unclassified')
+    assert.match((c.verdict as { reason: string }).reason, /money = yes/)
+    // Intended model change with money = yes is held to the same rule.
+    assert.equal(
+      classifyMarket(d, kinds(a), [
+        matcher({ class: 'Intended model change', money: 'yes', counterfactual: 'patch' }),
+      ]).verdict.verdict,
+      'unclassified',
+    )
+  })
+
+  it('a matcher may not declare not-required with money = yes', () => {
+    // spec: 60 §3.2 counterfactual field, PM-1
+    assert.throws(() => matcher({ money: 'yes', counterfactual: 'not-required' }))
   })
 })
