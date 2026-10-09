@@ -605,3 +605,91 @@ fn single_and_account_wide_cancellation_still_work() {
     assert_eq!(h.done_cids(from), vec!["buy-down", "sell-up"]);
     assert!(h.open_cids().is_empty());
 }
+
+#[test]
+fn delayed_cancel_batch_cannot_cancel_a_new_submission_with_a_reused_cid() {
+    // spec: 12 §7.1 (cid → current key; an older generation's cancel never
+    // reaches a newer one), §7.3 CancelBatch (cancellation.test.ts:959,
+    // cancel_batch half; the cancel_order half is the test above)
+    let mut h = harness(MockExec::delayed(100));
+    h.send(vec![Cmd::Place(order("a"))], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    h.tick(1100, BIDS, &asks(0.6)).unwrap();
+    let old = h.current("a").unwrap();
+    h.send(
+        vec![Cmd::CancelBatch(vec![Ref::Cid("a".into())])],
+        1110,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    // Filled before the cancel arrives; the cid is released on delivery.
+    h.tick(1150, BIDS, &asks(0.4)).unwrap();
+    h.send(vec![Cmd::Place(order("a"))], 1160, BIDS, &asks(0.6))
+        .unwrap();
+    let new = h.current("a").unwrap();
+    assert_ne!(old, new);
+    let from = h.n_events();
+    h.tick(1300, BIDS, &asks(0.6)).unwrap();
+    assert!(h.done_cids(from).is_empty());
+    assert_eq!(h.open_cids(), vec!["a"], "the replacement survives");
+}
+
+#[test]
+fn repeated_immediate_taker_fills_keep_distinct_ids_and_accounting() {
+    // spec: 10 §6 (OrderKey per submission, FillKey per order), 12 §7.6 (a
+    // FOK killed or filled synchronously releases its cid in the same
+    // call) (cancellation.test.ts:984, both batch modes)
+    for batch in [false, true] {
+        let mut h = harness(MockExec::sync());
+        let fok = || Ord::buy("buy-up", 2.0, 0.5).ty(OrderType::Fok);
+        for ms in [1000, 1100] {
+            let cmd = if batch {
+                Cmd::Batch(vec![fok()])
+            } else {
+                Cmd::Place(fok())
+            };
+            h.send(vec![cmd], ms, BIDS, &asks(0.4)).unwrap();
+        }
+        let fills = h.ledger().fills();
+        assert_eq!(fills.len(), 2, "batch={batch}");
+        assert_ne!(fills[0].key.order, fills[1].key.order);
+        assert_eq!(h.ledger().position(Outcome::Up).qty, q(4.0));
+        assert!(h.open_cids().is_empty());
+    }
+}
+
+#[test]
+fn account_callbacks_cannot_resubmit_a_replacement_waiting_in_the_queue() {
+    // spec: 12 §7.6 (a replacement emitted in this call is active; the
+    // callback of the old generation's OrderDone is deduped), §6.2
+    // (cancellation.test.ts:923, immediate mode)
+    let script = Script {
+        on_event: Some(Box::new(|_ctx, ev, out, _log| {
+            if let pmb_engine::strategy::AccountEvent::OrderDone { .. } = ev {
+                out.push(Cmd::Place(order("buy-up")));
+            }
+        })),
+        ..Script::default()
+    };
+    let mut cfg = config(CoreRules::TsCompat);
+    cfg.starting_capital = u(1000.0);
+    let mut h = mk(cfg, MockExec::sync(), script);
+    h.send(vec![Cmd::Place(order("buy-up"))], 1000, BIDS, &asks(0.6))
+        .unwrap();
+    h.send(
+        vec![
+            Cmd::CancelBatch(vec![Ref::Cid("buy-up".into())]),
+            Cmd::Place(order("buy-up")),
+        ],
+        1100,
+        BIDS,
+        &asks(0.6),
+    )
+    .unwrap();
+    h.tick(1200, BIDS, &asks(0.6)).unwrap();
+    h.tick(1300, BIDS, &asks(0.6)).unwrap();
+    let submissions = h.kinds().iter().filter(|k| **k == "order_submitted").count();
+    assert_eq!(submissions, 2);
+    assert_eq!(h.open_cids(), vec!["buy-up"]);
+}
