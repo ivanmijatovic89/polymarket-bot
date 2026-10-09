@@ -8,7 +8,10 @@
 //! A0 (60 §5.4). Schedule v2 (60 §5.3, A1–A3 and the per-order meta of
 //! 60 §5.1) lands in M2 (01 §4.1) by adding rows to `SCHEDULE` and
 //! `TRIGGERS`, attaching the meta in `Writer` and bumping
-//! [`EXERCISER_SCHEDULE_VERSION`] in both twins (60 §5.7).
+//! [`EXERCISER_SCHEDULE_VERSION`] in both twins (60 §5.7). Two v2 rows
+//! cannot be built with the SDK builders, which enforce them structurally
+//! (30 §7.1): `x17` (GTD without `expireAtMs`) and `x18` (post-only FOK).
+//! M2 decides how the Rust twin covers them.
 //!
 //! Rules (60 §5.1):
 //! - `n` counts the real `book`/`price_change` ticks delivered to the
