@@ -1,0 +1,5 @@
+{
+  "timeWindowVolatility": { "windows": { "10s": 10000, "60s": 60000 }, "trackPrice": "mid" },
+  "dwellGate": { "from": 0.4, "to": 0.6, "requiredMs": 5000, "trackPrice": "bid" },
+  "timeWindowGate": { "allowAfterMs": 60000, "disableAfterMs": 840000 }
+}

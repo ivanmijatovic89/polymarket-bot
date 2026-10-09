@@ -19,6 +19,10 @@ Layout (31 §2.2):
   (`src/exerciser.rs`), which the feed exerciser runs on real ticks when
   `trade: true`. An edit to one bin therefore leaves the other bin's source
   hash unchanged (31 §5.2, §5.6).
+- `fixtures/feed-exerciser-plugin-config.json` is the TS twin's
+  `FEED_EXERCISER_PLUGIN_CONFIG` in its JSON shape. The Rust tests build the
+  expected plugin configs from it; the TS twin is expected to assert its
+  constant against the same file.
 
 ## Status
 
@@ -96,12 +100,13 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 
 ### Values (30 §6)
 
-- `Price`, `Qty`, `Usdc`, `TsMs`, `DurMs`, `Rounding::{Floor, Ceil}`,
+- `Price`, `Qty`, `Usdc`, `TsMs`, `DurMs`, `Rounding::{Floor, Ceil, HalfAwayFromZero}`,
   `Outcome::{Up, Down}`, `Side::Buy` (tests), `ClientOrderId`.
 - `Price: Copy + Ord` (`clamp`), `Price + Price`, `Price - Price` whose result
   may be below 0 before clamping (bid 0.01 − 0.05).
 - `Price::snap(self, tick: Price, mode: Rounding) -> Price` _(choice:
   infallible; pmb-core today has `to_tick(..) -> Result<Price, Overflow>`)_.
+- `Price::from_f64(f64, Rounding) -> Result<Price, _>` (tests).
 - `Qty: Copy + Ord` (`min`, `<`, `<=`).
 - `TsMs + DurMs -> TsMs`; `const fn TsMs::from_ms(i64) -> TsMs` and
   `const fn DurMs::from_ms(i64) -> DurMs` (panics on a negative value, so a
@@ -180,5 +185,5 @@ types are `#[non_exhaustive]` or have private fields (30 §1 P7).
 - `TestRun::trace() -> &[pmb_sdk::json::Value]`: the canonical parity trace
   records of 22 §3.2 at level `decisions`, header first, including the
   `tick` records with `seq` and `cause`.
-- `pmb_sdk::json::Value` with `FromStr`, indexing by key, `as_u64`,
-  `as_f64` and object access.
+- `pmb_sdk::json::Value` with `FromStr`, indexing by key, `as_u64`, `as_i64`,
+  `as_f64`, `as_str`, `as_object` and object access.

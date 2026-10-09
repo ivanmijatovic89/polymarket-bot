@@ -44,7 +44,8 @@ struct FeedExerciserParams {
 // D-PENDING: 60 §5.8 names the plugins but not their configs; the TS twin
 // fixed them in `FEED_EXERCISER_PLUGIN_CONFIG` (volatility 10 s and 60 s on
 // the mid, dwell band [0.40, 0.60] for 5 s on the bid, gate open 60 s to
-// 840 s after the start). Mirrored here.
+// 840 s after the start). Mirrored here; the tests compare them with the
+// shared fixture `fixtures/feed-exerciser-plugin-config.json`.
 
 /// TimeWindowVolatility: windows 10 s and 60 s on the mid (the constructor's
 /// default track price, as TS `trackPrice: 'mid'`).
@@ -135,8 +136,67 @@ mod tests {
     use pmb_sdk::json::Value;
     use pmb_sdk::testkit::{Profile, TestMarket};
 
+    /// The TS twin's `FEED_EXERCISER_PLUGIN_CONFIG`, in its JSON shape. Both
+    /// twins check their configs against this one file.
+    const TS_PLUGIN_CONFIG: &str = include_str!("../../fixtures/feed-exerciser-plugin-config.json");
+
     fn params(args: &[&str]) -> Result<FeedExerciserParams, ParamError> {
         FeedExerciserParams::from_cli(args.iter().copied())
+    }
+
+    /// The three plugin configs built from the shared fixture, independently
+    /// of the strategy's own config functions.
+    fn fixture_configs() -> (
+        TimeWindowVolatilityConfig,
+        DwellGateConfig,
+        TimeWindowGateConfig,
+    ) {
+        let v: Value = TS_PLUGIN_CONFIG.parse().expect("fixture is JSON");
+        let ms = |v: &Value| DurMs::from_ms(v.as_i64().expect("fixture duration is an integer"));
+        let price = |v: &Value| {
+            let x = v.as_f64().expect("fixture price is a number");
+            Price::from_f64(x, Rounding::HalfAwayFromZero).expect("fixture price is finite")
+        };
+
+        let vol = &v["timeWindowVolatility"];
+        assert_eq!(
+            vol["trackPrice"], "mid",
+            "TimeWindowVolatilityConfig::new tracks the mid"
+        );
+        let windows: Vec<(String, DurMs)> = vol["windows"]
+            .as_object()
+            .expect("fixture windows is an object")
+            .iter()
+            .map(|(label, w)| (label.clone(), ms(w)))
+            .collect();
+
+        let dwell = &v["dwellGate"];
+        let track = match dwell["trackPrice"].as_str() {
+            Some("bid") => BidOrAsk::Bid,
+            Some("ask") => BidOrAsk::Ask,
+            other => panic!("fixture dwellGate.trackPrice {other:?}"),
+        };
+
+        let gate = &v["timeWindowGate"];
+        (
+            TimeWindowVolatilityConfig::new(windows),
+            DwellGateConfig::new(
+                price(&dwell["from"]),
+                price(&dwell["to"]),
+                ms(&dwell["requiredMs"]),
+                track,
+            ),
+            TimeWindowGateConfig::new(ms(&gate["allowAfterMs"]), ms(&gate["disableAfterMs"])),
+        )
+    }
+
+    #[test]
+    fn plugin_configs_equal_the_ts_twin() {
+        // spec: 60 §5.8 (D-PENDING plugin configs, identical in both twins)
+        let (vol, dwell, gate) = fixture_configs();
+        assert_eq!(time_window_volatility_config(), vol);
+        assert_eq!(dwell_gate_config(), dwell);
+        assert_eq!(time_window_gate_config(), gate);
     }
 
     #[test]
@@ -171,13 +231,14 @@ mod tests {
     fn requirements_follow_the_params() {
         // spec: 60 §5.8 (Binance, Chainlink only when `chainlink`, price to
         // beat, tickOnUpdate per the param; TechnicalIndicators only when
-        // `ta`), 30 §10
+        // `ta`), 30 §10. Expected configs come from the shared fixture.
         let req = |args: &[&str]| FeedExerciser::requirements(&params(args).unwrap());
         let with_plugins = |r: Requirements| {
+            let (vol, dwell, gate) = fixture_configs();
             r.price_to_beat()
-                .time_window_volatility(time_window_volatility_config())
-                .dwell_gate(dwell_gate_config())
-                .time_window_gate(time_window_gate_config())
+                .time_window_volatility(vol)
+                .dwell_gate(dwell)
+                .time_window_gate(gate)
         };
 
         let quiet = FeedOptions::default();

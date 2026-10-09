@@ -290,4 +290,37 @@ mod tests {
         );
         assert!(intents(run.trace(), "account").is_empty());
     }
+
+    #[test]
+    fn merge_and_x8_size_from_positions_with_full_capital() {
+        // spec: 60 §5.2 rows 260 (merge size min(pos(UP), pos(DOWN), 5)) and 400
+        // (x8 GTC SELL UP @ bid(UP), size min(pos(UP), 5)). With 1000 USDC the
+        // split at 70 alone gives 10 UP and 10 DOWN; no order sells either
+        // outcome before 260 (x4a/x4b and x2-exit rest above the book until
+        // canceled or the run ends), so the merge takes 5 and leaves at least
+        // 5 UP for x8. The bid read by x8 is the recorded 0.48: in ts-compat own
+        // resting orders are not part of the book view (13 §5).
+        let run = market(usdc!(1000), 450, full_book).run::<EngineExerciser>(&ExerciserParams);
+        assert_intents(
+            &intents(run.trace(), "tick"),
+            &[
+                (50, X1),
+                (60, X2),
+                (70, SPLIT),
+                (90, X3),
+                (100, X4),
+                (120, CANCEL_X1),
+                (150, X5),
+                (180, X6),
+                (200, X7),
+                (220, CANCEL_BATCH),
+                (260, r#"{"kind":"merge_positions","size":5}"#),
+                (300, CANCEL_MARKET_UP),
+                (
+                    400,
+                    r#"{"kind":"place_limit","cid":"x8","asset":0,"side":"SELL","price":0.48,"size":5,"orderType":"GTC","postOnly":false,"expireAtMs":null}"#,
+                ),
+            ],
+        );
+    }
 }
