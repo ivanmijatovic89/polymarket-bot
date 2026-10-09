@@ -37,27 +37,53 @@ impl BinanceDay {
     // arbitrarily); chose data_defect corrupt.
     pub fn from_rows(
         day: UtcDay,
-        mut rows: Vec<(i64, i64, f64)>,
+        rows: Vec<(i64, i64, f64)>,
         what: &str,
     ) -> Result<BinanceDay, FeedError> {
-        if !rows.windows(2).all(|w| w[0].0 < w[1].0) {
-            rows.sort_by_key(|r| r.0);
-            if let Some(w) = rows.windows(2).find(|w| w[0].0 == w[1].0) {
+        BinanceDay::from_columns(
+            day,
+            rows.iter().map(|r| r.0).collect(),
+            rows.iter().map(|r| r.1).collect(),
+            rows.iter().map(|r| r.2).collect(),
+            what,
+        )
+    }
+
+    /// Builds a day from parallel columns in file order; sorts by id only
+    /// when the file is not already in id order (it is, `feed.md:171-173`).
+    fn from_columns(
+        day: UtcDay,
+        ids: Vec<i64>,
+        ts: Vec<i64>,
+        price: Vec<f64>,
+        what: &str,
+    ) -> Result<BinanceDay, FeedError> {
+        let (ids, ts, price) = if ids.windows(2).all(|w| w[0] < w[1]) {
+            (ids, ts, price)
+        } else {
+            let mut perm: Vec<usize> = (0..ids.len()).collect();
+            perm.sort_by_key(|&i| ids[i]);
+            if let Some(w) = perm.windows(2).find(|w| ids[w[0]] == ids[w[1]]) {
                 return Err(FeedError::new(
                     FeedCause::Corrupt,
                     format!(
                         "duplicate agg_trade_id {} in {what}; re-download with --force",
-                        w[0].0
+                        ids[w[0]]
                     ),
                 ));
             }
-        }
-        let ts_monotone = rows.windows(2).all(|w| w[0].1 <= w[1].1);
+            (
+                perm.iter().map(|&i| ids[i]).collect(),
+                perm.iter().map(|&i| ts[i]).collect(),
+                perm.iter().map(|&i| price[i]).collect(),
+            )
+        };
+        let ts_monotone = ts.windows(2).all(|w| w[0] <= w[1]);
         Ok(BinanceDay {
             day,
-            ids: rows.iter().map(|r| r.0).collect(),
-            ts: rows.iter().map(|r| r.1).collect(),
-            price: rows.iter().map(|r| r.2).collect(),
+            ids: ids.into(),
+            ts: ts.into(),
+            price: price.into(),
             ts_monotone,
         })
     }
@@ -79,8 +105,12 @@ impl BinanceDay {
         let c_id = pq::column(&reader, "agg_trade_id", PhysicalType::INT64).map_err(decode_err)?;
         let c_ts = pq::column(&reader, "ts_ms", PhysicalType::INT64).map_err(decode_err)?;
         let c_px = pq::column(&reader, "price", PhysicalType::DOUBLE).map_err(decode_err)?;
-        let total: i64 = reader.metadata().file_metadata().num_rows();
-        let mut rows = Vec::with_capacity(usize::try_from(total).unwrap_or(0));
+        let total = usize::try_from(reader.metadata().file_metadata().num_rows()).unwrap_or(0);
+        let (mut ids, mut tss, mut prices) = (
+            Vec::with_capacity(total),
+            Vec::with_capacity(total),
+            Vec::with_capacity(total),
+        );
         let (mut id, mut ts, mut px) = (
             Column::<i64>::new(),
             Column::<i64>::new(),
@@ -95,20 +125,24 @@ impl BinanceDay {
                 .map_err(decode_err)?;
             px.read::<DoubleType>(rg.as_ref(), c_px, n)
                 .map_err(decode_err)?;
-            for r in 0..n {
-                let (Some(&i), Some(&t)) = (id.get(r), ts.get(r)) else {
-                    return Err(FeedError::new(
-                        FeedCause::Corrupt,
-                        format!(
-                            "NULL agg_trade_id or ts_ms in {what} (row group {g}, row {r}); \
-                             re-download with --force"
-                        ),
-                    ));
-                };
-                rows.push((i, t, px.get(r).copied().unwrap_or(f64::NAN)));
+            if id.values.len() != n || ts.values.len() != n {
+                return Err(FeedError::new(
+                    FeedCause::Corrupt,
+                    format!(
+                        "NULL agg_trade_id or ts_ms in {what} (row group {g}); re-download with \
+                         --force"
+                    ),
+                ));
+            }
+            ids.extend_from_slice(&id.values);
+            tss.extend_from_slice(&ts.values);
+            if px.values.len() == n {
+                prices.extend_from_slice(&px.values);
+            } else {
+                prices.extend((0..n).map(|r| px.get(r).copied().unwrap_or(f64::NAN)));
             }
         }
-        BinanceDay::from_rows(day, rows, &what)
+        BinanceDay::from_columns(day, ids, tss, prices, &what)
     }
 
     pub fn len(&self) -> usize {

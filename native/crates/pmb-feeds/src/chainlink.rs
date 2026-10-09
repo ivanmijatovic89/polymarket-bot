@@ -35,44 +35,64 @@ pub struct ChainlinkDay {
     flags: Box<[u8]>,
 }
 
+/// Column builder shared by the decoder and [`ChainlinkDay::from_rows`].
+#[derive(Default)]
+struct Builder {
+    round: Vec<i64>,
+    broadcast: Vec<i64>,
+    price: Vec<f64>,
+    flags: Vec<u8>,
+}
+
+impl Builder {
+    #[inline]
+    fn push(&mut self, round: i64, broadcast: Option<i64>, price: Option<&str>, asset_ok: bool) {
+        let mut flags = 0;
+        let bc = broadcast.unwrap_or(0);
+        if bc <= 0 {
+            flags |= BAD_BROADCAST;
+        }
+        let px = price
+            .and_then(|s| s.parse::<f64>().ok())
+            .filter(|v| v.is_finite() && *v > 0.0);
+        if px.is_none() {
+            flags |= BAD_PRICE;
+        }
+        if !asset_ok {
+            flags |= BAD_ASSET;
+        }
+        self.round.push(round);
+        self.broadcast.push(bc);
+        self.price.push(px.unwrap_or(f64::NAN));
+        self.flags.push(flags);
+    }
+
+    fn finish(self, day: UtcDay) -> ChainlinkDay {
+        ChainlinkDay {
+            day,
+            round_us: self.round.into(),
+            broadcast_us: self.broadcast.into(),
+            price: self.price.into(),
+            flags: self.flags.into(),
+        }
+    }
+}
+
 /// One raw row: `(timestamp_us, server_timestamp_us, price, asset_id)`.
 pub type RawRound<'a> = (i64, Option<i64>, Option<&'a str>, Option<&'a str>);
 
 impl ChainlinkDay {
-    /// Builds a day from raw rows in file order (tests and the decoder).
+    /// Builds a day from raw rows in file order (tests).
     pub fn from_rows<'a>(
         day: UtcDay,
         asset_id: &str,
         rows: impl IntoIterator<Item = RawRound<'a>>,
     ) -> ChainlinkDay {
-        let (mut r, mut b, mut p, mut f) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut b = Builder::default();
         for (round, broadcast, price, asset) in rows {
-            let mut flags = 0;
-            let bc = broadcast.unwrap_or(0);
-            if bc <= 0 {
-                flags |= BAD_BROADCAST;
-            }
-            let px = price
-                .and_then(|s| s.parse::<f64>().ok())
-                .filter(|v| v.is_finite() && *v > 0.0);
-            if px.is_none() {
-                flags |= BAD_PRICE;
-            }
-            if asset != Some(asset_id) {
-                flags |= BAD_ASSET;
-            }
-            r.push(round);
-            b.push(bc);
-            p.push(px.unwrap_or(f64::NAN));
-            f.push(flags);
+            b.push(round, broadcast, price, asset == Some(asset_id));
         }
-        ChainlinkDay {
-            day,
-            round_us: r.into(),
-            broadcast_us: b.into(),
-            price: p.into(),
-            flags: f.into(),
-        }
+        b.finish(day)
     }
 
     /// Decodes a raw Telonex day file (`timestamp_us`, `server_timestamp_us`
@@ -96,7 +116,7 @@ impl ChainlinkDay {
             pq::column(&reader, "asset_id", PhysicalType::BYTE_ARRAY).map_err(decode_err)?;
         let (mut round, mut bc) = (Column::<i64>::new(), Column::<i64>::new());
         let (mut px, mut asset) = (Column::<ByteArray>::new(), Column::<ByteArray>::new());
-        let mut rows: Vec<(i64, Option<i64>, Option<String>, bool)> = Vec::new();
+        let mut out = Builder::default();
         for g in 0..reader.num_row_groups() {
             let n = pq::group_rows(&reader, g).map_err(decode_err)?;
             let rg = pq::row_group(&reader, g).map_err(decode_err)?;
@@ -112,22 +132,14 @@ impl ChainlinkDay {
                 .map_err(decode_err)?;
             for r in 0..n {
                 let Some(&t) = round.get(r) else { continue };
-                let price = px
-                    .get(r)
-                    .and_then(|b| std::str::from_utf8(b.data()).ok())
-                    .map(str::to_owned);
+                let price = px.get(r).and_then(|b| std::str::from_utf8(b.data()).ok());
                 let asset_ok = asset
                     .get(r)
                     .is_some_and(|b| b.data() == asset_id.as_bytes());
-                rows.push((t, bc.get(r).copied(), price, asset_ok));
+                out.push(t, bc.get(r).copied(), price, asset_ok);
             }
         }
-        Ok(ChainlinkDay::from_rows(
-            day,
-            asset_id,
-            rows.iter()
-                .map(|(t, b, p, ok)| (*t, *b, p.as_deref(), ok.then_some(asset_id))),
-        ))
+        Ok(out.finish(day))
     }
 
     pub fn len(&self) -> usize {
