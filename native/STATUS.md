@@ -7,17 +7,17 @@ The goal was re-planned on 2026-10-09: Recorder V4 first, a minimal exchange ada
 ## Current state
 
 - Host / worktree: worker-1 `/Users/worker-1/Sites/polymarket-bot-rust-live-first`
-- Branch: `rust-live-first` from `origin/main` @ ad2f11b8 (green: yes); draft PR: not yet opened
+- Branch: `rust-live-first` from `origin/main` @ ad2f11b8 (green: yes); draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/310
 - Spec: `native/spec/00-goal.md` … `11-v4-input.md`; decisions E01–E10
-- Milestone / step: N0 / open items: draft PR, V4 inventory in this file, fleet check
+- Milestone / step: N0 done; N1 next
 - Binaries: none
 - Data roots: symlinks `data/{events,binance,telonex,recorder-v4-cache}` → fleet copy (read-only); `data/strategy-artifacts`, `data/native-tapes` local
 - Calibration: none (`native/calibration/` empty; every model parameter is `unmeasured` until P0)
 - Rules capture: LaunchAgent `com.pmb.rules-capture` running on worker-1 since 2026-10-09 09:48Z (previous attempt, M1.0); files imported in N5
 - Paused: none (fleet worker and Global Runtime untouched)
-- Last proof: `(cd native && cargo test --workspace)` → pmb-book 11, pmb-contract 34 + 6, pmb-core 41, pmb-replay golden 1, all green (2026-10-09 18:49, leaf crates only)
+- Last proof: `(cd native && cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked)` → 115 passed, 0 failed; `npm run code:eslint`, `npm run code:prettier:check`, `npm run code:typecheck` clean (2026-10-09 18:59)
 - Waiting on user: none
-- Next action: finish N0 (draft PR, V4 inventory, fleet check), then N1 step plan
+- Next action: N1 step plan (V4 reader, engine core per E09/E10 with pmb-engine as reference, placeholder adapter, binary, intent-exerciser, TS goldens, property tests)
 
 ## Milestone plans
 
@@ -26,9 +26,9 @@ The goal was re-planned on 2026-10-09: Recorder V4 first, a minimal exchange ada
 - [x] 0.1 Branch, worktree, data and `node_modules` links, `.env`
 - [x] 0.2 Leaf crates carried (`pmb-core`, `pmb-book`, `pmb-contract`, `pmb-replay`); CI job, `native:ci:local`, Prettier exclusions, `deny.toml`
 - [x] 0.3 Spec 00–03, 10, 11; goal prompt; this file
-- [ ] 0.4 Draft PR "DO NOT MERGE before gate C: Rust engine, live-first"
-- [ ] 0.5 V4 inventory (read-only DB query) and local cache check recorded here
-- [ ] 0.6 N0 proof command run and recorded; fleet check (`ps`)
+- [x] 0.4 Draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/310
+- [x] 0.5 V4 inventory recorded in the log below; `data/recorder-v4-cache` resolves
+- [x] 0.6 N0 proof run (see Last proof); fleet worker and Global Runtime untouched (`ps`)
 
 ## Log (newest first)
 

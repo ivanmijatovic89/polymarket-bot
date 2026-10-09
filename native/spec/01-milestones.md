@@ -49,8 +49,8 @@ Done by the owner's review session on 2026-10-09 unless marked open:
 
 Proof: `(cd native && cargo fmt --all --check && cargo clippy --workspace
 --all-targets --locked -- -D warnings && cargo test --workspace --locked)`,
-`npm run lint`, `npm run code:typecheck`; the draft PR URL and the inventory in
-STATUS.md.
+`npm run code:eslint`, `npm run code:prettier:check`, `npm run code:typecheck`;
+the draft PR URL and the inventory in STATUS.md.
 
 ## 2. N1 — V4 replay end to end
 

@@ -22,3 +22,7 @@ src/strategies/research/INDEX.json
 native/spec/
 native/goal/
 native/**/target/
+
+# Generated goldens and fixtures must stay byte-exact (native/spec/01 N1 item 6)
+native/fixtures/
+native/contract/fixtures/
