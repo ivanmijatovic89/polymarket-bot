@@ -6,10 +6,10 @@ workspace in `native/` (31 §2.1). Its only dependency is `pmb-sdk`
 (`../crates/pmb-sdk`); its only dev-dependency is `pmb-sdk` with the
 `testkit` feature (31 §2.2, D16).
 
-| Bin | Strategy id | TS twin | Spec |
-|---|---|---|---|
+| Bin                           | Strategy id           | TS twin                                                           | Spec                      |
+| ----------------------------- | --------------------- | ----------------------------------------------------------------- | ------------------------- |
 | `src/bin/engine-exerciser.rs` | `engine-exerciser.rs` | `src/strategies/testing/engine-exerciser.ts` (`engine-exerciser`) | 60 §5.1–§5.7, 30 §18, D20 |
-| `src/bin/feed-exerciser.rs` | `feed-exerciser.rs` | `src/strategies/testing/feed-exerciser.ts` (`feed-exerciser`) | 60 §5.8, 14 §13 V-3 |
+| `src/bin/feed-exerciser.rs`   | `feed-exerciser.rs`   | `src/strategies/testing/feed-exerciser.ts` (`feed-exerciser`)     | 60 §5.8, 14 §13 V-3       |
 
 The `Strategy` impls live in the library (`src/exerciser.rs`,
 `src/feed_exerciser.rs`) so that the testkit tests in `tests/` can name the
@@ -17,9 +17,18 @@ strategy types; each bin only calls `pmb_sdk::strategy_main!` once (31 §2.2).
 
 ## Status
 
-- **Does not build yet.** It is written against the `pmb-sdk` facade of
-  `30-strategy-sdk.md`, which does not exist in `native/crates/` yet. Until it
-  does, the package stays out of every workspace and every CI gate.
+- **Manifest staged.** The manifest is committed as `Cargo.toml.pending`,
+  so `native/strategies/` is not a Cargo package yet. The CI step "Strategy
+  package" (`.github/workflows/quality.yml`) and `scripts/native/ci-local.sh`
+  key on `native/strategies/Cargo.toml`, so they stay off and every gate
+  stays green (00 R12). The package cannot build before the `pmb-sdk` facade
+  of `30-strategy-sdk.md` (`Strategy`, `Ctx`, `Intents`, `Requirements`,
+  `testkit`) exists in `native/crates/`.
+- **Activation**, in one change on the branch that already has the facade:
+  `git mv Cargo.toml.pending Cargo.toml` (drop its staging comment), add
+  `Cargo.lock` with `strategy:sync-lock` (a subset of `native/Cargo.lock`,
+  31 §2.2, §3), adjust any facade name that differs from the checklist
+  below, then run the commands below.
 - `engine-exerciser.rs` implements schedule v1 (60 §5.2) and the account
   callback A0 (60 §5.4) with `EXERCISER_SCHEDULE_VERSION = 1`, as the TS twin.
   Schedule v2 (60 §5.3, A1–A3, per-order meta) is M2: add rows to `SCHEDULE`
@@ -28,14 +37,12 @@ strategy types; each bin only calls `pmb_sdk::strategy_main!` once (31 §2.2).
 - `feed-exerciser.rs`: `trade: false` only. `trade: true` (schedule v2 on real
   ticks) is M2 and is refused by params validation (`describe` fails before
   enqueue) and, as a backstop, by an assert in `new` (00 R14).
-- `Cargo.lock` (31 §2.2: a subset of `native/Cargo.lock`) is added with
-  `strategy:sync-lock` once `pmb-sdk` exists.
 - The code was type-checked, clippy-clean (`-D warnings` plus the
   determinism lints of `native/build/clippy`) and its schedule logic run
   against a throwaway mock of the checklist below layered on the real
   `ws/sdk` params derive and value macros. The mock is not committed.
 
-Once the facade exists:
+Once the facade exists and the manifest is active:
 
 ```bash
 cd native/strategies
@@ -48,7 +55,7 @@ cargo test --locked          # unit tests + tests/exerciser_schedule.rs + tests/
 
 Every `pmb-sdk` item the two strategies and their tests use. Names follow
 30 §3–§10 and §15; where 30 does not fix a name or signature, the choice is
-marked *(choice)*.
+marked _(choice)_.
 
 ### Definition (30 §4)
 
@@ -60,7 +67,7 @@ marked *(choice)*.
   (overridden by the engine exerciser), `interests` left at its default.
 - `StrategyResult`; `MarketInfo` (type only).
 - `pmb_sdk::strategy_main!(path::to::Type)`: accepts a path to a type
-  defined in the package library *(choice: 30 §4 shows a local type)*.
+  defined in the package library _(choice: 30 §4 shows a local type)_.
 
 ### Context (30 §5)
 
@@ -79,13 +86,13 @@ marked *(choice)*.
   `Outcome::{Up, Down}`, `Side::Buy` (tests), `ClientOrderId`.
 - `Price: Copy + Ord` (`clamp`), `Price + Price`, `Price - Price` whose result
   may be below 0 before clamping (bid 0.01 − 0.05).
-- `Price::snap(self, tick: Price, mode: Rounding) -> Price` *(choice:
-  infallible; pmb-core today has `to_tick(..) -> Result<Price, Overflow>`)*.
+- `Price::snap(self, tick: Price, mode: Rounding) -> Price` _(choice:
+  infallible; pmb-core today has `to_tick(..) -> Result<Price, Overflow>`)_.
 - `Qty: Copy + Ord` (`min`, `<`, `<=`).
 - `TsMs + DurMs -> TsMs`; `DurMs(i64)` and `TsMs(i64)` tuple constructors,
-  usable in `const` *(choice: 30 names no constructor)*.
-- `ClientOrderId::indexed(prefix: &str, n: u64) -> ClientOrderId` *(choice:
-  return and integer types)*; `ClientOrderId::as_str() -> &str`.
+  usable in `const` _(choice: 30 names no constructor)_.
+- `ClientOrderId::indexed(prefix: &str, n: u64) -> ClientOrderId` _(choice:
+  return and integer types)_; `ClientOrderId::as_str() -> &str`.
 - `price!`, `qty!`, `usdc!` (const-evaluable, as on `ws/sdk`), `cid!`.
 
 ### Intents (30 §7)
@@ -104,10 +111,10 @@ marked *(choice)*.
 
 - `AccountEvent::Fill { fill, .. }` (non-exhaustive enum).
 - `FillView` fields `order: &OrderView`, `outcome: Outcome`, `price: Price`,
-  `qty: Qty` *(choice: 30 §8 lists `order` inside `FillView`; `ws/core` puts
-  `order` on the `Fill` variant instead)*.
-- `OrderView::cid() -> &ClientOrderId` (30 §5.2) *(`ws/core` today returns an
-  interned key and resolves the text through `PortfolioView::cid_str`)*.
+  `qty: Qty` _(choice: 30 §8 lists `order` inside `FillView`; `ws/core` puts
+  `order` on the `Fill` variant instead)_.
+- `OrderView::cid() -> &ClientOrderId` (30 §5.2) _(`ws/core` today returns an
+  interned key and resolves the text through `PortfolioView::cid_str`)_.
 
 ### Params (30 §9, as implemented on `ws/sdk`)
 
@@ -116,7 +123,7 @@ marked *(choice)*.
   required.
 - `#[param(validate)]` on the struct plus
   `impl Params for T { fn validate(&self) -> Result<(), ParamError> }`
-  *(ws/sdk's mechanism; 30 §9 rule 2 names only the method)*;
+  _(ws/sdk's mechanism; 30 §9 rule 2 names only the method)_;
   `ParamError::new(field, message)`.
 - Tests: `Params::from_cli`, `Params::normalized_json`, `ParamError::issues()`,
   `ParamIssue::path()`, `ParamIssue::message()`.
@@ -131,14 +138,14 @@ marked *(choice)*.
   `Requirements: Clone + PartialEq + Debug` (tests compare values).
 - `FeedOptions { symbol, tick_on_update }` with public fields, `Default` and
   `Clone` (struct-update syntax, so not `#[non_exhaustive]`).
-- Plugin configs *(choice: the `ws/plugins` shapes; 30 names the types only)*:
+- Plugin configs _(choice: the `ws/plugins` shapes; 30 names the types only)_:
   `TimeWindowVolatilityConfig::new(impl IntoIterator<Item = (impl Into<String>, i64)>, VolPrice)`
   with `VolPrice::Mid` (missing from the 30 §3 prelude list, which has only
   `BidOrAsk`); `DwellGateConfig { from: Price, to: Price, required_ms: i64, track_price: BidOrAsk }`;
   `BidOrAsk::Bid`; `TimeWindowGateConfig { allow_after_ms: i64, disable_after_ms: i64 }`;
   `TechnicalIndicatorsConfig::default()`.
 
-### Testkit (30 §15, feature `testkit`) *(choice: 30 lists capabilities only)*
+### Testkit (30 §15, feature `testkit`) _(choice: 30 lists capabilities only)_
 
 - `pmb_sdk::testkit::{TestMarket, Profile}`.
 - `TestMarket::btc_15m(TsMs)`, by-value `profile(Profile::TsCompat)` and
