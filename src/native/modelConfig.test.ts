@@ -168,6 +168,125 @@ describe('resolveModelConfig (21 §6.3)', () => {
     assert.deepEqual(custom.modelConfig.feeds.binance.latency, { kind: 'constant', ms: 90 })
   })
 
+  it('rejects every probe the binary rejects, at submit time (D57, 14 §9, F-50, 12 §9.4)', () => {
+    // spec: 21 §3 (Rust and TS reject the same values), 21 §6.3 (validate as a whole, exit 2 at submit), D57
+    const base = { inputMode: 'telonex-delta' as const, flags: {}, env: NO_ENV }
+    const probes: Array<[string, Record<string, unknown>]> = [
+      ['sellGate Matched in ts-compat', { execution: { sellGate: 'Matched' } }],
+      ['cancelBeforeAck in ts-compat', { execution: { cancelBeforeAck: 'defer_until_ack' } }],
+      [
+        'failureRates 0 in ts-compat',
+        { execution: { failureRates: { settlement: '0', chain: '0' } } },
+      ],
+      [
+        'execution.latency in ts-compat',
+        {
+          execution: {
+            latency: {
+              calibrationId: 'x',
+              components: Object.fromEntries(
+                [
+                  'place',
+                  'cancel',
+                  'ack',
+                  'cancelAck',
+                  'fillReport',
+                  'mined',
+                  'confirmed',
+                  'failed',
+                  'chainSplit',
+                  'chainMerge',
+                ].map((k) => [k, { kind: 'constant', ms: 0 }]),
+              ),
+            },
+          },
+        },
+      ],
+      ['capital 0', { capital: { startingCapitalUsdc: '0' } }],
+      ['maxOrderSize 0', { risk: { maxOrderSize: '0' } }],
+      ['chainlink maxGapMs 500', { feeds: { chainlink: { maxGapMs: 500 } } }],
+      [
+        'custom binance latency 20000 ms',
+        {
+          feeds: { calibrationId: 'custom', binance: { latency: { kind: 'constant', ms: 20000 } } },
+        },
+      ],
+      [
+        'custom uniform binance latency in ts-compat',
+        {
+          feeds: {
+            calibrationId: 'custom',
+            binance: { latency: { kind: 'uniform', loMs: 1, hiMs: 2 } },
+          },
+        },
+      ],
+    ]
+    for (const [name, overrides] of probes)
+      assert.equal(
+        causeOf(() => resolveModelConfig({ ...base, overrides })),
+        'model_config',
+        name,
+      )
+  })
+
+  it('every invalid ModelConfig case of the contract fixtures is rejected in TS too', () => {
+    // spec: 21 §3 (TS validators reject what EngineJob::parse rejects), §19; D57
+    const fixtures = path.join(CONTRACT_DIR, 'fixtures', 'jobs')
+    const cases = JSON.parse(
+      readFileSync(path.join(fixtures, 'invalid', 'cases.json'), 'utf8'),
+    ) as {
+      cases: Array<{
+        name: string
+        set?: Record<string, unknown>
+        remove?: string[]
+        expect: { cause: string }
+      }>
+    }
+    const job = JSON.parse(
+      readFileSync(path.join(fixtures, 'valid', 'telonex-delta-ts-compat.json'), 'utf8'),
+    ) as { run: { modelConfig: Record<string, unknown> } }
+    const prefix = '/run/modelConfig'
+    const pointers = (c: (typeof cases.cases)[number]) => [
+      ...Object.keys(c.set ?? {}),
+      ...(c.remove ?? []),
+    ]
+    const mcCases = cases.cases.filter(
+      (c) =>
+        c.expect.cause === 'model_config' &&
+        pointers(c).every((p) => p === prefix || p.startsWith(`${prefix}/`)),
+    )
+    assert.ok(mcCases.length >= 25, `only ${mcCases.length} ModelConfig cases`)
+    validateModelConfig(structuredClone(job.run.modelConfig))
+    for (const c of mcCases) {
+      const mc = structuredClone(job.run.modelConfig) as Record<string, unknown>
+      // A feed-latency case runs under `custom`, so the semantic rule (not
+      // the calibration-set rule of 21 §6.3) is what rejects it.
+      const touchesFeeds = pointers(c).some((p) => p.startsWith(`${prefix}/feeds/`))
+      const setsId = `${prefix}/feeds/calibrationId` in (c.set ?? {})
+      if (touchesFeeds && !setsId) (mc.feeds as Record<string, unknown>).calibrationId = 'custom'
+      for (const [pointer, value] of Object.entries(c.set ?? {}))
+        setPointer(mc, pointer.slice(prefix.length), value)
+      for (const pointer of c.remove ?? []) setPointer(mc, pointer.slice(prefix.length), undefined)
+      assert.equal(
+        causeOf(() => validateModelConfig(mc)),
+        'model_config',
+        c.name,
+      )
+    }
+  })
+
+  it('a maxGapMs-only override needs no custom calibration id', () => {
+    // spec: 21 §6.3 calibration rule (only the feed latencies must equal the named set); 14 §10 (maxGapMs 0 replays stale)
+    const r = resolveModelConfig({
+      inputMode: 'telonex-delta',
+      flags: {},
+      env: NO_ENV,
+      overrides: { feeds: { chainlink: { maxGapMs: 0 } } },
+    })
+    assert.equal(r.modelConfig.feeds.chainlink.maxGapMs, 0)
+    assert.equal(r.modelConfig.feeds.calibrationId, 'feeds-2026-07-21')
+  })
+
   it('rejects non-compat execution axes in ts-compat', () => {
     // spec: 13 §7.3 (ts-compat requires the compat values)
     assert.equal(
@@ -276,3 +395,16 @@ describe('ModelConfig validation and helpers (21 §6.1, §6.3)', () => {
     assert.ok(!isDecimalString('0.0000001'))
   })
 })
+
+/** RFC 6901 set (or delete with `undefined`) relative to an object root. */
+function setPointer(root: Record<string, unknown>, pointer: string, value: unknown): void {
+  const parts = pointer
+    .split('/')
+    .slice(1)
+    .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))
+  let node: Record<string, unknown> = root
+  for (const p of parts.slice(0, -1)) node = node[p] as Record<string, unknown>
+  const last = parts.at(-1)!
+  if (value === undefined) delete node[last]
+  else node[last] = value
+}
