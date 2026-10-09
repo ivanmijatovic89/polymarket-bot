@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Renders the absolute-path `EngineJob` of a committed fixture market
  * (native/spec/60 §12 FX-1a, 21 §5.1) and prints the file path, so the M1
@@ -129,3 +130,14 @@ async function main(): Promise<void> {
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
   await main()
 }
+=======
+// Entry point of `npm run native:fixture-job -- <fixture slug>` (60 §12 FX-1a,
+// 01 §6 M1 proof); the logic lives in src/native/fixtureJob.ts so CI
+// typechecks and lints it.
+import { fixtureJobMain } from '../../src/native/fixtureJob.js'
+
+fixtureJobMain(process.argv.slice(2)).catch((err: unknown) => {
+  process.stderr.write(`[native:fixture-job] ${err instanceof Error ? err.message : String(err)}\n`)
+  process.exitCode = 2
+})
+>>>>>>> ws/ts

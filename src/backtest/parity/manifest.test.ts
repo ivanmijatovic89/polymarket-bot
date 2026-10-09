@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
   compareTsTraces,
   computeTotals,
+  e15CrossCellL,
   renderSummary,
   type MarketEntry,
   type ParityManifest,
@@ -99,5 +100,34 @@ describe('manifest, totals and summary (60 HR-7, §3.1, §15.2)', () => {
 
   it('the patch-set hash is null without patches (OR-12)', () => {
     assert.equal(patchSetSha256([]), null)
+  })
+
+  it('L features need at least 20 distinct markets across the E15 cells', () => {
+    // spec: 60 §5.6 ("L in at least one market per cell and at least 20 markets across the E15 cells")
+    const e15 = (name: string, slugs: string[], hits: string[]): ParityManifest =>
+      ({
+        ...manifest(
+          slugs.map((s) => entry(s, { coverage: { generic: {} as never, exerciser: hits } })),
+        ),
+        cell: { name, sha256: 'c' },
+        exerciserScheduleVersion: 2,
+      }) as unknown as ParityManifest
+    const slugs = (from: number, n: number) => Array.from({ length: n }, (_, i) => `m${from + i}`)
+    // 12 + 12 markets, 4 of them shared: 20 distinct markets hit `x3 taker fill`.
+    const a = e15('E15-0', slugs(0, 12), ['x2 FOK filled'])
+    const b = e15('E15-D', slugs(8, 12), ['x2 FOK filled'])
+    const rows = e15CrossCellL([a, b])!
+    const taker = rows.find((r) => r.feature === 'x2 FOK filled')
+    assert.ok(taker, JSON.stringify(rows.map((r) => r.feature)))
+    assert.deepEqual(taker, { feature: 'x2 FOK filled', markets: 20, pass: true })
+    const short = e15CrossCellL([e15('E15-0', slugs(0, 19), ['x2 FOK filled'])])!
+    assert.equal(short.find((r) => r.feature === 'x2 FOK filled')!.pass, false)
+    // Every listed row is an L feature; other cells are ignored.
+    assert.ok(rows.every((r) => r.feature !== 'x1 post-only rests'))
+    assert.equal(e15CrossCellL([manifest([entry('a')])]), null)
+    assert.match(
+      renderSummary([{ file: 'm.json', sha256: 'f'.repeat(64), manifest: a }]),
+      /L features across the E15 cells/,
+    )
   })
 })

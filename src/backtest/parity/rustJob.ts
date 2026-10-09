@@ -4,8 +4,11 @@ import type { MarketJobData } from '../jobTypes.js'
 import {
   TELONEX_DELTA_FORMAT,
   buildEngineJob,
-  toNativeMarketJob,
+  toNativeJobTemplate,
   validateModelConfig,
+  withNativeGate,
+  type NativeDescribe,
+  type NativeJobTemplate,
   type BuildEngineJobOptions,
   type BuiltEngineJob,
   type DataRoots,
@@ -13,7 +16,7 @@ import {
 } from '../../native/index.js'
 import type { EngineJob } from '../../native/contract/generated.js'
 import type { ExternalFeedsRequestConfig } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { canonicalJsonLoose, type ParityCell } from './cell.js'
+import { canonicalJsonLoose, modelConfigSha256, type ParityCell } from './cell.js'
 
 /**
  * The Rust side of a parity cell (60 HR-1, HR-2): the harness builds the
@@ -65,11 +68,11 @@ export function nativeJobFor(
     requiredFeeds: ExternalFeedsRequestConfig | null
     asOfMs: number
   },
-): NativeMarketJobData {
+): NativeJobTemplate {
   // The full contract check of the cell ModelConfig (21 §6.3; cell.ts checks only the fields the oracle maps).
   const modelConfig: unknown = cell.modelConfig
   validateModelConfig(modelConfig)
-  return toNativeMarketJob(tsJob, {
+  return toNativeJobTemplate(tsJob, {
     strategyId: cell.rustStrategyId,
     modelConfig,
     requiredFeeds: facts.requiredFeeds,
@@ -87,6 +90,36 @@ export function nativeJobFor(
 }
 
 /**
+ * The gate fields of a parity job (21 §4, 40 §4.1) from the binary that runs
+ * it: its `describe` protocol and target and its sha256. A `--rust-only`
+ * rerun with another binary (60 §4.5 PS-50) therefore carries that binary's
+ * identity. Parity runs are agent submissions (40 §10).
+ */
+// D-PENDING: 21 §4 strategyArtifact.r2Url names the R2 object, but parity runs a local canonical binary that is never downloaded (60 VP-7, MS-5); chose `file://<absolute path>`.
+export function parityGate(
+  doc: Pick<NativeDescribe, 'protocolVersion' | 'binary'>,
+  bin: { path: string; sha256: string },
+  producerDirty: boolean,
+): Parameters<typeof withNativeGate>[1] {
+  return {
+    protocolVersion: doc.protocolVersion,
+    target: doc.binary.target,
+    artifactSha256: bin.sha256,
+    artifactR2Url: `file://${path.resolve(bin.path)}`,
+    priorityClass: 'agent',
+    producerDirty,
+  }
+}
+
+/** A parity job template with the gate of the binary that runs it. */
+export function nativeJobWithGate(
+  template: NativeJobTemplate,
+  gate: Parameters<typeof withNativeGate>[1],
+): NativeMarketJobData {
+  return withNativeGate(template, gate)
+}
+
+/**
  * The `EngineJob` of one parity market through the src/native builder
  * (HR-2). A parity market is resolved, so a 21 §13 short-circuit is an
  * error here (R14).
@@ -101,6 +134,34 @@ export async function engineJobFor(
   if (built.kind !== 'job')
     throw new Error(`${job.slug}: buildEngineJob short-circuited (${built.skipReason}, 21 §13)`)
   return built.job
+}
+
+/**
+ * `--rust-only` reuses `<dir>/jobs/<slug>.native.json`; the manifest records
+ * the current cell's `modelConfigSha256`, so the reused job must carry the
+ * same ModelConfig, required feeds, read mode and Rust strategy id (60 VP-2,
+ * HR-7, R14). Returns the problems (empty when the job matches the cell).
+ */
+export function rustOnlyJobProblems(
+  native: NativeJobTemplate,
+  cell: ParityCell,
+  current: { modelConfigSha256: string; requiredFeeds: ExternalFeedsRequestConfig | null },
+): string[] {
+  const problems: string[] = []
+  const sha = modelConfigSha256(native.modelConfig)
+  if (sha !== current.modelConfigSha256)
+    problems.push(`modelConfigSha256 ${sha} != cell ${current.modelConfigSha256}`)
+  if (
+    canonicalJsonLoose(native.requiredFeeds ?? null) !== canonicalJsonLoose(current.requiredFeeds)
+  )
+    problems.push(
+      `requiredFeeds ${JSON.stringify(native.requiredFeeds)} != ${JSON.stringify(current.requiredFeeds)}`,
+    )
+  if (native.readFrom !== cell.readFrom)
+    problems.push(`readFrom ${native.readFrom} != cell ${cell.readFrom}`)
+  if (native.strategyId !== cell.rustStrategyId)
+    problems.push(`strategyId ${native.strategyId} != cell ${cell.rustStrategyId}`)
+  return problems
 }
 
 /** 21 §5.1: `EngineJob.run.strategyId` equals the binary's id (HR-1). */
@@ -127,17 +188,22 @@ export function rustRunArgs(jobFile: string, traceFile: string, level: string): 
  * real-orders and contract checks of 20 §1/§3 run first, in
  * `describeNative`.
  */
-// D-PENDING: 60 §5.7 says run-parity refuses an exerciser schedule version mismatch, but `describe` (20 §5.1) has no field for it; chose to compare id, params and requiredFeeds and to record only the TS version until the Rust side exposes one.
 export function checkDescribe(
   doc: unknown,
   cell: ParityCell,
-  ts: { params: Record<string, unknown>; requiredFeeds: unknown },
+  ts: {
+    params: Record<string, unknown>
+    requiredFeeds: unknown
+    /** The TS twin's EXERCISER_SCHEDULE_VERSION when the cell runs an exerciser (60 §5.7). */
+    scheduleVersion?: number | null
+  },
 ): string[] {
   const d = doc as {
     type?: unknown
     capabilities?: { traceFormat?: unknown; profiles?: unknown; inputModes?: unknown }
     strategy?: {
       id?: unknown
+      scheduleVersion?: unknown
       results?: Array<{ ok?: unknown; params?: unknown; requiredFeeds?: unknown }>
     }
   } | null
@@ -155,6 +221,17 @@ export function checkDescribe(
     problems.push(`input mode ${cell.inputMode} not in ${JSON.stringify(modes)}`)
   if (d.strategy?.id !== cell.rustStrategyId)
     problems.push(`strategy id ${JSON.stringify(d.strategy?.id)} != ${cell.rustStrategyId}`)
+  // 60 §5.7: run-parity refuses a schedule mismatch between the twins.
+  const rustSchedule = describedScheduleVersion(doc)
+  if (
+    ts.scheduleVersion !== undefined &&
+    ts.scheduleVersion !== null &&
+    rustSchedule !== null &&
+    rustSchedule !== ts.scheduleVersion
+  )
+    problems.push(
+      `exerciser schedule version ${rustSchedule} != TS EXERCISER_SCHEDULE_VERSION ${ts.scheduleVersion} (60 §5.7)`,
+    )
   const r = d.strategy?.results?.[0]
   if (!r || r.ok !== true) problems.push(`params rejected: ${JSON.stringify(r ?? null)}`)
   else {
@@ -170,6 +247,16 @@ export function checkDescribe(
       )
   }
   return problems
+}
+
+/**
+ * The Rust twin's exerciser schedule version from `describe`, or null when
+ * the binary does not expose one (60 §5.7).
+ */
+// D-PENDING: 60 §5.7 requires refusing a twin schedule mismatch but 20 §5.1 names no describe field for it; chose `strategy.scheduleVersion` (an integer), and a binary without it makes the run non-gating instead of refused.
+export function describedScheduleVersion(doc: unknown): number | null {
+  const v = (doc as { strategy?: { scheduleVersion?: unknown } } | null)?.strategy?.scheduleVersion
+  return typeof v === 'number' && Number.isSafeInteger(v) ? v : null
 }
 
 /** `<bin> describe --params '<json>'` arguments (20 §5.1). */

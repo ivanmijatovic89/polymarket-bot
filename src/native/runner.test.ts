@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 
@@ -16,6 +16,7 @@ import {
   MAX_STDOUT_BYTES,
   checkedInContractSha256,
   describeNative,
+  describeNativeCached,
   ensureNativeArtifact,
   expectedExitCodes,
   nativeArtifactCachePath,
@@ -25,50 +26,14 @@ import {
   runNativeJob,
   type NativeDescribe,
 } from './runner.js'
-import { echoingResult, makeDataRoot, nativeJob, scratchDir, writeBytes } from './testSupport.js'
-
-interface FakeConfig {
-  describe?: unknown
-  describeExit?: number
-  result?: unknown
-  runExit?: number
-  stderr?: string
-  record?: string
-  selfKill?: boolean
-  bigMiB?: number
-}
-
-/** A scripted executable standing in for a native artifact. */
-function fakeBin(cfg: FakeConfig): string {
-  const dir = scratchDir('bin')
-  const file = path.join(dir, 'fake-native')
-  writeFileSync(
-    file,
-    `#!${process.execPath}
-const fs = require('fs')
-const cfg = ${JSON.stringify(cfg)}
-const args = process.argv.slice(2)
-if (cfg.record) fs.writeFileSync(cfg.record, JSON.stringify({ args, env: process.env, cwd: process.cwd(), job: args[0] === 'run' ? JSON.parse(fs.readFileSync(args[2], 'utf8')) : null }))
-if (cfg.stderr) process.stderr.write(cfg.stderr)
-if (args[0] === 'describe') {
-  process.stdout.write(JSON.stringify(cfg.describe))
-  process.exitCode = cfg.describeExit || 0
-} else if (args[0] === 'run') {
-  if (cfg.selfKill) process.kill(process.pid, 'SIGKILL')
-  if (cfg.bigMiB) { const chunk = 'x'.repeat(1 << 20); for (let i = 0; i < cfg.bigMiB; i++) process.stdout.write(chunk) }
-  const t = args.indexOf('--trace')
-  if (t > 0) fs.writeFileSync(args[t + 1], 'trace')
-  if (cfg.result !== undefined) process.stdout.write(typeof cfg.result === 'string' ? cfg.result : JSON.stringify(cfg.result))
-  process.exitCode = cfg.runExit || 0
-} else {
-  process.stderr.write('unknown subcommand\\n')
-  process.exitCode = 2
-}
-`,
-  )
-  chmodSync(file, 0o755)
-  return file
-}
+import {
+  echoingResult,
+  fakeBin,
+  makeDataRoot,
+  nativeJob,
+  scratchDir,
+  writeBytes,
+} from './testSupport.js'
 
 function describeDoc(over: Partial<Record<string, unknown>> = {}): NativeDescribe {
   return {
@@ -167,6 +132,12 @@ describe('describe (20 §5.1, §1, §3)', () => {
       describeNative(fakeBin({ describe: describeDoc() }), { target: 'x86_64-unknown-linux-gnu' }),
     )
     assert.equal(target.cause, 'artifact_incompatible')
+    const iterate = describeDoc()
+    iterate.binary.buildProfile = 'iterate'
+    const profile = await failure(
+      describeNative(fakeBin({ describe: iterate }), { buildProfile: 'artifact' }),
+    )
+    assert.equal(profile.cause, 'artifact_incompatible')
   })
 
   it('reports rejected params as invalid_input: params with the binary messages', async () => {
@@ -180,6 +151,37 @@ describe('describe (20 §5.1, §1, §3)', () => {
     )
     assert.deepEqual([info.class, info.cause], ['invalid_input', 'params'])
     assert.match(info.message, /\/size: expected a number >= 1/)
+  })
+
+  it('labels only an exit-2 params rejection as params; other exits keep their class; a hung describe is killed', async () => {
+    // spec: 20 §5.1 (describe), §4 (exit code → class), §4.1 (documented causes); 40 §8.2 backstop
+    const fault = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeExit: 8 }), { params: {} }),
+    )
+    assert.deepEqual([fault.class, fault.cause], ['engine_fault', 'panic'])
+    const io = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeExit: 1 }), { params: {} }),
+    )
+    assert.deepEqual([io.class, io.cause], ['runtime', 'io'])
+    const hung = await failure(
+      describeNative(fakeBin({ describe: describeDoc(), describeHangMs: 30_000 }), {
+        killAfterMs: 300,
+      }),
+    )
+    assert.deepEqual([hung.class, hung.cause], ['killed', 'backstop_timeout'])
+  })
+
+  it('caches describe per binary and params for the process', async () => {
+    // spec: 31 §8 step 5 (cache describe results per (sha, canonical raw params))
+    const record = path.join(scratchDir('rec'), 'call.json')
+    const bin = fakeBin({ describe: describeDoc(), record })
+    const a = describeNativeCached(bin, { params: { b: 1, a: 2 } })
+    const b = describeNativeCached(bin, { params: { a: 2, b: 1 } })
+    assert.equal(a, b)
+    await a
+    const c = describeNativeCached(bin, { params: { a: 3 } })
+    assert.notEqual(a, c)
+    await c
   })
 
   it('passes a params list through --params-file', async () => {
@@ -258,7 +260,8 @@ describe('run (20 §5.4, §4; 21 §12, §19)', () => {
     const missing = await failure(
       runNativeJob(fakeBin({ runExit: 3 }), job, { engineVersion: '0.1.0' }),
     )
-    assert.equal(missing.class, 'data_missing')
+    // A documented 20 §4.1 cause, never a made-up one.
+    assert.deepEqual([missing.class, missing.cause], ['data_missing', 'input_missing'])
     const killed = await failure(
       runNativeJob(fakeBin({ selfKill: true }), job, { engineVersion: '0.1.0' }),
     )

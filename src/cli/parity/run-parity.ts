@@ -6,13 +6,13 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
 import { closeDb } from '../../db/index.js'
 import type { MarketJobData } from '../../backtest/jobTypes.js'
-import { utcDatesCovering } from '../../binance/paths.js'
 import {
   DEFAULT_DATA_ROOT,
   REPO_ROOT,
@@ -27,11 +27,10 @@ import {
 } from '../../backtest/parity/cell.js'
 import { intArg, one, parseArgv } from '../../backtest/parity/cliArgs.js'
 import {
-  ExerciserCoverageAcc,
-  FeedCoverageAcc,
-  GenericCoverageAcc,
+  MarketCoverageAcc,
   coverageVerdict,
   exerciserFeatures,
+  type MarketCoverage,
 } from '../../backtest/parity/coverage.js'
 import { DIFF_RULES_VERSION } from '../../backtest/parity/diff.js'
 import { diffTraceFiles, scanTrace } from '../../backtest/parity/stream.js'
@@ -49,6 +48,12 @@ import {
 } from '../../backtest/parity/manifest.js'
 import { classifyMarket, loadMatchers, verdictLabel } from '../../backtest/parity/matchers.js'
 import {
+  classifyTsFailure,
+  failureVerdict,
+  rustFailureClass,
+  type FailureClass,
+} from '../../backtest/parity/failureClass.js'
+import {
   buildParityJobs,
   resolveParityStrategy,
   seededShuffle,
@@ -64,16 +69,22 @@ import {
 import {
   assertEngineJobStrategy,
   checkDescribe,
+  describedScheduleVersion,
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
+  nativeJobWithGate,
+  parityGate,
+  rustOnlyJobProblems,
 } from '../../backtest/parity/rustJob.js'
 import {
   NativeError,
   describeNative,
+  feedDayFiles,
   runNativeJob,
   type NativeDescribe,
-  type NativeMarketJobData,
+  type NativeGateInput,
+  type NativeJobTemplate,
 } from '../../native/index.js'
 import { TRACE_FORMAT, TRACE_VERSION } from '../../backtest/parity/trace.js'
 import { prepareOracleTree } from '../../backtest/parity/oracleTree.js'
@@ -110,8 +121,10 @@ trees, job, input identities, oracle env, patch set) is unchanged (OR-12).
 --oracle-tree pin runs TS from a scratch copy of the pin with this checkout's
 parity tooling and twins (OR-17); --oracle-patch applies a patch set to it
 (PM-1) and an equal Rust trace is then \`identical-patched\`. --rust-only reuses <dir>/jobs and the TS traces.
-Exit 0 only with zero TS failures, zero unclassified and zero markets matched
-by an open Rust-bug entry (HR-8).`
+A TS failure is compared with the Rust outcome by error class (CL-7): the
+same class is identical, anything else unclassified.
+Exit 0 only with zero unclassified and zero markets matched by an open
+Rust-bug entry (HR-8); a TS-only run also needs zero TS failures.`
 
 type Child = { code: number; tail: string }
 
@@ -162,34 +175,18 @@ function lastLines(text: string): string {
   return text.trim().split('\n').slice(-3).join(' | ')
 }
 
-/** Feed day files a market needs (window plus the 5 min lookback, 14 F-47). */
-function feedDayFiles(
+/**
+ * Feed day files a market needs: the same day set the shim passes to the
+ * binary (src/native `feedDayFiles`; 14 F-12, F-20, 21 §9 step 3).
+ */
+function feedDayFilesOf(
   job: MarketJobData,
   feeds: ReturnType<typeof externalFeedsRequest>,
   dataRoot: string,
 ): string[] {
   const w = job.strategyWindow
-  if (!w) return []
-  const days = utcDatesCovering(w.startMs - 300_000, w.endMs)
-  const out: string[] = []
-  // D-PENDING: the harness assumes BTC markets (S15-CL is BTC 15m, D38); feed pairs are BTCUSDT and btcusd as the TS loaders derive them from the slug.
-  if (feeds.binanceWsSpotPrice)
-    for (const d of days)
-      out.push(
-        path.join(dataRoot, 'binance', 'aggTrades', 'BTCUSDT', `BTCUSDT-aggTrades-${d}.parquet`),
-      )
-  if (feeds.rtdsCryptoPrices)
-    for (const d of days)
-      out.push(
-        path.join(
-          dataRoot,
-          'telonex',
-          'crypto_prices',
-          'btcusd',
-          `btcusd-crypto-prices-${d}.parquet`,
-        ),
-      )
-  return out
+  if (!w || !job.slug) return []
+  return feedDayFiles(dataRoot, job.slug, w, feeds).map((f) => f.path)
 }
 
 async function inputIdentities(
@@ -214,6 +211,21 @@ function exerciserScheduleOf(cell: ParityCell, params: Record<string, unknown>):
   if (id === 'engine-exerciser') return EXERCISER_SCHEDULE_VERSION
   if (id === 'feed-exerciser' && params.trade === true) return EXERCISER_SCHEDULE_VERSION
   return null
+}
+
+/**
+ * One streamed pass over a TS trace: the sha256 of its decompressed bytes and
+ * its coverage (60 §5.6; only the identical prefix of a masked market, PM-4).
+ */
+async function scanCoverage(
+  file: string,
+  traceLevel: ParityCell['traceLevel'],
+  schedule: number | null,
+  prefixRecords?: number,
+): Promise<{ sha256: string; coverage: MarketCoverage }> {
+  const acc = new MarketCoverageAcc(traceLevel, schedule, prefixRecords)
+  const sha256 = await scanTrace(file, (r) => acc.add(r))
+  return { sha256, coverage: acc.result() }
 }
 
 async function main(): Promise<number> {
@@ -407,6 +419,7 @@ async function main(): Promise<number> {
   // standard build, checked-in contract), then the cell checks: same strategy
   // id, params, feeds, trace format (fail loud, R14).
   let rustBinary: NativeDescribe['binary'] | null = null
+  let rustGate: NativeGateInput | null = null
   if (rustBin) {
     const doc = await describeNative(path.resolve(rustBin), {
       params: built.params as Record<string, unknown>,
@@ -414,12 +427,22 @@ async function main(): Promise<number> {
     const problems = checkDescribe(doc, cell, {
       params: built.params as Record<string, unknown>,
       requiredFeeds: feeds,
+      scheduleVersion: schedule,
     })
     if (problems.length > 0)
       throw new Error(
         `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
       )
     rustBinary = doc.binary
+    // 60 §5.7: a twin schedule that cannot be compared is not gate evidence.
+    if (schedule !== null && describedScheduleVersion(doc) === null)
+      nonGating.push(
+        'the Rust twin does not expose its exerciser schedule version (60 §5.7, describe strategy.scheduleVersion)',
+      )
+    rustGate = parityGate(doc, { path: rustBin, sha256: rustSha! }, !tree.workingTreeClean)
+    // VP-7: gate evidence comes from the canonical `artifact` binary.
+    if (doc.binary.buildProfile !== 'artifact')
+      nonGating.push(`--rust-bin build profile ${doc.binary.buildProfile}, not artifact (VP-7)`)
   }
   const rustDir = path.join(outDir, 'rust')
   if (rustBin) mkdirSync(rustDir, { recursive: true })
@@ -463,9 +486,10 @@ async function main(): Promise<number> {
   await pool(jobs, concurrency, async (job) => {
     const slug = job.slug!
     const tsTrace = path.join(tsDir, `${slug}.ts${traceExt}`)
+    const tsFailureFile = path.join(tsDir, `${slug}.ts.failure.json`)
     const entry: MarketEntry = {
       slug,
-      inputs: await inputIdentities(job, feedDayFiles(job, feeds, dataRoot)),
+      inputs: await inputIdentities(job, feedDayFilesOf(job, feeds, dataRoot)),
       ts: { ok: false, durationMs: 0 },
       verdict: null,
     }
@@ -491,47 +515,70 @@ async function main(): Promise<number> {
       entry.ts = { ok: true, durationMs: 0, cache: 'hit', cacheKey }
     } else if (!rustOnly) {
       const t0 = Date.now()
+      // A stale trace or failure record of an earlier run never stands in for this one (R14).
+      rmSync(tsTrace, { force: true })
+      rmSync(tsFailureFile, { force: true })
       const r = await runTs(job, tsTrace, `${slug}.ts.log`)
       entry.ts = { ok: r.code === 0 && existsSync(tsTrace), durationMs: Date.now() - t0 }
-      if (!entry.ts.ok) entry.ts.error = lastLines(r.tail)
-      else if (cacheDir && cacheKey) {
+      if (!entry.ts.ok) {
+        entry.ts.error = lastLines(r.tail)
+        // 60 CL-7: the TS failure class (14 §10), kept for a later --rust-only run.
+        entry.ts.failure = classifyTsFailure(r.tail)
+        writeJsonAtomic(tsFailureFile, { error: entry.ts.error, failure: entry.ts.failure })
+      } else if (cacheDir && cacheKey) {
         storeInCache(cacheDir, cacheKey, traceExt, tsTrace)
         entry.ts.cache = 'miss'
         entry.ts.cacheKey = cacheKey
       }
     } else {
       entry.ts = { ok: existsSync(tsTrace), durationMs: 0 }
-      if (!entry.ts.ok) entry.ts.error = `missing ${tsTrace}`
+      if (!entry.ts.ok) {
+        if (!existsSync(tsFailureFile))
+          throw new Error(`--rust-only: ${slug} has neither a TS trace nor a TS failure record`)
+        const prior = JSON.parse(readFileSync(tsFailureFile, 'utf8')) as {
+          error: string
+          failure: FailureClass | null
+        }
+        entry.ts.error = prior.error
+        entry.ts.failure = prior.failure
+      }
     }
     if (entry.ts.ok) {
       entry.ts.trace = tsTrace
       // One streamed pass: coverage and the sha256 of the decompressed bytes.
-      const gen = new GenericCoverageAcc()
-      const fc = cell.traceLevel === 'feeds' ? new FeedCoverageAcc() : null
-      const ex = schedule !== null ? new ExerciserCoverageAcc() : null
-      entry.ts.traceSha256 = await scanTrace(tsTrace, (r) => {
-        gen.add(r)
-        fc?.add(r)
-        ex?.add(r)
-      })
-      entry.coverage = {
-        generic: gen.c,
-        ...(fc ? { feeds: fc.c } : {}),
-        ...(ex ? { exerciser: [...ex.result()].sort() } : {}),
-      }
-    } else {
-      entry.verdict = { verdict: 'excluded', reason: `ts_failed: ${entry.ts.error ?? ''}` }
+      const scan = await scanCoverage(tsTrace, cell.traceLevel, schedule)
+      entry.ts.traceSha256 = scan.sha256
+      entry.coverage = scan.coverage
     }
 
-    if (rustBin && buildEngineJob && rustBinary && entry.ts.ok) {
+    // 60 CL-7, HR-6: Rust runs whatever the TS outcome; a TS failure is
+    // compared by class, never excluded (excluded is OR-9 and MS-5 only).
+    if (rustBin && buildEngineJob && rustBinary && rustGate) {
       const rustTrace = path.join(rustDir, `${slug}.rust${traceExt}`)
       const rustLog = path.join(logsDir, `${slug}.rust.log`)
       const t0 = Date.now()
       let rustError: string | null = null
+      let rustFailure: FailureClass | null = null
+      // A trace left by an earlier run (--rust-only reruns into the same
+      // directory, 60 §4.5) must never be diffed as this run's (R14).
+      rmSync(rustTrace, { force: true })
+      const template = JSON.parse(
+        readFileSync(path.join(jobsDir, `${slug}.native.json`), 'utf8'),
+      ) as NativeJobTemplate
+      // VP-2, HR-7: the evidence must run the configuration the manifest names (R14).
+      if (rustOnly) {
+        const problems = rustOnlyJobProblems(template, cell, {
+          modelConfigSha256: mcSha,
+          requiredFeeds: feeds,
+        })
+        if (problems.length > 0)
+          throw new Error(
+            `--rust-only: ${slug}.native.json does not match the current cell: ${problems.join('; ')}`,
+          )
+      }
       try {
-        const native = JSON.parse(
-          readFileSync(path.join(jobsDir, `${slug}.native.json`), 'utf8'),
-        ) as NativeMarketJobData
+        // 21 §4 gate fields of the binary that runs this market (40 §4.1).
+        const native = nativeJobWithGate(template, rustGate)
         const engineJob = await engineJobFor(buildEngineJob, native, dataRoot, {
           tracePath: rustTrace,
           traceLevel: cell.traceLevel,
@@ -546,19 +593,29 @@ async function main(): Promise<number> {
             traceLevel: cell.traceLevel,
             log: (line) => log.write(`${line}\n`),
           })
-          if (out.result.status !== 'ok' || out.exitCode !== 0)
-            rustError = `result ${out.result.status} exit ${out.exitCode}: ${JSON.stringify(out.result.error ?? out.result.candidates[0]?.error ?? null)}`
-          else if (!existsSync(rustTrace)) rustError = `no trace at ${rustTrace}`
+          if (out.result.status !== 'ok' || out.exitCode !== 0) {
+            const info = out.result.error ?? out.result.candidates[0]?.error ?? null
+            rustError = `result ${out.result.status} exit ${out.exitCode}: ${JSON.stringify(info)}`
+            rustFailure = rustFailureClass(info)
+          } else if (!existsSync(rustTrace)) rustError = `no fresh trace at ${rustTrace}`
         } finally {
           log.end()
         }
       } catch (err) {
         rustError = err instanceof NativeError ? err.message : String(err)
+        // A shim-side NativeError carries its class (20 §4); a harness error has none.
+        rustFailure = err instanceof NativeError ? rustFailureClass(err.info) : null
       }
       entry.rust = { ok: rustError === null, durationMs: Date.now() - t0 }
       if (rustError !== null) {
         entry.rust.error = lastLines(rustError)
-        entry.verdict = { verdict: 'unclassified', reason: `rust_failed: ${entry.rust.error}` }
+        entry.rust.failure = rustFailure
+      }
+      if (!entry.ts.ok || rustError !== null) {
+        entry.verdict = failureVerdict(
+          entry.ts.ok ? 'ok' : { failure: entry.ts.failure ?? null },
+          rustError === null ? 'ok' : { failure: rustFailure },
+        )
       } else {
         entry.rust.trace = rustTrace
         const { diff: d, eventKinds } = await diffTraceFiles(
@@ -584,6 +641,16 @@ async function main(): Promise<number> {
             ? { verdict: 'identical-patched' }
             : c.verdict
         entry.openRustBug = c.openRustBug
+        // 60 PM-4: a masked market's coverage counts only its identical prefix.
+        if (entry.verdict.verdict === 'masked') {
+          const prefix = await scanCoverage(
+            tsTrace,
+            cell.traceLevel,
+            schedule,
+            entry.verdict.divergenceIndex,
+          )
+          entry.coverage = prefix.coverage
+        }
       }
     }
     done++
@@ -705,7 +772,11 @@ async function main(): Promise<number> {
   console.error(
     `[run-parity] done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${JSON.stringify(t)} openRustBug=${openRust} gating=${manifest.gating} -> ${manifestFile}`,
   )
-  return t.tsFailed === 0 && t.unclassified === 0 && openRust === 0 ? 0 : 1
+  // HR-8: zero unclassified and zero open Rust bugs. A TS-only run (no
+  // Rust verdicts) has nothing to classify, so its TS failures fail it.
+  return t.unclassified === 0 && openRust === 0 && (rustBin !== undefined || t.tsFailed === 0)
+    ? 0
+    : 1
 }
 
 main()

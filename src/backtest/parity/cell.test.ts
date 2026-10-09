@@ -81,7 +81,7 @@ describe('parity cells (60 §4.1, HR-1)', () => {
   })
 
   it('the oracle env is an allowlist plus explicit knobs from the ModelConfig, never BOT_ENV (OR-7)', () => {
-    // spec: 60 OR-7, HR-3
+    // spec: 60 OR-7, HR-3; 02 D63 (1) latency knobs equal the job, (3) data-root variables
     const c = loadCell(path.join(CELLS, 'T15-on.json'))
     const env = buildOracleEnv(c, '/data', {
       PATH: '/bin',
@@ -89,6 +89,10 @@ describe('parity cells (60 §4.1, HR-1)', () => {
       BOT_ENV: 'x',
       STARTING_CAPITAL: '9',
       DATABASE_PASSWORD: 's',
+      BACKTEST_LATENCY_DELAY: '999',
+      BACKTEST_LATENCY_JITTER: '50',
+      RECORDER_REPLAY_CACHE_DIR: '/elsewhere',
+      BACKTEST_TECH_IND_TIMEOUT_MS: '1',
     })
     assert.deepEqual(env, {
       PATH: '/bin',
@@ -96,6 +100,9 @@ describe('parity cells (60 §4.1, HR-1)', () => {
       TZ: 'UTC',
       BINANCE_DATA_BASE_DIR: '/data/binance',
       TELONEX_CRYPTO_PRICES_BASE_DIR: '/data/telonex/crypto_prices',
+      RECORDER_REPLAY_CACHE_DIR: '/data/recorder-v4-cache',
+      BACKTEST_LATENCY_DELAY: String(c.modelConfig.execution.compatLatency.delayMs),
+      BACKTEST_LATENCY_JITTER: '0',
       BACKTEST_BINANCE_FEED_LATENCY_MS: '110',
       BACKTEST_BINANCE_FEED_LOOKBACK_MS: '300000',
       BACKTEST_RTDS_CHAINLINK_LATENCY_MS: '320',
@@ -105,8 +112,18 @@ describe('parity cells (60 §4.1, HR-1)', () => {
       MAX_EVENTS_PER_DRAIN: '4200',
       WEB_UI_ORDERBOOK_LEVELS: '10',
       BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS: '0',
+      BACKTEST_TECH_IND_TIMEOUT_MS: '3000',
+      BACKTEST_TECH_IND_POLL_MS: '10',
     })
     for (const k of Object.keys(env)) assert.ok(ORACLE_ENV_KEYS.includes(k), k)
+    // A delay-D cell's delay reaches the env (D63 (1)).
+    const d = loadCell(
+      tmpCell('X4', (x) => {
+        const mc = x.modelConfig as { execution: { compatLatency: { delayMs: number } } }
+        mc.execution.compatLatency.delayMs = 140
+      }),
+    )
+    assert.equal(buildOracleEnv(d, '/data', {}).BACKTEST_LATENCY_DELAY, '140')
   })
 
   it('canonical JSON sorts keys bytewise with no whitespace; the ModelConfig hash is stable (21 §6.1)', () => {

@@ -6,20 +6,27 @@
  * The generated contract lives in `./contract/` (21 §3).
  */
 export {
+  CANDIDATE_KEY_RE,
   JOB_SCHEMA_VERSION,
+  NATIVE_PRIORITY_CLASSES,
+  NATIVE_SHIM_VERSION,
   NATIVE_SLUG_RE,
   TELONEX_DELTA_FORMAT,
   absolutizeJobPaths,
   assertEngineJob,
   buildEngineJob,
+  candidateKeyOf,
   defaultBudget,
+  minShimVersionFor,
   resolveUnderDataRoot,
   verifyJobFiles,
   type BuildEngineJobOptions,
   type BuiltEngineJob,
   type DataRoots,
+  type NativeGate,
   type NativeInputRef,
   type NativeJobFields,
+  type NativePriorityClass,
   type NativeMarketJobData,
   type R2Download,
 } from './buildEngineJob.js'
@@ -31,6 +38,12 @@ export {
   retryActionFor,
   type RetryAction,
 } from './errors.js'
+export {
+  NATIVE_CHILD_ID_BASE,
+  executeNativeMarketJob,
+  type ExecuteNativeMarketOptions,
+  type HostStamps,
+} from './execute.js'
 export {
   FEED_ENGINE_CONSTANTS,
   feedDayFiles,
@@ -48,7 +61,15 @@ export {
   type ResolveModelConfigArgs,
   type ResolvedModelConfig,
 } from './modelConfig.js'
-export { toNativeMarketJob, type NativeJobExtras } from './nativeJob.js'
+export {
+  emptyRulesRecord,
+  toNativeJobTemplate,
+  toNativeMarketJob,
+  withNativeGate,
+  type NativeGateInput,
+  type NativeJobExtras,
+  type NativeJobTemplate,
+} from './nativeJob.js'
 export {
   mapEngineResult,
   shortCircuitOutput,
@@ -61,6 +82,7 @@ export {
   NATIVE_PROTOCOL_VERSION,
   checkedInContractSha256,
   describeNative,
+  describeNativeCached,
   describeProblems,
   ensureNativeArtifact,
   nativeArtifactCachePath,

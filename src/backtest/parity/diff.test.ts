@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { diffTraces, isFeeHalfTie, reasonCode, toMicros, USDC_TOLERANCE } from './diff.js'
+import {
+  diffTraces,
+  isFeeHalfTie,
+  KNOWN_REASON_CODES,
+  reasonCode,
+  toMicros,
+  USDC_TOLERANCE,
+} from './diff.js'
 import type { TraceRecord } from './trace.js'
 
 const header = (over: Record<string, unknown> = {}): TraceRecord => ({
@@ -181,6 +188,35 @@ describe('diff v2 (22 §3.4)', () => {
     )
   })
 
+  it('cancel-fail codes use the D62 strings and are known codes', () => {
+    // spec: 22 §3.4 reason rule; 60 CL-8; 02 D62
+    const cf = (reason: string): TraceRecord => ({
+      t: 'event',
+      seq: 0,
+      kind: 'cancel_failed',
+      ts: 1,
+      cid: 'x1',
+      reason,
+    })
+    for (const code of ['conflicting_order_reference', 'invalid_cancel_batch_size']) {
+      assert.equal(KNOWN_REASON_CODES.has(code), true, code)
+      assert.equal(diffTraces(trace(tick(0), cf(code)), trace(tick(0), cf(code))).equal, true)
+    }
+    for (const stale of ['conflicting_refs', 'too_many_ids', 'unmapped'])
+      assert.equal(KNOWN_REASON_CODES.has(stale), false, stale)
+    const r = diffTraces(
+      trace(tick(0), cf('conflicting_refs')),
+      trace(tick(0), cf('conflicting_order_reference')),
+    )
+    assert.equal(r.failures[0]!.kind, 'reason_code_unmapped')
+    // Different known codes are a plain mismatch.
+    const m = diffTraces(
+      trace(tick(0), cf('invalid_cancel_batch_size')),
+      trace(tick(0), cf('unknown_client_order')),
+    )
+    assert.equal(m.failures[0]!.kind, 'mismatch')
+  })
+
   it('a record type or kind change is a sequence divergence that stops the diff', () => {
     // spec: 60 HR-6 (field-only divergences continue, sequence shifts stop)
     const a = trace(tick(0), { t: 'event', seq: 0, kind: 'order_open', ts: 1, cid: 'x1' }, tick(1))
@@ -241,6 +277,36 @@ describe('diff v2 (22 §3.4)', () => {
     const r = diffTraces(a, b)
     assert.equal(r.equal, true)
     assert.equal(r.autoClasses.rounding_boundary, 1)
+  })
+
+  it('a quantized stat without an unrounded counterpart is never auto-classified', () => {
+    // spec: 22 §3.4 rounding boundary; 02 D69 (PE-R1 and stats without an unrounded counterpart); 60 CL-9
+    const a = [
+      header(),
+      tick(0),
+      final({
+        stats: stats({ mergableShares: 1.23, avgEntryPriceUp: 0.5 }),
+        unrounded: unrounded({ upShares: 1.234999, downShares: 1.234999 }),
+      }),
+    ]
+    const b = [
+      header(),
+      tick(0),
+      final({
+        stats: stats({ mergableShares: 1.24, avgEntryPriceUp: 0.5001 }),
+        unrounded: unrounded({ upShares: 1.235001, downShares: 1.235001 }),
+      }),
+    ]
+    const r = diffTraces(a, b)
+    assert.equal(r.equal, false)
+    assert.deepEqual(
+      r.failures.map((f) => [f.path, f.kind]),
+      [
+        ['$.stats.avgEntryPriceUp', 'mismatch'],
+        ['$.stats.mergableShares', 'mismatch'],
+      ],
+    )
+    assert.equal(r.autoClasses.rounding_boundary, undefined)
   })
 
   it('a negative half tie is rounding_tie (D08)', () => {

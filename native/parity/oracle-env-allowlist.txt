@@ -2,7 +2,8 @@
 # (native/spec/60-verification.md §2.3 OR-7; `npm run native:oracle:env-audit`).
 # The audit fails on any `process.env` read (or env helper call) under the
 # engine paths that is neither an OR-7 knob (src/backtest/parity/cell.ts
-# ORACLE_ENV_KEYS) nor listed here.
+# ORACLE_ENV_KEYS) nor listed here. A result-affecting variable is never
+# listed here: it is pinned by the harness (02 D63 (1): BACKTEST_LATENCY_*).
 #
 # Format: `var <NAME>  # reason` or `dynamic <file>  # reason` (a helper that
 # reads `process.env[name]`; its call sites are audited by name).
@@ -19,7 +20,5 @@ var STRATEGY_ARTIFACT_CACHE_DIR      # artifact cache location; bundles are sha2
 var WORKER_LAUNCH_SHA                # commit gate of the worker path; provenance only
 var TELONEX_CONVERT_HEARTBEAT_MS     # conversion claim heartbeat (src/telonex/convert.ts); never in a replay
 var REDIS_URL                        # queue connection; parity runs never enqueue
-var BACKTEST_LATENCY_DELAY           # Market Simulator only (src/backtest/simulator); replay latency travels in the job
-var BACKTEST_LATENCY_JITTER          # Market Simulator only (src/backtest/simulator); replay latency travels in the job
 dynamic src/backtest/feeds/wireBacktestExternalFeeds.ts  # envInt(name) helper; call sites audited by name
 dynamic src/backtest/simulator/resolveMarket.ts          # envInt(name) helper; call sites audited by name

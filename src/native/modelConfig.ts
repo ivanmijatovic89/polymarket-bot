@@ -12,7 +12,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { canonicalJson, CanonicalJsonError, modelConfigSha256 } from './contract/canonicalJson.js'
-import type { ExecutionModels, FeedsConfig, InputMode, ModelConfig } from './contract/generated.js'
+import type {
+  Distribution,
+  ExecutionConfig,
+  ExecutionModels,
+  FeedsConfig,
+  InputMode,
+  ModelConfig,
+} from './contract/generated.js'
 import { createContractValidators, type ContractValidators } from './contract/validate.js'
 import { NativeError } from './errors.js'
 
@@ -264,43 +271,199 @@ export function ignoredNativeEnvKnobs(env: Readonly<Record<string, string | unde
     .sort()
 }
 
+/** 13 §5.1: largest `compatLatency` value (pmb-contract `COMPAT_LATENCY_MAX_MS`). */
+export const COMPAT_LATENCY_MAX_MS = 600_000
+/** 13 §7.3: largest realistic latency component and market-data delay. */
+export const REALISTIC_LATENCY_MAX_MS = 600_000
+/** 13 §7.3: largest `makerQueue.printMatchWindowMs` (pmb-contract `PRINT_MATCH_WINDOW_MAX_MS`). */
+export const PRINT_MATCH_WINDOW_MAX_MS = 600_000
+/** 14 §9: largest feed latency per feed. */
+export const FEED_LATENCY_MAX_MS = {
+  binance: 10_000,
+  chainlink: 10_000,
+  priceToBeat: 60_000,
+} as const
+/** 14 §9 calibration id (pmb-contract `CALIBRATION_ID_PATTERN`). */
+export const CALIBRATION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/
+/** 11 §13.5 `rules-table-v<N>` (pmb-contract `is_rules_table_version`). */
+export const RULES_TABLE_VERSION_RE = /^rules-table-v[1-9][0-9]{0,5}$/
+
+/** A 21 §6.1 decimal string that is > 0. */
+function positiveDecimal(s: string): boolean {
+  return isDecimalString(s) && !s.startsWith('-') && s !== '0'
+}
+
+/** A 21 §6.1 decimal string in [0, 1] (13 §7.3 probabilities and shares). */
+function unitDecimal(s: string): boolean {
+  return isDecimalString(s) && (s === '0' || s === '1' || /^0\.[0-9]+$/.test(s))
+}
+
 /**
- * 13 §7.3 consistency of an execution object for a profile: ts-compat
- * requires the compat axis values and the pinned unused fields; realistic
- * rejects `reports: compat` unless `sellGate: Matched`. Returns the
- * problems (empty = consistent).
+ * Distribution checks of pmb-contract `Distribution::validate`: uniform
+ * `loMs <= hiMs`, empirical 101 non-decreasing quantiles, lognormal
+ * `sigma >= 0`, and the largest value of a bounded distribution `<= max`.
+ */
+export function distributionProblems(what: string, d: Distribution, max: number): string[] {
+  const problems: string[] = []
+  let top: number | null = null
+  switch (d.kind) {
+    case 'constant':
+      top = d.ms
+      break
+    case 'uniform':
+      if (d.loMs > d.hiMs) problems.push(`${what}: uniform loMs > hiMs`)
+      top = d.hiMs
+      break
+    case 'empirical':
+      if (d.quantilesMs.length !== 101) problems.push(`${what}: empirical needs 101 quantiles`)
+      for (let i = 1; i < d.quantilesMs.length; i++)
+        if (d.quantilesMs[i - 1]! > d.quantilesMs[i]!) {
+          problems.push(`${what}: quantiles must be non-decreasing`)
+          break
+        }
+      top = d.quantilesMs.at(-1) ?? null
+      break
+    case 'lognormal':
+      if (d.sigma.startsWith('-')) problems.push(`${what}: sigma < 0`)
+      break
+  }
+  if (top !== null && top > max) problems.push(`${what}: value ${top} ms above ${max}`)
+  return problems
+}
+
+/** The realistic-only sections of an execution object (D57). */
+const REALISTIC_EXECUTION_SECTIONS = [
+  'latency',
+  'cancelBeforeAck',
+  'makerQueue',
+  'sellGate',
+  'failureRates',
+] as const
+
+/**
+ * Consistency of an execution object for a profile, the execution part of
+ * pmb-contract `ModelConfig::validate` (21 §3: TS and Rust reject the same
+ * values; 21 §6.3 refuse at submit time):
+ * - ts-compat (13 §7.3, D57): the compat axis values, and none of the
+ *   realistic sections (`latency`, `cancelBeforeAck`, `makerQueue`,
+ *   `sellGate`, `failureRates`) before M3b;
+ * - realistic (D57, 13 §7.3): every realistic section present,
+ *   `reports: compat` only with `sellGate: Matched`, latency components
+ *   bounded, probabilities and shares in [0, 1];
+ * - both: `compatLatency` values at most `COMPAT_LATENCY_MAX_MS`.
+ * Returns the problems (empty = consistent).
  */
 export function executionProblems(
   profile: ModelConfig['profile'],
-  execution: ModelConfig['execution'],
+  execution: ExecutionConfig,
 ): string[] {
   const problems: string[] = []
+  if (
+    execution.compatLatency.delayMs > COMPAT_LATENCY_MAX_MS ||
+    execution.compatLatency.jitterMs > COMPAT_LATENCY_MAX_MS
+  )
+    problems.push(`execution.compatLatency values above ${COMPAT_LATENCY_MAX_MS} ms`)
   if (profile === 'ts-compat') {
     for (const [axis, want] of Object.entries(TS_COMPAT_MODELS)) {
       const got = execution.models[axis as keyof ExecutionModels]
       if (got !== want)
         problems.push(`ts-compat requires execution.models.${axis} = ${want}, got ${got}`)
     }
-    if (
-      execution.cancelBeforeAck !== undefined &&
-      execution.cancelBeforeAck !== 'defer_until_ack'
-    ) {
-      problems.push(`ts-compat requires execution.cancelBeforeAck = defer_until_ack`)
-    }
-    if (execution.sellGate !== undefined && execution.sellGate !== 'Matched') {
-      problems.push(`ts-compat requires execution.sellGate = Matched`)
-    }
-    if (
-      execution.failureRates !== undefined &&
-      (execution.failureRates.settlement !== '0' || execution.failureRates.chain !== '0')
-    ) {
-      problems.push(`ts-compat requires execution.failureRates = 0`)
-    }
-  } else if (execution.models.reports === 'compat' && execution.sellGate !== 'Matched') {
+    for (const name of REALISTIC_EXECUTION_SECTIONS)
+      if (execution[name] !== undefined)
+        problems.push(
+          `execution.${name} is a realistic section, absent in ts-compat until M3b (D57)`,
+        )
+    return problems
+  }
+  for (const name of REALISTIC_EXECUTION_SECTIONS)
+    if (execution[name] === undefined) problems.push(`realistic requires execution.${name}`)
+  if (execution.models.reports === 'compat' && execution.sellGate !== 'Matched')
     problems.push(`realistic with execution.models.reports = compat requires sellGate = Matched`)
+  const l = execution.latency
+  if (l !== undefined) {
+    if (!CALIBRATION_ID_RE.test(l.calibrationId))
+      problems.push('execution.latency.calibrationId must be a non-empty id')
+    for (const [name, d] of Object.entries(l.components))
+      problems.push(
+        ...distributionProblems(
+          `execution.latency.components.${name}`,
+          d,
+          REALISTIC_LATENCY_MAX_MS,
+        ),
+      )
+  }
+  const r = execution.failureRates
+  if (r !== undefined) {
+    if (!unitDecimal(r.settlement))
+      problems.push('execution.failureRates.settlement must be in [0, 1]')
+    if (!unitDecimal(r.chain)) problems.push('execution.failureRates.chain must be in [0, 1]')
+  }
+  const q = execution.makerQueue
+  if (q !== undefined) {
+    if (!unitDecimal(q.cancelAheadShare))
+      problems.push('execution.makerQueue.cancelAheadShare must be in [0, 1]')
+    if (q.printMatchWindowMs > PRINT_MATCH_WINDOW_MAX_MS)
+      problems.push(`execution.makerQueue.printMatchWindowMs above ${PRINT_MATCH_WINDOW_MAX_MS}`)
   }
   return problems
 }
+
+/**
+ * The semantic rules of pmb-contract `ModelConfig::validate` beyond the
+ * schema (21 §3: "Rust and TS reject the same values"; 13 §7.3, 14 §9,
+ * D57): positive capital and risk limits, drain budget and open-order cap,
+ * the rules-table version, feed calibration id, feed latency bounds (14 §9)
+ * and constant feed latencies in ts-compat (14 F-50), `maxGapMs` 0 or
+ * `>= 1000`, the execution rules of `executionProblems` and the `clock`
+ * section (absent in ts-compat, required and bounded in realistic).
+ * Returns the problems (empty = valid).
+ */
+export function modelConfigProblems(mc: ModelConfig): string[] {
+  const problems: string[] = []
+  if (!positiveDecimal(mc.capital.startingCapitalUsdc))
+    problems.push('capital.startingCapitalUsdc must be > 0')
+  for (const [name, v] of [
+    ['risk.maxOrderSize', mc.risk.maxOrderSize],
+    ['risk.maxAbsPosition', mc.risk.maxAbsPosition],
+    ['risk.maxLossStopUsdc', mc.risk.maxLossStopUsdc],
+  ] as const)
+    if (!positiveDecimal(v)) problems.push(`${name} must be > 0`)
+  if (!(mc.runner.maxEventsPerDrain > 0)) problems.push('runner.maxEventsPerDrain must be > 0')
+  if (!(mc.risk.maxOpenOrders > 0)) problems.push('risk.maxOpenOrders must be > 0')
+  if (!RULES_TABLE_VERSION_RE.test(mc.rules.rulesTableVersion))
+    problems.push(`bad rulesTableVersion ${JSON.stringify(mc.rules.rulesTableVersion)}`)
+  const f = mc.feeds
+  if (!CALIBRATION_ID_RE.test(f.calibrationId))
+    problems.push('feeds.calibrationId must be a non-empty id')
+  for (const name of ['binance', 'chainlink', 'priceToBeat'] as const) {
+    const d = f[name].latency
+    problems.push(...distributionProblems(`feeds.${name}.latency`, d, FEED_LATENCY_MAX_MS[name]))
+    if (mc.profile === 'ts-compat' && d.kind !== 'constant')
+      problems.push(`ts-compat requires a constant feeds.${name}.latency (14 F-50)`)
+  }
+  if (f.chainlink.maxGapMs !== 0 && f.chainlink.maxGapMs < 1000)
+    problems.push('feeds.chainlink.maxGapMs must be 0 or >= 1000')
+  problems.push(...executionProblems(mc.profile, mc.execution))
+  if (mc.profile === 'ts-compat') {
+    if (mc.clock !== undefined)
+      problems.push('clock is a realistic section, absent in ts-compat until M3b (D57)')
+  } else if (mc.clock === undefined) problems.push('realistic requires clock')
+  else {
+    if (!CALIBRATION_ID_RE.test(mc.clock.marketData.calibrationId))
+      problems.push('clock.marketData.calibrationId must be a non-empty id')
+    problems.push(
+      ...distributionProblems(
+        'clock.marketData.delay',
+        mc.clock.marketData.delay,
+        REALISTIC_LATENCY_MAX_MS,
+      ),
+    )
+  }
+  return problems
+}
+
+const namedFeedsCache = new Map<string, string>()
 
 let validators: ContractValidators | null = null
 function contractValidators(): ContractValidators {
@@ -311,8 +474,9 @@ function contractValidators(): ContractValidators {
 /**
  * Validates a complete ModelConfig as a whole (21 §6.3): the generated
  * schema (21 §3), the 21 §6.1 representation (canonicalizable, no floats),
- * 13 §7.3 consistency and the calibration rule (the `feeds` values equal
- * the named set unless its id is `custom`; 21 §6.3, 14 F-48). Throws
+ * the semantic rules of pmb-contract `ModelConfig::validate`
+ * (`modelConfigProblems`) and the calibration rule (the feed latencies
+ * equal the named set unless its id is `custom`; 21 §6.3, 14 F-48). Throws
  * `invalid_input: model_config`.
  */
 export function validateModelConfig(
@@ -333,21 +497,41 @@ export function validateModelConfig(
       throw modelConfigError(`ModelConfig: ${err.message} (21 §6.1)`)
     throw err
   }
-  const problems = executionProblems(mc.profile, mc.execution)
+  const problems = modelConfigProblems(mc)
   if (problems.length > 0) throw modelConfigError(problems.join('; '))
-  if (mc.profile === 'ts-compat' && mc.clock !== undefined) {
-    // D57: the ts-compat ModelConfig carries no clock before M3b.
-    throw modelConfigError('ts-compat ModelConfig carries no clock before M3b (D57)')
-  }
   if (mc.feeds.calibrationId !== CUSTOM_CALIBRATION_ID) {
-    const reader = opts.reader ?? new SourceReader(opts.contractDir ?? CONTRACT_DIR)
-    const defaults = readDefaults(reader)
-    const named = namedFeedsSet(mc.feeds.calibrationId, reader, defaults[mc.profile]?.feeds)
-    if (canonicalJson(named) !== canonicalJson(mc.feeds)) {
+    const dir = opts.contractDir ?? CONTRACT_DIR
+    const key = `${dir}\u0000${mc.profile}\u0000${mc.feeds.calibrationId}`
+    // Committed calibration sets are immutable (21 §6.3), so a per-process
+    // cache keeps the per-job check of the shim free of file reads (R8).
+    let named = opts.reader === undefined ? namedFeedsCache.get(key) : undefined
+    if (named === undefined) {
+      const reader = opts.reader ?? new SourceReader(dir)
+      const defaults = readDefaults(reader)
+      named = canonicalJson(
+        feedLatencies(namedFeedsSet(mc.feeds.calibrationId, reader, defaults[mc.profile]?.feeds)),
+      )
+      if (opts.reader === undefined) namedFeedsCache.set(key, named)
+    }
+    if (named !== canonicalJson(feedLatencies(mc.feeds))) {
       throw modelConfigError(
-        `feeds differ from calibration set ${mc.feeds.calibrationId}; an override that changes them must set feeds.calibrationId = custom (21 §6.3, 14 F-48)`,
+        `feed latencies differ from calibration set ${mc.feeds.calibrationId}; an override that changes them must set feeds.calibrationId = custom (21 §6.3, 14 F-48)`,
       )
     }
+  }
+}
+
+/**
+ * The calibrated part of a feeds object: the three latencies. 21 §6.3
+ * constrains only "the `feeds` latencies" to the named set; `maxGapMs` is a
+ * replay option (`0` replays stale data, 14 §10) and may be overridden
+ * without `custom`.
+ */
+function feedLatencies(f: FeedsConfig): Record<string, Distribution> {
+  return {
+    binance: f.binance.latency,
+    chainlink: f.chainlink.latency,
+    priceToBeat: f.priceToBeat.latency,
   }
 }
 

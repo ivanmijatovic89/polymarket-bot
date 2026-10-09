@@ -8,7 +8,16 @@ import {
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import type { FeatureCoverageRow, FeedCoverage, GenericCoverage } from './coverage.js'
+import {
+  L_CROSS_CELL_MIN_MARKETS,
+  crossCellLCoverage,
+  exerciserFeatures,
+  type CrossCellLRow,
+  type FeatureCoverageRow,
+  type FeedCoverage,
+  type MarketCoverage,
+} from './coverage.js'
+import type { FailureClass } from './failureClass.js'
 import type { MarketVerdict } from './matchers.js'
 
 /**
@@ -36,10 +45,19 @@ export type MarketEntry = {
     /** OR-12 trace cache outcome, when a cache is used. */
     cache?: 'hit' | 'miss'
     cacheKey?: string
+    /** 60 CL-7: the 14 §10 class of a TS failure; null when unclassifiable. */
+    failure?: FailureClass | null
   }
   /** OR-9 re-run: byte-identical decompressed TS traces. */
   repeat?: { identical: boolean }
-  rust?: { ok: boolean; durationMs: number; error?: string; trace?: string }
+  rust?: {
+    ok: boolean
+    durationMs: number
+    error?: string
+    trace?: string
+    /** 60 CL-7: the class of a Rust failure (shim or result); null when unclassifiable. */
+    failure?: FailureClass | null
+  }
   diff?: {
     equal: boolean
     gating: boolean
@@ -50,7 +68,8 @@ export type MarketEntry = {
   }
   verdict: MarketVerdict | null
   openRustBug?: boolean
-  coverage?: { generic: GenericCoverage; feeds?: FeedCoverage; exerciser?: string[] }
+  /** Coverage of the TS trace; for a masked market only its identical prefix (60 PM-4, §5.6). */
+  coverage?: MarketCoverage
 }
 
 export type ParityManifest = {
@@ -188,6 +207,7 @@ export function renderSummary(
   items: ReadonlyArray<{ file: string; sha256: string; manifest: ParityManifest }>,
 ): string {
   const lines: string[] = []
+  const crossL = e15CrossCellL(items.map((i) => i.manifest))
   lines.push(
     '| Cell | Markets | Identical | Identical (patched) | Classified | Masked | Unclassified | Excluded | Manifest |',
     '|---|---:|---:|---:|---:|---:|---:|---:|---|',
@@ -198,6 +218,16 @@ export function renderSummary(
     lines.push(
       `| ${m.cell.name}${gating} | ${t.markets} | ${t.identical} | ${t.identicalPatched} | ${t.classified} | ${t.masked} | ${t.unclassified} | ${t.excluded} | ${path.basename(file)} \`${sha256.slice(0, 12)}\` |`,
     )
+  }
+  if (crossL !== null) {
+    lines.push(
+      '',
+      `### L features across the E15 cells (60 §5.6: at least ${L_CROSS_CELL_MIN_MARKETS} markets)`,
+      '',
+      '| L feature | Markets | Pass |',
+      '|---|---:|---|',
+    )
+    for (const r of crossL) lines.push(`| ${r.feature} | ${r.markets} | ${r.pass ? 'yes' : 'NO'} |`)
   }
   for (const { sha256, manifest: m } of items) {
     lines.push('', `### ${m.cell.name}`, '')
@@ -249,6 +279,29 @@ export function renderSummary(
     }
   }
   return lines.join('\n') + '\n'
+}
+
+/**
+ * The 60 §5.6 cross-cell L check over the E15 manifests given (cells named
+ * `E15-…` with an exerciser schedule), or null when there are none. All of
+ * them must share one schedule version.
+ */
+export function e15CrossCellL(manifests: readonly ParityManifest[]): CrossCellLRow[] | null {
+  const e15 = manifests.filter(
+    (m) => m.cell.name.startsWith('E15') && m.exerciserScheduleVersion !== null,
+  )
+  if (e15.length === 0) return null
+  const versions = new Set(e15.map((m) => m.exerciserScheduleVersion))
+  if (versions.size !== 1)
+    throw new Error(`E15 manifests mix exerciser schedule versions ${[...versions].join(', ')}`)
+  return crossCellLCoverage(
+    exerciserFeatures(e15[0]!.exerciserScheduleVersion!),
+    e15.map((m) =>
+      m.markets
+        .filter((x) => x.coverage?.exerciser)
+        .map((x) => ({ slug: x.slug, hits: new Set(x.coverage!.exerciser) })),
+    ),
+  )
 }
 
 export type SelfParityRow = { slug: string; a: string | null; b: string | null; identical: boolean }

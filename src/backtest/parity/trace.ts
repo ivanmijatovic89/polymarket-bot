@@ -111,6 +111,21 @@ function normalizeDeep(
   return value
 }
 
+/**
+ * `final.stats` for the trace: money and size stats rounded to 1e-9 (22 §3.3
+ * "prices, sizes and USDC values"), `intentMeta` unrounded because its
+ * numbers are strategy floats compared within a relative 1e-9 (22 §3.4).
+ * Key order is kept.
+ */
+export function normalizeStats(stats: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(stats)) {
+    if (v === undefined) continue
+    out[k] = normalizeDeep(v, k !== 'intentMeta')
+  }
+  return out
+}
+
 type Observer = NonNullable<RunSingleMarketInput['observer']>
 
 export type TraceHeaderFields = {
@@ -441,7 +456,7 @@ export class ParityTraceRecorder {
       const { execution: _execution, recorderV4Capture: _capture, ...rest } = output.marketStats
       void _execution
       void _capture
-      stats = normalizeDeep(rest, true)
+      stats = normalizeStats(rest)
       const raw = this.unrounded()
       assertUnroundedMatchesStats(raw, output.marketStats, output.slug ?? '?')
       unrounded = {

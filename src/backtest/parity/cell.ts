@@ -166,6 +166,9 @@ export const ORACLE_CONSTANTS = {
   BACKTEST_BINANCE_FEED_LOOKBACK_MS: '300000',
   BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS: '300000',
   WEB_UI_ORDERBOOK_LEVELS: '10',
+  // 60 OR-7 TA knobs: the TS defaults of `src/trading/StrategyRunner.ts:413,417`, set explicitly so a `.env` value cannot leak in.
+  BACKTEST_TECH_IND_TIMEOUT_MS: '3000',
+  BACKTEST_TECH_IND_POLL_MS: '10',
 } as const
 
 /** Environment variables passed through from the parent (60 OR-7). */
@@ -173,9 +176,13 @@ export const ORACLE_PASSTHROUGH = ['PATH', 'HOME'] as const
 
 /**
  * The pinned TS oracle environment of a cell (60 OR-7, HR-3): an allowlist
- * (`PATH`, `HOME`, `TZ=UTC`, data-root variables) plus every
- * result-affecting knob set explicitly from the cell's ModelConfig. `BOT_ENV`
- * is never set. Latency and capital travel in the job, not here.
+ * (`PATH`, `HOME`, `TZ=UTC`, the data-root variables of 02 D63 (3)) plus
+ * every result-affecting knob set explicitly from the cell's ModelConfig.
+ * `BOT_ENV` is never set. Capital travels in the job; latency travels in the
+ * job and the env equals it (02 D63 (1): `BACKTEST_LATENCY_DELAY` =
+ * `compatLatency.delayMs`, `BACKTEST_LATENCY_JITTER` = 0, OR-6). Every
+ * variable is set, never inherited, because dotenv in the child fills only
+ * unset variables.
  */
 export function buildOracleEnv(
   cell: ParityCell,
@@ -191,6 +198,11 @@ export function buildOracleEnv(
   env.TZ = 'UTC'
   env.BINANCE_DATA_BASE_DIR = path.join(dataRoot, 'binance')
   env.TELONEX_CRYPTO_PRICES_BASE_DIR = path.join(dataRoot, 'telonex', 'crypto_prices')
+  // 02 D63 (3): src/recorder-v4/replay/cacheDirectory.ts:8 (default data/recorder-v4-cache).
+  env.RECORDER_REPLAY_CACHE_DIR = path.join(dataRoot, 'recorder-v4-cache')
+  // 02 D63 (1): src/backtest/simulator/resolveMarket.ts:72-73, src/cli/backtest.ts:745-750.
+  env.BACKTEST_LATENCY_DELAY = String(mc.execution.compatLatency.delayMs)
+  env.BACKTEST_LATENCY_JITTER = '0'
   env.BACKTEST_BINANCE_FEED_LATENCY_MS = String(mc.feeds.binance.latency.ms)
   env.BACKTEST_BINANCE_FEED_LOOKBACK_MS = ORACLE_CONSTANTS.BACKTEST_BINANCE_FEED_LOOKBACK_MS
   env.BACKTEST_RTDS_CHAINLINK_LATENCY_MS = String(mc.feeds.chainlink.latency.ms)
@@ -201,6 +213,8 @@ export function buildOracleEnv(
   env.WEB_UI_ORDERBOOK_LEVELS = ORACLE_CONSTANTS.WEB_UI_ORDERBOOK_LEVELS
   // D-PENDING: OR-7 sets BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS to `1` "only in the TA cell" without a value for the others; chose an explicit `0` so a `.env` value cannot leak in (dotenv never overrides a set variable).
   env.BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS = cell.waitForTechnicalIndicators ? '1' : '0'
+  env.BACKTEST_TECH_IND_TIMEOUT_MS = ORACLE_CONSTANTS.BACKTEST_TECH_IND_TIMEOUT_MS
+  env.BACKTEST_TECH_IND_POLL_MS = ORACLE_CONSTANTS.BACKTEST_TECH_IND_POLL_MS
   return env
 }
 
@@ -210,6 +224,9 @@ export const ORACLE_ENV_KEYS: readonly string[] = [
   'TZ',
   'BINANCE_DATA_BASE_DIR',
   'TELONEX_CRYPTO_PRICES_BASE_DIR',
+  'RECORDER_REPLAY_CACHE_DIR',
+  'BACKTEST_LATENCY_DELAY',
+  'BACKTEST_LATENCY_JITTER',
   'BACKTEST_BINANCE_FEED_LATENCY_MS',
   'BACKTEST_BINANCE_FEED_LOOKBACK_MS',
   'BACKTEST_RTDS_CHAINLINK_LATENCY_MS',
@@ -219,7 +236,6 @@ export const ORACLE_ENV_KEYS: readonly string[] = [
   'MAX_EVENTS_PER_DRAIN',
   'WEB_UI_ORDERBOOK_LEVELS',
   'BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS',
-  // Read only when the TA cell waits (StrategyRunner.ts:404-417); TS defaults apply.
   'BACKTEST_TECH_IND_TIMEOUT_MS',
   'BACKTEST_TECH_IND_POLL_MS',
 ]

@@ -178,7 +178,9 @@
     "native:parity:test": "tsx --test src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:parity:summary": "tsx src/cli/parity/parity-summary.ts",
     "native:shim:test": "tsx --test src/native/*.test.ts",
-    "native:build:verify": "scripts/native/build-verify.sh"
+    "native:build:verify": "scripts/native/build-verify.sh",
+    "native:test:ts": "tsx --test src/native/*.test.ts src/native/contract/*.test.ts src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
+    "native:fixture-job": "tsx scripts/native/fixture-job.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",

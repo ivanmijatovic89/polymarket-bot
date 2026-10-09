@@ -35,7 +35,8 @@ async function main(): Promise<number> {
   const cell = loadCell(path.resolve(cellFile))
   const dataRoot = path.resolve(one(p, 'data-root') ?? DEFAULT_DATA_ROOT)
   const producer = readdirSync(dir)
-    .filter((f) => f.endsWith('.json'))
+    // run-parity's jobs/ also holds the native MarketJobData (<slug>.native.json, HR-2).
+    .filter((f) => f.endsWith('.json') && !f.endsWith('.native.json'))
     .sort()
     .map((f) => JSON.parse(readFileSync(path.join(dir, f), 'utf8')) as MarketJobData)
   const built = await resolveParityStrategy(

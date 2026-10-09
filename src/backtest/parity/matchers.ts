@@ -10,16 +10,31 @@ import type { FieldMismatch, TraceDiffResult } from './diff.js'
  * A matcher `native/parity/matchers/PE-NNNN.json` is declarative: record
  * type, kind, path glob and the event kinds the market must contain; no code.
  */
-// D-PENDING: 60 §3.2 keeps class and status in PARITY.md; chose to carry them in the matcher file too, so HR-8 ("zero markets matched by an open Rust-bug entry") needs no PARITY.md parser.
-export const MatcherSchema = z.strictObject({
-  id: z.string().regex(/^PE-[0-9]{4}$/),
-  class: z.enum(['TS bug', 'Rust bug', 'Intended model change']),
-  status: z.string().min(1),
-  recordType: z.enum(['tick', 'feeds', 'intent', 'event', 'final', 'header']),
-  kind: z.string().min(1).optional(),
-  pathGlob: z.string().min(1),
-  requiredEventKinds: z.array(z.string().min(1)).default([]),
-})
+// D-PENDING: 60 §3.2 keeps class, status, subclass, money and counterfactual in PARITY.md; chose to carry them in the matcher file too, so HR-6 (PM-1/PM-4 verdicts) and HR-8 ("zero markets matched by an open Rust-bug entry") need no PARITY.md parser.
+export const MatcherSchema = z
+  .strictObject({
+    id: z.string().regex(/^PE-[0-9]{4}$/),
+    class: z.enum(['TS bug', 'Rust bug', 'Intended model change']),
+    /** 60 §3.2 subclass, e.g. `float-boundary` (CL-5, the only maskable one without the user). */
+    subclass: z.string().min(1),
+    /** 60 §3.2: `yes` when pnl, cost, fees, cash, positions, fills or reservations differ. */
+    money: z.enum(['yes', 'no']),
+    /**
+     * 60 §3.2 `counterfactual`: `patch` (a PM-1 patch exists; the market is
+     * trusted only through a passing patched-oracle run), `not-required`
+     * (field-only, money = no) or `n/a` (no patch can express it; the market
+     * is masked, PM-4, which needs the user's acceptance at G2 unless CL-5).
+     */
+    counterfactual: z.enum(['patch', 'not-required', 'n/a']),
+    status: z.string().min(1),
+    recordType: z.enum(['tick', 'feeds', 'intent', 'event', 'final', 'header']),
+    kind: z.string().min(1).optional(),
+    pathGlob: z.string().min(1),
+    requiredEventKinds: z.array(z.string().min(1)).default([]),
+  })
+  .refine((m) => m.counterfactual !== 'not-required' || m.money === 'no', {
+    message: 'counterfactual not-required is only valid for money = no (60 PM-1)',
+  })
 
 export type Matcher = z.infer<typeof MatcherSchema>
 
@@ -67,15 +82,42 @@ export type MarketVerdict =
   | { verdict: 'identical' }
   | { verdict: 'identical-patched' }
   | { verdict: 'classified'; entries: string[] }
-  | { verdict: 'masked'; entries: string[] }
+  /**
+   * PM-4: the suffix from record `divergenceIndex` (0-based) on is
+   * unverified; coverage counts only the records before it (60 §5.6).
+   */
+  | { verdict: 'masked'; entries: string[]; divergenceIndex: number }
   | { verdict: 'unclassified'; reason: string }
   | { verdict: 'excluded'; reason: string }
 
 /**
- * HR-6 verdict for one diffed market: `identical` when no failing
- * difference remains (auto-classes are counted, not failures, 60 §3.5);
- * `classified PE-…` only if every failing difference is matched by exactly
- * one matcher (CL-1); otherwise `unclassified`.
+ * Whether a matched difference leaves the market unverified without a
+ * counterfactual (60 PM-1): a TS-bug or intended-model-change entry with
+ * `money = yes`, or any matched difference that shifts the record sequence
+ * (the diff stops there, so nothing after it was compared). Rust-bug entries
+ * are not trusted by a counterfactual; an open one fails the run (HR-8).
+ */
+function needsCounterfactual(m: Matcher, f: FieldMismatch): boolean {
+  if (m.class === 'Rust bug') return false
+  return m.money === 'yes' || f.kind === 'sequence'
+}
+
+/** PM-4: masking is allowed under CL-5 (`float-boundary`) or when the entry declares that no patch can express it (`n/a`, user acceptance at G2). */
+function maskable(m: Matcher): boolean {
+  return m.subclass === 'float-boundary' || m.counterfactual === 'n/a'
+}
+
+/**
+ * HR-6 verdict for one diffed market:
+ * - `identical` when no failing difference remains (auto-classes are
+ *   counted, not failures, 60 §3.5);
+ * - `classified PE-…` only if every failing difference is matched by exactly
+ *   one matcher (CL-1) and none of them needs a counterfactual (PM-1): a
+ *   sequence divergence or a `money = yes` entry is never `classified` here,
+ *   because the rest of the market was not verified; it is trusted only as
+ *   `identical-patched` from a patched-oracle run (PM-2);
+ * - `masked` when a counterfactual is required and PM-4 allows masking;
+ * - otherwise `unclassified`.
  */
 export function classifyMarket(
   diff: TraceDiffResult,
@@ -100,6 +142,9 @@ export function classifyMarket(
     }
   const entries = new Set<string>()
   let openRustBug = false
+  /** First failure whose entry requires a counterfactual, with that entry. */
+  let cfNeeded: { f: FieldMismatch; m: Matcher } | null = null
+  let allMaskable = true
   for (const f of diff.failures) {
     const hits = matchers.filter((m) => matcherMatches(m, f, eventKinds))
     if (hits.length !== 1) {
@@ -115,8 +160,26 @@ export function classifyMarket(
     const m = hits[0]!
     entries.add(m.id)
     if (m.class === 'Rust bug' && m.status === 'open') openRustBug = true
+    if (needsCounterfactual(m, f)) {
+      cfNeeded ??= { f, m }
+      if (!maskable(m)) allMaskable = false
+    }
   }
-  return { verdict: { verdict: 'classified', entries: [...entries].sort() }, openRustBug }
+  const sorted = [...entries].sort()
+  if (cfNeeded === null) return { verdict: { verdict: 'classified', entries: sorted }, openRustBug }
+  if (allMaskable)
+    return {
+      verdict: { verdict: 'masked', entries: sorted, divergenceIndex: diff.failures[0]!.index },
+      openRustBug,
+    }
+  const why = cfNeeded.f.kind === 'sequence' ? 'shifts the record sequence' : 'money = yes'
+  return {
+    verdict: {
+      verdict: 'unclassified',
+      reason: `#${cfNeeded.f.index + 1} ${cfNeeded.f.path}: ${cfNeeded.m.id} ${why}; it needs a passing patched-oracle run (60 PM-1, PM-2)`,
+    },
+    openRustBug,
+  }
 }
 
 export function verdictLabel(v: MarketVerdict): string {
