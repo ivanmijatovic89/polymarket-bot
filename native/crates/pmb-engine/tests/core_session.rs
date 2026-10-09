@@ -472,3 +472,40 @@ fn oversized_meta_is_rejected() {
     assert_eq!(h.rejections(), vec!["meta_too_large"]);
     assert!(h.ledger().orders().is_empty());
 }
+
+#[test]
+fn rejected_placements_never_store_their_meta() {
+    // spec: 10 §7.5 (meta stored once for the order that carries it), 12
+    // §14 P1, R8: a meta-carrying placement re-sent every tick while
+    // underfunded leaves the session meta store unchanged.
+    let mut h = H::new(
+        config(CoreRules::TsCompat),
+        MockExec::sync(),
+        Script::default(),
+    );
+    for i in 0..20 {
+        h.send(
+            vec![Cmd::Place(Ord::buy("big", 1500.0, 0.5).meta("entry"))],
+            i * 10,
+            BIDS,
+            ASKS,
+        )
+        .unwrap();
+    }
+    assert_eq!(h.rejections().len(), 20);
+    // An accepted order stores its meta exactly once.
+    h.send(
+        vec![Cmd::Place(Ord::buy("ok", 1.0, 0.5).meta("small"))],
+        300,
+        BIDS,
+        ASKS,
+    )
+    .unwrap();
+    let m = h.market.clone();
+    let out = h.s.finalize(&m, FinalOutcome::new(Outcome::Up)).unwrap();
+    assert_eq!(out.metas.len(), 1);
+    assert_eq!(
+        out.metas.get(pmb_core::MetaId::new(0)),
+        r#"{"leg":"small"}"#
+    );
+}

@@ -287,6 +287,8 @@ pub struct OrderManager {
     /// Counters.
     pub(crate) counters: OmCounters,
     call: CallScratch,
+    /// Reused meta serialization buffer (12 §14 P1).
+    meta_json: String,
 }
 
 impl Default for OrderManager {
@@ -331,6 +333,7 @@ impl OrderManager {
             halt: Halt::Running,
             counters: OmCounters::default(),
             call: CallScratch::default(),
+            meta_json: String::new(),
         }
     }
 
@@ -364,21 +367,26 @@ impl OrderManager {
         }
     }
 
-    /// Serializes the buffer meta of `local` into the session meta store
-    /// (10 §7.5 E1); `MetaTooLarge` above 16 KiB (21 §16).
-    fn store_meta<E: Execution>(
+    /// Serializes the buffer meta of `local` into the reused `scratch`
+    /// (12 §14 P1) and checks its size: `MetaTooLarge` above 16 KiB
+    /// (12 §7.4, 21 §16). Returns whether the order has meta. Nothing is
+    /// stored here: only an accepted order stores its meta ([`Self::accept`]),
+    /// so rejected placements never grow the session meta store (10 §7.5).
+    fn check_meta(
         intents: &Intents,
         local: &OrderRequest,
-        io: &mut OmIo<'_, E>,
-    ) -> Result<Option<pmb_core::MetaId>, RejectReason> {
+        scratch: &mut String,
+    ) -> Result<bool, RejectReason> {
         match local.meta {
-            None => Ok(None),
+            None => Ok(false),
             Some(id) => {
-                let json = intents.meta(id).to_json();
-                io.metas
-                    .insert(&json)
-                    .map(Some)
-                    .map_err(|_| RejectReason::MetaTooLarge)
+                scratch.clear();
+                intents.meta(id).write_json(scratch);
+                if scratch.len() > pmb_core::order::META_MAX_BYTES {
+                    Err(RejectReason::MetaTooLarge)
+                } else {
+                    Ok(true)
+                }
             }
         }
     }
@@ -526,26 +534,46 @@ impl OrderManager {
         }
         let rules = io.rules();
         let checked = Self::validate_ts_compat(&req, stamp)
-            .and_then(|()| Self::store_meta(intents, local, io))
-            .and_then(|meta| {
-                req.meta = meta;
+            .and_then(|()| Self::check_meta(intents, local, &mut self.meta_json))
+            .and_then(|has_meta| {
                 if req.side == Side::Buy {
+                    // 10 T3: an overflow from strategy-derived values is a
+                    // rejection of this order, never an engine panic.
                     let required = io
                         .ledger
                         .reservation_for(&req, &rules)
-                        .expect("reservation overflow (10 T3)");
+                        .map_err(|_| RejectReason::InvalidSize)?;
                     let available = io.ledger.available();
                     if required > available {
                         return Err(insufficient_capital(required, available));
                     }
                 }
-                Ok(())
+                Ok(has_meta)
             });
-        if let Err(reason) = checked {
-            Self::reject(io, stamp, req.cid, reason);
-            return None;
+        match checked {
+            Err(reason) => {
+                Self::reject(io, stamp, req.cid, reason);
+                None
+            }
+            Ok(has_meta) => {
+                req.meta = self.store_checked_meta(has_meta, io);
+                Some(self.accept(req, stamp, &rules, io))
+            }
         }
-        Some(self.accept(req, stamp, &rules, io))
+    }
+
+    /// Stores the meta checked by [`Self::check_meta`] for an accepted order
+    /// (10 §7.5 E1).
+    fn store_checked_meta<E: Execution>(
+        &self,
+        has_meta: bool,
+        io: &mut OmIo<'_, E>,
+    ) -> Option<pmb_core::MetaId> {
+        has_meta.then(|| {
+            io.metas
+                .insert(&self.meta_json)
+                .expect("meta size checked before acceptance (21 §16)")
+        })
     }
 
     /// Writes the record and emits `OrderSubmitted` (12 §7.2 step 6).
@@ -1154,24 +1182,32 @@ impl OrderManager {
             return None;
         }
         let rules = io.rules();
-        // 10 §7.2 O2: a share-sized market BUY becomes collateral-sized.
+        // 10 §7.2 O2: a share-sized market BUY becomes collateral-sized. 10
+        // T3: an overflow from strategy-derived values rejects the order.
         let amount_dp = tick_decimals(rules.tick[req.outcome]).map_or(6, |d| d.amount_dp as u32);
-        req = req
+        let checked = req
             .to_collateral_sized(amount_dp)
-            .expect("collateral conversion overflow (10 T3)");
-        let checked = self
-            .validate(&req, stamp, io.market, io.config)
-            .and_then(|()| Self::store_meta(intents, local, io))
-            .and_then(|meta| {
-                req.meta = meta;
-                Self::risk_realistic(&req, io)
+            .map_err(|_| RejectReason::InvalidSize)
+            .and_then(|r| {
+                req = r;
+                self.validate(&req, stamp, io.market, io.config)
             })
-            .and_then(|()| Self::fund_realistic(&req, &rules, io));
-        if let Err(reason) = checked {
-            Self::reject(io, stamp, req.cid, reason);
-            return None;
+            .and_then(|()| Self::check_meta(intents, local, &mut self.meta_json))
+            .and_then(|has_meta| {
+                Self::risk_realistic(&req, io)?;
+                Self::fund_realistic(&req, &rules, io)?;
+                Ok(has_meta)
+            });
+        match checked {
+            Err(reason) => {
+                Self::reject(io, stamp, req.cid, reason);
+                None
+            }
+            Ok(has_meta) => {
+                req.meta = self.store_checked_meta(has_meta, io);
+                Some(self.accept(req, stamp, &rules, io))
+            }
         }
-        Some(self.accept(req, stamp, &rules, io))
     }
 
     /// Realistic risk limits (12 §8.1), against the ledger as it stands.
