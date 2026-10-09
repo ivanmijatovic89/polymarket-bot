@@ -1,0 +1,36 @@
+{
+  "spec": "11 §8 (GT1–GT5), 10 §7.4 (GD1–GD4), 10 §3.3 R13, 11 §4 (ts-compat GTD), 12 §7.4 (GTD lead check), 13 §6.6 (GtdExpire), 30 §5 gtd_expiration",
+  "source": "native-spec-g1:native/spec/11-exchange-rules.md §8; 10-domain-model.md §7.4",
+  "notes": [
+    "expire_at_ms is the STATED exchange expiration (GD1). The adapter sends stated_s = floor(expire_at_ms / 1000) (R13, GT1).",
+    "Realistic/live: lead check at exchange arrival: stated_s x 1000 >= arrival_exchange_ms + 180000, else OrderRejected(GtdLeadTooShort) (GT2). Effective expiry = stated_s x 1000 - 60000 in exchange time (GT3); the simulator expires the order exactly then (OrderDone(Expired, filled)).",
+    "ts-compat: decision-time check expire_at_ms >= stamp + 60000 (OrderManager.ts:189, reason gtd_expireAtMs_too_soon(min_offset_ms=60000)); expiry at the first real in-window tick with tick.ts >= expire_at_ms, checked before maker fills on that tick (13 §5.1 WorstQueueCompat); no floor to seconds (R13: n/a).",
+    "GD3 / 30 §5: ctx.gtd_expiration(lifetime) = now + gtd_early_expiry + lifetime, the docs' now + 60 + N recipe; in ts-compat gtd_early_expiry is 0 (11 §3 table).",
+    "Values in `*_ms` are milliseconds; `arrival` is the exchange-side arrival time of the order."
+  ],
+  "constants": {
+    "realistic": { "min_lead_ms": 180000, "early_expiry_ms": 60000 },
+    "ts_compat": { "decision_offset_ms": 60000, "early_expiry_ms": 0 }
+  },
+  "vectors": [
+    { "id": "gt1-floor-seconds", "spec": "11 GT1, 10 R13", "expire_at_ms": 1780272179999, "stated_s": 1780272179, "note": "floor, not round: 179999 ms -> 179 s" },
+    { "id": "gt1-floor-exact", "spec": "11 GT1, 10 R13", "expire_at_ms": 1780272180000, "stated_s": 1780272180 },
+    { "id": "gt2-lead-exact-pass", "spec": "11 GT2 (>=)", "profile": "realistic", "arrival_exchange_ms": 1780272000000, "expire_at_ms": 1780272180000, "stated_s": 1780272180, "accepted": true, "note": "stated_s x 1000 = arrival + 180000 exactly: accepted" },
+    { "id": "gt2-lead-floor-still-passes", "spec": "11 GT2 with GT1 floor", "profile": "realistic", "arrival_exchange_ms": 1780272000000, "expire_at_ms": 1780272180999, "stated_s": 1780272180, "accepted": true, "note": "the ms part is dropped by the floor; 1780272180 x 1000 >= arrival + 180000 still holds" },
+    { "id": "gt2-lead-too-short-by-floor", "spec": "11 GT2 with GT1 floor", "profile": "realistic", "arrival_exchange_ms": 1780272000500, "expire_at_ms": 1780272180999, "stated_s": 1780272180, "accepted": false, "reject": "GtdLeadTooShort{min_lead_ms: 180000}", "note": "1780272180000 < 1780272000500 + 180000 = 1780272180500: rejected although expire_at_ms - arrival = 180499 ms; the floor decides" },
+    { "id": "gt2-lead-too-short", "spec": "11 GT2", "profile": "realistic", "arrival_exchange_ms": 1780272000000, "expire_at_ms": 1780272179999, "stated_s": 1780272179, "accepted": false, "reject": "GtdLeadTooShort{min_lead_ms: 180000}" },
+    { "id": "gt3-effective-expiry", "spec": "11 GT3, 13 §6.6", "profile": "realistic", "expire_at_ms": 1780272600000, "stated_s": 1780272600, "effective_expiry_exchange_ms": 1780272540000, "note": "stated - 60 s; scheduled at loop time max(now, effective + skew) (12 XT3)" },
+    { "id": "gt3-effective-expiry-floor", "spec": "11 GT3 with GT1 floor", "profile": "realistic", "expire_at_ms": 1780272600999, "stated_s": 1780272600, "effective_expiry_exchange_ms": 1780272540000 },
+    { "id": "gd3-recipe-realistic", "spec": "10 GD3, 30 §5 gtd_expiration", "profile": "realistic", "now_ms": 1780272000000, "lifetime_ms": 120000, "expected_expire_at_ms": 1780272180000, "note": "now + 60000 + 120000; this value passes GT2 at an arrival <= now (lead = 180 s) and expires effectively at now + 120 s" },
+    { "id": "gd3-recipe-ts-compat", "spec": "10 GD3 with 11 §3 ts-compat early_expiry 0", "profile": "ts-compat", "now_ms": 1780272000000, "lifetime_ms": 120000, "expected_expire_at_ms": 1780272120000 },
+    { "id": "gd4-x3-ts-compat", "spec": "10 GD4, 60 §5.2 (x3), 60 §5.5", "profile": "ts-compat", "stamp_ms": 1780272000000, "expire_at_ms": 1780272120000, "accepted": true, "expires_at_ms": 1780272120000, "note": "lead 120 s >= 60 s: accepted; expires exactly at expireAtMs (TC-E5), on the first real in-window tick with tick.ts >= expireAtMs" },
+    { "id": "gd4-x3-realistic", "spec": "10 GD4, 11 GT2, 60 §5.5 (x3)", "profile": "realistic", "arrival_exchange_ms": 1780272000000, "expire_at_ms": 1780272120000, "accepted": false, "reject": "GtdLeadTooShort{min_lead_ms: 180000}", "note": "the same order is rejected in realistic (lead < 3 min). Intended (GD4, RF03)." },
+    { "id": "tc-gtd-exact-offset-pass", "spec": "11 §4 (GTD), 12 §7.4, 13 TC-C1", "profile": "ts-compat", "stamp_ms": 1780272000000, "expire_at_ms": 1780272060000, "accepted": true, "note": "expireAtMs >= stamp + 60000 (>=, OrderManager.ts:770: < is the failing branch)" },
+    { "id": "tc-gtd-one-ms-short", "spec": "11 §4 (GTD), 10 §10.2 GtdExpiryTooSoon", "profile": "ts-compat", "stamp_ms": 1780272000000, "expire_at_ms": 1780272059999, "accepted": false, "reject": "GtdExpiryTooSoon{min_offset_ms: 60000}", "reject_ts_string": "gtd_expireAtMs_too_soon(min_offset_ms=60000)" },
+    { "id": "tc-gtd-no-expiry", "spec": "11 §4, 12 §7.4, 10 §10.2 GtdRequiresExpiry; 60 §5.3 x17", "profile": "both", "expire_at_ms": null, "accepted": false, "reject": "GtdRequiresExpiry", "reject_ts_string": "gtd_requires_expireAtMs", "note": "structural in the SDK (30 §7.1: GTD takes the expiry as a constructor argument), so this case is reachable only through the binary/job path or a raw intent; the engine rule still exists" },
+    { "id": "tc-gtd-expiry-tick-rule", "spec": "11 §4, 13 §5.1 (WorstQueueCompat expiry first), 10 §8.2 row 15", "profile": "ts-compat", "expire_at_ms": 1780272120000, "ticks_ms": [1780272119999, 1780272120000], "expected": "no expiry on the tick at 119999; OrderDone(Expired, filled) on the tick at 120000, before any maker fill on that tick", "note": "TS: nowMs >= expireAtMs (BacktestExecution.ts:804)" },
+    { "id": "expire-at-ignored-non-gtd", "spec": "12 §7.4 (expire_at on non-GTD ignored), 11 §4", "profile": "both", "order_type": "GTC", "expire_at_ms": 1780272000001, "accepted": true, "note": "no rejection; the field is ignored (TS logs and ignores)" },
+    { "id": "gt4-market-orders-expiration-0", "spec": "11 GT4", "profile": "live", "order_type": "FOK", "expiration_sent": 0, "note": "adapter-level (G4 scope)" },
+    { "id": "gt5-live-backtest-same", "spec": "11 GT5", "profile": "realistic+live", "statement": "both apply GT1–GT3, so a live order and the same backtest order expire at the same effective time (TS live expired 60 s earlier than TS backtest; removed)" }
+  ]
+}

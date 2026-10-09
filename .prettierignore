@@ -22,3 +22,6 @@ src/strategies/research/INDEX.json
 native/spec/
 native/goal/
 native/**/target/
+# Independent conformance tests (60 §10.1 CF-3/CF-4): written only by the
+# conformance author; the implementation session never reformats them.
+native/conformance/

@@ -211,6 +211,16 @@ jobs:
           cargo clippy --workspace --all-targets --locked -- -D warnings
           cargo test --workspace --locked
 
+      # Dependency gate (31 §3 item 5): advisories, bans, licenses and
+      # sources per native/deny.toml. v2.1.1 ships cargo-deny 0.20.2.
+      - name: Engine dependencies (cargo deny)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: native/Cargo.toml
+          rust-version: '1.89.0'
+          arguments: --all-features --locked
+          command: check
+
       - name: Strategy package (fmt, clippy, test)
         if: hashFiles('native/strategies/Cargo.toml') != ''
         working-directory: native/strategies
