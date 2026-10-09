@@ -15,6 +15,7 @@ sessions.
 - The specification is `native/spec/`: read `00-goal.md`, `01-milestones.md`,
   `02-decisions.md` and `03-reuse.md` in full (about 1,000 lines), then
   `10-exchange-facts.md` and `11-v4-input.md` when the milestone cites them.
+  (00–03 are under 1,000 lines.)
   The spec is short on purpose; do not grow it (P12).
 - Progress record: `native/STATUS.md`. Read it first on every resume; update it
   in the same commit as the work it describes.
@@ -42,18 +43,22 @@ STATUS.md.
 
 ## Hard rules (in addition to P1–P12 of 00-goal.md)
 
-1. Never hold, read or use wallet keys or API secrets. Never build or run the
-   `real-orders` variant. Never run `src/cli/trading-bot.ts` or any live
-   runtime with credentials. The owner builds and launches every real-order
-   session; you prepare the script, the runbook and the analysis.
+1. Never hold, read or use wallet keys or API secrets; never read the fleet
+   copy's `.env`. You MAY compile `real-orders` only for `cargo test` against
+   the mock exchange; never run it against the exchange. Never run
+   `src/cli/trading-bot.ts` or any live runtime with credentials. The owner
+   builds and launches every real-order session on the owner's own Mac; you
+   prepare the script, the runbook and the analysis.
 2. Never modify `/Users/worker-1/Sites/polymarket-bot` (fleet checkout) or
    `/Users/worker-1/Sites/polymarket-bot-native` (previous attempt). Read their
    `data/` only through the symlinks.
 3. Do not stop, pause or restart the fleet worker, the Global Runtime or the
-   rules-capture LaunchAgent on this machine. Benchmarks run alongside them
-   and are labeled `non-idle`.
-4. Database: read-only until the N5 migrations; then additive migrations only,
-   applied after their PR merges.
+   rules-capture LaunchAgent on this machine unless the owner confirms a pause
+   procedure in writing. Benchmarks run alongside them and are labeled
+   `non-idle`. Every TS backtest you run uses `--sequential`.
+4. Database: production is read-only until the gate-C merge; N5 works on the
+   dev schema named in STATUS.md. Never `npm install` at the root or in
+   `docs/` (read-only links); missing dependencies go to "Waiting on user".
 5. GitHub: push `rust-live-first` after each milestone step; never merge
    anything to main before gate C.
 6. When the spec is silent or contradictory on a non-user topic, add an
@@ -67,6 +72,13 @@ STATUS.md.
    measurement.
 8. Commit small green steps (P10). STATUS.md "Current state" must let a fresh
    session resume with no memory of yours.
+9. Documentation: every milestone adds or updates the `docs/` pages for what
+   it delivers (new pages through the `docs-writer` skill, a sidebar entry in
+   `docs/.vitepress/config.ts`, `npm --prefix docs run build` green before the
+   commit). All Rust engine pages live under `docs/rust-engine/` in the
+   sidebar section "Rust Engine" (overview, then reference and how-to pages
+   per delivered component); the TypeScript engine pages under `docs/engine/`
+   are left alone until that engine retires.
 
 ## Time limit
 

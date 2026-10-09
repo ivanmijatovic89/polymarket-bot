@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*/*"]
 
 [workspace.package]
 edition = "2021"
@@ -34,10 +34,10 @@ syn = { version = "=2.0.119", features = ["full"] }
 thiserror = "2"
 # Already in the lock through parquet's `zstd` feature (16 NT-3).
 zstd = { version = "=0.13.3", default-features = false }
-pmb-book = { path = "crates/pmb-book" }
-pmb-contract = { path = "crates/pmb-contract" }
-pmb-core = { path = "crates/pmb-core" }
-pmb-replay = { path = "crates/pmb-replay" }
+orderbook = { path = "crates/core/orderbook" }
+job-contract = { path = "crates/interface/job-contract" }
+domain = { path = "crates/core/domain" }
+telonex-replay = { path = "crates/inputs/telonex-replay" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

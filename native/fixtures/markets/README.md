@@ -116,8 +116,8 @@ verified by `native:fixture-job` and by `check` before use.
 Rendered jobs of all six markets in three forms (exerciser; lagsnipe id with
 `--feeds all`; a feed-exerciser id with `--feeds binance,price-to-beat`)
 deserialize, validate and round-trip unchanged through
-`pmb_contract::EngineJob` (checked on 2026-10-09 with a scratch binary
-outside the repository; a pmb-contract test is still to add, see "Open
+`job_contract::EngineJob` (checked on 2026-10-09 with a scratch binary
+outside the repository; a job-contract test is still to add, see "Open
 points").
 
 ## Trimming (FX-2)
@@ -280,6 +280,6 @@ Until then FX-1 and the M1 step 5 fixture item are not complete.
   cross-checks the file against the catalog until that getter exists.
 - The Rust Chainlink day-file reader needs a test on a production
   (arrow-written) day file, since the fixtures carry DuckDB annotations only.
-- A pmb-contract test that renders every fixture job and round-trips it
+- A job-contract test that renders every fixture job and round-trips it
   would make the check above part of `cargo test`, and `native:ci:local`
   should run `native:fixtures:build -- check` and `native:fixtures:test`.

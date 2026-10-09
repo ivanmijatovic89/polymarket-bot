@@ -1,7 +1,7 @@
 /**
  * Golden generator for the stats contract, the skip taxonomy, `intentMeta`
  * and `eventsByType` (60 §7.1 GF-1/GF-2, §7.2; 21 §11-§16). Successor of the
- * WIP `native/crates/pmb-core/tests/fixtures/stats_gen.ts` (fef5f199).
+ * WIP `native/crates/domain/tests/fixtures/stats_gen.ts` (fef5f199).
  *
  * For each case it writes a small crafted telonex-delta file
  * (`typedDeltaMarketEventParquetSchema`, the converter's schema) and runs the

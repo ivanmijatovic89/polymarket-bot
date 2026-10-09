@@ -11,12 +11,12 @@ The goal was re-planned on 2026-10-09: Recorder V4 first, a minimal exchange ada
 - Spec: `native/spec/00-goal.md` … `11-v4-input.md`; decisions E01–E10
 - Milestone / step: N0 done; N1 next
 - Binaries: none
-- Data roots: symlinks `data/{events,binance,telonex,recorder-v4-cache}` → fleet copy (read-only); `data/strategy-artifacts`, `data/native-tapes` local
+- Data roots: symlinks `data/{events,binance,telonex,recorder-v4-cache,fleet-strategy-artifacts}` → fleet copy (read-only); `data/strategy-artifacts`, `data/recorder-v4` local
 - Calibration: none (`native/calibration/` empty; every model parameter is `unmeasured` until P0)
-- Rules capture: LaunchAgent `com.pmb.rules-capture` running on worker-1 since 2026-10-09 09:48Z (previous attempt, M1.0); files imported in N5
+- Rules capture: LaunchAgent `com.pmb.rules-capture` running on worker-1 since 2026-10-09 09:48Z (pinned checkout `/Users/worker-1/pmb-rules-capture/app`, output `/Users/worker-1/pmb-rules-capture/prestart`); files imported in N5
 - Paused: none (fleet worker and Global Runtime untouched)
 - Last proof: `(cd native && cargo fmt --all --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked)` → 115 passed, 0 failed; `npm run code:eslint`, `npm run code:prettier:check`, `npm run code:typecheck` clean (2026-10-09 18:59)
-- Waiting on user: none
+- Waiting on user: (1) read-only `R2_*` credentials in `.env` for V4 package downloads (00 §4); (2) a dev MySQL schema for N5 (00 §5); (3) the probe wallet and the pUSD update of the TS approval scripts before P0 (01 N2 item 0)
 - Next action: N1 step plan (V4 reader, engine core per E09/E10 with pmb-engine as reference, placeholder adapter, binary, intent-exerciser, TS goldens, property tests)
 
 ## Milestone plans
@@ -24,7 +24,7 @@ The goal was re-planned on 2026-10-09: Recorder V4 first, a minimal exchange ada
 ### N0 (started 2026-10-09)
 
 - [x] 0.1 Branch, worktree, data and `node_modules` links, `.env`
-- [x] 0.2 Leaf crates carried (`pmb-core`, `pmb-book`, `pmb-contract`, `pmb-replay`); CI job, `native:ci:local`, Prettier exclusions, `deny.toml`
+- [x] 0.2 Leaf crates carried (`domain`, `orderbook`, `job-contract`, `telonex-replay`); CI job, `native:ci:local`, Prettier exclusions, `deny.toml`
 - [x] 0.3 Spec 00–03, 10, 11; goal prompt; this file
 - [x] 0.4 Draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/310
 - [x] 0.5 V4 inventory recorded in the log below; `data/recorder-v4-cache` resolves

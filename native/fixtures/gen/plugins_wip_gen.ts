@@ -2,7 +2,7 @@
  * The WIP plugin golden generator, carried verbatim (14 §13 V-5 "keep and
  * extend the WIP generator"; 14 §15 "keep the plugin math and
  * plugins_golden.json"; 60 §16 "move to native/fixtures/ (GF-1); add headers
- * (GF-2)"). Source: `native/crates/pmb-core/tests/fixtures/plugins_gen.ts`
+ * (GF-2)"). Source: `native/crates/domain/tests/fixtures/plugins_gen.ts`
  * at fef5f199. Only the import paths and the output step changed: the
  * output is written to `native/fixtures/golden/plugins/plugins_wip_golden.json`
  * with sorted keys and the GF-2 header instead of printed to stdout. The

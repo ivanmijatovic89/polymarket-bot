@@ -1,5 +1,7 @@
 # 10 — Exchange facts (CLOB V2 adapter and probe session P0)
 
+> Citations of the form `11 §…`, `50 §…`, `51 §…`, `02-decisions.md`, `early-audits` refer to the previous attempt's spec on branch `native-engine` (`native/spec/` there), not to files in this tree. `11-v4-input.md` in this tree is a different document.
+
 Reference for the first milestone: a minimal CLOB V2 exchange adapter plus
 user-run probe sessions. Every fact is copied from the old spec or repo docs
 and cited; nothing here is new evidence. Paths are relative to the
@@ -191,7 +193,7 @@ scripts (50:100). Probes need no split/merge; P0 needs redeem only (51 P8).
 | Relayer / SAFE mode | `POLYMARKET_TX_MODE_{SPLIT,MERGE,REDEEM}` = `relayer` or `direct`; SAFE support deferred if an EOA is chosen (50:1158-1159) | `src/cli/relayer.ts`; `@polymarket/builder-relayer-client` 0.0.8, `@polymarket/builder-signing-sdk` 0.0.8 (`package.json:215-216`) |
 | Balance checks | collateral and token balances for P8 proof | `src/cli/check-balances.ts`; `src/blockchain/balanceTracker.ts` |
 | API key creation (L1) | stays in TS; Rust receives ready credentials via `--secrets-fd` | `src/cli/create-clob-api-key.ts` (`clob:api-key`); 50:421-422, 50:1025-1028 |
-| Golden-vector generator | needs `@polymarket/clob-client-v2` (not installed) | `native/crates/pmb-core/tests/fixtures/*_gen.ts` pattern (50:457-458) |
+| Golden-vector generator | needs `@polymarket/clob-client-v2` (not installed) | `native/crates/domain/tests/fixtures/*_gen.ts` pattern (50:457-458) |
 
 ## Contradictions between sources
 

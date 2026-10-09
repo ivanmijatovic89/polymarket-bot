@@ -43,7 +43,7 @@ Milestones N0–N9 of 01 pass their proofs on the final revision, the branch is
 merged to main through PRs with CI green (gate C and later PRs), every model
 parameter in `native/calibration/` carries its measurement provenance, and
 the reports of N2, N3, N4, N6 and N7 exist. The first real-money strategy run
-is gate D (01 §4) and needs the owner; if the owner has not run it, the goal is
+is gate D (01 §11) and needs the owner; if the owner has not run it, the goal is
 paused there, not failed.
 
 ## 2. Principles (cited as P1–P12)
@@ -51,14 +51,14 @@ paused there, not failed.
 | # | Principle |
 |---|---|
 | P1 | **Exchange is truth.** A probe result beats the docs; the docs beat the old TS engine; the old TS engine beats nothing. Where a probe cannot be run yet, the parameter is flagged `unmeasured` in every output that depends on it (P8). |
-| P2 | **Measure before model.** No execution-model parameter without a measurement record in `native/calibration/` (value, n, method, date, host) or an explicit `unmeasured` flag. Models are pluggable traits (fill, latency, fee, report) so a parameter can change without touching the core. |
+| P2 | **Measure before model.** No execution-model parameter without a measurement record in `native/calibration/` or an explicit `unmeasured` flag. Models are pluggable traits (fill, latency, fee, report) so a parameter can change without touching the core. **Vocabulary:** every result carries `models: { <model>: { source: "measured" \| "hypothesis" \| "placeholder", calibrationId?: string } }`; a model is `unmeasured` when its source is not `measured`. **Record format:** `native/calibration/<YYYY-MM-DD>-<label>.json` with `id`, `date`, `host`, `probeSession`, `journalSha256`, `method`, `n`, `parameters` (per model), `validUntil`; the id is what `model_config.calibrationId` carries. |
 | P3 | **V4 first, Telonex second.** `recorder-v4` is the only backtest input until N7. Telonex replay then reuses the same engine with feed visibility models whose timings come from our measurements, never from the old constants. |
 | P4 | **Runnable steps.** Each milestone proof is a command the owner can run. STATUS.md records the exact command, the binary sha and the result; a proof is recorded only after it ran. |
 | P5 | **Determinism.** Same binary, same job, same seed: byte-identical output on every Mac, at every thread count, in any scheduling order. Seeds derive only from (run seed, slug). The engine never reads env for behavior, never reads the wall clock inside the decision loop, and does no network I/O in backtest. |
 | P6 | **Fixed-point money.** Prices, sizes and USDC are integers at 1e6 base units; `f64` only for external feed values and analytics. |
 | P7 | **Idiomatic Rust.** Never emulate JavaScript or Node semantics; never transliterate TS internals. |
 | P8 | **Fail loud.** Unknown params, fields, modes or flag combinations are errors. Every fallback is explicit and recorded in the output. |
-| P9 | **Safety.** The agent never holds trading keys or API secrets, never builds or runs the `real-orders` variant, never launches the TS trading bot. The `standard` build contains no order-sending code. The owner builds and launches every real-order session (probes included), with a hard budget cap in the probe script. |
+| P9 | **Safety.** The agent never holds trading keys or API secrets and never launches the TS trading bot. Request construction and EIP-712 signing live in the `standard` build (needed for vectors and shadow mode); only the network sending path is behind the `real-orders` feature. The agent MAY compile `real-orders` for `cargo test` against the mock exchange, with no network and no secrets; it never runs it against the exchange. The owner builds `real-orders` on the owner's own Mac from the pushed branch and launches every real-order session there (probes included), with a hard budget cap in the probe script; only the journal, which holds no secrets, comes back to worker-1. |
 | P10 | **Green steps.** Every commit on the branch compiles and passes fmt, clippy, `cargo test` and the TS checks it touches. STATUS.md is updated in the same commit. Non-compiling WIP commits are forbidden. |
 | P11 | **English only** in code, comments, docs, commits and PRs. |
 | P12 | **Short spec.** This spec changes only through 02-decisions.md. Anything that would make it longer than 2,500 lines goes to a reference document cited by section, or is dropped. |
@@ -87,10 +87,16 @@ Simulator beyond replaying native runs (N5 adds a guard, a sink comes later).
 ## 4. What the owner provides
 
 - A dedicated wallet with a small pUSD balance on Polymarket CLOB V2 and its
-  API credentials, used only by the owner on the `real-orders` build.
+  API credentials, used only by the owner on the `real-orders` build, on the
+  owner's own Mac (never on worker-1).
+- Read-only R2 credentials in this worktree's `.env` (copied by the owner from
+  the fleet's `.env`; the agent never reads the fleet's `.env`) so the goal can
+  download Recorder V4 packages into the local `data/recorder-v4/`. Until they
+  are present only the few packages already in the fleet cache are usable, and
+  STATUS.md says so under "Waiting on user".
 - Probe sessions: about one to two hours each, the first within days of N2
   (E04), budget cap $20 for P0, later sessions as 01 lists them.
-- Decisions at the gates of 01 §4, and answers to questions parked under
+- Decisions at the gates of 01 §11, and answers to questions parked under
   "Waiting on user" in STATUS.md.
 
 ## 5. Host rules (worker-1)
@@ -104,12 +110,23 @@ Simulator beyond replaying native runs (N5 adds a guard, a sink comes later).
 - `data/{events,binance,telonex,recorder-v4-cache}` are read-only symlinks into
   the fleet copy; nothing is written through them. Everything else under
   `data/` is local. `node_modules` is a symlink to the fleet copy.
-- `.env` holds only `DATABASE_*` and `DRY_RUN=true`. No trading keys, ever.
-- Database: read-only until the N5 migrations; then only additive migrations,
-  applied by the agent after the PR merges (carried D50).
+- `.env` holds only `DATABASE_*`, `DRY_RUN=true` and, once the owner adds them,
+  read-only `R2_*` variables. No `REDIS_*` (every TS backtest in this goal
+  runs `--sequential`), no trading keys, ever. Never run `npm install` at the
+  root or in `docs/`: both `node_modules` are read-only links into the fleet
+  copy; missing dependencies are a "Waiting on user" item.
+- `data/fleet-strategy-artifacts` is a read-only symlink to the fleet copy's
+  strategy artifact cache (TS bundles such as the lagsnipe artifact); native
+  artifacts go to the local `data/strategy-artifacts/native/`.
+- Database: production is read-only until the gate-C merge. N5 develops and
+  proves its migrations and rows on a separate dev schema or local MySQL
+  instance named in STATUS.md, never on production; after the gate-C merge
+  the agent applies the additive migrations to production (carried D50).
 - The fleet worker and Global Runtime on worker-1 keep running. No pause, stop
   or restart of them in this goal unless the owner confirms the pause
-  procedure; benchmarks run alongside them and are labeled `non-idle`.
+  procedure in writing; benchmarks run alongside them and are labeled
+  `non-idle`. After gate C, fleet deployments use the normal fleet commands
+  only with the owner's go-ahead recorded in STATUS.md.
 - The rules capture LaunchAgent on worker-1 keeps running; its files are
   imported in N5.
 - GitHub: push the branch after every milestone step; open the draft PR

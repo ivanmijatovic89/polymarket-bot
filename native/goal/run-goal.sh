@@ -14,7 +14,7 @@ DEADLINE_STR="${1:?deadline required, e.g. \"2026-10-09 10:15\"}"
 DEADLINE=$(date -j -f "%Y-%m-%d %H:%M" "$DEADLINE_STR" +%s) || exit 1
 KILL_AT=$((DEADLINE + 600))
 MODEL="${GOAL_MODEL:-claude-opus-5-5}"
-EFFORT="${GOAL_EFFORT:-ultracode}"
+EFFORT="${GOAL_EFFORT:-high}"
 # The default profile is the $20 plan; ~/.claude-balsa is the $200 plan.
 export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude-balsa}"
 

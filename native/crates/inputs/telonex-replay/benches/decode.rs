@@ -1,0 +1,453 @@
+//! L0 micro benchmarks of the telonex-delta input path (16 §7, §13.2 L0):
+//!
+//! - `columns16`: raw Parquet page decode of all 16 v1 columns with
+//!   `read_records` (decompression + level/value decode; the 16 §2.2 row
+//!   "column decode incl. decompression"),
+//! - `file_to_tape`: the whole reader, `read_telonex_delta` (open, footer,
+//!   decode, decimal parse, tape build),
+//! - `decimal_parse`: `parse_decimal` over every price/size string of the
+//!   file (bids, asks, changes),
+//! - `book_apply_tops`: replaying the decoded tape into `MarketBooks` with
+//!   the top-change bit (BK-7) and both outcomes' best bid/ask per event.
+//!
+//! Inputs: the markets of the committed decode fixture
+//! (`native/fixtures/golden/telonex/telonex_book_golden.json`) and `heavy-1` from its
+//! frozen manifest (`native/bench/sets/heavy-1.json`, 16 §13.1), whose size
+//! and sha256 are verified before any measurement (a changed source
+//! invalidates comparisons). Files are resolved under the data root
+//! (`PMB_BENCH_DATA_ROOT`, default `<repo>/data`; the L0 driver passes its
+//! `--data-root`). A missing market is an error unless
+//! `PMB_BENCH_ALLOW_MISSING=1` (the driver's `--allow-missing-markets`), in
+//! which case it is skipped with a message. These env variables configure
+//! the bench harness only, never an engine binary (R7). Files are read
+//! through the page cache (warm after criterion's warm-up).
+//! Run: `cargo bench -p telonex-replay --bench decode` or `npm run native:bench:l0`.
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use domain::fixed::parse_decimal;
+use domain::{MarketEvent, Outcome, QuoteSide};
+use orderbook::{Level, MarketBooks, Side};
+use parquet::data_type::{ByteArrayType, DataType, Int32Type, Int64Type};
+use parquet::file::reader::{FileReader, RowGroupReader, SerializedFileReader};
+use parquet::schema::types::ColumnDescriptor;
+use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::hint::black_box;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use telonex_replay::telonex::{file_asset_ids, FORMAT_NAME, FORMAT_VERSION};
+use telonex_replay::{read_telonex_delta, InputFile, InputFormat, TelonexInput, TelonexTape};
+
+const HEAVY_1_MANIFEST: &str = "native/bench/sets/heavy-1.json";
+const DECIMAL_COLUMNS: [&str; 6] = [
+    "bid_prices",
+    "bid_sizes",
+    "ask_prices",
+    "ask_sizes",
+    "change_prices",
+    "change_sizes",
+];
+
+struct Market {
+    label: String,
+    path: PathBuf,
+    tokens: [String; 2],
+    rows: u64,
+}
+
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../..")
+        .canonicalize()
+        .expect("repository root")
+}
+
+fn data_root() -> PathBuf {
+    match std::env::var_os("PMB_BENCH_DATA_ROOT") {
+        Some(p) => PathBuf::from(p),
+        None => repo_root().join("data"),
+    }
+}
+
+fn allow_missing() -> bool {
+    std::env::var_os("PMB_BENCH_ALLOW_MISSING").is_some_and(|v| v == "1")
+}
+
+/// A market file that is absent: an error unless skipping was asked for.
+fn missing(what: &str, path: &Path) {
+    assert!(
+        allow_missing(),
+        "{what}: {} does not exist (set PMB_BENCH_ALLOW_MISSING=1 to skip it)",
+        path.display()
+    );
+    eprintln!(
+        "skip {what} (PMB_BENCH_ALLOW_MISSING=1): {}",
+        path.display()
+    );
+}
+
+fn sha256_hex(path: &Path) -> String {
+    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// `heavy-1` from its frozen manifest, with the pinned size and sha256
+/// verified (16 §13.1); `None` only when missing and skipping is allowed.
+fn heavy_1(data: &Path) -> Option<Market> {
+    let manifest_path = repo_root().join(HEAVY_1_MANIFEST);
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(&manifest_path)
+            .unwrap_or_else(|e| panic!("{}: {e}", manifest_path.display())),
+    )
+    .expect("heavy-1 manifest JSON");
+    let markets = manifest["markets"].as_array().expect("manifest markets");
+    assert_eq!(markets.len(), 1, "heavy-1 has exactly one market");
+    let m = &markets[0];
+    let slug = m["slug"].as_str().expect("slug");
+    let path = data.join(m["file"].as_str().expect("file"));
+    if !path.exists() {
+        missing("heavy-1", &path);
+        return None;
+    }
+    let bytes = std::fs::metadata(&path).expect("heavy-1 metadata").len();
+    assert_eq!(
+        Some(bytes),
+        m["bytes"].as_u64(),
+        "heavy-1 {}: size differs from the manifest (source changed, 16 §13.1)",
+        path.display()
+    );
+    assert_eq!(
+        sha256_hex(&path),
+        m["sha256"].as_str().expect("sha256"),
+        "heavy-1 {}: sha256 differs from the manifest (source changed, 16 §13.1)",
+        path.display()
+    );
+    let ids = file_asset_ids(&path).expect("heavy-1 asset ids");
+    assert!(ids.len() == 2, "heavy-1: expected 2 asset ids, got {ids:?}");
+    Some(Market {
+        label: format!("heavy-1/{slug}"),
+        path,
+        tokens: [ids[0].clone(), ids[1].clone()],
+        rows: 0,
+    })
+}
+
+fn markets() -> Vec<Market> {
+    let data = data_root();
+    let golden_path = repo_root().join("native/fixtures/golden/telonex/telonex_book_golden.json");
+    let golden: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(&golden_path).unwrap_or_else(|e| panic!("{}: {e}", golden_path.display())),
+    )
+    .expect("decode fixture JSON");
+    let mut out = Vec::new();
+    for m in golden["markets"].as_array().expect("markets array") {
+        let rel = m["file"].as_str().expect("file");
+        let path = match m["source"].as_str().expect("source") {
+            "fixture" => repo_root().join("native/fixtures/golden/telonex").join(rel),
+            "data" => data.join(rel),
+            other => panic!("source {other}"),
+        };
+        let slug = Path::new(rel)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .expect("slug file name");
+        if !path.exists() {
+            missing("fixture market", &path);
+            continue;
+        }
+        let toks: Vec<String> = m["tokens"]
+            .as_array()
+            .expect("tokens")
+            .iter()
+            .map(|t| t.as_str().expect("token").to_string())
+            .collect();
+        out.push(Market {
+            label: format!("fixture/{slug}"),
+            path,
+            tokens: [toks[0].clone(), toks[1].clone()],
+            rows: 0,
+        });
+    }
+    out.extend(heavy_1(&data));
+    for m in &mut out {
+        m.rows = read(m).diagnostics().rows_read;
+    }
+    out
+}
+
+fn read(m: &Market) -> TelonexTape {
+    let input = TelonexInput {
+        tokens: [m.tokens[0].as_str(), m.tokens[1].as_str()],
+        condition_id: None,
+    };
+    read_telonex_delta(&input_file(&m.path), input)
+        .unwrap_or_else(|e| panic!("{}: {e}", m.path.display()))
+}
+
+/// The job input of a bench market: its size from `stat`, no sha256 (the
+/// sets are verified against their manifests before measuring).
+fn input_file(path: &Path) -> InputFile<'_> {
+    InputFile {
+        path,
+        bytes: std::fs::metadata(path)
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+            .len(),
+        sha256: None,
+        format: InputFormat {
+            name: FORMAT_NAME,
+            version: FORMAT_VERSION,
+        },
+    }
+}
+
+fn open(path: &Path) -> SerializedFileReader<File> {
+    let f = File::open(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    SerializedFileReader::new(f).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+}
+
+/// Reusable level and value buffers of the raw column decode.
+#[derive(Default)]
+struct Buffers {
+    def: Vec<i16>,
+    rep: Vec<i16>,
+    i32s: Vec<i32>,
+    i64s: Vec<i64>,
+    bytes: Vec<parquet::data_type::ByteArray>,
+}
+
+fn read_column<D: DataType>(
+    rg: &dyn RowGroupReader,
+    col: usize,
+    rows: usize,
+    descr: &ColumnDescriptor,
+    def: &mut Vec<i16>,
+    rep: &mut Vec<i16>,
+    values: &mut Vec<D::T>,
+) -> usize {
+    def.clear();
+    rep.clear();
+    values.clear();
+    let mut reader = D::get_column_reader(rg.get_column_reader(col).expect("column reader"))
+        .expect("typed column reader");
+    let (max_def, max_rep) = (descr.max_def_level(), descr.max_rep_level());
+    let mut records = 0;
+    while records < rows {
+        let (n, _, _) = reader
+            .read_records(
+                rows - records,
+                (max_def > 0).then_some(&mut *def),
+                (max_rep > 0).then_some(&mut *rep),
+                values,
+            )
+            .expect("read_records");
+        assert!(n > 0, "column {col} ended early");
+        records += n;
+    }
+    values.len()
+}
+
+/// Decodes every column of every row group; returns the value count.
+fn decode_columns(path: &Path, buf: &mut Buffers) -> usize {
+    use parquet::basic::Type;
+    let reader = open(path);
+    let schema = reader.metadata().file_metadata().schema_descr_ptr();
+    let mut values = 0;
+    for g in 0..reader.num_row_groups() {
+        let rg = reader.get_row_group(g).expect("row group");
+        let rows = rg.metadata().num_rows() as usize;
+        for c in 0..schema.num_columns() {
+            let descr = schema.column(c);
+            let Buffers {
+                def,
+                rep,
+                i32s,
+                i64s,
+                bytes,
+            } = buf;
+            values += match descr.physical_type() {
+                Type::INT32 => {
+                    read_column::<Int32Type>(rg.as_ref(), c, rows, &descr, def, rep, i32s)
+                }
+                Type::INT64 => {
+                    read_column::<Int64Type>(rg.as_ref(), c, rows, &descr, def, rep, i64s)
+                }
+                Type::BYTE_ARRAY => {
+                    read_column::<ByteArrayType>(rg.as_ref(), c, rows, &descr, def, rep, bytes)
+                }
+                t => panic!("unexpected physical type {t}"),
+            };
+        }
+    }
+    values
+}
+
+/// Every decimal string of the price/size columns, as one text buffer plus
+/// spans, so the parse bench measures parsing and not allocation.
+struct Decimals {
+    text: String,
+    spans: Vec<(u32, u32)>,
+}
+
+fn decimals(path: &Path) -> Decimals {
+    let reader = open(path);
+    let schema = reader.metadata().file_metadata().schema_descr_ptr();
+    let mut buf = Buffers::default();
+    let mut text = String::new();
+    let mut spans = Vec::new();
+    for g in 0..reader.num_row_groups() {
+        let rg = reader.get_row_group(g).expect("row group");
+        let rows = rg.metadata().num_rows() as usize;
+        for c in 0..schema.num_columns() {
+            let descr = schema.column(c);
+            if !DECIMAL_COLUMNS.contains(&descr.path().string().as_str()) {
+                continue;
+            }
+            read_column::<ByteArrayType>(
+                rg.as_ref(),
+                c,
+                rows,
+                &descr,
+                &mut buf.def,
+                &mut buf.rep,
+                &mut buf.bytes,
+            );
+            for v in &buf.bytes {
+                let s = std::str::from_utf8(v.data()).expect("decimal is UTF-8");
+                let start = text.len() as u32;
+                text.push_str(s);
+                spans.push((start, text.len() as u32));
+            }
+        }
+    }
+    Decimals { text, spans }
+}
+
+fn book_side(s: QuoteSide) -> Side {
+    match s {
+        QuoteSide::Bid => Side::Bid,
+        QuoteSide::Ask => Side::Ask,
+    }
+}
+
+/// Replays the tape into fresh books: apply, top-change bit, both tops.
+fn replay(tape: &TelonexTape) -> (u64, i64) {
+    let mut books = MarketBooks::new();
+    let mut changed = 0u64;
+    let mut acc = 0i64;
+    let lv = |p: &domain::PriceSize| Level {
+        price: p.price,
+        size: p.size,
+    };
+    for ev in tape.events() {
+        let top = match ev.event {
+            MarketEvent::Book {
+                outcome,
+                bids,
+                asks,
+            } => books
+                .apply_snapshot(outcome, bids.iter().map(lv), asks.iter().map(lv))
+                .any(),
+            MarketEvent::PriceChange { changes } => {
+                let mut any = false;
+                for c in changes {
+                    any |= books
+                        .apply_level(c.outcome, book_side(c.side), c.price, c.size)
+                        .any();
+                }
+                any
+            }
+            _ => false,
+        };
+        changed += u64::from(top);
+        for o in Outcome::ALL {
+            acc = acc.wrapping_add(books.best_bid(o).map_or(0, |l| l.price.micros()));
+            acc = acc.wrapping_add(books.best_ask(o).map_or(0, |l| l.size.micros()));
+        }
+    }
+    (changed, acc)
+}
+
+fn bench_decode(c: &mut Criterion) {
+    let markets = markets();
+    if markets.is_empty() {
+        eprintln!("no bench market present under {}", data_root().display());
+        return;
+    }
+    for m in &markets {
+        let bytes = std::fs::metadata(&m.path).map(|x| x.len()).unwrap_or(0);
+        eprintln!(
+            "market {}: {} rows, {} bytes, {}",
+            m.label,
+            m.rows,
+            bytes,
+            m.path.display()
+        );
+    }
+
+    let mut g = c.benchmark_group("columns16");
+    g.sample_size(10).measurement_time(Duration::from_secs(5));
+    let mut buf = Buffers::default();
+    for m in &markets {
+        g.throughput(Throughput::Elements(m.rows));
+        g.bench_function(BenchmarkId::from_parameter(&m.label), |b| {
+            b.iter(|| black_box(decode_columns(black_box(&m.path), &mut buf)))
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("file_to_tape");
+    g.sample_size(10).measurement_time(Duration::from_secs(5));
+    for m in &markets {
+        g.throughput(Throughput::Elements(m.rows));
+        g.bench_function(BenchmarkId::from_parameter(&m.label), |b| {
+            b.iter(|| black_box(read(black_box(m)).len()))
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("decimal_parse");
+    g.sample_size(10).measurement_time(Duration::from_secs(5));
+    for m in &markets {
+        let d = decimals(&m.path);
+        eprintln!("market {}: {} decimal strings", m.label, d.spans.len());
+        g.throughput(Throughput::Elements(d.spans.len() as u64));
+        g.bench_function(BenchmarkId::from_parameter(&m.label), |b| {
+            b.iter(|| {
+                let mut acc = 0i64;
+                let mut inexact = 0u32;
+                for &(s, e) in &d.spans {
+                    let v = parse_decimal(black_box(&d.text[s as usize..e as usize]))
+                        .expect("telonex decimals parse");
+                    acc = acc.wrapping_add(v.micros);
+                    inexact += u32::from(v.inexact);
+                }
+                black_box((acc, inexact))
+            })
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("book_apply_tops");
+    g.sample_size(10).measurement_time(Duration::from_secs(5));
+    for m in &markets {
+        let tape = read(m);
+        let (changed, _) = replay(&tape);
+        eprintln!(
+            "market {}: {} kept events, {} change a top of book",
+            m.label,
+            tape.len(),
+            changed
+        );
+        g.throughput(Throughput::Elements(tape.len() as u64));
+        g.bench_function(BenchmarkId::from_parameter(&m.label), |b| {
+            b.iter(|| black_box(replay(black_box(&tape))))
+        });
+    }
+    g.finish();
+}
+
+criterion_group!(benches, bench_decode);
+criterion_main!(benches);

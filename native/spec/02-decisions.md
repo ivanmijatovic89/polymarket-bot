@@ -41,10 +41,13 @@ script and runbook and analyzes the journal.
 ## E05. Base of the branch: main plus the reviewed leaf crates
 
 **Decision (user, 2026-10-09):** the branch starts from `origin/main`. Only
-input-independent, reviewed leaf crates are carried into the tree (`pmb-core`,
-`pmb-book`, `pmb-contract`, `pmb-replay`, about 16k lines incl. tests).
+input-independent, reviewed leaf crates are carried into the tree (`domain`,
+`orderbook`, `job-contract`, `telonex-replay`, about 16k lines incl. tests).
 Everything else from the previous attempt stays on branch `native-engine` as
 reference and is copied only after review when a milestone needs it (03).
+The carried crates still contain copy-mode remnants (profile enums, a flat
+fee model, a compat latency model, old feed constants, a ts-compat rule set);
+N0 strips them before N1 builds on the crates (01 §1).
 Reason: the owner must be able to tell what is what; architecture is rebuilt
 measurement-first.
 
@@ -66,7 +69,9 @@ not carried.
 | D17, D18 | Artifact identity = sha256 of a reproducible build (path remap, pinned toolchain, `--locked`, ad-hoc codesign); fastest-running profile for shipped binaries, a fast profile for local checks. |
 | D20 | A Rust port of a TS strategy gets a distinct id (`….rs`). |
 | D22 | Charged fee amounts win over docs. |
-| D23 | Window gate: strategy only inside the window; orders match until the window end, then expire; identical in backtest, paper and live. |
+| D21 | Per-market rules snapshot table keyed by condition id, filled from the rules capture and V4 `rawJson`; dated fallback flagged `rulesSource = fallback`. |
+| D23 | Window gate: strategy only inside the window; orders match until the window end, then expire; identical in backtest, paper and live. **Hypothesis until probe R15 confirms.** |
+| D24 | Books are decontaminated of our own orders before any replay used for calibration; markets we traded are excluded from research universes by default. |
 | D25 | Split, merge and redeem transactions go through the TS relayer sidecar; the engine models them as async operations. |
 | D26 | Live journal = the V4 envelope extended with account, REST, timer and operator sources plus an execution sidecar. |
 | D27 | `ctx.now` = local receive time; exchange timestamps exposed separately; expiry checked against estimated exchange time. |
@@ -76,13 +81,14 @@ not carried.
 | D31 | Live available cash = min(per-market allocation, collateral minus reservations); session guards that survive rotation. |
 | D32 | Strategy panic live: cancel_all, halt until rotation, alert. |
 | D33 | Alerts on kill switch, loss stop, WS gap, heartbeat failure, reconciliation mismatch, panic, reject bursts; channel is an owner question at gate D. |
-| D36 | Host is worker-1; the owner's MacBook is not used for engine work. |
+| D36 | Host for engine work, builds and backtests is worker-1. The owner's own Mac is used only to build and run `real-orders` sessions (P9). |
+| D40 | The lagsnipe v15 port is made from the built TS artifact `304eceb3…` in the fleet's strategy artifact cache. |
 | D37 | The pre-start rules capture runs on worker-1; its files are imported in N5. |
 | D42 | FOK/FAK BUY sized in collateral at the limit price. **Hypothesis until P0 confirms.** |
 | D44 | Two builds from one source: `standard` cannot send orders; `real-orders` is built and launched by the owner only. |
 | D47 | Unattended benchmarks only 01:00–07:00 with the fleet paused; until the owner confirms the pause procedure, benchmarks run alongside and are labeled `non-idle`. |
 | D50 | Only additive migrations; the agent applies each after its PR merges. |
-| D51, D52, D53 | Mixed fee eras allowed with per-era statistics; pre-2026-08-17 taker-delay rows flagged; the free Data API path first for fee ground truth. |
+| D51, D52, D53 | Telonex replay only (N7): mixed fee eras allowed with per-era statistics; taker-delay rows for dates before our own measurements flagged `hypothesis` (the exchange changed the delay on 2026-08-17 and 2026-09-04); the free Data API path first for historical fee ground truth. |
 | D54 | Orders that would cross our own resting orders are rejected before sending, identically in backtest, paper and live. |
 | D55 | Fleet hosts for native jobs: worker-1, worker-2 (about 3 slots), milan-m1 if available; the owner's MacBook only produces. |
 
@@ -118,3 +124,17 @@ previous attempt verified against its converted test suites.
 submission; reservations are released on every terminal state and adjusted on
 each fill; a reservation can never go negative; the ledger applies every event
 as it is emitted. Property tests in N1 enforce this.
+
+## E11. Crate names describe their content; no project prefix
+
+**Decision (user, 2026-10-09):** crates are named for what they hold, without
+the previous attempt's `pmb-` prefix. In tree: `domain` (money math, ids,
+seeds, market identity, exchange rules, order types and state machine),
+`orderbook`, `job-contract`, `telonex-replay`. Planned: `v4-replay` (N1),
+`engine` (N1), `execution` (N3 models), `exchange-clob` (N2 adapter),
+`runtime` (N1 binary), `sdk` (N1/N5), `feeds` (N7), `plugins` (N5). Module
+paths use the underscore form (`domain::rules`). The reference tables in 03 §2
+keep the old names because they are paths on branch `native-engine`.
+Layout: `native/crates/<role>/<crate>` with roles `core`, `inputs`, `exchange`
+and `interface`; the map is `native/crates/README.md` and is updated whenever
+a crate is added.

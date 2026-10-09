@@ -200,7 +200,7 @@ Recordings are never stitched.
 
 ## 5. Inventory
 
-See DB query in the goal prompt (`record:v4:data list` lacks DB/R2 credentials in this `.env`).
+on 2026-10-09: 211 complete BTC 15m and 589 complete BTC 5m packages since 2026-10-06, every feed complete (read-only query over `recorder_v4_recordings`).env`).
 Local cache: 3 packages (2× 15m, 1× 5m) in `data/recorder-v4-cache` → `../../polymarket-bot/…`.
 
 ## Contradictions and gaps found

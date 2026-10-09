@@ -18,7 +18,7 @@ defined they are recorded in 02 and used unchanged.
 |---|---|---|---|---|
 | N0 | Bootstrap | — | Branch, worktree, green leaf crates, V4 inventory, draft PR | — |
 | N1 | V4 replay end to end | N0 | One V4 market replayed twice with identical output; TS decode goldens pass | — |
-| N2 | Exchange adapter + probe P0 | N1 (reader, journal types) | An order placed and cancelled from Rust; the P0 facts table and latency numbers | **A** |
+| N2 | Exchange adapter + probe P0 | N1 (reader, result types) | An order placed and cancelled from Rust; the P0 facts table and latency numbers | **A** |
 | N3 | Simulator from measurements | N2 | Report: simulator vs P0 outcomes per probe | **B** |
 | N4 | Paper mode | N3 | Paper session next to a backtest of the same market; journal replay identity | — |
 | N5 | Native backtest path, persistence, first real strategy | N3 | `backtest --strategy-artifact <sha> --input-mode recorder-v4` rows in the dashboard | **C** (merge) |
@@ -34,8 +34,8 @@ Done by the owner's review session on 2026-10-09 unless marked open:
 - [x] Branch `rust-live-first` from `origin/main`, worktree
   `/Users/worker-1/Sites/polymarket-bot-rust-live-first`, data and
   `node_modules` symlinks, `.env` (00 §5).
-- [x] Leaf crates carried from the previous attempt (03 §1): `pmb-core`,
-  `pmb-book`, `pmb-contract`, `pmb-replay`; `cargo test --workspace` green.
+- [x] Leaf crates carried from the previous attempt (03 §1): `domain`,
+  `orderbook`, `job-contract`, `telonex-replay`; `cargo test --workspace` green.
 - [x] Native CI job, `npm run native:ci:local`, Prettier exclusions,
   `native/deny.toml`.
 - [x] This spec, `native/goal/PROMPT.md`, `native/STATUS.md`.
@@ -46,6 +46,11 @@ Done by the owner's review session on 2026-10-09 unless marked open:
   2026-10-09 the catalog held 211 complete BTC 15m and 589 complete BTC 5m
   packages since 2026-10-06, every feed complete.
 - [ ] Fleet worker and Global Runtime untouched; confirm with `ps`.
+- [ ] Strip copy-mode remnants from the carried crates before N1 builds on
+  them: the `TsCompat` profile, `Flat700Bps4Dp`, `Compat` latency and the old
+  feed constants in `job-contract` (`vocab.rs`, `model_config.rs`,
+  `contract/defaults/model-config-v1.json`), the ts-compat rule set in
+  `domain::rules`; keep the dated tables with their verification status.
 
 Proof: `(cd native && cargo fmt --all --check && cargo clippy --workspace
 --all-targets --locked -- -D warnings && cargo test --workspace --locked)`,
@@ -56,19 +61,19 @@ the draft PR URL and the inventory in STATUS.md.
 
 Deliverables:
 
-1. **V4 reader** (`pmb-replay`, new module; contract in 11): manifest and
+1. **V4 reader** (`v4-replay`, new crate; contract in 11): manifest and
    sha256 verification, receipt order, receive times as the engine clock
    (carried D27), rules from the package `rawJson`, coverage gate
    (`incomplete_capture` with reasons; `--allow-capture-gaps` as explicit
    outage replay), duplicate observations across overlapping windows handled
    as the contract says. Hard error on any field the reader does not know
    (P8).
-2. **Engine core** (`pmb-engine`, new): serial event loop; tick → strategy →
-   intents → validation against `ExchangeRules` (in tree, `pmb-core::rules`;
+2. **Engine core** (`engine`, new crate): serial event loop; tick → strategy →
+   intents → validation against `ExchangeRules` (in tree, `domain::rules`;
    facts in 10, hypotheses until P0) → order manager and order state machine
-   (`pmb-core::order`, `state`) → execution adapter trait → ledger (cash,
+   (`domain::order`, `state`) → execution adapter trait → ledger (cash,
    positions, reservations) → account events delivered breadth-first within
-   the tick → per-market stats (`pmb-contract::result`). The previous
+   the tick → per-market stats (`job-contract::result`). The previous
    attempt's `pmb-engine` is reference (03 §2): modules MAY be copied after
    review, with every `TsCompat` branch removed. Cascade order and capital
    reservation rules are design decisions recorded in 02 (E09, E10), not TS
@@ -77,17 +82,21 @@ Deliverables:
    orders; fills a taker at the touch for the visible size and never fills a
    maker. Every output carries `models: { fill: "placeholder", unmeasured:
    true }`. It exists only so N1 can run end to end; N3 replaces it.
-4. **Binary** (`pmb-runtime`, new or copied after review): `describe`,
+4. **Binary** (`runtime`, new crate, or copied after review): `describe`,
    `schema`, `run --input <package> --params <json> [--trace <file>]`,
    `selftest`. Output = the deterministic result section plus `diagnostics`
-   (wall time, RSS), as `pmb-contract` defines.
+   (wall time, RSS), as `job-contract` defines.
 5. **Test strategy** `intent-exerciser` (SDK surface minimal: params, `on_tick`,
    `on_account_event`, feed view): drives every intent and order type on a
    schedule, so the state machine is exercised without a real strategy.
-6. **Goldens from TS**: a script runs the real TS V4 reader on three committed
-   fixture packages (small, under `native/fixtures/v4/`) and writes per-source
-   event counts, first and last receive times, the first book snapshot hash
-   and the rules fields; the Rust reader MUST match byte for byte.
+6. **Goldens from TS**: three complete BTC 5m packages, the smallest ones in
+   the catalog, copied whole with their manifests under `native/fixtures/v4/`
+   so sha verification works. A script runs the real TS V4 reader offline
+   (the `record:v4:verify` replay path, never `npm run backtest`) and writes
+   per-source event counts, first and last receive times, the rules fields
+   and the first book snapshot as canonical JSON (per outcome, price and size
+   ladders at 1e-6, sorted) hashed with sha256; the Rust reader MUST produce
+   the same bytes.
 7. **Property tests** (from the previous attempt's 60 §8, reference): cash
    conservation, reservations never negative and released on every terminal
    state, fills never exceed order size, same job twice byte-identical.
@@ -95,7 +104,7 @@ Deliverables:
 Proof:
 
 ```bash
-BIN=native/target/release/pmb-runtime        # cargo build --release (canonical build comes in N5)
+BIN=native/target/release/runtime        # cargo build --release (canonical build comes in N5)
 P=data/recorder-v4-cache/<a complete btc/15m package dir>
 T=$(mktemp -d)
 $BIN run --input "$P" --strategy intent-exerciser --params '{}' --trace "$T/a.jsonl" > "$T/a.json"
@@ -111,7 +120,11 @@ check output.
 
 Deliverables:
 
-1. **`pmb-live` crate**, `real-orders` feature only for the sending path:
+0. **On-chain prerequisites** (small TS change, outside the engine): the
+   approval and deposit scripts updated for CLOB V2 collateral (pUSD) so the
+   owner can fund and approve the probe wallet; the owner runs them. Listed in
+   10 §5.
+1. **`exchange-clob` crate**, `real-orders` feature only for the sending path:
    L2 auth, EIP-712 v2 order signing checked byte for byte against vectors
    generated from the official V2 client (a TS script in its own small npm
    package under `scripts/native/clob-v2-vectors/` with a gitignored
@@ -129,17 +142,26 @@ Deliverables:
    probe script. Format: the V4 envelope extended with account and REST
    sources (carried D26); the N1 reader learns to read it in N4.
 3. **`probe` subcommand**: takes a market slug and a JSON script of timed
-   actions (the P0 list in 10 §2), a budget cap and a kill switch (Ctrl-C
-   cancels all), runs them, journals everything. Secrets come through a file
-   descriptor or a prompt, never env or argv (carried 20 §7 of the reference).
+   actions (the P0 list in 10 §2, plus at least two resting post-only maker
+   orders at the best price left for 60 s so the maker fill ratio has data), a
+   budget cap and a kill switch (Ctrl-C cancels all), runs them, journals
+   everything. **Budget cap, one definition:** the runner stops and cancels
+   all when cumulative loss plus fees reaches the cap ($20 for P0) or when
+   open exposure would exceed $15. Secrets come through a file descriptor or
+   a prompt, never env or argv.
 4. **Mock exchange tests** from the documented payloads: place, cancel, batch,
    FAILED reversal, reconnect resync, 429, ambiguous POST.
-5. **P0 session** (owner): BTC 15m, budget cap $20 (E04), minimum sizes, while
-   worker-2 records the same markets. The agent prepares the script and the
-   runbook; the owner builds `real-orders`, runs, and hands the journal to the
-   agent (the journal holds no secrets).
-6. **Analysis**: journal joined with the V4 recording of the same market
-   (receive times on both sides) → `native/reports/probe-P0-<date>.md`: one
+5. **P0 session** (owner): on the owner's own Mac, BTC 15m, budget cap $20
+   (E04), minimum sizes, while worker-2 records the same markets. No probe
+   strategy, no paper rehearsal and no alerting are required for P0: the
+   runner is scripted and the owner watches it. The agent prepares the script
+   and the runbook; the owner builds `real-orders` there from the pushed
+   branch, runs, and copies the journal to worker-1 (the journal holds no
+   secrets).
+6. **Analysis**: journal joined with the V4 recording of the same market. The
+   clock offset between the probe host and worker-2 is measured from
+   Polymarket WS frames both hosts received (same frame, two receive times)
+   and recorded with the join → `native/reports/probe-P0-<date>.md`: one
    row per fact (measured value, n, method, docs said, verdict) and the
    latency distributions (place, cancel, ack, fill report, MATCHED→MINED), and
    `native/calibration/<date>-P0.json` with provenance.
@@ -159,8 +181,9 @@ Deliverables, one model at a time, each with a measurement record:
    min size, price bounds, GTD lead, post-only crossing, batch caps (P0 rows).
 2. Fee from the market's `feeSchedule`, verified against the fees P0 was
    charged (carried D22: charged amounts win).
-3. Taker delay (hold on marketable orders) as measured; dated table for
-   history (10), flagged `unverified` for dates before our measurements.
+3. Taker delay (hold on marketable orders) as measured. The dated table for
+   history (10) matters only for Telonex replay and is wired in N7, flagged
+   `hypothesis` for dates before our measurements.
 4. GTD early expiry and lead time as measured.
 5. Latency model: separate seeded distributions for place, cancel, ack and
    fill report, fitted to P0; exact-time scheduler.
@@ -172,11 +195,14 @@ Deliverables, one model at a time, each with a measurement record:
    observed.
 8. Async split and merge with latency (carried D25: on-chain via the TS
    sidecar in live; modeled as async operations here).
-9. Window gate (carried D23): strategy called only inside the window, orders
-   keep matching until the window end, then everything expires.
+9. Window gate (carried D23, hypothesis until probe R15 confirms): strategy
+   called only inside the window, orders keep matching until the window end,
+   then everything expires.
 
-Proof: a **probe strategy** re-issues the P0 actions at the journaled times
-inside a backtest of the same V4 packages; the comparison
+Proof: the recorded books are first decontaminated of our own P0 orders
+(matched by price, size and time from the journal; carried D24), then a
+**probe strategy** re-issues the P0 actions at the journaled times inside a
+backtest of the same V4 packages; the comparison
 `native/reports/sim-vs-P0-<date>.md` shows per probe: accept/reject
 agreement, fill price and size, fee, timing. Pass marks (adapted from the
 previous attempt's D35, reference): accept/reject ≥ 99%, fee exact at 1e-6,
@@ -212,7 +238,7 @@ Deliverables:
    `data/strategy-artifacts/native/<sha>`.
 2. TS side: `src/native/` builds `EngineJob` from `MarketJobData` for
    `--input-mode recorder-v4`, validates `EngineResult`, maps to
-   `RunSingleMarketOutput` (contract: `pmb-contract`, in tree). `--sequential`
+   `RunSingleMarketOutput` (contract: `job-contract`, in tree). `--sequential`
    first; the fleet worker path in N8.
 3. Additive migrations: `engine`, `engine_version`, `model_config` (incl.
    the calibration id), seed, rules provenance; dashboard engine badge and
@@ -223,10 +249,13 @@ Deliverables:
 5. Plugins from reference as strategies need them, candles from local data,
    no network.
 6. **First real strategy**: `overnight-opus55-lagsnipe.v15.rs` ported from the
-   built TS artifact (reference 03), run on every complete V4 15m package;
-   its TS twin run by the TS engine on the same packages; the difference
-   report explains every divergence by model (fees, fills, latency), not by
-   bugs.
+   built TS artifact `304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8`
+   (bundle in `data/fleet-strategy-artifacts/`, read-only; carried D40), run
+   on every complete V4 15m package available; its TS twin run by the TS
+   engine `--sequential` on the same packages. The difference report is
+   information for the owner: it attributes divergences to models (fees,
+   fills, latency) where it can; an unexplained divergence is listed, it does
+   not block gate C (E02).
 
 Proof:
 
@@ -238,6 +267,7 @@ npm run backtest -- --strategy-artifact <sha256> --sequential --input-mode recor
 
 plus refusal tests that exit 2 before anything is enqueued: `--symbol eth`,
 a 1h timeframe, `--input-mode telonex-delta` before N7, an unknown param.
+The proof runs against the dev schema of 00 §5, never production.
 
 **Gate C** (owner): merge to main (one PR; CI green; no behavior change for
 TS strategies, proven by running one TS strategy before and after).
@@ -246,7 +276,8 @@ TS strategies, proven by running one TS strategy before and after).
 
 Deliverables: long-lived executor (`serve`) with a work-stealing pool across
 markets; shared immutable caches of decoded packages; benchmark harness with
-frozen sets (`smoke-50`, `heavy-1`, `recent-1k` on V4); per-phase timers
+frozen sets on V4 (`smoke-50`, `heavy-1`, and `recent-N` with as many complete
+15m packages as exist on the day the set is frozen); per-phase timers
 (decode, book, strategy, simulator, stats); thread count and QoS measured per
 machine type; build-profile measurement. Optimizations are A/B measured and
 MUST keep outputs byte-identical across thread counts, `run` vs `serve`, and
@@ -259,13 +290,14 @@ a pause procedure.
 
 ## 8. N7 — Telonex input with measured feed timings
 
-Deliverables: `telonex-delta` reader (in tree, `pmb-replay`, golden-tested
+Deliverables: `telonex-delta` reader (in tree, `telonex-replay`, golden-tested
 against TS decode); feed visibility models for Binance, Chainlink (two-clock)
 and price-to-beat whose bot-leg timings come from N2/N4 measurements
 (`native/calibration/`), never from the previous attempt's constants unless
 re-measured; synthetic feed ticks as an opt-in; Telonex eligibility through
 `src/db/telonexMarkets.ts` only; the derived fast tape from reference MAY be
-added if N6 phase timers show decode above 40% of job time.
+added if the N7 phase timers on Telonex replay show decode above 40% of job
+time.
 
 Proof: TS decode goldens pass; `backtest --input-mode telonex-delta` persists
 rows labeled with the input mode; `native/reports/telonex-vs-v4-<date>.md`
@@ -281,7 +313,9 @@ groups (`--candidates`, one row per candidate, group result equals standalone),
 the out-of-sandbox build daemon and `strategy:new -- --lang rust` so protocol
 sessions author Rust strategies, docs pages and CLAUDE.md updates.
 
-Proof: a 1,000-market V4 run of the lagsnipe port on the fleet hosts with
+Proof: a V4 run of the lagsnipe port over every complete 15m package on the
+fleet hosts (deployment with the normal fleet commands, owner's go-ahead
+recorded in STATUS.md) with
 byte-identical outputs on every host; a sandboxed session creates, checks,
 publishes and backtests a Rust strategy end to end; kill-switch drill
 recorded.
@@ -316,7 +350,7 @@ first real strategy session. The agent never does.
 
 ## 12. Resuming
 
-A new session reads 00, 01, 02, 03 in full (about 1,000 lines), then 10 and
+A new session reads 00, 01, 02, 03 in full (under 1,000 lines), then 10 and
 11 when its milestone cites them, then STATUS.md "Current state" and the
 current milestone's step plan. It verifies the tree is green (N0 proof) before
 changing anything, and continues with "Next action". A proof is never redone

@@ -1,0 +1,22 @@
+[package]
+name = "orderbook"
+description = "Order books per outcome: recorded book reconstruction and the strategy-visible book (15 §2.1, 16 §8)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+domain.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true
+
+# L0 micro benchmarks (16 §13.2); run only by `cargo bench`.
+[[bench]]
+name = "book"
+harness = false

@@ -297,6 +297,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "domain"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "libm",
+ "proptest",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -456,6 +467,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "job-contract"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "jobserver"
 version = "0.1.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +624,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
+name = "orderbook"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "domain",
+ "proptest",
+]
+
+[[package]]
 name = "ordered-float"
 version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -661,49 +691,6 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
-
-[[package]]
-name = "pmb-book"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "pmb-core",
- "proptest",
-]
-
-[[package]]
-name = "pmb-contract"
-version = "0.1.0"
-dependencies = [
- "schemars",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "pmb-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "libm",
- "proptest",
- "sha2",
- "thiserror",
-]
-
-[[package]]
-name = "pmb-replay"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "criterion",
- "parquet",
- "pmb-book",
- "pmb-core",
- "serde_json",
- "sha2",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -996,6 +983,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "telonex-replay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "criterion",
+ "domain",
+ "orderbook",
+ "parquet",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

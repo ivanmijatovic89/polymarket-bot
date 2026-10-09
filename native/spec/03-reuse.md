@@ -10,14 +10,19 @@ every ts-compat branch removed; **not reused** code is not read at all.
 
 ## 1. In tree now (N0)
 
+Layout: `native/crates/<role>/<crate>` with the map in `native/crates/README.md` (E11).
+
 | Crate | Content | Lines (incl. tests) |
 |---|---|---|
-| `pmb-core` | fixed-point money math with checked arithmetic and explicit rounding; ids and per-market seeds; market identity and slug parsing; `ExchangeRules` with the dated fee-era and taker-delay tables and per-rule verification status; order types, order state machine, fills, account events | ~6,100 |
-| `pmb-book` | dense-ladder order books with a top-of-book change bit | ~1,500 |
-| `pmb-contract` | job and result types (`MarketJobData` → `EngineJob`, `EngineResult` → `RunSingleMarketOutput`), model config, canonical JSON, JSON schemas and fixtures | ~5,600 |
-| `pmb-replay` | Parquet helpers and the telonex-delta reader with a TS-generated golden (used from N7; kept compiling from N0) | ~3,400 |
+| `core/domain` | fixed-point money math with checked arithmetic and explicit rounding; ids and per-market seeds; market identity and slug parsing; `ExchangeRules` with the dated fee-era and taker-delay tables and per-rule verification status; order types, order state machine, fills, account events | ~6,100 |
+| `core/orderbook` | dense-ladder order books with a top-of-book change bit | ~1,500 |
+| `interface/job-contract` | job and result types (`MarketJobData` → `EngineJob`, `EngineResult` → `RunSingleMarketOutput`), model config, canonical JSON, JSON schemas and fixtures | ~5,600 |
+| `inputs/telonex-replay` | Parquet helpers and the telonex-delta reader with a TS-generated golden (used from N7; kept compiling from N0) | ~3,400 |
 
-Also in tree: `native/fixtures/` (decode goldens), `native/contract/`
+Also in tree: `native/fixtures/` (TS-generated goldens for book, decode,
+feed clocks, stats and plugins, plus Telonex fixture markets; the feed-clock
+and plugin goldens are reference until N5/N7; no V4 fixtures yet, N1 adds
+them), `native/contract/`
 (schemas, fixtures, model configs), the CI job, `scripts/native/`,
 `native/deny.toml`.
 
@@ -41,10 +46,8 @@ Also in tree: `native/fixtures/` (decode goldens), `native/contract/`
 | `src/strategies/testing/engine-exerciser.ts` | TS twin of the exerciser | not reused |
 
 Unmerged work on `ws/int` (wave-2 wiring: runtime ↔ engine, feeds and plugins
-wired, TS integration) and `ws/w3build` is reference too; the previous lead
-session was asked to push them. Read them from the worktrees under
-`/Users/worker-1/Sites/polymarket-bot-native/.claude/worktrees/` if they are
-not on origin.
+wired, TS integration) and `ws/w3build` is reference too; both are local
+branches of the previous clone, readable with `git show`.
 
 ## 3. Reference documents on `native-engine` (`native/spec/`)
 
