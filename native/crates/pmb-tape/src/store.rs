@@ -199,11 +199,25 @@ pub fn read_tape_stream(
             Ok(r) => r,
             Err(e) => return Ok(Err(e)),
         };
-        replayer.reserve_counts(
-            h.rows as usize,
-            (h.list_values[dec::BID_PRICES] + h.list_values[dec::ASK_PRICES]) as usize,
-            h.list_values[dec::CHANGE_PRICES] as usize,
-        );
+        // `parse_meta` checked these counts against the blocks; the sum and
+        // the reservation still fail softly into a fallback (NT-5).
+        let counts = (|| {
+            let book =
+                h.list_values[dec::BID_PRICES].checked_add(h.list_values[dec::ASK_PRICES])?;
+            Some((
+                usize::try_from(h.rows).ok()?,
+                usize::try_from(book).ok()?,
+                usize::try_from(h.list_values[dec::CHANGE_PRICES]).ok()?,
+            ))
+        })();
+        let Some((rows, book, changes)) = counts else {
+            return Err(Fallback::Invalid(TapeError::Layout(
+                "level counts overflow".into(),
+            )));
+        };
+        replayer
+            .reserve_counts(rows, book, changes)
+            .map_err(|e| Fallback::Invalid(TapeError::Layout(format!("reserve: {e}"))))?;
         match d
             .stream(buf, h, |rows, row0| replayer.feed(rows, row0))
             .map_err(Fallback::Invalid)?

@@ -35,6 +35,8 @@ pub const DEFAULT_BLOCK_ROWS: u32 = 65_536;
 pub const DEFAULT_ZSTD_LEVEL: i32 = 3;
 
 const PREFIX_LEN: usize = 8 + 4 + 4 + 4;
+/// Largest meta frame a reader accepts (a 64 k-block tape needs ~53 MB).
+const MAX_META_RAW: usize = 64 << 20;
 const MAX_SCALE: u8 = 18;
 const POW10: [i64; 19] = {
     let mut t = [1i64; 19];
@@ -534,8 +536,20 @@ impl Decoder {
     /// Decompresses one frame into the scratch buffer.
     fn frame(&mut self, frame: &[u8], raw_len: usize) -> Result<&[u8], TapeError> {
         check_frame(frame)?;
+        // The frame header's content size must agree before anything is
+        // allocated for it (our encoder always writes it).
+        match zstd::zstd_safe::get_frame_content_size(frame) {
+            Ok(Some(n)) if n == raw_len as u64 => {}
+            Ok(None) => {}
+            Ok(Some(n)) => {
+                return Err(TapeError::Frame(format!(
+                    "frame content size {n}, expected {raw_len}"
+                )))
+            }
+            Err(_) => return Err(TapeError::Frame("unreadable frame header".into())),
+        }
         self.scratch.clear();
-        self.scratch.reserve(raw_len);
+        reserve(&mut self.scratch, raw_len as u64)?;
         let n = self
             .dctx
             .decompress_to_buffer(frame, &mut self.scratch)
@@ -560,10 +574,15 @@ impl Decoder {
         }
         let comp_len = c.u32()? as usize;
         let raw_len = c.u32()? as usize;
+        if raw_len > MAX_META_RAW {
+            return Err(layout(format!("meta frame of {raw_len} bytes")));
+        }
         let frame = c.take(comp_len)?;
         let data_offset = c.at as u64;
         let meta = self.frame(frame, raw_len)?.to_vec();
-        parse_meta(&meta, version, data_offset)
+        let h = parse_meta(&meta, version, data_offset)?;
+        data_section(buf, &h)?;
+        Ok(h)
     }
 
     /// Decodes a whole tape, verifying every frame checksum and the layout.
@@ -585,23 +604,27 @@ impl Decoder {
             dict: h.dict.clone(),
             ..TypedRows::default()
         };
-        t.ingest_seq.reserve(n);
-        t.ts_local_ms.reserve(n);
-        t.ts_exchange_ms.reserve(n);
-        t.flags.reserve(n);
-        t.event_type.reserve(n);
-        t.market.reserve(n);
-        t.asset0.reserve(n);
-        t.asset1.reserve(n);
-        t.asset_index.reserve(n);
+        // The header counts were checked against the block layout by
+        // `parse_meta`; reservations still fail softly (NT-5: a bad tape is
+        // a fallback, never a panic or an abort).
+        let rows = h.rows;
+        reserve(&mut t.ingest_seq, rows)?;
+        reserve(&mut t.ts_local_ms, rows)?;
+        reserve(&mut t.ts_exchange_ms, rows)?;
+        reserve(&mut t.flags, rows)?;
+        reserve(&mut t.event_type, rows)?;
+        reserve(&mut t.market, rows)?;
+        reserve(&mut t.asset0, rows)?;
+        reserve(&mut t.asset1, rows)?;
+        reserve(&mut t.asset_index, rows)?;
         for (d, list) in t.decimals.iter_mut().enumerate() {
-            list.offsets.reserve(n);
-            list.values.reserve(h.list_values[d] as usize);
-            list.inexact.reserve(h.inexact[d] as usize);
+            reserve(&mut list.offsets, rows)?;
+            reserve(&mut list.values, h.list_values[d])?;
+            reserve(&mut list.inexact, h.inexact[d])?;
         }
         for (i, list) in t.ints.iter_mut().enumerate() {
-            list.offsets.reserve(n);
-            list.values.reserve(h.list_values[dec::COUNT + i] as usize);
+            reserve(&mut list.offsets, rows)?;
+            reserve(&mut list.values, h.list_values[dec::COUNT + i])?;
         }
         for b in &h.blocks {
             self.decode_block(data, b, &mut t)?;
@@ -784,6 +807,13 @@ impl Decoder {
     }
 }
 
+/// Reserves room for `n` more values without panicking or aborting.
+pub(crate) fn reserve<T>(v: &mut Vec<T>, n: u64) -> Result<(), TapeError> {
+    let n = usize::try_from(n).map_err(|_| layout(format!("{n} values")))?;
+    v.try_reserve(n)
+        .map_err(|e| layout(format!("cannot reserve {n} values: {e}")))
+}
+
 fn list_len(t: &TypedRows, l: usize) -> usize {
     if l < dec::COUNT {
         t.decimals[l].values.len()
@@ -872,6 +902,96 @@ fn extend_ints<T>(
     Ok(raw.len() / w)
 }
 
+/// Values in one frame: its raw length over a valid width.
+fn frame_values(c: &ColMeta, id: usize) -> Result<u64, TapeError> {
+    let w = u32::from(c.width);
+    if !matches!(w, 1 | 2 | 4 | 8) || c.raw_len % w != 0 {
+        return Err(layout(format!(
+            "column {id}: width {w} for {} bytes",
+            c.raw_len
+        )));
+    }
+    Ok(u64::from(c.raw_len / w))
+}
+
+/// Checks one block's column shapes and adds its list and inexact value
+/// counts to the running totals (checked arithmetic).
+fn check_block(
+    cols: &[ColMeta],
+    rows: u32,
+    block_rows: u32,
+    values: &mut [u64; N_LISTS],
+    inexact: &mut [u64; dec::COUNT],
+) -> Result<(), TapeError> {
+    if rows == 0 || rows > block_rows {
+        return Err(layout(format!(
+            "block of {rows} rows (block size {block_rows})"
+        )));
+    }
+    let mut n = [0u64; col::COUNT];
+    for (id, c) in cols.iter().enumerate() {
+        n[id] = frame_values(c, id)?;
+    }
+    let byte_cols = [
+        col::FLAGS,
+        col::EVENT_TYPE,
+        col::MARKET,
+        col::ASSET0,
+        col::ASSET1,
+    ];
+    if let Some(&id) = byte_cols.iter().find(|&&id| cols[id].width != 1) {
+        return Err(layout(format!(
+            "byte column {id}: width {}",
+            cols[id].width
+        )));
+    }
+    let row_cols = [
+        col::INGEST_SEQ,
+        col::TS_LOCAL,
+        col::TS_EXCHANGE,
+        col::ASSET_INDEX,
+    ]
+    .into_iter()
+    .chain(byte_cols)
+    .chain(col::LIST_LEN..col::LIST_LEN + N_LISTS);
+    for id in row_cols {
+        if n[id] != u64::from(rows) {
+            return Err(layout(format!(
+                "column {id}: {} values for {rows} rows",
+                n[id]
+            )));
+        }
+    }
+    let narrow =
+        std::iter::once(col::ASSET_INDEX).chain(col::INT_VALUES..col::INT_VALUES + int::COUNT);
+    for id in narrow {
+        if cols[id].width > 4 {
+            return Err(layout(format!("column {id}: wider than i32")));
+        }
+    }
+    for (l, total) in values.iter_mut().enumerate() {
+        let id = if l < dec::COUNT {
+            col::DEC_VALUES + l
+        } else {
+            col::INT_VALUES + l - dec::COUNT
+        };
+        *total = total
+            .checked_add(n[id])
+            .ok_or_else(|| layout(format!("list {l}: value count overflows")))?;
+    }
+    for (d, total) in inexact.iter_mut().enumerate() {
+        let k = n[col::INEXACT + d];
+        if k > n[col::DEC_VALUES + d] {
+            return Err(layout(format!(
+                "{}: more inexact than values",
+                dec::NAMES[d]
+            )));
+        }
+        *total += k;
+    }
+    Ok(())
+}
+
 fn parse_meta(m: &[u8], version: u32, data_offset: u64) -> Result<TapeHeader, TapeError> {
     let mut c = Cursor { b: m, at: 0 };
     let v1 = V1Identity {
@@ -907,6 +1027,8 @@ fn parse_meta(m: &[u8], version: u32, data_offset: u64) -> Result<TapeHeader, Ta
     }
     let mut blocks = Vec::with_capacity(n_blocks.min(1 << 16));
     let mut block_total = 0u64;
+    let mut values = [0u64; N_LISTS];
+    let mut inexact_values = [0u64; dec::COUNT];
     for _ in 0..n_blocks {
         let rows = c.u32()?;
         let bases = [c.i64()?, c.i64()?, c.i64()?];
@@ -928,7 +1050,10 @@ fn parse_meta(m: &[u8], version: u32, data_offset: u64) -> Result<TapeHeader, Ta
         {
             return Err(layout(format!("column {i}: scale on a non-decimal column")));
         }
-        block_total += rows as u64;
+        check_block(&cols, rows, block_rows, &mut values, &mut inexact_values)?;
+        block_total = block_total
+            .checked_add(rows as u64)
+            .ok_or_else(|| layout("row count overflows"))?;
         blocks.push(BlockMeta { rows, bases, cols });
     }
     if c.at != m.len() {
@@ -936,6 +1061,13 @@ fn parse_meta(m: &[u8], version: u32, data_offset: u64) -> Result<TapeHeader, Ta
     }
     if block_total != rows {
         return Err(layout("block rows do not add up"));
+    }
+    // Every count a reader sizes buffers from equals what the blocks declare.
+    if values != list_values {
+        return Err(layout("list value counts do not match the blocks"));
+    }
+    if inexact_values != inexact {
+        return Err(layout("inexact counts do not match the blocks"));
     }
     Ok(TapeHeader {
         format_version: version,

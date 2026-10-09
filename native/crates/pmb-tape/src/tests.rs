@@ -948,3 +948,142 @@ fn block_streamed_read_equals_v1_at_every_block_size() {
         assert_eq!(e1, e2);
     }
 }
+
+/// Rewrites the meta frame of a tape and re-compresses it with its checksum
+/// on (prefix fixed up), so only the post-checksum validation can reject it.
+fn tamper_meta(tape: &[u8], f: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
+    let u32_at = |at: usize| u32::from_le_bytes(tape[at..at + 4].try_into().unwrap()) as usize;
+    let (comp_len, raw_len) = (u32_at(12), u32_at(16));
+    let mut meta = zstd::bulk::decompress(&tape[20..20 + comp_len], raw_len).unwrap();
+    f(&mut meta);
+    let mut c = zstd::bulk::Compressor::new(3).unwrap();
+    c.set_parameter(zstd::zstd_safe::CParameter::ChecksumFlag(true))
+        .unwrap();
+    let frame = c.compress(&meta).unwrap();
+    let mut out = tape[..12].to_vec();
+    out.extend((frame.len() as u32).to_le_bytes());
+    out.extend((meta.len() as u32).to_le_bytes());
+    out.extend(&frame);
+    out.extend(&tape[20 + comp_len..]);
+    out
+}
+
+/// Meta offsets (codec.rs `write_meta`).
+const META_ROWS: usize = 88;
+const META_LIST_VALUES: usize = 96;
+const META_INEXACT: usize = 160;
+const META_DICT: usize = 208;
+
+fn put_u64(m: &mut [u8], at: usize, v: u64) {
+    m[at..at + 8].copy_from_slice(&v.to_le_bytes());
+}
+
+fn put_u32(m: &mut [u8], at: usize, v: u32) {
+    m[at..at + 4].copy_from_slice(&v.to_le_bytes());
+}
+
+/// Offset of block `b`'s record in the meta frame.
+fn meta_block(h: &codec::TapeHeader, b: usize) -> usize {
+    let dict: usize = h.dict.iter().map(|e| 4 + e.len()).sum();
+    let block = 4 + 24 + col::COUNT * 18;
+    META_DICT + 4 + dict + 8 + b * block
+}
+
+/// Offset of column `c` of block `b` (offset u64, comp_len u32, raw_len u32, width, scale).
+fn meta_col(h: &codec::TapeHeader, b: usize, c: usize) -> usize {
+    meta_block(h, b) + 4 + 24 + c * 18
+}
+
+#[test]
+fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
+    let (v1, tape, mut dec) = converted("tampered-meta");
+    let good = std::fs::read(&tape).unwrap();
+    let h = dec.header(&good).unwrap();
+    let bids = h.list_values[crate::typed::dec::BID_PRICES];
+    let dv = col::DEC_VALUES + crate::typed::dec::BID_PRICES;
+    type Edit = Box<dyn Fn(&mut Vec<u8>)>;
+    let cases: Vec<(&str, Edit)> = vec![
+        // The reviewed panics: header counts far above the blocks' data.
+        (
+            "list value count 1<<62",
+            Box::new(|m| put_u64(m, META_LIST_VALUES, 1 << 62)),
+        ),
+        (
+            "list value count 1<<60",
+            Box::new(|m| put_u64(m, META_LIST_VALUES, 1 << 60)),
+        ),
+        (
+            "bid + ask counts overflow u64",
+            Box::new(|m| {
+                put_u64(m, META_LIST_VALUES, u64::MAX);
+                put_u64(m, META_LIST_VALUES + 16, u64::MAX);
+            }),
+        ),
+        (
+            "inexact count 1<<62",
+            Box::new(|m| put_u64(m, META_INEXACT, 1 << 62)),
+        ),
+        (
+            "row count 1<<40",
+            Box::new(|m| put_u64(m, META_ROWS, 1 << 40)),
+        ),
+        (
+            "row count u64::MAX",
+            Box::new(|m| put_u64(m, META_ROWS, u64::MAX)),
+        ),
+        // Dictionary length beyond the cap, and one entry short.
+        (
+            "dictionary of 300",
+            Box::new(|m| put_u32(m, META_DICT, 300)),
+        ),
+        (
+            "dictionary one short",
+            Box::new(move |m| {
+                let n = u32::from_le_bytes(m[META_DICT..META_DICT + 4].try_into().unwrap());
+                put_u32(m, META_DICT, n - 1);
+            }),
+        ),
+    ];
+    let h2 = h.clone();
+    let mut cases = cases;
+    cases.push((
+        "block rows u32::MAX",
+        Box::new(move |m| put_u32(m, meta_block(&h2, 0), u32::MAX)),
+    ));
+    let h3 = h.clone();
+    cases.push((
+        "value frame raw length 4 GB, header count to match",
+        Box::new(move |m| {
+            let at = meta_col(&h3, 0, dv) + 12;
+            let width = m[at + 4] as u64;
+            let raw = u32::MAX - (u32::MAX % 8);
+            let old = u32::from_le_bytes(m[at..at + 4].try_into().unwrap()) as u64;
+            put_u32(m, at, raw);
+            let total = bids - old / width + raw as u64 / width;
+            put_u64(m, META_LIST_VALUES, total);
+        }),
+    ));
+    for (what, edit) in &cases {
+        let bad = tamper_meta(&good, edit);
+        std::fs::write(&tape, &bad).unwrap();
+        // Whole-file decode (convert's skip check, `pmb-tape info`).
+        match load_tape(&mut dec, &tape, &v1, None) {
+            Err(Fallback::Invalid(_)) => {}
+            other => panic!(
+                "{what}: expected an invalid tape, got {:?}",
+                other.map(|_| ())
+            ),
+        }
+        // Executor path: block-streamed read falls back to v1.
+        assert_fallback(&v1, &tape, &mut dec, "invalid");
+        // The converter rewrites it instead of panicking.
+        let root = tape.ancestors().nth(4).unwrap().to_path_buf();
+        let out = convert_one(&v1, &tape, &opts(), &mut budget(&root), &mut dec).unwrap();
+        assert!(
+            matches!(out, ConvertOutcome::Written { .. }),
+            "{what}: {out:?}"
+        );
+        let (_, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
+        assert_eq!(path, InputPath::Tape, "{what}");
+    }
+}

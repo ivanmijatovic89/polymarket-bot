@@ -13,6 +13,7 @@ use pmb_core::{
 };
 use pmb_replay::telonex::{RowKind, TelonexDiagnostics, FORMAT_VERSION};
 use pmb_replay::{ErrorClass, InputError, TelonexInput};
+use std::collections::TryReserveError;
 
 /// One kept row (exactly one real tick, I-19).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -148,15 +149,23 @@ impl<'a> Replayer<'a> {
         })
     }
 
-    /// Reserves output for `t` (or, block-wise, for the whole file).
-    pub fn reserve_counts(&mut self, rows: usize, book_levels: usize, changes: usize) {
-        self.s.rows.reserve(rows);
-        self.s.book_levels.reserve(book_levels);
-        self.s.changes.reserve(changes);
+    /// Reserves output for `t` (or, block-wise, for the whole file). Fails
+    /// softly instead of panicking on counts no allocation can hold.
+    pub fn reserve_counts(
+        &mut self,
+        rows: usize,
+        book_levels: usize,
+        changes: usize,
+    ) -> Result<(), TryReserveError> {
+        self.s.rows.try_reserve(rows)?;
+        self.s.book_levels.try_reserve(book_levels)?;
+        self.s.changes.try_reserve(changes)
     }
 
     fn reserve(&mut self, t: &TypedRows) {
-        self.reserve_counts(
+        // Typed rows in memory bound these counts; a failure only means no
+        // pre-reservation (the vectors still grow on demand).
+        let _ = self.reserve_counts(
             t.len(),
             t.decimals[dec::BID_PRICES].values.len() + t.decimals[dec::ASK_PRICES].values.len(),
             t.decimals[dec::CHANGE_PRICES].values.len(),
