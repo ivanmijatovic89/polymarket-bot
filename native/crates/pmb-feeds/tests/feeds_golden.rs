@@ -380,6 +380,7 @@ fn real_market_timelines() {
             model: FeedsModel::DEFAULTS_2026_07_21,
             gamma: GammaStrike::Resolved {
                 price_to_beat: t["priceToBeat"].as_f64(),
+                synced_at_ms: Some(1_790_000_000_000),
             },
             ptb: Some(PtbAvailability {
                 status: PtbStatus::Fed,
@@ -738,6 +739,7 @@ fn loader_error_rows() {
     );
     j.gamma = GammaStrike::Resolved {
         price_to_beat: None,
+        synced_at_ms: Some(1_790_000_000_000),
     };
     j.ptb = Some(PtbAvailability {
         status: PtbStatus::UnavailableUpstreamHole,

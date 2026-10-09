@@ -13,8 +13,12 @@ pub enum GammaStrike {
     NotResolved,
     /// `null`: slug not in the catalog.
     CatalogMiss,
-    /// Object: `priceToBeat` is a finite number or null.
-    Resolved { price_to_beat: Option<f64> },
+    /// Object: `priceToBeat` is a finite number or null; `syncedAtMs` is
+    /// null when the Gamma backfill never ran for the slug (21 §5.1).
+    Resolved {
+        price_to_beat: Option<f64>,
+        synced_at_ms: Option<u64>,
+    },
 }
 
 /// `feedAvailability.priceToBeat.status` (14 §6.2).
@@ -67,11 +71,20 @@ fn inconsistent(slug: &str, what: &str) -> FeedError {
 
 /// Applies the 14 §6.2 table. `availability` is `None` when the job carries
 /// `feedAvailability.priceToBeat: null`.
-// D-PENDING: 14 §6.2 does not define "inconsistent with gammaPriceToBeat";
-// chose: `fed` needs a finite strike; `absent_pre_series_epoch` needs no strike
-// (an unresolved lookup is allowed, as TS checks the epoch first);
-// `absent_fresh_market_grace` and `unavailable_*` need a resolved lookup
-// without a strike (catalog miss or null strike).
+///
+/// A status is consistent with `gammaPriceToBeat` exactly when the producer
+/// finding of its §6.2 row can hold for that strike (the TS decision order,
+/// `wireBacktestExternalFeeds.ts:283-344`):
+///
+/// | status | consistent `gammaPriceToBeat` |
+/// |---|---|
+/// | `fed` | object with a finite `priceToBeat` |
+/// | `absent_pre_series_epoch` | anything without a strike (TS checks the epoch before the lookup) |
+/// | `absent_fresh_market_grace` | `null` (catalog miss) or object without a strike |
+/// | `unavailable_pipeline_incomplete` | "slug not in catalog, or never synced": `null`, or object without a strike and with `syncedAtMs: null` |
+/// | `unavailable_upstream_hole` | "synced, empty strike": object without a strike and with a `syncedAtMs` |
+///
+/// Every other pair is a producer bug: `invalid_input: feed_availability`.
 pub fn resolve_price_to_beat(
     slug: &str,
     window: Window,
@@ -88,17 +101,23 @@ pub fn resolve_price_to_beat(
     let strike = match gamma {
         GammaStrike::Resolved {
             price_to_beat: Some(p),
+            ..
         } => Some(p),
         _ => None,
     };
-    let no_strike_ok = matches!(
-        gamma,
-        GammaStrike::CatalogMiss
-            | GammaStrike::Resolved {
-                price_to_beat: None
-            }
-    );
+    let (catalog_miss, synced_empty, never_synced_empty) = match gamma {
+        GammaStrike::CatalogMiss => (true, false, false),
+        GammaStrike::Resolved {
+            price_to_beat: None,
+            synced_at_ms,
+        } => (false, synced_at_ms.is_some(), synced_at_ms.is_none()),
+        _ => (false, false, false),
+    };
     let message = || av.message.filter(|m| !m.is_empty());
+    let unavailable = |cause: FeedCause| match message() {
+        Some(m) => Err(FeedError::new(cause, m)),
+        None => Err(inconsistent(slug, "unavailable_* without a message")),
+    };
     match av.status {
         PtbStatus::Fed => {
             let Some(p) = strike.filter(|p| p.is_finite()) else {
@@ -117,19 +136,13 @@ pub fn resolve_price_to_beat(
             }))
         }
         PtbStatus::AbsentPreSeriesEpoch if strike.is_none() => Ok(PtbResolution::Absent(av.status)),
-        PtbStatus::AbsentFreshMarketGrace if no_strike_ok => Ok(PtbResolution::Absent(av.status)),
-        PtbStatus::UnavailablePipelineIncomplete if no_strike_ok => {
-            let Some(m) = message() else {
-                return Err(inconsistent(slug, "unavailable_* without a message"));
-            };
-            Err(FeedError::new(FeedCause::PipelineIncomplete, m))
+        PtbStatus::AbsentFreshMarketGrace if catalog_miss || synced_empty || never_synced_empty => {
+            Ok(PtbResolution::Absent(av.status))
         }
-        PtbStatus::UnavailableUpstreamHole if no_strike_ok => {
-            let Some(m) = message() else {
-                return Err(inconsistent(slug, "unavailable_* without a message"));
-            };
-            Err(FeedError::new(FeedCause::UpstreamHole, m))
+        PtbStatus::UnavailablePipelineIncomplete if catalog_miss || never_synced_empty => {
+            unavailable(FeedCause::PipelineIncomplete)
         }
+        PtbStatus::UnavailableUpstreamHole if synced_empty => unavailable(FeedCause::UpstreamHole),
         s => Err(inconsistent(
             slug,
             &format!("status {s:?} is inconsistent with gammaPriceToBeat {gamma:?}"),
@@ -155,14 +168,23 @@ mod tests {
         Some(PtbAvailability { status, message })
     }
 
-    // spec: 14 §6.2 table (every row), F-28 (availability at start + L_p)
+    // spec: 14 §6.2 table (every row and the inconsistent pairs), F-28
+    // (availability at start + L_p)
     #[test]
     fn availability_table() {
         let fed = GammaStrike::Resolved {
             price_to_beat: Some(117_234.51),
+            synced_at_ms: Some(1),
         };
+        // Synced, empty strike (Polymarket-side hole).
         let none = GammaStrike::Resolved {
             price_to_beat: None,
+            synced_at_ms: Some(1_780_280_000_000),
+        };
+        // Catalogued but the Gamma backfill never ran.
+        let unsynced = GammaStrike::Resolved {
+            price_to_beat: None,
+            synced_at_ms: None,
         };
         let s = "btc-updown-15m-1789570800";
         match resolve_price_to_beat(s, win(), 2_700, fed, av(PtbStatus::Fed, None)).unwrap() {
@@ -217,6 +239,35 @@ mod tests {
             s,
             win(),
             0,
+            unsynced,
+            av(
+                PtbStatus::UnavailablePipelineIncomplete,
+                Some("run telonex:sync-pricetobeat-and-final-price"),
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(e.cause, FeedCause::PipelineIncomplete);
+        for g in [GammaStrike::CatalogMiss, unsynced] {
+            let r =
+                resolve_price_to_beat(s, win(), 0, g, av(PtbStatus::AbsentFreshMarketGrace, None));
+            assert!(r.is_ok(), "{g:?}");
+        }
+        // A strike fed without a sync stamp is still fed (TS feeds any strike).
+        let r = resolve_price_to_beat(
+            s,
+            win(),
+            0,
+            GammaStrike::Resolved {
+                price_to_beat: Some(1.5),
+                synced_at_ms: None,
+            },
+            av(PtbStatus::Fed, None),
+        );
+        assert!(matches!(r, Ok(PtbResolution::Fed(_))));
+        let e = resolve_price_to_beat(
+            s,
+            win(),
+            0,
             none,
             av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
         )
@@ -234,10 +285,41 @@ mod tests {
                 av(PtbStatus::AbsentFreshMarketGrace, None),
             ),
             (none, av(PtbStatus::UnavailableUpstreamHole, None)),
-            (none, av(PtbStatus::UnavailablePipelineIncomplete, Some(""))),
+            (
+                unsynced,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("")),
+            ),
+            // Catalog miss or never synced is pipeline_incomplete, never an
+            // upstream hole; a synced empty strike is never pipeline_incomplete.
+            (
+                GammaStrike::CatalogMiss,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (
+                unsynced,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (
+                none,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
+            (
+                GammaStrike::NotResolved,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
+            (
+                GammaStrike::NotResolved,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (fed, av(PtbStatus::UnavailableUpstreamHole, Some("hole"))),
+            (
+                fed,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
             (
                 GammaStrike::Resolved {
                     price_to_beat: Some(f64::NAN),
+                    synced_at_ms: Some(1),
                 },
                 av(PtbStatus::Fed, None),
             ),
