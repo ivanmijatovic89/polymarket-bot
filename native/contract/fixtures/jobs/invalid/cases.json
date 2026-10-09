@@ -527,7 +527,19 @@
         "class": "invalid_input",
         "cause": "model_config"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "calibrationId with a path separator",
+      "rule": "21 §6.1 strings, §6.3 (D-PENDING id pattern)",
+      "set": {
+        "/run/modelConfig/feeds/calibrationId": "../x"
+      },
+      "expect": {
+        "class": "invalid_input",
+        "cause": "model_config"
+      },
+      "jsonSchema": "reject"
     },
     {
       "name": "empirical with 100 quantiles",

@@ -208,6 +208,7 @@ impl Distribution {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LatencyCalibration {
+    #[schemars(regex(pattern = CALIBRATION_ID_PATTERN))]
     pub calibration_id: String,
     pub components: LatencyComponents,
 }
@@ -255,6 +256,7 @@ pub struct ClockConfig {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketDataClock {
+    #[schemars(regex(pattern = CALIBRATION_ID_PATTERN))]
     pub calibration_id: String,
     pub delay: Distribution,
 }
@@ -263,6 +265,7 @@ pub struct MarketDataClock {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FeedsConfig {
+    #[schemars(regex(pattern = CALIBRATION_ID_PATTERN))]
     pub calibration_id: String,
     pub binance: FeedLatency,
     pub chainlink: ChainlinkFeed,
@@ -323,6 +326,13 @@ pub fn is_rules_table_version(s: &str) -> bool {
             && n.bytes().all(|b| b.is_ascii_digit())
     })
 }
+
+/// Pattern of a calibration id (`feeds-2026-07-21`, `uncalibrated-2026-10`,
+/// `custom`; 21 §6.3, 14 F-57).
+// D-PENDING: 14 §9 only says "non-empty"; chose 1..64 characters of
+// [A-Za-z0-9._-], which every named id satisfies and which is safe as a
+// calibration file name (21 §6.3 `calibrations/<kind>/<id>.json`).
+pub const CALIBRATION_ID_PATTERN: &str = r"^[A-Za-z0-9._-]{1,64}$";
 
 fn is_calibration_id(s: &str) -> bool {
     !s.is_empty()
