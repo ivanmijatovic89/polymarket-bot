@@ -188,17 +188,22 @@ export function rustRunArgs(jobFile: string, traceFile: string, level: string): 
  * real-orders and contract checks of 20 §1/§3 run first, in
  * `describeNative`.
  */
-// D-PENDING: 60 §5.7 says run-parity refuses an exerciser schedule version mismatch, but `describe` (20 §5.1) has no field for it; chose to compare id, params and requiredFeeds and to record only the TS version until the Rust side exposes one.
 export function checkDescribe(
   doc: unknown,
   cell: ParityCell,
-  ts: { params: Record<string, unknown>; requiredFeeds: unknown },
+  ts: {
+    params: Record<string, unknown>
+    requiredFeeds: unknown
+    /** The TS twin's EXERCISER_SCHEDULE_VERSION when the cell runs an exerciser (60 §5.7). */
+    scheduleVersion?: number | null
+  },
 ): string[] {
   const d = doc as {
     type?: unknown
     capabilities?: { traceFormat?: unknown; profiles?: unknown; inputModes?: unknown }
     strategy?: {
       id?: unknown
+      scheduleVersion?: unknown
       results?: Array<{ ok?: unknown; params?: unknown; requiredFeeds?: unknown }>
     }
   } | null
@@ -216,6 +221,17 @@ export function checkDescribe(
     problems.push(`input mode ${cell.inputMode} not in ${JSON.stringify(modes)}`)
   if (d.strategy?.id !== cell.rustStrategyId)
     problems.push(`strategy id ${JSON.stringify(d.strategy?.id)} != ${cell.rustStrategyId}`)
+  // 60 §5.7: run-parity refuses a schedule mismatch between the twins.
+  const rustSchedule = describedScheduleVersion(doc)
+  if (
+    ts.scheduleVersion !== undefined &&
+    ts.scheduleVersion !== null &&
+    rustSchedule !== null &&
+    rustSchedule !== ts.scheduleVersion
+  )
+    problems.push(
+      `exerciser schedule version ${rustSchedule} != TS EXERCISER_SCHEDULE_VERSION ${ts.scheduleVersion} (60 §5.7)`,
+    )
   const r = d.strategy?.results?.[0]
   if (!r || r.ok !== true) problems.push(`params rejected: ${JSON.stringify(r ?? null)}`)
   else {
@@ -231,6 +247,16 @@ export function checkDescribe(
       )
   }
   return problems
+}
+
+/**
+ * The Rust twin's exerciser schedule version from `describe`, or null when
+ * the binary does not expose one (60 §5.7).
+ */
+// D-PENDING: 60 §5.7 requires refusing a twin schedule mismatch but 20 §5.1 names no describe field for it; chose `strategy.scheduleVersion` (an integer), and a binary without it makes the run non-gating instead of refused.
+export function describedScheduleVersion(doc: unknown): number | null {
+  const v = (doc as { strategy?: { scheduleVersion?: unknown } } | null)?.strategy?.scheduleVersion
+  return typeof v === 'number' && Number.isSafeInteger(v) ? v : null
 }
 
 /** `<bin> describe --params '<json>'` arguments (20 §5.1). */

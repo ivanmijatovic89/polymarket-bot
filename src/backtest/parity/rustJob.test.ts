@@ -11,6 +11,7 @@ import {
   assertEngineJobStrategy,
   checkDescribe,
   describeArgs,
+  describedScheduleVersion,
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
@@ -150,6 +151,26 @@ describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
       checkDescribe({ type: 'error' }, cell, { params, requiredFeeds: feeds }).length,
       1,
     )
+    // 60 §5.7: the twins' exerciser schedule versions must match when both are known.
+    const withSchedule = (v: unknown) => {
+      const d = describeDoc()
+      return { ...d, strategy: { ...d.strategy, scheduleVersion: v } }
+    }
+    assert.deepEqual(
+      checkDescribe(withSchedule(2), cell, { params, requiredFeeds: feeds, scheduleVersion: 2 }),
+      [],
+    )
+    assert.match(
+      checkDescribe(withSchedule(1), cell, {
+        params,
+        requiredFeeds: feeds,
+        scheduleVersion: 2,
+      }).join(),
+      /schedule version 1 != TS EXERCISER_SCHEDULE_VERSION 2/,
+    )
+    assert.equal(describedScheduleVersion(withSchedule(2)), 2)
+    assert.equal(describedScheduleVersion(describeDoc()), null)
+    assert.equal(describedScheduleVersion(withSchedule('2')), null)
   })
 
   it('the EngineJob builder is src/native buildEngineJob; an override must export buildEngineJob', async () => {

@@ -69,6 +69,7 @@ import {
 import {
   assertEngineJobStrategy,
   checkDescribe,
+  describedScheduleVersion,
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
@@ -426,12 +427,18 @@ async function main(): Promise<number> {
     const problems = checkDescribe(doc, cell, {
       params: built.params as Record<string, unknown>,
       requiredFeeds: feeds,
+      scheduleVersion: schedule,
     })
     if (problems.length > 0)
       throw new Error(
         `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
       )
     rustBinary = doc.binary
+    // 60 §5.7: a twin schedule that cannot be compared is not gate evidence.
+    if (schedule !== null && describedScheduleVersion(doc) === null)
+      nonGating.push(
+        'the Rust twin does not expose its exerciser schedule version (60 §5.7, describe strategy.scheduleVersion)',
+      )
     rustGate = parityGate(doc, { path: rustBin, sha256: rustSha! }, !tree.workingTreeClean)
     // VP-7: gate evidence comes from the canonical `artifact` binary.
     if (doc.binary.buildProfile !== 'artifact')
