@@ -147,6 +147,24 @@ pub fn contract_sha256(files: &[(&str, Value)]) -> Result<Sha256Hex, CanonicalEr
     Ok(Sha256Hex::from_digest(&digest))
 }
 
+/// The `schema` subcommand document (20 §5.2):
+/// `{type: "schema", contractSha256, schemas: {<stem>: <schema>}}` over the
+/// compiled bundle. Stems the bundle does not hold yet (liveConfig,
+/// traceRecord, ledgerRecord, params) are absent until their owners land.
+pub fn schema_document() -> Result<Value, CanonicalError> {
+    let files = bundle();
+    let sha = contract_sha256(&files)?;
+    let mut schemas = Map::new();
+    for (stem, schema) in files {
+        schemas.insert(stem.to_owned(), schema);
+    }
+    let mut out = Map::new();
+    out.insert("type".into(), Value::String("schema".into()));
+    out.insert("contractSha256".into(), Value::String(sha.to_string()));
+    out.insert("schemas".into(), Value::Object(schemas));
+    Ok(Value::Object(out))
+}
+
 /// The hash fixture: `contractSha256` of [`bundle`] and the
 /// `modelConfigSha256` of every committed default config, by file name.
 pub fn hashes(contract_dir: &Path) -> Result<Value, String> {

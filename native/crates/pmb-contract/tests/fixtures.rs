@@ -208,6 +208,11 @@ fn ts_compat_default_model_config_and_sha() {
     assert_ne!(job.run.model_config.sha256().unwrap(), mc.sha256().unwrap());
 }
 
+// D-PENDING: 21 §6.3 lists `0` / `20` as the built-in compatLatency default
+// (the TS env default of BACKTEST_LATENCY_JITTER), while 13 §7.4, which owns
+// the defaults file's execution content, puts compatLatency 0/0 in it; chose
+// 0/0 for the committed default config and its pinned hash (jitter applies
+// only when delay > 0, 13 §5.1, so both resolve to the same behavior).
 /// 21 §6.3: the defaults file holds one complete ModelConfig per profile
 /// without `seed`; with the default seed 0 (10 RNG-1) each one is the
 /// committed `<profile>-default.json` that CI item 6 pins (D57: ts-compat
@@ -254,6 +259,83 @@ fn committed_schema_bundle_is_current() {
 
 const TS_COMPAT_DEFAULT_SHA256: &str =
     "bbfed555689b864250b628498d5679e74b3e7fcbba7f775b206ff7669413af7e";
+
+/// 21 §19 Rust egress against the job (the §12 facts): a result built for
+/// the job passes; each echoed fact that differs fails `self_check`.
+#[test]
+fn result_validates_against_its_job() {
+    // spec: 21 §19 (Rust egress), §12, §11 finalOutcome
+    let job = EngineJob::parse(&read(
+        &contract_dir().join("fixtures/jobs/valid/telonex-delta-ts-compat.json"),
+    ))
+    .unwrap();
+    let base: EngineResult = serde_json::from_str(&read(
+        &contract_dir().join("fixtures/results/valid/ok-ts-compat.json"),
+    ))
+    .unwrap();
+    let sha = job.run.model_config.sha256().unwrap();
+    let matching = |mutate: &dyn Fn(&mut EngineResult)| {
+        let mut r = base.clone();
+        r.candidates.truncate(1);
+        r.candidates[0].key = job.run.candidates[0].key.clone();
+        r.candidates[0].model_config_sha256 = sha.clone();
+        let echo = r.echo.as_mut().unwrap();
+        echo.model_config_sha256 = sha.clone();
+        mutate(&mut r);
+        r.result_digest = r.compute_digest().unwrap();
+        r.validate_against(&job)
+    };
+    matching(&|_| {}).unwrap();
+    type Mutation<'a> = (&'a str, &'a dyn Fn(&mut EngineResult));
+    let mutations: [Mutation; 4] = [
+        ("seed", &|r| {
+            r.echo.as_mut().unwrap().seed = pmb_contract::SafeU64::new(1).unwrap()
+        }),
+        ("strategyId", &|r| {
+            r.echo.as_mut().unwrap().strategy_id = "other".into()
+        }),
+        ("candidate key", &|r| r.candidates[0].key = "other".into()),
+        ("finalOutcome", &|r| {
+            let o = r.candidates[0].output.as_mut().unwrap();
+            o.market_stats.as_mut().unwrap().final_outcome = pmb_contract::vocab::Outcome::Down;
+        }),
+    ];
+    for (name, mutate) in mutations {
+        let e = matching(mutate).expect_err(name);
+        assert_eq!(
+            (e.class.as_str(), e.cause),
+            ("invalid_output", "self_check"),
+            "{name}"
+        );
+    }
+}
+
+/// 20 §5.2: the `schema` document holds the bundle and its contractSha256.
+#[test]
+fn schema_subcommand_document() {
+    // spec: 20 §5.2, 21 §3
+    let doc = pmb_contract::schema::schema_document().unwrap();
+    assert_eq!(doc["type"], "schema");
+    let hashes: Value =
+        serde_json::from_str(&read(&contract_dir().join("fixtures/hashes.json"))).unwrap();
+    assert_eq!(doc["contractSha256"], hashes["contractSha256"]);
+    let stems: Vec<&str> = doc["schemas"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        stems,
+        [
+            "engineJob",
+            "engineResult",
+            "modelConfig",
+            "serveIn",
+            "serveOut"
+        ]
+    );
+}
 
 /// 20 §6.2 serve messages: `in` lines parse and reserialize unchanged,
 /// `invalidIn` lines are fatal `invalid_input: schema` errors.

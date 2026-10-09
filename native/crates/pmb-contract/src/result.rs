@@ -779,6 +779,73 @@ impl EngineResult {
     }
 }
 
+impl EngineResult {
+    /// Egress self-check against the job that produced the result (21 §19
+    /// Rust egress; the same facts the shim asserts in §12): the echo
+    /// equals the request, `market.slug` and every `finalOutcome` equal the
+    /// job's, and the candidates match the request's keys, indices and
+    /// effective ModelConfig hashes, in order. A mismatch is an engine bug:
+    /// `invalid_output: self_check`.
+    pub fn validate_against(&self, job: &crate::job::EngineJob) -> Result<(), ContractError> {
+        self.validate()?;
+        let mc = &job.run.model_config;
+        let (Some(echo), Some(market)) = (&self.echo, &self.market) else {
+            return Ok(()); // group-level error before the job was read (§10)
+        };
+        let sha = mc.sha256().map_err(|e| bad("echo.modelConfigSha256", e))?;
+        let checks = [
+            ("echo.profile", echo.profile == mc.profile),
+            ("echo.seed", echo.seed == mc.seed),
+            (
+                "echo.rulesTableVersion",
+                echo.rules_table_version == mc.rules.rules_table_version,
+            ),
+            (
+                "echo.snapshotParserVersion",
+                echo.snapshot_parser_version == job.market.rules.snapshot_parser_version,
+            ),
+            ("echo.modelConfigSha256", echo.model_config_sha256 == sha),
+            ("echo.strategyId", echo.strategy_id == job.run.strategy_id),
+            (
+                "echo.jobSchemaVersion",
+                echo.job_schema_version == crate::job::JOB_SCHEMA_VERSION,
+            ),
+            ("market.slug", market.slug == job.market.slug),
+        ];
+        for (field, ok) in checks {
+            if !ok {
+                return Err(bad(field, "differs from the job"));
+            }
+        }
+        if self.status == ResultStatus::Error && self.candidates.is_empty() {
+            return Ok(());
+        }
+        if self.candidates.len() != job.run.candidates.len() {
+            return Err(bad("candidates", "count differs from the job"));
+        }
+        for (got, want) in self.candidates.iter().zip(&job.run.candidates) {
+            let eff = mc
+                .effective(want.execution.as_ref())
+                .sha256()
+                .map_err(|e| bad("candidates[].modelConfigSha256", e))?;
+            if got.key != want.key || got.index != want.index || got.model_config_sha256 != eff {
+                return Err(bad(
+                    "candidates[]",
+                    format!("{:?} does not match the job's candidate", got.key),
+                ));
+            }
+            let stats = got.output.as_ref().and_then(|o| o.market_stats.as_ref());
+            if stats.is_some_and(|s| s.final_outcome != job.market.outcome) {
+                return Err(bad(
+                    "marketStats.finalOutcome",
+                    "differs from market.outcome",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Echo {
     fn validate(&self) -> Result<(), ContractError> {
         let semver_ok = {
