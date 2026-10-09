@@ -359,25 +359,26 @@ kept.
 
 All cells run the ts-compat profile with TS default values in `ModelConfig`
 (the OR-7 table, starting capital 500 except in the L15 cells (§6.3), risk
-defaults of `src/trading/riskLimits.ts:24`). Delay `D` = 140 ms, the
-documented suggestion and the protocol default (research/early-audits.md:40);
-jitter is always 0. The Rust side of every cell is the canonical `artifact`
+defaults of `src/trading/riskLimits.ts:24`). Delay is 0 in every cell: D71 dropped
+the delay-`D` cells (`D` = 140 ms, the documented suggestion and the protocol
+default, research/early-audits.md:40, stays defined for reference); jitter is
+always 0. The Rust side of every cell is the canonical `artifact`
 binary (VP-7).
 
 | Cell | Strategy | Market set | Delay | Trace level | Milestone |
 |---|---|---|---|---|---|
 | T15-on, T15-off | Feed exerciser, `trade: false`, `tickOnUpdate` on / off | S15-CL | 0 | `feeds` | M1 step 6 checkpoint |
-| E15-0, E15-D | Engine exerciser v2 | S15 | 0, D | `decisions` | M2 (gating) |
-| E5-0, E5-D | Engine exerciser v2 | S5 | 0, D | `decisions` | M2, non-gating (D38) |
+| E15-0 | Engine exerciser v2 | S15 | 0 | `decisions` | M2 (gating); E15-D dropped (D71) |
+| E5-0 | Engine exerciser v2 | S5 | 0 | `decisions` | M2, non-gating (D38); E5-D dropped (D71) |
 | F15-on, F15-off | Feed exerciser, `trade: true`, `tickOnUpdate` on / off | S15-CL | 0 | `feeds` | M2 (gating) |
 | F15-TA | Feed exerciser with TA | 50 markets of S15-CL | 0 | `feeds` | M2 (gating) |
-| L15-0, L15-D | lagsnipe.v15 | SL | 0, D | `feeds` | M2 (gating) |
+| L15-0 | lagsnipe.v15 | SL | 0 | `feeds` | M2 (gating); L15-D dropped (D71) |
 | V4-E | Engine exerciser v2 | ≥ 50 worker-2 Recorder V4 packages, BTC 5m and 15m | 0 | `decisions` | M7, after G2 (15 §5.6) |
 
-**BTC 5m (D38).** Gate 2 covers BTC 15m only. E5-0 and E5-D need S5
+**BTC 5m (D38).** Gate 2 covers BTC 15m only. E5-0 needs S5
 (≥ 200 BTC 5m markets), but the Telonex subscription has expired and R2 held
 no eligible 5m market on 2026-10-09 (01 M2 step 1). S5 is therefore the BTC
-5m markets present locally on worker-1 (possibly none); E5-0 and E5-D run on
+5m markets present locally on worker-1 (possibly none); E5-0 runs on
 it non-gating, and the G2 verdict table says so. The full E5 cells run after
 a Telonex renewal and their result is appended to the G2 evidence; BTC 5m
 ts-compat parity is shown on Recorder V4 in M7 (V4-E).
@@ -557,7 +558,7 @@ says where to look. Realistic expectations come from the cited clause.
 | split 100000 | `split_failed` with the funding error (`OrderManager.ts:372-383`) | `SplitFailed(InsufficientCollateral)` (RF12) |
 | merge 100000 | clamped to held pairs minus pending merges (12 §7.3) | 12 §7.3 |
 | x13 | `insufficient_capital(required=…,available=…)` (12 §7.5) | same code |
-| cancel x6, x-never | no event (TC-C5, TC-C10) | 12 §7.3, 13 §6.6 (RF14) |
+| cancel x6, x-never | `CancelFailed` as in realistic (TC-C5 and TC-C10 are not reproduced since D71; the TS "no event" is classified) | 12 §7.3, 13 §6.6 (RF14) |
 | x16b | `order_rejected invalid_size`, no `order_submitted`; x16a proceeds | same |
 | x14 | naked sell fills (TC-C4) | `InsufficientInventory` (RF14) |
 | x15 | `gtd_expireAtMs_too_soon(min_offset_ms=60000)` (TC-C1) | lead rule (11 §8 GT2; RF03) |
@@ -712,7 +713,7 @@ from §6.1:
   inherited from the selected run's `cmd` (`inheritedStartingCapital`,
   `src/cli/helpers/capitalArgs.ts:26-34`, as the WIP harness already does,
   `src/cli/parity/common.ts:50-55`). This overrides the default 500 of §4.1
-  for L15-0 and L15-D. The cell file `native/parity/cells/L15-*.json` records
+  for L15-0 (L15-D was dropped by D71). The cell file `native/parity/cells/L15-*.json` records
   the run id and the allowance, and `ModelConfig.capital.startingCapitalUsdc`
   carries it to both sides. Latency is the cell's (0 or D), never inherited.
 - Set SL: per §4.2, from 2026-04-02 (lagsnipe declares Chainlink, which is a

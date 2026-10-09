@@ -25,7 +25,7 @@ A one-page summary in plain language. It is not normative: where it differs from
 
 1. Plan frozen tonight (gate 1, decided by the lead for you). 2. Rules-saving script on main. 3. Engine and backtests on worker-1. 4. Copy-mode proof on 200+ BTC 15m markets (gate 2), then merge to main. 5. Database, speed work, realistic mode, candidate groups (many parameter sets in one pass), final speed test. 6. Fleet: worker-1, worker-2 and milan-m1 (if available); the MacBook only sends jobs. 7. AI protocols start writing Rust strategies, so the whole fleet gets faster. In parallel: 8. worker-2's recordings and paper trading (live data, no money). The real-order connection (gate 4) and your ~$100 calibration (gate 3) are a separate later goal (D70, decided by you on 2026-10-09); this goal places no real orders.
 
-**Copy mode** reproduces the old engine to prove the new one is right. **Realistic mode** follows today's exchange rules and is checked against real trading. BTC 5m copy-mode checks on Telonex data wait until you renew Telonex; 5m is checked on worker-2's recordings meanwhile.
+**Copy mode** reproduces the old engine to prove the new one is right. It is checked without simulated latency, and the old engine's risk-check and cancel bugs are not copied (D71). **Realistic mode** follows today's exchange rules and is checked against real trading. BTC 5m copy-mode checks on Telonex data wait until you renew Telonex; 5m is checked on worker-2's recordings meanwhile.
 
 ## Gates (work stops until you approve)
 

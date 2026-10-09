@@ -353,18 +353,22 @@ delivered Up, delivered Down)` → `PositionsMerged{actual}`, nothing when
 Every ts-compat rule that differs from realistic. "Realistic" is the rule of the
 realistic composition; "Fix" is the realistic fix of §7.1 whose report covers it.
 
+**D71.** Rows marked *Not reproduced (D71)* follow the realistic rule in every
+profile and are classified in PARITY.md (§5.4). Parity verifies delay 0 only
+(§5.5).
+
 | ID | ts-compat rule | Realistic rule | TS evidence | Spec | Fix |
 |---|---|---|---|---|---|
 | TC-C1 | Validation: size > 0, price > 0, post-only only GTC/GTD, GTD `expire_at ≥ stamp + 60 s`; no tick, bounds, minimum or precision checks (11 §4) | `ExchangeRules` validation at decision and at arrival | `OrderManager.ts:189, 756-780` | 12 §7.4 | RF02 |
-| TC-C2 | TS risk pass and ordering: whole list first, delivered-submission view, counters include later-deduped intents, invalid sizes uncounted, risk rejections emitted first, rejections for active cids dropped; dedupe after risk | Per intent in order: guards → dedupe → validation → risk on the full ledger → funding (12 §7.2, §8.1) | `OrderManager.ts:143-223`; `riskLimits.ts:47-219` | 12 §7.2, §8.2 | RF14 |
-| TC-C3 | Loss stop blocks every placement incl. SELL exits | Blocks BUYs and splits only | `riskLimits.ts:84-86, 165-170` | 12 §8 | RF14 |
+| TC-C2 | *Not reproduced (D71).* TS risk pass and ordering: whole list first, delivered-submission view, counters include later-deduped intents, invalid sizes uncounted, risk rejections emitted first, rejections for active cids dropped; dedupe after risk | Per intent in order: guards → dedupe → validation → risk on the full ledger → funding (12 §7.2, §8.1) | `OrderManager.ts:143-223`; `riskLimits.ts:47-219` | 12 §7.2, §8.2 | RF14 |
+| TC-C3 | *Not reproduced (D71).* Loss stop blocks every placement incl. SELL exits | Blocks BUYs and splits only | `riskLimits.ts:84-86, 165-170` | 12 §8 | RF14 |
 | TC-C4 | No SELL inventory check; naked sells fill; quantity clamped at 0, `oversold_qty` counted | `sellable` check and share reservation | `capital.ts:30-40`; `Portfolio.ts:924-976` | 12 §7.5, §9.5 | RF14 |
-| TC-C5 | `CancelOrder` skips OM resolution, bound to the decision-time key | Resolved like `CancelBatch` | `OrderManager.ts:538-562`; `BacktestExecution.ts:680-682` | 12 §7.3 | RF14 |
-| TC-C6 | `CancelBatch` of an unacknowledged order → `CancelFailed(MissingExchangeOrderId)` | Deferred until the ack is delivered | `cancellation.ts:114-118` | 12 §7.3 | RF14 |
+| TC-C5 | *Not reproduced (D71).* `CancelOrder` skips OM resolution, bound to the decision-time key | Resolved like `CancelBatch` | `OrderManager.ts:538-562`; `BacktestExecution.ts:680-682` | 12 §7.3 | RF14 |
+| TC-C6 | *Not reproduced (D71).* `CancelBatch` of an unacknowledged order → `CancelFailed(MissingExchangeOrderId)` | Deferred until the ack is delivered | `cancellation.ts:114-118` | 12 §7.3 | RF14 |
 | TC-C7 | `MergePositions` with size ≤ 0 → no event | `MergeFailed(InvalidSize)` | `OrderManager.ts:411` | 12 §7.3 | RF14 |
 | TC-C8 | Callback intents stamped with the last tick ts | Stamped with `now` | `StrategyRunner.ts:679` | 12 §4.2 | RF15 |
 | TC-C9 | Window gate per TS input mode; out-of-window = books only | D23 on the receive clock | `runSingleMarket.ts:306-315` | 12 §5.4 | RF13 |
-| TC-C10 | A cancel whose target is unknown or terminal at execution: no event | `CancelFailed(ExchangeNotCanceled)` | `BacktestExecution.ts:656-659` vs `LiveExecution.ts:415-430` | §6.6 | RF14 |
+| TC-C10 | *Not reproduced (D71).* A cancel whose target is unknown or terminal at execution: no event | `CancelFailed(ExchangeNotCanceled)` | `BacktestExecution.ts:656-659` vs `LiveExecution.ts:415-430` | §6.6 | RF14 |
 | TC-C11 | TS clocks: `tick.ts` = TS tick timestamp incl. synthetic clamp; Telonex loop clock `E`, feed clock `max(L, E)`; no `md`; `xnow` = decision stamp | Receive clock: synthesized `R` on Telonex, feed clock = `now`, `tick.ts` = `now`, `xnow = now − skew` | `src/market/syntheticTick.ts:61`; `wireBacktestExternalFeeds.ts:46-64` | 12 §4 | RF15 |
 | TC-C12 | No batch cap; cancel-id cap 3000 | Batch cap 15, cancel-id cap 1000 (11 §9) | `cancellation.ts:69`; `LiveExecution.ts:166-178` (live only) | 12 §7.3 | RF02 |
 | TC-C13 | No action at market end; undue actions discarded at end of stream | Window-end cancel at client `end`, exchange-side market close; scheduler drained | `runSingleMarket.ts:491-590` (stats from final positions; nothing cancels resting orders or runs pending actions) | 12 §5.1, §5.4; §6.6 | RF13 |
@@ -405,11 +409,16 @@ not coded separately. The exerciser's crossing order `x5` (60) covers it.
 | `ws_order_update(CANCELED)` callback after a FOK kill (`BacktestExecution.ts:553-569`) | No `SettlementStatus` for it (10 §9.2); it changes no rank | Intents returned from that callback in TS would be a mismatch, classified |
 | Unbound delayed `cancel_order` resolving by cid at execution, which can hit a newer generation (`BacktestExecution.ts:652-654, 681-682`) | TS bug (the bound case is already guarded in `cancellation.test.ts`) | Classified if hit |
 | Technical-indicator wall-clock wait (`StrategyRunner.ts:404-434`) | R7 | 14 §12.5 |
+| TS risk pass and ordering (TC-C2) | D71: TS structure, not a model (R4) | Rejection order and counters differ on lists that hit a risk limit or a duplicate cid; standing entry or oracle patch (60 §3, PM-3) |
+| Loss stop blocks SELL exits (TC-C3) | D71: TS bug | Exits after a loss stop differ; classified |
+| Decision-time cancel binding (TC-C5) | D71: TS structure | Cancels of a re-placed cid may target a different generation; classified |
+| `CancelFailed(MissingExchangeOrderId)` for unacknowledged orders (TC-C6) | D71: moot at delay 0 | None at delay 0 |
+| Silent no-event cancel of an unknown or terminal target (TC-C10) | D71: TS bug | Rust emits `CancelFailed`; the extra event is classified |
 
 ### 5.5 Parity-run constraints
 
-- Jitter 0; delays per the M2 matrix (0 and one fixed non-zero value, 01 §6),
-  applied as an override of `compatLatency.delayMs` on the pinned ts-compat default
+- Jitter 0; delay 0 in every cell (D71; the delay-D cells were dropped). A
+  ts-compat run with `compatLatency.delayMs > 0` carries no parity evidence
   (§7.4).
 - Identical, pinned `ModelConfig` on both sides, including feed latencies, PTB
   latency, Chainlink gap and resolved feed availability (21, 60).

@@ -430,7 +430,8 @@ Steps:
    local data is replaced per MS-5, and the goal session never downloads
    into the fleet copy (§8.1 H2). **BTC 5m (D38):** the Telonex subscription
    has expired and R2 held 0 eligible 5m markets on 2026-10-09, so S5 is the
-   few local 5m files and E5-0/E5-D run non-gating (60 §4.1). The full E5
+   few local 5m files and E5-0 runs non-gating (60 §4.1; E5-D was dropped by
+   D71). The full E5
    cells run after a Telonex renewal and are appended to the G2 evidence;
    BTC 5m ts-compat parity is also shown on V4 in M7. The agent never runs
    the production data pipeline.
@@ -447,8 +448,9 @@ Steps:
 Deliverables also include the parity tooling tolerance updated to R5 (the
 WIP default is 1e-6, `src/backtest/parity/diff.ts:15`; 60 HR-5).
 
-Proof: one run per M2 cell of 60 §4.1. Gating: E15-0, E15-D, F15-on, F15-off,
-F15-TA, L15-0, L15-D (delay D = 140 ms, jitter 0); non-gating: E5-0, E5-D.
+Proof: one run per M2 cell of 60 §4.1. Gating: E15-0, F15-on, F15-off,
+F15-TA, L15-0 (delay 0, jitter 0; the delay-D cells were dropped by D71);
+non-gating: E5-0.
 Outputs outside the repository:
 
 ```bash

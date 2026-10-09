@@ -4,7 +4,7 @@
 
 - Host / clone: worker-1 /Users/worker-1/Sites/polymarket-bot-native
 - Branch: native-engine (pushed; draft PR https://github.com/ivanmijatovic89/polymarket-bot/pull/309 "DO NOT MERGE before gate 2: Rust trading engine")
-- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D70)
+- Spec: native-spec-g1 @ 4966db5e1b79643cfc3f1237af69e7f17de447cc (+ D entries since: D57–D71)
 - Milestone / step: M1 / wave 1 merged (steps 2–4 largely, 5–7 partly); wave 2 = runtime↔engine wiring, feeds/plugins wiring, SDK facade + strategies, TS integration
 - Oracle pin: main@ad2f11b8 (merged 2026-10-09 11:50; the only change since 9463830d is the rules capture, outside the OR-2 engine paths)
 - Binaries: none yet
@@ -35,6 +35,10 @@
 - [ ] 1.7 Benchmark baseline (non-idle this run) — bench sets smoke-50/heavy-1, pmb-tape prototype with NT-6 (b) 50/50 + 1/1 identical, L0 benches, L1 driver (no binary yet), host facts
 
 ## Log (newest first)
+
+### 2026-10-09 13:40 — D71 (user): copy mode trimmed to delay-0 parity; TS risk-pass and cancel quirks classified
+
+- Recorded by the owner's review session and committed directly (00 §3.2). Edited: 13 §5.2 (five rows marked not reproduced), §5.4 (classification rows), §5.5; 12 §2 table, §7.2, §7.3 `CancelOrder`, §7.6, §8.2, §14 table; 60 §4.1 (E15-D, L15-D, E5-D dropped), §5 cancel row, §6; 01 M2 step 1 and proof; 03; D49 amended. Goldens, T15 cells, PS-50, AB-4, conformance unchanged. For the lead: drop the TC-C2/C3/C5/C6/C10 branches at the wave-1 fix and integrate stages.
 
 ### 2026-10-09 14:05 — wave 1 integrated into native-engine
 

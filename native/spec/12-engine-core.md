@@ -81,7 +81,7 @@ never mixed at runtime:
 | Rule set | Profile | Design basis |
 |---|---|---|
 | `CoreRules::Realistic` | realistic, paper, live | First principles and the current Polymarket rules (11). Every rule in §4–§10 that is not marked TC is this set |
-| `CoreRules::TsCompat` | ts-compat | Reproduces TS where TS is the oracle (00 R3). Each deviation from the realistic set is a `TC-C…` row of 13 §5.2 and is implemented as one small, named branch |
+| `CoreRules::TsCompat` | ts-compat | Reproduces TS where TS is the oracle (00 R3). Each deviation from the realistic set is a `TC-C…` row of 13 §5.2 and is implemented as one small, named branch; since D71 only the rows still reproduced (TC-C2, C3, C5, C6 and C10 use the realistic rule) |
 
 There are no per-rule runtime switches. The realistic profile's model choices
 that remain switchable for A/B reports are execution models, not core rules
@@ -550,7 +550,9 @@ placement (each order of a batch separately):
 Cancels, splits and merges follow §7.3. An intent rejected at any step consumes
 no risk capacity and no capital.
 
-**ts-compat (TC-C2).** TS order (`OrderManager.ts:143-223`): (1) the TS risk
+**ts-compat (TC-C2), superseded by D71: ts-compat follows the realistic order
+above, and this paragraph is kept as the TS reference for classification.**
+TS order (`OrderManager.ts:143-223`): (1) the TS risk
 pass runs over the whole list first (§8.2); (2) its rejections are emitted
 first, in list order, and a rejection whose cid has an active generation is
 dropped silently (`OrderManager.ts:176-184`); (3) each allowed intent then runs
@@ -566,7 +568,7 @@ cancel resolution later in this call.
 |---|---|---|---|
 | `PlaceLimit` | §7.2 | New order record (`InFlight`) with reservation; emit `OrderSubmitted` | `Place{[key]}` |
 | `PlaceBatch` | Realistic: more than the batch cap (11 §9) → every order rejected `BatchTooLarge`, nothing dispatched (TC-C12). Then per order in batch order, §7.2 | One record per accepted order | One `Place{keys}` for the accepted orders (one transport latency sample, 13 §6.8); none accepted → no dispatch. Rejected orders get no `OrderSubmitted` (`OrderManager.ts:649-750`) |
-| `CancelOrder` | Realistic: resolved like `CancelBatch`. ts-compat: no OM resolution; bound to the cid's current key (TC-C5) | `CancelState` updated (10 §8.1) | `Cancel{[key]}` |
+| `CancelOrder` | Realistic: resolved like `CancelBatch`. ts-compat: the same since D71 (TC-C5 not reproduced) | `CancelState` updated (10 §8.1) | `Cancel{[key]}` |
 | `CancelBatch` | Resolve refs (`src/trading/cancellation.ts:61-127`): cap exceeded (realistic 1000, 11 §9; ts-compat 3000, `cancellation.ts:69`) → `CancelFailed` for the whole intent; invalid ref; conflicting cid and exchange id → `ConflictingRefs` (10 N1); known terminal → skipped silently; unknown cid → `UnknownClientOrder`; target `InFlight` without ack → realistic `CancelState::Deferred` (below), ts-compat `MissingExchangeOrderId` (TC-C6); duplicates removed | `CancelState` updated | `Cancel{keys}` for targets not deferred |
 | `CancelMarket` | Scope = one outcome or the whole market (10 §7.3) | — | `CancelScope{scope}`; resolved when the cancel takes effect, so it includes orders opened meanwhile (`BacktestExecution.ts:744-751`) |
 | `CancelAll` | — | — | `CancelAll` |
@@ -643,8 +645,8 @@ cancel resolution later in this call.
   every tick on purpose (`OrderManager.ts:105`), so an emitted rejection would
   flood callbacks and traces. The drop is counted in diagnostics as
   `duplicate_active_cid`; it is a counter key, never an emitted reject reason.
-  Only the position of dedupe differs: realistic dedupes before validation and
-  risk (§7.2), ts-compat after the TS risk pass (TC-C2).
+  Since D71 the position of dedupe is the same in both rule sets: before
+  validation and risk (§7.2).
 - A cid is **active** iff its current key exists and is not `om_terminal`.
 - `om_terminal` is set when any of these happens:
   1. A terminal event (`OrderDone`, `OrderRejected`) for the key is returned
@@ -692,7 +694,10 @@ Per placement that passed dedupe and validation (§7.2 step 4), in this order:
 - Capacity is freed only when a terminal event or fill is delivered; a cancel
   in flight frees nothing.
 
-### 8.2 ts-compat (TC-C2, TC-C3)
+### 8.2 ts-compat (TC-C2, TC-C3): superseded by D71
+
+**Not reproduced since D71.** ts-compat applies §8.1; this section is kept as
+the TS reference for PARITY.md classification.
 
 The TS risk pass (`src/trading/riskLimits.ts:70-219`), reproduced as one
 function:
@@ -1018,7 +1023,7 @@ path (01 §2). Requirements:
 |---|---|---|
 | Breadth-first FIFO cascades; every account event re-enters the strategy | `StrategyRunner.ts:551, 568-595, 628-689` | §6.2 |
 | Silent dedupe of an active cid; release on sync terminal, delivered terminal or full fill | `OrderManager.ts:161-184, 466, 526-534, 666, 739-747` | §7.6 (both profiles) |
-| TS risk pass: whole list first, rejections first, delivered view | `OrderManager.ts:207-223`; `riskLimits.ts:47-219` | §7.2, §8.2 (ts-compat only, TC-C2) |
+| TS risk pass: whole list first, rejections first, delivered view | `OrderManager.ts:207-223`; `riskLimits.ts:47-219` | §7.2, §8.2 (ts-compat only, TC-C2; not reproduced since D71) |
 | Pending obligations visible to funding within a cascade | `OrderManager.ts:121-155`; `capital.test.ts:190-212, 459-476` | §9.1 (by construction) |
 | Merge clamped by pending merges | `OrderManager.ts:412-431` | §7.3 |
 | Cancel reference resolution; never guess an unacknowledged exchange id | `cancellation.ts:61-127` | §7.3 |

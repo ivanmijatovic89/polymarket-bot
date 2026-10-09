@@ -502,7 +502,7 @@ Decision: Accepted as recommended (lead, 2026-10-08; confirmed at G1, D56). Prop
 
 ## D49. TS engine freeze and retirement
 
-**Decision (lead, 2026-10-09):** "acceptance" in D04 is gate 2. From the G2 merge the TS engine takes only bug fixes, except features the AI protocols need before they move to Rust, which also get a Rust version and a parity test. The TS retirement review (F4) is about three months after gate 3. Answers old 01 Open questions 8 and 9.
+**Decision (lead, 2026-10-09):** "acceptance" in D04 is gate 2. From the G2 merge the TS engine takes only bug fixes, except features the AI protocols need before they move to Rust, which also get a Rust version and a parity test. The TS retirement review (F4) is about three months after gate 3. Answers old 01 Open questions 8 and 9. Amended by D71: the retirement review is about three months after gate 2.
 
 ## D50. Production database migrations after gate 2
 
@@ -832,3 +832,53 @@ several days. Splitting them gives this goal an end point the owner can judge
 and keeps live-order work from being pulled forward. Recorded by the owner's
 review session and committed directly (00 §3.2: scope and gate change, user
 decision).
+
+## D71. Copy mode (ts-compat) trimmed: delay-0 parity only; TS risk-pass and cancel quirks classified, not reproduced
+
+**Decision (user, 2026-10-09; the rule mapping below was elaborated by the
+owner's review session and may be adjusted by a lead entry):** ts-compat stays
+the bridge that proves the port, but it is reduced to what TS is trusted for
+(00 R3) at the lowest cost.
+
+1. **Goldens stay.** The TS-generated goldens for decode, books, feed
+   visibility, the synthetic schedule, plugin math and stats (60 §7, §12) and
+   the T15 tick-stream cells (M1 step 6) are unchanged.
+2. **Delay 0 only.** The parity matrix keeps E15-0, F15-on, F15-off, F15-TA
+   and L15-0 (gating), E5-0 (non-gating), T15-on/off and PS-50. E15-D, L15-D
+   and E5-D are removed and never run. No cell verifies
+   `compatLatency.delayMs > 0`; a ts-compat run with delay > 0 carries no
+   parity evidence, and the PARITY.md header says so. The lead MAY make
+   ts-compat refuse delay > 0 (R14) by a lead entry if that removes the
+   `NextRealTick` queue from the core. The synchronous delay-0 path (13 X2,
+   TC-E1 at delay 0) stays: it is what the cells exercise.
+3. **Not reproduced.** TC-C2 (TS risk pass and ordering, delivered-submission
+   view, dedupe after risk), TC-C3 (loss stop blocks SELL exits), TC-C5
+   (decision-time cancel binding), TC-C6 (`CancelFailed(MissingExchangeOrderId)`
+   for unacknowledged orders) and TC-C10 (silent no-event cancel) follow the
+   realistic rule in every profile. `CoreRules::TsCompat` keeps branches only
+   for the remaining TC-C rows; 12 §7.2 (ts-compat paragraph), §7.6 (dedupe
+   position) and §8.2 are superseded. Where an exerciser or lagsnipe market
+   hits one of these rules, the difference is handled by the existing
+   mechanisms of 60 §3: a standing PARITY.md entry with the predicted effect,
+   or an accepted oracle patch (PM-3); the lead chooses per rule and records
+   it. Coverage thresholds (60 §5.6) exclude features that exist only to
+   exercise these rules. The D69 clarification that relies on "no event"
+   cancels (TC-C5, TC-C10) is superseded for those two rules.
+4. **TS retirement sooner.** D49 is amended: the TS retirement review (F4) is
+   about three months after gate 2, not gate 3 (gate 3 is in goal 2, D70).
+   The freeze to bug fixes from the G2 merge, D04's exerciser-or-PARITY rule
+   and the PS-50 canary (OR-16) stay until that review.
+5. Unchanged: the R5 tolerance, R6 classification, AB-4 (realistic fixes keep
+   PS-50 passing), the conformance workstream (D45) and V4-E in M7.
+
+Rationale: the parity apparatus cost about as much as the engine core, and
+about half of its rules reproduced TS bugs already scheduled for removal. The
+delay cells and the risk-pass port were the parts that forced TS structure
+into the core (R4). Delay-0 parity on the full sets, the goldens and the
+conformance tests keep the evidence that the port reads the data and orders
+events the way TS does; execution realism is proven by the M3b A/B reports
+and the M7 fill evaluation, not by TS. Recorded by the owner's review session
+and committed directly (00 §3.2: scope change, user decision).
+
+Timing note for the lead: the wave-1 core workers may already implement the
+dropped rows; remove them at the wave-1 fix and integrate stages.
