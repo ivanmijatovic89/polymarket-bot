@@ -66,7 +66,8 @@ export interface CandidateCounters {
 
 /**
  * One candidate's result: `output` iff `status = ok`, `error` iff
- * `status = error` (checked by [`CandidateResult::validate`]).
+ * `status = error` (21 §10; in the schema and in
+ * [`CandidateResult::validate`]).
  */
 export interface CandidateResult {
   error?: ErrorInfo
@@ -391,6 +392,12 @@ export interface EngineMarketStats {
   upShares: number
 }
 
+/**
+ * The schema couples `status` with `error`, `echo`, `market` and the
+ * candidates' statuses (21 §10, §14), so the TS shim's Ajv check rejects
+ * what [`EngineResult::validate`] rejects structurally; the class-dependent
+ * echo rule and the digest stay Rust- and echo-check-side.
+ */
 export interface EngineResult {
   candidates: CandidateResult[]
   diagnostics: Diagnostics
@@ -514,7 +521,7 @@ export interface ExecutionModels {
 }
 
 /**
- * Failure rates (13 §7.3). M3b.
+ * Failure rates (13 §7.3), each a probability in [0, 1]. M3b.
  */
 export interface FailureRates {
   chain: string
@@ -716,7 +723,13 @@ export type MakerModel = 'queue' | 'trade_through' | 'worst_queue'
  * Maker queue parameters (13 §6.5, §7.3). M3b.
  */
 export interface MakerQueueConfig {
+  /**
+   * A share in [0, 1].
+   */
   cancelAheadShare: string
+  /**
+   * At most [`PRINT_MATCH_WINDOW_MAX_MS`].
+   */
   printMatchWindowMs: number
   prints: MakerQueuePrints
 }

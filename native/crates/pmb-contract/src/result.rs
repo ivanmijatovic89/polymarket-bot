@@ -30,8 +30,26 @@ pub const ORDER_META_MAX_BYTES: usize = 16 * 1024;
 pub const INTENT_META_MAX_BYTES: usize = 1024 * 1024;
 pub const INTENT_META_MAX_ENTRIES: usize = 10_000;
 
+/// The schema couples `status` with `error`, `echo`, `market` and the
+/// candidates' statuses (21 §10, §14), so the TS shim's Ajv check rejects
+/// what [`EngineResult::validate`] rejects structurally; the class-dependent
+/// echo rule and the digest stay Rust- and echo-check-side.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[schemars(extend(
+    "if" = { "properties": { "status": { "const": "ok" } } },
+    "then" = { "properties": {
+        "error": { "type": "null" },
+        "echo": { "type": "object" },
+        "market": { "type": "object" }
+    } },
+    "else" = { "properties": {
+        "error": { "type": "object" },
+        "candidates": { "type": "array", "items": {
+            "type": "object", "properties": { "status": { "const": "error" } }
+        } }
+    } }
+))]
 pub struct EngineResult {
     pub output_schema_version: Version<OUTPUT_SCHEMA_VERSION>,
     /// Group-level status.
@@ -97,9 +115,15 @@ pub struct MarketEcho {
 }
 
 /// One candidate's result: `output` iff `status = ok`, `error` iff
-/// `status = error` (checked by [`CandidateResult::validate`]).
+/// `status = error` (21 §10; in the schema and in
+/// [`CandidateResult::validate`]).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[schemars(extend(
+    "if" = { "properties": { "status": { "const": "ok" } } },
+    "then" = { "required": ["output"], "properties": { "output": true, "error": false } },
+    "else" = { "required": ["error"], "properties": { "error": true, "output": false } }
+))]
 pub struct CandidateResult {
     #[schemars(regex(pattern = CANDIDATE_KEY_PATTERN))]
     pub key: String,

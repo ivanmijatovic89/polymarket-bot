@@ -213,13 +213,19 @@ impl<const DP: u32> OutDec<DP> {
         self.units
     }
 
-    /// The value in 1e6 micros (exact for DP ≤ 6).
-    pub fn micros(self) -> i64 {
+    /// The value in 1e6 micros (exact for DP ≤ 6); `None` when it does not
+    /// fit `i64` (a parsed 2-dp value above about 9.2e12).
+    pub fn micros(self) -> Option<i64> {
         assert!(DP <= 6, "OutDec micros() needs DP <= 6");
-        self.units * 10_i64.pow(6 - DP)
+        self.units.checked_mul(10_i64.pow(6 - DP))
     }
 
     /// Quantizes micros half away from zero to DP places (D08, 21 §11).
+    ///
+    /// For values held exactly in micros only (money, shares). A value that
+    /// is a ratio (the BUY VWAP `avgEntryPrice*`) goes through
+    /// [`Self::from_ratio_half_away`] instead: quantizing it to micros first
+    /// and then to DP places would round twice (10 §3.1 R-3).
     pub fn from_micros_half_away(micros: i64) -> Self {
         assert!(DP <= 6, "OutDec from_micros needs DP <= 6");
         let div = 10_i64.pow(6 - DP);
@@ -231,6 +237,36 @@ impl<const DP: u32> OutDec<DP> {
             q
         };
         OutDec { units }
+    }
+
+    /// Quantizes the exact rational `num / den` half away from zero to DP
+    /// places in one step (10 §3.1 R-3, §3.3; D08). `None` when `den` is 0
+    /// or the result does not fit.
+    ///
+    /// 21 §11 `avgEntryPriceUp/Down` = Σ(price × size) / Σ size: with prices
+    /// and sizes in micros, `num = Σ(price_micros × size_micros)` and
+    /// `den = Σ size_micros × 1_000_000`. Exact VWAP 0.1234495 gives 0.1234
+    /// at 4 dp, where micros-then-4-dp would give 0.1235.
+    pub fn from_ratio_half_away(num: i128, den: i128) -> Option<Self> {
+        if den == 0 {
+            return None;
+        }
+        let (num, den) = if den < 0 {
+            (num.checked_neg()?, -den)
+        } else {
+            (num, den)
+        };
+        let scaled = num.checked_mul(10_i128.pow(DP))?;
+        let q = scaled / den;
+        let r = scaled % den;
+        let units = if 2 * r.unsigned_abs() >= den.unsigned_abs() {
+            q + scaled.signum()
+        } else {
+            q
+        };
+        Some(OutDec {
+            units: i64::try_from(units).ok()?,
+        })
     }
 
     /// Parses a JSON number token exactly (21 §18 N5): plain decimal
@@ -557,6 +593,40 @@ mod tests {
         assert_eq!(OutDec2::from_micros_half_away(12_344_999).units(), 1234);
         assert_eq!(OutDec4::from_micros_half_away(-50).units(), -1);
         assert_eq!(OutDec6::from_micros_half_away(-7).units(), -7);
+    }
+
+    #[test]
+    fn ratio_quantizes_in_one_step() {
+        // spec: 10 §3.1 R-3 (one HalfAwayFromZero step), 21 §11 avgEntryPrice (4 dp)
+        // 0.1234495 exactly: 1234495 / 10^7.
+        assert_eq!(
+            OutDec4::from_ratio_half_away(1_234_495, 10_000_000)
+                .unwrap()
+                .units(),
+            1234
+        );
+        // Double rounding would give 1235 here.
+        assert_eq!(OutDec4::from_micros_half_away(123_450).units(), 1235);
+        // VWAP of 3 @ 0.51 and 1 @ 0.52 in micros: (0.51*3 + 0.52*1) / 4 = 0.5125.
+        let num = 510_000_i128 * 3_000_000 + 520_000 * 1_000_000;
+        let den = 4_000_000_i128 * 1_000_000;
+        assert_eq!(
+            OutDec4::from_ratio_half_away(num, den).unwrap().units(),
+            5125
+        );
+        // Ties go away from zero, in both signs and with a negative den.
+        assert_eq!(OutDec2::from_ratio_half_away(1, 200).unwrap().units(), 1);
+        assert_eq!(OutDec2::from_ratio_half_away(-1, 200).unwrap().units(), -1);
+        assert_eq!(OutDec2::from_ratio_half_away(1, -200).unwrap().units(), -1);
+        assert_eq!(OutDec2::from_ratio_half_away(1, 0), None);
+        assert_eq!(OutDec2::from_ratio_half_away(i128::MAX, 1), None);
+    }
+
+    #[test]
+    fn micros_is_checked() {
+        let v: OutDec2 = serde_json::from_str("92233720368547758.07").unwrap();
+        assert_eq!(v.micros(), None);
+        assert_eq!(OutDec2::from_units(-1235).micros(), Some(-12_350_000));
     }
 
     #[test]

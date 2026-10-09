@@ -548,7 +548,7 @@
         "class": "invalid_output",
         "cause": "self_check"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
     },
     {
       "name": "status ok with error",
@@ -564,7 +564,7 @@
         "class": "invalid_output",
         "cause": "self_check"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
     },
     {
       "name": "status ok without echo",
@@ -576,7 +576,7 @@
         "class": "invalid_output",
         "cause": "self_check"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
     },
     {
       "name": "candidate indices out of order",
@@ -750,7 +750,7 @@
         "class": "invalid_output",
         "cause": "self_check"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
     },
     {
       "name": "no echo in an error raised after the job was read",
@@ -782,7 +782,7 @@
         "class": "invalid_output",
         "cause": "self_check"
       },
-      "jsonSchema": "accept"
+      "jsonSchema": "reject"
     },
     {
       "name": "stats with a null conditionId",
@@ -854,6 +854,37 @@
       "expect": {
         "class": "invalid_output",
         "cause": "schema"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "error candidate with an output",
+      "rule": "21 §10 (output iff ok, error iff error)",
+      "set": {
+        "/candidates/2/output": {
+          "slug": "btc-updown-15m-1780272000",
+          "marketStats": null,
+          "eventsProcessed": 0,
+          "eventsByType": {},
+          "skipReason": "no_activity"
+        }
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "name": "group-level error without error object",
+      "rule": "21 §10 (error iff status = error)",
+      "set": {
+        "/status": "error",
+        "/candidates": []
+      },
+      "expect": {
+        "class": "invalid_output",
+        "cause": "self_check"
       },
       "jsonSchema": "reject"
     }

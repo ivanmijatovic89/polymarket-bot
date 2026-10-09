@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::canonical::{canonical_json, CanonicalError};
-use crate::num::{Decimal, SafeU64, Sha256Hex};
+use crate::num::{Decimal, SafeU64, Sha256Hex, MICROS_PER_UNIT};
 use crate::support::{ensure, ContractError, Version};
 use crate::vocab::{
     CancelBeforeAck, DepletionModel, FeeModel, LatencyModel, MakerModel, MakerQueuePrints,
@@ -233,12 +233,21 @@ pub struct LatencyComponents {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MakerQueueConfig {
+    /// A share in [0, 1].
     pub cancel_ahead_share: Decimal,
+    /// At most [`PRINT_MATCH_WINDOW_MAX_MS`].
+    #[schemars(range(max = 600_000))]
     pub print_match_window_ms: u32,
     pub prints: MakerQueuePrints,
 }
 
-/// Failure rates (13 §7.3). M3b.
+/// Upper bound of `makerQueue.printMatchWindowMs`.
+// D-PENDING: 13 §6.5 gives no range for the print match window; chose
+// 0..=600,000 ms, the bound of the latency components, in the schema and in
+// `validate`.
+pub const PRINT_MATCH_WINDOW_MAX_MS: u32 = 600_000;
+
+/// Failure rates (13 §7.3), each a probability in [0, 1]. M3b.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FailureRates {
@@ -454,6 +463,31 @@ impl ModelConfig {
                         d.validate(n, 600_000)?;
                     }
                 }
+                // Probabilities and shares are in [0, 1] (13 §7.3).
+                let unit = |name: &str, d: &Decimal| {
+                    ensure((0..=MICROS_PER_UNIT).contains(&d.micros()), c, || {
+                        format!("{name} must be in [0, 1]")
+                    })
+                };
+                if let Some(r) = &x.failure_rates {
+                    unit("execution.failureRates.settlement", &r.settlement)?;
+                    unit("execution.failureRates.chain", &r.chain)?;
+                }
+                if let Some(q) = &x.maker_queue {
+                    unit(
+                        "execution.makerQueue.cancelAheadShare",
+                        &q.cancel_ahead_share,
+                    )?;
+                    ensure(
+                        q.print_match_window_ms <= PRINT_MATCH_WINDOW_MAX_MS,
+                        c,
+                        || {
+                            format!(
+                            "execution.makerQueue.printMatchWindowMs above {PRINT_MATCH_WINDOW_MAX_MS}"
+                        )
+                        },
+                    )?;
+                }
                 if let Some(clock) = &self.clock {
                     ensure(
                         is_calibration_id(&clock.market_data.calibration_id),
@@ -602,13 +636,58 @@ mod tests {
         assert_eq!(run.effective(None).sha256().unwrap(), run.sha256().unwrap());
     }
 
+    /// Writes `v` as JSON text with every object's keys in reverse order
+    /// (serde_json's `Map` would sort them again).
+    fn reversed_text(v: &Value) -> String {
+        match v {
+            Value::Object(m) => {
+                let fields: Vec<String> = m
+                    .iter()
+                    .rev()
+                    .map(|(k, v)| format!("{}: {}", Value::from(k.as_str()), reversed_text(v)))
+                    .collect();
+                format!("{{ {} }}", fields.join(", "))
+            }
+            Value::Array(a) => {
+                let items: Vec<String> = a.iter().map(reversed_text).collect();
+                format!("[{}]", items.join(", "))
+            }
+            other => other.to_string(),
+        }
+    }
+
     #[test]
     fn canonical_json_is_independent_of_input_key_order() {
-        // spec: 21 §6.1 canonical JSON
-        let a = parse(ts_compat());
-        let text = serde_json::to_string(&ts_compat()).unwrap();
-        let reversed: Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(a.sha256().unwrap(), parse(reversed).sha256().unwrap());
+        // spec: 21 §6.1 canonical JSON (sorted keys, no whitespace)
+        let forward = include_str!("../../../contract/model-configs/ts-compat-default.json");
+        let reversed = reversed_text(&ts_compat());
+        assert!(reversed.starts_with(r#"{ "seed": "#), "{reversed}");
+        assert!(
+            forward.starts_with("{\n  \"modelConfigVersion\""),
+            "{forward}"
+        );
+        let a: ModelConfig = serde_json::from_str(forward).unwrap();
+        let b: ModelConfig = serde_json::from_str(&reversed).unwrap();
+        assert_eq!(a.sha256().unwrap(), b.sha256().unwrap());
+        assert_eq!(a.canonical_json().unwrap(), b.canonical_json().unwrap());
         assert!(!a.canonical_json().unwrap().contains(' '));
+    }
+
+    #[test]
+    fn realistic_rates_and_shares_are_bounded() {
+        // spec: 13 §7.3 (failure rates and cancelAheadShare in [0, 1]), R14
+        for (ptr, v) in [
+            ("/execution/failureRates/settlement", json!("1.000001")),
+            ("/execution/failureRates/chain", json!("-0.1")),
+            ("/execution/makerQueue/cancelAheadShare", json!("2")),
+            ("/execution/makerQueue/printMatchWindowMs", json!(600_001)),
+        ] {
+            let mut cfg = realistic();
+            *cfg.pointer_mut(ptr).unwrap() = v;
+            assert_eq!(cause(cfg), "model_config", "{ptr}");
+        }
+        let mut cfg = realistic();
+        cfg["execution"]["failureRates"] = json!({"settlement": "1", "chain": "0.000001"});
+        parse(cfg).validate().unwrap();
     }
 }

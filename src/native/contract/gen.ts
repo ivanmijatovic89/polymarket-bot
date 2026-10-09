@@ -65,6 +65,10 @@ const KNOWN_KEYWORDS = new Set([
   'minItems',
   'maxItems',
   'decimalScale',
+  // Conditional validation (21 §10 status coupling): no effect on the TS type.
+  'if',
+  'then',
+  'else',
 ])
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/

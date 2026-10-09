@@ -245,7 +245,21 @@
     },
     "CandidateResult": {
       "additionalProperties": false,
-      "description": "One candidate's result: `output` iff `status = ok`, `error` iff\n`status = error` (checked by [`CandidateResult::validate`]).",
+      "description": "One candidate's result: `output` iff `status = ok`, `error` iff\n`status = error` (21 §10; in the schema and in\n[`CandidateResult::validate`]).",
+      "else": {
+        "properties": {
+          "error": true,
+          "output": false
+        },
+        "required": ["error"]
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        }
+      },
       "properties": {
         "error": {
           "$ref": "#/$defs/ErrorInfo"
@@ -272,6 +286,13 @@
         }
       },
       "required": ["key", "index", "status", "modelConfigSha256"],
+      "then": {
+        "properties": {
+          "error": false,
+          "output": true
+        },
+        "required": ["output"]
+      },
       "type": "object"
     },
     "Diagnostics": {
@@ -803,6 +824,32 @@
   "$id": "https://pmb.invalid/contract/v1/engineResult.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "description": "The schema couples `status` with `error`, `echo`, `market` and the\ncandidates' statuses (21 §10, §14), so the TS shim's Ajv check rejects\nwhat [`EngineResult::validate`] rejects structurally; the class-dependent\necho rule and the digest stay Rust- and echo-check-side.",
+  "else": {
+    "properties": {
+      "candidates": {
+        "items": {
+          "properties": {
+            "status": {
+              "const": "error"
+            }
+          },
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "error": {
+        "type": "object"
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "status": {
+        "const": "ok"
+      }
+    }
+  },
   "properties": {
     "candidates": {
       "items": {
@@ -870,6 +917,19 @@
     "resultDigest",
     "diagnostics"
   ],
+  "then": {
+    "properties": {
+      "echo": {
+        "type": "object"
+      },
+      "error": {
+        "type": "null"
+      },
+      "market": {
+        "type": "object"
+      }
+    }
+  },
   "title": "EngineResult",
   "type": "object"
 }
