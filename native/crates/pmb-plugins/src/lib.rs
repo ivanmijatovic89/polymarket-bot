@@ -4,6 +4,11 @@
 //! synthetic-tick semantics (§12.4) and offline TA candles from local
 //! aggTrades (§12.5, D19).
 //!
+//! One [`PluginPool`] per market read holds an instance per distinct
+//! canonical config, shared by the candidates through [`PluginHandle`]s
+//! (14 P-6, 16 CG-3); [`PluginSet`] is the pool of one candidate. TA candles
+//! come from the per-process [`CandleCache`] (14 PF-5, P-12).
+//!
 //! Inputs are deliberately narrow ([`PluginTick`], [`PluginMarket`],
 //! [`AggTrade`]): this crate depends on `pmb-core` only, never on the feed
 //! or engine crates. Plugins do no I/O, read no clock but the tick time, no

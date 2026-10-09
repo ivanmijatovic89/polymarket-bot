@@ -5,8 +5,9 @@
 //! `agg_trade_id` order, high/low the max/min price, volume the sum of `qty`,
 //! `close_time = o + interval - 1`. No network, no clock (14 F-3).
 //!
-//! Candles are built per UTC day ([`build_day_candles`]) so the engine can
-//! cache them per `(pair, interval, date)` (14 PF-5) and drop the raw trades.
+//! Candles are built per UTC day ([`build_day_candles`]) so that
+//! [`crate::CandleCache`] can cache them per `(pair, interval, date)`
+//! (14 PF-5) and drop the raw trades.
 
 use pmb_core::TsMs;
 
