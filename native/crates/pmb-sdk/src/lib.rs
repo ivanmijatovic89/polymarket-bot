@@ -121,6 +121,48 @@
 //!     x: f32, // not a params field type
 //! }
 //! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(min = 1)] // bounds need a numeric field
+//!     name: String,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P<T> { x: T } // params are plain data, no generics
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P(i64); // named fields only
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::Params)]
+//! struct P {
+//!     #[param(min = 5, max = 1)] // empty range
+//!     x: i64,
+//! }
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::ParamEnum)]
+//! enum Mode { Fast(u8), Slow } // unit variants only
+//! ```
+//! ```compile_fail
+//! #[derive(pmb_sdk::ParamEnum)]
+//! enum Mode { Fast, #[param(rename = "Fast")] Slow } // names must be unique
+//! ```
+//! ```compile_fail
+//! let k = "edge";
+//! let _ = pmb_sdk::meta! { k => 1 }; // keys are string literals
+//! ```
+//! ```compile_fail
+//! let _ = pmb_sdk::cid!(
+//!     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\
+//!      0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\
+//!      0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\
+//!      0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef!"
+//! ); // 257 bytes
+//! ```
 
 // The derives expand to `::pmb_sdk::...` paths; this lets them work inside
 // this crate's own unit tests too.
