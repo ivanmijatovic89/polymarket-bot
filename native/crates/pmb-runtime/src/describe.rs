@@ -44,14 +44,17 @@ pub fn has_feature(name: &str) -> bool {
 /// Candidates per job: `run` takes exactly one; groups are M4.
 pub const MAX_CANDIDATES: u32 = 1;
 
-/// The `binary` object of `describe` (20 §5.1).
+/// The `binary` object of `describe` (20 §5.1): exactly the fields 20 §3
+/// and §5.1 define (strict schemas, 20 §3).
+// D-PENDING: 31 §4.2 says describe reports every embedded value, including
+// PMB_ENGINE_SOURCE_HASH, but 20 §5.1 defines no field for it; 20 owns the
+// document, so it is not printed (spec question).
 pub fn binary_json(sdk_version: &str) -> Value {
     let id = engine_identity();
     json!({
         "engineVersion": id.engine_version,
         "engineCommit": id.engine_commit,
         "engineDirty": id.engine_dirty,
-        "engineSourceHash": id.engine_source_hash,
         "sdkVersion": sdk_version,
         "rustc": id.rustc,
         "target": id.target,

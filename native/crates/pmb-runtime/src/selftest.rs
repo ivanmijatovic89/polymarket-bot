@@ -222,17 +222,31 @@ pub fn check_fee_curve() -> Check {
     Check::new("fee_curve_ts_compat", f)
 }
 
-/// The compiled bundle hashes to the value the binary reports (21 §3).
+/// The contract hash (21 §3): the algorithm reproduces its golden vector,
+/// the compiled bundle holds the schemas this binary reads and writes, and
+/// it hashes to the value `describe` and `schema` report.
+// D-PENDING: 21 §3 compares against the committed bundle's hash; once
+// `native/contract/schema/v1` is exported, that value is embedded at build
+// time and compared here instead of the recomputation.
 pub fn check_contract() -> Check {
     let mut f = Vec::new();
-    let bundle = pmb_contract::schema::bundle();
-    let sha = pmb_contract::schema::contract_sha256(&bundle)
-        .unwrap_or_else(|_| crate::identity::bundle_sha256_raw_utf8(&bundle));
-    if &sha != crate::identity::contract_sha256() {
-        f.push(format!("bundle sha {sha} differs from the reported value"));
+    let (golden, want) = crate::identity::bundle_sha256_golden();
+    match crate::identity::bundle_sha256(&golden) {
+        Ok(sha) if sha.as_str() == want => {}
+        other => f.push(format!("golden vector: {other:?}, want {want}")),
     }
-    if bundle.is_empty() {
-        f.push("empty schema bundle".into());
+    let bundle = pmb_contract::schema::bundle();
+    for stem in ["engineJob", "engineResult", "modelConfig"] {
+        if !bundle.iter().any(|(s, _)| *s == stem) {
+            f.push(format!("schema {stem} missing from the bundle"));
+        }
+    }
+    match crate::identity::bundle_sha256(&bundle) {
+        Ok(sha) if &sha == crate::identity::contract_sha256() => {}
+        other => f.push(format!(
+            "bundle sha {other:?} differs from the reported {}",
+            crate::identity::contract_sha256()
+        )),
     }
     Check::new("contract_bundle", f)
 }
@@ -370,19 +384,16 @@ where
     T::Params: StrategyParams,
     B: Backend<T>,
 {
+    // D-PENDING: 20 §5.3 also runs the job through `serve` with two threads
+    // and compares it with the run path. `serve` lands in M5a and is absent
+    // from `capabilities.subcommands`; the check is left out until then
+    // rather than reported as passed.
     let checks = vec![
         check_rounding(),
         check_seed_vectors(),
         check_fee_curve(),
         check_contract(),
         check_run_path::<T, B>(backend, stack_bytes),
-        // D-PENDING: 20 §5.3 also runs the job through `serve` with two
-        // threads; `serve` lands in M5a.
-        Check {
-            name: "serve_path",
-            ok: true,
-            detail: Some("not built before M5a".into()),
-        },
     ];
     let ok = checks.iter().all(|c| c.ok);
     let doc = json!({

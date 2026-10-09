@@ -455,8 +455,7 @@ fn selftest_passes_with_a_working_engine() {
             "seed_vectors",
             "fee_curve_ts_compat",
             "contract_bundle",
-            "run_path",
-            "serve_path"
+            "run_path"
         ]
     );
     // The same through the CLI dispatcher: exit 0, one document.

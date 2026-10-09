@@ -101,45 +101,117 @@ pub const fn target_triple() -> &'static str {
 }
 
 /// `contractSha256` of the schema bundle compiled into this binary
-/// (20 §3, 21 §3).
+/// (20 §3, 21 §3), computed once with [`bundle_sha256`].
 ///
 /// D-PENDING: `native/contract/schema/v1/` is not committed on this branch
 /// (the contract stream exports it), so there is nothing to `include_str!`.
 /// The bundle is generated from the very `pmb-contract` types this binary
-/// is compiled with, which by 21 §3 CI item 1 equals the committed files;
-/// a test compares against the committed files when they exist.
+/// is compiled with, which by 21 §3 CI item 1 equals the committed files.
+///
+/// # Panics
+///
+/// When the compiled bundle has no canonical form (a float or an unsafe
+/// integer, a non-ASCII key): a build defect, reported as `engine_fault`
+/// by the dispatcher's catch boundary. Tests hash the bundle, so CI fails
+/// first.
 pub fn contract_sha256() -> &'static Sha256Hex {
     static SHA: OnceLock<Sha256Hex> = OnceLock::new();
     SHA.get_or_init(|| {
-        let bundle = pmb_contract::schema::bundle();
-        pmb_contract::schema::contract_sha256(&bundle)
-            .unwrap_or_else(|_| bundle_sha256_raw_utf8(&bundle))
+        bundle_sha256(&pmb_contract::schema::bundle())
+            .unwrap_or_else(|e| panic!("the compiled schema bundle has no contractSha256: {e}"))
     })
 }
 
-/// 21 §3 `contractSha256` with strings escaped exactly as `serde_json`
-/// and `JSON.stringify` do and kept as raw UTF-8: files sorted by name,
-/// each in canonical JSON (keys sorted bytewise, no whitespace), joined by
-/// `\n`.
-// D-PENDING: the pmb-contract canonicalizer on this branch refuses
-// non-ASCII strings, and the generated schemas carry `§` in descriptions;
-// the contract stream's fix (raw UTF-8 strings, ASCII keys) is this exact
-// definition. Remove this fallback once that fix is merged.
-pub fn bundle_sha256_raw_utf8(files: &[(&str, serde_json::Value)]) -> Sha256Hex {
+/// 21 §3 `contractSha256`: the files sorted by name, each in canonical JSON,
+/// joined by `\n`, hashed with sha256. Canonical JSON here: keys sorted
+/// bytewise at every level (by this function, whatever the map type), no
+/// whitespace, safe integers only (no floats), ASCII keys, and strings
+/// escaped as `serde_json` and `JSON.stringify` do, non-ASCII kept as raw
+/// UTF-8. This is the only algorithm the binary uses (no fallback).
+// D-PENDING: 21 §6.1 canonical JSON admits ASCII strings only, and the
+// pmb-contract canonicalizer on this branch refuses the bundle's non-ASCII
+// descriptions (`§`). Chose the contract stream's proposed definition (raw
+// UTF-8 strings, ASCII keys) until a 02 decision records it (spec question).
+pub fn bundle_sha256(files: &[(&str, serde_json::Value)]) -> Result<Sha256Hex, String> {
     use sha2::{Digest, Sha256};
     let mut named: Vec<(String, &serde_json::Value)> = files
         .iter()
         .map(|(stem, v)| (pmb_contract::schema::file_name(stem), v))
         .collect();
     named.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
-    // serde_json's map is a BTreeMap (no `preserve_order`), so compact
-    // serialization sorts keys bytewise.
-    let parts: Vec<String> = named
-        .iter()
-        .map(|(_, v)| serde_json::to_string(v).expect("schema serializes"))
-        .collect();
-    let digest: [u8; 32] = Sha256::digest(parts.join("\n").as_bytes()).into();
-    Sha256Hex::from_digest(&digest)
+    let mut text = String::new();
+    for (i, (name, v)) in named.iter().enumerate() {
+        if i > 0 {
+            text.push('\n');
+        }
+        write_canonical(v, &mut text).map_err(|e| format!("{name}: {e}"))?;
+    }
+    let digest: [u8; 32] = Sha256::digest(text.as_bytes()).into();
+    Ok(Sha256Hex::from_digest(&digest))
+}
+
+fn write_json_str(s: &str, out: &mut String) {
+    // serde_json escapes `"`, `\` and control characters exactly as
+    // JSON.stringify does and keeps every other character as UTF-8.
+    out.push_str(&serde_json::to_string(s).expect("a string serializes"));
+}
+
+fn write_canonical(v: &serde_json::Value, out: &mut String) -> Result<(), String> {
+    use serde_json::Value;
+    const MAX_SAFE: u64 = (1 << 53) - 1;
+    match v {
+        Value::Null => out.push_str("null"),
+        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) => match (n.as_u64(), n.as_i64()) {
+            (Some(u), _) if u <= MAX_SAFE => out.push_str(&u.to_string()),
+            (None, Some(i)) if i.unsigned_abs() <= MAX_SAFE => out.push_str(&i.to_string()),
+            _ => return Err(format!("number {n} is not a safe integer (21 §6.1)")),
+        },
+        Value::String(s) => write_json_str(s, out),
+        Value::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_canonical(item, out)?;
+            }
+            out.push(']');
+        }
+        Value::Object(map) => {
+            let mut entries: Vec<(&String, &Value)> = map.iter().collect();
+            entries.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+            out.push('{');
+            for (i, (k, item)) in entries.into_iter().enumerate() {
+                if !k.is_ascii() {
+                    return Err(format!("key {k:?} is not ASCII"));
+                }
+                if i > 0 {
+                    out.push(',');
+                }
+                write_json_str(k, out);
+                out.push(':');
+                write_canonical(item, out)?;
+            }
+            out.push('}');
+        }
+    }
+    Ok(())
+}
+
+/// Golden vector of [`bundle_sha256`]: two files given out of order.
+pub fn bundle_sha256_golden() -> (Vec<(&'static str, serde_json::Value)>, &'static str) {
+    (
+        vec![
+            ("zeta", serde_json::json!({"x": true})),
+            (
+                "alpha",
+                serde_json::json!({"b": "§", "a": [1, {"d": 2, "c": "\n"}]}),
+            ),
+        ],
+        // sha256 of `{"a":[1,{"c":"\n","d":2}],"b":"§"}` + "\n" + `{"x":true}`
+        "9a612515ae1a392809936a3faa5aa00a1116718da8526f4d3664d803ef2572bf",
+    )
 }
 
 #[cfg(test)]
@@ -169,29 +241,45 @@ mod tests {
     }
 
     #[test]
-    fn raw_utf8_canonical_form_sorts_and_keeps_utf8() {
+    fn bundle_hash_sorts_files_and_keys_and_keeps_utf8() {
         // spec: 21 §3 (files sorted by name, canonical JSON, joined by \n)
-        let a = serde_json::json!({"b": "§", "a": [1, {"d": 2, "c": "\n"}]});
-        let b = serde_json::json!({"x": true});
-        let one = bundle_sha256_raw_utf8(&[("zeta", b.clone()), ("alpha", a.clone())]);
-        let two = bundle_sha256_raw_utf8(&[("alpha", a), ("zeta", b)]);
-        assert_eq!(one, two);
-        use sha2::{Digest, Sha256};
-        let text = "{\"a\":[1,{\"c\":\"\\n\",\"d\":2}],\"b\":\"§\"}\n{\"x\":true}";
-        let want: [u8; 32] = Sha256::digest(text.as_bytes()).into();
-        assert_eq!(one, Sha256Hex::from_digest(&want));
+        let (files, want) = bundle_sha256_golden();
+        assert_eq!(bundle_sha256(&files).unwrap().as_str(), want);
+        let mut reversed = files.clone();
+        reversed.reverse();
+        assert_eq!(bundle_sha256(&reversed).unwrap().as_str(), want);
     }
 
     #[test]
-    fn committed_bundle_matches_when_present() {
+    fn bundle_hash_refuses_what_has_no_canonical_form() {
+        // spec: 21 §6.1 (no floats, safe integers, ASCII keys), R14
+        for bad in [
+            serde_json::json!({"a": 1.5}),
+            serde_json::json!({"a": 9_007_199_254_740_992_u64}),
+            serde_json::json!({"a": -9_007_199_254_740_992_i64}),
+            serde_json::json!({"é": 1}),
+        ] {
+            assert!(bundle_sha256(&[("x", bad.clone())]).is_err(), "{bad}");
+        }
+        assert!(
+            bundle_sha256(&[("x", serde_json::json!({"a": -9_007_199_254_740_991_i64}))]).is_ok()
+        );
+    }
+
+    #[test]
+    fn compiled_bundle_has_a_hash() {
+        // spec: 21 §3 (the binary reports contractSha256 of its bundle)
+        let bundle = pmb_contract::schema::bundle();
+        assert_eq!(&bundle_sha256(&bundle).unwrap(), contract_sha256());
+    }
+
+    #[test]
+    #[ignore = "native/contract/schema/v1 is not committed on this branch (the contract stream exports it); run with --ignored once it is"]
+    fn committed_bundle_matches() {
         // spec: 21 §3 CI item 1, 20 §8 item 9 (schema contractSha256 equals the checked-in bundle)
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contract/schema/v1");
-        let Ok(rd) = std::fs::read_dir(&dir) else {
-            eprintln!("skip: {} not committed on this branch", dir.display());
-            return;
-        };
         let mut files: Vec<(String, serde_json::Value)> = Vec::new();
-        for e in rd {
+        for e in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
             let e = e.unwrap();
             let name = e.file_name().to_string_lossy().into_owned();
             if let Some(stem) = name.strip_suffix(".schema.json") {
@@ -199,14 +287,9 @@ mod tests {
                 files.push((stem.to_string(), v));
             }
         }
-        if files.is_empty() {
-            eprintln!("skip: {} is empty", dir.display());
-            return;
-        }
+        assert!(!files.is_empty(), "{} has no schema file", dir.display());
         let named: Vec<(&str, serde_json::Value)> =
             files.iter().map(|(s, v)| (s.as_str(), v.clone())).collect();
-        let committed = pmb_contract::schema::contract_sha256(&named)
-            .unwrap_or_else(|_| bundle_sha256_raw_utf8(&named));
-        assert_eq!(&committed, contract_sha256());
+        assert_eq!(&bundle_sha256(&named).unwrap(), contract_sha256());
     }
 }

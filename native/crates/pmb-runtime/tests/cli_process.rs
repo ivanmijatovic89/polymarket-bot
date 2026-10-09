@@ -76,6 +76,22 @@ fn describe_and_schema() {
         serde_json::json!(["describe", "schema", "selftest", "run"])
     );
     let b = &d["binary"];
+    // Exactly the fields of 20 §3 / §5.1 (strict schemas, 20 §3).
+    let mut keys: Vec<&str> = b.as_object().unwrap().keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "buildProfile",
+            "contractSha256",
+            "engineCommit",
+            "engineDirty",
+            "engineVersion",
+            "rustc",
+            "sdkVersion",
+            "target"
+        ]
+    );
     assert_eq!(b["engineVersion"], env!("CARGO_PKG_VERSION"));
     assert_eq!(
         b["engineDirty"], true,
@@ -288,19 +304,41 @@ fn run_exit_classes_from_the_real_binary() {
 
 #[test]
 fn selftest_reports_every_check() {
-    // spec: 20 §5.3. Before integration the run path reaches the unwired
-    // engine, so only that check fails and the exit code is 8.
+    // spec: 20 §5.3 ({type, ok, checks:[{name, ok, detail?}]}; exit 0 only
+    // if all pass, else 8). Before integration the production backend
+    // refuses the embedded job (invalid_input: profile), so exactly the
+    // run_path check fails and the exit code is 8. No unexecuted check is
+    // reported as passed (the serve path is absent until M5a).
     let o = run(&["selftest"], None);
     let d = document(&o);
     assert_eq!(d["type"], "selftest");
     let checks = d["checks"].as_array().unwrap();
-    assert_eq!(checks.len(), 6);
-    for c in checks {
-        if c["name"] != "run_path" {
-            assert_eq!(c["ok"], true, "{c}");
-        }
+    let names: Vec<&str> = checks.iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert_eq!(
+        names,
+        [
+            "fixed_point_rounding",
+            "seed_vectors",
+            "fee_curve_ts_compat",
+            "contract_bundle",
+            "run_path"
+        ]
+    );
+    for c in &checks[..4] {
+        assert_eq!(c["ok"], true, "{c}");
     }
-    assert_eq!(code(&o), if d["ok"] == true { 0 } else { 8 });
+    assert_eq!(checks[4]["ok"], false);
+    assert!(
+        checks[4]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("invalid_input: profile"),
+        "{}",
+        checks[4]
+    );
+    assert_eq!(d["ok"], false);
+    assert_eq!(code(&o), 8);
+    assert!(reason(&o).starts_with("engine_fault: selftest: failed checks: run_path"));
 }
 
 #[test]
