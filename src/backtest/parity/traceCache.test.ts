@@ -34,6 +34,7 @@ const base = {
   oracleEnv: { PATH: '/bin', TZ: 'UTC', MAX_EVENTS_PER_DRAIN: '4200' },
   traceLevel: 'feeds',
   patchSetSha256: null,
+  oracleTree: 'head' as const,
 }
 
 describe('TS trace cache (60 OR-12)', () => {
@@ -56,6 +57,7 @@ describe('TS trace cache (60 OR-12)', () => {
       { ...base, oracleEnv: { ...base.oracleEnv, MAX_EVENTS_PER_DRAIN: '1' } },
       { ...base, traceLevel: 'decisions' },
       { ...base, patchSetSha256: 'p' },
+      { ...base, oracleTree: 'pin' as const },
     ]
     for (const v of variants) assert.notEqual(traceCacheKey(v), k)
   })

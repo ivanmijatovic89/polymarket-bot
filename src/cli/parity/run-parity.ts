@@ -408,9 +408,7 @@ async function main(): Promise<number> {
     throw new Error('--trace-cache must be outside the repository')
   const cacheTrees =
     cacheDir && tree.workingTreeClean
-      ? oracleTree
-        ? { ...cacheTreeHashes(enginePaths, pin), ...oracleTree.toolingTrees }
-        : cacheTreeHashes(enginePaths)
+      ? cacheTreeHashes(enginePaths, oracleTree ? pin : 'HEAD', 'HEAD')
       : null
   if (cacheDir && !cacheTrees)
     console.error(
@@ -456,6 +454,7 @@ async function main(): Promise<number> {
             oracleEnv,
             traceLevel: cell.traceLevel,
             patchSetSha256: oracleTree?.patchSetSha256 ?? null,
+            oracleTree: oracleTree ? 'pin' : 'head',
           })
         : null
     if (
