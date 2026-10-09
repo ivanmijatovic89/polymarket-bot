@@ -7,10 +7,21 @@
  * ESLint rules as this repository (see scripts/protocol-check.mts for the
  * in-repo protocol equivalent). `strategy:publish` runs the typecheck part
  * automatically as a pre-flight.
+ *
+ * For a Rust strategy package (31 §7.1) the same command runs the native
+ * gates: package rules and lock subset, cargo fmt, clippy with the engine's
+ * config, and builder builds of every bin (src/strategy/artifacts/native/).
  */
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { lintExternalRepo, typecheckExternalRepo } from '../strategy/artifacts/externalRepoCheck.js'
+import { isNativeCheckInvocation, runNativeCheckCli } from '../strategy/artifacts/native/cli.js'
+
+// Rust strategy packages (a Cargo.toml with [package.metadata.pmb]) run the
+// gates of 31 §7.1 instead; the TS checks below are unchanged.
+if (isNativeCheckInvocation(process.argv.slice(2))) {
+  process.exit(runNativeCheckCli(process.argv.slice(2)))
+}
 
 let repo: string | null = null
 const argv = process.argv.slice(2)
