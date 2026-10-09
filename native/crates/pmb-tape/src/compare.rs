@@ -77,21 +77,8 @@ fn put_event(h: &mut Sha256, e: &TimedMarketEvent<'_>) {
 }
 
 fn put_diagnostics(h: &mut Sha256, d: &TelonexDiagnostics) {
-    let s = &d.skipped;
-    for v in [
-        d.rows_read,
-        s.blank_market,
-        s.no_exchange_ts,
-        s.other_event_type,
-        s.unresolved_book_asset,
-        s.empty_price_change,
-        d.dropped_changes,
-        d.inexact_decimal,
-        d.exchange_clock_backwards,
-        d.local_clock_backwards,
-        d.local_behind_exchange,
-        d.ingest_seq_backwards,
-    ] {
+    // Every counter, by the exhaustive list of the replay mirror.
+    for (_, v) in crate::replay::mirrored_counters(d) {
         h.update(v.to_le_bytes());
     }
 }

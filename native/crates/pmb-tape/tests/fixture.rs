@@ -20,8 +20,18 @@ fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/telonex-mini.parquet")
 }
 
-#[test]
-fn fixture_tape_stream_equals_v1_stream() {
+/// The tape root, removed on drop (also when an assertion fails).
+struct Root(PathBuf);
+
+impl Drop for Root {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Converts the fixture at `block_rows` and checks both paths against each
+/// other and against the pinned digest.
+fn check_fixture(block_rows: u32) {
     let v1 = fixture();
     let tokens = file_asset_ids(&v1).unwrap();
     let input = TelonexInput {
@@ -29,9 +39,11 @@ fn fixture_tape_stream_equals_v1_stream() {
         tokens: [tokens[0].as_str(), tokens[1].as_str()],
         condition_id: None,
     };
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("pmb-tape-fixture-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = Root(Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+        "pmb-tape-fixture-{}-{block_rows}",
+        std::process::id()
+    )));
+    let _ = std::fs::remove_dir_all(&root.0);
     let key = store::MarketKey {
         format: "telonex-delta-typed",
         format_version: 1,
@@ -39,11 +51,14 @@ fn fixture_tape_stream_equals_v1_stream() {
         timeframe: "15m",
         slug: "telonex-mini",
     };
-    let tape = store::tape_path(&root, &key).unwrap();
-    let mut budget = Budget::new(&root, u64::MAX, 0).unwrap();
+    let tape = store::tape_path(&root.0, &key).unwrap();
+    let mut budget = Budget::new(&root.0, u64::MAX, 0).unwrap();
     let mut decoder = Decoder::new().unwrap();
     let opts = ConvertOptions {
-        encode: EncodeOptions::default(),
+        encode: EncodeOptions {
+            block_rows,
+            ..EncodeOptions::default()
+        },
         tool_sha256: [0; 32],
     };
     let out = store::convert_one(&v1, &tape, None, &opts, &mut budget, &mut decoder).unwrap();
@@ -58,7 +73,14 @@ fn fixture_tape_stream_equals_v1_stream() {
     };
     assert_eq!(rows, 3007);
     assert!(tape_bytes < v1_bytes, "{tape_bytes} vs {v1_bytes}");
+    let blocks = decoder
+        .header(&std::fs::read(&tape).unwrap())
+        .unwrap()
+        .blocks
+        .len();
+    assert_eq!(blocks, 3007usize.div_ceil(block_rows as usize));
 
+    // The executor path (block-streamed decode and replay).
     let (from_tape, path) = read_market(&v1, Some(&tape), None, &input, &mut decoder).unwrap();
     assert_eq!(path, InputPath::Tape);
     let from_v1 = MarketStream::V1(read_telonex_delta(&v1, &input).unwrap());
@@ -78,5 +100,16 @@ fn fixture_tape_stream_equals_v1_stream() {
     let dig = hex(&digest(&from_tape));
     assert_eq!(dig, hex(&digest(&from_v1)));
     assert_eq!(dig, STREAM_DIGEST);
-    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn fixture_tape_stream_equals_v1_stream() {
+    check_fixture(EncodeOptions::default().block_rows);
+}
+
+/// Real rows across block boundaries (4 blocks of at most 1,000 rows), the
+/// streamed path real markets take when they exceed one 65,536-row block.
+#[test]
+fn fixture_tape_stream_equals_v1_stream_in_small_blocks() {
+    check_fixture(1_000);
 }

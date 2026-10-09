@@ -2,16 +2,27 @@
 //!
 //! This mirrors `pmb_replay::read_telonex_delta` row for row: the same skip
 //! reasons, anomaly counters, asset resolution, error classes and texts. It
-//! lives here only because pmb-replay does not yet expose its typed-row layer;
-//! NT-6 (b) (`pmb-tape verify`, the fixture tests) proves the two streams
-//! identical. Once pmb-replay reads typed rows, this module collapses into a
-//! call to it.
+//! lives here only because pmb-replay does not yet expose its typed-row
+//! layer, so 16 NT-2 ("the reader's logic runs on typed rows") holds only
+//! as long as the two copies agree. Until pmb-replay owns the typed rows
+//! and this replayer (then `read_telonex_delta` = typed rows + replayer and
+//! this module collapses into a call to it), three guards keep the copies
+//! in lockstep:
+//!
+//! - `tests::mirrored_reader_source_is_pinned` fails when pmb-replay's reader
+//!   source changes, until this mirror (and `v1.rs`) has been reviewed and
+//!   the pin updated;
+//! - [`mirrored_counters`] stops compiling when pmb-replay's diagnostics gain
+//!   or lose a counter;
+//! - `tests::generated_corpus_streams_are_identical_on_every_path` runs both
+//!   readers over a generated corpus that drives every counter, every skip
+//!   reason and every input error, and requires identical results.
 
 use crate::typed::{dec, event_type, int, row_flags, TypedRows, NULL_ID};
 use pmb_core::{
     LevelUpdate, MarketEvent, Outcome, Price, PriceSize, Qty, QuoteSide, TimedMarketEvent, TsMs,
 };
-use pmb_replay::telonex::{RowKind, TelonexDiagnostics, FORMAT_VERSION};
+use pmb_replay::telonex::{RowKind, SkippedRows, TelonexDiagnostics, FORMAT_VERSION};
 use pmb_replay::{ErrorClass, InputError, TelonexInput};
 use std::collections::TryReserveError;
 
@@ -77,6 +88,43 @@ impl ReplayStream {
     }
 }
 
+/// The counters this mirror maintains, destructured without `..`: a counter
+/// added to (or removed from) pmb-replay's reader diagnostics fails to
+/// compile here until the replayer below counts it the same way.
+pub fn mirrored_counters(d: &TelonexDiagnostics) -> [(&'static str, u64); 12] {
+    let TelonexDiagnostics {
+        rows_read,
+        skipped:
+            SkippedRows {
+                blank_market,
+                no_exchange_ts,
+                other_event_type,
+                unresolved_book_asset,
+                empty_price_change,
+            },
+        dropped_changes,
+        inexact_decimal,
+        exchange_clock_backwards,
+        local_clock_backwards,
+        local_behind_exchange,
+        ingest_seq_backwards,
+    } = *d;
+    [
+        ("rows_read", rows_read),
+        ("skipped.blank_market", blank_market),
+        ("skipped.no_exchange_ts", no_exchange_ts),
+        ("skipped.other_event_type", other_event_type),
+        ("skipped.unresolved_book_asset", unresolved_book_asset),
+        ("skipped.empty_price_change", empty_price_change),
+        ("dropped_changes", dropped_changes),
+        ("inexact_decimal", inexact_decimal),
+        ("exchange_clock_backwards", exchange_clock_backwards),
+        ("local_clock_backwards", local_clock_backwards),
+        ("local_behind_exchange", local_behind_exchange),
+        ("ingest_seq_backwards", ingest_seq_backwards),
+    ]
+}
+
 fn defect(cause: &'static str, detail: impl Into<String>) -> InputError {
     InputError::new(ErrorClass::DataDefect, cause, detail)
 }
@@ -110,6 +158,8 @@ pub fn replay(t: &TypedRows, input: &TelonexInput<'_>) -> Result<ReplayStream, I
 /// The reader state across the blocks of one file.
 pub struct Replayer<'a> {
     condition_id: Option<&'a str>,
+    /// The dictionary every fed block must carry (its ids index it).
+    dict: Vec<Vec<u8>>,
     /// Trimmed UTF-8 view of each dictionary entry ("" when not UTF-8).
     market_of: Vec<Box<str>>,
     /// Asset resolution of each dictionary entry.
@@ -136,6 +186,7 @@ impl<'a> Replayer<'a> {
         }
         Ok(Replayer {
             condition_id: input.condition_id,
+            dict: dict.to_vec(),
             market_of: dict
                 .iter()
                 .map(|e| std::str::from_utf8(e).map(str::trim).unwrap_or("").into())
@@ -172,13 +223,17 @@ impl<'a> Replayer<'a> {
         );
     }
 
-    /// Applies the rows of `t`, whose first row is file row `row0`. `t` must
-    /// carry the dictionary given to [`Replayer::new`] (its ids index it).
+    /// Applies the rows of `t`, whose first row is file row `row0`.
+    ///
+    /// # Panics
+    ///
+    /// When `t` does not carry exactly the dictionary given to
+    /// [`Replayer::new`] (its ids index it): a caller bug, never data.
     pub fn feed(&mut self, t: &TypedRows, row0: usize) -> Result<(), InputError> {
-        assert_eq!(
-            t.dict.len(),
-            self.market_of.len(),
-            "typed rows from another file's dictionary"
+        // At most 255 short entries, compared once per block.
+        assert!(
+            t.dict == self.dict,
+            "typed rows carry another dictionary than the replayer's"
         );
         let market_of = &self.market_of;
         let asset_of = &self.asset_of;

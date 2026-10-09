@@ -3,7 +3,7 @@
 //! (NT-5), the writer (NT-4) and the disk budget (NT-7).
 //!
 //! Scratch files go under `native/target/tmp/pmb-tape-unit/` (inside the
-//! checkout). The committed fixture is regenerated with
+//! checkout) and are removed when each test ends. The committed fixture is regenerated with
 //! `cargo test -p pmb-tape -- --ignored regenerate_fixture` on a host that has
 //! the dataset.
 
@@ -153,10 +153,26 @@ fn ba(s: &str) -> ByteArray {
 
 /// Writes a version-1 telonex-delta file (GZIP, `rows_per_group` rows per group).
 pub(crate) fn write_v1(path: &Path, rows: &[RawRow], rows_per_group: usize) {
+    write_v1_with(
+        path,
+        rows,
+        rows_per_group,
+        Compression::GZIP(GzipLevel::default()),
+    )
+}
+
+/// [`write_v1`] with another codec (the reader does not depend on it; the
+/// generated corpus skips GZIP, which is slow in debug builds).
+pub(crate) fn write_v1_with(
+    path: &Path,
+    rows: &[RawRow],
+    rows_per_group: usize,
+    compression: Compression,
+) {
     let schema = Arc::new(parse_message_type(V1_MESSAGE).unwrap());
     let props = Arc::new(
         WriterProperties::builder()
-            .set_compression(Compression::GZIP(GzipLevel::default()))
+            .set_compression(compression)
             .build(),
     );
     let file = std::fs::File::create(path).unwrap();
@@ -275,8 +291,24 @@ fn read_raw(path: &Path) -> Vec<RawRow> {
 
 static SEQ: AtomicU32 = AtomicU32::new(0);
 
+/// A scratch directory inside the checkout's target dir, removed on drop.
+pub(crate) struct Scratch(PathBuf);
+
+impl std::ops::Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// A fresh scratch directory inside the checkout's target dir.
-fn scratch(name: &str) -> PathBuf {
+fn scratch(name: &str) -> Scratch {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../target/tmp/pmb-tape-unit")
         .join(format!(
@@ -286,7 +318,7 @@ fn scratch(name: &str) -> PathBuf {
         ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    dir
+    Scratch(dir)
 }
 
 fn key(slug: &str) -> store::MarketKey<'_> {
@@ -652,8 +684,8 @@ fn dictionary_overflow_stays_v1() {
     assert_eq!(path, InputPath::V1(Fallback::Missing));
 }
 
-/// Converts the synthetic file and returns (v1, tape, decoder).
-fn converted(name: &str) -> (PathBuf, PathBuf, Decoder) {
+/// Converts the synthetic file and returns (scratch dir, v1, tape, decoder).
+fn converted(name: &str) -> (Scratch, PathBuf, PathBuf, Decoder) {
     let dir = scratch(name);
     let v1 = dir.join("m.parquet");
     write_v1(&v1, &synthetic_rows(), 5);
@@ -669,7 +701,7 @@ fn converted(name: &str) -> (PathBuf, PathBuf, Decoder) {
     )
     .unwrap();
     assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
-    (v1, tape, dec)
+    (dir, v1, tape, dec)
 }
 
 fn assert_fallback(v1: &Path, tape: &Path, dec: &mut Decoder, label: &str) {
@@ -683,7 +715,7 @@ fn assert_fallback(v1: &Path, tape: &Path, dec: &mut Decoder, label: &str) {
 
 #[test]
 fn valid_tape_is_used_and_skipped_on_reconvert() {
-    let (v1, tape, mut dec) = converted("valid");
+    let (_dir, v1, tape, mut dec) = converted("valid");
     let (s, path) = read_market(&v1, Some(&tape), None, &input(), &mut dec).unwrap();
     assert_eq!(path, InputPath::Tape);
     assert_eq!(first_difference(&s, &v1_stream(&v1, &input())), None);
@@ -707,7 +739,7 @@ fn valid_tape_is_used_and_skipped_on_reconvert() {
 
 #[test]
 fn corrupted_frame_falls_back_to_v1() {
-    let (v1, tape, mut dec) = converted("corrupt");
+    let (_dir, v1, tape, mut dec) = converted("corrupt");
     let good = std::fs::read(&tape).unwrap();
     let h = dec.header(&good).unwrap();
     // Flip one byte inside the largest data frame (past its header).
@@ -758,7 +790,7 @@ fn corrupted_frame_falls_back_to_v1() {
 
 #[test]
 fn stale_tape_falls_back_and_is_rebuilt() {
-    let (v1, tape, mut dec) = converted("stale");
+    let (_dir, v1, tape, mut dec) = converted("stale");
     // A job sha256 that differs from the tape's v1 identity.
     assert_fallback_sha(&v1, &tape, &mut dec);
     // The v1 file is touched (mtime changes): stale, then rebuilt.
@@ -785,7 +817,7 @@ fn assert_fallback_sha(v1: &Path, tape: &Path, dec: &mut Decoder) {
 
 #[test]
 fn input_errors_are_identical_on_both_paths() {
-    let (v1, tape, mut dec) = converted("errors");
+    let (_dir, v1, tape, mut dec) = converted("errors");
     let foreign = TelonexInput {
         format_version: 1,
         tokens: [UP, "9999"],
@@ -874,7 +906,7 @@ fn tape_paths_are_plain_and_versioned() {
 
 #[test]
 fn newer_tape_format_is_not_overwritten() {
-    let (v1, tape, mut dec) = converted("newer");
+    let (_dir, v1, tape, mut dec) = converted("newer");
     let mut newer = std::fs::read(&tape).unwrap();
     newer[8..12].copy_from_slice(&(codec::FORMAT_VERSION + 1).to_le_bytes());
     std::fs::write(&tape, &newer).unwrap();
@@ -1043,7 +1075,7 @@ fn meta_col(h: &codec::TapeHeader, b: usize, c: usize) -> usize {
 
 #[test]
 fn checksum_valid_meta_with_inconsistent_counts_falls_back() {
-    let (v1, tape, mut dec) = converted("tampered-meta");
+    let (_dir, v1, tape, mut dec) = converted("tampered-meta");
     let good = std::fs::read(&tape).unwrap();
     let h = dec.header(&good).unwrap();
     let bids = h.list_values[crate::typed::dec::BID_PRICES];
@@ -1173,7 +1205,7 @@ fn tape_root_never_resolves_into_inputs_or_the_fleet_copy() {
         co.join("data/binance/tapes"),
         fleet.join("native-tapes"),
         fleet.clone(),
-        dir.clone(),
+        dir.to_path_buf(),
     ] {
         let e = check(&bad).unwrap_err();
         assert!(e.contains("16 NT-8"), "{}: {e}", bad.display());
@@ -1339,5 +1371,359 @@ fn a_source_changed_mid_conversion_is_not_written() {
         store::dir_bytes(&root).unwrap(),
         0,
         "no temporary file left"
+    );
+}
+
+#[test]
+#[should_panic(expected = "another dictionary")]
+fn replayer_rejects_rows_of_another_dictionary_of_equal_length() {
+    let dir = scratch("dict-contract");
+    let v1 = dir.join("m.parquet");
+    write_v1(&v1, &synthetic_rows(), 5);
+    let rows = read_v1(Bytes::from(std::fs::read(&v1).unwrap())).unwrap();
+    let mut other = rows.clone();
+    assert!(other.dict.len() >= 2);
+    other.dict.swap(0, 1);
+    let mut r = crate::Replayer::new(&rows.dict, &input()).unwrap();
+    let _ = r.feed(&other, 0);
+}
+
+/// sha256 of the pmb-replay sources this crate mirrors: `replay.rs` mirrors
+/// the reader loop, counters and error texts of `telonex.rs` (and
+/// `error.rs`), `v1.rs` mirrors `pq.rs` and `check_format`. Update a pin
+/// only after reviewing the mirror against the change (16 NT-2, 15 I-55).
+const MIRRORED_READER: [(&str, &str); 3] = [
+    (
+        "telonex.rs",
+        "2ff868f665797a3fbe93bad003d7c2fd1dd6bc2573e095dd8cf152690076752c",
+    ),
+    (
+        "pq.rs",
+        "29c0cd5008f78ce32f0fd5fc381bef9eb353349de571ea4016e2afd03244e037",
+    ),
+    (
+        "error.rs",
+        "d437106c6de2b9f69ec98fdbeecb6d0403190d7d822d0851945a19da57cd69d2",
+    ),
+];
+
+#[test]
+fn mirrored_reader_source_is_pinned() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../pmb-replay/src");
+    for (file, pinned) in MIRRORED_READER {
+        let sha = store::hex(&store::sha256(&std::fs::read(dir.join(file)).unwrap()));
+        assert_eq!(
+            sha, pinned,
+            "pmb-replay/src/{file} changed: review pmb-tape's mirror of the reader \
+             (src/replay.rs, src/v1.rs) against the change, extend the generated corpus \
+             if a rule changed, then update MIRRORED_READER in src/tests.rs"
+        );
+    }
+}
+
+/// Deterministic generator (splitmix64).
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    fn below(&mut self, n: u64) -> u64 {
+        self.next() % n
+    }
+    fn chance(&mut self, pct: u64) -> bool {
+        self.below(100) < pct
+    }
+    fn pick<'a, T>(&mut self, v: &'a [T]) -> &'a T {
+        &v[self.below(v.len() as u64) as usize]
+    }
+}
+
+fn gen_decimal(rng: &mut Rng) -> String {
+    match rng.below(12) {
+        0 => format!("0.{:07}", rng.below(10_000_000)), // 7 digits: rounded
+        1 => format!("{}.{:09}", rng.below(3), rng.below(1_000_000_000)),
+        2 => format!("{}e-{}", rng.below(1000), rng.below(4)),
+        3 => format!("{}E{}", rng.below(50), rng.below(3)),
+        4 => format!("-{}.{}", rng.below(5), rng.below(100)),
+        5 => "123456789012.345678".into(),
+        6 => format!("{}", rng.below(5000)),
+        _ => format!("0.{:02}", rng.below(100)),
+    }
+}
+
+/// Per-file injections.
+struct Mode {
+    /// Foreign ids only in rows the reader skips before resolving assets.
+    foreign_in_skipped: bool,
+    /// A foreign token in a row at this index.
+    foreign_at: Option<usize>,
+    /// Another market id at this index.
+    market_change_at: Option<usize>,
+    /// An unknown event type at this index (the file stays on v1).
+    unknown_event_at: Option<usize>,
+}
+
+fn gen_rows(rng: &mut Rng, n: usize, mode: &Mode) -> Vec<RawRow> {
+    let mut rows: Vec<RawRow> = Vec::with_capacity(n);
+    let (mut seq, mut ex) = (0i64, 1_000_000i64);
+    for i in 0..n {
+        let injected = [
+            mode.foreign_at,
+            mode.market_change_at,
+            mode.unknown_event_at,
+        ]
+        .contains(&Some(i));
+        // Identical consecutive rows (15 §8 `duplicateRows`).
+        if let Some(p) = rows.last().filter(|_| !injected) {
+            if rng.chance(4) {
+                rows.push(p.clone());
+                continue;
+            }
+        }
+        seq = match rng.below(100) {
+            0..=3 => seq,
+            4..=6 => seq - 1 - rng.below(5) as i64,
+            _ => seq + 1,
+        };
+        ex = if rng.chance(6) {
+            ex - 1 - rng.below(100) as i64
+        } else {
+            ex + rng.below(50) as i64
+        };
+        let ts_exchange = match rng.below(100) {
+            0..=2 => None,
+            3..=4 => Some(-1 - rng.below(10) as i64),
+            _ => Some(ex),
+        };
+        let ts_local = match rng.below(100) {
+            0..=4 => 0,
+            5..=6 => -(rng.below(10) as i64),
+            7..=12 => ex - 1 - rng.below(30) as i64,
+            13..=16 => ex - 200 - rng.below(30) as i64,
+            _ => ex + rng.below(30) as i64,
+        };
+        let market = match rng.below(100) {
+            0..=2 => String::new(),
+            3..=4 => "   ".into(),
+            5..=6 => format!(" {MARKET} "),
+            _ => MARKET.into(),
+        };
+        let pair: (Option<&str>, Option<&str>) = *rng.pick(&[
+            (Some(UP), Some(DOWN)),
+            (Some(UP), Some(DOWN)),
+            (Some(UP), Some(DOWN)),
+            (Some(DOWN), Some(UP)),
+            (None, Some(DOWN)),
+            (Some(UP), None),
+            (Some(""), Some(UP)),
+            (Some(" 1111 "), Some(DOWN)),
+            (None, None),
+        ]);
+        let mut r = RawRow {
+            ingest_seq: seq,
+            ts_local,
+            ts_exchange,
+            market,
+            asset0: pair.0.map(str::to_string),
+            asset1: pair.1.map(str::to_string),
+            ..RawRow::default()
+        };
+        let skipped_early =
+            r.market.trim().is_empty() || !matches!(r.ts_exchange, Some(t) if t >= 0);
+        if mode.foreign_in_skipped && skipped_early {
+            r.asset0 = Some(format!("foreign-{}", rng.below(4)));
+        }
+        if mode.foreign_at == Some(i) {
+            r.asset1 = Some("9999".into());
+        }
+        if mode.market_change_at == Some(i) {
+            r.market = "0xother".into();
+        }
+        if rng.chance(45) {
+            r.event_type = "book".into();
+            r.asset_index =
+                *rng.pick(&[None, Some(2), Some(-1), Some(0), Some(1), Some(0), Some(1)]);
+            for _ in 0..rng.below(5) {
+                r.bid_prices.push(gen_decimal(rng));
+                r.bid_sizes.push(gen_decimal(rng));
+            }
+            for _ in 0..rng.below(5) {
+                r.ask_prices.push(gen_decimal(rng));
+                r.ask_sizes.push(gen_decimal(rng));
+            }
+            if rng.chance(10) {
+                r.bid_prices.push(gen_decimal(rng)); // unequal list lengths
+            }
+            if rng.chance(10) {
+                r.ask_sizes.push(gen_decimal(rng));
+            }
+        } else {
+            r.event_type = "price_change".into();
+            for _ in 0..rng.below(5) {
+                r.change_assets
+                    .push(*rng.pick(&[0, 1, 0, 1, 0, 1, 2, -1, 7]));
+                r.change_sides
+                    .push(*rng.pick(&[0, 1, 0, 1, 0, 1, 0, 1, 2, -1]));
+                r.change_prices.push(gen_decimal(rng));
+                r.change_sizes.push(gen_decimal(rng));
+            }
+            if rng.chance(10) {
+                r.change_sides.pop();
+            }
+        }
+        if mode.unknown_event_at == Some(i) {
+            r.event_type = "last_trade_price".into();
+        }
+        rows.push(r);
+    }
+    rows
+}
+
+/// The two results are equal: the same event stream and counters, or the
+/// same input error.
+fn assert_same(
+    file: usize,
+    what: &str,
+    want: &Result<pmb_replay::TelonexTape, pmb_replay::InputError>,
+    got: Result<MarketStream, pmb_replay::InputError>,
+) {
+    match (want, got) {
+        (Ok(w), Ok(g)) => {
+            let w = MarketStream::V1(w.clone());
+            assert_eq!(first_difference(&w, &g), None, "file {file} ({what})");
+            assert_eq!(digest(&w), digest(&g), "file {file} ({what})");
+        }
+        (Err(a), Err(b)) => assert_eq!(a, &b, "file {file} ({what})"),
+        (a, b) => panic!(
+            "file {file} ({what}): v1 {:?} vs {:?}",
+            a.as_ref().err(),
+            b.err()
+        ),
+    }
+}
+
+/// NT-6 (b) / I-V6 against a generated corpus: every counter of the reader
+/// diagnostics, every skip reason and every input error, on the v1 reader,
+/// the whole-file tape replay and the block-streamed `read_market` path at
+/// several block sizes. Guards the mirror in `replay.rs` (see its docs).
+#[test]
+fn generated_corpus_streams_are_identical_on_every_path() {
+    use std::collections::{BTreeMap, BTreeSet};
+    let dir = scratch("corpus");
+    let mut rng = Rng(0x7A9E_C0DE_2026_1009);
+    let mut fired: BTreeMap<&str, u64> = crate::replay::mirrored_counters(&Default::default())
+        .into_iter()
+        .map(|(k, _)| (k, 0))
+        .collect();
+    let mut errors: BTreeSet<&str> = BTreeSet::new();
+    let (mut tape_files, mut v1_only) = (0, 0);
+    let mut dec = Decoder::new().unwrap();
+    let mut corpus_budget = budget(&dir);
+    for f in 0..200 {
+        let n = 1 + rng.below(if f % 10 == 0 { 700 } else { 90 }) as usize;
+        let at = |rng: &mut Rng, pct| rng.chance(pct).then(|| rng.below(n as u64) as usize);
+        let mode = Mode {
+            foreign_in_skipped: rng.chance(30),
+            foreign_at: at(&mut rng, 8),
+            market_change_at: at(&mut rng, 6),
+            unknown_event_at: at(&mut rng, 6),
+        };
+        let rows = gen_rows(&mut rng, n, &mode);
+        let v1 = dir.join(format!("f{f}.parquet"));
+        let codec = *rng.pick(&[Compression::UNCOMPRESSED, Compression::SNAPPY]);
+        write_v1_with(&v1, &rows, 1 + rng.below(64) as usize, codec);
+        let condition_id = *rng.pick(&[None, None, None, None, Some("0XMARKET"), Some("0xother")]);
+        let inp = TelonexInput {
+            format_version: if rng.chance(3) { 2 } else { 1 },
+            tokens: [UP, DOWN],
+            condition_id,
+        };
+        let want = read_telonex_delta(&v1, &inp);
+
+        let block_rows = *rng.pick(&[1u32, 2, 5, 16, 64, 65_536]);
+        let o = ConvertOptions {
+            encode: EncodeOptions {
+                block_rows,
+                zstd_level: 1,
+            },
+            tool_sha256: [0; 32],
+        };
+        let tape = dir.join(format!("f{f}.pmbtape"));
+        let out = convert_one(&v1, &tape, None, &o, &mut corpus_budget, &mut dec).unwrap();
+        let typed = read_v1(Bytes::from(std::fs::read(&v1).unwrap()));
+        match (&typed, mode.unknown_event_at) {
+            (Ok(t), None) => {
+                assert!(
+                    matches!(out, ConvertOutcome::Written { .. }),
+                    "file {f}: {out:?}"
+                );
+                let (_, back) = dec.decode(&std::fs::read(&tape).unwrap()).unwrap();
+                assert_eq!(&back, t, "file {f}: typed rows survive the tape");
+                assert_same(
+                    f,
+                    "whole-file tape",
+                    &want,
+                    replay(&back, &inp).map(MarketStream::Tape),
+                );
+                tape_files += 1;
+            }
+            (Err(Unconvertible::EventType(_)), Some(_)) => {
+                assert!(
+                    matches!(out, ConvertOutcome::Unconvertible(_)),
+                    "file {f}: {out:?}"
+                );
+                v1_only += 1;
+            }
+            (t, u) => panic!(
+                "file {f}: typed rows {:?} with unknown event at {u:?}",
+                t.as_ref().err()
+            ),
+        }
+        let streamed = read_market(&v1, Some(&tape), None, &inp, &mut dec);
+        if let Ok((_, path)) = &streamed {
+            let expect_tape = mode.unknown_event_at.is_none();
+            assert_eq!(*path == InputPath::Tape, expect_tape, "file {f}: {path:?}");
+        }
+        assert_same(f, "read_market", &want, streamed.map(|(s, _)| s));
+
+        match &want {
+            Ok(t) => {
+                for (k, v) in crate::replay::mirrored_counters(&t.diagnostics) {
+                    *fired.get_mut(k).unwrap() += v;
+                }
+            }
+            Err(e) => {
+                errors.insert(match (e.cause, e.detail.as_str()) {
+                    ("foreign_file", d) if d.contains("not one of the job's tokens") => {
+                        "foreign token"
+                    }
+                    ("foreign_file", d) if d.contains("market column changes") => "market changes",
+                    ("foreign_file", d) if d.contains("job condition id") => "condition id",
+                    ("format_version", _) => "format version",
+                    _ => panic!("file {f}: unexpected error {e}"),
+                });
+            }
+        }
+    }
+    for (k, v) in &fired {
+        assert!(*v > 0, "counter {k} never fired; extend the generator");
+    }
+    assert_eq!(
+        errors.into_iter().collect::<Vec<_>>(),
+        [
+            "condition id",
+            "foreign token",
+            "format version",
+            "market changes"
+        ]
+    );
+    assert!(
+        tape_files >= 100 && v1_only >= 5,
+        "{tape_files} tape, {v1_only} v1-only"
     );
 }
