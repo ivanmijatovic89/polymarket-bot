@@ -16,6 +16,7 @@ pub mod rules;
 pub mod seed;
 pub mod state;
 
+pub use feed_value::{FeedKind, FeedsView, PriceToBeatPoint, SpotPoint, SyntheticKind};
 pub use fixed::{DurMs, Overflow, Price, Qty, Rate, Rounding, TsMs, Usdc, SCALE};
 pub use market_event::{LevelUpdate, MarketEvent, PriceSize, QuoteSide, TimedMarketEvent};
 pub use outcome::{Outcome, PerOutcome};

@@ -1,0 +1,355 @@
+//! Price to beat from the job (14 §6): the producer-resolved strike
+//! (`market.gammaPriceToBeat`) and its availability decision
+//! (`market.feedAvailability.priceToBeat`). The binary only applies the
+//! producer's result; it reads no clock (14 F-3, 21 §5.3).
+
+use crate::error::{FeedCause, FeedError};
+use pmb_core::{PriceToBeatPoint, TsMs, Window};
+
+/// `market.gammaPriceToBeat` tri-state (21 §5.1).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GammaStrike {
+    /// Field absent: the producer did not look it up.
+    NotResolved,
+    /// `null`: slug not in the catalog.
+    CatalogMiss,
+    /// Object: `priceToBeat` is a finite number or null; `syncedAtMs` is
+    /// null when the Gamma backfill never ran for the slug (21 §5.1).
+    Resolved {
+        price_to_beat: Option<f64>,
+        synced_at_ms: Option<u64>,
+    },
+}
+
+/// `feedAvailability.priceToBeat.status` (14 §6.2).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum PtbStatus {
+    Fed,
+    AbsentPreSeriesEpoch,
+    AbsentFreshMarketGrace,
+    UnavailablePipelineIncomplete,
+    UnavailableUpstreamHole,
+}
+
+/// `feedAvailability.priceToBeat` (null when the strategy did not request
+/// price to beat).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PtbAvailability<'a> {
+    pub status: PtbStatus,
+    pub message: Option<&'a str>,
+}
+
+/// The fed price-to-beat source (14 F-28): visible iff the feed clock
+/// `H >= available_at = start + L_p`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PriceToBeatSource {
+    /// Uppercase slug symbol (`BTC`, F-28, F-49); the TS shape only (§11.2).
+    pub symbol: &'static str,
+    pub point: PriceToBeatPoint,
+}
+
+impl PriceToBeatSource {
+    #[inline]
+    pub fn available_at(&self) -> TsMs {
+        self.point.received_at
+    }
+}
+
+/// Outcome of the §6.2 table for a strategy that requests price to beat.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum PtbResolution {
+    Fed(PriceToBeatSource),
+    /// Key stays absent: `AbsentPreSeriesEpoch` (info diagnostic) or
+    /// `AbsentFreshMarketGrace` (warning diagnostic).
+    Absent(PtbStatus),
+}
+
+fn inconsistent(slug: &str, what: &str) -> FeedError {
+    FeedError::new(
+        FeedCause::FeedAvailability,
+        format!("price to beat for {slug}: {what} (producer bug, 14 §6.2)"),
+    )
+}
+
+/// Applies the 14 §6.2 table. `availability` is `None` when the job carries
+/// `feedAvailability.priceToBeat: null`.
+///
+/// A status is consistent with `gammaPriceToBeat` exactly when the producer
+/// finding of its §6.2 row can hold for that strike (the TS decision order,
+/// `wireBacktestExternalFeeds.ts:283-344`):
+///
+/// | status | consistent `gammaPriceToBeat` |
+/// |---|---|
+/// | `fed` | object with a finite `priceToBeat` |
+/// | `absent_pre_series_epoch` | anything without a strike (TS checks the epoch before the lookup) |
+/// | `absent_fresh_market_grace` | `null` (catalog miss) or object without a strike |
+/// | `unavailable_pipeline_incomplete` | "slug not in catalog, or never synced": `null`, or object without a strike and with `syncedAtMs: null` |
+/// | `unavailable_upstream_hole` | "synced, empty strike": object without a strike and with a `syncedAtMs` |
+///
+/// Every other pair is a producer bug: `invalid_input: feed_availability`.
+pub fn resolve_price_to_beat(
+    slug: &str,
+    symbol: &'static str,
+    window: Window,
+    latency_ms: i64,
+    gamma: GammaStrike,
+    availability: Option<PtbAvailability<'_>>,
+) -> Result<PtbResolution, FeedError> {
+    let Some(av) = availability else {
+        return Err(inconsistent(
+            slug,
+            "the strategy requests it but feedAvailability.priceToBeat is null",
+        ));
+    };
+    let strike = match gamma {
+        GammaStrike::Resolved {
+            price_to_beat: Some(p),
+            ..
+        } => Some(p),
+        _ => None,
+    };
+    let (catalog_miss, synced_empty, never_synced_empty) = match gamma {
+        GammaStrike::CatalogMiss => (true, false, false),
+        GammaStrike::Resolved {
+            price_to_beat: None,
+            synced_at_ms,
+        } => (false, synced_at_ms.is_some(), synced_at_ms.is_none()),
+        _ => (false, false, false),
+    };
+    let message = || av.message.filter(|m| !m.is_empty());
+    let unavailable = |cause: FeedCause| match message() {
+        Some(m) => Err(FeedError::new(cause, m)),
+        None => Err(inconsistent(slug, "unavailable_* without a message")),
+    };
+    match av.status {
+        PtbStatus::Fed => {
+            let Some(p) = strike.filter(|p| p.is_finite()) else {
+                return Err(inconsistent(
+                    slug,
+                    "status fed without a finite gammaPriceToBeat.priceToBeat",
+                ));
+            };
+            Ok(PtbResolution::Fed(PriceToBeatSource {
+                symbol,
+                point: PriceToBeatPoint {
+                    open_price: p,
+                    received_at: TsMs(window.start_ms.0 + latency_ms),
+                    event_start: window.start_ms,
+                    end: window.end_ms,
+                },
+            }))
+        }
+        PtbStatus::AbsentPreSeriesEpoch if strike.is_none() => Ok(PtbResolution::Absent(av.status)),
+        PtbStatus::AbsentFreshMarketGrace if catalog_miss || synced_empty || never_synced_empty => {
+            Ok(PtbResolution::Absent(av.status))
+        }
+        PtbStatus::UnavailablePipelineIncomplete if catalog_miss || never_synced_empty => {
+            unavailable(FeedCause::PipelineIncomplete)
+        }
+        PtbStatus::UnavailableUpstreamHole if synced_empty => unavailable(FeedCause::UpstreamHole),
+        s => Err(inconsistent(
+            slug,
+            &format!("status {s:?} is inconsistent with gammaPriceToBeat {gamma:?}"),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::ErrorClass;
+
+    const START: i64 = 1_789_570_800_000;
+
+    fn win() -> Window {
+        Window {
+            start_ms: TsMs(START),
+            end_ms: TsMs(START + 900_000),
+        }
+    }
+
+    fn av(status: PtbStatus, message: Option<&str>) -> Option<PtbAvailability<'_>> {
+        Some(PtbAvailability { status, message })
+    }
+
+    // spec: 14 §6.2 table (every row and the inconsistent pairs), F-28
+    // (availability at start + L_p)
+    #[test]
+    fn availability_table() {
+        let fed = GammaStrike::Resolved {
+            price_to_beat: Some(117_234.51),
+            synced_at_ms: Some(1),
+        };
+        // Synced, empty strike (Polymarket-side hole).
+        let none = GammaStrike::Resolved {
+            price_to_beat: None,
+            synced_at_ms: Some(1_780_280_000_000),
+        };
+        // Catalogued but the Gamma backfill never ran.
+        let unsynced = GammaStrike::Resolved {
+            price_to_beat: None,
+            synced_at_ms: None,
+        };
+        let s = "btc-updown-15m-1789570800";
+        match resolve_price_to_beat(s, "BTC", win(), 2_700, fed, av(PtbStatus::Fed, None)).unwrap()
+        {
+            PtbResolution::Fed(src) => {
+                assert_eq!(src.available_at(), TsMs(START + 2_700));
+                assert_eq!(src.point.open_price, 117_234.51);
+                assert_eq!(src.point.end, TsMs(START + 900_000));
+            }
+            other => panic!("{other:?}"),
+        }
+        let r = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            none,
+            av(PtbStatus::AbsentPreSeriesEpoch, None),
+        );
+        assert_eq!(
+            r.unwrap(),
+            PtbResolution::Absent(PtbStatus::AbsentPreSeriesEpoch)
+        );
+        let r = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            GammaStrike::NotResolved,
+            av(PtbStatus::AbsentPreSeriesEpoch, None),
+        );
+        assert!(r.is_ok());
+        let r = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            none,
+            av(PtbStatus::AbsentFreshMarketGrace, None),
+        );
+        assert_eq!(
+            r.unwrap(),
+            PtbResolution::Absent(PtbStatus::AbsentFreshMarketGrace)
+        );
+        let e = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            GammaStrike::CatalogMiss,
+            av(
+                PtbStatus::UnavailablePipelineIncomplete,
+                Some("run telonex:sync"),
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (e.class(), e.cause),
+            (ErrorClass::DataDefect, FeedCause::PipelineIncomplete)
+        );
+        assert_eq!(e.message, "run telonex:sync");
+        let e = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            unsynced,
+            av(
+                PtbStatus::UnavailablePipelineIncomplete,
+                Some("run telonex:sync-pricetobeat-and-final-price"),
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(e.cause, FeedCause::PipelineIncomplete);
+        for g in [GammaStrike::CatalogMiss, unsynced] {
+            let r = resolve_price_to_beat(
+                s,
+                "BTC",
+                win(),
+                0,
+                g,
+                av(PtbStatus::AbsentFreshMarketGrace, None),
+            );
+            assert!(r.is_ok(), "{g:?}");
+        }
+        // A strike fed without a sync stamp is still fed (TS feeds any strike).
+        let r = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            GammaStrike::Resolved {
+                price_to_beat: Some(1.5),
+                synced_at_ms: None,
+            },
+            av(PtbStatus::Fed, None),
+        );
+        assert!(matches!(r, Ok(PtbResolution::Fed(_))));
+        let e = resolve_price_to_beat(
+            s,
+            "BTC",
+            win(),
+            0,
+            none,
+            av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+        )
+        .unwrap_err();
+        assert_eq!(e.cause, FeedCause::UpstreamHole);
+        // Producer bugs: invalid_input feed_availability.
+        for (g, a) in [
+            (fed, None),
+            (none, av(PtbStatus::Fed, None)),
+            (GammaStrike::NotResolved, av(PtbStatus::Fed, None)),
+            (fed, av(PtbStatus::AbsentPreSeriesEpoch, None)),
+            (fed, av(PtbStatus::AbsentFreshMarketGrace, None)),
+            (
+                GammaStrike::NotResolved,
+                av(PtbStatus::AbsentFreshMarketGrace, None),
+            ),
+            (none, av(PtbStatus::UnavailableUpstreamHole, None)),
+            (
+                unsynced,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("")),
+            ),
+            // Catalog miss or never synced is pipeline_incomplete, never an
+            // upstream hole; a synced empty strike is never pipeline_incomplete.
+            (
+                GammaStrike::CatalogMiss,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (
+                unsynced,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (
+                none,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
+            (
+                GammaStrike::NotResolved,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
+            (
+                GammaStrike::NotResolved,
+                av(PtbStatus::UnavailableUpstreamHole, Some("hole")),
+            ),
+            (fed, av(PtbStatus::UnavailableUpstreamHole, Some("hole"))),
+            (
+                fed,
+                av(PtbStatus::UnavailablePipelineIncomplete, Some("sync")),
+            ),
+            (
+                GammaStrike::Resolved {
+                    price_to_beat: Some(f64::NAN),
+                    synced_at_ms: Some(1),
+                },
+                av(PtbStatus::Fed, None),
+            ),
+        ] {
+            let e = resolve_price_to_beat(s, "BTC", win(), 0, g, a).unwrap_err();
+            assert_eq!(e.cause, FeedCause::FeedAvailability, "{g:?} {a:?}");
+        }
+    }
+}
