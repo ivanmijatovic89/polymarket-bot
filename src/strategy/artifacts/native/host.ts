@@ -94,6 +94,10 @@ export type BuildQos = 'background' | 'interactive'
  * wins; else the host-class value; an unknown host class at background QoS
  * is an error (00 R14). Interactive builds run unthrottled unless
  * CARGO_BUILD_JOBS is set.
+ * D-PENDING: 31 §4.5 requires the cap and background QoS on hosts that run
+ * backtests but does not say how the builder knows the host role; chose
+ * background QoS by default on every host (opt-out `--qos default` for an
+ * author's own machine) and an error for host classes 40 §17 does not list.
  */
 export function resolveBuildJobs(
   qos: BuildQos,

@@ -152,6 +152,8 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
   }
   // 31 §2.2 template: edition 2021, whose resolver 2 keeps dev-dependency
   // features (testkit) out of the published bin.
+  // D-PENDING: the 31 §2.2 rules table does not list edition or resolver;
+  // chose edition >= 2021 and, when set, resolver "2" or "3".
   if (!/^[0-9]{4}$/.test(pkg.edition) || Number(pkg.edition) < 2021)
     violations.push(`Cargo.toml: edition ${pkg.edition} is too old; use edition = "2021" or later`)
   for (const key of ['workspace.resolver', 'package.resolver']) {
@@ -226,6 +228,8 @@ export function checkPackageRules(input: PackageRuleInput): RuleReport {
   }
   // The engine is reached by a relative path dependency (31 §2.2); the
   // builder recreates it under the staging root (stage.ts).
+  // D-PENDING: 31 §2.2 does not forbid an absolute or package-internal
+  // pmb-sdk path or differing dev/normal paths; chose to refuse all three.
   for (const raw of input.manifestSdkPaths) {
     if (path.posix.isAbsolute(raw) || path.win32.isAbsolute(raw))
       violations.push(`Cargo.toml: pmb-sdk path ${JSON.stringify(raw)} MUST be relative`)
