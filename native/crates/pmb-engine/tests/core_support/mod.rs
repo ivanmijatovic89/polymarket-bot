@@ -89,6 +89,9 @@ pub struct MockExec {
     pub market_events: u64,
     /// If set, placements are accepted and opened only (no matching).
     pub accept_only: bool,
+    /// If set, every fill is followed by a per-fill `SettlementUpdate` with
+    /// this status (realistic sell-gate tests, 12 §9.3).
+    pub fill_status: Option<SettlementStatus>,
     diag: ExecDiagnostics,
 }
 
@@ -131,13 +134,14 @@ impl MockExec {
             Liquidity::Maker => Usdc::ZERO,
         };
         *self.rem(k) -= qty;
+        let key = FillKey {
+            order: k,
+            seq: self.fill_seq[k.index()],
+        };
         out.push(AccountEvent {
             at,
             kind: AccountEventKind::Fill(Fill {
-                key: FillKey {
-                    order: k,
-                    seq: self.fill_seq[k.index()],
-                },
+                key,
                 trade: TradeSeq::new(self.trade),
                 outcome: req.outcome,
                 side: req.side,
@@ -150,6 +154,17 @@ impl MockExec {
                 late: false,
             }),
         });
+        if let Some(status) = self.fill_status {
+            out.push(AccountEvent {
+                at,
+                kind: AccountEventKind::SettlementUpdate {
+                    order: k,
+                    fill: Some(key),
+                    status,
+                    size_matched: qty,
+                },
+            });
+        }
     }
 
     fn place(&mut self, keys: &[OrderKey], at: TsMs, cx: &ExecCtx<'_>, out: &mut EventQueue) {
