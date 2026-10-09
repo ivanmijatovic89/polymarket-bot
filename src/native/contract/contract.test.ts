@@ -1,5 +1,5 @@
 /**
- * Native contract tests, TS side (21 §3 CI items 2, 4 and 6; run by
+ * Native contract tests, TS side (21 §3 CI items 2, 4, 5 and 6; run by
  * `npm run native:test:ts`). The Rust side of the same fixtures is
  * `native/crates/pmb-contract/tests/fixtures.rs`.
  */
@@ -16,9 +16,10 @@ import {
 } from './canonicalJson.js'
 import { candidateModelConfigSha256, checkEcho, effectiveModelConfig } from './echo.js'
 import { GENERATED_PATH, REPO_ROOT, generate, readBundle } from './gen.js'
-import { candidateDurationMs, toRunSingleMarketOutput } from './mapping.js'
+import { candidateDurationMs, toEngineMarketOutput, toRunSingleMarketOutput } from './mapping.js'
 import { checkMarketStatsRow, invalidMarketStatsReason } from './marketStatsRow.js'
-import type { MarketStats } from '../../backtest/stats/marketStats.js'
+import type { RunSingleMarketOutput } from '../../backtest/runSingleMarket.js'
+import { computeMarketStats, type MarketStats } from '../../backtest/stats/marketStats.js'
 import type { EngineJob, EngineResult } from './generated.js'
 import { createContractValidators, hasDecimalScale } from './validate.js'
 
@@ -230,6 +231,32 @@ describe('fixtures validate against the JSON Schema bundle (21 §3 CI item 4, §
     assert.ok(!hasDecimalScale(2, -12.345))
     assert.ok(!hasDecimalScale(4, 0.51234))
   })
+
+  it('decimalScale is exact across the column ranges (D-PENDING N6 form)', () => {
+    // spec: 21 §18 N6, §11 column ranges (|x| < 1e10 or < 1e12 at 2 dp, (0, 1) at 4 dp)
+    for (const x of [2338135560.26, 154627778778.55, 1234567890.13, -9999999999.99]) {
+      assert.ok(hasDecimalScale(2, x), String(x))
+    }
+    // A deterministic sweep of k-dp decimals parsed as JSON would parse them.
+    let seed = 0x2545f491
+    const next = () => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0
+      return seed
+    }
+    for (let i = 0; i < 20_000; i++) {
+      const int = (next() % 1_000_000) * 1_000_000 + (next() % 1_000_000) // < 1e12
+      const cents = next() % 100
+      const x = Number(`${int}.${String(cents).padStart(2, '0')}`)
+      assert.ok(hasDecimalScale(2, x), String(x))
+      const ticks = 1 + (next() % 9999)
+      const p = Number(`0.${String(ticks).padStart(4, '0')}`)
+      assert.ok(hasDecimalScale(4, p), String(p))
+      if (int < 1e9) {
+        const finer = Number(`${int}.${String(cents).padStart(2, '0')}5`)
+        assert.ok(!hasDecimalScale(2, finer), String(finer))
+      }
+    }
+  })
 })
 
 describe('echo assertions (21 §12)', () => {
@@ -407,5 +434,90 @@ describe('MarketStats DB-contract check (21 §19 TS aggregator)', () => {
       assert.equal(v?.field, field, `${field}=${String(value)}`)
       assert.ok(invalidMarketStatsReason(v).startsWith(`invalid_market_stats: ${field}: `))
     }
+  })
+})
+
+describe('TS-engine RunSingleMarketOutput fixtures (21 §3 CI item 5)', () => {
+  const validators = createContractValidators()
+  const doc = readJson(path.join(CONTRACT_DIR, 'fixtures/ts-engine/run-single-market.json')) as {
+    stats: Array<{
+      name: string
+      eventsProcessed: number
+      eventsByType: Record<string, number>
+      input: Parameters<typeof computeMarketStats>[0]
+    }>
+    nullStats: Array<{ name: string; output: RunSingleMarketOutput }>
+  }
+  const stamps = {
+    machineId: 'a1b2c3d4e5f6',
+    workerChildId: 2,
+    startedAtMs: 1791500000000,
+    finishedAtMs: 1791500000300,
+    durationMs: 300,
+    commitSha: 'deadbeef',
+  }
+
+  /** The output runSingleMarket assembles around computeMarketStats. */
+  function tsEngineOutput(s: (typeof doc.stats)[number], idx: number): RunSingleMarketOutput {
+    const input = s.input
+    const stats = computeMarketStats(input)
+    const hasPositions = ['UP', 'DOWN'].some(
+      (o) => (input.finalPositions[input.tokenMap[o]!]?.qty ?? 0) > 0,
+    )
+    const zero = !hasPositions && input.trades.length === 0
+    const execution = {
+      ...stamps,
+      eventsProcessed: s.eventsProcessed,
+      eventsByType: s.eventsByType,
+    }
+    return {
+      idx,
+      slug: input.slug,
+      marketStats: {
+        ...stats,
+        ...(zero ? { skipReason: 'no_in_window_activity' as const } : {}),
+        execution,
+      },
+      eventsProcessed: s.eventsProcessed,
+      eventsByType: { ...s.eventsByType },
+      durationMs: stamps.durationMs,
+      ...(zero ? { skipReason: 'no_activity' as const } : {}),
+    }
+  }
+
+  it('every TS-engine output validates against the EngineMarketOutput schema', () => {
+    // spec: 21 §3 CI item 5, §11 (TS stamps idx, durationMs, execution, recorderV4Capture)
+    assert.ok(doc.stats.length >= 3 && doc.nullStats.length >= 3)
+    const outputs = [
+      ...doc.stats.map((s, i) => ({ name: s.name, out: tsEngineOutput(s, i) })),
+      ...doc.nullStats.map((s) => ({ name: s.name, out: s.output })),
+    ]
+    for (const { name, out } of outputs) {
+      const engineForm = toEngineMarketOutput(out)
+      assert.ok(
+        validators.engineMarketOutput(engineForm),
+        `${name}: ${JSON.stringify(validators.lastErrors())}`,
+      )
+      if (out.marketStats !== null) {
+        assert.equal(checkMarketStatsRow(out.marketStats), null, name)
+        // The mapping back reproduces the TS row (rules: null is ts-compat).
+        assert.deepEqual(toRunSingleMarketOutput(engineForm, out.idx, stamps), out, name)
+      }
+    }
+  })
+
+  it('a no_slug output has no engine form', () => {
+    // spec: 21 §13 (no_slug is a TS short-circuit)
+    assert.throws(() =>
+      toEngineMarketOutput({
+        idx: 0,
+        slug: null,
+        marketStats: null,
+        eventsProcessed: 0,
+        eventsByType: {},
+        durationMs: 0,
+        skipReason: 'no_slug',
+      }),
+    )
   })
 })

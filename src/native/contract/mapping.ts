@@ -90,3 +90,32 @@ export function toRunSingleMarketOutput(
     ...(out.coverageReasons === undefined ? {} : { coverageReasons: out.coverageReasons }),
   }
 }
+
+/**
+ * The engine form of a TS-engine `RunSingleMarketOutput` (21 §3 CI item 5):
+ * the inverse of {@link toRunSingleMarketOutput}. Drops the TS stamps
+ * (`idx`, `durationMs`, `marketStats.execution`,
+ * `marketStats.recorderV4Capture`) and gives a TS row the ts-compat
+ * `rules: null` (21 §11: `rules` is absent on TS rows). Throws on a null
+ * slug: `no_slug` is a TS short-circuit with no engine form (21 §13).
+ */
+export function toEngineMarketOutput(out: RunSingleMarketOutput): EngineMarketOutput {
+  if (out.slug === null) {
+    throw new Error('native shim: a no_slug output has no EngineMarketOutput form (21 §13)')
+  }
+  let marketStats: EngineMarketOutput['marketStats'] = null
+  if (out.marketStats !== null) {
+    const stats: MarketStats = { ...out.marketStats }
+    delete stats.execution
+    delete stats.recorderV4Capture
+    marketStats = { ...stats, rules: null }
+  }
+  return {
+    slug: out.slug,
+    marketStats,
+    eventsProcessed: out.eventsProcessed,
+    eventsByType: out.eventsByType,
+    ...(out.skipReason === undefined ? {} : { skipReason: out.skipReason }),
+    ...(out.coverageReasons === undefined ? {} : { coverageReasons: out.coverageReasons }),
+  }
+}

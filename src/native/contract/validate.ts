@@ -10,7 +10,14 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { EngineJob, EngineResult, ModelConfig, ServeIn, ServeOut } from './generated.js'
+import type {
+  EngineJob,
+  EngineMarketOutput,
+  EngineResult,
+  ModelConfig,
+  ServeIn,
+  ServeOut,
+} from './generated.js'
 
 const SCHEMA_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -80,12 +87,19 @@ function loadAjv2020(): AjvConstructor {
 }
 
 /**
- * `decimalScale: k` (21 §18 N6): |x·10^k − round(x·10^k)| < 1e-6, because
- * `multipleOf` is unreliable for binary floats.
+ * `decimalScale: k` (21 §18 N6): x is the double nearest to a decimal with
+ * at most k fractional digits, i.e. `Number(x.toFixed(k)) === x`.
+ *
+ * D-PENDING: N6 states the check as |x·10^k − round(x·10^k)| < 1e-6. That
+ * absolute tolerance is below the rounding error of x·10^k from about 1e8
+ * up, so it rejects exact in-range values (e.g. pnl 2338135560.26, upShares
+ * 154627778778.55) that Rust parses exactly. Chose the exact form, which
+ * agrees with the Rust token parse wherever ulp(x) < 10^-k (every §11
+ * column range: |x| < 1e12 at 2 dp, (0, 1) at 4 dp); `multipleOf` stays
+ * unused because it is unreliable for binary floats.
  */
 export function hasDecimalScale(scale: number, x: number): boolean {
-  const scaled = x * 10 ** scale
-  return Math.abs(scaled - Math.round(scaled)) < 1e-6
+  return Number.isFinite(x) && Number(x.toFixed(scale)) === x
 }
 
 export type ContractSchemaName =
@@ -98,6 +112,8 @@ export type ContractSchemaName =
 export interface ContractValidators {
   engineJob(data: unknown): data is EngineJob
   engineResult(data: unknown): data is EngineResult
+  /** One candidate's `EngineMarketOutput` (`$defs` of engineResult, 21 §11). */
+  engineMarketOutput(data: unknown): data is EngineMarketOutput
   modelConfig(data: unknown): data is ModelConfig
   /** One `serve` stdin message (20 §6.2). */
   serveIn(data: unknown): data is ServeIn
@@ -128,10 +144,10 @@ export function createContractValidators(dir: string = SCHEMA_DIR): ContractVali
     ids.set(file.replace(/\.schema\.json$/, ''), schema.$id)
   }
   let errors: ContractValidationError[] = []
-  const compiled = (name: ContractSchemaName): AjvValidateFunction => {
+  const compiled = (name: ContractSchemaName, fragment = ''): AjvValidateFunction => {
     const id = ids.get(name)
-    const fn = id === undefined ? undefined : ajv.getSchema(id)
-    if (!fn) throw new Error(`native contract: no ${name} schema in ${dir}`)
+    const fn = id === undefined ? undefined : ajv.getSchema(`${id}${fragment}`)
+    if (!fn) throw new Error(`native contract: no ${name}${fragment} schema in ${dir}`)
     return fn
   }
   const check = (fn: AjvValidateFunction, data: unknown): boolean => {
@@ -141,12 +157,14 @@ export function createContractValidators(dir: string = SCHEMA_DIR): ContractVali
   }
   const job = compiled('engineJob')
   const result = compiled('engineResult')
+  const marketOutput = compiled('engineResult', '#/$defs/EngineMarketOutput')
   const config = compiled('modelConfig')
   const serveIn = compiled('serveIn')
   const serveOut = compiled('serveOut')
   return {
     engineJob: (data): data is EngineJob => check(job, data),
     engineResult: (data): data is EngineResult => check(result, data),
+    engineMarketOutput: (data): data is EngineMarketOutput => check(marketOutput, data),
     modelConfig: (data): data is ModelConfig => check(config, data),
     serveIn: (data): data is ServeIn => check(serveIn, data),
     serveOut: (data): data is ServeOut => check(serveOut, data),
