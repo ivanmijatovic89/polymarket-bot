@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { EngineJob, EngineResult, ModelConfig } from './generated.js'
+import type { EngineJob, EngineResult, ModelConfig, ServeIn, ServeOut } from './generated.js'
 
 const SCHEMA_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -88,12 +88,21 @@ export function hasDecimalScale(scale: number, x: number): boolean {
   return Math.abs(scaled - Math.round(scaled)) < 1e-6
 }
 
-export type ContractSchemaName = 'engineJob' | 'engineResult' | 'modelConfig'
+export type ContractSchemaName =
+  | 'engineJob'
+  | 'engineResult'
+  | 'modelConfig'
+  | 'serveIn'
+  | 'serveOut'
 
 export interface ContractValidators {
   engineJob(data: unknown): data is EngineJob
   engineResult(data: unknown): data is EngineResult
   modelConfig(data: unknown): data is ModelConfig
+  /** One `serve` stdin message (20 §6.2). */
+  serveIn(data: unknown): data is ServeIn
+  /** One `serve` stdout message (20 §6.2); a failure is `invalid_output: schema`. */
+  serveOut(data: unknown): data is ServeOut
   /** Errors of the last failed call, for messages. */
   lastErrors(): ContractValidationError[]
 }
@@ -133,10 +142,14 @@ export function createContractValidators(dir: string = SCHEMA_DIR): ContractVali
   const job = compiled('engineJob')
   const result = compiled('engineResult')
   const config = compiled('modelConfig')
+  const serveIn = compiled('serveIn')
+  const serveOut = compiled('serveOut')
   return {
     engineJob: (data): data is EngineJob => check(job, data),
     engineResult: (data): data is EngineResult => check(result, data),
     modelConfig: (data): data is ModelConfig => check(config, data),
+    serveIn: (data): data is ServeIn => check(serveIn, data),
+    serveOut: (data): data is ServeOut => check(serveOut, data),
     lastErrors: () => errors,
   }
 }

@@ -243,6 +243,32 @@ closed_enum! {
 }
 
 closed_enum! {
+    /// `serve --qos` values (16 §10.2), echoed as `ready.qos.requested`.
+    pub enum QosClass {
+        UserInitiated => "user-initiated",
+        Default => "default",
+        Utility => "utility",
+        Background => "background",
+    }
+}
+
+closed_enum! {
+    /// The thread QoS class read back after setting it (16 §10.2); a
+    /// clamped process can report a class it did not request.
+    // D-PENDING: 16 §10.2 lists only the requestable classes; chose to add
+    // the other macOS classes (`user-interactive`, `unspecified`) for the
+    // read-back value.
+    pub enum EffectiveQos {
+        UserInteractive => "user-interactive",
+        UserInitiated => "user-initiated",
+        Default => "default",
+        Utility => "utility",
+        Background => "background",
+        Unspecified => "unspecified",
+    }
+}
+
+closed_enum! {
     /// Group-level and candidate-level result status (21 §10).
     pub enum ResultStatus {
         Ok => "ok",

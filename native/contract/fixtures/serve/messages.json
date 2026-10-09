@@ -1,0 +1,608 @@
+{
+  "description": "serve NDJSON messages (20 \u00a76.2): every 'in' message parses with ServeIn::parse_line and reserializes unchanged (Rust) and validates against serveIn (TS); every 'out' message validates against serveOut (TS). Every 'invalidIn' message is a fatal invalid_input: schema error in Rust, and its 'jsonSchema' field says whether the serveIn schema rejects it too (the run/runRef exclusivity is a Rust-side rule). Every 'invalidOut' message fails the serveOut schema.",
+  "in": [
+    {
+      "type": "context",
+      "contextId": "ctx-5b1d",
+      "run": {
+        "strategyId": "engine-exerciser.v2.rs",
+        "inputMode": "telonex-delta",
+        "modelConfig": {
+          "modelConfigVersion": 1,
+          "profile": "ts-compat",
+          "seed": 0,
+          "capital": {
+            "startingCapitalUsdc": "500"
+          },
+          "execution": {
+            "models": {
+              "latency": "compat",
+              "fee": "flat_700bps_4dp",
+              "takerDelay": "off",
+              "depletion": "none",
+              "maker": "worst_queue",
+              "reports": "compat"
+            },
+            "compatLatency": {
+              "delayMs": 140,
+              "jitterMs": 0
+            }
+          },
+          "feeds": {
+            "calibrationId": "feeds-2026-07-21",
+            "binance": {
+              "latency": {
+                "kind": "constant",
+                "ms": 110
+              }
+            },
+            "chainlink": {
+              "latency": {
+                "kind": "constant",
+                "ms": 320
+              },
+              "maxGapMs": 300000
+            },
+            "priceToBeat": {
+              "latency": {
+                "kind": "constant",
+                "ms": 2700
+              }
+            }
+          },
+          "runner": {
+            "maxEventsPerDrain": 4200
+          },
+          "risk": {
+            "maxOpenOrders": 100,
+            "maxOrderSize": "2000",
+            "maxAbsPosition": "2000",
+            "maxLossStopUsdc": "500"
+          },
+          "rules": {
+            "rulesTableVersion": "rules-table-v1",
+            "missingSnapshot": "dated_fallback"
+          }
+        },
+        "candidates": [
+          {
+            "key": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+            "index": 0,
+            "params": {
+              "size": 5,
+              "label": "x"
+            },
+            "execution": null
+          }
+        ]
+      }
+    },
+    {
+      "type": "job",
+      "jobId": "bull:native:42",
+      "job": {
+        "jobSchemaVersion": 1,
+        "market": {
+          "slug": "btc-updown-15m-1780272000",
+          "conditionId": "0x8f3c1a2b",
+          "window": {
+            "startMs": 1780272000000,
+            "endMs": 1780272900000
+          },
+          "tokenIds": {
+            "UP": "1111",
+            "DOWN": "2222"
+          },
+          "outcome": "UP",
+          "rules": {
+            "snapshotParserVersion": null,
+            "captured": {},
+            "disagreements": 0
+          },
+          "gammaPriceToBeat": {
+            "priceToBeat": 117234.51,
+            "syncedAtMs": 1780280000000
+          },
+          "feedAvailability": {
+            "priceToBeat": {
+              "status": "fed"
+            }
+          },
+          "input": {
+            "path": "/data/events/telonex/btc/btc-updown-15m-1780272000.parquet",
+            "bytes": 1234567,
+            "sha256": null,
+            "format": {
+              "name": "telonex-delta-typed",
+              "version": 1
+            }
+          },
+          "recorderV4": null,
+          "journal": null,
+          "ownActivity": null,
+          "feedFiles": [
+            {
+              "feed": "binance_agg_trades",
+              "symbol": "BTCUSDT",
+              "day": "2026-06-01",
+              "path": "/data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-06-01.parquet",
+              "bytes": 98765
+            }
+          ]
+        },
+        "outputs": {
+          "tracePath": null,
+          "traceLevel": "decisions",
+          "ledgerPath": null
+        },
+        "budget": {
+          "wallMs": 120000,
+          "threads": 1
+        },
+        "runRef": "ctx-5b1d"
+      }
+    },
+    {
+      "type": "job",
+      "jobId": "bull:native:43",
+      "job": {
+        "jobSchemaVersion": 1,
+        "run": {
+          "strategyId": "engine-exerciser.v2.rs",
+          "inputMode": "telonex-delta",
+          "modelConfig": {
+            "modelConfigVersion": 1,
+            "profile": "ts-compat",
+            "seed": 0,
+            "capital": {
+              "startingCapitalUsdc": "500"
+            },
+            "execution": {
+              "models": {
+                "latency": "compat",
+                "fee": "flat_700bps_4dp",
+                "takerDelay": "off",
+                "depletion": "none",
+                "maker": "worst_queue",
+                "reports": "compat"
+              },
+              "compatLatency": {
+                "delayMs": 140,
+                "jitterMs": 0
+              }
+            },
+            "feeds": {
+              "calibrationId": "feeds-2026-07-21",
+              "binance": {
+                "latency": {
+                  "kind": "constant",
+                  "ms": 110
+                }
+              },
+              "chainlink": {
+                "latency": {
+                  "kind": "constant",
+                  "ms": 320
+                },
+                "maxGapMs": 300000
+              },
+              "priceToBeat": {
+                "latency": {
+                  "kind": "constant",
+                  "ms": 2700
+                }
+              }
+            },
+            "runner": {
+              "maxEventsPerDrain": 4200
+            },
+            "risk": {
+              "maxOpenOrders": 100,
+              "maxOrderSize": "2000",
+              "maxAbsPosition": "2000",
+              "maxLossStopUsdc": "500"
+            },
+            "rules": {
+              "rulesTableVersion": "rules-table-v1",
+              "missingSnapshot": "dated_fallback"
+            }
+          },
+          "candidates": [
+            {
+              "key": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+              "index": 0,
+              "params": {
+                "size": 5,
+                "label": "x"
+              },
+              "execution": null
+            }
+          ]
+        },
+        "market": {
+          "slug": "btc-updown-15m-1780272000",
+          "conditionId": "0x8f3c1a2b",
+          "window": {
+            "startMs": 1780272000000,
+            "endMs": 1780272900000
+          },
+          "tokenIds": {
+            "UP": "1111",
+            "DOWN": "2222"
+          },
+          "outcome": "UP",
+          "rules": {
+            "snapshotParserVersion": null,
+            "captured": {},
+            "disagreements": 0
+          },
+          "gammaPriceToBeat": {
+            "priceToBeat": 117234.51,
+            "syncedAtMs": 1780280000000
+          },
+          "feedAvailability": {
+            "priceToBeat": {
+              "status": "fed"
+            }
+          },
+          "input": {
+            "path": "/data/events/telonex/btc/btc-updown-15m-1780272000.parquet",
+            "bytes": 1234567,
+            "sha256": null,
+            "format": {
+              "name": "telonex-delta-typed",
+              "version": 1
+            }
+          },
+          "recorderV4": null,
+          "journal": null,
+          "ownActivity": null,
+          "feedFiles": [
+            {
+              "feed": "binance_agg_trades",
+              "symbol": "BTCUSDT",
+              "day": "2026-06-01",
+              "path": "/data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-06-01.parquet",
+              "bytes": 98765
+            }
+          ]
+        },
+        "outputs": {
+          "tracePath": null,
+          "traceLevel": "decisions",
+          "ledgerPath": null
+        },
+        "budget": {
+          "wallMs": 120000,
+          "threads": 1
+        }
+      }
+    },
+    {
+      "type": "cancel",
+      "jobId": "bull:native:42"
+    },
+    {
+      "type": "ping",
+      "id": 17
+    },
+    {
+      "type": "drain"
+    }
+  ],
+  "out": [
+    {
+      "type": "ready",
+      "protocolVersion": 2,
+      "contractSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "engineVersion": "1.0.0",
+      "strategyId": "engine-exerciser.v2.rs",
+      "pid": 4242,
+      "threads": 8,
+      "maxInflight": 8,
+      "jobSchemaVersions": [1],
+      "stackBytes": 8388608,
+      "qos": {
+        "requested": "default",
+        "effective": "utility"
+      },
+      "processRole": "default",
+      "perfLevels": [
+        {
+          "name": "Performance",
+          "physicalCpu": 4
+        },
+        {
+          "name": "Efficiency",
+          "physicalCpu": 6
+        }
+      ]
+    },
+    {
+      "type": "result",
+      "jobId": "bull:native:42",
+      "result": {
+        "outputSchemaVersion": 1,
+        "status": "error",
+        "error": {
+          "class": "data_defect",
+          "cause": "upstream_hole",
+          "message": "Chainlink hole 2026-06-01T10:00:00Z for 412 s (set maxGapMs 0 to replay stale)",
+          "detail": {
+            "fixCommand": "npm run telonex:crypto-prices:download -- --sync"
+          }
+        },
+        "echo": null,
+        "market": null,
+        "candidates": [],
+        "resultDigest": "94b0f78e72fb94f4dc32a67062a511de7f6437e33d500dde84b72642d438c082",
+        "diagnostics": {
+          "startedAtMs": 1791500000000,
+          "finishedAtMs": 1791500000010,
+          "wallMs": 10,
+          "busyMs": 9,
+          "cpuMs": 9,
+          "peakRssBytes": 1000000,
+          "thread": 0,
+          "cache": {
+            "hits": 0,
+            "misses": 1
+          },
+          "skewMs": null,
+          "inputPath": "v1",
+          "anomalies": {},
+          "counters": []
+        }
+      }
+    },
+    {
+      "type": "progress",
+      "jobId": "bull:native:42",
+      "eventsProcessed": 1843,
+      "elapsedMs": 1000,
+      "inCallback": null
+    },
+    {
+      "type": "progress",
+      "jobId": "bull:native:43",
+      "eventsProcessed": 12,
+      "elapsedMs": 2000,
+      "inCallback": {
+        "candidateIndex": 0,
+        "candidateKey": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+        "callback": "onMarketTick",
+        "sinceMs": 1200
+      }
+    },
+    {
+      "type": "pong",
+      "id": 17,
+      "inflight": [
+        {
+          "jobId": "bull:native:43",
+          "eventsProcessed": 12,
+          "elapsedMs": 2000,
+          "inCallback": {
+            "candidateIndex": 0,
+            "candidateKey": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+            "callback": "onMarketTick",
+            "sinceMs": 1200
+          }
+        }
+      ],
+      "rssBytes": 41000000,
+      "cacheBytes": 1048576
+    },
+    {
+      "type": "busy",
+      "reason": "rss above --max-rss-mb"
+    },
+    {
+      "type": "idle",
+      "reason": "rss below --max-rss-mb"
+    },
+    {
+      "type": "drained",
+      "completed": 3
+    },
+    {
+      "type": "fatal",
+      "class": "invalid_input",
+      "cause": "schema",
+      "message": "unknown message type \"shutdown\""
+    }
+  ],
+  "invalidIn": [
+    {
+      "message": {
+        "type": "shutdown"
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "message": {
+        "type": "ping",
+        "id": 7,
+        "extra": 1
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "message": {
+        "type": "ping",
+        "id": -1
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "message": {
+        "type": "cancel",
+        "jobId": ""
+      },
+      "jsonSchema": "reject"
+    },
+    {
+      "message": {
+        "type": "job",
+        "jobId": "j",
+        "job": {
+          "jobSchemaVersion": 1,
+          "market": {
+            "slug": "btc-updown-15m-1780272000",
+            "conditionId": "0x8f3c1a2b",
+            "window": {
+              "startMs": 1780272000000,
+              "endMs": 1780272900000
+            },
+            "tokenIds": {
+              "UP": "1111",
+              "DOWN": "2222"
+            },
+            "outcome": "UP",
+            "rules": {
+              "snapshotParserVersion": null,
+              "captured": {},
+              "disagreements": 0
+            },
+            "gammaPriceToBeat": {
+              "priceToBeat": 117234.51,
+              "syncedAtMs": 1780280000000
+            },
+            "feedAvailability": {
+              "priceToBeat": {
+                "status": "fed"
+              }
+            },
+            "input": {
+              "path": "/data/events/telonex/btc/btc-updown-15m-1780272000.parquet",
+              "bytes": 1234567,
+              "sha256": null,
+              "format": {
+                "name": "telonex-delta-typed",
+                "version": 1
+              }
+            },
+            "recorderV4": null,
+            "journal": null,
+            "ownActivity": null,
+            "feedFiles": [
+              {
+                "feed": "binance_agg_trades",
+                "symbol": "BTCUSDT",
+                "day": "2026-06-01",
+                "path": "/data/binance/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2026-06-01.parquet",
+                "bytes": 98765
+              }
+            ]
+          },
+          "outputs": {
+            "tracePath": null,
+            "traceLevel": "decisions",
+            "ledgerPath": null
+          },
+          "budget": {
+            "wallMs": 120000,
+            "threads": 1
+          },
+          "runRef": "ctx-5b1d",
+          "run": {
+            "strategyId": "engine-exerciser.v2.rs",
+            "inputMode": "telonex-delta",
+            "modelConfig": {
+              "modelConfigVersion": 1,
+              "profile": "ts-compat",
+              "seed": 0,
+              "capital": {
+                "startingCapitalUsdc": "500"
+              },
+              "execution": {
+                "models": {
+                  "latency": "compat",
+                  "fee": "flat_700bps_4dp",
+                  "takerDelay": "off",
+                  "depletion": "none",
+                  "maker": "worst_queue",
+                  "reports": "compat"
+                },
+                "compatLatency": {
+                  "delayMs": 140,
+                  "jitterMs": 0
+                }
+              },
+              "feeds": {
+                "calibrationId": "feeds-2026-07-21",
+                "binance": {
+                  "latency": {
+                    "kind": "constant",
+                    "ms": 110
+                  }
+                },
+                "chainlink": {
+                  "latency": {
+                    "kind": "constant",
+                    "ms": 320
+                  },
+                  "maxGapMs": 300000
+                },
+                "priceToBeat": {
+                  "latency": {
+                    "kind": "constant",
+                    "ms": 2700
+                  }
+                }
+              },
+              "runner": {
+                "maxEventsPerDrain": 4200
+              },
+              "risk": {
+                "maxOpenOrders": 100,
+                "maxOrderSize": "2000",
+                "maxAbsPosition": "2000",
+                "maxLossStopUsdc": "500"
+              },
+              "rules": {
+                "rulesTableVersion": "rules-table-v1",
+                "missingSnapshot": "dated_fallback"
+              }
+            },
+            "candidates": [
+              {
+                "key": "3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10",
+                "index": 0,
+                "params": {
+                  "size": 5,
+                  "label": "x"
+                },
+                "execution": null
+              }
+            ]
+          }
+        }
+      },
+      "jsonSchema": "accept"
+    }
+  ],
+  "invalidOut": [
+    {
+      "type": "progress",
+      "jobId": "j",
+      "eventsProcessed": 1,
+      "elapsedMs": 1
+    },
+    {
+      "type": "ready",
+      "protocolVersion": 1
+    },
+    {
+      "type": "fatal",
+      "class": "input_invalid",
+      "cause": "schema",
+      "message": "x"
+    },
+    {
+      "type": "drained",
+      "completed": 3,
+      "extra": true
+    }
+  ]
+}

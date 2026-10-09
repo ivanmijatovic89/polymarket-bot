@@ -99,10 +99,10 @@ fn tighten(m: &mut Map<String, Value>, key: &str, bound: i64, pick: fn(i64, i64)
 
 /// The bundle: `(file stem, schema)` sorted by file name. File stems are
 /// the keys of the `schema` subcommand (20 §5.2).
-// D-PENDING: 20 §5.2 also lists liveConfig, traceRecord, ledgerRecord,
-// serveIn and serveOut (and the per-strategy params); their types belong to
-// 50, 22 and 20 §6.2 and land with those milestones, each adding a file
-// here (a bundle change, so contractSha256 changes).
+// D-PENDING: 20 §5.2 also lists liveConfig, traceRecord and ledgerRecord
+// (and the per-strategy params); their shapes are owned by 50 and 22 and
+// land with those milestones, each adding a file here (a bundle change, so
+// contractSha256 changes).
 pub fn bundle() -> Vec<(&'static str, Value)> {
     let mut files = vec![
         ("engineJob", schema_of::<crate::job::EngineJob>("engineJob")),
@@ -111,6 +111,8 @@ pub fn bundle() -> Vec<(&'static str, Value)> {
             schema_of::<crate::result::EngineResult>("engineResult"),
         ),
         ("modelConfig", schema_of::<ModelConfig>("modelConfig")),
+        ("serveIn", schema_of::<crate::serve::ServeIn>("serveIn")),
+        ("serveOut", schema_of::<crate::serve::ServeOut>("serveOut")),
     ];
     files.sort_by(|a, b| file_name(a.0).as_bytes().cmp(file_name(b.0).as_bytes()));
     files

@@ -254,3 +254,28 @@ fn committed_schema_bundle_is_current() {
 
 const TS_COMPAT_DEFAULT_SHA256: &str =
     "bbfed555689b864250b628498d5679e74b3e7fcbba7f775b206ff7669413af7e";
+
+/// 20 §6.2 serve messages: `in` lines parse and reserialize unchanged,
+/// `invalidIn` lines are fatal `invalid_input: schema` errors.
+#[test]
+fn serve_message_fixtures() {
+    // spec: 20 §6.2, 21 §3 CI item 4
+    let doc: Value =
+        serde_json::from_str(&read(&contract_dir().join("fixtures/serve/messages.json"))).unwrap();
+    for msg in doc["in"].as_array().unwrap() {
+        let line = serde_json::to_string(msg).unwrap();
+        let parsed = pmb_contract::serve::ServeIn::parse_line(&line)
+            .unwrap_or_else(|e| panic!("{line}: {e}"));
+        let again: Value = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(&again, msg, "reserialization changed {line}");
+    }
+    for case in doc["invalidIn"].as_array().unwrap() {
+        let line = serde_json::to_string(&case["message"]).unwrap();
+        let e = pmb_contract::serve::ServeIn::parse_line(&line).expect_err(&line);
+        assert_eq!(
+            (e.class.as_str(), e.cause),
+            ("invalid_input", "schema"),
+            "{line}"
+        );
+    }
+}

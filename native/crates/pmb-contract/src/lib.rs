@@ -13,6 +13,7 @@ pub mod num;
 pub mod result;
 pub mod rules;
 pub mod schema;
+pub mod serve;
 pub mod support;
 pub mod vocab;
 

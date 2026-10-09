@@ -196,6 +196,29 @@ describe('fixtures validate against the JSON Schema bundle (21 §3 CI item 4, §
     }
   })
 
+  it('serve messages get the documented verdicts', () => {
+    // spec: 20 §6.2 (serveIn/serveOut schemas, 20 §5.2)
+    const doc = readJson(path.join(CONTRACT_DIR, 'fixtures/serve/messages.json')) as {
+      in: unknown[]
+      out: unknown[]
+      invalidIn: Array<{ message: unknown; jsonSchema: 'reject' | 'accept' }>
+      invalidOut: unknown[]
+    }
+    for (const msg of doc.in) {
+      assert.ok(validators.serveIn(msg), JSON.stringify(validators.lastErrors()))
+    }
+    for (const msg of doc.out) {
+      assert.ok(validators.serveOut(msg), JSON.stringify(validators.lastErrors()))
+    }
+    for (const c of doc.invalidIn) {
+      const verdict = validators.serveIn(c.message) ? 'accept' : 'reject'
+      assert.equal(verdict, c.jsonSchema, JSON.stringify(c.message))
+    }
+    for (const msg of doc.invalidOut) {
+      assert.ok(!validators.serveOut(msg), JSON.stringify(msg))
+    }
+  })
+
   it('decimalScale accepts values at the scale and rejects finer ones', () => {
     // spec: 21 §18 N6
     assert.ok(hasDecimalScale(2, -12.35))
