@@ -1,5 +1,5 @@
-//! The `run` pipeline in process, over the committed decode fixture market
-//! (`native/fixtures/decode/`) with an in-test engine backend: valid
+//! The `run` pipeline in process, over the committed fixture market
+//! (`tests/fixtures/`) with an in-test engine backend: valid
 //! `EngineResult`s, byte-identical deterministic sections, the parity
 //! trace, every exit class the pipeline raises, and `selftest`.
 
@@ -47,9 +47,7 @@ fn scratch(name: &str) -> std::path::PathBuf {
 #[test]
 fn fixture_market_runs_twice_with_identical_deterministic_sections() {
     // spec: 20 G5, 21 §10 (deterministic section), §13 (zero row), §15 (eventsProcessed)
-    let Some((path, slug, tokens, bytes)) = fixture_market() else {
-        return;
-    };
+    let (path, slug, tokens, bytes) = fixture_market();
     let mut job = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
     job["market"]["input"]["sha256"] = Value::String(common::file_sha256(&path));
     let a = run_value::<Idle>(&job, &IDLE, &OutputOverrides::default());
@@ -73,14 +71,9 @@ fn fixture_market_runs_twice_with_identical_deterministic_sections() {
     assert_eq!(c.status, ResultStatus::Ok);
     let out = c.output.as_ref().unwrap();
     // Every kept row of the fixture is one counted tick (15 I-19).
-    let golden: Value = serde_json::from_slice(
-        &std::fs::read(common::repo_root().join("native/fixtures/decode/telonex_book_golden.json"))
-            .unwrap(),
-    )
-    .unwrap();
     assert_eq!(
         out.events_processed.get(),
-        golden["markets"][0]["rows"].as_u64().unwrap()
+        common::fixture_golden()["rows"].as_u64().unwrap()
     );
     assert_eq!(out.events_by_type.total(), out.events_processed.get());
     // No fills, no positions: the zero row of 21 §13.
@@ -103,9 +96,7 @@ fn fixture_market_runs_twice_with_identical_deterministic_sections() {
 #[test]
 fn parity_trace_is_written_and_does_not_change_the_result() {
     // spec: 22 §2 (observation never changes engine state), §3.1–§3.3, 20 §5.4 (--trace overrides outputs)
-    let Some((path, slug, tokens, bytes)) = fixture_market() else {
-        return;
-    };
+    let (path, slug, tokens, bytes) = fixture_market();
     let d = scratch("trace");
     let trace = d.join("cand-a.jsonl.gz");
     let job = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
@@ -267,7 +258,8 @@ fn pipeline_raises_each_class_with_its_exit_code() {
         "input_missing",
     );
 
-    if let Some((path, slug, tokens, bytes)) = fixture_market() {
+    {
+        let (path, slug, tokens, bytes) = fixture_market();
         let good = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
         // data_defect (4): integrity (15 I-8) and foreign files (I-18).
         let mut j = good.clone();
@@ -387,9 +379,7 @@ fn selftest_passes_with_a_working_engine() {
 #[test]
 fn run_through_the_dispatcher_reads_stdin() {
     // spec: 20 §5.4 (`--job -`), G1 (exactly one document), G11 (job thread)
-    let Some((path, slug, tokens, bytes)) = fixture_market() else {
-        return;
-    };
+    let (path, slug, tokens, bytes) = fixture_market();
     let job = common::job(Idle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
     let text = serde_json::to_vec(&job).unwrap();
     let args: Vec<String> = ["run", "--job", "-", "--stack-mb", "4"]

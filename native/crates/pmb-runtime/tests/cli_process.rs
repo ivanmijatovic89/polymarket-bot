@@ -233,9 +233,7 @@ fn run_exit_classes_from_the_real_binary() {
         .unwrap()
         .contains("download-converted-r2-to-local"));
 
-    let Some((path, slug, tokens, bytes)) = fixture_market() else {
-        return;
-    };
+    let (path, slug, tokens, bytes) = fixture_market();
     // Integrity mismatch → data_defect (4).
     let mut j = common::job(
         STRATEGY_ID,

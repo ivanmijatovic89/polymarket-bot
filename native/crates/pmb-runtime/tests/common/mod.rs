@@ -1,6 +1,7 @@
-//! Shared test fixtures: the committed decode fixture market
-//! (`native/fixtures/decode/`), job builders, and an in-test engine
-//! backend that stands in for the pmb-engine bodies still being written.
+//! Shared test fixtures: the committed fixture market (`tests/fixtures/`,
+//! one market of the decode golden in `native/fixtures/decode/`), job
+//! builders, and an in-test engine backend that stands in for the
+//! pmb-engine bodies still being written.
 
 #![allow(dead_code)]
 
@@ -27,32 +28,48 @@ pub fn repo_root() -> PathBuf {
         .unwrap()
 }
 
-/// The first market of the committed decode golden, when its data file
-/// exists on this host: (path, slug, [UP, DOWN] tokens, bytes).
-pub fn fixture_market() -> Option<(PathBuf, String, [String; 2], u64)> {
-    let root = repo_root();
+/// The committed fixture market (`tests/fixtures/`): a 54-row telonex-delta
+/// file of the decode golden (`native/fixtures/decode/telonex_book_golden.json`),
+/// copied into the crate so every host and CI run it (R12: no test passes
+/// by skipping).
+pub const FIXTURE_SLUG: &str = "btc-updown-5m-1770857100";
+/// sha256 of the fixture file (guards against an accidental replacement).
+pub const FIXTURE_SHA256: &str = "0b2d0cb9a79ae7d8c0e96fad91055b1084ff335d4d37285a2df4117955ae9e66";
+
+/// The golden entry of the fixture market.
+pub fn fixture_golden() -> Value {
     let golden: Value = serde_json::from_slice(
-        &std::fs::read(root.join("native/fixtures/decode/telonex_book_golden.json")).unwrap(),
+        &std::fs::read(repo_root().join("native/fixtures/decode/telonex_book_golden.json"))
+            .unwrap(),
     )
     .unwrap();
-    let m = &golden["markets"][0];
-    let rel = m["file"].as_str().unwrap();
-    let path = root.join("data").join(rel);
-    if !path.exists() {
-        eprintln!("skip (no data on this host): {}", path.display());
-        return None;
-    }
-    let slug = Path::new(rel)
-        .file_stem()
+    golden["markets"]
+        .as_array()
         .unwrap()
-        .to_string_lossy()
-        .into_owned();
+        .iter()
+        .find(|m| {
+            m["file"]
+                .as_str()
+                .unwrap()
+                .ends_with(&format!("/{FIXTURE_SLUG}.parquet"))
+        })
+        .expect("the fixture market is in the decode golden")
+        .clone()
+}
+
+/// The fixture market: (path, slug, [UP, DOWN] tokens, bytes).
+pub fn fixture_market() -> (PathBuf, String, [String; 2], u64) {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(format!("{FIXTURE_SLUG}.parquet"));
+    assert_eq!(file_sha256(&path), FIXTURE_SHA256, "{}", path.display());
+    let m = fixture_golden();
     let tokens = [
         m["tokens"][0].as_str().unwrap().to_string(),
         m["tokens"][1].as_str().unwrap().to_string(),
     ];
     let bytes = std::fs::metadata(&path).unwrap().len();
-    Some((path, slug, tokens, bytes))
+    (path, FIXTURE_SLUG.to_string(), tokens, bytes)
 }
 
 /// sha256 of a file, lowercase hex.
