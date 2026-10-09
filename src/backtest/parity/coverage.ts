@@ -332,6 +332,30 @@ export function coverageVerdict(
   })
 }
 
+/** 60 §5.6: L features need at least this many markets across the E15 cells. */
+export const L_CROSS_CELL_MIN_MARKETS = 20
+
+export type CrossCellLRow = { feature: string; markets: number; pass: boolean }
+
+/**
+ * 60 §5.6 cross-cell L threshold: every L feature hit in at least 20
+ * markets across the E15 cells (E15-0, E15-D), counting distinct slugs.
+ * `cells` holds, per E15 manifest, each market's exerciser hits.
+ */
+export function crossCellLCoverage(
+  features: Record<string, FeatureClass>,
+  cells: ReadonlyArray<ReadonlyArray<{ slug: string; hits: ReadonlySet<string> }>>,
+): CrossCellLRow[] {
+  return Object.entries(features)
+    .filter(([, cls]) => cls === 'L')
+    .map(([feature]) => {
+      const slugs = new Set<string>()
+      for (const markets of cells)
+        for (const m of markets) if (m.hits.has(feature)) slugs.add(m.slug)
+      return { feature, markets: slugs.size, pass: slugs.size >= L_CROSS_CELL_MIN_MARKETS }
+    })
+}
+
 /** What the feed exerciser saw in one trace (level `feeds`, 60 §5.8, 14 V-3). */
 export type FeedCoverage = {
   ticks: number
