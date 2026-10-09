@@ -206,7 +206,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 <#ty as #p::ParamsFields>::__write_fields(&self.#ident, __pmb_out);
             });
             schema_stmts.push(quote! {
-                <#ty as #p::ParamsFields>::__schema_fields(__pmb_props, __pmb_required);
+                <#ty as #p::ParamsFields>::__schema_fields(__pmb_props, __pmb_required, __pmb_defs);
             });
             flattened.push(quote!(&<#ty as #p::ParamsFields>::KEY_TREE));
             continue;
@@ -255,7 +255,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         let has_default = f.default.is_some();
         schema_stmts.push(quote! {
             {
-                let mut __pmb_s = <#ty as #p::ParamValue>::schema_bounded(&[#(#bound_pairs),*]);
+                let mut __pmb_s = <#ty as #p::ParamValue>::schema_bounded(&[#(#bound_pairs),*], __pmb_defs);
                 #p::schema_describe(&mut __pmb_s, #doc);
                 #default_stmt
                 __pmb_props.push((#key, __pmb_s));
@@ -324,6 +324,7 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 fn __schema_fields(
                     __pmb_props: &mut ::std::vec::Vec<(&'static str, #p::Value)>,
                     __pmb_required: &mut ::std::vec::Vec<&'static str>,
+                    __pmb_defs: &mut #p::SchemaDefs,
                 ) {
                     #(#schema_stmts)*
                 }
@@ -346,8 +347,8 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 fn write_normalized(&self, __pmb_out: &mut ::std::string::String) {
                     #p::write_struct(self, __pmb_out)
                 }
-                fn schema() -> #p::Value {
-                    #p::struct_schema::<Self>()
+                fn schema(__pmb_defs: &mut #p::SchemaDefs) -> #p::Value {
+                    #p::struct_schema::<Self>(__pmb_defs)
                 }
                 fn expected() -> ::std::string::String {
                     #p::struct_expected::<Self>()

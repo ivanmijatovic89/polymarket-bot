@@ -2,7 +2,7 @@
 //! (the table of 30 §9).
 
 use super::input::Input;
-use super::support::child_index;
+use super::support::{child_index, SchemaDefs};
 use super::text::{write_f64, write_json_str};
 use super::{ParamError, ParamErrorKind};
 use crate::json::Value;
@@ -41,12 +41,12 @@ pub trait ParamValue: Sized {
         None
     }
 
-    /// JSON Schema of the type.
-    fn schema() -> Value;
+    /// JSON Schema of the type; nested params structs go to `defs`.
+    fn schema(defs: &mut SchemaDefs) -> Value;
 
     /// JSON Schema with bounds (`minimum` etc., as normalized number text).
-    fn schema_bounded(bounds: &[(&'static str, &'static str)]) -> Value {
-        let mut s = Self::schema();
+    fn schema_bounded(bounds: &[(&'static str, &'static str)], defs: &mut SchemaDefs) -> Value {
+        let mut s = Self::schema(defs);
         if let Value::Object(m) = &mut s {
             for (k, text) in bounds {
                 m.insert((*k).to_owned(), number_value(text));
@@ -114,7 +114,7 @@ impl ParamValue for bool {
     fn write_normalized(&self, out: &mut String) {
         out.push_str(if *self { "true" } else { "false" });
     }
-    fn schema() -> Value {
+    fn schema(_defs: &mut SchemaDefs) -> Value {
         schema_of(&[("type", "boolean".into())])
     }
     fn expected() -> String {
@@ -252,7 +252,7 @@ macro_rules! int_param {
             fn write_normalized(&self, out: &mut String) {
                 let _ = write!(out, "{}", self);
             }
-            fn schema() -> Value {
+            fn schema(_defs: &mut SchemaDefs) -> Value {
                 // Every integer param stays within ±(2^53 - 1) (21 §18 N2).
                 let (lo, hi) = safe_range(<$t>::MIN as i128, <$t>::MAX as i128);
                 schema_of(&[
@@ -302,7 +302,7 @@ impl ParamValue for f64 {
     fn write_normalized(&self, out: &mut String) {
         write_f64(out, *self);
     }
-    fn schema() -> Value {
+    fn schema(_defs: &mut SchemaDefs) -> Value {
         schema_of(&[("type", "number".into())])
     }
     fn expected() -> String {
@@ -381,7 +381,7 @@ macro_rules! fixed_param {
             fn write_normalized(&self, out: &mut String) {
                 out.push_str(&format_micros(self.micros()));
             }
-            fn schema() -> Value {
+            fn schema(_defs: &mut SchemaDefs) -> Value {
                 let mut pairs: Vec<(&str, Value)> =
                     vec![("type", "number".into()), ("decimalScale", 6.into())];
                 pairs.extend($schema_extra);
@@ -453,7 +453,7 @@ impl ParamValue for DurMs {
     fn write_normalized(&self, out: &mut String) {
         let _ = write!(out, "{self}");
     }
-    fn schema() -> Value {
+    fn schema(_defs: &mut SchemaDefs) -> Value {
         schema_of(&[
             ("type", "integer".into()),
             ("minimum", 0.into()),
@@ -483,7 +483,7 @@ impl ParamValue for String {
     fn write_normalized(&self, out: &mut String) {
         write_json_str(out, self);
     }
-    fn schema() -> Value {
+    fn schema(_defs: &mut SchemaDefs) -> Value {
         schema_of(&[("type", "string".into())])
     }
     fn expected() -> String {
@@ -516,15 +516,15 @@ impl<T: ParamValue> ParamValue for Option<T> {
     fn absent() -> Option<Self> {
         Some(None)
     }
-    fn schema() -> Value {
-        Self::schema_bounded(&[])
+    fn schema(defs: &mut SchemaDefs) -> Value {
+        Self::schema_bounded(&[], defs)
     }
     // Rule 8: an Option field accepts null; its bounds apply to the value.
-    fn schema_bounded(bounds: &[(&'static str, &'static str)]) -> Value {
+    fn schema_bounded(bounds: &[(&'static str, &'static str)], defs: &mut SchemaDefs) -> Value {
         schema_of(&[(
             "anyOf",
             Value::Array(vec![
-                T::schema_bounded(bounds),
+                T::schema_bounded(bounds, defs),
                 schema_of(&[("type", "null".into())]),
             ]),
         )])
@@ -577,8 +577,8 @@ impl<T: ParamValue> ParamValue for Vec<T> {
         }
         out.push(']');
     }
-    fn schema() -> Value {
-        schema_of(&[("type", "array".into()), ("items", T::schema())])
+    fn schema(defs: &mut SchemaDefs) -> Value {
+        schema_of(&[("type", "array".into()), ("items", T::schema(defs))])
     }
     fn expected() -> String {
         format!("a JSON array whose items are each {}", T::expected())

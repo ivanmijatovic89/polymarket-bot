@@ -6,6 +6,7 @@ use super::text::write_json_str;
 use super::value::{number_value, BoundView, ParamValue};
 use super::{ParamEnum, ParamError, ParamErrorKind, Params};
 use crate::json::Value;
+use std::any::TypeId;
 
 /// The keys of one params struct: its own keys, and the trees of the
 /// structs flattened into it (30 §9 rule 5). `collisions[i]` is the compile
@@ -17,7 +18,7 @@ pub struct KeyTree {
 }
 
 /// Machinery of a params struct, emitted by `#[derive(Params)]`.
-pub trait ParamsFields: Sized {
+pub trait ParamsFields: Sized + 'static {
     const KEY_TREE: KeyTree;
     const NAME: &'static str;
     const DOC: &'static str;
@@ -34,8 +35,13 @@ pub trait ParamsFields: Sized {
     /// Appends `(key, normalized JSON)` of every present field.
     fn __write_fields(&self, out: &mut Vec<(&'static str, String)>);
 
-    /// Appends the schema of every field and the required keys.
-    fn __schema_fields(props: &mut Vec<(&'static str, Value)>, required: &mut Vec<&'static str>);
+    /// Appends the schema of every field and the required keys; nested
+    /// params structs are registered in `defs`.
+    fn __schema_fields(
+        props: &mut Vec<(&'static str, Value)>,
+        required: &mut Vec<&'static str>,
+        defs: &mut SchemaDefs,
+    );
 
     /// `Params::validate`.
     fn __validate(&self) -> Result<(), ParamError>;
@@ -351,28 +357,68 @@ pub fn struct_expected<T: ParamsFields>() -> String {
     format!("a JSON object of {} params", T::NAME)
 }
 
-/// Nesting limit of generated schemas: a params struct that contains
-/// itself (`children: Vec<Self>`) gets an open object schema below it
-/// instead of unbounded recursion.
-const SCHEMA_DEPTH: u32 = 16;
-
-thread_local! {
-    static SCHEMA_NESTING: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+/// The `$defs` of one generated schema (30 §9 rule 8): every nested params
+/// struct is emitted once, under its type name, and referenced with `$ref`,
+/// so a recursive struct (`children: Vec<Self>`) gives a finite schema of
+/// linear size. The root struct is referenced as `"#"`.
+pub struct SchemaDefs {
+    root: TypeId,
+    /// `(type, unique name, schema)`; the schema is `None` while it is being
+    /// built (a recursive reference).
+    entries: Vec<(TypeId, String, Option<Value>)>,
 }
 
-/// Schema of a params object (30 §9 rule 8).
-pub fn struct_schema<T: ParamsFields>() -> Value {
-    let depth = SCHEMA_NESTING.with(|d| d.get());
-    if depth >= SCHEMA_DEPTH {
-        let mut m = serde_json::Map::new();
-        m.insert("type".into(), "object".into());
-        return Value::Object(m);
+impl SchemaDefs {
+    fn for_root<T: 'static>() -> Self {
+        SchemaDefs {
+            root: TypeId::of::<T>(),
+            entries: Vec::new(),
+        }
     }
-    SCHEMA_NESTING.with(|d| d.set(depth + 1));
+
+    /// A `$defs` name for `name` that no other type uses yet.
+    fn unique_name(&self, name: &str) -> String {
+        let taken = |n: &str| self.entries.iter().any(|(_, e, _)| e == n);
+        if !taken(name) {
+            return name.to_owned();
+        }
+        (2..)
+            .map(|i| format!("{name}_{i}"))
+            .find(|n| !taken(n))
+            .unwrap_or_default()
+    }
+}
+
+fn reference(target: &str) -> Value {
+    let mut m = serde_json::Map::new();
+    m.insert("$ref".into(), target.into());
+    Value::Object(m)
+}
+
+/// The schema of a nested params struct: a `$ref` to its `$defs` entry,
+/// built on first use (30 §9 rule 8).
+pub fn struct_schema<T: ParamsFields>(defs: &mut SchemaDefs) -> Value {
+    let id = TypeId::of::<T>();
+    if id == defs.root {
+        return reference("#");
+    }
+    if let Some((_, name, _)) = defs.entries.iter().find(|(t, _, _)| *t == id) {
+        return reference(&format!("#/$defs/{name}"));
+    }
+    let name = defs.unique_name(T::NAME);
+    defs.entries.push((id, name.clone(), None));
+    let body = struct_body::<T>(defs);
+    if let Some(e) = defs.entries.iter_mut().find(|(t, _, _)| *t == id) {
+        e.2 = Some(body);
+    }
+    reference(&format!("#/$defs/{name}"))
+}
+
+/// The object schema of a params struct's own fields.
+fn struct_body<T: ParamsFields>(defs: &mut SchemaDefs) -> Value {
     let mut props = Vec::new();
     let mut required = Vec::new();
-    T::__schema_fields(&mut props, &mut required);
-    SCHEMA_NESTING.with(|d| d.set(depth));
+    T::__schema_fields(&mut props, &mut required, defs);
     let mut m = serde_json::Map::new();
     m.insert("type".into(), "object".into());
     if !T::DOC.is_empty() {
@@ -393,13 +439,21 @@ pub fn struct_schema<T: ParamsFields>() -> Value {
 }
 
 pub(crate) fn root_schema<T: Params>() -> Value {
-    let mut s = struct_schema::<T>();
+    let mut defs = SchemaDefs::for_root::<T>();
+    let mut s = struct_body::<T>(&mut defs);
     if let Value::Object(m) = &mut s {
         m.insert(
             "$schema".into(),
             "https://json-schema.org/draft/2020-12/schema".into(),
         );
         m.insert("title".into(), T::NAME.into());
+        if !defs.entries.is_empty() {
+            let mut dm = serde_json::Map::new();
+            for (_, name, body) in defs.entries {
+                dm.insert(name, body.unwrap_or(Value::Null));
+            }
+            m.insert("$defs".into(), Value::Object(dm));
+        }
     }
     s
 }
@@ -455,7 +509,7 @@ pub fn parse_enum<T: ParamEnum + ParamValue>(
     }
 }
 
-pub fn enum_schema<T: ParamEnum>(doc: &str) -> Value {
+pub fn enum_schema<T: ParamEnum>(doc: &str, _defs: &mut SchemaDefs) -> Value {
     let mut m = serde_json::Map::new();
     m.insert("type".into(), "string".into());
     m.insert(

@@ -111,8 +111,8 @@ pub(crate) fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
                 fn write_normalized(&self, __pmb_out: &mut ::std::string::String) {
                     #p::write_json_str(__pmb_out, ::pmb_sdk::ParamEnum::name(self))
                 }
-                fn schema() -> #p::Value {
-                    #p::enum_schema::<Self>(#doc)
+                fn schema(__pmb_defs: &mut #p::SchemaDefs) -> #p::Value {
+                    #p::enum_schema::<Self>(#doc, __pmb_defs)
                 }
                 fn expected() -> ::std::string::String {
                     #p::enum_expected::<Self>()

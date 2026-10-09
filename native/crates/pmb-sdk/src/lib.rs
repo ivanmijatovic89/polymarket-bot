@@ -249,7 +249,7 @@ pub mod __private {
     pub use crate::params::support::{
         check_bound, enum_default, enum_expected, enum_schema, field, has_name, key_collision,
         merge_validate, parse_enum, parse_struct, schema_default, schema_describe, struct_expected,
-        struct_schema, write_field, write_struct, BoundOp, KeyTree, ParamsFields,
+        struct_schema, write_field, write_struct, BoundOp, KeyTree, ParamsFields, SchemaDefs,
     };
     pub use crate::params::text::write_json_str;
     pub use crate::params::value::{BoundView, ParamValue};

@@ -131,7 +131,10 @@ pub trait Params: ParamsFields {
 
     /// The JSON Schema (draft 2020-12) of the normalized params (§9 rule 8,
     /// 20 §5.1 `paramsSchema`): types, defaults, bounds, enum values and doc
-    /// comments as descriptions.
+    /// comments as descriptions. Nested params structs appear once under
+    /// `$defs` (keyed by type name) and are referenced with `$ref`; the root
+    /// struct is `"#"`, so recursive params give a schema of linear size.
+    /// A pure function of the type: no global or thread state.
     fn params_schema() -> json::Value {
         support::root_schema::<Self>()
     }

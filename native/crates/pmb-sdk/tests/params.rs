@@ -609,8 +609,21 @@ fn schema_snapshot() {
     let got = serde_json::to_string_pretty(&LagParams::params_schema()).unwrap();
     let want = include_str!("snapshots/lag_params.schema.json");
     assert_eq!(got.trim(), want.trim(), "schema changed:\n{got}");
+    // Nested params structs are emitted once under $defs and referenced.
     let nested = NestedParams::params_schema();
-    assert_eq!(nested["properties"]["window"]["required"][0], "fromSec");
+    assert_eq!(
+        nested["properties"]["window"],
+        serde_json::json!({"$ref": "#/$defs/WindowParams"})
+    );
+    assert_eq!(
+        nested["properties"]["windows"]["items"],
+        serde_json::json!({"$ref": "#/$defs/WindowParams"})
+    );
+    assert_eq!(
+        nested["$defs"]["WindowParams"]["required"],
+        serde_json::json!(["fromSec", "toSec"])
+    );
+    assert_eq!(nested["$defs"].as_object().unwrap().len(), 1);
     assert_eq!(nested["properties"]["mode"]["anyOf"][0]["enum"][1], "taker");
     assert_eq!(nested["required"], serde_json::json!(["window", "windows"]));
 }
@@ -713,7 +726,26 @@ pub struct Node {
     pub weight: i64,
 }
 
-// spec: 30 §9 rule 8 (schema of a recursive params struct terminates), table (nested Vec)
+/// A binary params tree: two self-references.
+#[derive(Params, Debug, PartialEq)]
+pub struct Tree {
+    #[param(default)]
+    pub left: Vec<Tree>,
+    #[param(default)]
+    pub right: Vec<Tree>,
+    #[param(default = 0)]
+    pub w: i64,
+}
+
+/// Holds a recursive struct that is not the root.
+#[derive(Params, Debug, PartialEq)]
+pub struct Forest {
+    pub trees: Vec<Tree>,
+    pub first: Option<Tree>,
+}
+
+// spec: 30 §9 rule 8 (schema of a recursive params struct: $ref, linear
+// size), table (nested Vec)
 #[test]
 fn recursive_params() {
     let n = Node::from_json_str(r#"{"children":[{"weight":2,"children":[{}]}]}"#).unwrap();
@@ -722,8 +754,57 @@ fn recursive_params() {
         n.normalized_json(),
         r#"{"children":[{"children":[{"children":[],"weight":0}],"weight":2}],"weight":0}"#
     );
+    // The root refers to itself as "#".
     let s = Node::params_schema();
-    assert_eq!(s["properties"]["children"]["items"]["type"], "object");
+    assert_eq!(
+        s["properties"]["children"]["items"],
+        serde_json::json!({"$ref": "#"})
+    );
+    assert!(s.get("$defs").is_none());
+    // Two self-references stay small (inline expansion was exponential).
+    let t = Tree::params_schema();
+    assert_eq!(t["properties"]["left"]["items"]["$ref"], "#");
+    assert_eq!(t["properties"]["right"]["items"]["$ref"], "#");
+    assert!(t.to_string().len() < 1_000, "{t}");
+    // A recursive struct below the root is one $defs entry that refers to
+    // itself.
+    let f = Forest::params_schema();
+    assert_eq!(f["properties"]["trees"]["items"]["$ref"], "#/$defs/Tree");
+    assert_eq!(f["properties"]["first"]["anyOf"][0]["$ref"], "#/$defs/Tree");
+    assert_eq!(
+        f["$defs"]["Tree"]["properties"]["left"]["items"]["$ref"],
+        "#/$defs/Tree"
+    );
+    assert!(f.to_string().len() < 1_500, "{f}");
+}
+
+fn boom() -> i64 {
+    panic!("default panics")
+}
+
+/// A params struct whose default expression panics.
+#[derive(Params, Debug)]
+pub struct Boom {
+    #[param(default = boom())]
+    pub x: i64,
+}
+
+#[derive(Params, Debug)]
+pub struct HoldsBoom {
+    pub inner: Option<Boom>,
+    pub node: Option<Node>,
+}
+
+// spec: 00 R7, 30 §12: a panic during schema generation (caught by the
+// engine, which keeps the thread) leaves no state behind; later schemas on
+// the same thread are complete
+#[test]
+fn schema_after_caught_panic() {
+    let fresh = std::thread::spawn(Forest::params_schema).join().unwrap();
+    for _ in 0..20 {
+        assert!(std::panic::catch_unwind(HoldsBoom::params_schema).is_err());
+    }
+    assert_eq!(Forest::params_schema(), fresh);
 }
 
 /// A size type spelled through an alias.
