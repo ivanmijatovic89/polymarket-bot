@@ -58,6 +58,13 @@ export default withMermaid(
               ],
             },
             {
+              text: 'Exchange Rules',
+              collapsed: true,
+              items: [
+                { text: 'Capture Pre-Start Rules', link: '/datasets/exchange-rules/prestart-capture' },
+              ],
+            },
+            {
               text: 'Telonex',
               collapsed: true,
               items: [
