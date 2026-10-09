@@ -1,0 +1,67 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "node": "v20.19.6",
+  "cases": 9106,
+  "comparatorMutationChecks": 8,
+  "exactFiniteIeeeBits": true,
+  "signedZeroCompared": true,
+  "nonfiniteClassesCompared": true,
+  "sourceSha256": {
+    "src/trading/utils/rounding.ts": "f77b925fae78be50cab8414634958381e41673e4481581e629675776a1bf7b8c",
+    "src/trading/fees.ts": "4191b1fa52d3e5e02e6cc419db07c8b9fc20e85f3eee1a0e6885bdb247cb4b03",
+    "src/trading/capital.ts": "926b78ee6f1a49f6a2cad5fbdc6329fcf947c2d4ae239d294ac6d8936b9c0a80"
+  },
+  "nativeSourceSha256": {
+    "native/trading-runtime/Cargo.toml": "fe0554520d8d20f7c683ac7a4769a55231057c9dcd9421db3a22ab333f08029d",
+    "native/trading-runtime/Cargo.lock": "a1f97fc7e042d0a917632fd4c521f37eeb78ffe8b2f1b54499bd46f7a9bf8ff0",
+    "native/trading-runtime/examples/math_fixtures.rs": "0d15cb9e36fd945aa78f07d00caac0575380172ae0cd69df371a30b814710158",
+    "native/trading-runtime/src/cancellation.rs": "5a13cc575471eed545546e6930e4168b66ff42eca0885404f8421e6eb0939767",
+    "native/trading-runtime/src/event_dispatch.rs": "6c1e8c0c384b1cb34a7acded1d20aa71ad8775bd945e83e2e92193bec17f95aa",
+    "native/trading-runtime/src/frame_cursor.rs": "f679ae0ca5aa5e86d86d6ebdf17d4cc3ba409c2c0a0588fcc73ad235e8573acb",
+    "native/trading-runtime/src/intent.rs": "093bc0465bc0660a2b679959c90eb6d073cb4f47e3a9b503b9751e71c692e269",
+    "native/trading-runtime/src/lib.rs": "17092ae4ddfb31815d1574a85731f64896d80cdd9e44de58eb645bd9166bab7e",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "4d8d19b99a5020b04ef08ff1f94b2c73b0996a1addd55f18dd9a1cfc5273c0f9",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/market_snapshot.rs": "4a557f0398bc536353ce84abea6ac8b6e971f497c149df1a06d40a01fda42e80",
+    "native/trading-runtime/src/math.rs": "44eb3517e61151a69cb0fa0616ad4cca9b85781e3b6373cbcfb1c287ae7b7e69",
+    "native/trading-runtime/src/metadata.rs": "1866c2a514967db4f93be6ab90a3425c0731634827ed157f1045df6276cd48f0",
+    "native/trading-runtime/src/metrics.rs": "ae6d17656d71b4bf8b695f69f2d3568e642f6a9d1a9147cd0ece50eba76e83e0",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/parquet_decimal.rs": "45bb90b07f4040277342997399f8d6f99fc4617efcba197b53c177986b0d52ff",
+    "native/trading-runtime/src/parquet_decimal_column.rs": "d54e3deb668bebe6d361dd19e5c3d402b409903a2cbf523fffcb6468126b22f6",
+    "native/trading-runtime/src/parquet_input.rs": "091c8189546e70b09c7e9ceec3617c4d42f349f45f826341eee9922837b74708",
+    "native/trading-runtime/src/portfolio.rs": "39ef5f57f69e74490ba6ea794ea2106455ba1f385cd604d7d7e0ab08d99febc7",
+    "native/trading-runtime/src/portfolio_records.rs": "dc96c1883679973037f53c70368ad8bb4b8001ca40adfd25d87809de7af70fd0",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/record.rs": "799097373b9a1f63f19aa5b794e457e8ece11277c2d7fd481bdaf928566bc654",
+    "native/trading-runtime/src/risk.rs": "a5b77370c157c2670401c5d2cccc2c933ce3ceaddec1a6b75e39b06013453d4f",
+    "native/trading-runtime/src/source.rs": "8af10603c39344f93233c77581c028c585b960a8aea8f0a23e910be173546545",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc"
+  },
+  "buildCommand": [
+    "/Users/mijat/.cargo/bin/cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "native/trading-runtime/Cargo.toml",
+    "--example",
+    "math_fixtures",
+    "--message-format=json",
+    "--release"
+  ],
+  "toolchain": {
+    "cargo": "cargo 1.89.0 (c24e10642 2025-06-23)",
+    "rustc": "rustc 1.89.0 (29483883e 2025-08-04)\nbinary: rustc\ncommit-hash: 29483883eed69d5fb4db01964cdf2af4d86e9cb2\ncommit-date: 2025-08-04\nhost: aarch64-apple-darwin\nrelease: 1.89.0\nLLVM version: 20.1.7"
+  },
+  "profile": "release",
+  "defaultSelectorCases": 64,
+  "wrapperSha256": {
+    "scripts/rust-migration/math-differential.py": "4ea086781e3040ce5333c5b32566ad5f18be9bdcdadc47cdb63dee403e2bf30d",
+    "scripts/rust-migration/math-oracle.mts": "2355b9712889f53f01dd896fbc4fedb4f90c1cf823b18254e339cd9e40c264e2"
+  },
+  "nativeDriverSha256": "0d45b86eb50790748a55f86f483cc62bb6d0015181ef2dac1ec6b42002764222",
+  "fixturesSha256": "aa934fa2854d81e2c09b27be2921e1d2e2bbee27133a66ed9484ec5571beee9e",
+  "fullOutputParity": true
+}

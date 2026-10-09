@@ -1,0 +1,78 @@
+{
+  "revision": "d20b0dc955a36061634dd450845a379f4b164a42",
+  "pullRequest": "https://github.com/ivanmijatovic89/polymarket-bot/pull/300",
+  "checks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:53:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124871977",
+      "name": "Root (Prettier + Typecheck + ESLint)",
+      "startedAt": "2026-10-08T02:51:07Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:53:28Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884634/job/113124871657",
+      "name": "Rust prototype and reference harness",
+      "startedAt": "2026-10-08T02:51:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Rust Backtest Experiment"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:55:15Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124872221",
+      "name": "Native runtime (ubuntu-latest)",
+      "startedAt": "2026-10-08T02:51:08Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:59:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124872183",
+      "name": "Native runtime (macos-latest)",
+      "startedAt": "2026-10-08T02:51:13Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:51:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124872168",
+      "name": "WebUI (Typecheck + Build)",
+      "startedAt": "2026-10-08T02:51:08Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:51:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124872670",
+      "name": "Docs (VitePress Build)",
+      "startedAt": "2026-10-08T02:51:08Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T02:52:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37719884638/job/113124872225",
+      "name": "Dashboard (Typecheck + Build)",
+      "startedAt": "2026-10-08T02:51:08Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    }
+  ],
+  "allSevenChecksPassed": false,
+  "scope": "Diagnostic-only revision of the bounded record/raw reader checkpoint. Ubuntu exact DECIMAL parity remains failing; macOS native passes. No full migration completion."
+}

@@ -1,0 +1,63 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "node": "v20.19.6",
+  "cases": 9106,
+  "comparatorMutationChecks": 8,
+  "exactFiniteIeeeBits": true,
+  "signedZeroCompared": true,
+  "nonfiniteClassesCompared": true,
+  "sourceSha256": {
+    "src/trading/utils/rounding.ts": "f77b925fae78be50cab8414634958381e41673e4481581e629675776a1bf7b8c",
+    "src/trading/fees.ts": "4191b1fa52d3e5e02e6cc419db07c8b9fc20e85f3eee1a0e6885bdb247cb4b03",
+    "src/trading/capital.ts": "926b78ee6f1a49f6a2cad5fbdc6329fcf947c2d4ae239d294ac6d8936b9c0a80"
+  },
+  "nativeSourceSha256": {
+    "native/trading-runtime/Cargo.toml": "fe0554520d8d20f7c683ac7a4769a55231057c9dcd9421db3a22ab333f08029d",
+    "native/trading-runtime/Cargo.lock": "a1f97fc7e042d0a917632fd4c521f37eeb78ffe8b2f1b54499bd46f7a9bf8ff0",
+    "native/trading-runtime/examples/math_fixtures.rs": "0d15cb9e36fd945aa78f07d00caac0575380172ae0cd69df371a30b814710158",
+    "native/trading-runtime/src/cancellation.rs": "52b98163dbe251b8852f2f560eef9ee133cd250465b6c45b319b54704f85a31f",
+    "native/trading-runtime/src/event_dispatch.rs": "6c1e8c0c384b1cb34a7acded1d20aa71ad8775bd945e83e2e92193bec17f95aa",
+    "native/trading-runtime/src/frame_cursor.rs": "cc00025e931988c120b95a017c15891039577bc29656ba1314ba6dced6119496",
+    "native/trading-runtime/src/intent.rs": "093bc0465bc0660a2b679959c90eb6d073cb4f47e3a9b503b9751e71c692e269",
+    "native/trading-runtime/src/lib.rs": "d65e0547c48cbf4a03b546bc4632fc07bbb4649db175b7156aeb7ea6d7fc4a46",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "b180e8479621737a5691e0f92329bc12f06ceb5aef883ae43e6336867afc5e73",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/market_snapshot.rs": "4a557f0398bc536353ce84abea6ac8b6e971f497c149df1a06d40a01fda42e80",
+    "native/trading-runtime/src/math.rs": "44eb3517e61151a69cb0fa0616ad4cca9b85781e3b6373cbcfb1c287ae7b7e69",
+    "native/trading-runtime/src/metadata.rs": "f5efe113d7feb54c58fdc00bfc56024deb717201ed1499e64b00dd1db1d707aa",
+    "native/trading-runtime/src/metrics.rs": "ae6d17656d71b4bf8b695f69f2d3568e642f6a9d1a9147cd0ece50eba76e83e0",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/parquet_input.rs": "5c449053a138b04d7b89d0c54c77acc81606e52af0048c77201b690459ad9b4f",
+    "native/trading-runtime/src/portfolio.rs": "c513c429d3b6ed228b3b23ffb6a0480f5a352e7ca391c4d30ff6331611c63c54",
+    "native/trading-runtime/src/portfolio_records.rs": "ea826f37f775b9f02ca13e4fa945d67fb677171881ca7f64fb347031eb712289",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/record.rs": "799097373b9a1f63f19aa5b794e457e8ece11277c2d7fd481bdaf928566bc654",
+    "native/trading-runtime/src/risk.rs": "bb25e5bc245a8bf9685210bbbf3b5dc690922001921825da3ace8a20f0e94239",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc"
+  },
+  "buildCommand": [
+    "/Users/mijat/.cargo/bin/cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "native/trading-runtime/Cargo.toml",
+    "--example",
+    "math_fixtures",
+    "--message-format=json"
+  ],
+  "toolchain": {
+    "cargo": "cargo 1.89.0 (c24e10642 2025-06-23)",
+    "rustc": "rustc 1.89.0 (29483883e 2025-08-04)\nbinary: rustc\ncommit-hash: 29483883eed69d5fb4db01964cdf2af4d86e9cb2\ncommit-date: 2025-08-04\nhost: aarch64-apple-darwin\nrelease: 1.89.0\nLLVM version: 20.1.7"
+  },
+  "profile": "debug",
+  "defaultSelectorCases": 64,
+  "wrapperSha256": {
+    "scripts/rust-migration/math-differential.py": "4ea086781e3040ce5333c5b32566ad5f18be9bdcdadc47cdb63dee403e2bf30d",
+    "scripts/rust-migration/math-oracle.mts": "2355b9712889f53f01dd896fbc4fedb4f90c1cf823b18254e339cd9e40c264e2"
+  },
+  "nativeDriverSha256": "bc5cb37dffb3b9db357f0e3c991778c6da4184efec33bb9871e4f49665723714",
+  "fixturesSha256": "aa934fa2854d81e2c09b27be2921e1d2e2bbee27133a66ed9484ec5571beee9e",
+  "fullOutputParity": true
+}

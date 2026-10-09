@@ -1,0 +1,246 @@
+{
+  "dateUtc": "2026-10-06T15:12:23Z",
+  "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "loadStart": [3.6943359375, 6.77978515625, 9.67333984375],
+  "nice": 10,
+  "node": "v20.11.0",
+  "rust": "rustc 1.89.0 (29483883e 2025-08-04)",
+  "engineCommit": "5b83b6b359ea42b8eb7987c884ea6dcb36ccf0cd",
+  "manifestSha256": "6be3edb5306ca7cb93ae81b5903d403717f2a2719cc9a92e26fd99b417c0e58b",
+  "artifactSha256": "304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8",
+  "settings": {
+    "startingCapital": 100,
+    "delayMs": 500,
+    "jitterMs": 20,
+    "binanceLatencyMs": 110,
+    "chainlinkLatencyMs": 320,
+    "priceToBeatLatencyMs": 2700,
+    "seed": 123456789
+  },
+  "selection": {
+    "fromDateUtc": "2026-06-01",
+    "order": "chronological",
+    "count": 1000,
+    "source": "resolved local catalog markets"
+  },
+  "marketCount": 1000,
+  "firstSlug": "btc-updown-15m-1780272000",
+  "lastSlug": "btc-updown-15m-1781262900",
+  "parity": {
+    "fullTrace": true,
+    "events": 196834457,
+    "decisions": 3758,
+    "accountEvents": 21272,
+    "numericTolerance": 1e-10
+  },
+  "measurements": {
+    "4": {
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 927349.8166669997,
+            "cpuMs": 4461392.12,
+            "peakRssBytes": 2201927680
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 927349.8166669997,
+            "min": 927349.8166669997,
+            "max": 927349.8166669997
+          },
+          "cpuMs": {
+            "median": 4461392.12,
+            "min": 4461392.12,
+            "max": 4461392.12
+          },
+          "peakRssBytes": {
+            "median": 2201927680,
+            "min": 2201927680,
+            "max": 2201927680
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 124360.99616700085,
+            "cpuMs": 486838.278,
+            "peakRssBytes": 175652864
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 124360.99616700085,
+            "min": 124360.99616700085,
+            "max": 124360.99616700085
+          },
+          "cpuMs": {
+            "median": 486838.278,
+            "min": 486838.278,
+            "max": 486838.278
+          },
+          "peakRssBytes": {
+            "median": 175652864,
+            "min": 175652864,
+            "max": 175652864
+          }
+        }
+      }
+    },
+    "8": {
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 66903.02333299769,
+            "cpuMs": 507536.30299999996,
+            "peakRssBytes": 313769984
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 66903.02333299769,
+            "min": 66903.02333299769,
+            "max": 66903.02333299769
+          },
+          "cpuMs": {
+            "median": 507536.30299999996,
+            "min": 507536.30299999996,
+            "max": 507536.30299999996
+          },
+          "peakRssBytes": {
+            "median": 313769984,
+            "min": 313769984,
+            "max": 313769984
+          }
+        }
+      },
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 649260.0328340014,
+            "cpuMs": 5087887.195,
+            "peakRssBytes": 3803742208
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 649260.0328340014,
+            "min": 649260.0328340014,
+            "max": 649260.0328340014
+          },
+          "cpuMs": {
+            "median": 5087887.195,
+            "min": 5087887.195,
+            "max": 5087887.195
+          },
+          "peakRssBytes": {
+            "median": 3803742208,
+            "min": 3803742208,
+            "max": 3803742208
+          }
+        }
+      }
+    },
+    "1": {
+      "typescript": {
+        "samples": [
+          {
+            "wallMs": 3484511.2251659995,
+            "cpuMs": 4167968.6899999995,
+            "peakRssBytes": 710836224
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 3484511.2251659995,
+            "min": 3484511.2251659995,
+            "max": 3484511.2251659995
+          },
+          "cpuMs": {
+            "median": 4167968.6899999995,
+            "min": 4167968.6899999995,
+            "max": 4167968.6899999995
+          },
+          "peakRssBytes": {
+            "median": 710836224,
+            "min": 710836224,
+            "max": 710836224
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 480295.1006250005,
+            "cpuMs": 476770.259,
+            "peakRssBytes": 65372160
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 480295.1006250005,
+            "min": 480295.1006250005,
+            "max": 480295.1006250005
+          },
+          "cpuMs": {
+            "median": 476770.259,
+            "min": 476770.259,
+            "max": 476770.259
+          },
+          "peakRssBytes": {
+            "median": 65372160,
+            "min": 65372160,
+            "max": 65372160
+          }
+        }
+      }
+    }
+  },
+  "scope": "Prepared-feed local replay. Market Parquet decoding, strategy, FOK, portfolio and per-market stats included. No fleet, queue/network/DB output or native daily-feed loading. Worker counts limit processes, not CPU affinity or background threads. RSS is sum of worker peaks.",
+  "traceWorkers": 8,
+  "reusedTypeScriptTraces": true,
+  "warmup": "Full trace passes read all sample inputs before timing; no separate timed-workload warmups.",
+  "sourceSha256": {
+    "common.mts": "71050e9fc449f6021228a09b043fc651072ee66996436c3173e9478dd9d20cca",
+    "oracle.mts": "26c644d15cadd435a16329fc8adff3ac8978e6b25898b026a233abd8b1ed42c1",
+    "prepare.mts": "f16f0e26ebe1eadf58e9184f3d187af8bfcfd040c99e9e6bae34b185b11cc065",
+    "scaling.py": "51fbc698a52ece2736e4da5d3ac2527e06f890e4b91761e422eaf95b6c64bc8f",
+    "src/feeds.rs": "d2ed276658f6d645d02c51d2b5b4bc93c6a6eff2d4036f2aa2d6dc69bf3c7498",
+    "src/main.rs": "649f32ede7c1638db2209b4ddde3614fe9073f55fdc8f085e55ab4f6a6eceba6",
+    "src/strategy.rs": "0eb7684e2ca0569e6aa588f43b6fa51f02b33eeebf7429677dbea835937a3e21",
+    "src/types.rs": "882bf3b38a8eee7542d1f827fdc5d2cd78c7c25709f94bbf5f9b52b52bfeef1f"
+  },
+  "releaseBinarySha256": "42f2a56cdc5e4ca0a233bcfd9933f02d780b22e1e8d274d2672cada1c33ae3ed",
+  "loadCurrent": [6.8671875, 7.95068359375, 6.837890625],
+  "productionBaseline": {
+    "workers": 4,
+    "samples": [
+      {
+        "wallMs": 880308.0396250007,
+        "cpuMs": 4319312.01,
+        "peakRssBytes": 2474360832
+      }
+    ],
+    "scope": "Unmodified production replay including raw daily-feed loaders; Rust comparison uses prepared feeds."
+  },
+  "completed": true,
+  "hardware": {
+    "cpu": "Apple M1 Pro",
+    "cpuCores": 10,
+    "memoryGiB": 16,
+    "hosts": 1
+  },
+  "measurementConditions": {
+    "roundsPerConfiguration": 1,
+    "isolatedHost": false,
+    "inputFilesRehashedAfterRun": true,
+    "measuredSourcesAndBinaryRecheckedAfterRun": true,
+    "sourceRunId": 9657,
+    "firstWindowStartUtc": "2026-06-01T00:00:00Z",
+    "lastWindowEndUtc": "2026-06-12T11:30:00Z",
+    "chainlinkGapExclusions": 101,
+    "originalMarketParquetGiB": 2.317,
+    "preparedFeedMiB": 555.997
+  }
+}

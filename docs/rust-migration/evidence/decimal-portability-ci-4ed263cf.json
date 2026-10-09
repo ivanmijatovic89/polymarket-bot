@@ -1,0 +1,78 @@
+{
+  "revision": "4ed263cfbb18560da6f7cf45f0539e68a3a762d9",
+  "pullRequest": "https://github.com/ivanmijatovic89/polymarket-bot/pull/300",
+  "checks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:10:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137044",
+      "name": "Root (Prettier + Typecheck + ESLint)",
+      "startedAt": "2026-10-08T03:07:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:10:13Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248399/job/113129137211",
+      "name": "Rust prototype and reference harness",
+      "startedAt": "2026-10-08T03:07:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Rust Backtest Experiment"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:11:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137159",
+      "name": "Native runtime (ubuntu-latest)",
+      "startedAt": "2026-10-08T03:07:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:14:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137200",
+      "name": "Native runtime (macos-latest)",
+      "startedAt": "2026-10-08T03:08:00Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:08:14Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137248",
+      "name": "WebUI (Typecheck + Build)",
+      "startedAt": "2026-10-08T03:07:55Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:08:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137189",
+      "name": "Docs (VitePress Build)",
+      "startedAt": "2026-10-08T03:07:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:09:08Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721248140/job/113129137134",
+      "name": "Dashboard (Typecheck + Build)",
+      "startedAt": "2026-10-08T03:07:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    }
+  ],
+  "allSevenChecksPassed": true,
+  "scope": "Focused DECIMAL target portability repair only. Ongoing SDK/OrderManager/runner/replay development and full migration remain unverified."
+}

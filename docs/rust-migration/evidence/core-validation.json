@@ -1,0 +1,152 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "nativeSourceSha256": {
+    "native/trading-runtime/src/cancellation.rs": "52b98163dbe251b8852f2f560eef9ee133cd250465b6c45b319b54704f85a31f",
+    "native/trading-runtime/src/intent.rs": "093bc0465bc0660a2b679959c90eb6d073cb4f47e3a9b503b9751e71c692e269",
+    "native/trading-runtime/src/lib.rs": "fffe25bd66c4ee14d7219742155cc254a659144d5ec98fcf9ad63189a6f9d2a1",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "c445ea80329ab8850aeb6d028a5db7982f6c154231d433a8f3cb326af11dc6d9",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/market_snapshot.rs": "4a557f0398bc536353ce84abea6ac8b6e971f497c149df1a06d40a01fda42e80",
+    "native/trading-runtime/src/math.rs": "44eb3517e61151a69cb0fa0616ad4cca9b85781e3b6373cbcfb1c287ae7b7e69",
+    "native/trading-runtime/src/metadata.rs": "51190a4d82cd2ece5c97758f70c78d4be5fb7b6962616ac534200f7555da1865",
+    "native/trading-runtime/src/metrics.rs": "ae6d17656d71b4bf8b695f69f2d3568e642f6a9d1a9147cd0ece50eba76e83e0",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/portfolio.rs": "c513c429d3b6ed228b3b23ffb6a0480f5a352e7ca391c4d30ff6331611c63c54",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/risk.rs": "bb25e5bc245a8bf9685210bbbf3b5dc690922001921825da3ace8a20f0e94239",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc",
+    "native/trading-runtime/tests/intents.rs": "ed50510a0bead4ebf029466be17acd0837b752b08e3cbd0d054aeafe6940c6ba",
+    "native/trading-runtime/tests/market.rs": "1386df8a6921ad2fb5666e7205780f2422f810212a40bd87fac5282a836f06bf",
+    "native/trading-runtime/tests/math.rs": "36ec7da40e4067b071e2c8191bd7e33fbfbee4d035e22147b2fd04b0b8e25e9f",
+    "native/trading-runtime/tests/metadata.rs": "7e0d6b047895c7d27ed28ae82e5af3ba687c3891465e6556220fe47fb1602313",
+    "native/trading-runtime/tests/metrics.rs": "7903b3f0b5bde9664a3167e4465e37b5983a5c83e2e5acc389cf3573862feac6",
+    "native/trading-runtime/tests/portfolio.rs": "4e0f3fa9bb61c3d8c92ef4c8ce867c36f4b0d8d72d21bd8bfc0b90dc024324f5",
+    "native/trading-runtime/tests/protocol.rs": "38c1af900e901bb948505e4937091617d0cd416bb8119e59223c0912cdc4076c",
+    "native/trading-runtime/tests/stats.rs": "d9b95826ae829769444e3e6a5eaec58cc7a9d3efdd891cbe90b9f7e8beea963b",
+    "native/trading-runtime/examples/math_fixtures.rs": "0d15cb9e36fd945aa78f07d00caac0575380172ae0cd69df371a30b814710158",
+    "native/trading-runtime/examples/metadata_fixtures.rs": "c1eb49a90ffcade0d459e4c7a5f047d52928d262cc923ce5144ec3246df5f562",
+    "native/trading-runtime/examples/metrics_fixtures.rs": "7b359f9c2debb1696e1dfbd08f9bc14896e9341dcea42b1e3b26c687b76902c6",
+    "native/trading-runtime/Cargo.toml": "ded05873bfccf680f1f26704a9a5df9909d7f3b00459280bca6ca6a4f24527d7",
+    "native/trading-runtime/Cargo.lock": "1770c4bded9749e8d423b64769a76cd5cc66f470452014acb080954e1f01cebf"
+  },
+  "nativeSourceStable": true,
+  "nativeUnitTestCount": 68,
+  "clientProcessTestCount": 47,
+  "commands": [
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 4.947680041004787,
+      "stdoutSha256": "f436a464fb002cb4b24cc4d690be1e823f9ef9ee51502b4c821f11a2dd730bca",
+      "stderrSha256": "7672571425bd7185c4112e5932c05c9d00a736a3bd3c1c35cd66d0154bfa5e5b",
+      "log": "docs/rust-migration/evidence/core-validation-0.txt",
+      "logSha256": "8060742ec8f1294f5df81c89ba07779d41a6a6849903b3c2d72ada6447dbabf6"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 1.2772607910010265,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "94e169321ec2b000d908bfb1872a0bf5a446248ef4511ee33578e79adca80939",
+      "log": "docs/rust-migration/evidence/core-validation-1.txt",
+      "logSha256": "94e169321ec2b000d908bfb1872a0bf5a446248ef4511ee33578e79adca80939"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "fmt",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml",
+        "--",
+        "--check"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.2730619590001879,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": "docs/rust-migration/evidence/core-validation-2.txt",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "/Users/mijat/.cargo/bin/cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "native/trading-runtime/Cargo.toml"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.10520020799594931,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd",
+      "log": "docs/rust-migration/evidence/core-validation-3.txt",
+      "logSha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+    },
+    {
+      "command": [
+        "/Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "--import",
+        "tsx",
+        "--test",
+        "src/runtime/nativeClient.test.ts",
+        "src/runtime/nativeClient.integration.test.ts"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 2.5709032910090173,
+      "stdoutSha256": "737c6f1813f739f818f494363052769c5f89d701a9df46fd64b4982e953f73e2",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": "docs/rust-migration/evidence/core-validation-4.txt",
+      "logSha256": "737c6f1813f739f818f494363052769c5f89d701a9df46fd64b4982e953f73e2"
+    },
+    {
+      "command": [
+        "/Users/mijat/.nvm/versions/node/v20.19.6/bin/node",
+        "node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "--module",
+        "nodenext",
+        "--moduleResolution",
+        "nodenext",
+        "--target",
+        "ES2022",
+        "--strict",
+        "--skipLibCheck",
+        "scripts/rust-migration/market-oracle.mts",
+        "scripts/rust-migration/math-oracle.mts",
+        "scripts/rust-migration/metrics-oracle.mts",
+        "scripts/rust-migration/portfolio-oracle.mts",
+        "scripts/rust-migration/intents-oracle.mts",
+        "scripts/rust-migration/metadata-oracle.mts",
+        "scripts/rust-migration/stats-oracle.mts"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 2.2979936659976374,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": "docs/rust-migration/evidence/core-validation-5.txt",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "checksPassed": true,
+  "productionAcceptance": false
+}

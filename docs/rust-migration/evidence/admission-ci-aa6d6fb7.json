@@ -1,0 +1,44 @@
+{
+  "revision": "aa6d6fb72c8f4c552a7b29b5ba4f208261e99398",
+  "observedBy": "gh pr checks 300 --json name,state,link",
+  "pullRequest": "https://github.com/ivanmijatovic89/polymarket-bot/pull/300",
+  "checks": [
+    {
+      "name": "Native runtime (macos-latest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888655"
+    },
+    {
+      "name": "Root (Prettier + Typecheck + ESLint)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888582"
+    },
+    {
+      "name": "Rust prototype and reference harness",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593482/job/113104887941"
+    },
+    {
+      "name": "Native runtime (ubuntu-latest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888813"
+    },
+    {
+      "name": "WebUI (Typecheck + Build)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888607"
+    },
+    {
+      "name": "Docs (VitePress Build)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888560"
+    },
+    {
+      "name": "Dashboard (Typecheck + Build)",
+      "state": "SUCCESS",
+      "link": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37713593493/job/113104888433"
+    }
+  ],
+  "allSevenChecksPassed": true,
+  "scope": "Published bounded SDK/admission checkpoint only; ongoing uncommitted changes and full migration remain unverified"
+}

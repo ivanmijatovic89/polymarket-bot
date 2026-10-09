@@ -1,0 +1,346 @@
+{
+  "dateUtc": "2026-10-06T17:40:59Z",
+  "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "hardware": {
+    "cpu": "Apple M1 Pro",
+    "cpuCores": 10,
+    "memoryGiB": 16,
+    "hosts": 1
+  },
+  "loadStart": [3.0263671875, 2.79443359375, 3.2099609375],
+  "nice": 10,
+  "node": "v20.11.0",
+  "rust": "rustc 1.89.0 (29483883e 2025-08-04)",
+  "engineCommit": "ed200fdcd3ead88474ad25763d426642e7e0aa50",
+  "manifestSha256": "ade4329fb802a50461f8d102799ce9966d708083a8f77c95497b96e62a343d93",
+  "referenceManifestSha256": "6be3edb5306ca7cb93ae81b5903d403717f2a2719cc9a92e26fd99b417c0e58b",
+  "referenceProvenanceSha256": "892ea0ba50772ded354584135fa4ad509b19c0c52acaaddf4e85ec3a9b882317",
+  "sourceFingerprintSha256": "c041e776ed96520a7d236c5b75c2980e48f5391891ac7111a3534d65a30711db",
+  "experimentSourceSha256": {
+    "experiments/rust-backtest/Cargo.lock": "7e710d3eb6d85fe2f3c6e3e1175150262ef3987f752536b85a1b5b4ea98d7d33",
+    "experiments/rust-backtest/Cargo.toml": "1cb588bc911e3a26acab269b939acd1f52aa9b54bc72a64c9c204347e5c9079e",
+    "experiments/rust-backtest/benchmark.py": "b88acde0679c8362f00f93ea296c748e9f154917db1bd65c972df158e5bb58ff",
+    "experiments/rust-backtest/common.mts": "71050e9fc449f6021228a09b043fc651072ee66996436c3173e9478dd9d20cca",
+    "experiments/rust-backtest/compare.py": "7898259b2000d2b1f1f586db10fa3fa4cb6aef18b23462c1cc42d56854cbdf8f",
+    "experiments/rust-backtest/oracle.mts": "26c644d15cadd435a16329fc8adff3ac8978e6b25898b026a233abd8b1ed42c1",
+    "experiments/rust-backtest/prepare.mts": "f16f0e26ebe1eadf58e9184f3d187af8bfcfd040c99e9e6bae34b185b11cc065",
+    "experiments/rust-backtest/raw-benchmark.py": "d9dda9e94a5cc34b19683e4d972375a5d55844b5098c38136d94de9bcf83d1ff",
+    "experiments/rust-backtest/raw-inputs.mts": "e22a4b543f8fd99f21160bb38a78692efb0d4e4f0e46dc5310583b6b5a579927",
+    "experiments/rust-backtest/scaling.py": "51fbc698a52ece2736e4da5d3ac2527e06f890e4b91761e422eaf95b6c64bc8f",
+    "experiments/rust-backtest/src/feeds.rs": "f2d73b32205d47d31f3cf9f9422f7acf0490d43037562415025bf77989cb44cb",
+    "experiments/rust-backtest/src/main.rs": "4cdd81137d37d2bc80aebde18afb47db978dab3769d7113b2d59e4cf113570b0",
+    "experiments/rust-backtest/src/raw_feeds.rs": "86adc72714cdf346d306d51793d22282764f6a69ca1cd9fcb63012cc2731f5f6",
+    "experiments/rust-backtest/src/strategy.rs": "0eb7684e2ca0569e6aa588f43b6fa51f02b33eeebf7429677dbea835937a3e21",
+    "experiments/rust-backtest/src/types.rs": "11ec5f1fd68455dc6d0a1fd2327521a810e80e0231f4005331a00dbabc35a6bb"
+  },
+  "releaseBinarySha256": "c8c0f956724ca6c89cc5cfe6dfdef4221802e71e08ee633ee9064e4bd749346f",
+  "artifactSha256": "304eceb346bdd813d3acda0f5fac38b657237bed8195352b5346c330f6d78ab8",
+  "sourceRunId": 9657,
+  "settings": {
+    "startingCapital": 100,
+    "delayMs": 500,
+    "jitterMs": 20,
+    "binanceLatencyMs": 110,
+    "chainlinkLatencyMs": 320,
+    "priceToBeatLatencyMs": 2700,
+    "seed": 123456789
+  },
+  "rawInputSettings": {
+    "binanceLookbackMs": 300000,
+    "chainlinkLookbackMs": 300000,
+    "chainlinkMaxGapMs": 300000
+  },
+  "marketCount": 1000,
+  "firstSlug": "btc-updown-15m-1780272000",
+  "lastSlug": "btc-updown-15m-1781262900",
+  "rawFeedFiles": [
+    {
+      "file": "BTCUSDT-aggTrades-2026-05-31.parquet",
+      "kind": "binance",
+      "bytes": 3471446,
+      "sha256": "9e0aec63fc6be342c590d92bfa5628773a39d70f7b8bfaca97f6150af451f86d"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-01.parquet",
+      "kind": "binance",
+      "bytes": 8926395,
+      "sha256": "55df94086b4a38aa02b60f9341a0a2a0f4d8df781bddfa61ab852e490894ae86"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-05-31.parquet",
+      "kind": "chainlink",
+      "bytes": 3170484,
+      "sha256": "3e15a8539837a72b102a22fa0eb5c77e619269232dbda07b5bd13ccd7c9eab8f"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-01.parquet",
+      "kind": "chainlink",
+      "bytes": 2758130,
+      "sha256": "6d49ee2f5816a3b8cd334ed39f1e2e9927808736371f27e0e9a5f3cf7f7a39a6"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-02.parquet",
+      "kind": "binance",
+      "bytes": 12719565,
+      "sha256": "6699b98c91451f295c86043cf22210c55e0979f8a7071bc2f8599b85e0fdc79a"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-02.parquet",
+      "kind": "chainlink",
+      "bytes": 3218382,
+      "sha256": "4ccb4e876795602c2415b9992053b681b53ee6407ab3c047915d49dd27554b29"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-03.parquet",
+      "kind": "binance",
+      "bytes": 13036232,
+      "sha256": "379ba8bd9460c5c67d0c9976cbc3e0372fa34c1a54684db4e05c0e7957801058"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-03.parquet",
+      "kind": "chainlink",
+      "bytes": 3143329,
+      "sha256": "1937f69c1b458ef611c66bafc266ab08a513bf86af979cae92dcab3dc30238d0"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-04.parquet",
+      "kind": "binance",
+      "bytes": 20411395,
+      "sha256": "9ac87bebdf25f8cdd960b0c7b2c30c6d2115dd13db1f4a05bcb3a3aa772a11fa"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-04.parquet",
+      "kind": "chainlink",
+      "bytes": 3192752,
+      "sha256": "1c0130d0445e425a6e31e3f4e9b7cdbedafee660853be70e58b26fc43fae0eca"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-05.parquet",
+      "kind": "binance",
+      "bytes": 24983765,
+      "sha256": "e1d8d3b094a27a296d344f39821c48c5aeeec3de7e11dece49694ce057059c87"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-05.parquet",
+      "kind": "chainlink",
+      "bytes": 2851918,
+      "sha256": "c898738d35b01b845a74e50aac88d795a56dbb31f56c3d49a28b34fe97f5c057"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-06.parquet",
+      "kind": "binance",
+      "bytes": 10694260,
+      "sha256": "52788197c92a9763eeff7ac9ceacf26e34eafa0fb0c8c2c8421937c5a1197b8a"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-06.parquet",
+      "kind": "chainlink",
+      "bytes": 3305018,
+      "sha256": "6666799114f4ef16cc06c8f2f5874c9c0c1232edf129580b9b0642a0c8228654"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-07.parquet",
+      "kind": "binance",
+      "bytes": 10213111,
+      "sha256": "b7fba03b8891b6be27820db4cecf60132996c239b6607e6c2e52d9989d648a07"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-07.parquet",
+      "kind": "chainlink",
+      "bytes": 3301221,
+      "sha256": "299f67c53f1ec473eb379086b49bda6fdaa4f938f7cc38206ac596bfd7ac5858"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-08.parquet",
+      "kind": "binance",
+      "bytes": 9573054,
+      "sha256": "6efbc399ce99ae7470f09f16e151153903313009bea186f693a3d0bd2cf2be8c"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-08.parquet",
+      "kind": "chainlink",
+      "bytes": 3297343,
+      "sha256": "898cccf51df8a1096e5a26913f5a761d17b01d3fc0d2416943fe8d2a4abd5e56"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-09.parquet",
+      "kind": "binance",
+      "bytes": 8711352,
+      "sha256": "8e917cd3fff6ad3df840a9e6dcd57435304cddcaf2ec2a9ad5a5e935de88cabb"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-09.parquet",
+      "kind": "chainlink",
+      "bytes": 3248732,
+      "sha256": "684142cdec9c596e7968259a7949769b9ecb903ee63716c45d24852a27f5f07b"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-10.parquet",
+      "kind": "binance",
+      "bytes": 8865530,
+      "sha256": "b18dbec5f9174e013c9e4226e7354c9d26be1b91d4639cf64e801b5097d1a7b6"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-10.parquet",
+      "kind": "chainlink",
+      "bytes": 2698329,
+      "sha256": "d71f0adc0cc37f6974c1691528203e0d8023f545a9e097fee3465f6fdcf47f84"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-11.parquet",
+      "kind": "binance",
+      "bytes": 6955977,
+      "sha256": "68bce7d2480c5b3bafcc54f108f523980f54186a4d3f80632f24dd1292775a47"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-11.parquet",
+      "kind": "chainlink",
+      "bytes": 1654144,
+      "sha256": "4136f73679111530a8dc5133bde8d9fb50445bb8c93ff1ff1b7ece76ae8ca999"
+    },
+    {
+      "file": "BTCUSDT-aggTrades-2026-06-12.parquet",
+      "kind": "binance",
+      "bytes": 6126272,
+      "sha256": "508d6f3a61606ccb84a481ab904bd1c9c77fea3097bb95114f3816b0568203eb"
+    },
+    {
+      "file": "btcusd-crypto-prices-2026-06-12.parquet",
+      "kind": "chainlink",
+      "bytes": 3244016,
+      "sha256": "e310fcfe299aa164627645fe62e52a4d5d6f5351e919c941d44ec4d6519de01a"
+    }
+  ],
+  "roundsPerConfiguration": 1,
+  "traceWorkers": 8,
+  "warmup": "Feed verification and native full-trace replay read all inputs before timing. No extra workload warm-ups. Host not isolated from background work.",
+  "scope": "Original market and daily Binance/Chainlink Parquet reads, seed/range extraction and ordering, outage check, ticks, strategy, FOK execution, portfolio and per-market stats. Prepared feed JSON used only for untimed verification. No fleet/network/queue/DB output or batch aggregation.",
+  "measurements": {
+    "4": {
+      "typescript-production": {
+        "samples": [
+          {
+            "wallMs": 847073.0122919995,
+            "cpuMs": 4132865.306,
+            "peakRssBytes": 2518728704
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 847073.0122919995,
+            "min": 847073.0122919995,
+            "max": 847073.0122919995
+          },
+          "cpuMs": {
+            "median": 4132865.306,
+            "min": 4132865.306,
+            "max": 4132865.306
+          },
+          "peakRssBytes": {
+            "median": 2518728704,
+            "min": 2518728704,
+            "max": 2518728704
+          }
+        }
+      },
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 139322.61816699975,
+            "cpuMs": 548349.6369999999,
+            "peakRssBytes": 196886528
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 139322.61816699975,
+            "min": 139322.61816699975,
+            "max": 139322.61816699975
+          },
+          "cpuMs": {
+            "median": 548349.6369999999,
+            "min": 548349.6369999999,
+            "max": 548349.6369999999
+          },
+          "peakRssBytes": {
+            "median": 196886528,
+            "min": 196886528,
+            "max": 196886528
+          }
+        }
+      }
+    },
+    "8": {
+      "rust": {
+        "samples": [
+          {
+            "wallMs": 72780.58808300193,
+            "cpuMs": 559304.4580000001,
+            "peakRssBytes": 378404864
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 72780.58808300193,
+            "min": 72780.58808300193,
+            "max": 72780.58808300193
+          },
+          "cpuMs": {
+            "median": 559304.4580000001,
+            "min": 559304.4580000001,
+            "max": 559304.4580000001
+          },
+          "peakRssBytes": {
+            "median": 378404864,
+            "min": 378404864,
+            "max": 378404864
+          }
+        }
+      },
+      "typescript-production": {
+        "samples": [
+          {
+            "wallMs": 523633.1898339995,
+            "cpuMs": 4447541.688,
+            "peakRssBytes": 4149100544
+          }
+        ],
+        "summary": {
+          "wallMs": {
+            "median": 523633.1898339995,
+            "min": 523633.1898339995,
+            "max": 523633.1898339995
+          },
+          "cpuMs": {
+            "median": 4447541.688,
+            "min": 4447541.688,
+            "max": 4447541.688
+          },
+          "peakRssBytes": {
+            "median": 4149100544,
+            "min": 4149100544,
+            "max": 4149100544
+          }
+        }
+      }
+    }
+  },
+  "completed": true,
+  "stage": "complete",
+  "loadCurrent": [12.884765625, 12.349609375, 9.84912109375],
+  "feedParity": {
+    "marketCount": 1000,
+    "binanceRows": 21509932,
+    "chainlinkRows": 1174466,
+    "exactSeriesParity": true
+  },
+  "parity": {
+    "fullTrace": true,
+    "reference": "Previously verified unchanged TypeScript full traces; native raw series also matched production-loader series exactly for every market",
+    "events": 196834457,
+    "decisions": 3758,
+    "accountEvents": 21272,
+    "numericTolerance": 1e-10
+  },
+  "finalInputSourceBinaryChecksPassed": true
+}

@@ -1,0 +1,75 @@
+{
+  "headRefOid": "c66345210319d0d39217f052778ce5bc0e65cb0c",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:19:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131511697",
+      "name": "Root (Prettier + Typecheck + ESLint)",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:19:13Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989632/job/113131511549",
+      "name": "Rust prototype and reference harness",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Rust Backtest Experiment"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:21:34Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131511876",
+      "name": "Native runtime (ubuntu-latest)",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:23:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131511996",
+      "name": "Native runtime (macos-latest)",
+      "startedAt": "2026-10-08T03:17:14Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:17:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131511931",
+      "name": "WebUI (Typecheck + Build)",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:17:48Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131511913",
+      "name": "Docs (VitePress Build)",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-08T03:18:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanmijatovic89/polymarket-bot/actions/runs/37721989635/job/113131512038",
+      "name": "Dashboard (Typecheck + Build)",
+      "startedAt": "2026-10-08T03:17:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality Checks"
+    }
+  ]
+}

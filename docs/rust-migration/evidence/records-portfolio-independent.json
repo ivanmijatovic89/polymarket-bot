@@ -1,0 +1,364 @@
+{
+  "referenceCommit": "07245602d6ff9bca0dcdf772134cba3dd227526c",
+  "oracleSourceSha256": {
+    "src/trading/Portfolio.ts": "16549ecd06066db929528b4327d5cb0d072f460a70063eb1412b1f95fb6a7e5e",
+    "src/trading/capital.ts": "926b78ee6f1a49f6a2cad5fbdc6329fcf947c2d4ae239d294ac6d8936b9c0a80",
+    "src/trading/fees.ts": "4191b1fa52d3e5e02e6cc419db07c8b9fc20e85f3eee1a0e6885bdb247cb4b03",
+    "src/trading/utils/rounding.ts": "f77b925fae78be50cab8414634958381e41673e4481581e629675776a1bf7b8c",
+    "src/strategy/Strategy.ts": "1f8541ef49387ee1cc4c85c8a9a20752ae838f21b376c89739c1215ed341f530"
+  },
+  "node": "v20.11.0",
+  "nativeTestAdapterSha256": "55bb66bdd82e2037bb71bcb21b126d7c237e832d96cf870de7e042062dbe4d27",
+  "nativeTestAdapterFrozenForExecution": true,
+  "ownedSourceSha256": {
+    "scripts/rust-migration/portfolio-differential.py": "507fdcce3951b32d6b968e0375aa8e8e50b3ee88ed7660b3a712bd1774d94dbf",
+    "scripts/rust-migration/portfolio-oracle.mts": "031eb2ff629aa29f8ce40d33f1f5833ca40bb7d7016cd3490781ca704bcbc381",
+    "native/trading-runtime/src/cancellation.rs": "5a13cc575471eed545546e6930e4168b66ff42eca0885404f8421e6eb0939767",
+    "native/trading-runtime/src/event_dispatch.rs": "6c1e8c0c384b1cb34a7acded1d20aa71ad8775bd945e83e2e92193bec17f95aa",
+    "native/trading-runtime/src/frame_cursor.rs": "f679ae0ca5aa5e86d86d6ebdf17d4cc3ba409c2c0a0588fcc73ad235e8573acb",
+    "native/trading-runtime/src/intent.rs": "093bc0465bc0660a2b679959c90eb6d073cb4f47e3a9b503b9751e71c692e269",
+    "native/trading-runtime/src/lib.rs": "17092ae4ddfb31815d1574a85731f64896d80cdd9e44de58eb645bd9166bab7e",
+    "native/trading-runtime/src/main.rs": "46519611609919f18c34b3ace0d652cfd787d5c1ee01a29e1b13d73f4d77546e",
+    "native/trading-runtime/src/market.rs": "4d8d19b99a5020b04ef08ff1f94b2c73b0996a1addd55f18dd9a1cfc5273c0f9",
+    "native/trading-runtime/src/market_json.rs": "313136ecaba2dc7e6fc15cb9697f9f3a406d1ab511502d85b43cdd74b0474b58",
+    "native/trading-runtime/src/market_snapshot.rs": "4a557f0398bc536353ce84abea6ac8b6e971f497c149df1a06d40a01fda42e80",
+    "native/trading-runtime/src/math.rs": "44eb3517e61151a69cb0fa0616ad4cca9b85781e3b6373cbcfb1c287ae7b7e69",
+    "native/trading-runtime/src/metadata.rs": "1866c2a514967db4f93be6ab90a3425c0731634827ed157f1045df6276cd48f0",
+    "native/trading-runtime/src/metrics.rs": "ae6d17656d71b4bf8b695f69f2d3568e642f6a9d1a9147cd0ece50eba76e83e0",
+    "native/trading-runtime/src/parent_watch.rs": "abfad3fe75a7c2ac0846ff8825f4206716fabeb245dcb687512241ad1029ba7a",
+    "native/trading-runtime/src/parquet_decimal.rs": "45bb90b07f4040277342997399f8d6f99fc4617efcba197b53c177986b0d52ff",
+    "native/trading-runtime/src/parquet_decimal_column.rs": "d54e3deb668bebe6d361dd19e5c3d402b409903a2cbf523fffcb6468126b22f6",
+    "native/trading-runtime/src/parquet_input.rs": "091c8189546e70b09c7e9ceec3617c4d42f349f45f826341eee9922837b74708",
+    "native/trading-runtime/src/portfolio.rs": "39ef5f57f69e74490ba6ea794ea2106455ba1f385cd604d7d7e0ab08d99febc7",
+    "native/trading-runtime/src/portfolio_records.rs": "dc96c1883679973037f53c70368ad8bb4b8001ca40adfd25d87809de7af70fd0",
+    "native/trading-runtime/src/protocol.rs": "288cce2c1f3d534722c874f223a9d5b4e2c91d8e8aa6792393d2a849424274ef",
+    "native/trading-runtime/src/record.rs": "799097373b9a1f63f19aa5b794e457e8ece11277c2d7fd481bdaf928566bc654",
+    "native/trading-runtime/src/risk.rs": "a5b77370c157c2670401c5d2cccc2c933ce3ceaddec1a6b75e39b06013453d4f",
+    "native/trading-runtime/src/source.rs": "8af10603c39344f93233c77581c028c585b960a8aea8f0a23e910be173546545",
+    "native/trading-runtime/src/stats.rs": "a50845c9ddfd444578a58aee29795215abaa58067c4b342bd049aa74d01da3cc",
+    "native/trading-runtime/tests/dispatch.rs": "1cb1159f911d694448d068657e6bf9bd7b5ccd2248f312f41158db4b72de9e73",
+    "native/trading-runtime/tests/intents.rs": "ed50510a0bead4ebf029466be17acd0837b752b08e3cbd0d054aeafe6940c6ba",
+    "native/trading-runtime/tests/market.rs": "738ea5c6c8763fcfc90fba016e07ca34bf04f55364dbe3c219e4caf41fce503d",
+    "native/trading-runtime/tests/math.rs": "36ec7da40e4067b071e2c8191bd7e33fbfbee4d035e22147b2fd04b0b8e25e9f",
+    "native/trading-runtime/tests/metadata.rs": "4b6f373845de5c13e5c2aca020552a2b184a1412535d8aef378474bdf9b88e2a",
+    "native/trading-runtime/tests/metrics.rs": "7903b3f0b5bde9664a3167e4465e37b5983a5c83e2e5acc389cf3573862feac6",
+    "native/trading-runtime/tests/parquet_decimal.rs": "943303ae57e3a53f5a24e53a466cd3dafe4b59aa492f32def4754c4d97588dec",
+    "native/trading-runtime/tests/portfolio.rs": "b907929cd99a1ca9b490cef4a510a76741140ce67cee18cc1c965c0e8e9b1af3",
+    "native/trading-runtime/tests/portfolio_records.rs": "98b363ed7c04e3b86aaa3b5c88a86e3bdf703e9706022a3d8c11ec0db95ba039",
+    "native/trading-runtime/tests/protocol.rs": "38c1af900e901bb948505e4937091617d0cd416bb8119e59223c0912cdc4076c",
+    "native/trading-runtime/tests/record.rs": "21439a32b96ec56913fb83828244c4e144ff34870a3cd9cb7ba3e45781107bec",
+    "native/trading-runtime/tests/stats.rs": "d9b95826ae829769444e3e6a5eaec58cc7a9d3efdd891cbe90b9f7e8beea963b",
+    "native/trading-runtime/examples/math_fixtures.rs": "0d15cb9e36fd945aa78f07d00caac0575380172ae0cd69df371a30b814710158",
+    "native/trading-runtime/examples/metadata_fixtures.rs": "f1f2e4d43ec27d50559ecda9c9819033e5413c05fefb3758ba010d7316b96e2f",
+    "native/trading-runtime/examples/metrics_fixtures.rs": "7b359f9c2debb1696e1dfbd08f9bc14896e9341dcea42b1e3b26c687b76902c6",
+    "native/trading-runtime/examples/parquet_decimal_fixtures.rs": "2fe899801b7a868e583c8478fa512741f0d047bf76def7d70cf92daac4799162",
+    "native/trading-runtime/examples/parquet_input_fixtures.rs": "4c23fb07090bbda43dcd4911382f7da5d9bffb06969984b289e2303aa06a70c6",
+    "native/trading-runtime/Cargo.toml": "fe0554520d8d20f7c683ac7a4769a55231057c9dcd9421db3a22ab333f08029d",
+    "native/trading-runtime/Cargo.lock": "a1f97fc7e042d0a917632fd4c521f37eeb78ffe8b2f1b54499bd46f7a9bf8ff0"
+  },
+  "fixturesSha256": "309f88cdb8247f46b207172da288eb89ac1d9cf87fe3840909ffc8efa97bd5d1",
+  "cases": 185,
+  "eventCount": 173857,
+  "fullCurrentSnapshotParity": true,
+  "mapInsertionAndArrayOrderParity": true,
+  "fixedPruneBoundariesIncluded": true,
+  "comparatorMutationChecks": 18,
+  "fullKnownAccountEventEncodingParity": true,
+  "opaqueJsonObjectKeyOrderParity": true,
+  "opaqueMetadataBinary64BitsParity": true,
+  "directTypedCurrentSnapshotNumberParity": true,
+  "exactFiniteInfinityAndSignedZeroBits": true,
+  "derivedNaNClassParity": true,
+  "derivedNonfiniteSnapshotProbeParity": true,
+  "nanEncodingComparisonDomain": "NaN classes compare equally; NaN payload/sign are implementation-chosen and no reviewed Portfolio strategy consumer inspects them. All finite/Infinity/signed-zero bits and numeric paths remain exact.",
+  "nanEncodingSpecification": [
+    "https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-number-type",
+    "https://tc39.es/ecma262/multipage/structured-data.html#sec-numerictorawbytes"
+  ],
+  "snapshotNumberBitsDomain": "Current typed snapshot numbers captured before JSON projection, including finite values, signed zero and derived Infinity/NaN in the reviewed corpus; raw UTF16/overflow metadata and mutable record aliases remain separate SDK requirements",
+  "nativeBuildLockedOffline": true,
+  "numericComparison": "JavaScript binary64 with rejection of unnormalized native integer precision",
+  "opaqueControlDomain": "Finite Unicode-scalar Value trees normalized through shared market_json; lossless raw UTF16/overflow SDK metadata remains a separate integration requirement",
+  "staleOpenOrderAliasParity": false,
+  "remainingDependency": "Complete graph-backed WS records, the single shallow-frozen snapshot/capital root and mutable memberships, generic coercion/exception/prototype/descriptor behavior, and actual runner/OrderManager/strategy integration. Current managed numeric/string record parity is bounded to the declared oracle cases.",
+  "referenceAliasingProbe": {
+    "retainedSnapshot": {
+      "capital": {
+        "startingCapital": 500,
+        "cash": 500,
+        "reservedCash": 6.168,
+        "availableCash": 493.832
+      },
+      "nowMs": 1000,
+      "realizedPnlTotal": 0,
+      "positionsByAssetId": {},
+      "openOrdersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "size": 10,
+          "remaining": 0,
+          "filled": 3,
+          "state": "canceled",
+          "createdAtMs": 1000,
+          "updatedAtMs": 1004,
+          "market": "old-market",
+          "orderId": "x"
+        }
+      },
+      "wsOpenOrdersByOrderId": {},
+      "ordersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "originalSize": 10,
+          "sizeMatched": 0,
+          "remaining": 10,
+          "lifecycleState": "requested",
+          "tradeStatusRank": 0,
+          "updatedAtMs": 1000
+        }
+      },
+      "recentFills": [],
+      "marketByAssetId": {
+        "up": "old-market"
+      }
+    },
+    "retainedOpenOrder": {
+      "clientOrderId": "a",
+      "assetId": "up",
+      "side": "BUY",
+      "price": 0.6,
+      "size": 10,
+      "remaining": 0,
+      "filled": 3,
+      "state": "canceled",
+      "createdAtMs": 1000,
+      "updatedAtMs": 1004,
+      "market": "old-market",
+      "orderId": "x"
+    },
+    "retainedHistory": {
+      "clientOrderId": "a",
+      "assetId": "up",
+      "side": "BUY",
+      "price": 0.6,
+      "originalSize": 10,
+      "sizeMatched": 0,
+      "remaining": 10,
+      "lifecycleState": "requested",
+      "tradeStatusRank": 0,
+      "updatedAtMs": 1000
+    },
+    "sameOpenOrderIdentity": true
+  },
+  "referenceMutablePayloadAliasesProbe": {
+    "recentFillIsRawInput": true,
+    "recentSplitIsRawInput": true,
+    "openOrderIsRawInput": true,
+    "orderMetaIsShared": true,
+    "retainedAfterExternalMutation": {
+      "capital": {
+        "startingCapital": 500,
+        "cash": 493.1496,
+        "reservedCash": 4.3176,
+        "availableCash": 488.832
+      },
+      "nowMs": 1004,
+      "realizedPnlTotal": 0,
+      "positionsByAssetId": {
+        "up": {
+          "assetId": "up",
+          "qty": 123,
+          "avgEntryPrice": 0.6168,
+          "costBasis": 1.8504
+        },
+        "down": {
+          "assetId": "down",
+          "qty": 5,
+          "avgEntryPrice": null,
+          "costBasis": 0
+        }
+      },
+      "openOrdersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "size": 10,
+          "remaining": 10,
+          "filled": 0,
+          "state": "requested",
+          "createdAtMs": 1000,
+          "updatedAtMs": 1000,
+          "market": "old-market",
+          "meta": {
+            "probe": "mutated-after-apply"
+          }
+        }
+      },
+      "wsOpenOrdersByOrderId": {},
+      "ordersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "originalSize": 10,
+          "sizeMatched": 0,
+          "remaining": 10,
+          "lifecycleState": "requested",
+          "meta": {
+            "probe": "mutated-after-apply"
+          },
+          "tradeStatusRank": 0,
+          "updatedAtMs": 1000
+        }
+      },
+      "recentFills": [
+        {
+          "id": "f",
+          "tsMs": 1004,
+          "orderId": "x",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "size": 3,
+          "liquidity": "TAKER",
+          "feeRateBps": 700,
+          "clientOrderId": "a",
+          "intentMeta": {
+            "probe": "mutated-after-apply"
+          }
+        }
+      ],
+      "recentSplits": [
+        {
+          "id": "s",
+          "tsMs": 1000,
+          "assetIdA": "up",
+          "assetIdB": "down",
+          "size": 5,
+          "splitCost": 5,
+          "market": "old-market",
+          "reason": "mutated-after-apply"
+        }
+      ],
+      "marketByAssetId": {
+        "up": "old-market",
+        "down": "old-market"
+      }
+    },
+    "currentAfterExternalMutation": {
+      "capital": {
+        "startingCapital": 500,
+        "cash": 493.1496,
+        "reservedCash": 4.3176,
+        "availableCash": 488.832
+      },
+      "nowMs": 1200,
+      "realizedPnlTotal": 0,
+      "positionsByAssetId": {
+        "up": {
+          "assetId": "up",
+          "qty": 123,
+          "avgEntryPrice": 0.6168,
+          "costBasis": 1.8504
+        },
+        "down": {
+          "assetId": "down",
+          "qty": 5,
+          "avgEntryPrice": null,
+          "costBasis": 0
+        }
+      },
+      "openOrdersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "size": 10,
+          "remaining": 10,
+          "filled": 0,
+          "state": "requested",
+          "createdAtMs": 1000,
+          "updatedAtMs": 1000,
+          "market": "old-market",
+          "meta": {
+            "probe": "mutated-after-apply"
+          }
+        }
+      },
+      "wsOpenOrdersByOrderId": {},
+      "ordersByClientId": {
+        "a": {
+          "clientOrderId": "a",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "originalSize": 10,
+          "sizeMatched": 0,
+          "remaining": 10,
+          "lifecycleState": "requested",
+          "meta": {
+            "probe": "mutated-after-apply"
+          },
+          "tradeStatusRank": 0,
+          "updatedAtMs": 1000
+        }
+      },
+      "recentFills": [
+        {
+          "id": "f",
+          "tsMs": 1004,
+          "orderId": "x",
+          "assetId": "up",
+          "side": "BUY",
+          "price": 0.6,
+          "size": 3,
+          "liquidity": "TAKER",
+          "feeRateBps": 700,
+          "clientOrderId": "a",
+          "intentMeta": {
+            "probe": "mutated-after-apply"
+          }
+        }
+      ],
+      "recentSplits": [
+        {
+          "id": "s",
+          "tsMs": 1000,
+          "assetIdA": "up",
+          "assetIdB": "down",
+          "size": 5,
+          "splitCost": 5,
+          "market": "old-market",
+          "reason": "mutated-after-apply"
+        }
+      ],
+      "marketByAssetId": {
+        "up": "old-market",
+        "down": "old-market"
+      }
+    }
+  },
+  "mutableRawPayloadPositionMetadataAliasParity": false,
+  "rawFillSplitPayloadIdentityParity": true,
+  "rawFillSplitCurrentSlotAccountingParity": true,
+  "retainedRawFillSplitCacheMembershipParity": true,
+  "rawFillSplitAliasScenarioCount": 12,
+  "rawFillSplitAliasOperationCount": 110,
+  "managedGraphAliasScenarioCount": 24,
+  "managedGraphAliasOperationCount": 264,
+  "boundedManagedAccountLifecycleCurrentFieldParity": true,
+  "boundedAuthoritativePositionOpenOrderHistoryParity": true,
+  "boundedRecordDomain": "Schema-bound original envelope/payload records, numeric financial slots, Unicode-scalar string IDs/enums, data properties and shared opaque graph references in the declared fixtures. Generic JS coercion/prototype/descriptor and full production snapshot root semantics remain required.",
+  "nativeSourceFileSetGuarded": true,
+  "responseSourceIdentityBound": true
+}

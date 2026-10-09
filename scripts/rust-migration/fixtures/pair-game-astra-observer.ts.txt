@@ -1,0 +1,137 @@
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import path from 'node:path'
+import type { AccountEvent, IntentMeta, MarketTick, PlaceLimitIntent, PortfolioSnapshot } from '../../../polymarket-bot/src/strategy/Strategy.js'
+
+export const fee = (price: number, size: number, rate: number) => Math.round(size * rate / 10000 * price * (1 - price) * 10000) / 10000
+export type Liability = {
+  id: string; assetId: string; price: number; size: number; remaining: number
+  placedAt: number; open: boolean; cancelRequested: boolean; terminal: string | null
+  meta: IntentMeta
+}
+export type Exposure = {
+  up: number; down: number; cost: number; economicCost: number; fees: number
+  outstanding: number; committed: number; imbalance: number; worstLoss: number
+  possibleUp: number; possibleDown: number
+}
+export type Tape = {
+  schema: number; slug: string; market: string; upAssetId: string; downAssetId: string
+  dataset: { sha256: string; bytes: number; basename: string } | null
+  datasetError: boolean; tickCount: number; firstTick: number | null; lastTick: number | null
+  eventCount: number; fillCount: number; errors: string[]
+  maxCommittedUsd: number; maxOutstandingBuyUsd: number; maxAbsImbalanceShares: number; maxWorstCaseLossUsd: number
+  current: Exposure; path: Array<Record<string, unknown>>
+}
+const empty = (): Exposure => ({ up: 0, down: 0, cost: 0, economicCost: 0, fees: 0, outstanding: 0, committed: 0, imbalance: 0, worstLoss: 0, possibleUp: 0, possibleDown: 0 })
+
+/** Records all financial transitions, never reads evidence to choose an order. */
+export class Observer {
+  readonly orders = new Map<string, Liability>()
+  readonly tape: Tape
+  private readonly fills = new Set<string>()
+  private rawUp = 0
+  private rawDown = 0
+  private paid = 0
+  private fees = 0
+  private evidenceAttached = false
+  private bound = false
+  constructor(slug: string, market: string, readonly upId: string, readonly downId: string) {
+    this.tape = { schema: 1, slug, market, upAssetId: upId, downAssetId: downId, dataset: null, datasetError: false, tickCount: 0, firstTick: null, lastTick: null, eventCount: 0, fillCount: 0, errors: [], maxCommittedUsd: 0, maxOutstandingBuyUsd: 0, maxAbsImbalanceShares: 0, maxWorstCaseLossUsd: 0, current: empty(), path: [] }
+  }
+  async tick(tick: MarketTick, p: PortfolioSnapshot) {
+    // Source bytes are hashed ONLY for evidence. No hash/path/byte value enters decisions.
+    if (!this.bound) {
+      this.bound = true
+      if (tick.source.kind === 'parquet') {
+        try {
+          const hash = createHash('sha256'); let bytes = 0
+          for await (const chunk of createReadStream(tick.source.filePath)) { hash.update(chunk); bytes += Buffer.byteLength(chunk) }
+          this.tape.dataset = { sha256: hash.digest('hex'), bytes, basename: path.basename(tick.source.filePath) }
+        } catch { this.tape.datasetError = true }
+      }
+    }
+    this.tape.tickCount++
+    this.tape.firstTick ??= tick.snapshot.timestamp
+    this.tape.lastTick = tick.snapshot.timestamp
+    this.sample(p, tick.snapshot.timestamp, 'tick', {}, false)
+  }
+  // 0.035/share bounds the 700-bps curve even with each fill's four-decimal
+  // fee rounding (rounded positive fee <= twice its unrounded fee). The $5
+  // allowance covers cent-rounded portfolio accounting; audits check it.
+  reserve(o: Pick<Liability, 'remaining' | 'price'>) { return o.remaining > 1e-8 ? o.remaining * (o.price + 0.035) + 5 : 0 }
+  place(i: PlaceLimitIntent, p: PortfolioSnapshot, ts: number) {
+    if (this.orders.has(i.clientOrderId)) throw new Error('Duplicate local order identity')
+    this.orders.set(i.clientOrderId, { id: i.clientOrderId, assetId: i.assetId, price: i.price, size: i.size, remaining: i.size, placedAt: ts, open: true, cancelRequested: false, terminal: null, meta: i.meta ?? {} })
+    this.sample(p, ts, 'intent_place', { id: i.clientOrderId, assetId: i.assetId, price: i.price, size: i.size, reason: i.reason })
+  }
+  cancel(id: string, p: PortfolioSnapshot, ts: number) {
+    const o = this.orders.get(id)
+    if (!o) throw new Error('Cancel of unknown order')
+    o.cancelRequested = true
+    this.sample(p, ts, 'intent_cancel', { id })
+  }
+  account(ev: AccountEvent, p: PortfolioSnapshot) {
+    this.tape.eventCount++
+    let detail: Record<string, unknown> = {}
+    const ts = ev.kind === 'fill' ? ev.fill.tsMs : ev.kind === 'positions_split' ? ev.split.tsMs : ev.tsMs
+    if (ev.kind === 'fill') {
+      const f = ev.fill
+      detail = { id: f.clientOrderId, fillId: f.id, assetId: f.assetId, price: f.price, size: f.size, liquidity: f.liquidity, feeRateBps: f.feeRateBps ?? 0 }
+      if (!this.fills.has(f.id)) {
+        this.fills.add(f.id)
+        this.tape.fillCount++
+        if (f.side !== 'BUY' || ![this.upId, this.downId].includes(f.assetId)) this.tape.errors.push('Unexpected fill action/asset')
+        const charged = f.liquidity === 'TAKER' ? fee(f.price, f.size, f.feeRateBps ?? 0) : 0
+        if (f.liquidity === 'TAKER' && (f.feeRateBps === undefined || f.feeRateBps > 700)) this.tape.errors.push('Unverified fee reserve rate')
+        this.paid += f.price * f.size + charged; this.fees += charged
+        if (f.assetId === this.upId) this.rawUp += f.size
+        if (f.assetId === this.downId) this.rawDown += f.size
+        const o = f.clientOrderId ? this.orders.get(f.clientOrderId) : [...this.orders.values()].find((x) => p.ordersByClientId[x.id]?.orderId === f.orderId)
+        if (!o) this.tape.errors.push('Unmatched fill')
+        else {
+          o.remaining = Math.max(0, o.remaining - f.size)
+          if (!this.evidenceAttached) { o.meta.pairLeagueTape = this.tape; this.evidenceAttached = true }
+        }
+      } else detail.duplicate = true
+    } else if (ev.kind === 'order_done' || ev.kind === 'order_rejected') {
+      const id = ev.clientOrderId ?? ('orderId' in ev ? [...this.orders.keys()].find((x) => p.ordersByClientId[x]?.orderId === ev.orderId) : undefined)
+      const o = id ? this.orders.get(id) : undefined
+      detail = { id, reason: ev.reason }
+      if (o) {
+        o.open = false; o.terminal = ev.reason
+        // Rejected placements were never accepted. Canceled/expired/killed
+        // residuals stay reserved until market end, including late fill reports.
+        if (ev.kind === 'order_rejected') o.remaining = 0
+      }
+    } else if (ev.kind === 'positions_merged' || ev.kind === 'positions_split') this.tape.errors.push('Forbidden inventory operation')
+    else if (ev.kind === 'order_submitted') detail = { id: ev.order.clientOrderId }
+    else if ('clientOrderId' in ev) detail = { id: ev.clientOrderId }
+    else if (ev.kind === 'ws_order_update') detail = { orderId: ev.order.orderId, matched: ev.order.sizeMatched, status: ev.order.status, event: ev.order.event }
+    this.sample(p, ts, ev.kind, detail)
+  }
+  exposure(p: PortfolioSnapshot): Exposure {
+    const up = p.positionsByAssetId[this.upId], down = p.positionsByAssetId[this.downId]
+    const qUp = up?.qty ?? 0, qDown = down?.qty ?? 0
+    const cost = (up?.costBasis ?? 0) + (down?.costBasis ?? 0)
+    const conservativeCost = Math.max(cost, this.paid)
+    let outstanding = 0, upLoss = conservativeCost - Math.min(qUp, this.rawUp), downLoss = conservativeCost - Math.min(qDown, this.rawDown)
+    let pendingUp = 0, pendingDown = 0
+    for (const o of this.orders.values()) {
+      const reserve = this.reserve(o); outstanding += reserve
+      upLoss += Math.max(0, reserve - (o.assetId === this.upId ? o.remaining : 0))
+      downLoss += Math.max(0, reserve - (o.assetId === this.downId ? o.remaining : 0))
+      if (o.assetId === this.upId) pendingUp += o.remaining
+      if (o.assetId === this.downId) pendingDown += o.remaining
+    }
+    return { up: qUp, down: qDown, cost, economicCost: this.paid, fees: this.fees, outstanding, committed: conservativeCost + outstanding, imbalance: Math.max(Math.abs(qUp - qDown), Math.abs(this.rawUp - this.rawDown)), worstLoss: Math.max(0, upLoss, downLoss), possibleUp: Math.max(qUp - qDown, this.rawUp - this.rawDown) + pendingUp, possibleDown: Math.max(qDown - qUp, this.rawDown - this.rawUp) + pendingDown }
+  }
+  private sample(p: PortfolioSnapshot, ts: number, kind: string, detail: Record<string, unknown>, force = true) {
+    const x = this.exposure(p), previous = this.tape.current
+    this.tape.current = x
+    this.tape.maxCommittedUsd = Math.max(this.tape.maxCommittedUsd, x.committed)
+    this.tape.maxOutstandingBuyUsd = Math.max(this.tape.maxOutstandingBuyUsd, x.outstanding)
+    this.tape.maxAbsImbalanceShares = Math.max(this.tape.maxAbsImbalanceShares, x.imbalance)
+    this.tape.maxWorstCaseLossUsd = Math.max(this.tape.maxWorstCaseLossUsd, x.worstLoss)
+    if (force || !this.tape.path.length || JSON.stringify(previous) !== JSON.stringify(x)) this.tape.path.push({ ts, kind, ...detail, ...x })
+  }
+}

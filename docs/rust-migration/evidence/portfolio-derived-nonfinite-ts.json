@@ -1,0 +1,110 @@
+[
+  {
+    "name": "finite-input-derived-nonfinite",
+    "result": {
+      "snapshots": [
+        {
+          "capital": {
+            "startingCapital": 500,
+            "cash": 500,
+            "reservedCash": 0,
+            "availableCash": 500
+          },
+          "nowMs": 0,
+          "realizedPnlTotal": 0,
+          "positionsByAssetId": {},
+          "openOrdersByClientId": {},
+          "wsOpenOrdersByOrderId": {},
+          "ordersByClientId": {},
+          "recentFills": [],
+          "marketByAssetId": {}
+        },
+        {
+          "capital": {
+            "startingCapital": 500,
+            "cash": null,
+            "reservedCash": 0,
+            "availableCash": null
+          },
+          "nowMs": 1,
+          "realizedPnlTotal": 0,
+          "positionsByAssetId": {
+            "up": { "assetId": "up", "qty": null, "avgEntryPrice": null, "costBasis": null }
+          },
+          "openOrdersByClientId": {},
+          "wsOpenOrdersByOrderId": {},
+          "ordersByClientId": {},
+          "recentFills": [
+            {
+              "id": "overflow",
+              "tsMs": 1,
+              "assetId": "up",
+              "side": "BUY",
+              "price": 1e308,
+              "size": 1e308,
+              "liquidity": "MAKER"
+            }
+          ],
+          "marketByAssetId": {}
+        }
+      ],
+      "cacheReuse": [true, true],
+      "mapKeys": [
+        {
+          "positionsByAssetId": [],
+          "openOrdersByClientId": [],
+          "wsOpenOrdersByOrderId": [],
+          "ordersByClientId": [],
+          "marketByAssetId": []
+        },
+        {
+          "positionsByAssetId": ["up"],
+          "openOrdersByClientId": [],
+          "wsOpenOrdersByOrderId": [],
+          "ordersByClientId": [],
+          "marketByAssetId": []
+        }
+      ],
+      "encodedEvents": [
+        {
+          "kind": "fill",
+          "fill": {
+            "id": "overflow",
+            "tsMs": 1,
+            "assetId": "up",
+            "side": "BUY",
+            "price": 1e308,
+            "size": 1e308,
+            "liquidity": "MAKER"
+          }
+        }
+      ],
+      "opaqueKeys": [{}, {}],
+      "opaqueBits": [{}, {}],
+      "snapshotNumberBits": [
+        {
+          "/capital/startingCapital": "407f400000000000",
+          "/capital/cash": "407f400000000000",
+          "/capital/reservedCash": "0000000000000000",
+          "/capital/availableCash": "407f400000000000",
+          "/nowMs": "0000000000000000",
+          "/realizedPnlTotal": "0000000000000000"
+        },
+        {
+          "/capital/startingCapital": "407f400000000000",
+          "/capital/cash": "fff0000000000000",
+          "/capital/reservedCash": "0000000000000000",
+          "/capital/availableCash": "fff0000000000000",
+          "/nowMs": "3ff0000000000000",
+          "/realizedPnlTotal": "0000000000000000",
+          "/positionsByAssetId/up/qty": "7ff0000000000000",
+          "/positionsByAssetId/up/avgEntryPrice": "7ff0000000000000",
+          "/positionsByAssetId/up/costBasis": "7ff0000000000000",
+          "/recentFills/0/tsMs": "3ff0000000000000",
+          "/recentFills/0/price": "7fe1ccf385ebc8a0",
+          "/recentFills/0/size": "7fe1ccf385ebc8a0"
+        }
+      ]
+    }
+  }
+]
