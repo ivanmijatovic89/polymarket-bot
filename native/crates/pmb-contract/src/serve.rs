@@ -159,8 +159,10 @@ impl ServeIn {
 /// 21 §5.1 causes, [`EngineJob::validate`]), so its error, if any, is the
 /// per-job result `run` would give (20 §6.3 S1).
 ///
-/// A referenced context is copied into the job document: a run section is
-/// a few KiB, parsed once per job, outside any per-event path.
+/// A referenced context is read in place: the job and the cached run
+/// section are deserialized separately, without copying either document
+/// (R8). Only when one of them fails does it build the combined document,
+/// so the error is the exact one `run` reports for it.
 pub fn resolve_job<'a>(
     job: &Value,
     lookup: impl FnOnce(&str) -> Option<&'a Value>,
@@ -175,12 +177,28 @@ pub fn resolve_job<'a>(
         None => EngineJob::parse_value(job),
         Some(r) => {
             let id = r.as_str().unwrap_or_default();
-            let run = lookup(id).ok_or_else(|| {
+            let run_doc = lookup(id).ok_or_else(|| {
                 ContractError::invalid_input("context_missing", format!("unknown runRef {id:?}"))
             })?;
+            // The job's fields equal EngineJob's with `run` replaced by
+            // `runRef`, so both parts deserialize iff the combined document
+            // does, to the same values.
+            if let (Ok(part), Ok(run)) =
+                (ServeJob::deserialize(job), RunSection::deserialize(run_doc))
+            {
+                let resolved = EngineJob {
+                    job_schema_version: part.job_schema_version,
+                    run,
+                    market: part.market,
+                    outputs: part.outputs,
+                    budget: part.budget,
+                };
+                resolved.validate()?;
+                return Ok(resolved);
+            }
             let mut doc = obj.clone();
             doc.remove("runRef");
-            doc.insert("run".into(), run.clone());
+            doc.insert("run".into(), run_doc.clone());
             EngineJob::parse_value(&Value::Object(doc))
         }
     }
