@@ -45,12 +45,21 @@ use pmb_engine::Strategy;
 ///
 /// ```ignore
 /// pmb_runtime::strategy_main!(MyStrategy);
+/// // pmb-sdk's re-export records its own version (20 §3 `sdkVersion`):
+/// pmb_runtime::strategy_main!(MyStrategy, sdk_version = pmb_sdk::SDK_VERSION);
 /// ```
 #[macro_export]
 macro_rules! strategy_main {
     ($strategy:ty) => {
         fn main() {
             $crate::main::<$strategy>()
+        }
+    };
+    ($strategy:ty, sdk_version = $version:expr) => {
+        fn main() {
+            $crate::main_with::<$strategy>($crate::MainOptions {
+                sdk_version: $version,
+            })
         }
     };
 }
@@ -114,8 +123,12 @@ where
 
 /// Prints the document, the reason line, and exits (20 G1, G8, §4).
 fn emit(o: cli::Outcome) -> ! {
+    // G8: a one-shot command notices a closed stdout when it writes its
+    // document (Rust ignores SIGPIPE, so the write fails with EPIPE).
+    // D-PENDING: a closed stdout is not polled during a long `run`; the
+    // shim's supervision (20 §6.3 S4) covers a parent that disappears.
     if let Err(e) = io::write_stdout_document(&o.document) {
-        // G8: stdout closed (EPIPE): the parent is gone; exit at once.
+        // EPIPE: the parent is gone; exit at once.
         log::reason_line(&format!("runtime: io: stdout closed: {e}"));
         std::process::exit(if o.exit_code == 0 { 1 } else { o.exit_code });
     }

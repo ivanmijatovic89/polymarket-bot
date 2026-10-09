@@ -80,6 +80,7 @@ fn describe_and_schema() {
         b["engineDirty"], true,
         "no builder identity in a test build"
     );
+    assert_eq!(b["sdkVersion"], "0.0.0-fixture");
     assert_eq!(b["contractSha256"].as_str().unwrap().len(), 64);
 
     let s = run(&["schema"], None);

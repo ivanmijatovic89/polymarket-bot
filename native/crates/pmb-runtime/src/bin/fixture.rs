@@ -26,4 +26,4 @@ impl Strategy for Idle {
     }
 }
 
-pmb_runtime::strategy_main!(Idle);
+pmb_runtime::strategy_main!(Idle, sdk_version = "0.0.0-fixture");
