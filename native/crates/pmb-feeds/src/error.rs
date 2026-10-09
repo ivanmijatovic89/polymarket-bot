@@ -39,8 +39,10 @@ pub enum FeedCause {
     DecodeUnverified,
     /// `runtime`: an I/O error other than a missing file.
     Io,
-    /// `data_missing`: a required day file is not on this host.
+    /// `data_missing`: `feedFiles` lacks a required day (14 §10).
     DayFileMissing,
+    /// `data_missing`: a `feedFiles[].path` does not exist (21 §5.1).
+    InputMissing,
     /// `data_missing`: a day file's size differs from its `feedFiles` entry.
     IntegrityMismatch,
     /// `data_defect`: invalid rows or no rows up to the window end.
@@ -64,6 +66,7 @@ impl FeedCause {
             FeedCause::DecodeUnverified => "decode_unverified",
             FeedCause::Io => "io",
             FeedCause::DayFileMissing => "day_file_missing",
+            FeedCause::InputMissing => "input_missing",
             FeedCause::IntegrityMismatch => "integrity_mismatch",
             FeedCause::Corrupt => "corrupt",
             FeedCause::PreCoverage => "pre_coverage",
@@ -81,7 +84,9 @@ impl FeedCause {
             | FeedCause::ModelConfig
             | FeedCause::FeedAvailability => ErrorClass::InvalidInput,
             FeedCause::DecodeUnverified | FeedCause::Io => ErrorClass::Runtime,
-            FeedCause::DayFileMissing | FeedCause::IntegrityMismatch => ErrorClass::DataMissing,
+            FeedCause::DayFileMissing | FeedCause::InputMissing | FeedCause::IntegrityMismatch => {
+                ErrorClass::DataMissing
+            }
             FeedCause::Corrupt
             | FeedCause::PreCoverage
             | FeedCause::UpstreamHole

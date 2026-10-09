@@ -87,8 +87,11 @@ fn identity(path: &Path, expected_bytes: u64, what: &str) -> Result<FileIdent, F
     let meta = std::fs::metadata(path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             FeedError::new(
-                FeedCause::DayFileMissing,
-                format!("{what} day file {} is not on this host", path.display()),
+                FeedCause::InputMissing,
+                format!(
+                    "{what} day file {} listed in feedFiles is not on this host",
+                    path.display()
+                ),
             )
         } else {
             FeedError::new(

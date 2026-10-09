@@ -99,7 +99,8 @@ fn eviction_spares_entries_in_use() {
 }
 
 // spec: 14 §4.1 and §10 rows: size differs from feedFiles (data_missing
-// integrity_mismatch), missing file (data_missing day_file_missing), decode
+// integrity_mismatch), listed file absent (data_missing input_missing, 21
+// §5.1), decode
 // failure (runtime decode_unverified, not cached)
 #[test]
 fn day_file_errors() {
@@ -120,7 +121,7 @@ fn day_file_errors() {
         .unwrap_err();
     assert_eq!(
         (e.class(), e.cause),
-        (ErrorClass::DataMissing, FeedCause::DayFileMissing)
+        (ErrorClass::DataMissing, FeedCause::InputMissing)
     );
     let not_parquet = fixture("README.md");
     let e = cache
