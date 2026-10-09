@@ -20,6 +20,10 @@
  * `contentPin` (the oracle pin at which the content last changed: kept when
  * the regenerated content is identical, else `git merge-base HEAD origin/main`).
  *
+ * The WIP scenarios (LCG seed, cent grid) are carried verbatim by
+ * `plugins_wip_gen.ts`; the scenarios here are the V-5 extensions and are
+ * named so that none reuses a WIP scenario name.
+ *
  * Usage (repo root): npx tsx native/fixtures/gen/plugins_gen.ts
  */
 import { createHash } from 'node:crypto'
@@ -308,6 +312,26 @@ function genCandles(
   return rows
 }
 
+/**
+ * 1h candles whose closes are flat except one doubling and one halving, so
+ * every log return is 0 or +-ln 2 and the package's running SMA sums stay
+ * exact: the last 20-return window and the last 80-return window have a mean
+ * of exactly 0, which `technicalindicators` SD skips, repeating the previous
+ * window's value (14 P-9). High and low keep a range so ATR and ADX stay
+ * finite.
+ */
+function zeroMeanReturnCandles(lastOpen: number, count: number): Row[] {
+  const rows: Row[] = []
+  let prev = 100
+  for (let i = 0; i < count; i += 1) {
+    const open = lastOpen - (count - 1 - i) * H
+    const c = i >= count - 60 && i < count - 30 ? 200 : 100
+    rows.push([open, prev, Math.max(prev, c) + 1, Math.min(prev, c) - 1, c, 1, open + H - 1])
+    prev = c
+  }
+  return rows
+}
+
 async function taScenario(name: string, slug: string, h1: Row[], m15: Row[]) {
   const realFetch = globalThis.fetch
   globalThis.fetch = (async (input: string | URL) => {
@@ -381,18 +405,34 @@ function render(v: unknown, indent = ''): string {
   return JSON.stringify(v)
 }
 
-function writeGolden(file: string, content: Record<string, unknown>): void {
-  const target = path.join(outDir, file)
-  const body = sortKeys(content) as Record<string, unknown>
-  const bodyText = render(body)
-  let contentPin = execSync('git merge-base HEAD origin/main', { cwd: repoRoot }).toString().trim()
+/**
+ * `contentPin` is kept when the content is unchanged (60 GF-2); only new
+ * content asks git for the oracle pin, so a checkout without `origin/main`
+ * (a shallow CI clone) can still regenerate and diff (GF-4).
+ */
+function contentPinFor(target: string, bodyText: string): string {
   if (existsSync(target)) {
     const prev = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>
     const { header, ...prevBody } = prev
     if (render(sortKeys(prevBody)) === bodyText) {
-      contentPin = (header as { contentPin: string }).contentPin
+      return (header as { contentPin: string }).contentPin
     }
   }
+  try {
+    return execSync('git merge-base HEAD origin/main', { cwd: repoRoot, stdio: 'pipe' })
+      .toString()
+      .trim()
+  } catch {
+    throw new Error(
+      `${path.basename(target)}: content changed and no origin/main ref to pin it to; fetch origin/main and rerun`,
+    )
+  }
+}
+
+function writeGolden(file: string, content: Record<string, unknown>): void {
+  const target = path.join(outDir, file)
+  const body = sortKeys(content) as Record<string, unknown>
+  const contentPin = contentPinFor(target, render(body))
   const generatorSha256 = createHash('sha256')
     .update(readFileSync(path.join(repoRoot, GENERATOR)))
     .digest('hex')
@@ -414,7 +454,7 @@ async function main() {
   const every = (k: number) => (i: number, t: TickIn) => i % k === 0 || (t.synthetic && i % 3 === 0)
   const scenarios = [
     runScenario(
-      'mid_vol_bid_dwell_gate',
+      'walk_mid_vol_bid_dwell_gate',
       {
         timeWindowVolatility: {
           windows: { '1s': 1000, '5s': 5000, '30s': 30000 },
@@ -428,7 +468,7 @@ async function main() {
       every(6),
     ),
     runScenario(
-      'bid_vol_ask_dwell',
+      'walk_bid_vol_ask_dwell',
       {
         timeWindowVolatility: { windows: { w2: 2000, w10: 10000 }, trackPrice: 'bid' },
         dwellGate: { fromMicros: 300_000, toMicros: 700_000, requiredMs: 1500, trackPrice: 'ask' },
@@ -509,6 +549,12 @@ async function main() {
       'not_enough_1h',
       'btc-updown-15m-1760140800',
       genCandles(H, t0a - H, 120, 60_000, 0.01),
+      genCandles(Q, t0a - Q, 60, 61_000, 0.004),
+    ),
+    await taScenario(
+      'zero_mean_return_window',
+      'btc-updown-15m-1760140800',
+      zeroMeanReturnCandles(t0a - H, 170),
       genCandles(Q, t0a - Q, 60, 61_000, 0.004),
     ),
     await taScenario(

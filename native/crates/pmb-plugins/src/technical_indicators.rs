@@ -397,37 +397,37 @@ fn adx_last(c: &[Candle], period: usize) -> Option<f64> {
     wilder_ema_last(&dxs, period)
 }
 
-/// (mean, population SD) of the last window of `period` values whose mean
-/// is not zero (TS `SD`, `SMA`, `BollingerBands`).
+/// (mean, population SD) of the last `period` values (TS `SD`, `SMA`), by
+/// the plain definition.
 ///
-/// The `technicalindicators` package (14 P-9) skips a window whose SMA is
-/// falsy (`if (mean)` in `SD`, `if (calcSMA)` in `BollingerBands`) and
-/// repeats the previous window's value, or yields nothing before the first
-/// window with a non-zero mean; this reproduces that rule. The package's
-/// running sum can leave a rounding residual where the direct mean used here
-/// is exactly 0; that bit-level difference is not chased (00 R2).
+/// The `technicalindicators` package (3.1.0) departs from it in two places,
+/// both JS truthiness: `SD` sums squared deviations with
+/// `for (x of currentSet.iterator())`, whose `while (this.next())` stops at
+/// the first element that is exactly 0 (`FixedSizeLinkedList.js`,
+/// `LinkedList.js:136-143`), and `SD`/`BollingerBands` skip a window whose
+/// running mean is exactly 0 (`if (mean)`, `if (calcSMA)`), repeating the
+/// previous value. Both only matter for SDs of log returns (closes are never
+/// 0) when two consecutive closes are equal; 1 of the 57 V-6 (a) kline
+/// samples has such a 15m return in the rv20 window. Rust keeps the plain
+/// definition (00 R1, R3: TS is an oracle only where it is correct); the
+/// golden `zero_mean_return_window` pins the difference.
+// D-PENDING: PARITY classification of the technicalindicators SD zero handling (TS bug, keep Rust); chose the plain population SD and annotated the golden as an expected divergence pending its PE id.
 fn mean_sd_last(values: &[f64], period: usize) -> Option<(f64, f64)> {
     if period == 0 || values.len() < period {
         return None;
     }
-    (period..=values.len()).rev().find_map(|end| {
-        let w = &values[end - period..end];
-        let mut sum = 0.0;
-        for x in w {
-            sum += x;
-        }
-        let mean = sum / period as f64;
-        // NaN is falsy too; the inputs here are finite.
-        if mean == 0.0 || mean.is_nan() {
-            return None;
-        }
-        let mut sq = 0.0;
-        for x in w {
-            let d = x - mean;
-            sq += d * d;
-        }
-        Some((mean, (sq / period as f64).sqrt()))
-    })
+    let w = &values[values.len() - period..];
+    let mut sum = 0.0;
+    for x in w {
+        sum += x;
+    }
+    let mean = sum / period as f64;
+    let mut sq = 0.0;
+    for x in w {
+        let d = x - mean;
+        sq += d * d;
+    }
+    Some((mean, (sq / period as f64).sqrt()))
 }
 
 /// Population SD of the last `period` log returns; `None` if any close is not
@@ -470,10 +470,10 @@ fn wick_ratio(c: &Candle) -> f64 {
 fn compute_1h(c: &[Candle]) -> Tf1h {
     let closes: Vec<f64> = c.iter().map(|k| k.close).collect();
     let last_close = closes.last().copied();
-    // upper - lower with the stdDev multiplier 2 (TS BollingerBands); the
-    // middle is never 0 here (mean_sd_last skips such windows).
-    let bb_width = mean_sd_last(&closes, PERIOD_BB)
-        .map(|(mid, sd)| ((mid + sd * 2.0) - (mid - sd * 2.0)) / mid);
+    let bb_width = mean_sd_last(&closes, PERIOD_BB).and_then(|(mid, sd)| {
+        // upper - lower with the stdDev multiplier 2 (TS BollingerBands)
+        (mid != 0.0).then(|| ((mid + sd * 2.0) - (mid - sd * 2.0)) / mid)
+    });
     let rv20 = realized_vol(&closes, PERIOD_RV_FAST);
     let rv80 = realized_vol(&closes, PERIOD_RV_SLOW);
     Tf1h {
@@ -736,19 +736,17 @@ mod tests {
         );
     }
 
-    // spec: 14 P-9 (technicalindicators SD and BollingerBands skip a window
-    // whose mean is exactly 0 and repeat the previous window's value)
+    // spec: 14 P-9, 00 R3 (plain population SD, also over zero values and
+    // zero-mean windows, where the package diverges: see mean_sd_last)
     #[test]
-    fn zero_mean_windows_repeat_the_previous_value() {
-        // last window [0, 0] has mean 0: the value of the window [2, 0]
-        assert_eq!(mean_sd_last(&[1.0, 2.0, 0.0, 0.0], 2), Some((1.0, 1.0)));
-        // no window with a non-zero mean: nothing
-        assert_eq!(mean_sd_last(&[0.0, 0.0, 0.0], 2), None);
-        // flat closes after one doubling: the last 2 log returns are 0, so rv
-        // comes from the window holding ln 2
-        let ln2 = libm::log(2.0);
-        let rv = realized_vol(&[1.0, 1.0, 2.0, 2.0, 2.0], 2).unwrap();
-        assert!((rv - ln2 / 2.0).abs() < 1e-15, "{rv}");
+    fn sd_is_the_plain_definition_over_zeros() {
+        assert_eq!(mean_sd_last(&[1.0, 2.0, 0.0, 0.0], 2), Some((0.0, 0.0)));
+        assert_eq!(
+            mean_sd_last(&[3.0, 0.0, -1.0, 2.0], 4),
+            Some((1.0, 2.5f64.sqrt()))
+        );
+        // flat closes after one doubling: the last 2 log returns are 0
+        assert_eq!(realized_vol(&[1.0, 1.0, 2.0, 2.0, 2.0], 2), Some(0.0));
     }
 
     // spec: 14 §12.5 P-9 (calendar and sessions)

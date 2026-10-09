@@ -18,6 +18,11 @@ use std::path::PathBuf;
 const REL_TOL: f64 = 1e-9;
 
 fn golden(name: &str) -> Value {
+    golden_from(name, "plugins_gen.ts")
+}
+
+/// Reads a golden and checks its GF-2 header against the generator file.
+fn golden_from(name: &str, generator: &str) -> Value {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/golden/plugins")
         .join(name);
@@ -25,10 +30,12 @@ fn golden(name: &str) -> Value {
     let v: Value = serde_json::from_str(&text).unwrap();
     // spec: 60 §7.1 GF-2 (header)
     let h = &v["header"];
-    assert_eq!(h["generator"], "native/fixtures/gen/plugins_gen.ts");
+    assert_eq!(h["generator"], format!("native/fixtures/gen/{generator}"));
     // The golden was produced by the committed generator (stale-golden guard).
     let gen = std::fs::read(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/gen/plugins_gen.ts"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/gen")
+            .join(generator),
     )
     .expect("generator source");
     let sha: String = Sha256::digest(&gen)
@@ -302,14 +309,147 @@ fn technical_indicators_match_typescript() {
                 got.is_none(),
                 "{name}: TS has no snapshot, Rust has {got:?}"
             );
+        } else if name == "zero_mean_return_window" {
+            // expected_divergence = "PE-pending: technicalindicators SD zero handling"
+            // (60 GF-5): the package's SD stops summing at the first return
+            // that is exactly 0 and skips zero-mean windows; Rust keeps the
+            // plain population SD (see `mean_sd_last`). The golden keeps the
+            // TS values; the other fields still match.
+            let mut got = got.expect("Rust TA unavailable");
+            let mut want = want.clone();
+            let ln2 = libm::log(2.0);
+            let s = out.ready().unwrap();
+            assert_eq!(s.tf1h.rv20, Some(0.0), "last 20 returns are all 0");
+            let rv80 = s.tf1h.rv80.unwrap();
+            let plain = (2.0 * ln2 * ln2 / 80.0).sqrt();
+            assert!((rv80 - plain).abs() <= 1e-12 * plain, "{rv80} vs {plain}");
+            assert_eq!(s.tf1h.rv20_over80, Some(0.0));
+            assert_eq!(want["tf1h"]["rv20"], 0.14724280034371406);
+            assert_eq!(want["tf1h"]["rv80"], 0.0);
+            assert!(want["tf1h"]["rv20Over80"].is_null());
+            for k in ["rv20", "rv80", "rv20Over80"] {
+                got["tf1h"].as_object_mut().unwrap().remove(k);
+                want["tf1h"].as_object_mut().unwrap().remove(k);
+            }
+            cmp.check(name, &got, &want);
+            ready += 1;
         } else {
             cmp.check(name, &got.expect("Rust TA unavailable"), want);
             ready += 1;
         }
     }
-    assert_eq!(ready, 3);
+    assert_eq!(ready, 4);
     eprintln!(
         "TA goldens: {} floats, max relative diff {:e}",
+        cmp.floats, cmp.max_rel
+    );
+}
+
+/// The WIP scenarios, carried verbatim (14 §13 V-5 "keep", §15): plugin
+/// configs as constructed in `plugins_wip_gen.ts`, prices on a cent grid.
+fn wip_request(name: &str) -> PluginRequest {
+    let cents = |c: i64| Price::from_micros(c * 10_000);
+    match name {
+        "mid_vol_bid_dwell_gate" => PluginRequest {
+            time_window_volatility: Some(TimeWindowVolatilityConfig::new(
+                [("1s", 1000), ("5s", 5000), ("30s", 30_000)],
+                VolPrice::Mid,
+            )),
+            technical_indicators: None,
+            dwell_gate: Some(DwellGateConfig {
+                from: cents(60),
+                to: cents(40),
+                required_ms: 3000,
+                track_price: BidOrAsk::Bid,
+            }),
+            time_window_gate: Some(TimeWindowGateConfig {
+                allow_after_ms: 10_000,
+                disable_after_ms: 400_000,
+            }),
+        },
+        "bid_vol_ask_dwell" => PluginRequest {
+            time_window_volatility: Some(TimeWindowVolatilityConfig::new(
+                [("w2", 2000), ("w10", 10_000)],
+                VolPrice::Bid,
+            )),
+            technical_indicators: None,
+            dwell_gate: Some(DwellGateConfig {
+                from: cents(30),
+                to: cents(70),
+                required_ms: 1500,
+                track_price: BidOrAsk::Ask,
+            }),
+            time_window_gate: None,
+        },
+        other => panic!("unknown WIP scenario {other}"),
+    }
+}
+
+// spec: 14 §13 V-5 (the WIP golden is kept: plugin sequences and TA equal
+// TS), §15 (keep the plugin math and plugins_golden.json); 60 §7.2
+#[test]
+fn wip_golden_matches() {
+    let g = golden_from("plugins_wip_golden.json", "plugins_wip_gen.ts");
+    let tokens = PerOutcome::new(
+        g["upAsset"].as_str().unwrap(),
+        g["downAsset"].as_str().unwrap(),
+    );
+    let cents_top = |side: &Value| {
+        let p = |v: &Value| v.as_i64().map(|c| Price::from_micros(c * 10_000));
+        BookTop::new(p(&side["bid"]), p(&side["ask"]))
+    };
+    let mut cmp = Cmp::new();
+    let mut compared = 0;
+    for sc in g["scenarios"].as_array().unwrap() {
+        let name = sc["name"].as_str().unwrap();
+        let start = sc["marketStartMs"].as_i64().unwrap();
+        let market = PluginMarket::from_slug(&format!("btc-updown-15m-{}", start / 1000)).unwrap();
+        let mut set = PluginSet::new(&wip_request(name)).unwrap();
+        set.start_market(&market, None).unwrap();
+        let mut expected = sc["expected"].as_array().unwrap().iter().peekable();
+        let mut last_real = PerOutcome::new(BookTop::EMPTY, BookTop::EMPTY);
+        for (i, t) in sc["ticks"].as_array().unwrap().iter().enumerate() {
+            let synthetic = t["synthetic"].as_bool().unwrap();
+            // synthetic ticks reuse the last real book (WIP generator rule, 14 §8)
+            let tops = if synthetic {
+                last_real
+            } else {
+                last_real = PerOutcome::new(cents_top(&t["up"]), cents_top(&t["down"]));
+                last_real
+            };
+            set.on_tick(&PluginTick::new(
+                TsMs(t["ts"].as_i64().unwrap()),
+                synthetic,
+                tops,
+            ))
+            .unwrap();
+            if let Some(e) = expected.next_if(|e| e["i"].as_u64() == Some(i as u64)) {
+                cmp.check(
+                    &format!("wip {name}#{i}"),
+                    &plugins_json(set.view(), &tokens),
+                    &e["snapshot"],
+                );
+                compared += 1;
+            }
+        }
+        assert!(expected.next().is_none(), "{name}: expected entries left");
+    }
+    assert_eq!(compared, 134);
+    let ta = &g["ta"];
+    let market = PluginMarket::from_slug(ta["slug"].as_str().unwrap()).unwrap();
+    let h1 = candles(&ta["h1"], CandleInterval::H1);
+    let m15 = candles(&ta["m15"], CandleInterval::M15);
+    let mut set = PluginSet::new(&PluginRequest {
+        technical_indicators: Some(Default::default()),
+        ..PluginRequest::default()
+    })
+    .unwrap();
+    set.start_market(&market, Some(TaInput { h1: &h1, m15: &m15 }))
+        .unwrap();
+    let got = plugin_json(set.view(), PluginId::TechnicalIndicators, &tokens).expect("TA ready");
+    cmp.check("wip ta", &got, &ta["expected"]);
+    eprintln!(
+        "WIP golden: {compared} snapshots + TA, {} floats, max relative diff {:e}",
         cmp.floats, cmp.max_rel
     );
 }

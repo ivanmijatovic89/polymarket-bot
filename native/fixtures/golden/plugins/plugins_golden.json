@@ -2,7 +2,7 @@
   "header": {
     "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
     "generator": "native/fixtures/gen/plugins_gen.ts",
-    "generatorSha256": "4028e47ad24e2702c90be8a60c02b183b1a825d26d8a79e7e68cda5c67eee43a"
+    "generatorSha256": "ce2748d785c27850951aafd508ab3e342e1780abd381e709a69102948d990e15"
   },
   "scenarios": [
     {
@@ -74,7 +74,7 @@
         {"i":299,"snapshot":{"dwellGate":{"down":{"elapsedInRangeMs":null,"inRange":false,"remainingMs":null},"dwellDownOk":false,"dwellUpOk":false,"from":0.6,"requiredMs":3000,"to":0.4,"trackPrice":"bid","up":{"elapsedInRangeMs":null,"inRange":false,"remainingMs":null}},"timeWindowGate":{"allowAfterMs":10000,"disableAfterMs":400000,"elapsedMs":225768,"nowMs":1760141025768,"startMs":1760140800000,"withinWindow":true},"timeWindowVolatility":{"asOfTsMs":1760141025558,"byAssetId":{"DOWNTOKEN":{"1s":{"avgAbsChange":null,"coverageMs":0,"endPrice":null,"endTsMs":1760141025558,"high":null,"highLowRange":null,"low":null,"n":1,"netChange":null,"ready":false,"staleMs":null,"startPrice":null,"startTsMs":1760141025558,"stddev":null,"windowMs":1000},"30s":{"avgAbsChange":0.012037037037037053,"coverageMs":28991,"endPrice":0.92,"endTsMs":1760141025558,"high":0.92,"highLowRange":0.11499999999999999,"low":0.805,"n":28,"netChange":0.1050000000000001,"ready":true,"staleMs":0,"startPrice":0.815,"startTsMs":1760140996567,"stddev":0.03070390189920764,"windowMs":30000},"5s":{"avgAbsChange":0.018000000000000016,"coverageMs":3985,"endPrice":0.915,"endTsMs":1760141025558,"high":0.915,"highLowRange":0.050000000000000044,"low":0.865,"n":4,"netChange":0.020000000000000018,"ready":false,"staleMs":1237,"startPrice":0.895,"startTsMs":1760141021573,"stddev":0.01643590243605764,"windowMs":5000}},"UPTOKEN":{"1s":{"avgAbsChange":null,"coverageMs":0,"endPrice":null,"endTsMs":1760141025558,"high":null,"highLowRange":null,"low":null,"n":1,"netChange":null,"ready":false,"staleMs":null,"startPrice":null,"startTsMs":1760141025558,"stddev":null,"windowMs":1000},"30s":{"avgAbsChange":0.013541666666666669,"coverageMs":28991,"endPrice":0.08,"endTsMs":1760141025558,"high":0.195,"highLowRange":0.115,"low":0.08,"n":25,"netChange":-0.105,"ready":true,"staleMs":0,"startPrice":0.185,"startTsMs":1760140996567,"stddev":0.031193589084937225,"windowMs":30000},"5s":{"avgAbsChange":0.018,"coverageMs":3985,"endPrice":0.085,"endTsMs":1760141025558,"high":0.135,"highLowRange":0.05,"low":0.085,"n":4,"netChange":-0.01999999999999999,"ready":false,"staleMs":1237,"startPrice":0.105,"startTsMs":1760141021573,"stddev":0.01643590243611015,"windowMs":5000}}}}}}
       ],
       "marketStartMs": 1760140800000,
-      "name": "mid_vol_bid_dwell_gate",
+      "name": "walk_mid_vol_bid_dwell_gate",
       "plugins": {
         "dwellGate": {
           "fromMicros": 600000,
@@ -468,7 +468,7 @@
         {"i":299,"snapshot":{"dwellGate":{"down":{"elapsedInRangeMs":null,"inRange":false,"remainingMs":null},"dwellDownOk":false,"dwellUpOk":false,"from":0.3,"requiredMs":1500,"to":0.7,"trackPrice":"ask","up":{"elapsedInRangeMs":null,"inRange":false,"remainingMs":null}},"timeWindowVolatility":{"asOfTsMs":1760141025558,"byAssetId":{"DOWNTOKEN":{"w10":{"avgAbsChange":0.016250000000000014,"coverageMs":9547,"endPrice":0.91,"endTsMs":1760141025558,"high":0.91,"highLowRange":0.06000000000000005,"low":0.85,"n":9,"netChange":0.050000000000000044,"ready":true,"staleMs":0,"startPrice":0.86,"startTsMs":1760141016011,"stddev":0.019499920860875476,"windowMs":10000},"w2":{"avgAbsChange":0.024,"coverageMs":1237,"endPrice":0.4,"endTsMs":1760141025558,"high":0.41,"highLowRange":0.04999999999999999,"low":0.36,"n":2,"netChange":0,"ready":false,"staleMs":131593,"startPrice":0.4,"startTsMs":1760141024321,"stddev":0.015986105077707605,"windowMs":2000}},"UPTOKEN":{"w10":{"avgAbsChange":0.01375,"coverageMs":9547,"endPrice":0.07,"endTsMs":1760141025558,"high":0.12,"highLowRange":0.04999999999999999,"low":0.07,"n":9,"netChange":-0.04999999999999999,"ready":true,"staleMs":0,"startPrice":0.12,"startTsMs":1760141016011,"stddev":0.019116278371201213,"windowMs":10000},"w2":{"avgAbsChange":0.01799999999999997,"coverageMs":1237,"endPrice":0.59,"endTsMs":1760141025558,"high":0.61,"highLowRange":0.04999999999999993,"low":0.56,"n":2,"netChange":0.010000000000000009,"ready":false,"staleMs":131593,"startPrice":0.58,"startTsMs":1760141024321,"stddev":0.015000000000004725,"windowMs":2000}}}}}}
       ],
       "marketStartMs": 1760140800000,
-      "name": "bid_vol_ask_dwell",
+      "name": "walk_bid_vol_ask_dwell",
       "plugins": {
         "dwellGate": {
           "fromMicros": 300000,
