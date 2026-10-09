@@ -548,6 +548,7 @@ dependencies = [
  "pmb-replay",
  "proptest",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

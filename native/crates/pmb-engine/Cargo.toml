@@ -23,3 +23,4 @@ workspace = true
 [dev-dependencies]
 proptest.workspace = true
 pmb-replay.workspace = true
+sha2.workspace = true

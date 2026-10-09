@@ -1,0 +1,432 @@
+{
+  "content": {
+    "cases": [
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {
+            "book": 4,
+            "price_change": 6
+          },
+          "eventsProcessed": 10,
+          "marketStats": {
+            "avgEntryPriceDown": 0.4,
+            "avgEntryPriceUp": 0.4725,
+            "cost": 29.3,
+            "downShares": 17,
+            "feesPaid": 1.92,
+            "finalOutcome": "UP",
+            "intentMeta": [
+              {
+                "edge": 0.0412,
+                "k": 1
+              },
+              {
+                "side": "down"
+              }
+            ],
+            "marketId": "0xabababababababababababababababababababababababababababababababab",
+            "mergableShares": 17,
+            "pnl": 19.28,
+            "slug": "btc-updown-15m-1780272000",
+            "splitCost": 5,
+            "tradeAsMaker": 1,
+            "tradeAsTaker": 3,
+            "tradeCount": 4,
+            "upShares": 55
+          },
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "name": "activity",
+        "outcome": "UP",
+        "parquet": "native/fixtures/golden/stats/activity.parquet",
+        "parquetSha256": "bf9f93ee51160e12073e9f233789a10a94c6e85ad144286e43487d13870a9048",
+        "script": [
+          {
+            "intents": [
+              {
+                "cid": "t1",
+                "kind": "place",
+                "meta": {
+                  "edge": 0.0412,
+                  "k": 1
+                },
+                "orderType": "GTC",
+                "outcome": "UP",
+                "price": "0.48",
+                "side": "BUY",
+                "size": "80"
+              },
+              {
+                "cid": "m1",
+                "kind": "place",
+                "meta": {
+                  "side": "down"
+                },
+                "orderType": "GTC",
+                "outcome": "DOWN",
+                "price": "0.4",
+                "side": "BUY",
+                "size": "12"
+              },
+              {
+                "cid": "x1",
+                "kind": "place",
+                "orderType": "GTC",
+                "outcome": "UP",
+                "price": "0.7",
+                "side": "SELL",
+                "size": "10"
+              }
+            ],
+            "tick": 0
+          },
+          {
+            "intents": [
+              {
+                "cid": "x1",
+                "kind": "cancel"
+              }
+            ],
+            "tick": 1
+          },
+          {
+            "intents": [
+              {
+                "cid": "s1",
+                "kind": "place",
+                "orderType": "GTC",
+                "outcome": "UP",
+                "price": "0.45",
+                "side": "SELL",
+                "size": "30"
+              }
+            ],
+            "tick": 2
+          },
+          {
+            "intents": [
+              {
+                "kind": "split",
+                "size": "5"
+              }
+            ],
+            "tick": 3
+          },
+          {
+            "intents": [
+              {
+                "cid": "y1",
+                "kind": "place",
+                "meta": {
+                  "late": true
+                },
+                "orderType": "GTC",
+                "outcome": "UP",
+                "postOnly": true,
+                "price": "0.3",
+                "side": "BUY",
+                "size": "5"
+              }
+            ],
+            "tick": 5
+          }
+        ],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "taker walk over two levels (one meta entry per cid), resting maker BUY filled by trade-through, a resting order canceled, a taker SELL without meta, a split, an unfilled order with meta at the inclusive window end, counted out-of-window rows",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      },
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {
+            "book": 2,
+            "price_change": 5
+          },
+          "eventsProcessed": 7,
+          "marketStats": {
+            "avgEntryPriceDown": 0.495,
+            "avgEntryPriceUp": 0.47,
+            "cost": 14.79,
+            "downShares": 10,
+            "feesPaid": 0.44,
+            "finalOutcome": "DOWN",
+            "intentMeta": [
+              {
+                "a": 1
+              },
+              {
+                "a": 2,
+                "note": "rest"
+              }
+            ],
+            "marketId": "0xabababababababababababababababababababababababababababababababab",
+            "mergableShares": 10,
+            "pnl": -4.79,
+            "slug": "btc-updown-15m-1780272000",
+            "splitCost": 0,
+            "tradeAsMaker": 1,
+            "tradeAsTaker": 2,
+            "tradeCount": 3,
+            "upShares": 20
+          },
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 50,
+          "jitterMs": 0
+        },
+        "name": "latency",
+        "outcome": "DOWN",
+        "parquet": "native/fixtures/golden/stats/latency.parquet",
+        "parquetSha256": "6f6831d61c01f05680b7e1f562798465b5152fd21b092f79687c716bc735b9b5",
+        "script": [
+          {
+            "intents": [
+              {
+                "cid": "a1",
+                "kind": "place",
+                "meta": {
+                  "a": 1
+                },
+                "orderType": "GTC",
+                "outcome": "UP",
+                "price": "0.47",
+                "side": "BUY",
+                "size": "20"
+              },
+              {
+                "cid": "a2",
+                "kind": "place",
+                "meta": {
+                  "a": 2,
+                  "note": "rest"
+                },
+                "orderType": "GTC",
+                "outcome": "DOWN",
+                "price": "0.5",
+                "side": "BUY",
+                "size": "10"
+              }
+            ],
+            "tick": 0
+          },
+          {
+            "intents": [
+              {
+                "cid": "a2",
+                "kind": "cancel"
+              }
+            ],
+            "tick": 1
+          }
+        ],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "compat latency 50 ms: placements and a cancel release on the first real tick at or after execute_at, after its book update and before the maker scan",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      },
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {
+            "book": 2,
+            "price_change": 2
+          },
+          "eventsProcessed": 4,
+          "marketStats": {
+            "avgEntryPriceDown": null,
+            "avgEntryPriceUp": null,
+            "cost": 0,
+            "downShares": 0,
+            "feesPaid": 0,
+            "finalOutcome": "UP",
+            "intentMeta": [],
+            "marketId": "0xabababababababababababababababababababababababababababababababab",
+            "mergableShares": 0,
+            "pnl": 0,
+            "skipReason": "no_in_window_activity",
+            "slug": "btc-updown-15m-1780272000",
+            "splitCost": 0,
+            "tradeAsMaker": 0,
+            "tradeAsTaker": 0,
+            "tradeCount": 0,
+            "upShares": 0
+          },
+          "skipReason": "no_activity",
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "name": "zero_row_idle",
+        "outcome": "UP",
+        "parquet": "native/fixtures/golden/stats/zero_row_idle.parquet",
+        "parquetSha256": "f4bc7823e7f6a5c3276843e960d0f8e42ceada650ba173c3dc2c8b71bef6b903",
+        "script": [
+          {
+            "intents": [
+              {
+                "cid": "p1",
+                "kind": "place",
+                "meta": {
+                  "z": 1
+                },
+                "orderType": "GTC",
+                "outcome": "UP",
+                "postOnly": true,
+                "price": "0.3",
+                "side": "BUY",
+                "size": "10"
+              }
+            ],
+            "tick": 0
+          },
+          {
+            "intents": [
+              {
+                "cid": "p1",
+                "kind": "cancel"
+              }
+            ],
+            "tick": 2
+          }
+        ],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "in-window ticks, a post-only order placed and canceled, no fill and no position: zero row tagged no_in_window_activity",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      },
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {
+            "book": 2,
+            "price_change": 1
+          },
+          "eventsProcessed": 3,
+          "marketStats": {
+            "avgEntryPriceDown": null,
+            "avgEntryPriceUp": null,
+            "cost": 0,
+            "downShares": 0,
+            "feesPaid": 0,
+            "finalOutcome": "DOWN",
+            "intentMeta": [],
+            "marketId": "0xabababababababababababababababababababababababababababababababab",
+            "mergableShares": 0,
+            "pnl": 0,
+            "skipReason": "no_in_window_activity",
+            "slug": "btc-updown-15m-1780272000",
+            "splitCost": 0,
+            "tradeAsMaker": 0,
+            "tradeAsTaker": 0,
+            "tradeCount": 0,
+            "upShares": 0
+          },
+          "skipReason": "no_activity",
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "name": "zero_row_out_of_window",
+        "outcome": "DOWN",
+        "parquet": "native/fixtures/golden/stats/zero_row_out_of_window.parquet",
+        "parquetSha256": "7221741775c24d3cddf8498b6aec878347c4dc05e7255825780154c2826370bb",
+        "script": [
+          {
+            "intents": [
+              {
+                "cid": "never",
+                "kind": "place",
+                "orderType": "GTC",
+                "outcome": "UP",
+                "price": "0.5",
+                "side": "BUY",
+                "size": "1"
+              }
+            ],
+            "tick": 0
+          }
+        ],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "counted ticks only before the window start: no strategy tick, zero row",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      },
+      {
+        "conditionId": "0xabababababababababababababababababababababababababababababababab",
+        "expected": {
+          "eventsByType": {},
+          "eventsProcessed": 0,
+          "marketStats": null,
+          "skipReason": "no_activity",
+          "slug": "btc-updown-15m-1780272000"
+        },
+        "latency": {
+          "delayMs": 0,
+          "jitterMs": 0
+        },
+        "name": "null_no_counted_tick",
+        "outcome": "UP",
+        "parquet": "native/fixtures/golden/stats/null_no_counted_tick.parquet",
+        "parquetSha256": "579733f91f685d24ec30ef73e70f6c7602f28f2c962f1466c97c0a4898b53924",
+        "script": [],
+        "slug": "btc-updown-15m-1780272000",
+        "startingCapital": "500",
+        "tokens": {
+          "DOWN": "2002",
+          "UP": "1001"
+        },
+        "what": "every row skipped by the reader (no exchange ts): no counted tick, marketStats null",
+        "window": {
+          "endMs": 1780272900000,
+          "startMs": 1780272000000
+        }
+      }
+    ],
+    "oracle": "src/backtest/runSingleMarket.ts (BacktestExecution, Portfolio, computeMarketStats)",
+    "spec": "native-spec-g1 21 §11-§16; 60 §7.1-§7.2"
+  },
+  "header": {
+    "contentPin": "9463830defba2a1e305a77f3b5df24b7520c6c53",
+    "generator": "native/fixtures/gen/stats_gen.ts",
+    "generatorSha256": "d61d7ef1f24a4cad4337f57a5ae7a692ba3a318b95345c22b0cdd3e499811b35"
+  }
+}
