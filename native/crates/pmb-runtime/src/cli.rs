@@ -42,7 +42,11 @@ pub struct RunArgs {
     pub overrides: OutputOverrides,
     /// Job thread stack in MiB (G11).
     pub stack_mb: usize,
-    /// `--tape-dir` (16 §7.5); accepted, unused before tapes exist.
+    /// `--tape-dir` (16 §7.5). Process configuration, never
+    /// result-affecting (G5).
+    // D-PENDING: derived tapes (16 §7.5 NT-5) are not built yet; the flag is
+    // validated and the canonical file is always read (`inputPath: v1`),
+    // which 20 §6.1 allows ("a bad or stale tape is never an error").
     pub tape_dir: Option<PathBuf>,
 }
 
@@ -404,11 +408,33 @@ where
         },
         Command::Selftest => {
             let (doc, ok) = selftest::<T, B>(backend, DEFAULT_STACK_MB << 20);
+            let failed: Vec<String> = doc["checks"]
+                .as_array()
+                .map(|cs| {
+                    cs.iter()
+                        .filter(|c| c["ok"] != Value::Bool(true))
+                        .map(|c| {
+                            format!(
+                                "{} ({})",
+                                c["name"].as_str().unwrap_or("?"),
+                                c["detail"].as_str().unwrap_or("")
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             Outcome {
                 document: doc.to_string(),
                 exit_code: if ok { 0 } else { 8 },
-                reason: (!ok)
-                    .then(|| "engine_fault: selftest: a selftest check failed".to_string()),
+                reason: (!ok).then(|| {
+                    crate::error::one_line(
+                        &format!(
+                            "engine_fault: selftest: failed checks: {}",
+                            failed.join("; ")
+                        ),
+                        MESSAGE_MAX_CHARS,
+                    )
+                }),
             }
         }
         Command::Run(run) => {
