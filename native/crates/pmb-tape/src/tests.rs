@@ -907,3 +907,44 @@ fn regenerate_fixture() {
     write_v1(&out, &rows, 1000);
     eprintln!("wrote {} ({} rows)", out.display(), rows.len());
 }
+
+#[test]
+fn block_streamed_read_equals_v1_at_every_block_size() {
+    let dir = scratch("streamed");
+    let v1 = dir.join("m.parquet");
+    write_v1(&v1, &synthetic_rows(), 4);
+    let want = v1_stream(&v1, &input());
+    let mut dec = Decoder::new().unwrap();
+    for block_rows in [1, 2, 7, 65_536] {
+        let tape = dir.join(format!("b{block_rows}.pmbtape"));
+        let o = ConvertOptions {
+            encode: EncodeOptions {
+                block_rows,
+                zstd_level: 1,
+            },
+            tool_sha256: [0; 32],
+        };
+        let out = convert_one(&v1, &tape, &o, &mut budget(&dir), &mut dec).unwrap();
+        assert!(matches!(out, ConvertOutcome::Written { .. }), "{out:?}");
+        let s = store::read_tape_stream(&mut dec, &tape, &v1, None, &input())
+            .unwrap()
+            .unwrap();
+        let got = MarketStream::Tape(s);
+        assert_eq!(
+            first_difference(&want, &got),
+            None,
+            "block_rows {block_rows}"
+        );
+        // A foreign token fails identically on both paths, whatever the block.
+        let foreign = TelonexInput {
+            format_version: 1,
+            tokens: ["nope", DOWN],
+            condition_id: None,
+        };
+        let e1 = read_telonex_delta(&v1, &foreign).unwrap_err();
+        let e2 = store::read_tape_stream(&mut dec, &tape, &v1, None, &foreign)
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(e1, e2);
+    }
+}

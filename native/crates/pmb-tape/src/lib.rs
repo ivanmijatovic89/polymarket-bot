@@ -20,8 +20,10 @@ pub mod v1;
 mod tests;
 
 pub use codec::{Decoder, EncodeOptions, TapeError, TapeHeader, V1Identity};
-pub use replay::{replay, ReplayStream};
-pub use store::{convert_one, load_tape, tape_path, ConvertOptions, ConvertOutcome, Fallback};
+pub use replay::{replay, ReplayStream, Replayer};
+pub use store::{
+    convert_one, load_tape, read_tape_stream, tape_path, ConvertOptions, ConvertOutcome, Fallback,
+};
 pub use typed::{TypedRows, Unconvertible};
 
 use pmb_core::TimedMarketEvent;
@@ -94,10 +96,8 @@ pub fn read_market(
     let fallback = match tape {
         // Relative or missing v1 paths are the v1 reader's errors (I-3).
         Some(_) if !v1.is_absolute() => Fallback::Io("v1 path is not absolute".into()),
-        Some(t) => match load_tape(decoder, t, v1, expected_sha) {
-            Ok((_, rows)) => {
-                return replay(&rows, input).map(|s| (MarketStream::Tape(s), InputPath::Tape))
-            }
+        Some(t) => match store::read_tape_stream(decoder, t, v1, expected_sha, input) {
+            Ok(stream) => return stream.map(|s| (MarketStream::Tape(s), InputPath::Tape)),
             Err(f) => f,
         },
         None => Fallback::Missing,

@@ -26,7 +26,9 @@ use pmb_tape::store::{
     self, hex, sha256, Budget, ConvertOptions, ConvertOutcome, DEFAULT_CAP_BYTES,
     DEFAULT_MIN_FREE_BYTES,
 };
-use pmb_tape::{load_tape, read_market, replay, tape_path, InputPath, MarketStream};
+use pmb_tape::{
+    load_tape, read_market, read_tape_stream, replay, tape_path, InputPath, MarketStream,
+};
 use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
@@ -263,10 +265,14 @@ fn verify(a: &Args) -> Result<()> {
             if let Some(diff) = first_difference(&x, &y) {
                 bail!("event streams differ: {diff}");
             }
-            // The production lookup takes the tape path.
-            let (_, path) = read_market(&v1, Some(&tape), Some(&sha), &inp, &mut decoder)
+            // The production lookup takes the tape path (block-streamed
+            // decode and replay) and yields the same stream.
+            let (streamed, path) = read_market(&v1, Some(&tape), Some(&sha), &inp, &mut decoder)
                 .map_err(|e| anyhow::anyhow!("read_market: {e}"))?;
             ensure!(path == InputPath::Tape, "read_market fell back: {path:?}");
+            if let Some(diff) = first_difference(&x, &streamed) {
+                bail!("block-streamed tape stream differs: {diff}");
+            }
             events += x.len() as u64;
             rows_total += header.rows;
             let d = x.diagnostics();
@@ -299,15 +305,23 @@ fn verify(a: &Args) -> Result<()> {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Config {
+    /// `pmb_replay::read_telonex_delta` (today's v1 path).
     V1,
+    /// `read_tape_stream`: tape decoded block by block into reused buffers
+    /// and replayed per block (the executor path; `read_market` uses it).
     Tape,
+    /// `load_tape` (whole-file typed rows) then `replay`.
+    TapeFull,
 }
+
+const CONFIGS: [Config; 3] = [Config::V1, Config::Tape, Config::TapeFull];
 
 impl Config {
     fn name(self) -> &'static str {
         match self {
             Config::V1 => "v1",
             Config::Tape => "tape",
+            Config::TapeFull => "tape-full",
         }
     }
 }
@@ -324,54 +338,38 @@ fn median(v: &mut [f64]) -> f64 {
     }
 }
 
-/// Tape sub-phases of one market: (read + identity + decode ms, replay ms).
-type Phases = (f64, f64);
-
 /// One timed pass of one configuration over the set.
 struct Pass {
     cfg: Config,
     ms: Vec<f64>,
-    phases: Vec<Phases>,
     load: String,
 }
 
-/// One pass over the set; returns per-market ms (and tape sub-phases).
-fn bench_pass(
-    cfg: Config,
-    m: &Manifest,
-    a: &Args,
-    decoder: &mut Decoder,
-) -> Result<(Vec<f64>, Vec<Phases>)> {
+/// One pass over the set; returns per-market ms (decode to the engine
+/// event stream, file read included, result dropped inside the timing).
+fn bench_pass(cfg: Config, m: &Manifest, a: &Args, decoder: &mut Decoder) -> Result<Vec<f64>> {
     let mut ms = Vec::with_capacity(m.markets.len());
-    let mut phases = Vec::new();
     for mk in &m.markets {
         let v1 = mk.v1_path(&a.data_root)?;
+        let tape = market_tape(m, mk, &a.tape_root)?;
         let inp = input(mk);
-        match cfg {
-            Config::V1 => {
-                let t0 = Instant::now();
-                let t = read_telonex_delta(&v1, &inp).map_err(|e| anyhow::anyhow!("{e}"))?;
-                black_box(t.len());
-                drop(t);
-                ms.push(t0.elapsed().as_secs_f64() * 1e3);
+        let fail = |e: &dyn std::fmt::Display| anyhow::anyhow!("{} {}: {e}", cfg.name(), mk.slug);
+        let t0 = Instant::now();
+        let n = match cfg {
+            Config::V1 => read_telonex_delta(&v1, &inp).map_err(|e| fail(&e))?.len(),
+            Config::Tape => read_tape_stream(decoder, &tape, &v1, None, &inp)
+                .map_err(|e| fail(&e))?
+                .map_err(|e| fail(&e))?
+                .len(),
+            Config::TapeFull => {
+                let (_, rows) = load_tape(decoder, &tape, &v1, None).map_err(|e| fail(&e))?;
+                replay(&rows, &inp).map_err(|e| fail(&e))?.len()
             }
-            Config::Tape => {
-                let tape = market_tape(m, mk, &a.tape_root)?;
-                let t0 = Instant::now();
-                let (_, rows) = load_tape(decoder, &tape, &v1, None)
-                    .map_err(|f| anyhow::anyhow!("{}: {f}", mk.slug))?;
-                let t1 = Instant::now();
-                let s = replay(&rows, &inp).map_err(|e| anyhow::anyhow!("{e}"))?;
-                black_box(s.len());
-                drop(s);
-                drop(rows);
-                let t2 = Instant::now();
-                ms.push((t2 - t0).as_secs_f64() * 1e3);
-                phases.push(((t1 - t0).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3));
-            }
-        }
+        };
+        black_box(n);
+        ms.push(t0.elapsed().as_secs_f64() * 1e3);
     }
-    Ok((ms, phases))
+    Ok(ms)
 }
 
 fn bench(a: &Args) -> Result<()> {
@@ -408,28 +406,30 @@ fn bench(a: &Args) -> Result<()> {
     );
     // One discarded warm-up pass per configuration (warm page cache).
     let load_start = load_avg();
-    for cfg in [Config::V1, Config::Tape] {
+    for cfg in CONFIGS {
         bench_pass(cfg, &m, a, &mut decoder)?;
     }
-    // ABBA: v1, tape, tape, v1, v1, tape, ...
+    // Interleaved, reversed every repetition (ABBA): v1 tape full, full tape v1, ...
     let mut order = Vec::new();
     for r in 0..reps {
-        order.push(if r % 2 == 0 { Config::V1 } else { Config::Tape });
-        order.push(if r % 2 == 0 { Config::Tape } else { Config::V1 });
+        if r % 2 == 0 {
+            order.extend(CONFIGS);
+        } else {
+            order.extend(CONFIGS.iter().rev());
+        }
     }
     let mut runs: Vec<Pass> = Vec::new();
     for cfg in order {
-        let (ms, ph) = bench_pass(cfg, &m, a, &mut decoder)?;
+        let ms = bench_pass(cfg, &m, a, &mut decoder)?;
         runs.push(Pass {
             cfg,
             ms,
-            phases: ph,
             load: load_avg(),
         });
     }
     let load_end = load_avg();
     let mut summary = serde_json::Map::new();
-    for cfg in [Config::V1, Config::Tape] {
+    for cfg in CONFIGS {
         let mine: Vec<&Pass> = runs.iter().filter(|r| r.cfg == cfg).collect();
         let mut totals: Vec<f64> = mine.iter().map(|r| r.ms.iter().sum()).collect();
         let raw_totals = totals.clone();
@@ -441,35 +441,18 @@ fn bench(a: &Args) -> Result<()> {
             .collect();
         let per_market_ms = per.clone();
         let market_med = median(&mut per);
-        let mut extra = serde_json::Map::new();
-        if cfg == Config::Tape {
-            let mut load: Vec<f64> = mine
-                .iter()
-                .map(|r| r.phases.iter().map(|p| p.0).sum::<f64>())
-                .collect();
-            let mut rep: Vec<f64> = mine
-                .iter()
-                .map(|r| r.phases.iter().map(|p| p.1).sum::<f64>())
-                .collect();
-            extra.insert("loadDecodeTotalMsMedian".into(), median(&mut load).into());
-            extra.insert("replayTotalMsMedian".into(), median(&mut rep).into());
-            println!(
-                "  tape phases (median of reps): read+decode {:.1} ms, replay {:.1} ms",
-                median(&mut load),
-                median(&mut rep)
-            );
-        }
         println!(
-            "  {:<4} total ms: median {total_med:.1} min {tmin:.1} max {tmax:.1}; per-market median {market_med:.2} ms",
+            "  {:<9} total ms: median {total_med:.1} min {tmin:.1} max {tmax:.1}; per-market median {market_med:.2} ms",
             cfg.name()
         );
-        let mut o = serde_json::json!({
-            "totalMs": { "median": total_med, "min": tmin, "max": tmax, "reps": raw_totals },
-            "perMarketMedianMs": market_med,
-            "perMarketMs": per_market_ms,
-        });
-        o.as_object_mut().expect("object").extend(extra);
-        summary.insert(cfg.name().into(), o);
+        summary.insert(
+            cfg.name().into(),
+            serde_json::json!({
+                "totalMs": { "median": total_med, "min": tmin, "max": tmax, "reps": raw_totals },
+                "perMarketMedianMs": market_med,
+                "perMarketMs": per_market_ms,
+            }),
+        );
     }
     let speedup = summary["v1"]["totalMs"]["median"]
         .as_f64()

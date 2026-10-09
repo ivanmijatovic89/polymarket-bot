@@ -151,6 +151,34 @@ impl TypedRows {
         self.ingest_seq.is_empty()
     }
 
+    /// Empties every column (keeping capacity) and sets the dictionary, for
+    /// block-wise reuse.
+    pub fn reset(&mut self, dict: &[Vec<u8>]) {
+        if self.dict != dict {
+            self.dict = dict.to_vec();
+        }
+        self.ingest_seq.clear();
+        self.ts_local_ms.clear();
+        self.ts_exchange_ms.clear();
+        self.flags.clear();
+        self.event_type.clear();
+        self.market.clear();
+        self.asset0.clear();
+        self.asset1.clear();
+        self.asset_index.clear();
+        for d in &mut self.decimals {
+            d.offsets.clear();
+            d.offsets.push(0);
+            d.values.clear();
+            d.inexact.clear();
+        }
+        for l in &mut self.ints {
+            l.offsets.clear();
+            l.offsets.push(0);
+            l.values.clear();
+        }
+    }
+
     /// Book levels plus price changes (the tape header's level count).
     pub fn level_count(&self) -> u64 {
         let d = |i: usize| self.decimals[i].values.len() as u64;

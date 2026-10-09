@@ -515,6 +515,10 @@ fn check_frame(frame: &[u8]) -> Result<(), TapeError> {
 pub struct Decoder {
     dctx: Decompressor<'static>,
     scratch: Vec<u8>,
+    /// Reused per-block typed rows of [`Decoder::stream`].
+    block: TypedRows,
+    /// Reused file buffer of the store's tape reads.
+    pub(crate) file: Vec<u8>,
 }
 
 impl Decoder {
@@ -522,6 +526,8 @@ impl Decoder {
         Ok(Decoder {
             dctx: Decompressor::new().map_err(|e| TapeError::Frame(e.to_string()))?,
             scratch: Vec::new(),
+            block: TypedRows::default(),
+            file: Vec::new(),
         })
     }
 
@@ -574,6 +580,7 @@ impl Decoder {
 
     fn decode_body(&mut self, buf: &[u8], h: &TapeHeader) -> Result<TypedRows, TapeError> {
         let n = usize::try_from(h.rows).map_err(|_| layout("row count"))?;
+        let data = data_section(buf, h)?;
         let mut t = TypedRows {
             dict: h.dict.clone(),
             ..TypedRows::default()
@@ -596,28 +603,60 @@ impl Decoder {
             list.offsets.reserve(n);
             list.values.reserve(h.list_values[dec::COUNT + i] as usize);
         }
-        let data = buf
-            .get(h.data_offset as usize..)
-            .ok_or(TapeError::Truncated)?;
-        // Frames are contiguous in (block, column) order and fill the data
-        // section exactly, so every byte after the prefix is under a checksum.
-        let mut pos = 0u64;
-        for (i, c) in h.blocks.iter().flat_map(|b| &b.cols).enumerate() {
-            if c.offset != pos {
-                return Err(layout(format!(
-                    "frame {i} at {} (expected {pos})",
-                    c.offset
-                )));
-            }
-            pos += c.comp_len as u64;
-        }
-        if pos != data.len() as u64 {
-            return Err(layout(format!(
-                "data section is {} bytes, frames end at {pos}",
-                data.len()
-            )));
-        }
         for b in &h.blocks {
+            self.decode_block(data, b, &mut t)?;
+        }
+        check_totals(h, n, |l| list_len(&t, l), |d| t.decimals[d].inexact.len())?;
+        t.validate().map_err(TapeError::Layout)?;
+        Ok(t)
+    }
+
+    /// Streams the rows of a tape block by block through `f` (block rows and
+    /// the index of their first row), reusing one buffer. Every block is
+    /// validated before `f` sees it and the totals are checked at the end.
+    /// The outer error is the tape's (fall back to v1), the inner `f`'s.
+    pub fn stream<E>(
+        &mut self,
+        buf: &[u8],
+        h: &TapeHeader,
+        mut f: impl FnMut(&TypedRows, usize) -> Result<(), E>,
+    ) -> Result<Result<(), E>, TapeError> {
+        let data = data_section(buf, h)?;
+        let mut block = std::mem::take(&mut self.block);
+        let result = (|| {
+            let mut row0 = 0usize;
+            let mut values = [0usize; N_LISTS];
+            let mut inexact = [0usize; dec::COUNT];
+            for b in &h.blocks {
+                block.reset(&h.dict);
+                self.decode_block(data, b, &mut block)?;
+                block.validate().map_err(TapeError::Layout)?;
+                for (l, v) in values.iter_mut().enumerate() {
+                    *v += list_len(&block, l);
+                }
+                for (d, v) in inexact.iter_mut().enumerate() {
+                    *v += block.decimals[d].inexact.len();
+                }
+                if let Err(e) = f(&block, row0) {
+                    return Ok(Err(e));
+                }
+                row0 += block.len();
+            }
+            check_totals(h, row0, |l| values[l], |d| inexact[d])?;
+            Ok(Ok(()))
+        })();
+        self.block = block;
+        result
+    }
+
+    /// Appends the rows of one block to `t`.
+    fn decode_block(
+        &mut self,
+        data: &[u8],
+        b: &BlockMeta,
+        t: &mut TypedRows,
+    ) -> Result<(), TapeError> {
+        {
             let rows = b.rows as usize;
             let frame = |c: &ColMeta| -> Result<&[u8], TapeError> {
                 let s = c.offset as usize;
@@ -741,27 +780,65 @@ impl Decoder {
                 }
             }
         }
-        if t.len() != n {
-            return Err(layout("row count"));
-        }
-        for l in 0..N_LISTS {
-            let have = if l < dec::COUNT {
-                t.decimals[l].values.len()
-            } else {
-                t.ints[l - dec::COUNT].values.len()
-            };
-            if have as u64 != h.list_values[l] {
-                return Err(layout(format!("list {l}: value count")));
-            }
-        }
-        for d in 0..dec::COUNT {
-            if t.decimals[d].inexact.len() as u64 != h.inexact[d] {
-                return Err(layout(format!("{}: inexact count", dec::NAMES[d])));
-            }
-        }
-        t.validate().map_err(TapeError::Layout)?;
-        Ok(t)
+        Ok(())
     }
+}
+
+fn list_len(t: &TypedRows, l: usize) -> usize {
+    if l < dec::COUNT {
+        t.decimals[l].values.len()
+    } else {
+        t.ints[l - dec::COUNT].values.len()
+    }
+}
+
+/// Rows, list values and inexact counts against the header.
+fn check_totals(
+    h: &TapeHeader,
+    rows: usize,
+    values: impl Fn(usize) -> usize,
+    inexact: impl Fn(usize) -> usize,
+) -> Result<(), TapeError> {
+    if rows as u64 != h.rows {
+        return Err(layout("row count"));
+    }
+    for l in 0..N_LISTS {
+        if values(l) as u64 != h.list_values[l] {
+            return Err(layout(format!("list {l}: value count")));
+        }
+    }
+    for d in 0..dec::COUNT {
+        if inexact(d) as u64 != h.inexact[d] {
+            return Err(layout(format!("{}: inexact count", dec::NAMES[d])));
+        }
+    }
+    Ok(())
+}
+
+/// The data section, after checking that the frames are contiguous in
+/// (block, column) order and fill it exactly, so every byte after the
+/// prefix is under a checksum.
+fn data_section<'b>(buf: &'b [u8], h: &TapeHeader) -> Result<&'b [u8], TapeError> {
+    let data = buf
+        .get(h.data_offset as usize..)
+        .ok_or(TapeError::Truncated)?;
+    let mut pos = 0u64;
+    for (i, c) in h.blocks.iter().flat_map(|b| &b.cols).enumerate() {
+        if c.offset != pos {
+            return Err(layout(format!(
+                "frame {i} at {} (expected {pos})",
+                c.offset
+            )));
+        }
+        pos += c.comp_len as u64;
+    }
+    if pos != data.len() as u64 {
+        return Err(layout(format!(
+            "data section is {} bytes, frames end at {pos}",
+            data.len()
+        )));
+    }
+    Ok(data)
 }
 
 /// Appends `f(value)` for every value of a width-coded frame; returns the count.

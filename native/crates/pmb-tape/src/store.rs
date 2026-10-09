@@ -3,13 +3,15 @@
 //! (NT-7).
 
 use crate::codec::{self, Decoder, EncodeOptions, TapeError, TapeHeader, V1Identity};
-use crate::typed::{TypedRows, Unconvertible};
+use crate::replay::{ReplayStream, Replayer};
+use crate::typed::{dec, TypedRows, Unconvertible};
 use crate::v1::read_v1;
 use bytes::Bytes;
+use pmb_replay::{InputError, TelonexInput};
 use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -136,6 +138,35 @@ fn check_identity(
     Ok(())
 }
 
+/// Reads a tape file into the decoder's reused buffer and checks its header
+/// against the v1 file (NT-5); `f` gets the buffer and header.
+fn with_tape<T>(
+    decoder: &mut Decoder,
+    tape: &Path,
+    v1: &Path,
+    expected_sha: Option<&[u8; 32]>,
+    f: impl FnOnce(&mut Decoder, &[u8], &TapeHeader) -> Result<T, Fallback>,
+) -> Result<T, Fallback> {
+    let mut buf = std::mem::take(&mut decoder.file);
+    buf.clear();
+    let result = (|| {
+        match fs::File::open(tape) {
+            Ok(mut file) => {
+                file.read_to_end(&mut buf)
+                    .map_err(|e| Fallback::Io(e.to_string()))?;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(Fallback::Missing),
+            Err(e) => return Err(Fallback::Io(e.to_string())),
+        }
+        let v1_stat = stat_identity(v1).map_err(|e| Fallback::Io(e.to_string()))?;
+        let h = decoder.header(&buf).map_err(Fallback::Invalid)?;
+        check_identity(&h, v1_stat, expected_sha)?;
+        f(decoder, &buf, &h)
+    })();
+    decoder.file = buf;
+    result
+}
+
 /// Loads the typed rows of a v1 file from its tape when the tape is usable
 /// (NT-5): supported version, matching v1 identity (stat, and the job's
 /// sha256 when it carries one) and every frame checksum passing. Any other
@@ -146,16 +177,41 @@ pub fn load_tape(
     v1: &Path,
     expected_sha: Option<&[u8; 32]>,
 ) -> Result<(TapeHeader, TypedRows), Fallback> {
-    let buf = match fs::read(tape) {
-        Ok(b) => b,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(Fallback::Missing),
-        Err(e) => return Err(Fallback::Io(e.to_string())),
-    };
-    let v1_stat = stat_identity(v1).map_err(|e| Fallback::Io(e.to_string()))?;
-    let h = decoder.header(&buf).map_err(Fallback::Invalid)?;
-    check_identity(&h, v1_stat, expected_sha)?;
-    let rows = decoder.decode_rows(&buf, &h).map_err(Fallback::Invalid)?;
-    Ok((h, rows))
+    with_tape(decoder, tape, v1, expected_sha, |d, buf, h| {
+        let rows = d.decode_rows(buf, h).map_err(Fallback::Invalid)?;
+        Ok((h.clone(), rows))
+    })
+}
+
+/// The market stream of a v1 file read from its tape, block by block with
+/// reused buffers (the executor path). The outer error is a [`Fallback`]
+/// (read v1 instead); the inner one is the reader's own input error, which
+/// v1 would raise identically.
+pub fn read_tape_stream(
+    decoder: &mut Decoder,
+    tape: &Path,
+    v1: &Path,
+    expected_sha: Option<&[u8; 32]>,
+    input: &TelonexInput<'_>,
+) -> Result<Result<ReplayStream, InputError>, Fallback> {
+    with_tape(decoder, tape, v1, expected_sha, |d, buf, h| {
+        let mut replayer = match Replayer::new(&h.dict, input) {
+            Ok(r) => r,
+            Err(e) => return Ok(Err(e)),
+        };
+        replayer.reserve_counts(
+            h.rows as usize,
+            (h.list_values[dec::BID_PRICES] + h.list_values[dec::ASK_PRICES]) as usize,
+            h.list_values[dec::CHANGE_PRICES] as usize,
+        );
+        match d
+            .stream(buf, h, |rows, row0| replayer.feed(rows, row0))
+            .map_err(Fallback::Invalid)?
+        {
+            Ok(()) => Ok(Ok(replayer.finish())),
+            Err(e) => Ok(Err(e)),
+        }
+    })
 }
 
 /// Bytes of every regular file under `dir` (0 when it does not exist).
