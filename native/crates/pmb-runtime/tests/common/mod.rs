@@ -6,12 +6,15 @@
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use pmb_core::market::Window;
 use pmb_core::{MarketEvent, MarketInfo, PerOutcome, TsMs, Usdc};
 use pmb_engine::clock::DecisionOrigin;
 use pmb_engine::stats::{FinalStats, MarketStatsAcc};
-use pmb_engine::strategy::{Ctx, Intents, Requirements, StrategyResult, TickCause};
+use pmb_engine::strategy::{
+    Ctx, Intents, Interests, Requirements, StrategyResult, TickCause, TickInterest,
+};
 use pmb_engine::trace::{TraceEvent, TraceSink};
 use pmb_engine::Strategy;
 use pmb_runtime::backend::{Backend, CandidateRun, RunCtx, RunFailure};
@@ -186,6 +189,38 @@ impl Strategy for PanicsInNew {
     }
     fn new(_p: &(), _m: &MarketInfo) -> Self {
         panic!("strategy refuses this market")
+    }
+    fn on_tick(&mut self, _c: &Ctx, _o: &mut Intents) -> StrategyResult {
+        Ok(())
+    }
+}
+
+/// Calls of `Fickle::interests`.
+static FICKLE_CALLS: AtomicU32 = AtomicU32::new(0);
+
+/// Its interests change after the first evaluation, breaking 30 §4 rule 3
+/// (requirements and interests are pure functions of the params).
+pub struct Fickle;
+
+impl Strategy for Fickle {
+    type Params = ();
+    const ID: &'static str = "runtime-test-fickle.v1";
+
+    fn requirements(_p: &()) -> Requirements {
+        Requirements::new()
+    }
+    fn interests(_p: &()) -> Interests {
+        if FICKLE_CALLS.fetch_add(1, Ordering::SeqCst) == 0 {
+            Interests::ALL
+        } else {
+            Interests {
+                ticks: TickInterest::TopOfBook,
+                ..Interests::ALL
+            }
+        }
+    }
+    fn new(_p: &(), _m: &MarketInfo) -> Self {
+        Fickle
     }
     fn on_tick(&mut self, _c: &Ctx, _o: &mut Intents) -> StrategyResult {
         Ok(())

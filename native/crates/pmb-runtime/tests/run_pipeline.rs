@@ -8,7 +8,7 @@ mod common;
 use std::io::Read;
 use std::time::{Duration, Instant};
 
-use common::{fixture_market, synthetic_job, FakeBackend, Idle, Mode, PanicsInNew};
+use common::{fixture_market, synthetic_job, FakeBackend, Fickle, Idle, Mode, PanicsInNew};
 use pmb_contract::result::EngineResult;
 use pmb_contract::vocab::TraceLevel;
 use pmb_contract::vocab::{ErrorClass, ResultStatus, SkipReason, StatsSkipReason};
@@ -394,8 +394,22 @@ fn pipeline_raises_each_class_with_its_exit_code() {
         // A candidate fault is candidate-level: the group is ok (21 §14).
         assert_eq!(o.result.status, ResultStatus::Ok);
         let e = o.result.candidates[0].error.as_ref().unwrap();
-        assert_eq!(e.detail.as_ref().unwrap().callback.as_deref(), Some("new"));
+        let detail = e.detail.as_ref().unwrap();
+        assert_eq!(detail.callback.as_deref(), Some("new"));
+        // No strategy tick happened before `new`: no seq or time is made up.
+        assert_eq!((detail.seq, detail.ts_ms), (None, None));
         assert!(e.message.contains("strategy refuses this market"));
+
+        // 30 §4 rule 3: requirements/interests that change between describe
+        // and job start fail the job (group level), with no made-up tick.
+        let fj = common::job(Fickle::ID, &slug, &tokens, path.to_str().unwrap(), bytes);
+        let o = run_value::<Fickle>(&fj, &IDLE, &ov);
+        assert_error(&o, ErrorClass::StrategyFault, "error");
+        assert_eq!(o.result.status, ResultStatus::Error);
+        assert!(o.result.candidates.is_empty());
+        let e = o.result.error.as_ref().unwrap();
+        assert!(e.message.contains("30 §4 rule 3"), "{}", e.message);
+        assert!(e.detail.is_none(), "{:?}", e.detail);
     }
 }
 

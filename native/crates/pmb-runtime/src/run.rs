@@ -457,19 +457,30 @@ where
     };
 
     // 30 §4 rule 3: requirements and interests again at job start; they
-    // must equal the describe-time evaluation.
+    // must equal the describe-time evaluation, else the job fails: a
+    // group-level strategy_fault. No callback or tick was involved, so the
+    // detail carries no callback, seq or tsMs.
     let again = catch(|| (T::requirements(&cand.params), T::interests(&cand.params)));
-    let consistency = match again {
-        Ok((r, i)) if r == cand.requirements && i == cand.interests => Ok(()),
-        Ok(_) => Err(EngineError::strategy_fault(
+    let inconsistent = match again {
+        Ok((r, i)) if r == cand.requirements && i == cand.interests => None,
+        Ok(_) => Some(EngineError::strategy_fault(
             "error",
             "requirements/interests differ between describe and job start (30 §4 rule 3)",
         )),
-        Err(p) => Err(EngineError::strategy_fault(
-            "panic",
-            format!("panic in requirements/interests: {}", p.message),
-        )),
+        Err(p) => Some(
+            EngineError::strategy_fault(
+                "panic",
+                format!("panic in requirements/interests: {}", p.message),
+            )
+            .with_detail(ErrorDetail {
+                location: p.location,
+                ..ErrorDetail::default()
+            }),
+        ),
     };
+    if let Some(e) = inconsistent {
+        return finish_group_error(e, plan, market, inputs, clock);
+    }
 
     let deadline = clock.deadline(job.budget.wall_ms);
     if deadline.expired() {
@@ -501,30 +512,20 @@ where
         }
     };
 
-    let run = match consistency {
-        Err(e) => Err(RunFailure::Strategy {
-            cause: e.cause,
-            message: e.message,
-            callback: "requirements",
-            seq: 0,
-            at: pmb_core::TsMs(0),
-        }),
-        // Engine panics are engine faults of the job (12 §11); strategy
-        // panics are caught inside the session and arrive as
-        // `RunFailure::Strategy`.
-        Ok(()) => catch(|| match sink.as_mut() {
-            Some(s) => backend.run_candidate(&cx, cand, s),
-            None => backend.run_candidate(&cx, cand, NoTrace),
-        })
-        .unwrap_or_else(|p| {
-            Err(RunFailure::Group(
-                EngineError::engine_fault("panic", p.message).with_detail(ErrorDetail {
-                    location: p.location,
-                    ..ErrorDetail::default()
-                }),
-            ))
-        }),
-    };
+    // Engine panics are engine faults of the job (12 §11); strategy panics
+    // are caught inside the session and arrive as `RunFailure::Strategy`.
+    let run = catch(|| match sink.as_mut() {
+        Some(s) => backend.run_candidate(&cx, cand, s),
+        None => backend.run_candidate(&cx, cand, NoTrace),
+    })
+    .unwrap_or_else(|p| {
+        Err(RunFailure::Group(
+            EngineError::engine_fault("panic", p.message).with_detail(ErrorDetail {
+                location: p.location,
+                ..ErrorDetail::default()
+            }),
+        ))
+    });
 
     let (cand_result, skew, counters) = match run {
         Err(RunFailure::Group(e)) => {
@@ -547,10 +548,15 @@ where
             if let Some(s) = sink {
                 s.abort();
             }
+            // A fault in `new` happens before the first strategy tick: there
+            // is no tick seq or loop time to report (21 §10 detail).
+            let tick = callback != "new";
             let e = EngineError::strategy_fault(cause, message).with_detail(ErrorDetail {
                 callback: Some(callback.to_string()),
-                seq: SafeU64::new(seq),
-                ts_ms: u64::try_from(at.0).ok().and_then(SafeU64::new),
+                seq: tick.then(|| SafeU64::new(seq)).flatten(),
+                ts_ms: tick
+                    .then(|| u64::try_from(at.0).ok().and_then(SafeU64::new))
+                    .flatten(),
                 ..ErrorDetail::default()
             });
             (
