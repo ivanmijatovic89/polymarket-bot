@@ -82,6 +82,8 @@ export class NativeBuildError extends Error {
 export type Toolchain = {
   /** Full `rustc -vV` output. */
   rustcVerbose: string
+  /** `host:` line of `rustc -vV`. */
+  host: string
   /** `release:` line of `rustc -vV`, e.g. 1.89.0. */
   rustcRelease: string
 }
@@ -96,6 +98,7 @@ export function readToolchain(
   packageRoot: string,
   env: NodeJS.ProcessEnv,
   engineRoot: string = ENGINE_ROOT,
+  opts: { anyHost?: boolean } = {},
 ): Toolchain {
   const pinned = pinnedChannel(readFileSync(path.join(engineRoot, ENGINE_TOOLCHAIN_REL), 'utf8'))
   if (env['RUSTUP_TOOLCHAIN'] !== pinned) {
@@ -104,11 +107,19 @@ export function readToolchain(
     )
   }
   const out = runOk('rustc', ['-vV'], { cwd: packageRoot, env })
-  return checkRustcVerbose(out, pinned)
+  return checkRustcVerbose(out, pinned, opts.anyHost ? null : NATIVE_TARGET)
 }
 
-/** Check `rustc -vV` output against the pin: release and host aarch64-apple-darwin (31 §3, 20 §1). */
-export function checkRustcVerbose(out: string, pinned: string): Toolchain {
+/**
+ * Check `rustc -vV` output against the pin: the release, and the host
+ * (aarch64-apple-darwin for every build; null only for the CI mode of
+ * 31 §7.6, which runs on a Linux host and builds no artifact).
+ */
+export function checkRustcVerbose(
+  out: string,
+  pinned: string,
+  expectedHost: string | null = NATIVE_TARGET,
+): Toolchain {
   const release = /^release: (.+)$/m.exec(out)?.[1]?.trim()
   if (!release) throw new NativeBuildError(`cannot read the rustc release from:\n${out}`)
   if (release !== pinned) {
@@ -117,12 +128,13 @@ export function checkRustcVerbose(out: string, pinned: string): Toolchain {
     )
   }
   const host = /^host: (.+)$/m.exec(out)?.[1]?.trim()
-  if (host !== NATIVE_TARGET) {
+  if (!host) throw new NativeBuildError(`cannot read the rustc host from:\n${out}`)
+  if (expectedHost !== null && host !== expectedHost) {
     throw new NativeBuildError(
-      `rustc host is ${JSON.stringify(host ?? null)}, expected ${NATIVE_TARGET} (the pinned toolchain of the build host, 31 §3 item 4)`,
+      `rustc host is ${JSON.stringify(host)}, expected ${expectedHost} (the pinned toolchain of the build host, 31 §3 item 4)`,
     )
   }
-  return { rustcVerbose: out.trimEnd(), rustcRelease: release }
+  return { rustcVerbose: out.trimEnd(), rustcRelease: release, host }
 }
 
 /**

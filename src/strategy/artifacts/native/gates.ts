@@ -159,8 +159,9 @@ function isRecord(x: unknown): x is Record<string, unknown> {
  */
 export function checkDescribe(
   doc: unknown,
-  expect: { profile: BuildProfile },
+  expect: { profile: BuildProfile; target?: string },
 ): { ok: true; summary: DescribeSummary } | { ok: false; errors: string[] } {
+  const target = expect.target ?? NATIVE_TARGET
   const errors: string[] = []
   if (!isRecord(doc)) return { ok: false, errors: ['describe output is not a JSON object'] }
   if (doc['type'] !== 'describe')
@@ -175,10 +176,8 @@ export function checkDescribe(
   const strategy = doc['strategy']
   if (!isRecord(binary)) errors.push('binary is missing')
   else {
-    if (binary['target'] !== NATIVE_TARGET) {
-      errors.push(
-        `binary.target is ${JSON.stringify(binary['target'])}, expected "${NATIVE_TARGET}"`,
-      )
+    if (binary['target'] !== target) {
+      errors.push(`binary.target is ${JSON.stringify(binary['target'])}, expected "${target}"`)
     }
     if (binary['buildProfile'] !== expect.profile) {
       errors.push(

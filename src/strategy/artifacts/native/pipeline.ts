@@ -6,7 +6,7 @@
  * this module imports neither the R2 client nor the DB layer.
  */
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {
@@ -22,11 +22,14 @@ import {
   type Toolchain,
 } from './builder.js'
 import type { EngineIdentity } from './engineIdentity.js'
+import { checkDescribe, parseSingleJsonDocument } from './gates.js'
 import {
   bootstrapToolEnv,
   cargoCommand,
+  ENGINE_ROOT,
   makeHostContext,
   run,
+  runOk,
   type BuildQos,
   type HostContext,
 } from './host.js'
@@ -56,10 +59,17 @@ export type NativeRunOptions = {
   targetDir?: string
   /** 31 §4.5: `background` (default; jobs cap and `taskpolicy -b`) or `interactive`. */
   qos?: BuildQos
+  /**
+   * CI mode of 31 §7.6 (strategy:check only): gates 1-4 and 6, gate 6 on a
+   * host build (any host, e.g. GitHub ubuntu-latest), unthrottled; no
+   * canonical build, no post-link steps.
+   */
+  ci?: boolean
   log?: (msg: string) => void
 }
 
 type Session = {
+  ci: boolean
   host: HostContext
   toolchain: Toolchain
   loaded: LoadedPackage
@@ -70,15 +80,17 @@ type Session = {
 function openSession(opts: NativeRunOptions): Session {
   const log = opts.log ?? ((m: string) => console.log(m))
   const packageRoot = path.resolve(opts.packageDir)
-  const toolchain = readToolchain(packageRoot, bootstrapToolEnv())
+  const ci = opts.ci ?? false
+  const toolchain = readToolchain(packageRoot, bootstrapToolEnv(), ENGINE_ROOT, { anyHost: ci })
+  const qos = ci ? 'interactive' : opts.qos
   const host = makeHostContext({
     rustcRelease: toolchain.rustcRelease,
     ...(opts.targetDir !== undefined ? { targetDir: opts.targetDir } : {}),
-    ...(opts.qos !== undefined ? { qos: opts.qos } : {}),
+    ...(qos !== undefined ? { qos } : {}),
   })
   const loaded = loadPackage(packageRoot, host)
   const engine = engineIdentity(host)
-  return { host, toolchain, loaded, engine, log }
+  return { ci, host, toolchain, loaded, engine, log }
 }
 
 function gate1(s: Session): GateResult {
@@ -127,6 +139,9 @@ function gate3(s: Session): GateResult {
       'iterate',
       '--config',
       configPath,
+      // CI (31 §7.6) lints for its own host; everywhere else the rendered
+      // config's build.target (aarch64-apple-darwin) applies.
+      ...(s.ci ? ['--target', s.toolchain.host] : []),
       '--',
       '-D',
       'warnings',
@@ -206,6 +221,85 @@ export function gate6(
   return { gate: 6, name: 'describe: id grammar and uniqueness', status, detail }
 }
 
+/**
+ * Gate 6 of the CI mode (31 §7.6): build every bin for the host with the
+ * `iterate` profile and the rendered policy, run `describe`, and check it as
+ * gate 6 does (id grammar and uniqueness; the target is the host's). No
+ * post-link steps: CI builds are never artifacts.
+ */
+function ciGate6(s: Session): GateResult {
+  const name = `describe of every bin from a ${s.toolchain.host} host build (CI, 31 §7.6)`
+  const { rendered } = renderHostBuildConfig(s.host, s.engine, s.toolchain)
+  const work = mkdtempSync(path.join(os.tmpdir(), 'pmb-native-ci-'))
+  try {
+    const configPath = path.join(work, 'artifact-build.toml')
+    writeFileSync(configPath, rendered)
+    const args = [
+      'build',
+      '--locked',
+      '--offline',
+      '--profile',
+      'iterate',
+      '--bins',
+      '--target',
+      s.toolchain.host,
+      '--config',
+      configPath,
+    ]
+    const env = {
+      ...s.host.toolEnv,
+      CARGO_TARGET_DIR: s.host.targetDir,
+      PMB_BUILD_PROFILE: 'iterate',
+    }
+    const [cmd, cmdArgs] = cargoCommand(s.host, args)
+    const r = withBuilderLock(s.host.lockPath, s.log, () =>
+      run(cmd, cmdArgs, { cwd: s.loaded.packageRoot, env }),
+    )
+    if (r.status !== 0)
+      return { gate: 6, name, status: 'fail', detail: [r.stderr.trim().slice(-6000)] }
+    const detail: string[] = []
+    const described: Array<{ strategyId: string; bin: string }> = []
+    for (const bin of s.loaded.bins) {
+      const exe = path.join(work, bin)
+      copyFileSync(path.join(s.host.targetDir, s.toolchain.host, 'iterate', bin), exe)
+      // Apple Silicon refuses to run a binary whose signature the strip invalidated (31 §4.4 step 1).
+      if (process.platform === 'darwin')
+        runOk('codesign', ['--force', '--sign', '-', exe], { cwd: work, env: s.host.toolEnv })
+      const d = run(exe, ['describe'], {
+        cwd: work,
+        env: { TZ: 'UTC', LANG: 'C', RUST_BACKTRACE: '1' },
+        timeoutMs: 120_000,
+      })
+      let checked: ReturnType<typeof checkDescribe> | null = null
+      try {
+        checked =
+          d.status === 0
+            ? checkDescribe(parseSingleJsonDocument(d.stdout, 'describe'), {
+                profile: 'iterate',
+                target: s.toolchain.host,
+              })
+            : null
+      } catch (err) {
+        detail.push(`${bin}: ${err instanceof Error ? err.message : String(err)}`)
+        continue
+      }
+      if (checked === null)
+        detail.push(`${bin}: describe exited ${d.status}: ${d.stderr.trim().slice(0, 2000)}`)
+      else if (!checked.ok) detail.push(`${bin}: ${checked.errors.join('; ')}`)
+      else described.push({ strategyId: checked.summary.strategyId, bin })
+    }
+    const g = gate6(s, described)
+    return {
+      gate: 6,
+      name,
+      status: detail.length > 0 ? 'fail' : g.status,
+      detail: [...detail, ...g.detail],
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+}
+
 function printGate(log: (m: string) => void, prefix: string, g: GateResult): void {
   log(`${prefix} gate ${g.gate} ${g.name}: ${g.status.toUpperCase()}`)
   for (const d of g.detail) for (const line of d.split('\n')) log(`${prefix}   ${line}`)
@@ -232,7 +326,17 @@ export function runNativeCheck(opts: NativeRunOptions): { ok: boolean; gates: Ga
     push({ gate: 3, name: 'clippy', status: 'skipped', detail: ['gate 1 failed'] })
   } else push(gate3(s))
   push(unimplementedGate(s, 4, GATE4_NAME, 'testkit tests under the deny-network sandbox'))
-  if (g1.status === 'fail') {
+  if (s.ci) {
+    const why =
+      'CI runs gates 1-4 and 6; the canonical build, selftest and gate 7 run on worker-1 (LG-1, 31 §7.6)'
+    push({ gate: 5, name: 'builder build of every bin', status: 'skipped', detail: [why] })
+    push(
+      g1.status === 'fail'
+        ? { gate: 6, name: 'describe', status: 'skipped', detail: ['gate 1 failed'] }
+        : ciGate6(s),
+    )
+    push({ gate: 7, name: GATE7_NAME, status: 'skipped', detail: [why] })
+  } else if (g1.status === 'fail') {
     push({
       gate: 5,
       name: 'builder build of every bin (iterate)',
@@ -274,7 +378,7 @@ export function runNativeCheck(opts: NativeRunOptions): { ok: boolean; gates: Ga
         : { gate: 6, name: 'describe', status: 'skipped', detail: ['gate 5 failed'] },
     )
   }
-  push(unimplementedGate(s, 7, GATE7_NAME, 'run-group equivalence and interests A/B'))
+  if (!s.ci) push(unimplementedGate(s, 7, GATE7_NAME, 'run-group equivalence and interests A/B'))
   const ok = gates.every((g) => g.status !== 'fail')
   const pending = gates.filter((g) => g.status === 'pending').length
   s.log(`${prefix} ${ok ? 'OK' : 'FAILED'}${pending ? ` (${pending} gates pending pmb-sdk)` : ''}`)

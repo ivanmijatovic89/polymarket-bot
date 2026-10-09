@@ -118,3 +118,13 @@ test('parseNativeCheckArgs accepts --repo and refuses unknown flags', () => {
   assert.throws(() => parseNativeCheckArgs(['--repo', 'p', '--fix']), /unknown argument/)
   assert.throws(() => parseNativeCheckArgs([]), /usage/)
 })
+
+// spec: 31 §7.6 — the CI mode of strategy:check.
+test('parseNativeCheckArgs accepts --ci, which runs unthrottled', () => {
+  assert.equal(parseNativeCheckArgs(['--repo', 'p']).ci, false)
+  assert.equal(parseNativeCheckArgs(['--repo', 'p', '--ci']).ci, true)
+  assert.throws(
+    () => parseNativeCheckArgs(['--repo', 'p', '--ci', '--qos', 'background']),
+    /--qos does not apply/,
+  )
+})

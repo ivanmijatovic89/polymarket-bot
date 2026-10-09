@@ -134,6 +134,36 @@ test('the path-leak gate fails a binary that embeds its package root', { skip },
   }
 })
 
+// spec: 31 §7.6 — CI runs gates 1-4 and 6 (gate 6 on a host build) and
+// skips the canonical build and gate 7, which run on worker-1 (LG-1).
+test('strategy:check --ci runs gates 1-4 and 6 on a host build', { skip }, () => {
+  const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))
+  try {
+    const pkg = proofPackage(path.join(work, 'p'))
+    const { ok, gates } = runNativeCheck({
+      packageDir: pkg,
+      targetDir: path.join(work, 't'),
+      ci: true,
+      log: quiet,
+    })
+    assert.equal(ok, true, JSON.stringify(gates, null, 1))
+    assert.deepEqual(
+      gates.map((g) => [g.gate, g.status]),
+      [
+        [1, 'pass'],
+        [2, 'pass'],
+        [3, 'pass'],
+        [4, 'pending'],
+        [5, 'skipped'],
+        [6, 'pass'],
+        [7, 'skipped'],
+      ],
+    )
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
 // spec: 31 §7.1 — the Rust strategy:check gates on a clean package.
 test('strategy:check passes the proof package with pre-SDK pending gates', { skip }, () => {
   const work = mkdtempSync(path.join('/private/tmp', 'pmb-native-e2e-'))

@@ -136,16 +136,18 @@ export function parseNativePublishArgs(argv: string[]): NativePublishArgs {
 }
 
 const CHECK_USAGE =
-  'usage: npm run strategy:check -- --repo <package dir> [--target-dir <dir>] [--qos background|default]'
+  'usage: npm run strategy:check -- --repo <package dir> [--target-dir <dir>] [--qos background|default] [--ci]'
 
 export function parseNativeCheckArgs(argv: string[]): {
   repo: string
   targetDir: string | null
   qos: BuildQos
+  ci: boolean
 } {
   let repo: string | null = null
   let targetDir: string | null = null
   let qos: string | null = null
+  let ci = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
     const eq = a.indexOf('=')
@@ -158,15 +160,18 @@ export function parseNativeCheckArgs(argv: string[]): {
     if (name === '--repo') repo = takeValue()
     else if (name === '--target-dir') targetDir = takeValue()
     else if (name === '--qos') qos = takeValue()
+    else if (a === '--ci') ci = true
     else throw new UsageError(`unknown argument: ${a}\n${CHECK_USAGE}`)
   }
   if (!repo) throw new UsageError(CHECK_USAGE)
   if (qos !== null && qos !== 'background' && qos !== 'default')
     throw new UsageError(`--qos must be background or default (got ${qos})`)
+  if (ci && qos !== null) throw new UsageError('--ci runs unthrottled; --qos does not apply')
   return {
     repo: path.resolve(repo),
     targetDir: targetDir === null ? null : path.resolve(targetDir),
     qos: qosOf(qos),
+    ci,
   }
 }
 
@@ -238,6 +243,7 @@ export function runNativeCheckCli(argv: string[]): number {
       packageDir: args.repo,
       ...(args.targetDir !== null ? { targetDir: args.targetDir } : {}),
       qos: args.qos,
+      ci: args.ci,
     })
     return ok ? 0 : 1
   } catch (err) {
