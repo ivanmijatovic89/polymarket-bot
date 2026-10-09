@@ -79,6 +79,27 @@ pub enum ConfigError {
     VolatilityWindowMs { label: String, ms: i64 },
     #[error("dwellGate requiredMs is {0}; it must be >= 0")]
     DwellRequiredMs(i64),
+    #[error("{field} is not a finite number of milliseconds within the i64 range")]
+    MsNotFinite { field: &'static str },
+}
+
+/// Converts a TS-port millisecond threshold `x` (a double such as
+/// `seconds * 1000`, which is often not an integer: `16.1 * 1000` is
+/// 16100.000000000002) to the integer threshold that gives the same
+/// decision for every integer elapsed time `e` (decision times are integer
+/// ms, 12 §4.2): `e >= x` iff `e >= ceil(x)`, and `e <= x` iff
+/// `e <= floor(x)`. Exact for |x| < 2^53.
+pub(crate) fn ms_threshold(
+    x: f64,
+    round_up: bool,
+    field: &'static str,
+) -> Result<i64, ConfigError> {
+    let r = if round_up { x.ceil() } else { x.floor() };
+    // i64::MAX as f64 rounds up to 2^63, which is out of range.
+    if !r.is_finite() || r < i64::MIN as f64 || r >= i64::MAX as f64 {
+        return Err(ConfigError::MsNotFinite { field });
+    }
+    Ok(r as i64)
 }
 
 /// Engine-side misuse of the plugin set or malformed engine input. These are

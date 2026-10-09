@@ -36,6 +36,16 @@ pub struct DwellGateConfig {
 }
 
 impl DwellGateConfig {
+    /// `requiredMs` from a TS-port double (for example
+    /// `dwellSecondsRequired * 1000`): the smallest integer ms at or above
+    /// it, so `dwellUpOk`/`dwellDownOk` (`elapsed >= requiredMs`) are those
+    /// of TS on every tick (14 §12.4). TS's snapshot then shows the
+    /// fractional `requiredMs` and `remainingMs`; no strategy reads them.
+    // D-PENDING: 30 §10 states no conversion rule for TS-port double thresholds and TS-shape snapshots differ by the fraction in requiredMs/remainingMs; chose ceil (decision-identical for integer times) and left the field difference to a PARITY note.
+    pub fn required_ms_from_f64(required_ms: f64) -> Result<i64, ConfigError> {
+        crate::set::ms_threshold(required_ms, true, "dwellGate requiredMs")
+    }
+
     // D-PENDING: TS accepts a negative requiredMs (gate opens on entry); chose to reject it as invalid config (00 R14).
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.required_ms < 0 {
@@ -170,6 +180,26 @@ mod tests {
                 BookTop::new(p(down_bid), None),
             ),
         )
+    }
+
+    // spec: 14 §12.4 (a TS-port requiredMs such as 16.1 * 1000 opens the
+    // gate on the same tick as TS), 00 R14
+    #[test]
+    fn required_ms_from_ts_double() {
+        let x = 16.1 * 1000.0; // 16100.000000000002
+        let r = DwellGateConfig::required_ms_from_f64(x).unwrap();
+        assert_eq!(r, 16_101);
+        for e in 16_000..16_200_i64 {
+            // TS: ok iff max(0, x - e) === 0
+            assert_eq!((x - e as f64).max(0.0) == 0.0, e >= r, "e = {e}");
+        }
+        assert_eq!(DwellGateConfig::required_ms_from_f64(1500.0), Ok(1500));
+        assert_eq!(
+            DwellGateConfig::required_ms_from_f64(f64::NAN),
+            Err(ConfigError::MsNotFinite {
+                field: "dwellGate requiredMs"
+            })
+        );
     }
 
     // spec: 14 §12.2 dwellGate (inclusive band, order of bounds irrelevant)

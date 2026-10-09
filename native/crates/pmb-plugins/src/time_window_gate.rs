@@ -18,6 +18,32 @@ pub struct TimeWindowGateConfig {
     pub disable_after_ms: i64,
 }
 
+impl TimeWindowGateConfig {
+    /// The config from TS-port doubles (for example `seconds * 1000`):
+    /// `allowAfterMs` rounds up and `disableAfterMs` rounds down, so
+    /// `withinWindow` (`allowAfterMs <= elapsed <= disableAfterMs`) is that
+    /// of TS for every integer elapsed time (14 §12.4); TS's snapshot echoes
+    /// the unrounded doubles.
+    // D-PENDING: 30 §10 states no conversion rule for TS-port double thresholds; chose ceil/floor (decision-identical for integer times).
+    pub fn from_f64_ms(
+        allow_after_ms: f64,
+        disable_after_ms: f64,
+    ) -> Result<TimeWindowGateConfig, crate::ConfigError> {
+        Ok(TimeWindowGateConfig {
+            allow_after_ms: crate::set::ms_threshold(
+                allow_after_ms,
+                true,
+                "timeWindowGate allowAfterMs",
+            )?,
+            disable_after_ms: crate::set::ms_threshold(
+                disable_after_ms,
+                false,
+                "timeWindowGate disableAfterMs",
+            )?,
+        })
+    }
+}
+
 /// Typed snapshot (TS `TimeWindowGateSnapshot`). `start_ms`, `now_ms` and
 /// `elapsed_ms` are `None` only before the first observed tick.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -123,6 +149,39 @@ mod tests {
         assert_eq!(s.start_ms, Some(TsMs(start)));
         assert_eq!(s.now_ms, Some(TsMs(start + 19_999)));
         assert_eq!(s.elapsed_ms, Some(19_999));
+    }
+
+    // spec: 14 §12.4 (non-integer TS-port thresholds: same decision as TS
+    // for every integer elapsed time), 00 R14 (non-finite is an error)
+    #[test]
+    fn thresholds_from_ts_doubles() {
+        let c = TimeWindowGateConfig::from_f64_ms(16.1 * 1000.0, 32.3 * 1000.0).unwrap();
+        assert_eq!(16.1 * 1000.0, 16_100.000_000_000_002);
+        assert_eq!(32.3 * 1000.0, 32_299.999_999_999_996);
+        assert_eq!((c.allow_after_ms, c.disable_after_ms), (16_101, 32_299));
+        for (allow, disable) in [
+            (16.1 * 1000.0, 32.3 * 1000.0),
+            (-0.5, 0.0),
+            (1000.0, 1000.0),
+        ] {
+            let c = TimeWindowGateConfig::from_f64_ms(allow, disable).unwrap();
+            for e in -3..40_000_i64 {
+                let ts = e as f64;
+                assert_eq!(
+                    e >= c.allow_after_ms && e <= c.disable_after_ms,
+                    ts >= allow && ts <= disable,
+                    "e = {e}"
+                );
+            }
+        }
+        for bad in [f64::NAN, f64::INFINITY, 1e300] {
+            assert_eq!(
+                TimeWindowGateConfig::from_f64_ms(bad, 1.0),
+                Err(crate::ConfigError::MsNotFinite {
+                    field: "timeWindowGate allowAfterMs"
+                })
+            );
+        }
     }
 
     // spec: 14 P-13 (every new time is a visible change)
