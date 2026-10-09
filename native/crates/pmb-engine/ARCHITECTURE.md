@@ -32,8 +32,8 @@ there.
 | `exec::sim::*` | 13 §3–§5 | `scheduler`, `book_overlay`, `fill`, `latency`, `fee`, `report`, `compat`, `simulator` (empty) |
 | `feeds_view`, `plugins_view` | 14 §2, §12.1 | STAND-INS for `pmb-feeds` / `pmb-plugins` (`FeedsView`, `FeedState`, `FeedObservation`, `PluginsView`, `PluginSet`) |
 
-`#![allow(dead_code)]` in `lib.rs` exists only for the skeleton; remove it
-when the bodies land.
+The skeleton's `#![allow(dead_code)]` was removed when the core bodies
+landed (M1 step 3).
 
 ## Ownership for the next two agents
 
@@ -136,6 +136,32 @@ two are equal for real ticks.
 
 The core branches only on `CoreRules` (12 §2.3); the simulator branches only
 on its composition. Neither branches on adapter kind (13 X5).
+
+## Core status (M1 step 3)
+
+Implemented on `ws/core`: the serial step and driver (12 §5.1–§5.3), the
+window gate and lifecycle (12 §5.4, §10), breadth-first cascades with the
+budget (12 §6.2–§6.3), snapshot timing through the stand-in views (12 §6.4),
+`Ctx` (12 §6.5, 30 §5), the OM for both rule sets (12 §7, §8.1, §8.2), the
+single ledger with the PnL identity (12 §9), fault semantics (12 §11), the
+trace emission points (12 §12) and the tick interest filter (16 §9.4).
+Tests: `tests/core_*.rs` (converted TS suites, realistic rules, property
+tests) against the compat-like mock in `tests/core_support/`.
+
+Contract notes for the simulator (no change to `exec/mod.rs`):
+
+- ts-compat `CancelOrder` is dispatched even when the cid has no key, as
+  `Cancel{keys: &[]}`, so the per-`submit` jitter entity count matches TS
+  (13 §5.1); the simulator emits nothing for it (TC-C10).
+- The OM emits engine-origin `OrderRejected{order: None}`, `CancelFailed`,
+  `SplitFailed` and `MergeFailed` itself; it never dispatches a placement
+  that failed validation, risk or funding.
+- The ledger rejects (as `engine_fault`) events for unknown keys or ops,
+  non-increasing `FillKey.seq`, fills beyond the size or the final quantity,
+  a second terminal event per key, and lifecycle inputs that 10 §8.2 does
+  not allow (for example `OrderOpen` after a terminal event).
+- The author view of `OrderAccepted` carries `ExchangeOrderId::Sim(key)`
+  until the live adapter adds an exchange-id side table (M9).
 
 ## Deferred
 

@@ -185,6 +185,7 @@ impl<E: Execution> OmIo<'_, E> {
     #[inline]
     fn rules(&self) -> ExchangeRules {
         match self.config.core_rules {
+            // TC-C1, TC-E7: the fixed ts-compat rules of 11 §4.
             CoreRules::TsCompat => ExchangeRules::ts_compat(),
             CoreRules::Realistic => self.market.rules,
         }
@@ -530,6 +531,7 @@ impl OrderManager {
         let mark = io.queue.len();
         io.dispatch(stamp, cmd);
         self.counters.commands += 1;
+        // TC-C2 step 4: only ts-compat emits synchronously (13 X2).
         if io.config.core_rules != CoreRules::TsCompat {
             return;
         }
@@ -1084,6 +1086,7 @@ impl OrderManager {
         market: &SharedMarket,
         config: &EngineConfig,
     ) -> Result<(), RejectReason> {
+        // TC-C1: the ts-compat validation subset.
         if config.core_rules == CoreRules::TsCompat {
             return Self::validate_ts_compat(req, stamp);
         }

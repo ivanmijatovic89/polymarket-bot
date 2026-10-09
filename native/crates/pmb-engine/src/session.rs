@@ -153,6 +153,15 @@ fn guarded<R>(f: impl FnOnce() -> R) -> Result<R, String> {
     })
 }
 
+/// The rules the strategy and the OM see (12 §6.5 `rules()`): the fixed
+/// ts-compat rules of 11 §4 (TC-C1) or the rules in force.
+fn effective_rules(rules: CoreRules, market: &SharedMarket) -> ExchangeRules {
+    match rules {
+        CoreRules::TsCompat => ExchangeRules::ts_compat(),
+        CoreRules::Realistic => market.rules,
+    }
+}
+
 /// Builds the callback context: borrows only (12 §6.1, §6.5; 30 §5).
 #[allow(clippy::too_many_arguments)]
 fn make_ctx<'a>(
@@ -210,7 +219,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             window: market.window(),
         };
         let state = match rules {
-            // ts-compat has no lifecycle beyond its window gate (TC-C9).
+            // TC-C9: ts-compat has no lifecycle beyond its window gate.
             CoreRules::TsCompat => SessionState::Active,
             CoreRules::Realistic => SessionState::Warming,
         };
@@ -403,6 +412,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     fn tick_time(&self, env: &Envelope<'_>, synthetic: bool) -> TsMs {
         match self.config.core_rules {
             CoreRules::Realistic => self.clocks.now,
+            // TC-C11: the TS tick timestamp (synthetic clamp `S`, real `E`).
             CoreRules::TsCompat if synthetic => env.at,
             CoreRules::TsCompat => env.exchange_ts.unwrap_or(env.at),
         }
@@ -411,6 +421,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     /// The window gate of the profile (12 §5.4).
     fn passes_gate(&self, tick_ts: TsMs) -> bool {
         match self.config.core_rules {
+            // TC-C9: the TS gate per input mode, on the TS tick time.
             CoreRules::TsCompat => self.window.in_window(tick_ts, self.clocks.now),
             CoreRules::Realistic => {
                 self.state == SessionState::Active
@@ -525,6 +536,8 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         self.clocks.tick_ts = tick_ts;
         self.clocks.event_clock.init_if_unset(tick_ts);
         if T::ENABLED {
+            // D-PENDING: the visibility time is the feed clock (14 F-7),
+            // owned by pmb-feeds; chose `tick.ts` until the integration.
             self.trace.record(&TraceEvent::TickStart {
                 seq,
                 cause,
@@ -592,6 +605,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         let Some(strategy) = self.strategy.as_mut() else {
             return Ok(());
         };
+        // 12 §6.5 book(o): ts-compat shows the recorded book only.
         let overlay = match self.config.core_rules {
             CoreRules::Realistic => self.exec.book_overlay(),
             CoreRules::TsCompat => None,
@@ -652,10 +666,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
     /// The rules the strategy and the OM see (12 §6.5 `rules()`, 11 §4):
     /// the fixed ts-compat rules in ts-compat, the rules in force otherwise.
     pub(crate) fn effective_rules(&self, market: &SharedMarket) -> ExchangeRules {
-        match self.config.core_rules {
-            CoreRules::TsCompat => ExchangeRules::ts_compat(),
-            CoreRules::Realistic => market.rules,
-        }
+        effective_rules(self.config.core_rules, market)
     }
 
     /// The OM handles the buffer written by the last callback (12 §7.2).
@@ -771,6 +782,7 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
         if let Some(f) = &self.fault {
             return Err(f.clone());
         }
+        // TC-C13: ts-compat discards undue actions.
         if self.config.core_rules == CoreRules::TsCompat {
             return Ok(());
         }
@@ -844,19 +856,19 @@ impl<S: Strategy, E: Execution, T: TraceSink> Session<S, E, T> {
             return Ok(());
         };
         let Some(tick) = self.last_tick.as_ref() else {
-            // No callback can precede the first strategy tick: every own
-            // order comes from a tick or a later callback.
+            // D-PENDING: 30 §5 `tick()` has no value before the first strategy
+            // tick; only a live StreamStatus can be delivered then (every own
+            // order comes from a tick or a later callback); chose to apply it
+            // without a callback.
             return Ok(());
         };
         let rules = self.config.core_rules;
         let stamp = self.clocks.decision_stamp(rules, DecisionOrigin::Account);
         let rules_view = RulesView {
-            rules: match rules {
-                CoreRules::TsCompat => ExchangeRules::ts_compat(),
-                CoreRules::Realistic => market.rules,
-            },
+            rules: effective_rules(rules, market),
             source: market.rules_source,
         };
+        // 12 §6.5 book(o): ts-compat shows the recorded book only.
         let overlay = match rules {
             CoreRules::Realistic => self.exec.book_overlay(),
             CoreRules::TsCompat => None,

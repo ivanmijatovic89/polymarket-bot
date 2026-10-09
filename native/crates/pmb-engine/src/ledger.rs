@@ -527,6 +527,7 @@ impl Ledger {
     pub fn sellable(&self, o: Outcome) -> Qty {
         let q = self.positions[o].qty;
         match self.rules {
+            // TC-C4: no engine-level sell gate or share reservation.
             CoreRules::TsCompat => q,
             CoreRules::Realistic => (q
                 - self.unsettled[o]
@@ -541,6 +542,7 @@ impl Ledger {
     /// quantity minus pending merges (`OrderManager.ts:412-431`).
     pub fn mergeable(&self, o: Outcome) -> Qty {
         match self.rules {
+            // 12 §7.3 ts-compat: delivered quantity minus pending merges.
             CoreRules::TsCompat => (self.positions[o].qty - self.pending_merge).max(Qty::ZERO),
             CoreRules::Realistic => self.sellable(o),
         }
