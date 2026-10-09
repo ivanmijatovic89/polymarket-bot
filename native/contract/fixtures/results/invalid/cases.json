@@ -1,0 +1,103 @@
+{
+  "base": "../valid/ok-ts-compat.json",
+  "description": "Each case patches the base result (RFC 6901 pointers) and names the expected failure: 'schema' (serde/JSON Schema rejection) or 'validate:<cause>' (egress self-check, class invalid_output).",
+  "cases": [
+    { "name": "unknown top-level field", "set": { "/extra": 1 }, "expect": "schema" },
+    {
+      "name": "unknown marketStats field",
+      "set": { "/candidates/0/output/marketStats/execution": {} },
+      "expect": "schema"
+    },
+    {
+      "name": "money as string in output",
+      "set": { "/candidates/0/output/marketStats/pnl": "-12.35" },
+      "expect": "schema"
+    },
+    {
+      "name": "pnl with 3 decimal places",
+      "set": { "/candidates/0/output/marketStats/pnl": -12.345 },
+      "expect": "schema"
+    },
+    {
+      "name": "avg price with 5 decimal places",
+      "set": { "/candidates/0/output/marketStats/avgEntryPriceUp": 0.51234 },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown eventsByType key",
+      "set": { "/candidates/0/output/eventsByType/last_trade_price": 3 },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown skipReason",
+      "set": { "/candidates/0/output/skipReason": "no_trades" },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown error class",
+      "set": { "/candidates/2/error/class": "strategy_panic" },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown rulesSource",
+      "set": { "/market/rulesSource": "captured" },
+      "expect": "schema"
+    },
+    {
+      "name": "unsupported outputSchemaVersion",
+      "set": { "/outputSchemaVersion": 2 },
+      "expect": "schema"
+    },
+    { "name": "bad digest", "set": { "/resultDigest": "ABC" }, "expect": "schema" },
+    {
+      "name": "eventsByType does not sum",
+      "set": { "/candidates/0/output/eventsProcessed": 4825 },
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "maker + taker != tradeCount",
+      "set": { "/candidates/0/output/marketStats/tradeAsMaker": 2 },
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "mergable is not min(up, down)",
+      "set": { "/candidates/0/output/marketStats/mergableShares": 1 },
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "avg price outside (0, 1)",
+      "set": { "/candidates/0/output/marketStats/avgEntryPriceUp": 1 },
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "negative fees",
+      "set": { "/candidates/0/output/marketStats/feesPaid": -0.01 },
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "zero row without stats skipReason",
+      "remove": ["/candidates/1/output/marketStats/skipReason"],
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "ok candidate without output",
+      "remove": ["/candidates/0/output"],
+      "expect": "validate:self_check"
+    },
+    {
+      "name": "cause outside pattern",
+      "set": { "/candidates/2/error/cause": "Panic" },
+      "expect": "validate:schema"
+    },
+    {
+      "name": "multi-line message",
+      "set": { "/candidates/2/error/message": "a\nb" },
+      "expect": "validate:schema"
+    },
+    {
+      "name": "status ok with error",
+      "set": { "/error": { "class": "runtime", "cause": "io", "message": "x" } },
+      "expect": "validate:self_check"
+    }
+  ]
+}

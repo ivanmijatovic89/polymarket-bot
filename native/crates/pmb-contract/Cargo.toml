@@ -8,7 +8,9 @@ rust-version.workspace = true
 
 [dependencies]
 serde.workspace = true
-serde_json.workspace = true
+# `raw_value` renders output money as exact JSON number tokens (21 §18 N5)
+# without going through f64.
+serde_json = { workspace = true, features = ["raw_value"] }
 schemars.workspace = true
 sha2.workspace = true
 

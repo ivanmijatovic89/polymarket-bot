@@ -24,6 +24,9 @@ pub use ids::{
     CancelKind, CancelOp, CancelSeq, CidInterner, CidKey, ClientOrderId, ConditionId,
     ExchangeOrderId, FillKey, MetaId, OpKey, OrderKey, TokenId, TradeSeq,
 };
+pub use market::{
+    parse_slug, FinalOutcome, MarketInfo, MarketVersion, SlugError, Symbol, Timeframe, Window,
+};
 pub use order::{
     Intent, IntentKind, Intents, MetaStore, OrderRef, OrderRequest, OrderSize, OrderType, Side,
 };

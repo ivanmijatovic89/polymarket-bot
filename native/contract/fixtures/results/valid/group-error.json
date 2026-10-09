@@ -1,0 +1,28 @@
+{
+  "outputSchemaVersion": 1,
+  "status": "error",
+  "error": {
+    "class": "data_defect",
+    "cause": "upstream_hole",
+    "message": "Chainlink hole 2026-06-01T10:00:00Z for 412 s (set maxGapMs 0 to replay stale)",
+    "detail": { "fixCommand": "npm run telonex:crypto-prices:download -- --sync" }
+  },
+  "echo": null,
+  "market": null,
+  "candidates": [],
+  "resultDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "diagnostics": {
+    "startedAtMs": 1791500000000,
+    "finishedAtMs": 1791500000010,
+    "wallMs": 10,
+    "busyMs": 9,
+    "cpuMs": 9,
+    "peakRssBytes": 1000000,
+    "thread": 0,
+    "cache": { "hits": 0, "misses": 1 },
+    "skewMs": null,
+    "inputPath": "v1",
+    "anomalies": {},
+    "counters": []
+  }
+}

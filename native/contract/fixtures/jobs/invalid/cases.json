@@ -1,0 +1,265 @@
+{
+  "base": "../valid/telonex-delta-ts-compat.json",
+  "description": "Each case patches the base job (RFC 6901 pointers) and names the expected failure: 'schema' (serde/JSON Schema rejection) or 'validate:<cause>' (semantic check, class invalid_input).",
+  "cases": [
+    { "name": "unknown top-level field", "set": { "/extra": 1 }, "expect": "schema" },
+    {
+      "name": "unknown nested field",
+      "set": { "/run/modelConfig/feeds/extra": true },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown enum value (inputMode recorded)",
+      "set": { "/run/inputMode": "recorded" },
+      "expect": "schema"
+    },
+    {
+      "name": "enum in wrong case",
+      "set": { "/run/modelConfig/profile": "Realistic" },
+      "expect": "schema"
+    },
+    {
+      "name": "money as JSON number",
+      "set": { "/run/modelConfig/capital/startingCapitalUsdc": 500 },
+      "expect": "schema"
+    },
+    {
+      "name": "money as float",
+      "set": { "/run/modelConfig/risk/maxOrderSize": 2000.5 },
+      "expect": "schema"
+    },
+    {
+      "name": "decimal with trailing zero",
+      "set": { "/run/modelConfig/capital/startingCapitalUsdc": "500.0" },
+      "expect": "schema"
+    },
+    {
+      "name": "decimal with 7 fractional digits",
+      "set": { "/run/modelConfig/risk/maxLossStopUsdc": "0.0000001" },
+      "expect": "schema"
+    },
+    {
+      "name": "decimal negative zero",
+      "set": { "/run/modelConfig/risk/maxLossStopUsdc": "-0" },
+      "expect": "schema"
+    },
+    {
+      "name": "unsupported jobSchemaVersion",
+      "set": { "/jobSchemaVersion": 2 },
+      "expect": "schema"
+    },
+    {
+      "name": "unsupported modelConfigVersion",
+      "set": { "/run/modelConfig/modelConfigVersion": 2 },
+      "expect": "schema"
+    },
+    {
+      "name": "seed above 2^53-1",
+      "set": { "/run/modelConfig/seed": 9007199254740992 },
+      "expect": "schema"
+    },
+    {
+      "name": "missing required section",
+      "remove": ["/run/modelConfig/runner"],
+      "expect": "schema"
+    },
+    {
+      "name": "unknown tokenIds key",
+      "set": { "/market/tokenIds/MAYBE": "3" },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown captured rules field",
+      "set": {
+        "/market/rules/captured/takerBaseFee": {
+          "value": "0",
+          "origin": "gamma",
+          "phase": "pre_start",
+          "snapshotId": 1
+        }
+      },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown distribution kind",
+      "set": { "/run/modelConfig/feeds/binance/latency": { "kind": "pareto", "ms": 1 } },
+      "expect": "schema"
+    },
+    {
+      "name": "unknown field in distribution",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": { "kind": "constant", "ms": 1, "jitter": 2 }
+      },
+      "expect": "schema"
+    },
+    {
+      "name": "priceToBeat negative zero",
+      "set": { "/market/gammaPriceToBeat/priceToBeat": -0.0 },
+      "expect": "schema"
+    },
+    {
+      "name": "realistic section in ts-compat (D57)",
+      "set": {
+        "/run/modelConfig/clock": {
+          "marketData": {
+            "calibrationId": "uncalibrated-2026-10",
+            "delay": { "kind": "constant", "ms": 0 }
+          }
+        }
+      },
+      "expect": "validate:model_config"
+    },
+    {
+      "name": "ts-compat with a non-compat model",
+      "set": { "/run/modelConfig/execution/models/fee": "schedule" },
+      "expect": "validate:model_config"
+    },
+    {
+      "name": "ts-compat with a non-constant feed latency",
+      "set": {
+        "/run/modelConfig/feeds/binance/latency": { "kind": "uniform", "loMs": 1, "hiMs": 2 }
+      },
+      "expect": "validate:model_config"
+    },
+    {
+      "name": "chainlink maxGapMs between 1 and 999",
+      "set": { "/run/modelConfig/feeds/chainlink/maxGapMs": 500 },
+      "expect": "validate:model_config"
+    },
+    {
+      "name": "zero starting capital",
+      "set": { "/run/modelConfig/capital/startingCapitalUsdc": "0" },
+      "expect": "validate:model_config"
+    },
+    {
+      "name": "window differs from slug",
+      "set": { "/market/window/endMs": 1780272300000 },
+      "expect": "validate:window"
+    },
+    {
+      "name": "null window outside recorder-v4",
+      "set": { "/market/window": null },
+      "expect": "validate:window"
+    },
+    {
+      "name": "slug outside v1 universe",
+      "set": { "/market/slug": "eth-updown-15m-1780272000" },
+      "expect": "validate:market"
+    },
+    {
+      "name": "identical token ids",
+      "set": { "/market/tokenIds/DOWN": "1111" },
+      "expect": "validate:market"
+    },
+    {
+      "name": "r2 input path",
+      "set": { "/market/input/path": "r2://bucket/x.parquet" },
+      "expect": "validate:path"
+    },
+    {
+      "name": "relative feed file path",
+      "set": { "/market/feedFiles/0/path": "data/x.parquet" },
+      "expect": "validate:path"
+    },
+    {
+      "name": "negRisk captured true",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "negRisk": { "value": true, "origin": "gamma", "phase": "pre_start", "snapshotId": 5 }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": "validate:rules"
+    },
+    {
+      "name": "tick outside 11 §7.1",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "tick": { "value": "0.02", "origin": "gamma", "phase": "pre_start", "snapshotId": 5 }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": "validate:rules"
+    },
+    {
+      "name": "tick captured post_start",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "tick": { "value": "0.01", "origin": "gamma", "phase": "post_start", "snapshotId": 5 }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": "validate:rules"
+    },
+    {
+      "name": "parser version without captured values",
+      "set": { "/market/rules/snapshotParserVersion": 1 },
+      "expect": "validate:rules"
+    },
+    {
+      "name": "fee exponent above 4",
+      "set": {
+        "/market/rules": {
+          "snapshotParserVersion": 1,
+          "captured": {
+            "feeSchedule": {
+              "value": { "rate": "0.07", "exponent": 5, "takerOnly": true },
+              "origin": "clob",
+              "phase": "pre_start",
+              "snapshotId": 5
+            }
+          },
+          "disagreements": 0
+        }
+      },
+      "expect": "validate:rules"
+    },
+    {
+      "name": "candidate index out of order",
+      "set": { "/run/candidates/0/index": 1 },
+      "expect": "validate:params"
+    },
+    {
+      "name": "ts-compat candidate varies execution",
+      "set": {
+        "/run/candidates/0/execution": {
+          "models": {
+            "latency": "compat",
+            "fee": "flat_700bps_4dp",
+            "takerDelay": "off",
+            "depletion": "none",
+            "maker": "worst_queue",
+            "reports": "compat"
+          },
+          "compatLatency": { "delayMs": 0, "jitterMs": 0 }
+        }
+      },
+      "expect": "validate:params"
+    },
+    {
+      "name": "fed without a resolved strike",
+      "set": { "/market/gammaPriceToBeat": null },
+      "expect": "validate:feed_availability"
+    },
+    {
+      "name": "unavailable without a message",
+      "set": { "/market/feedAvailability/priceToBeat": { "status": "unavailable_upstream_hole" } },
+      "expect": "validate:feed_availability"
+    },
+    { "name": "budget threads 0", "set": { "/budget/threads": 0 }, "expect": "validate:schema" },
+    {
+      "name": "budget wallMs too small",
+      "set": { "/budget/wallMs": 999 },
+      "expect": "validate:schema"
+    }
+  ]
+}
