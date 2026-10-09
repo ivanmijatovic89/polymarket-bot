@@ -117,9 +117,20 @@ export function nativeJob(
     },
     readFrom: 'local',
     asOfMs: 1_791_500_000_000,
+    gate: TEST_GATE,
     ...extras,
   })
 }
+
+/** Gate inputs of a test native job (21 §4, 40 §4.1). */
+export const TEST_GATE = {
+  protocolVersion: 2,
+  target: 'aarch64-apple-darwin',
+  artifactSha256: 'a'.repeat(64),
+  artifactR2Url: `r2://bucket/native/${'a'.repeat(64)}`,
+  priorityClass: 'user',
+  producerDirty: false,
+} as const
 
 /** A contract result fixture rewritten so that it echoes `job` (21 §12). */
 export function echoingResult(

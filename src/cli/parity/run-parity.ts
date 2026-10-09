@@ -72,6 +72,8 @@ import {
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
+  nativeJobWithGate,
+  parityGate,
   rustOnlyJobProblems,
 } from '../../backtest/parity/rustJob.js'
 import {
@@ -80,7 +82,8 @@ import {
   feedDayFiles,
   runNativeJob,
   type NativeDescribe,
-  type NativeMarketJobData,
+  type NativeGateInput,
+  type NativeJobTemplate,
 } from '../../native/index.js'
 import { TRACE_FORMAT, TRACE_VERSION } from '../../backtest/parity/trace.js'
 import { prepareOracleTree } from '../../backtest/parity/oracleTree.js'
@@ -415,6 +418,7 @@ async function main(): Promise<number> {
   // standard build, checked-in contract), then the cell checks: same strategy
   // id, params, feeds, trace format (fail loud, R14).
   let rustBinary: NativeDescribe['binary'] | null = null
+  let rustGate: NativeGateInput | null = null
   if (rustBin) {
     const doc = await describeNative(path.resolve(rustBin), {
       params: built.params as Record<string, unknown>,
@@ -428,6 +432,7 @@ async function main(): Promise<number> {
         `--rust-bin ${rustBin} does not match cell ${cell.cell}:\n  ${problems.join('\n  ')}`,
       )
     rustBinary = doc.binary
+    rustGate = parityGate(doc, { path: rustBin, sha256: rustSha! }, !tree.workingTreeClean)
     // VP-7: gate evidence comes from the canonical `artifact` binary.
     if (doc.binary.buildProfile !== 'artifact')
       nonGating.push(`--rust-bin build profile ${doc.binary.buildProfile}, not artifact (VP-7)`)
@@ -541,7 +546,7 @@ async function main(): Promise<number> {
 
     // 60 CL-7, HR-6: Rust runs whatever the TS outcome; a TS failure is
     // compared by class, never excluded (excluded is OR-9 and MS-5 only).
-    if (rustBin && buildEngineJob && rustBinary) {
+    if (rustBin && buildEngineJob && rustBinary && rustGate) {
       const rustTrace = path.join(rustDir, `${slug}.rust${traceExt}`)
       const rustLog = path.join(logsDir, `${slug}.rust.log`)
       const t0 = Date.now()
@@ -550,12 +555,12 @@ async function main(): Promise<number> {
       // A trace left by an earlier run (--rust-only reruns into the same
       // directory, 60 §4.5) must never be diffed as this run's (R14).
       rmSync(rustTrace, { force: true })
-      const native = JSON.parse(
+      const template = JSON.parse(
         readFileSync(path.join(jobsDir, `${slug}.native.json`), 'utf8'),
-      ) as NativeMarketJobData
+      ) as NativeJobTemplate
       // VP-2, HR-7: the evidence must run the configuration the manifest names (R14).
       if (rustOnly) {
-        const problems = rustOnlyJobProblems(native, cell, {
+        const problems = rustOnlyJobProblems(template, cell, {
           modelConfigSha256: mcSha,
           requiredFeeds: feeds,
         })
@@ -565,6 +570,8 @@ async function main(): Promise<number> {
           )
       }
       try {
+        // 21 §4 gate fields of the binary that runs this market (40 §4.1).
+        const native = nativeJobWithGate(template, rustGate)
         const engineJob = await engineJobFor(buildEngineJob, native, dataRoot, {
           tracePath: rustTrace,
           traceLevel: cell.traceLevel,

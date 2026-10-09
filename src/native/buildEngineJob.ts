@@ -34,6 +34,8 @@ import { createContractValidators, type ContractValidators } from './contract/va
 import { NativeError } from './errors.js'
 import { dayFileFixCommand, feedDayFiles } from './feeds.js'
 import { executionProblems, numberToDecimalString, validateModelConfig } from './modelConfig.js'
+import { NATIVE_PROTOCOL_VERSION, type NativeArtifactRef } from './runner.js'
+import { SHA256_HEX_RE } from '../strategy/artifacts/types.js'
 
 /** `EngineJob` schema version this shim builds (21 §5, 20 §3). */
 export const JOB_SCHEMA_VERSION = 1 as const
@@ -62,12 +64,55 @@ export interface NativeInputRef {
 }
 
 /**
+ * `NATIVE_SHIM_VERSION` of 40 §4.2 step 2: a TS integer constant, bumped
+ * when the shim gains a capability that some job needs.
+ */
+export const NATIVE_SHIM_VERSION = 1
+
+/** 40 §10 priority classes of a native submission. */
+export const NATIVE_PRIORITY_CLASSES = ['calibration', 'user', 'agent'] as const
+export type NativePriorityClass = (typeof NATIVE_PRIORITY_CLASSES)[number]
+
+/**
+ * The producer's compatibility table of 40 §4.2 step 2: the lowest shim
+ * version able to run a job, keyed by (`protocolVersion`, `jobSchemaVersion`)
+ * so a producer upgrade does not force fleet restarts.
+ */
+const MIN_SHIM_VERSION: ReadonlyMap<string, number> = new Map([['2:1', 1]])
+
+/** `native.minShimVersion` for a (protocol, job schema) pair (40 §4.2 step 2); throws for an unknown pair. */
+export function minShimVersionFor(protocolVersion: number, jobSchemaVersion: number): number {
+  const v = MIN_SHIM_VERSION.get(`${protocolVersion}:${jobSchemaVersion}`)
+  if (v === undefined)
+    throw invalid(
+      'artifact_incompatible',
+      `no shim runs protocol ${protocolVersion} with jobSchemaVersion ${jobSchemaVersion} (40 §4.2)`,
+    )
+  return v
+}
+
+/** The `native` gate object of a native job (21 §4, 40 §4.1). */
+export interface NativeGate {
+  /** The binary's `protocolVersion`, copied from `describe` at submit (20 §3). */
+  protocolVersion: number
+  /** Lowest shim version able to run the job (40 §4.2 step 2). */
+  minShimVersion: number
+  priorityClass: NativePriorityClass
+  /** Provenance only, never gated (D12). */
+  producerDirty: boolean
+}
+
+/**
  * The native fields of `MarketJobData` (21 §4). `MarketJobData` stays
  * TS-owned (`src/backtest/jobTypes.ts`); its native sub-objects are the
  * generated contract types (21 §3).
  */
 export interface NativeJobFields {
   jobSchemaVersion: typeof JOB_SCHEMA_VERSION
+  /** Gate fields (21 §4 `native`, 40 §4.1). */
+  native: NativeGate
+  /** The native binary: `{sha256, r2Url, kind: 'native', target}` (21 §4, 31 §8 step 7, 40 §4.1). */
+  strategyArtifact: NativeArtifactRef
   modelConfig: ModelConfig
   /** Captured rules record (21 §7); the empty form before M3a (21 §7.2). */
   rules: MarketRules
@@ -96,7 +141,7 @@ export interface NativeJobFields {
 }
 
 /** A native market job: the BullMQ payload with the 21 §4 additions. */
-export type NativeMarketJobData = MarketJobData & NativeJobFields
+export type NativeMarketJobData = Omit<MarketJobData, 'strategyArtifact'> & NativeJobFields
 
 /** Data roots (00 §5 "Data roots"): `--data-root`, default `<repository root>/data`. */
 export interface DataRoots {
@@ -181,6 +226,7 @@ function assertNativeInvariants(job: NativeMarketJobData): void {
       `input mode ${job.inputMode} is not supported by this shim yet (telonex-delta only)`,
     )
   }
+  assertNativeGate(job)
   if (job.ownActivity !== null) {
     throw invalid(
       'schema',
@@ -222,19 +268,65 @@ function assertNativeInvariants(job: NativeMarketJobData): void {
   }
 }
 
+/** 21 §4 `native` and `strategyArtifact` of a native job (40 §4.1 gate fields). */
+function assertNativeGate(job: NativeMarketJobData): void {
+  const g = (job as { native?: unknown }).native as Partial<NativeGate> | undefined
+  if (g === undefined || g === null || typeof g !== 'object')
+    throw invalid('schema', 'native jobs carry the native gate object (21 §4)')
+  if (g.protocolVersion !== NATIVE_PROTOCOL_VERSION)
+    throw invalid(
+      'version',
+      `native.protocolVersion ${String(g.protocolVersion)}; this shim speaks ${NATIVE_PROTOCOL_VERSION} (20 §1)`,
+    )
+  if (!Number.isSafeInteger(g.minShimVersion) || (g.minShimVersion ?? 0) < 1)
+    throw invalid(
+      'schema',
+      `native.minShimVersion ${String(g.minShimVersion)} is not a positive integer`,
+    )
+  if (!NATIVE_PRIORITY_CLASSES.includes(g.priorityClass as NativePriorityClass))
+    throw invalid('schema', `native.priorityClass ${String(g.priorityClass)} (40 §10)`)
+  if (typeof g.producerDirty !== 'boolean')
+    throw invalid('schema', 'native.producerDirty must be a boolean (D12)')
+  const a = (job as { strategyArtifact?: unknown }).strategyArtifact as
+    | Partial<NativeArtifactRef>
+    | undefined
+  if (a === undefined || a === null || typeof a !== 'object')
+    throw invalid('schema', 'native jobs carry strategyArtifact (21 §4, 31 §8 step 7)')
+  if (a.kind !== 'native')
+    throw invalid('schema', `strategyArtifact.kind ${String(a.kind)} is not native (21 §4)`)
+  if (typeof a.sha256 !== 'string' || !SHA256_HEX_RE.test(a.sha256))
+    throw invalid('schema', `strategyArtifact.sha256 ${String(a.sha256)} is not a sha256`)
+  if (typeof a.target !== 'string' || a.target === '')
+    throw invalid('schema', 'strategyArtifact.target is the binary triple (40 §4.1)')
+  if (typeof a.r2Url !== 'string' || a.r2Url === '')
+    throw invalid('schema', 'strategyArtifact.r2Url is required (21 §4)')
+}
+
 /**
  * The run's candidates (21 §4, §8): the given array checked against C1, C2
  * and C4, or one candidate from `strategyParams` keyed by `submissionUid`.
  */
 function candidatesOf(job: NativeMarketJobData): CandidateSpec[] {
   if (job.candidates === undefined) {
-    return [{ key: job.submissionUid, index: 0, params: job.strategyParams, execution: null }]
+    return [
+      {
+        key: candidateKeyOf(job.submissionUid),
+        index: 0,
+        params: job.strategyParams,
+        execution: null,
+      },
+    ]
   }
   const list = job.candidates
   if (list.length === 0) throw invalid('params', 'candidates is empty (21 §5.1: 1..maxCandidates)')
   const keys = new Set<string>()
   const pairs = new Set<string>()
   list.forEach((c, i) => {
+    if (!CANDIDATE_KEY_RE.test(c.key))
+      throw invalid(
+        'params',
+        `candidate key ${JSON.stringify(c.key)} is outside ${String(CANDIDATE_KEY_RE)} (21 §8 C1)`,
+      )
     if (c.index !== i)
       throw invalid('params', `candidate ${c.key} has index ${c.index}, expected ${i} (21 §8 C1)`)
     if (keys.has(c.key)) throw invalid('params', `duplicate candidate key ${c.key} (21 §8 C1)`)
@@ -247,8 +339,8 @@ function candidatesOf(job: NativeMarketJobData): CandidateSpec[] {
         )
       }
       const problems = executionProblems(job.modelConfig.profile, c.execution)
-      if (problems.length > 0)
-        throw invalid('model_config', `candidate ${c.key}: ${problems.join('; ')}`)
+      // 21 §5.1: every §8 candidate rule is `invalid_input: params`, as in pmb-contract.
+      if (problems.length > 0) throw invalid('params', `candidate ${c.key}: ${problems.join('; ')}`)
     }
     // C2: params may hold floats (21 §18 N7), so they are compared as JSON text of the normalized object.
     const effective = c.execution ?? job.modelConfig.execution
@@ -261,6 +353,23 @@ function candidatesOf(job: NativeMarketJobData): CandidateSpec[] {
     pairs.add(pair)
   })
   return list
+}
+
+/** pmb-contract `CANDIDATE_KEY_PATTERN` (21 §8 C1, 20 §5.5: keys name trace files). */
+export const CANDIDATE_KEY_RE = /^[A-Za-z0-9._-]{1,128}$/
+
+/**
+ * The candidate key of a single-candidate job (21 §4: "key = submissionUid").
+ * A labelled run's `submissionUid` (`<label ≤ 180>--<uuid>`,
+ * `src/cli/backtest.ts`) may hold any character and exceed 128, so it is
+ * used as is only when it fits the key pattern; otherwise the key is
+ * `sub-` + the first 40 hex digits of its sha256. The key is a shim-to-binary
+ * identifier: a single-candidate result maps back by index, never by key.
+ */
+// D-PENDING: 21 §4/§8 say key = submissionUid, but pmb-contract's key pattern rejects labelled submissionUids; chose the uid when it fits and `sub-<sha256[0..40]>` otherwise (deterministic per submission, filename-safe).
+export function candidateKeyOf(submissionUid: string): string {
+  if (CANDIDATE_KEY_RE.test(submissionUid)) return submissionUid
+  return `sub-${createHash('sha256').update(submissionUid, 'utf8').digest('hex').slice(0, 40)}`
 }
 
 function sortKeys(v: unknown): unknown {

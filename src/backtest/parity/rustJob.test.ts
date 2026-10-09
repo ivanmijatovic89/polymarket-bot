@@ -14,6 +14,8 @@ import {
   engineJobFor,
   loadEngineJobBuilder,
   nativeJobFor,
+  nativeJobWithGate,
+  parityGate,
   rustOnlyJobProblems,
   rustRunArgs,
 } from './rustJob.js'
@@ -37,7 +39,46 @@ const describeDoc = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+const gate = parityGate(
+  { protocolVersion: 2, binary: { target: 'aarch64-apple-darwin' } as never },
+  { path: '/bin/pmb-engine', sha256: 'b'.repeat(64) },
+  false,
+)
+
 describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
+  it('the gate fields come from the binary that runs the market (21 §4, 40 §4.1, 60 §4.5)', () => {
+    // spec: 21 §4 native + strategyArtifact rows; 40 §4.1, §4.2 step 2; 40 §10 (agent)
+    const tsJob = {
+      strategyId: 'feed-exerciser',
+      slug: 'btc-updown-15m-1776556800',
+      filePath: '/d/events/x.parquet',
+      gammaPriceToBeat: { priceToBeat: 84000, syncedAtMs: 1 },
+      strategyArtifact: { sha256: 'c'.repeat(64), r2Url: 'r2://x' },
+    } as unknown as MarketJobData
+    const t = nativeJobFor(tsJob, cell, {
+      conditionId: '0xabc',
+      bytes: 1,
+      requiredFeeds: feeds,
+      asOfMs: 0,
+    })
+    // The template carries no gate and drops the TS artifact ref.
+    assert.equal('native' in t, false)
+    assert.equal('strategyArtifact' in t, false)
+    const n = nativeJobWithGate(t, gate)
+    assert.deepEqual(n.native, {
+      protocolVersion: 2,
+      minShimVersion: 1,
+      priorityClass: 'agent',
+      producerDirty: false,
+    })
+    assert.deepEqual(n.strategyArtifact, {
+      sha256: 'b'.repeat(64),
+      r2Url: 'file:///bin/pmb-engine',
+      kind: 'native',
+      target: 'aarch64-apple-darwin',
+    })
+  })
+
   it('the native job carries the Rust strategy id, the cell ModelConfig and the local input (HR-1, 21 §4)', () => {
     const tsJob = {
       strategyId: 'feed-exerciser',
@@ -133,12 +174,15 @@ describe('Rust side of a cell (60 HR-1, HR-2; 20 §5.1, §5.4)', () => {
       marketResolution: null,
       strategyWindow: null,
     } as unknown as MarketJobData
-    const native = nativeJobFor(noSlug, cell, {
-      conditionId: null,
-      bytes: 1,
-      requiredFeeds: null,
-      asOfMs: 0,
-    })
+    const native = nativeJobWithGate(
+      nativeJobFor(noSlug, cell, {
+        conditionId: null,
+        bytes: 1,
+        requiredFeeds: null,
+        asOfMs: 0,
+      }),
+      gate,
+    )
     assert.deepEqual(
       await engineJobFor(fn, native, '/d', { tracePath: '/t', traceLevel: 'feeds' }),
       {

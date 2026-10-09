@@ -4,8 +4,11 @@ import type { MarketJobData } from '../jobTypes.js'
 import {
   TELONEX_DELTA_FORMAT,
   buildEngineJob,
-  toNativeMarketJob,
+  toNativeJobTemplate,
   validateModelConfig,
+  withNativeGate,
+  type NativeDescribe,
+  type NativeJobTemplate,
   type BuildEngineJobOptions,
   type BuiltEngineJob,
   type DataRoots,
@@ -65,11 +68,11 @@ export function nativeJobFor(
     requiredFeeds: ExternalFeedsRequestConfig | null
     asOfMs: number
   },
-): NativeMarketJobData {
+): NativeJobTemplate {
   // The full contract check of the cell ModelConfig (21 §6.3; cell.ts checks only the fields the oracle maps).
   const modelConfig: unknown = cell.modelConfig
   validateModelConfig(modelConfig)
-  return toNativeMarketJob(tsJob, {
+  return toNativeJobTemplate(tsJob, {
     strategyId: cell.rustStrategyId,
     modelConfig,
     requiredFeeds: facts.requiredFeeds,
@@ -84,6 +87,36 @@ export function nativeJobFor(
     readFrom: cell.readFrom,
     asOfMs: facts.asOfMs,
   })
+}
+
+/**
+ * The gate fields of a parity job (21 §4, 40 §4.1) from the binary that runs
+ * it: its `describe` protocol and target and its sha256. A `--rust-only`
+ * rerun with another binary (60 §4.5 PS-50) therefore carries that binary's
+ * identity. Parity runs are agent submissions (40 §10).
+ */
+// D-PENDING: 21 §4 strategyArtifact.r2Url names the R2 object, but parity runs a local canonical binary that is never downloaded (60 VP-7, MS-5); chose `file://<absolute path>`.
+export function parityGate(
+  doc: Pick<NativeDescribe, 'protocolVersion' | 'binary'>,
+  bin: { path: string; sha256: string },
+  producerDirty: boolean,
+): Parameters<typeof withNativeGate>[1] {
+  return {
+    protocolVersion: doc.protocolVersion,
+    target: doc.binary.target,
+    artifactSha256: bin.sha256,
+    artifactR2Url: `file://${path.resolve(bin.path)}`,
+    priorityClass: 'agent',
+    producerDirty,
+  }
+}
+
+/** A parity job template with the gate of the binary that runs it. */
+export function nativeJobWithGate(
+  template: NativeJobTemplate,
+  gate: Parameters<typeof withNativeGate>[1],
+): NativeMarketJobData {
+  return withNativeGate(template, gate)
 }
 
 /**
@@ -110,7 +143,7 @@ export async function engineJobFor(
  * HR-7, R14). Returns the problems (empty when the job matches the cell).
  */
 export function rustOnlyJobProblems(
-  native: NativeMarketJobData,
+  native: NativeJobTemplate,
   cell: ParityCell,
   current: { modelConfigSha256: string; requiredFeeds: ExternalFeedsRequestConfig | null },
 ): string[] {

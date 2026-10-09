@@ -8,9 +8,13 @@ import path from 'node:path'
 import { describe, it } from 'node:test'
 
 import {
+  CANDIDATE_KEY_RE,
+  NATIVE_SHIM_VERSION,
   absolutizeJobPaths,
   buildEngineJob,
+  candidateKeyOf,
   defaultBudget,
+  minShimVersionFor,
   resolveUnderDataRoot,
   verifyJobFiles,
   type BuildEngineJobOptions,
@@ -324,6 +328,43 @@ describe('buildEngineJob: native MarketJobData invariants (21 §4, §5.1, §8)',
       'model_config',
     ],
     ['ledger', { ...nativeJob(), ledger: true }, 'flag'],
+    // 21 §4 gate fields (40 §4.1)
+    [
+      'missing native gate',
+      { ...nativeJob(), native: undefined } as unknown as NativeMarketJobData,
+      'schema',
+    ],
+    [
+      'foreign protocol',
+      { ...nativeJob(), native: { ...nativeJob().native, protocolVersion: 3 } },
+      'version',
+    ],
+    [
+      'unknown priority class',
+      {
+        ...nativeJob(),
+        native: { ...nativeJob().native, priorityClass: 'urgent' },
+      } as unknown as NativeMarketJobData,
+      'schema',
+    ],
+    [
+      'missing strategyArtifact',
+      { ...nativeJob(), strategyArtifact: undefined } as unknown as NativeMarketJobData,
+      'schema',
+    ],
+    [
+      'non-native artifact',
+      {
+        ...nativeJob(),
+        strategyArtifact: { ...nativeJob().strategyArtifact, kind: 'js' },
+      } as unknown as NativeMarketJobData,
+      'schema',
+    ],
+    [
+      'artifact without target',
+      { ...nativeJob(), strategyArtifact: { ...nativeJob().strategyArtifact, target: '' } },
+      'schema',
+    ],
   ]
   for (const [name, job, cause] of cases) {
     it(`refuses ${name} as invalid_input: ${cause}`, async () => {
@@ -356,6 +397,8 @@ describe('buildEngineJob: native MarketJobData invariants (21 §4, §5.1, §8)',
       [c('a', 0, { x: 1 }), c('a', 1, { x: 2 })],
       [c('a', 0, { x: 1, y: 2 }), c('b', 1, { y: 2, x: 1 })],
       [{ ...c('a', 0), execution: nativeJob().modelConfig.execution }],
+      // C1 key pattern, checked before the schema so TS and Rust agree on the cause (21 §5.1)
+      [c('a/b', 0)],
     ]
     for (const candidates of bad) {
       const info = await failure(
@@ -390,5 +433,40 @@ describe('fixture job rendering (60 §12 FX-1a)', () => {
     const info = await failure(verifyJobFiles(abs))
     assert.deepEqual([info.class, info.cause], ['data_missing', 'integrity_mismatch'])
     assert.equal(readFileSync(abs.market.input.path).length, INPUT_BYTES)
+  })
+})
+
+describe('single-candidate key (21 §4, §8 C1)', () => {
+  it('keys the candidate by submissionUid when it fits the key pattern, else by its sha256', async () => {
+    // spec: 21 §4 ("key = submissionUid"), §8 C1; pmb-contract CANDIDATE_KEY_PATTERN
+    const root = makeDataRoot()
+    const plain = await built(nativeJob({ submissionUid: '3f6c1b9e-6a8f-4f8e' }), root)
+    assert.equal(plain.run.candidates[0]!.key, '3f6c1b9e-6a8f-4f8e')
+    // A labelled run: `<label>--<uuid>` with spaces, a colon and a slash, 219 characters.
+    const uid = `${'nightly sweep: lagsnipe/v15 '.repeat(7).slice(0, 180)}--3f6c1b9e-6a8f-4f8e-9a51-2d1f0c7e5b10`
+    assert.equal(CANDIDATE_KEY_RE.test(uid), false)
+    const key = candidateKeyOf(uid)
+    assert.match(key, /^sub-[0-9a-f]{40}$/)
+    assert.equal(key, candidateKeyOf(uid))
+    assert.notEqual(key, candidateKeyOf(`${uid}x`))
+    const labelled = await built(nativeJob({ submissionUid: uid }), root)
+    assert.equal(labelled.run.candidates[0]!.key, key)
+  })
+})
+
+describe('native gate fields (21 §4, 40 §4.1, §4.2 step 2)', () => {
+  it('minShimVersion comes from the (protocol, jobSchema) table; unknown pairs are refused', () => {
+    // spec: 40 §4.2 step 2 (compatibility table, not the producer's own shim version)
+    assert.equal(minShimVersionFor(2, 1), 1)
+    assert.ok(minShimVersionFor(2, 1) <= NATIVE_SHIM_VERSION)
+    assert.throws(() => minShimVersionFor(3, 1), /artifact_incompatible/)
+    const n = nativeJob()
+    assert.deepEqual(n.native, {
+      protocolVersion: 2,
+      minShimVersion: 1,
+      priorityClass: 'user',
+      producerDirty: false,
+    })
+    assert.equal(n.strategyArtifact.kind, 'native')
   })
 })
