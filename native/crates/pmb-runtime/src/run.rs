@@ -49,6 +49,12 @@ impl JobClock {
         }
     }
 
+    /// The job's deadline: `budget.wallMs` after the job started
+    /// (20 §6.3 S4), so decoding counts against the budget.
+    pub fn deadline(&self, wall_ms: u32) -> Deadline {
+        Deadline::from_start(self.started, u64::from(wall_ms))
+    }
+
     fn diagnostics(
         &self,
         skew_ms: Option<i64>,
@@ -435,9 +441,12 @@ where
     let job = &plan.job;
     let cand = &plan.candidate;
     let slug = job.market.slug.as_str();
-    let mut market = MarketEcho {
+    // `market.conditionId` is the market id of the first counted tick
+    // (21 §10, §11): a property of the input, identical for every
+    // candidate, so it does not depend on whether a candidate faulted.
+    let market = MarketEcho {
         slug: slug.to_string(),
-        condition_id: None,
+        condition_id: inputs.first_counted_market_id().map(str::to_string),
         rules_source: rules_source_vocab(inputs.rules_source),
     };
 
@@ -456,7 +465,11 @@ where
         )),
     };
 
-    let deadline = Deadline::after_ms(u64::from(job.budget.wall_ms));
+    let deadline = clock.deadline(job.budget.wall_ms);
+    if deadline.expired() {
+        // The budget was spent decoding the inputs (20 §6.3 S4).
+        return finish_group_error(deadline.error(), plan, market, inputs, clock);
+    }
     let cx = RunCtx {
         inputs,
         run_seed: job.run.model_config.seed.get(),
@@ -539,8 +552,15 @@ where
             )
         }
         Ok(run) => {
-            if run.counted_tick_seen {
-                market.condition_id = inputs.market_text.clone();
+            if run.counted_tick_seen != market.condition_id.is_some() {
+                if let Some(s) = sink {
+                    s.abort();
+                }
+                let e = EngineError::engine_fault(
+                    "invariant",
+                    "the session's counted ticks disagree with the input (21 §11 marketId)",
+                );
+                return finish_group_error(e, plan, market, inputs, clock);
             }
             let built = check_intent_meta_caps(&run.intent_meta)
                 .map_err(|cause| {

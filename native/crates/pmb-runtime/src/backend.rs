@@ -39,8 +39,13 @@ pub struct Deadline {
 impl Deadline {
     /// A deadline `wall_ms` from now.
     pub fn after_ms(wall_ms: u64) -> Deadline {
+        Deadline::from_start(Instant::now(), wall_ms)
+    }
+
+    /// A deadline `wall_ms` after `start` (the job's start).
+    pub fn from_start(start: Instant, wall_ms: u64) -> Deadline {
         Deadline {
-            at: Instant::now() + Duration::from_millis(wall_ms),
+            at: start + Duration::from_millis(wall_ms),
             budget_ms: wall_ms,
         }
     }

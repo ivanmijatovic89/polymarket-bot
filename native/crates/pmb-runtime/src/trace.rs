@@ -1161,6 +1161,191 @@ mod tests {
     }
 
     #[test]
+    fn every_intent_and_event_kind_has_its_fields() {
+        // spec: 22 §3.2 (intent kinds and event kinds with their fields)
+        let d = scratch("kinds");
+        let path = d.join("t.jsonl");
+        let mut h = header(TraceLevel::Decisions);
+        h.profile = Profile::Realistic;
+        let mut w = ParityTraceWriter::create(&path, &h).unwrap();
+        let gtd = TraceOrder {
+            cid: "g",
+            asset: Outcome::Up,
+            side: Side::Sell,
+            price: p(990_000),
+            size: OrderSize::Shares(q(1_230_000)),
+            order_type: OrderType::Gtd,
+            post_only: true,
+            expire_at_ms: Some(TsMs(1_780_272_060_000)),
+        };
+        w.intent(3, IntentSource::Tick, &TraceIntent::PlaceLimit(gtd));
+        w.intent(
+            3,
+            IntentSource::Account,
+            &TraceIntent::CancelOrder(Some("g")),
+        );
+        w.intent(3, IntentSource::Account, &TraceIntent::CancelOrder(None));
+        w.intent(
+            3,
+            IntentSource::Tick,
+            &TraceIntent::CancelMarket {
+                asset: Some(Outcome::Up),
+                market: None,
+            },
+        );
+        w.intent(3, IntentSource::Tick, &TraceIntent::CancelAll);
+        w.intent(3, IntentSource::Tick, &TraceIntent::Merge(q(2_000_000)));
+        let evs = [
+            TraceAccountEvent::OrderAccepted { cid: "g" },
+            TraceAccountEvent::OrderOpen { cid: "g" },
+            TraceAccountEvent::OrderRejected {
+                cid: "g",
+                reason: "insufficient_capital(required=1,available=0)",
+            },
+            TraceAccountEvent::OrderDone {
+                cid: "g",
+                reason: "canceled",
+                filled_size: None,
+            },
+            TraceAccountEvent::CancelFailed {
+                op: "cancel_order",
+                cid: None,
+                asset: None,
+                reason: "unknown_client_order",
+            },
+            TraceAccountEvent::PositionsSplit {
+                size: q(1_000_000),
+                cost: Usdc::from_micros(1_000_000),
+            },
+            TraceAccountEvent::PositionsMerged { size: q(500_000) },
+            TraceAccountEvent::SplitFailed {
+                size: q(1),
+                reason: "insufficient_collateral",
+            },
+            TraceAccountEvent::MergeFailed {
+                size: q(1),
+                reason: "insufficient_uncommitted_positions",
+            },
+            TraceAccountEvent::SettlementUpdate {
+                cid: "g",
+                status: "MATCHED",
+                size_matched: q(1_230_000),
+            },
+            TraceAccountEvent::OrderDelayed {
+                cid: "g",
+                release_at_ms: TsMs(77),
+            },
+            TraceAccountEvent::CancelAcked {
+                op: "cancel_order",
+                cid: "g",
+            },
+        ];
+        for ev in &evs {
+            w.event(3, TsMs(70), ev);
+        }
+        let ebt = EventsByType::default();
+        w.finish(&TraceFinal {
+            stats: None,
+            skip_reason: None,
+            events_processed: 0,
+            events_by_type: &ebt,
+            unrounded: Unrounded::default(),
+        })
+        .unwrap();
+        let lines = read_lines(&path);
+        let want = [
+            r#"{"t":"intent","seq":3,"src":"tick","kind":"place_limit","cid":"g","asset":0,"side":"SELL","price":0.99,"size":1.23,"orderType":"GTD","postOnly":true,"expireAtMs":1780272060000}"#,
+            r#"{"t":"intent","seq":3,"src":"account","kind":"cancel_order","cid":"g"}"#,
+            r#"{"t":"intent","seq":3,"src":"account","kind":"cancel_order","cid":null}"#,
+            r#"{"t":"intent","seq":3,"src":"tick","kind":"cancel_market","asset":0}"#,
+            r#"{"t":"intent","seq":3,"src":"tick","kind":"cancel_all"}"#,
+            r#"{"t":"intent","seq":3,"src":"tick","kind":"merge_positions","size":2}"#,
+            r#"{"t":"event","seq":3,"kind":"order_accepted","ts":70,"cid":"g"}"#,
+            r#"{"t":"event","seq":3,"kind":"order_open","ts":70,"cid":"g"}"#,
+            r#"{"t":"event","seq":3,"kind":"order_rejected","ts":70,"cid":"g","reason":"insufficient_capital(required=1,available=0)"}"#,
+            r#"{"t":"event","seq":3,"kind":"order_done","ts":70,"cid":"g","reason":"canceled","filledSize":null}"#,
+            r#"{"t":"event","seq":3,"kind":"cancel_failed","ts":70,"op":"cancel_order","cid":null,"asset":null,"reason":"unknown_client_order"}"#,
+            r#"{"t":"event","seq":3,"kind":"positions_split","ts":70,"size":1,"cost":1}"#,
+            r#"{"t":"event","seq":3,"kind":"positions_merged","ts":70,"size":0.5}"#,
+            r#"{"t":"event","seq":3,"kind":"split_failed","ts":70,"size":0.000001,"reason":"insufficient_collateral"}"#,
+            r#"{"t":"event","seq":3,"kind":"merge_failed","ts":70,"size":0.000001,"reason":"insufficient_uncommitted_positions"}"#,
+            r#"{"t":"event","seq":3,"kind":"settlement_update","ts":70,"cid":"g","status":"MATCHED","sizeMatched":1.23}"#,
+            r#"{"t":"event","seq":3,"kind":"order_delayed","ts":70,"cid":"g","releaseAtMs":77}"#,
+            r#"{"t":"event","seq":3,"kind":"cancel_acked","ts":70,"op":"cancel_order","cid":"g"}"#,
+        ];
+        assert_eq!(&lines[1..lines.len() - 1], &want[..]);
+        assert!(lines[0].contains(r#""profile":"realistic""#));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn sink_translates_engine_events_and_fails_loud_on_unrenderable_ones() {
+        // spec: 22 §2 (TraceSink), §3.3 (tick ordering), R14 (no silent drop)
+        use pmb_engine::strategy::{Intents, TickCause};
+        let d = scratch("sink");
+        let path = d.join("t.jsonl");
+        let mut sink = ParityTraceSink::create(&path, &header(TraceLevel::Feeds)).unwrap();
+        {
+            let mut s: &mut ParityTraceSink = &mut sink;
+            assert!(s.wants_feed_view());
+            assert!(!s.wants_exec_records());
+            s.record(&TraceEvent::TickStart {
+                seq: 0,
+                cause: TickCause::PriceChange,
+                decision_ts: TsMs(10),
+                exchange_ts: Some(TsMs(9)),
+                visibility_ts: TsMs(10),
+            });
+            s.record(&TraceEvent::FeedView {
+                seq: 0,
+                view: &pmb_engine::feeds_view::FeedsView::EMPTY,
+            });
+            let empty = Intents::new();
+            s.record(&TraceEvent::Decision {
+                seq: 0,
+                origin: DecisionOrigin::Tick,
+                intents: &empty,
+            });
+        }
+        let ebt = EventsByType::from_counts([0, 1, 0, 0]).unwrap();
+        let fin = TraceFinal {
+            stats: None,
+            skip_reason: None,
+            events_processed: 1,
+            events_by_type: &ebt,
+            unrounded: Unrounded::default(),
+        };
+        sink.finish(&fin).unwrap();
+        let lines = read_lines(&path);
+        assert_eq!(
+            lines[1],
+            r#"{"t":"tick","seq":0,"ts":10,"cause":"price_change","xts":9,"vts":10}"#
+        );
+        assert_eq!(
+            lines[2],
+            r#"{"t":"feeds","seq":0,"binance":null,"chainlink":null,"priceToBeat":null,"plugins":{}}"#
+        );
+        assert_eq!(lines.len(), 4);
+
+        // A non-empty decision cannot be rendered before pmb-engine exposes
+        // its intent buffer: the trace fails instead of dropping records.
+        let mut sink = ParityTraceSink::create(&path, &header(TraceLevel::Decisions)).unwrap();
+        let mut intents = Intents::new();
+        intents.cancel_all();
+        {
+            let mut s: &mut ParityTraceSink = &mut sink;
+            s.record(&TraceEvent::Decision {
+                seq: 0,
+                origin: DecisionOrigin::Tick,
+                intents: &intents,
+            });
+        }
+        let e = sink.finish(&fin).unwrap_err();
+        assert_eq!(e.exit_code(), 8);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
     fn gzip_output_is_deterministic() {
         // spec: 20 G5 (traces are outputs; same records give the same bytes)
         let d = scratch("det");

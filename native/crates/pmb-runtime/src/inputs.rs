@@ -139,6 +139,20 @@ pub struct DecodedInputs {
     pub input_path: InputPath,
 }
 
+impl DecodedInputs {
+    /// The market id of the first counted tick (21 §11 `marketId`).
+    /// Every event of a decoded tape is a real tick (`book` or
+    /// `price_change`, 15 I-19), counted before the window gate (21 §15).
+    pub fn first_counted_market_id(&self) -> Option<&str> {
+        let counted = (0..self.tape.len()).any(|i| self.tape.event(i).event.produces_tick());
+        if counted {
+            self.market_text.as_deref()
+        } else {
+            None
+        }
+    }
+}
+
 /// Contract RS4 value of a core classification.
 pub fn rules_source_vocab(s: RulesSource) -> vocab::RulesSource {
     match s {
