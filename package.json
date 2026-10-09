@@ -166,7 +166,7 @@
     "native:contract:check": "scripts/native/contract-check.sh",
     "native:contract:export": "scripts/native/contract-export.sh",
     "native:contract:gen": "scripts/native/contract-gen.sh",
-    "native:test:ts": "tsx --test src/native/contract/*.test.ts",
+    "native:test:ts": "tsx --test src/native/*.test.ts src/native/contract/*.test.ts src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:bench:sets": "tsx scripts/native/bench-sets.ts",
     "native:bench:l0": "tsx scripts/native/bench-l0.ts",
     "native:bench:l1": "tsx scripts/native/bench-l1.ts",
@@ -178,9 +178,7 @@
     "native:parity:test": "tsx --test src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
     "native:parity:summary": "tsx src/cli/parity/parity-summary.ts",
     "native:shim:test": "tsx --test src/native/*.test.ts",
-    "native:build:verify": "scripts/native/build-verify.sh",
-    "native:test:ts": "tsx --test src/native/*.test.ts src/native/contract/*.test.ts src/backtest/parity/*.test.ts src/strategies/testing/*.test.ts",
-    "native:fixture-job": "tsx scripts/native/fixture-job.ts"
+    "native:build:verify": "scripts/native/build-verify.sh"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
